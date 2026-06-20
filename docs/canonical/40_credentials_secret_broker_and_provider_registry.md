@@ -14,19 +14,23 @@ Local development:
 ```text
 .env.example: committed placeholders only
 .env.local: ignored real local secrets
-environment variables: preferred runtime input
-OS keychain: preferred local desktop store later
+environment variables: local operator-managed input only, never dumped by UAA
+OS keychain or vault adapter: future scoped backend only
 ```
 
 Production/hosted:
 
 ```text
-User Control Center → Connected Providers → Secret Broker → encrypted secret store/vault
+User Control Center → credential refs → Secret Broker → future reviewed vault adapter
 ```
 
 ## Secret Broker
 
-The Secret Broker is the only component that can resolve a credential reference into a usable secret handle.
+The Secret Broker is the only component that can resolve a credential reference
+into a usable secret handle. The current provider credential productionization
+layer adds a blocked vault adapter boundary and disabled readiness contracts
+only. It does not collect credential material, read environment values, call a
+vault/keychain backend, validate provider auth references, or invoke providers.
 
 ```text
 Agent / Scanner / Tool
@@ -89,7 +93,8 @@ warnings
 
 ## Credential vs consent
 
-Credential availability does not equal permission. Every provider call checks:
+Credential availability does not equal permission. Before any future provider
+call is scoped, it must check:
 
 ```text
 credential available?
@@ -98,6 +103,11 @@ Tool Broker allows this action?
 Cost Governor allows this spend?
 Event Ledger records the call?
 ```
+
+Current readiness records also require consent refs, policy refs, approval refs,
+revocation refs, audit refs, receipt refs, rollback or safe-disable refs, and
+rate or budget boundary refs. Validation and invocation remain blocked until a
+separate reviewed milestone grants exact network/provider authority.
 
 ## Foundation blocking rule
 

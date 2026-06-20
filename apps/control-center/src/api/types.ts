@@ -131,10 +131,34 @@ export interface ProviderCredentialVaultAdapterReadiness {
   approval_ref: string;
   revocation_ref: string;
   storage_backend_kind: string;
+  adapter_available: boolean;
+  supports_write: boolean;
+  supports_read_handle: boolean;
+  supports_revoke: boolean;
   credential_material_stored_by_repo: boolean;
   raw_key_visible: boolean;
   adapter_runtime_enabled: boolean;
   last_validation_ref: string;
+  readiness_status: string;
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export interface ProviderCredentialEnrollmentReadiness {
+  provider_manifest_ref: string;
+  credential_ref: string;
+  consent_ref: string;
+  policy_ref: string;
+  approval_ref: string;
+  revocation_ref: string;
+  idempotency_key_ref: string;
+  audit_ref: string;
+  rollback_ref: string;
+  safe_disable_ref: string;
+  enrollment_enabled: boolean;
+  raw_key_collection_enabled: boolean;
+  credential_material_stored_by_repo: boolean;
+  evidence_contains_credential_material: boolean;
   readiness_status: string;
   blocker_codes: string[];
   safe_summary: string;
@@ -188,6 +212,7 @@ export interface ProviderCredentialReadinessSummary {
   credential_material_stored: boolean;
   vault_adapter_configured: boolean;
   vault_adapter_readiness: ProviderCredentialVaultAdapterReadiness;
+  enrollment_readiness: ProviderCredentialEnrollmentReadiness;
   validation_readiness: ProviderCredentialValidationReadiness;
   invocation_readiness: GovernedProviderInvocationReadiness;
   providers: ProviderCredentialReadinessItem[];

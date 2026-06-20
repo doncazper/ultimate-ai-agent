@@ -12,8 +12,8 @@ Implemented shell behavior:
 - exposes the action preview risk level as policy metadata only.
 - provides route-level headings and accessible loading, empty, error, and mock fallback states for local browser smoke review.
 - shows provider credential readiness as status-only safe refs under Settings,
-  including vault adapter, validation, invocation, consent, policy,
-  revocation, approval, and blocker state.
+  including vault adapter, credential enrollment, validation, invocation,
+  consent, policy, revocation, approval, and blocker state.
 - falls back to clearly marked mock data when the local backend is unavailable.
 - displays unknown/checking, backend online, degraded, offline-safe, and mock fallback connection states.
 - sanitizes secret-like frontend errors before display.
@@ -30,7 +30,7 @@ Non-goals:
 - no provider credential collection form.
 - no raw provider key, token, secret, or environment-value display.
 - no provider credential resolution, validation call, vault adapter runtime, or
-  invocation.
+  credential enrollment runtime, or invocation.
 - no remote dispatch.
 - no mobile/native app.
 - no sensor access.

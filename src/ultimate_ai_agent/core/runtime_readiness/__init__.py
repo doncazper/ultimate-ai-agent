@@ -6,6 +6,7 @@ from ultimate_ai_agent.core.runtime_readiness.enums import (
     SmokeReportStatus,
 )
 from ultimate_ai_agent.core.runtime_readiness.gate import assert_m11_runtime_readiness_gate
+from ultimate_ai_agent.core.runtime_readiness.health import RuntimeHealthStatus, build_runtime_health_status
 from ultimate_ai_agent.core.runtime_readiness.matrix import RuntimeCapabilityEntry, RuntimeCapabilityMatrix, build_matrix
 from ultimate_ai_agent.core.runtime_readiness.reports import RuntimeReadinessReport, build_readiness_report
 from ultimate_ai_agent.core.runtime_readiness.smoke_reports import (
@@ -24,6 +25,7 @@ __all__ = [
     "RuntimeCapabilityEntry",
     "RuntimeCapabilityMatrix",
     "RuntimeCapabilityStatus",
+    "RuntimeHealthStatus",
     "RuntimeReadinessReport",
     "RuntimeReadinessStatus",
     "RuntimeRiskClass",
@@ -34,5 +36,6 @@ __all__ = [
     "assert_no_runtime_expansion",
     "build_matrix",
     "build_readiness_report",
+    "build_runtime_health_status",
     "validate_manual_smoke_report",
 ]

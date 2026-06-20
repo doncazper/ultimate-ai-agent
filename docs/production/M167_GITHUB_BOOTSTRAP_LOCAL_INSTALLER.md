@@ -1,9 +1,10 @@
 # M167 GitHub Bootstrap Local Installer
 
 Status: scoped implementation slice; downloader available only through
-`uaa setup bootstrap` with a pinned release tag, exact asset name, explicit
-SHA-256, signature/provenance manifest, typed approval or preview-bound
-approval token, and fail-closed provenance mode.
+`uaa setup bootstrap` with a pinned M167 release tag, exact platform asset name,
+explicit SHA-256, detached minisign signature or explicit local-dev provenance,
+typed approval or preview-bound approval token, and fail-closed provenance
+mode.
 
 This scoped M167+ milestone defines the authority boundary for a
 GitHub-hosted bootstrap installer that can prepare a local developer
@@ -38,8 +39,9 @@ Allowed source form:
 
 - a GitHub Release artifact attached to an explicitly named release tag
 - an exact release asset name for the operator platform
-- a signed checksum manifest for that exact asset
-- a repository-pinned public signing key or equivalent provenance root
+- a detached minisign signature over the canonical UAA bootstrap statement
+- the repository-pinned public signing key in
+  `docs/production/UAA_BOOTSTRAP_MINISIGN.pub`
 
 Denied source form:
 
@@ -55,16 +57,18 @@ Denied source form:
 
 The bootstrap flow must verify before execution:
 
-- release tag matches the approved milestone/version policy
-- release asset name matches the supported platform matrix
-- SHA-256 digest matches the signed checksum manifest
-- signature/provenance verification passes against the repo-pinned trust root
+- release tag matches the approved M167 release tag policy
+- release asset name matches the supported platform asset allowlist
+- SHA-256 digest matches the explicit operator-supplied digest
+- minisign signature verification passes against the repo-pinned trust root
+  in public mode
 - unpacked installer path is inside a temporary installer directory
 - installer manifest declares only approved assets and side effects
 
 The first implementation adds the repo-owned trust-root document
-`docs/production/UAA_BOOTSTRAP_TRUST_ROOT.md`, which names the allowed
-provenance schema, issuer/source identity, verification rules, and fail-closed
+`docs/production/UAA_BOOTSTRAP_TRUST_ROOT.md` and the pinned public key
+`docs/production/UAA_BOOTSTRAP_MINISIGN.pub`, which name the allowed
+provenance schemas, issuer/source identity, verification rules, and fail-closed
 behavior for trust-root drift.
 
 Checksum mismatch, signature mismatch, missing manifest, unsupported platform,
@@ -74,6 +78,12 @@ before any installer code runs.
 ## Exact Installer Command Surface
 
 The public setup command is:
+
+```bash
+uaa setup bootstrap --release-tag v0.102.0-m167 --asset uaa-bootstrap-darwin-arm64.tar.gz --sha256 "<64-hex-digest>" --signature uaa-bootstrap-darwin-arm64.tar.gz.minisig --target openwebui --provenance-mode minisign
+```
+
+The explicit local-dev test provenance command is:
 
 ```bash
 uaa setup bootstrap --release-tag v0.102.0-m167 --asset uaa-bootstrap-darwin-arm64.tar.gz --sha256 "<64-hex-digest>" --signature uaa-bootstrap-darwin-arm64.tar.gz.provenance.json --target openwebui --provenance-mode local-dev-json
@@ -98,8 +108,8 @@ Allowed options:
 - `--write-approval-token PATH`, which writes a preview-bound approval token
   after typed approval and exits without downloading
 - `--provenance-mode minisign|local-dev-json`; `minisign` is public
-  bootstrap mode and fails closed until the repo-pinned key/verifier is
-  configured, while `local-dev-json` is explicit local-dev/test-only
+  bootstrap mode with the repo-pinned key and deterministic verifier, while
+  `local-dev-json` is explicit local-dev/test-only
 - `--yes`, only with a matching preview-bound approval token
 - `--no-profile-edit`, to skip shell profile PATH changes
 
@@ -203,13 +213,43 @@ safe path summaries, and the pinned OpenWebUI image ref. Tokens expire after
 15 minutes, are marked used before any download, and must fail closed when
 missing, expired, replayed, or mismatched.
 
+Approved bootstrap and scoped OpenWebUI image-pull actions are routed through a
+local PolicyEngine plus LocalApprovalAuthority adapter. The adapter records a
+chmod `0600` approval receipt with the exact actor, target, preview hash,
+release tag, asset, digest, provenance mode, safe path summaries, revocation
+notes, and replay notes. This receipt is a redacted audit artifact only; it
+does not grant reusable runtime, provider, model, shell, browser, plugin,
+memory, OpenWebUI admin, or background authority.
+
 ## Cryptographic Verification Policy
 
 Public bootstrap mode is `--provenance-mode minisign`. It requires a
-repo-pinned minisign or equivalent Sigstore trust root, detached signature,
-artifact digest binding, and deterministic verifier before installer code may
-run. Until that key and verifier are configured, public mode fails closed
-before extraction or execution.
+repo-pinned minisign trust root, detached signature over the canonical UAA
+bootstrap statement, artifact digest binding, release tag binding, asset
+binding, target binding, and deterministic verifier before installer code may
+run.
+
+Trust root:
+
+```text
+docs/production/UAA_BOOTSTRAP_MINISIGN.pub
+```
+
+Pinned public key SHA-256:
+
+```text
+26b78663c6ca99add07177eaaefd7cd9dfad5a7d09fbb74e9ab0c3112a6c06c3
+```
+
+Verifier command shape:
+
+```text
+minisign -Vm <canonical-statement.json> -P <repo-pinned-public-key> -x <signature.minisig> -q
+```
+
+Missing verifier, missing key, key fingerprint drift, malformed key, missing
+signature, signature mismatch, verifier timeout, or untrusted verifier output
+fails closed before extraction or execution.
 
 `--provenance-mode local-dev-json` accepts the existing JSON provenance
 manifest only for local-dev/test bootstrap exercises. It is not public
@@ -332,6 +372,9 @@ Tests must also prove:
 - stale, mismatched, and replayed approval tokens fail before download
 - JSON provenance is accepted only under explicit `local-dev-json` mode
 - public `minisign` mode rejects JSON-only provenance before extraction
+- public `minisign` mode succeeds only when the deterministic verifier accepts
+  a signature over the canonical UAA statement
+- approval receipts are exact-scope, redacted, chmod `0600`, and replay-safe
 
 ## Verifier And Foundation Gate Impact
 

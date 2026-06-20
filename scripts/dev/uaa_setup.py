@@ -47,6 +47,7 @@ LOCAL_ENV_PATH = Path(".uaa") / "dev" / "local-llama.env"
 DEFAULT_REPORT_PATH = Path(".uaa") / "dev" / "setup-report.json"
 SETUP_INSTALL_RECEIPT_DIR = Path(".uaa") / "dev" / "setup-install-receipts"
 SETUP_BOOTSTRAP_RECEIPT_DIR = Path(".uaa") / "dev" / "setup-bootstrap-receipts"
+SETUP_APPROVAL_RECEIPT_DIR = Path(".uaa") / "dev" / "setup-approval-receipts"
 FRONTIER_PROVIDERS = {"openai", "anthropic", "gemini"}
 SETUP_PROFILES: tuple[SetupProfile, ...] = ("minimal", "frontend-only", "openwebui-smoke", "local-llama")
 SETUP_INSTALL_TARGETS = ("openwebui",)
@@ -55,17 +56,27 @@ SETUP_BOOTSTRAP_TARGETS = ("openwebui",)
 SETUP_BOOTSTRAP_MILESTONE_REF = "milestone:m167-github-bootstrap-local-installer"
 SETUP_INSTALL_CONFIRMATION = "install openwebui"
 SETUP_BOOTSTRAP_CONFIRMATION = "install uaa openwebui bootstrap"
+SETUP_INSTALL_APPROVAL_TOKEN_SCHEMA = "uaa.setup_install_approval_token.v1"
+SETUP_INSTALL_APPROVAL_TOKEN_TTL_SECONDS = 900
 SETUP_BOOTSTRAP_APPROVAL_TOKEN_SCHEMA = "uaa.setup_bootstrap_approval_token.v1"
 SETUP_BOOTSTRAP_APPROVAL_TOKEN_TTL_SECONDS = 900
+SETUP_APPROVAL_RECEIPT_SCHEMA = "uaa.setup_approval_receipt.v1"
+SETUP_APPROVAL_AUTHORITY_LABEL = "PolicyEngine+LocalApprovalAuthority"
 BOOTSTRAP_REPO_URL = "https://github.com/doncazper/ultimate-ai-agent"
 BOOTSTRAP_RELEASE_BASE_URL = f"{BOOTSTRAP_REPO_URL}/releases/download"
 BOOTSTRAP_TRUST_ROOT_REF = "docs/production/UAA_BOOTSTRAP_TRUST_ROOT.md"
+BOOTSTRAP_MINISIGN_PUBLIC_KEY_REF = "docs/production/UAA_BOOTSTRAP_MINISIGN.pub"
+BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256 = "26b78663c6ca99add07177eaaefd7cd9dfad5a7d09fbb74e9ab0c3112a6c06c3"
+BOOTSTRAP_MINISIGN_TRUST_ROOT_IDENTITY = "uaa-m167-bootstrap-minisign-key-5541414d31363701"
 BOOTSTRAP_PROVENANCE_SCHEMA = "uaa.bootstrap.provenance.v1"
+BOOTSTRAP_MINISIGN_STATEMENT_SCHEMA = "uaa.bootstrap.minisign_statement.v1"
 BOOTSTRAP_AUTHORITY = "openwebui-local-dev-bootstrap-only"
 BOOTSTRAP_PROVENANCE_MODES = ("minisign", "local-dev-json")
 BOOTSTRAP_INSTALLER_NAME = "uaa-bootstrap"
 BOOTSTRAP_RELEASE_TAG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$")
+BOOTSTRAP_RELEASE_TAG_POLICY_RE = re.compile(r"^v\d+\.\d+\.\d+-m167(?:[._+-][A-Za-z0-9._+-]+)?$")
 BOOTSTRAP_ASSET_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,191}$")
+BOOTSTRAP_ALLOWED_ASSETS = frozenset({"uaa-bootstrap-darwin-arm64.tar.gz"})
 BOOTSTRAP_SHA256_RE = re.compile(r"^[a-fA-F0-9]{64}$")
 MIN_PYTHON = (3, 10)
 BACKEND_HOST = "127.0.0.1"
@@ -184,8 +195,10 @@ def add_setup_parser(subparsers: argparse._SubParsersAction) -> None:
     install_parser.add_argument(
         "--yes",
         action="store_true",
-        help="Approve the scoped OpenWebUI image pull without the interactive prompt.",
+        help="Run noninteractively only with a matching preview-bound --approval-token.",
     )
+    install_parser.add_argument("--approval-token", default=None)
+    install_parser.add_argument("--write-approval-token", default=None)
     bootstrap_parser = setup_subparsers.add_parser(
         "bootstrap",
         help="Download and run a pinned, verified UAA GitHub Release bootstrap artifact after approval.",
@@ -283,11 +296,98 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
         print(f"Unsupported setup install target: {target}")
         return 2
     plan = _openwebui_install_plan(root)
+    try:
+        _attach_install_approval_paths(root, plan, args)
+    except ValueError as exc:
+        print(f"FAIL: {exc}")
+        return 2
     print(render_install_plan(plan))
-    approved = bool(getattr(args, "yes", False))
-    if not approved:
-        approved = _read_install_approval()
-    if not approved:
+
+    if getattr(args, "write_approval_token", None):
+        if getattr(args, "yes", False):
+            receipt_path = write_setup_install_receipt(
+                root,
+                plan,
+                status="failed",
+                result_summary="Approval-token writing cannot be combined with --yes; no pull command was run.",
+            )
+            print("FAIL: --write-approval-token cannot be combined with --yes.")
+            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            return 1
+        if not _read_install_approval():
+            _record_setup_approval_decision(
+                root,
+                plan,
+                action_ref="openwebui-image-pull",
+                status="denied",
+                approval_mode="refused",
+                reason_codes=["OPERATOR_APPROVAL_REFUSED"],
+            )
+            receipt_path = write_setup_install_receipt(
+                root,
+                plan,
+                status="refused",
+                result_summary="Operator approval was not provided; no approval token was written.",
+            )
+            print("Install approval token refused. No download or install command was run.")
+            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            return 1
+        token_path = write_setup_install_approval_token(root, plan, plan["write_approval_token_path"])
+        print(f"Preview-bound approval token written: {_safe_path_summary(token_path)}")
+        print("No download or install command was run.")
+        return 0
+
+    approval_mode = "typed"
+    if getattr(args, "yes", False):
+        if plan.get("approval_token_path") is None:
+            _record_setup_approval_decision(
+                root,
+                plan,
+                action_ref="openwebui-image-pull",
+                status="denied",
+                approval_mode="not-approved",
+                reason_codes=["APPROVAL_TOKEN_REQUIRED"],
+            )
+            receipt_path = write_setup_install_receipt(
+                root,
+                plan,
+                status="failed",
+                result_summary="--yes requires a matching preview-bound approval token; no image pull command was run.",
+            )
+            print("FAIL: --yes requires an approval token from --approval-token with a matching preview hash.")
+            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            return 1
+        try:
+            _consume_setup_install_approval_token(root, plan, plan["approval_token_path"])
+        except ValueError as exc:
+            _record_setup_approval_decision(
+                root,
+                plan,
+                action_ref="openwebui-image-pull",
+                status="denied",
+                approval_mode="preview-token",
+                reason_codes=["APPROVAL_TOKEN_INVALID"],
+            )
+            safe_error = _safe_summary_text(str(exc))
+            receipt_path = write_setup_install_receipt(
+                root,
+                plan,
+                status="failed",
+                result_summary=f"Approval token was rejected: {safe_error}",
+            )
+            print(f"FAIL: Approval token was rejected: {safe_error}")
+            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            return 1
+        approval_mode = "preview-token"
+    elif not _read_install_approval():
+        _record_setup_approval_decision(
+            root,
+            plan,
+            action_ref="openwebui-image-pull",
+            status="denied",
+            approval_mode="refused",
+            reason_codes=["OPERATOR_APPROVAL_REFUSED"],
+        )
         receipt_path = write_setup_install_receipt(
             root,
             plan,
@@ -295,6 +395,21 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary="Operator approval was not provided; no download or install command was run.",
         )
         print("Install refused. No download or install command was run.")
+        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        return 1
+    plan["approval_mode"] = approval_mode
+
+    try:
+        _authorize_setup_action(root, plan, action_ref="openwebui-image-pull", approval_mode=approval_mode)
+    except ValueError as exc:
+        safe_error = _safe_summary_text(str(exc))
+        receipt_path = write_setup_install_receipt(
+            root,
+            plan,
+            status="failed",
+            result_summary=f"Approval authority denied the scoped image pull: {safe_error}",
+        )
+        print(f"FAIL: Approval authority denied the scoped image pull: {safe_error}")
         print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
         return 1
 
@@ -326,13 +441,14 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
     print(f"- {_shell_preview(command)}")
     result = _run_install_command(command)
     if result["returncode"] != 0:
+        safe_summary = _safe_summary_text(result["summary"])
         receipt_path = write_setup_install_receipt(
             root,
             plan,
             status="failed",
-            result_summary=f"Docker pull failed safely: {result['summary']}",
+            result_summary=f"Docker pull failed safely: {safe_summary}",
         )
-        print(f"FAIL: Docker pull failed safely: {result['summary']}")
+        print(f"FAIL: Docker pull failed safely: {safe_summary}")
         print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
         return 1
 
@@ -374,6 +490,14 @@ def command_setup_bootstrap(root: Path, args: argparse.Namespace) -> int:
             print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         if not _read_bootstrap_approval():
+            _record_setup_approval_decision(
+                root,
+                plan,
+                action_ref="github-bootstrap",
+                status="denied",
+                approval_mode="refused",
+                reason_codes=["OPERATOR_APPROVAL_REFUSED"],
+            )
             receipt_path = write_setup_bootstrap_receipt(
                 root,
                 plan,
@@ -395,6 +519,14 @@ def command_setup_bootstrap(root: Path, args: argparse.Namespace) -> int:
     approval_mode = "typed"
     if getattr(args, "yes", False):
         if plan.get("approval_token_path") is None:
+            _record_setup_approval_decision(
+                root,
+                plan,
+                action_ref="github-bootstrap",
+                status="denied",
+                approval_mode="not-approved",
+                reason_codes=["APPROVAL_TOKEN_REQUIRED"],
+            )
             receipt_path = write_setup_bootstrap_receipt(
                 root,
                 plan,
@@ -411,23 +543,40 @@ def command_setup_bootstrap(root: Path, args: argparse.Namespace) -> int:
         try:
             _consume_bootstrap_approval_token(root, plan, plan["approval_token_path"])
         except ValueError as exc:
+            safe_error = _safe_summary_text(str(exc))
+            _record_setup_approval_decision(
+                root,
+                plan,
+                action_ref="github-bootstrap",
+                status="denied",
+                approval_mode="preview-token",
+                reason_codes=["APPROVAL_TOKEN_INVALID"],
+            )
             receipt_path = write_setup_bootstrap_receipt(
                 root,
                 plan,
                 status="failed",
                 result="approval-token-invalid",
-                result_summary=f"Approval token was rejected: {exc}",
+                result_summary=f"Approval token was rejected: {safe_error}",
                 checksum_status="not-run",
                 provenance_status="not-run",
                 exact_commands=[],
             )
-            print(f"FAIL: Approval token was rejected: {exc}")
+            print(f"FAIL: Approval token was rejected: {safe_error}")
             print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         approval_mode = "preview-token"
     else:
         approved = _read_bootstrap_approval()
         if not approved:
+            _record_setup_approval_decision(
+                root,
+                plan,
+                action_ref="github-bootstrap",
+                status="denied",
+                approval_mode="refused",
+                reason_codes=["OPERATOR_APPROVAL_REFUSED"],
+            )
             receipt_path = write_setup_bootstrap_receipt(
                 root,
                 plan,
@@ -442,6 +591,24 @@ def command_setup_bootstrap(root: Path, args: argparse.Namespace) -> int:
             print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
     plan["approval_mode"] = approval_mode
+
+    try:
+        _authorize_setup_action(root, plan, action_ref="github-bootstrap", approval_mode=approval_mode)
+    except ValueError as exc:
+        safe_error = _safe_summary_text(str(exc))
+        receipt_path = write_setup_bootstrap_receipt(
+            root,
+            plan,
+            status="failed",
+            result="approval-authority-denied",
+            result_summary=f"Approval authority denied the scoped bootstrap: {safe_error}",
+            checksum_status="not-run",
+            provenance_status="not-run",
+            exact_commands=[],
+        )
+        print(f"FAIL: Approval authority denied the scoped bootstrap: {safe_error}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
+        return 1
 
     platform_ok, platform_summary = _bootstrap_platform_status()
     plan["platform"] = platform_summary
@@ -504,17 +671,18 @@ def command_setup_bootstrap(root: Path, args: argparse.Namespace) -> int:
                 provenance_path = plan["signature_path"]
             _verify_bootstrap_provenance(provenance_path, plan)
         except (RuntimeError, ValueError) as exc:
+            safe_error = _safe_summary_text(str(exc))
             receipt_path = write_setup_bootstrap_receipt(
                 root,
                 plan,
                 status="failed",
                 result="provenance-mismatch",
-                result_summary=f"Provenance verification failed: {exc}",
+                result_summary=f"Provenance verification failed: {safe_error}",
                 checksum_status="verified",
                 provenance_status="mismatch",
                 exact_commands=[],
             )
-            print(f"FAIL: Provenance verification failed: {exc}")
+            print(f"FAIL: Provenance verification failed: {safe_error}")
             print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
 
@@ -542,17 +710,18 @@ def command_setup_bootstrap(root: Path, args: argparse.Namespace) -> int:
         print(f"- {_redacted_command_preview(command)}")
         result = _run_bootstrap_installer_command(command)
         if result["returncode"] != 0:
+            safe_summary = _safe_summary_text(result["summary"])
             receipt_path = write_setup_bootstrap_receipt(
                 root,
                 plan,
                 status="failed",
                 result="installer-failed",
-                result_summary=f"Verified local installer failed safely: {result['summary']}",
+                result_summary=f"Verified local installer failed safely: {safe_summary}",
                 checksum_status="verified",
                 provenance_status="verified",
                 exact_commands=[command],
             )
-            print(f"FAIL: Verified local installer failed safely: {result['summary']}")
+            print(f"FAIL: Verified local installer failed safely: {safe_summary}")
             print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
 
@@ -595,6 +764,15 @@ def render_bootstrap_plan(plan: dict[str, Any]) -> str:
     ]
     if plan["signature_source"] == "release-asset":
         lines.append(f"- {plan['signature_url']}")
+    if plan["provenance_mode"] == "minisign":
+        lines.extend(
+            [
+                "",
+                "Public trust root:",
+                f"- {BOOTSTRAP_MINISIGN_PUBLIC_KEY_REF}",
+                f"- SHA-256 {BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256}",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -651,6 +829,8 @@ def write_setup_bootstrap_receipt(
         "receipt": _safe_path_summary(target),
         "preview_hash": plan["preview_hash"],
         "approval_mode": plan.get("approval_mode", "not-approved"),
+        "approval_authority": plan.get("approval_authority", SETUP_APPROVAL_AUTHORITY_LABEL),
+        "approval_decision_ref": plan.get("approval_decision_ref"),
         "path_mutation_status": "delegated-to-verified-local-installer",
         "installed_assets": [BOOTSTRAP_INSTALLER_NAME] if status == "installed" else [],
         "openwebui_image_status": "delegated-to-existing-m167-openwebui-installer-boundary",
@@ -658,15 +838,13 @@ def write_setup_bootstrap_receipt(
         "provenance_status": provenance_status,
         "status": status,
         "result": result,
-        "result_summary": result_summary,
+        "result_summary": _safe_summary_text(result_summary),
         "exact_commands": [_redacted_command_preview(command) for command in exact_commands],
         "rollback_hints": _bootstrap_rollback_hints(plan),
         "created_at": _utc_timestamp(),
         "redaction": "safe summary only; no credentials, provider keys, usernames, environment dump, raw prompts, raw responses, raw provider payloads, raw logs, cookies, or shell history",
     }
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    target.chmod(0o600)
+    _write_json_0600(target, payload)
     return target
 
 
@@ -746,6 +924,10 @@ def _bootstrap_preview_hash(plan: dict[str, Any]) -> str:
         "receipt": _safe_path_summary(plan["receipt_path"]),
         "openwebui_image": OPENWEBUI_IMAGE,
     }
+    if plan["provenance_mode"] == "minisign":
+        payload["minisign_public_key_ref"] = BOOTSTRAP_MINISIGN_PUBLIC_KEY_REF
+        payload["minisign_public_key_sha256"] = BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256
+        payload["minisign_trust_root_identity"] = BOOTSTRAP_MINISIGN_TRUST_ROOT_IDENTITY
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
@@ -757,7 +939,6 @@ def write_setup_bootstrap_approval_token(
     *,
     ttl_seconds: int = SETUP_BOOTSTRAP_APPROVAL_TOKEN_TTL_SECONDS,
 ) -> Path:
-    _ = root
     now = int(time.time())
     payload = {
         "schema": SETUP_BOOTSTRAP_APPROVAL_TOKEN_SCHEMA,
@@ -772,20 +953,12 @@ def write_setup_bootstrap_approval_token(
         "used_at": None,
         "redaction": "safe approval metadata only; no credentials, env values, usernames, raw logs, prompts, or provider payloads",
     }
-    token_path.parent.mkdir(parents=True, exist_ok=True)
-    token_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    token_path.chmod(0o600)
+    token_path = _validate_bootstrap_receipt_path(root, token_path)
+    _write_json_0600(token_path, payload)
     return token_path
 
 
 def _consume_bootstrap_approval_token(root: Path, plan: dict[str, Any], token_path: Path) -> None:
-    _ = root
-    if stat.S_IMODE(token_path.stat().st_mode) & 0o077:
-        raise ValueError("approval token must be chmod 0600")
-    try:
-        payload = json.loads(token_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError("approval token is missing or malformed") from exc
     expected = {
         "schema": SETUP_BOOTSTRAP_APPROVAL_TOKEN_SCHEMA,
         "milestone_ref": plan["milestone_ref"],
@@ -794,22 +967,289 @@ def _consume_bootstrap_approval_token(root: Path, plan: dict[str, Any], token_pa
         "asset": plan["asset"],
         "provenance_mode": plan["provenance_mode"],
     }
-    for key, expected_value in expected.items():
-        if payload.get(key) != expected_value:
-            raise ValueError(f"approval token field {key} mismatch")
-    if payload.get("preview_hash") != plan["preview_hash"]:
-        raise ValueError("approval token preview hash mismatch")
-    if payload.get("used_at"):
-        raise ValueError("approval token was already used")
+    _consume_setup_approval_token(
+        root,
+        plan,
+        token_path,
+        schema=SETUP_BOOTSTRAP_APPROVAL_TOKEN_SCHEMA,
+        expected=expected,
+    )
+
+
+def _consume_setup_approval_token(
+    root: Path,
+    plan: dict[str, Any],
+    token_path: Path,
+    *,
+    schema: str,
+    expected: dict[str, str],
+) -> None:
+    _ = (root, plan, schema)
+    if token_path.is_symlink():
+        raise ValueError("approval token must not be a symlink")
+    if stat.S_IMODE(token_path.stat().st_mode) & 0o077:
+        raise ValueError("approval token must be chmod 0600")
+    lock_path = token_path.with_name(f"{token_path.name}.lock")
+    lock_fd: int | None = None
     try:
-        expires_at = int(payload["expires_at_epoch"])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError("approval token expiration is missing or malformed") from exc
-    if expires_at < int(time.time()):
-        raise ValueError("approval token expired")
-    payload["used_at"] = _utc_timestamp()
-    token_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    token_path.chmod(0o600)
+        try:
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError as exc:
+            raise ValueError("approval token is already being consumed") from exc
+        try:
+            payload = json.loads(token_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError("approval token is missing or malformed") from exc
+        for key, expected_value in expected.items():
+            if payload.get(key) != expected_value:
+                raise ValueError(f"approval token field {key} mismatch")
+        if payload.get("preview_hash") != plan["preview_hash"]:
+            raise ValueError("approval token preview hash mismatch")
+        if payload.get("used_at"):
+            raise ValueError("approval token was already used")
+        try:
+            expires_at = int(payload["expires_at_epoch"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("approval token expiration is missing or malformed") from exc
+        if expires_at < int(time.time()):
+            raise ValueError("approval token expired")
+        payload["used_at"] = _utc_timestamp()
+        _write_json_0600(token_path, payload)
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
+def _authorize_setup_action(root: Path, plan: dict[str, Any], *, action_ref: str, approval_mode: str) -> None:
+    decision = _policy_engine_approval_decision(root, plan, action_ref=action_ref, approval_mode=approval_mode)
+    receipt_path = _record_setup_approval_decision(
+        root,
+        plan,
+        action_ref=action_ref,
+        status="allowed" if decision["allowed"] else "denied",
+        approval_mode=approval_mode,
+        reason_codes=decision["reason_codes"],
+        policy_decision=decision,
+    )
+    plan["approval_authority"] = SETUP_APPROVAL_AUTHORITY_LABEL
+    plan["approval_decision_ref"] = decision["decision_ref"]
+    plan["approval_receipt"] = _display_path(root, receipt_path)
+    if not decision["allowed"]:
+        raise ValueError("; ".join(decision["reason_codes"]) or "approval policy denied")
+
+
+def _policy_engine_approval_decision(
+    root: Path,
+    plan: dict[str, Any],
+    *,
+    action_ref: str,
+    approval_mode: str,
+) -> dict[str, Any]:
+    try:
+        _ensure_src_on_path()
+        from ultimate_ai_agent.core.capabilities.approval import CapabilityApprovalGrant, LocalApprovalAuthority
+        from ultimate_ai_agent.core.capabilities.enums import CapabilityKind, CoordinationMode, RiskLevel, SideEffectLevel
+        from ultimate_ai_agent.core.capabilities.models import CapabilityManifest, SafetyPolicy, TaskEnvelope
+        from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
+    except Exception as exc:
+        return {
+            "allowed": False,
+            "decision_ref": _setup_approval_decision_ref(action_ref, plan),
+            "reason_codes": ["APPROVAL_AUTHORITY_IMPORT_FAILED"],
+            "safe_message": f"Approval authority import failed safely: {exc.__class__.__name__}",
+            "capability_id": _setup_capability_id(action_ref),
+            "task_id": _setup_task_id(action_ref, plan),
+        }
+
+    capability_id = _setup_capability_id(action_ref)
+    task_id = _setup_task_id(action_ref, plan)
+    approval_ref = f"approval:m167:{action_ref}:{plan['preview_hash'][:16]}"
+    manifest = CapabilityManifest(
+        id=capability_id,
+        version="1.0.0",
+        kind=CapabilityKind.deterministic,
+        name=capability_id,
+        description="Exact-scope local-dev setup approval gate for M167.",
+        tags=["m167", "setup", "local-dev"],
+        examples=["Approve the exact preview hash for the scoped OpenWebUI setup action."],
+        anti_examples=["Treat OpenWebUI or provider output as approval authority."],
+        input_schema={"type": "object", "additionalProperties": False},
+        output_schema={"type": "object", "additionalProperties": False},
+        input_modes=["local_dev_setup_preview"],
+        output_modes=["redacted_approval_decision"],
+        side_effects=SideEffectLevel.external,
+        risk_level=RiskLevel.high,
+        approval_required=True,
+        allowed_coordination_modes=[CoordinationMode.human_gate],
+        concurrency_safe=False,
+        single_writer_required=True,
+        safety=SafetyPolicy(
+            approval_required=True,
+            require_single_writer=True,
+            max_risk_level=RiskLevel.high,
+            max_side_effect_level=SideEffectLevel.external,
+        ),
+    )
+    task = TaskEnvelope(
+        task_id=task_id,
+        user_request="Approve exact M167 local-dev setup preview.",
+        objective="Authorize only the scoped setup action described by the preview hash.",
+        scope=[action_ref, plan["target"], plan["preview_hash"]],
+        out_of_scope=[
+            "provider/model authority",
+            "OpenWebUI admin/plugin mutation",
+            "broad system dependency install",
+            "background service launch",
+        ],
+        selected_capability_ids=[capability_id],
+        context={
+            "approval_ref": approval_ref,
+            "preview_hash": plan["preview_hash"],
+            "approval_mode": approval_mode,
+            "idempotency_key": plan["preview_hash"],
+        },
+    )
+    grant = CapabilityApprovalGrant(
+        approval_ref=approval_ref,
+        capability_id=capability_id,
+        granted_by="local-operator",
+        task_id=task_id,
+        max_risk_level=RiskLevel.high,
+        max_side_effect_level=SideEffectLevel.external,
+        reason="Operator approval captured for exact M167 local-dev setup scope.",
+        metadata={
+            "preview_hash": plan["preview_hash"],
+            "approval_mode": approval_mode,
+            "target": plan["target"],
+            "action_ref": action_ref,
+        },
+    )
+    authority = LocalApprovalAuthority([grant])
+    decision = PolicyEngine(approval_authority=authority).can_execute(
+        manifest,
+        task,
+        {
+            "approval_ref": approval_ref,
+            "approval_grants": [grant],
+            "coordination_mode": CoordinationMode.human_gate.value,
+            "external_side_effect": True,
+            "idempotency_key": plan["preview_hash"],
+        },
+    )
+    return {
+        "allowed": bool(decision.allowed),
+        "decision_ref": _setup_approval_decision_ref(action_ref, plan),
+        "reason_codes": list(decision.reason_codes),
+        "safe_message": decision.safe_message,
+        "capability_id": capability_id,
+        "task_id": task_id,
+    }
+
+
+def _record_setup_approval_decision(
+    root: Path,
+    plan: dict[str, Any],
+    *,
+    action_ref: str,
+    status: str,
+    approval_mode: str,
+    reason_codes: list[str],
+    policy_decision: dict[str, Any] | None = None,
+) -> Path:
+    decision_ref = (policy_decision or {}).get("decision_ref") or _setup_approval_decision_ref(action_ref, plan)
+    plan["approval_authority"] = SETUP_APPROVAL_AUTHORITY_LABEL
+    plan["approval_decision_ref"] = decision_ref
+    receipt_path = root / SETUP_APPROVAL_RECEIPT_DIR / f"{action_ref}-{plan['preview_hash'][:16]}-{_utc_timestamp()}.json"
+    payload = {
+        "schema": SETUP_APPROVAL_RECEIPT_SCHEMA,
+        "authority": SETUP_APPROVAL_AUTHORITY_LABEL,
+        "decision_ref": decision_ref,
+        "status": status,
+        "reason_codes": list(dict.fromkeys(reason_codes)),
+        "capability_id": (policy_decision or {}).get("capability_id", _setup_capability_id(action_ref)),
+        "task_id": (policy_decision or {}).get("task_id", _setup_task_id(action_ref, plan)),
+        "approval_mode": approval_mode,
+        "actor": "local-operator",
+        "scope": _setup_approval_scope(plan, action_ref=action_ref),
+        "revocation": {
+            "revocable": True,
+            "method": "Delete or disregard this exact local-dev receipt; it grants no reusable runtime authority.",
+        },
+        "replay": {
+            "preview_hash": plan["preview_hash"],
+            "single_use_token_required_for_yes": True,
+            "typed_approval_not_reusable": True,
+        },
+        "created_at": _utc_timestamp(),
+        "redaction": "safe summary only; no credentials, provider keys, usernames, env dumps, raw prompts, raw responses, raw provider payloads, raw logs, cookies, or token secrets",
+    }
+    _write_json_0600(receipt_path, payload)
+    return receipt_path
+
+
+def _setup_approval_scope(plan: dict[str, Any], *, action_ref: str) -> dict[str, Any]:
+    scope: dict[str, Any] = {
+        "milestone_ref": plan["milestone_ref"],
+        "action_ref": action_ref,
+        "target": plan["target"],
+        "preview_hash": plan["preview_hash"],
+    }
+    if action_ref == "openwebui-image-pull":
+        scope.update(
+            {
+                "image_ref": plan["image_ref"],
+                "commands": [_shell_preview(command) for command in plan["commands"]],
+                "rollback_steps": plan["rollback_steps"],
+            }
+        )
+    else:
+        scope.update(
+            {
+                "repo": BOOTSTRAP_REPO_URL,
+                "release_tag": plan["release_tag"],
+                "asset": plan["asset"],
+                "asset_sha256": plan["sha256"],
+                "signature": plan["signature_summary"],
+                "provenance_mode": plan["provenance_mode"],
+                "bin_dir": _safe_path_summary(plan["bin_dir"]),
+                "install_dir": _safe_path_summary(plan["install_dir"]),
+                "receipt": _safe_path_summary(plan["receipt_path"]),
+                "openwebui_image": plan["openwebui_image"],
+            }
+        )
+        if plan["provenance_mode"] == "minisign":
+            scope.update(
+                {
+                    "public_key_ref": BOOTSTRAP_MINISIGN_PUBLIC_KEY_REF,
+                    "public_key_sha256": BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256,
+                    "trust_root_identity": BOOTSTRAP_MINISIGN_TRUST_ROOT_IDENTITY,
+                }
+            )
+    return scope
+
+
+def _setup_capability_id(action_ref: str) -> str:
+    if action_ref == "openwebui-image-pull":
+        return "setup.openwebui_image_pull.v1"
+    return "setup.github_bootstrap.v1"
+
+
+def _setup_task_id(action_ref: str, plan: dict[str, Any]) -> str:
+    return f"task:m167:{action_ref}:{plan['preview_hash'][:16]}"
+
+
+def _setup_approval_decision_ref(action_ref: str, plan: dict[str, Any]) -> str:
+    return f"setup-approval:{action_ref}:{plan['preview_hash'][:16]}"
+
+
+def _ensure_src_on_path() -> None:
+    src = Path(__file__).resolve().parents[2] / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
 
 
 def _bootstrap_signature_reference(root: Path, value: str, *, release_tag: str) -> dict[str, Any]:
@@ -865,6 +1305,8 @@ def _validate_bootstrap_release_tag(value: str) -> str:
         raise ValueError("--release-tag must be an explicit immutable release tag; mutable refs are denied")
     if ".." in tag or not BOOTSTRAP_RELEASE_TAG_RE.fullmatch(tag):
         raise ValueError("--release-tag contains unsupported characters")
+    if not BOOTSTRAP_RELEASE_TAG_POLICY_RE.fullmatch(tag):
+        raise ValueError("--release-tag must match the reviewed M167 release tag policy")
     return tag
 
 
@@ -878,6 +1320,8 @@ def _validate_bootstrap_asset_name(value: str, *, option_name: str) -> str:
         raise ValueError(f"{option_name} must be an exact asset name without path traversal")
     if not BOOTSTRAP_ASSET_RE.fullmatch(asset):
         raise ValueError(f"{option_name} contains unsupported characters")
+    if option_name == "--asset" and asset not in BOOTSTRAP_ALLOWED_ASSETS:
+        raise ValueError(f"{option_name} is not in the reviewed M167 platform asset allowlist")
     return asset
 
 
@@ -908,6 +1352,10 @@ def _validate_bootstrap_receipt_path(root: Path, value: Path | str) -> Path:
 
 def _validate_bootstrap_existing_file_path(root: Path, value: Path | str, *, option_name: str) -> Path:
     path = _canonical_user_scope_path(root, value, option_name=option_name)
+    raw = Path(value)
+    candidate = raw if raw.is_absolute() else root / raw
+    if candidate.is_symlink():
+        raise ValueError(f"{option_name} must not be a symlink")
     if not path.is_file():
         raise ValueError(f"{option_name} local path must exist and be a file")
     _reject_world_writable_bootstrap_path(path.parent, expect_directory=True, option_name=option_name)
@@ -1022,11 +1470,93 @@ def _verify_bootstrap_provenance(path: Path, plan: dict[str, Any]) -> None:
 
 
 def _verify_bootstrap_cryptographic_provenance(path: Path, plan: dict[str, Any]) -> None:
-    _ = (path, plan)
-    raise ValueError(
-        "cryptographic minisign verification is required for public bootstrap mode, "
-        "but no repo-pinned minisign public key and deterministic verifier are configured in this slice"
-    )
+    if plan["provenance_mode"] != "minisign":
+        raise ValueError("unsupported cryptographic provenance mode")
+    if not path.is_file():
+        raise ValueError("minisign detached signature is missing")
+    public_key = _bootstrap_minisign_public_key(_bootstrap_repo_root())
+    statement = _bootstrap_minisign_statement(plan)
+    with tempfile.TemporaryDirectory(prefix="uaa-bootstrap-minisign-") as temp_name:
+        statement_path = Path(temp_name) / "uaa-bootstrap-statement.json"
+        statement_path.write_bytes(statement)
+        result = _run_minisign_verify(statement_path, path, public_key)
+    if result.get("raw_output_retained"):
+        raise ValueError("minisign verifier returned untrusted raw output")
+    plan["provenance_verifier"] = "minisign"
+
+
+def _bootstrap_minisign_statement(plan: dict[str, Any]) -> bytes:
+    payload = {
+        "schema": BOOTSTRAP_MINISIGN_STATEMENT_SCHEMA,
+        "repo": BOOTSTRAP_REPO_URL,
+        "release_tag": plan["release_tag"],
+        "asset": plan["asset"],
+        "sha256": plan["sha256"],
+        "target": plan["target"],
+        "installer": BOOTSTRAP_INSTALLER_NAME,
+        "trust_root": BOOTSTRAP_TRUST_ROOT_REF,
+        "trust_root_identity": BOOTSTRAP_MINISIGN_TRUST_ROOT_IDENTITY,
+        "public_key_ref": BOOTSTRAP_MINISIGN_PUBLIC_KEY_REF,
+        "public_key_sha256": BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256,
+        "authority": BOOTSTRAP_AUTHORITY,
+        "provenance_mode": "minisign",
+    }
+    return (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+
+def _bootstrap_minisign_public_key(root: Path) -> str:
+    key_path = root / BOOTSTRAP_MINISIGN_PUBLIC_KEY_REF
+    if not key_path.exists():
+        key_path = _bootstrap_repo_root() / BOOTSTRAP_MINISIGN_PUBLIC_KEY_REF
+    try:
+        key_text = key_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError("repo-pinned minisign public key is missing") from exc
+    actual = hashlib.sha256(key_text.encode("utf-8")).hexdigest()
+    if actual != BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256:
+        raise ValueError("repo-pinned minisign public key fingerprint mismatch")
+    lines = [line.strip() for line in key_text.splitlines() if line.strip() and not line.startswith("untrusted comment:")]
+    if len(lines) != 1 or not re.fullmatch(r"[A-Za-z0-9+/=]{40,120}", lines[0]):
+        raise ValueError("repo-pinned minisign public key is malformed")
+    return lines[0]
+
+
+def _run_minisign_verify(statement_path: Path, signature_path: Path, public_key: str) -> dict[str, Any]:
+    minisign = _resolve_command("minisign")
+    if minisign is None:
+        raise ValueError("cryptographic minisign verifier is unavailable; public bootstrap mode fails closed")
+    if signature_path.is_symlink():
+        raise ValueError("minisign signature must not be a symlink")
+    command = [
+        str(minisign),
+        "-Vm",
+        str(statement_path),
+        "-P",
+        public_key,
+        "-x",
+        str(signature_path),
+        "-q",
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=30.0,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError("minisign verification timed out; public bootstrap mode fails closed") from exc
+    except OSError as exc:
+        raise ValueError(f"minisign verifier could not start: {exc.__class__.__name__}") from exc
+    if result.returncode != 0:
+        raise ValueError("minisign verification failed; public bootstrap mode fails closed")
+    return {"verifier": "minisign", "raw_output_retained": False}
+
+
+def _bootstrap_repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
 
 
 def _safe_extract_bootstrap_artifact(archive_path: Path, extract_dir: Path) -> None:
@@ -1284,6 +1814,7 @@ def render_install_plan(plan: dict[str, Any]) -> str:
         "M167 scoped local-dev installer/downloader preview",
         f"Target: {plan['target']}",
         f"Milestone: {plan['milestone_ref']}",
+        f"Preview hash: {plan['preview_hash']}",
         "",
         "Exact command that may run after approval:",
     ]
@@ -1298,7 +1829,9 @@ def render_install_plan(plan: dict[str, Any]) -> str:
             "- Does not start OpenWebUI, call UAA /v1, call providers/models, grant OpenWebUI tool/function authority, write memory, or mutate OpenWebUI internals.",
             "",
             "Consent:",
-            f'- Type "{SETUP_INSTALL_CONFIRMATION}" to approve, or rerun with --yes when automation already captured that approval.',
+            f'- Type "{SETUP_INSTALL_CONFIRMATION}" to approve interactively.',
+            "- Noninteractive --yes requires a matching preview-bound --approval-token.",
+            "- Use --write-approval-token PATH after typed approval to create a single-use token without pulling the image.",
             "",
             "Receipt:",
             f"- A redacted local receipt will be written under {SETUP_INSTALL_RECEIPT_DIR}.",
@@ -1326,8 +1859,12 @@ def write_setup_install_receipt(
         "authority_boundary": plan["authority_boundary"],
         "action": plan["action"],
         "status": status,
-        "result_summary": result_summary,
+        "result_summary": _safe_summary_text(result_summary),
         "image_ref": plan["image_ref"],
+        "preview_hash": plan["preview_hash"],
+        "approval_mode": plan.get("approval_mode", "not-approved"),
+        "approval_authority": plan.get("approval_authority", SETUP_APPROVAL_AUTHORITY_LABEL),
+        "approval_decision_ref": plan.get("approval_decision_ref"),
         "exact_commands": [_shell_preview(command) for command in plan["commands"]],
         "side_effects_allowed": plan["side_effects_allowed"],
         "side_effects_denied": plan["side_effects_denied"],
@@ -1335,9 +1872,7 @@ def write_setup_install_receipt(
         "created_at": _utc_timestamp(),
         "redaction": "safe summary only; no credentials, provider keys, environment dump, raw prompts, raw responses, or raw logs",
     }
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    target.chmod(0o600)
+    _write_json_0600(target, payload)
     return target
 
 
@@ -2199,12 +2734,15 @@ def _env_summary_from_findings(findings: list[SetupFinding]) -> str:
 def _openwebui_install_plan(root: Path) -> dict[str, Any]:
     _ = root
     command = ["docker", "pull", OPENWEBUI_IMAGE]
-    return {
+    plan = {
         "target": "openwebui",
         "milestone_ref": SETUP_INSTALL_MILESTONE_REF,
         "action": "docker-image-pull",
         "image_ref": OPENWEBUI_IMAGE,
         "commands": [command],
+        "approval_mode": "not-approved",
+        "approval_token_path": None,
+        "write_approval_token_path": None,
         "authority_boundary": (
             "OpenWebUI local-dev image acquisition only; no broad package install, "
             "model download, provider setup, credential collection, service start, "
@@ -2234,6 +2772,80 @@ def _openwebui_install_plan(root: Path) -> dict[str, Any]:
             f"Receipt cleanup should remove only receipt files under {SETUP_INSTALL_RECEIPT_DIR}.",
         ],
     }
+    plan["preview_hash"] = _install_preview_hash(plan)
+    return plan
+
+
+def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argparse.Namespace) -> None:
+    approval_token = getattr(args, "approval_token", None)
+    if approval_token:
+        plan["approval_token_path"] = _validate_bootstrap_existing_file_path(
+            root,
+            Path(str(approval_token)).expanduser(),
+            option_name="--approval-token",
+        )
+    write_approval_token = getattr(args, "write_approval_token", None)
+    if write_approval_token:
+        plan["write_approval_token_path"] = _validate_bootstrap_receipt_path(
+            root,
+            Path(str(write_approval_token)).expanduser(),
+        )
+
+
+def _install_preview_hash(plan: dict[str, Any]) -> str:
+    payload = {
+        "schema": "uaa.setup_install_preview.v1",
+        "milestone_ref": plan["milestone_ref"],
+        "target": plan["target"],
+        "action": plan["action"],
+        "image_ref": plan["image_ref"],
+        "commands": [_shell_preview(command) for command in plan["commands"]],
+        "rollback_steps": plan["rollback_steps"],
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def write_setup_install_approval_token(
+    root: Path,
+    plan: dict[str, Any],
+    token_path: Path,
+    *,
+    ttl_seconds: int = SETUP_INSTALL_APPROVAL_TOKEN_TTL_SECONDS,
+) -> Path:
+    now = int(time.time())
+    token_path = _validate_bootstrap_receipt_path(root, token_path)
+    payload = {
+        "schema": SETUP_INSTALL_APPROVAL_TOKEN_SCHEMA,
+        "milestone_ref": plan["milestone_ref"],
+        "target": plan["target"],
+        "action": plan["action"],
+        "image_ref": plan["image_ref"],
+        "preview_hash": plan["preview_hash"],
+        "expires_at_epoch": now + ttl_seconds,
+        "created_at": _utc_timestamp(),
+        "used_at": None,
+        "redaction": "safe approval metadata only; no credentials, env values, usernames, raw logs, prompts, or provider payloads",
+    }
+    _write_json_0600(token_path, payload)
+    return token_path
+
+
+def _consume_setup_install_approval_token(root: Path, plan: dict[str, Any], token_path: Path) -> None:
+    expected = {
+        "schema": SETUP_INSTALL_APPROVAL_TOKEN_SCHEMA,
+        "milestone_ref": plan["milestone_ref"],
+        "target": plan["target"],
+        "action": plan["action"],
+        "image_ref": plan["image_ref"],
+    }
+    _consume_setup_approval_token(
+        root,
+        plan,
+        token_path,
+        schema=SETUP_INSTALL_APPROVAL_TOKEN_SCHEMA,
+        expected=expected,
+    )
 
 
 def _read_install_approval() -> bool:
@@ -2264,6 +2876,34 @@ def _quote_shell_arg(value: str) -> str:
 
 def _safe_process_summary(result: subprocess.CompletedProcess[str]) -> str:
     return f"process exited with code {result.returncode}; external output omitted"
+
+
+def _safe_summary_text(value: str) -> str:
+    text = str(value or "")
+    patterns = [
+        re.compile(
+            r"(?i)(api[_-]?key|client[_-]?secret|auth[_-]?token|secret|password|passwd|credential|cookie|authorization)\s*[:=]\s*['\"]?[^'\"\s,;]+"
+        ),
+        re.compile(r"(?i)(bearer)\s+[A-Za-z0-9._~+/=-]{8,}"),
+    ]
+    safe = text
+    for pattern in patterns:
+        safe = pattern.sub(lambda match: f"{match.group(1)}=<redacted>", safe)
+    return safe[:500]
+
+
+def _write_json_0600(target: Path, payload: dict[str, Any]) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    data = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(data)
+    finally:
+        try:
+            os.chmod(target, 0o600)
+        except FileNotFoundError:
+            pass
 
 
 def _display_path(root: Path, path: Path) -> str:

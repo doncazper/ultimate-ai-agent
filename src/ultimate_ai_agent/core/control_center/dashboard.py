@@ -5,23 +5,21 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent import __version__
-from ultimate_ai_agent.core.local_model_management.gateway import (
-    UAA_LLAMA_CPP_GATEWAY_ENV,
-    llama_cpp_gateway_enabled,
-    llama_cpp_gateway_key,
-)
+from ultimate_ai_agent.core.local_model_management.readiness import inspect_local_model_gateway
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
-from ultimate_ai_agent.core.openwebui_bridge.local_test_shell import (
-    UAA_OPENWEBUI_TEST_GATEWAY_ENV,
-    UAA_OPENWEBUI_TEST_GATEWAY_KEY_ENV,
-    openwebui_test_gateway_enabled,
-)
 from ultimate_ai_agent.core.providers.readiness import (
     GovernedProviderInvocationReadiness,
     ProviderCredentialValidationReadiness,
 )
-from ultimate_ai_agent.core.secrets.vault_readiness import ProviderCredentialVaultAdapterReadiness
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
+from ultimate_ai_agent.core.secrets.vault_adapter import (
+    BlockedCredentialVaultAdapter,
+    ProviderCredentialEnrollmentReadiness,
+)
+from ultimate_ai_agent.core.secrets.vault_readiness import (
+    ProviderCredentialVaultAdapterReadiness,
+    build_provider_credential_vault_adapter_readiness,
+)
 from ultimate_ai_agent.core.task_decomposition.api_safety import (
     TASK_DECOMPOSITION_API_BEARER_ENV,
     TASK_DECOMPOSITION_API_ENV,
@@ -54,7 +52,7 @@ class RuntimeReadinessSummary(BaseModel):
     mobile_sensor_ready: bool = False
     plugin_or_native_build_ready: bool = False
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
 
 class ApprovalSummary(BaseModel):
@@ -63,7 +61,7 @@ class ApprovalSummary(BaseModel):
     arbitrary_approval_ref_authority: bool = False
     summary: str = "Approval summary only; no approval is granted."
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
 
 class ApiSummary(BaseModel):
@@ -72,7 +70,7 @@ class ApiSummary(BaseModel):
     operation_ids_unique: bool = True
     execution_routes_present: bool = False
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
 
 class RemoteWorkerSummary(BaseModel):
@@ -127,7 +125,11 @@ class ProviderCredentialReadinessItem(BaseModel):
     blocker_codes: list[str] = Field(default_factory=list)
     safe_summary: str = Field(..., min_length=1)
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    def model_copy(self, *, update=None, deep: bool = False):
+        copied = super().model_copy(update=update, deep=deep)
+        return self.__class__.model_validate(copied.model_dump(mode="python"))
 
     @model_validator(mode="after")
     def provider_credential_item_must_remain_reference_only(self):
@@ -151,6 +153,9 @@ class ProviderCredentialReadinessSummary(BaseModel):
     vault_adapter_readiness: ProviderCredentialVaultAdapterReadiness = Field(
         default_factory=ProviderCredentialVaultAdapterReadiness
     )
+    enrollment_readiness: ProviderCredentialEnrollmentReadiness = Field(
+        default_factory=ProviderCredentialEnrollmentReadiness
+    )
     validation_readiness: ProviderCredentialValidationReadiness = Field(
         default_factory=ProviderCredentialValidationReadiness
     )
@@ -161,7 +166,11 @@ class ProviderCredentialReadinessSummary(BaseModel):
     blocker_codes: list[str] = Field(default_factory=list)
     future_gate: str = "real_vault_or_keychain_adapter_requires_scoped_milestone"
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    def model_copy(self, *, update=None, deep: bool = False):
+        copied = super().model_copy(update=update, deep=deep)
+        return self.__class__.model_validate(copied.model_dump(mode="python"))
 
     @model_validator(mode="after")
     def provider_credential_summary_must_remain_reference_only(self):
@@ -174,6 +183,10 @@ class ProviderCredentialReadinessSummary(BaseModel):
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_STORAGE_DENIED")
         if self.vault_adapter_readiness.adapter_runtime_enabled:
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_VAULT_AUTHORITY_DENIED")
+        if self.enrollment_readiness.enrollment_enabled:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_ENROLLMENT_AUTHORITY_DENIED")
+        if self.enrollment_readiness.raw_key_collection_enabled:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_ENROLLMENT_KEY_COLLECTION_DENIED")
         if self.validation_readiness.validation_enabled:
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_VALIDATION_AUTHORITY_DENIED")
         if self.invocation_readiness.invocation_enabled:
@@ -312,6 +325,7 @@ def build_control_center_dashboard(
 
 
 def build_provider_credential_readiness_summary() -> ProviderCredentialReadinessSummary:
+    vault_capabilities = BlockedCredentialVaultAdapter().inspect_capabilities()
     providers = [
         ProviderCredentialReadinessItem(
             provider_id="provider:openai-compatible:reference",
@@ -369,6 +383,8 @@ def build_provider_credential_readiness_summary() -> ProviderCredentialReadiness
         ),
     ]
     return ProviderCredentialReadinessSummary(
+        vault_adapter_readiness=build_provider_credential_vault_adapter_readiness(vault_capabilities),
+        enrollment_readiness=ProviderCredentialEnrollmentReadiness(),
         providers=providers,
         blocker_codes=sorted({code for provider in providers for code in provider.blocker_codes}),
     )
@@ -484,48 +500,7 @@ def build_operator_loop_summary(env: Mapping[str, str] | None = None) -> Operato
 
 
 def _local_gateway_posture(values: Mapping[str, str]) -> dict[str, Any]:
-    llama_enabled = llama_cpp_gateway_enabled(values)
-    llama_bearer_configured = bool(llama_cpp_gateway_key(values))
-    openwebui_enabled = openwebui_test_gateway_enabled(values)
-    openwebui_bearer_configured = bool(values.get(UAA_OPENWEBUI_TEST_GATEWAY_KEY_ENV, "").strip())
-    if llama_enabled:
-        status = "gateway_enabled_requires_bearer" if llama_bearer_configured else "gateway_misconfigured_missing_bearer"
-        summary = (
-            "M164 loopback llama.cpp gateway is enabled; model and chat routes require the configured local bearer."
-            if llama_bearer_configured
-            else "M164 loopback llama.cpp gateway is enabled but no local bearer is configured."
-        )
-        next_action = "call_v1_routes_with_configured_local_bearer" if llama_bearer_configured else "configure_m164_local_bearer"
-        blocked = "" if llama_bearer_configured else "M164 local gateway bearer is not configured."
-        mode = "m164_llama_cpp"
-    elif openwebui_enabled:
-        status = "gateway_enabled_requires_bearer"
-        summary = "M151 local OpenWebUI test gateway is enabled; model and chat routes require the local test bearer."
-        next_action = "call_v1_routes_with_local_test_bearer"
-        blocked = ""
-        mode = "m151_openwebui_local_test"
-    else:
-        status = "disabled_by_default"
-        summary = "Local /v1 model and chat gateways are disabled by default; no model call or prompt probe is performed by the dashboard."
-        next_action = "enable_reviewed_local_gateway_before_chat_smoke"
-        blocked = "Local /v1 gateway is disabled by default."
-        mode = "disabled"
-    return {
-        "model_status": status,
-        "chat_status": status,
-        "model_summary": summary,
-        "chat_summary": summary,
-        "next_safe_action": next_action,
-        "blocked_prerequisite": blocked,
-        "local_gateway_enabled": llama_enabled or openwebui_enabled,
-        "llama_cpp_gateway_enabled": llama_enabled,
-        "llama_cpp_bearer_configured": llama_bearer_configured,
-        "openwebui_test_gateway_enabled": openwebui_enabled,
-        "openwebui_test_bearer_configured": openwebui_bearer_configured,
-        "gateway_mode": mode,
-        "gateway_env_ref": UAA_LLAMA_CPP_GATEWAY_ENV if llama_enabled else UAA_OPENWEBUI_TEST_GATEWAY_ENV,
-        "bearer_env_configured": llama_bearer_configured or openwebui_bearer_configured,
-    }
+    return inspect_local_model_gateway(values).model_dump(mode="python")
 
 
 def _task_decomposition_posture(values: Mapping[str, str]) -> dict[str, Any]:

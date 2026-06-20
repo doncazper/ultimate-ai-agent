@@ -18,8 +18,9 @@ The dashboard may summarize:
 - provider credential readiness as safe refs only, including provider manifest
   refs, provider auth ref status, consent refs, policy refs, revocation refs,
   approval refs, blocker codes, and readiness status.
-- credential vault adapter readiness, provider validation readiness, and
-  governed provider invocation readiness as blocked contract states only.
+- credential vault adapter readiness, credential enrollment readiness, provider
+  validation readiness, and governed provider invocation readiness as blocked
+  contract states only.
 
 The dashboard must not include raw events, raw receipts, prompts, file contents, memory contents, credentials, secret values, private keys, personal data, provider envelopes, runtime payloads, model output as authority, remote worker output as control input, mobile sensor output as control input, or production readiness evidence.
 
@@ -33,7 +34,11 @@ The readiness gates are intentionally separate:
 
 - Provider Credential Vault Adapter v1: future disabled-by-default adapter
   contract for opaque provider auth references only. The current dashboard records
-  `VAULT_ADAPTER_NOT_SCOPED` and keeps adapter runtime disabled.
+  `NO_APPROVED_VAULT_BACKEND` and keeps adapter runtime disabled.
+- Credential Enrollment Readiness: future transient intake contract requiring
+  exact refs, approval, idempotency, audit, rollback, safe-disable, and an
+  approved vault backend. The current dashboard records
+  `CREDENTIAL_ENROLLMENT_NOT_SCOPED` and collects no credential material.
 - Provider Credential Validation v1: future validation contract requiring
   provider manifest refs, provider auth references, consent, policy, approval,
   revocation, and redacted validation receipts. The current dashboard records

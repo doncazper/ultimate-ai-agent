@@ -140,8 +140,10 @@ from ultimate_ai_agent.core.remote_workers import (
     evaluate_remote_job_policy,
 )
 from ultimate_ai_agent.core.runtime_readiness import (
+    RuntimeHealthStatus,
     build_matrix,
     build_readiness_report,
+    build_runtime_health_status,
     validate_manual_smoke_report,
 )
 from ultimate_ai_agent.core.control_center import (
@@ -170,16 +172,16 @@ from ultimate_ai_agent.core.openwebui_bridge import (
     build_openwebui_local_chat_completion_response,
     build_openwebui_local_models_response,
     openwebui_test_gateway_authorized,
-    openwebui_test_gateway_enabled,
 )
 from ultimate_ai_agent.core.local_model_management import (
+    LocalModelGatewayReadiness,
     M164ChatCompletionRequest,
     build_m164_chat_completion_response,
     build_m164_gateway_model_from_env,
     build_m164_local_models_response,
+    inspect_local_model_gateway,
     llama_cpp_backend_api_key,
     llama_cpp_gateway_authorized,
-    llama_cpp_gateway_enabled,
 )
 from ultimate_ai_agent.core.task_decomposition.runtime import (
     TaskCapabilityApprovalRequestPayload,
@@ -208,10 +210,6 @@ FILE_API_DEFAULT_SAFE_ROOT_REF = "local_dev_workspace"
 FILE_API_SAFE_ROOT_ENV = "UAA_FILE_API_SAFE_ROOT"
 TASK_DECOMPOSITION_API_ENV = task_decomposition_api_safety.TASK_DECOMPOSITION_API_ENV
 TASK_DECOMPOSITION_API_BEARER_ENV = task_decomposition_api_safety.TASK_DECOMPOSITION_API_BEARER_ENV
-
-class HealthResponse(BaseModel):
-    status: str
-    version: str
 
 class TransitionRequest(BaseModel):
     run_id: str
@@ -535,9 +533,9 @@ async def session_log_api_middleware(request: Request, call_next):
         )
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health", response_model=RuntimeHealthStatus)
 def get_health():
-    return {"status": "healthy", "version": __version__}
+    return build_runtime_health_status()
 
 @app.get("/version")
 def get_version():
@@ -643,8 +641,12 @@ def get_extensions_catalog():
         redactions_applied=["safe_refs_only", "raw_package_content_omitted"],
     )
 
-def _require_openwebui_local_test_gateway(authorization: str | None) -> None:
-    if not openwebui_test_gateway_enabled():
+def _require_openwebui_local_test_gateway(
+    authorization: str | None,
+    readiness: LocalModelGatewayReadiness | None = None,
+) -> None:
+    gateway_readiness = readiness or inspect_local_model_gateway()
+    if not gateway_readiness.openwebui_test_gateway_enabled:
         raise HTTPException(
             status_code=403,
             detail="M151 local OpenWebUI test gateway is disabled. Set UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 for local smoke testing.",
@@ -655,8 +657,12 @@ def _require_openwebui_local_test_gateway(authorization: str | None) -> None:
             detail="M151 local OpenWebUI test gateway requires the local test bearer value.",
         )
 
-def _require_m164_llama_cpp_gateway(authorization: str | None) -> None:
-    if not llama_cpp_gateway_enabled():
+def _require_m164_llama_cpp_gateway(
+    authorization: str | None,
+    readiness: LocalModelGatewayReadiness | None = None,
+) -> None:
+    gateway_readiness = readiness or inspect_local_model_gateway()
+    if not gateway_readiness.llama_cpp_gateway_enabled:
         raise HTTPException(
             status_code=403,
             detail="M164 llama.cpp gateway is disabled. Set UAA_LLAMA_CPP_GATEWAY_ENABLED=1 for local runtime use.",
@@ -669,10 +675,11 @@ def _require_m164_llama_cpp_gateway(authorization: str | None) -> None:
 
 @app.get("/v1/models")
 def get_v1_models(authorization: str | None = Header(default=None)):
-    if llama_cpp_gateway_enabled():
-        _require_m164_llama_cpp_gateway(authorization)
+    readiness = inspect_local_model_gateway()
+    if readiness.gateway_mode == "m164_llama_cpp":
+        _require_m164_llama_cpp_gateway(authorization, readiness)
         return build_m164_local_models_response(build_m164_gateway_model_from_env())
-    _require_openwebui_local_test_gateway(authorization)
+    _require_openwebui_local_test_gateway(authorization, readiness)
     return build_openwebui_local_models_response()
 
 @app.post("/v1/chat/completions")
@@ -681,8 +688,9 @@ def post_v1_chat_completions(
     authorization: str | None = Header(default=None),
 ):
     payload = request.model_dump(mode="json", exclude_none=True)
-    if llama_cpp_gateway_enabled():
-        _require_m164_llama_cpp_gateway(authorization)
+    readiness = inspect_local_model_gateway()
+    if readiness.gateway_mode == "m164_llama_cpp":
+        _require_m164_llama_cpp_gateway(authorization, readiness)
         try:
             return build_m164_chat_completion_response(
                 M164ChatCompletionRequest(**payload),
@@ -694,7 +702,7 @@ def post_v1_chat_completions(
                 status_code=422,
                 detail="M164 llama.cpp gateway request failed safe validation.",
             ) from exc
-    _require_openwebui_local_test_gateway(authorization)
+    _require_openwebui_local_test_gateway(authorization, readiness)
     try:
         local_request = OpenWebUILocalChatCompletionRequest(**payload)
     except ValueError as exc:

@@ -145,6 +145,10 @@ from ultimate_ai_agent.core.local_model_management.gateway import (
     llama_cpp_gateway_enabled,
     llama_cpp_gateway_key,
 )
+from ultimate_ai_agent.core.local_model_management.readiness import (
+    LocalModelGatewayReadiness,
+    inspect_local_model_gateway,
+)
 from ultimate_ai_agent.core.local_model_management.e2e_smoke import (
     LocalModelE2ESmokePrerequisites,
     LocalModelE2ESmokeReport,
@@ -304,6 +308,8 @@ __all__ = [
     "llama_cpp_gateway_authorized",
     "llama_cpp_gateway_enabled",
     "llama_cpp_gateway_key",
+    "LocalModelGatewayReadiness",
+    "inspect_local_model_gateway",
     "LocalModelE2ESmokePrerequisites",
     "LocalModelE2ESmokeReport",
     "LocalModelE2ESmokeStatus",

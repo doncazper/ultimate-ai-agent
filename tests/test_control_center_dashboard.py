@@ -42,6 +42,7 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only():
     assert snapshot.provider_credential_readiness.credential_material_stored is False
     assert snapshot.provider_credential_readiness.vault_adapter_configured is False
     assert snapshot.provider_credential_readiness.vault_adapter_readiness.adapter_runtime_enabled is False
+    assert snapshot.provider_credential_readiness.enrollment_readiness.enrollment_enabled is False
     assert snapshot.provider_credential_readiness.validation_readiness.validation_enabled is False
     assert snapshot.provider_credential_readiness.invocation_readiness.invocation_enabled is False
     assert snapshot.operator_loop_summary.milestone_ref == "UAA-P1-011"
@@ -108,10 +109,18 @@ def test_provider_credential_readiness_is_reference_only():
     assert summary.raw_key_collection_enabled is False
     assert summary.credential_material_stored is False
     assert summary.vault_adapter_configured is False
-    assert summary.vault_adapter_readiness.readiness_status == "blocked_contract_only"
+    assert summary.vault_adapter_readiness.readiness_status == "blocked_no_approved_backend"
+    assert summary.vault_adapter_readiness.adapter_available is False
+    assert summary.vault_adapter_readiness.supports_write is False
+    assert summary.vault_adapter_readiness.supports_read_handle is False
+    assert summary.vault_adapter_readiness.supports_revoke is False
     assert summary.vault_adapter_readiness.credential_material_stored_by_repo is False
     assert summary.vault_adapter_readiness.raw_key_visible is False
     assert summary.vault_adapter_readiness.adapter_runtime_enabled is False
+    assert summary.enrollment_readiness.readiness_status == "blocked_disabled_by_default"
+    assert summary.enrollment_readiness.enrollment_enabled is False
+    assert summary.enrollment_readiness.raw_key_collection_enabled is False
+    assert summary.enrollment_readiness.credential_material_stored_by_repo is False
     assert summary.validation_readiness.readiness_status == "blocked_not_scoped"
     assert summary.validation_readiness.validation_enabled is False
     assert summary.validation_readiness.external_validation_allowed is False
@@ -148,6 +157,12 @@ def test_provider_credential_readiness_rejects_authority_or_secret_like_refs():
 
     with pytest.raises(ValidationError, match="VAULT_AUTHORITY_DENIED"):
         ProviderCredentialVaultAdapterReadiness(adapter_runtime_enabled=True)
+
+    with pytest.raises(ValidationError, match="ENROLLMENT_AUTHORITY_DENIED"):
+        ProviderCredentialReadinessSummary(
+            enrollment_readiness={"enrollment_enabled": True},
+            providers=[],
+        )
 
     with pytest.raises(ValidationError, match="VALIDATION_AUTHORITY_DENIED"):
         ProviderCredentialValidationReadiness(validation_enabled=True)

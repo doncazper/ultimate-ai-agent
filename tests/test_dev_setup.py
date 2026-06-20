@@ -6,6 +6,8 @@ import sys
 from types import SimpleNamespace
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parent.parent
 SETUP_PATH = ROOT / "scripts" / "dev" / "uaa_setup.py"
@@ -280,13 +282,43 @@ def test_setup_install_refusal_writes_redacted_receipt(tmp_path, monkeypatch, ca
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
 
 
+def test_setup_install_yes_without_preview_token_fails_closed(tmp_path, monkeypatch, capsys):
+    setup = load_setup()
+    monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
+
+    def fail_resolve(command):
+        raise AssertionError("Docker should not be resolved without a preview-bound approval token")
+
+    monkeypatch.setattr(setup, "_resolve_command", fail_resolve)
+
+    exit_code = setup.command_setup(
+        tmp_path,
+        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=None),
+    )
+    captured = capsys.readouterr()
+    receipt_path = tmp_path / setup.SETUP_INSTALL_RECEIPT_DIR / "openwebui-20260620T010203Z.json"
+    payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+
+    assert exit_code == 1
+    assert payload["status"] == "failed"
+    assert payload["approval_mode"] == "not-approved"
+    assert "approval token" in captured.out.lower()
+    assert "docker pull" in captured.out
+
+
 def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_path, monkeypatch, capsys):
     setup = load_setup()
     calls = []
+    home = tmp_path / "home"
+    home.mkdir()
+    token_path = home / ".local" / "state" / "uaa" / "install-approval.json"
+    token_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
     monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_KEY", "secret-value")
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
     monkeypatch.setattr(setup, "_resolve_command", lambda command: Path("/tmp/docker") if command == "docker" else None)
     monkeypatch.setattr(setup, "_run_probe", lambda command, **kwargs: {"returncode": 0, "stdout": "27.0.0\n", "stderr": ""})
+    setup.write_setup_install_approval_token(tmp_path, setup._openwebui_install_plan(tmp_path), token_path)
 
     def fake_install(command):
         calls.append(command)
@@ -296,16 +328,29 @@ def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_pat
 
     exit_code = setup.command_setup(
         tmp_path,
-        _setup_args(setup_action="install", target="openwebui", yes=True),
+        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
     )
     captured = capsys.readouterr()
     receipt_path = tmp_path / setup.SETUP_INSTALL_RECEIPT_DIR / "openwebui-20260620T010203Z.json"
     payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    approval_receipt = next((tmp_path / setup.SETUP_APPROVAL_RECEIPT_DIR).glob("openwebui-image-pull-*.json"))
+    approval_payload = json.loads(approval_receipt.read_text(encoding="utf-8"))
+    token_payload = json.loads(token_path.read_text(encoding="utf-8"))
 
     assert exit_code == 0
     assert calls == [[str(Path("/tmp/docker")), "pull", setup.OPENWEBUI_IMAGE]]
     assert payload["status"] == "installed"
     assert payload["action"] == "docker-image-pull"
+    assert payload["approval_mode"] == "preview-token"
+    assert payload["approval_authority"] == "PolicyEngine+LocalApprovalAuthority"
+    assert payload["approval_decision_ref"] == approval_payload["decision_ref"]
+    assert payload["preview_hash"] == token_payload["preview_hash"]
+    assert approval_payload["schema"] == "uaa.setup_approval_receipt.v1"
+    assert approval_payload["status"] == "allowed"
+    assert approval_payload["scope"]["image_ref"] == setup.OPENWEBUI_IMAGE
+    assert approval_payload["scope"]["preview_hash"] == payload["preview_hash"]
+    assert stat.S_IMODE(approval_receipt.stat().st_mode) == 0o600
+    assert token_payload["used_at"]
     assert payload["side_effects_allowed"] == [
         "Docker may download and store the configured OpenWebUI image in the local Docker image cache.",
         "A redacted local receipt may be written under .uaa/dev/setup-install-receipts.",
@@ -315,19 +360,74 @@ def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_pat
     assert "rm -rf .uaa/dev/openwebui-data" not in captured.out
     assert "secret-value" not in captured.out
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
+    assert "secret-value" not in approval_receipt.read_text(encoding="utf-8")
+
+
+def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_path, monkeypatch, capsys):
+    setup = load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    token_path = home / ".local" / "state" / "uaa" / "install-approval.json"
+    token_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(setup, "_resolve_command", lambda command: pytest.fail("Docker should not be resolved"))
+
+    plan = setup._openwebui_install_plan(tmp_path)
+    setup.write_setup_install_approval_token(tmp_path, plan, token_path, ttl_seconds=-1)
+    exit_code = setup.command_setup(
+        tmp_path,
+        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
+    )
+    stale = capsys.readouterr()
+    assert exit_code == 1
+    assert "expired" in stale.out.lower()
+
+    token_path.unlink()
+    setup.write_setup_install_approval_token(tmp_path, plan, token_path)
+    payload = json.loads(token_path.read_text(encoding="utf-8"))
+    payload["preview_hash"] = "f" * 64
+    token_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    token_path.chmod(0o600)
+    exit_code = setup.command_setup(
+        tmp_path,
+        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
+    )
+    mismatch = capsys.readouterr()
+    assert exit_code == 1
+    assert "preview hash mismatch" in mismatch.out.lower()
+
+    token_path.unlink()
+    setup.write_setup_install_approval_token(tmp_path, plan, token_path)
+    payload = json.loads(token_path.read_text(encoding="utf-8"))
+    payload["used_at"] = "20260620T010203Z"
+    token_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    token_path.chmod(0o600)
+    exit_code = setup.command_setup(
+        tmp_path,
+        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
+    )
+    replay = capsys.readouterr()
+    assert exit_code == 1
+    assert "already used" in replay.out.lower()
 
 
 def test_setup_install_docker_not_ready_does_not_pull(tmp_path, monkeypatch, capsys):
     setup = load_setup()
     calls = []
+    home = tmp_path / "home"
+    home.mkdir()
+    token_path = home / ".local" / "state" / "uaa" / "install-approval.json"
+    token_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
     monkeypatch.setattr(setup, "_resolve_command", lambda command: Path("/tmp/docker") if command == "docker" else None)
     monkeypatch.setattr(setup, "_run_probe", lambda command, **kwargs: {"returncode": 1, "stdout": "", "stderr": "daemon unavailable"})
     monkeypatch.setattr(setup, "_run_install_command", lambda command: calls.append(command) or {"returncode": 0, "summary": "completed"})
+    setup.write_setup_install_approval_token(tmp_path, setup._openwebui_install_plan(tmp_path), token_path)
 
     exit_code = setup.command_setup(
         tmp_path,
-        _setup_args(setup_action="install", target="openwebui", yes=True),
+        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
     )
     captured = capsys.readouterr()
     receipt_path = tmp_path / setup.SETUP_INSTALL_RECEIPT_DIR / "openwebui-20260620T010203Z.json"
@@ -679,12 +779,15 @@ def test_launcher_parser_exposes_setup_command():
 def test_launcher_parser_exposes_setup_install_command():
     launcher = load_launcher()
 
-    args = launcher.parse_args(["setup", "install", "--target", "openwebui", "--yes"])
+    args = launcher.parse_args(
+        ["setup", "install", "--target", "openwebui", "--yes", "--approval-token", "~/.local/state/uaa/install-approval.json"]
+    )
 
     assert args.command == "setup"
     assert args.setup_action == "install"
     assert args.target == "openwebui"
     assert args.yes is True
+    assert args.approval_token == "~/.local/state/uaa/install-approval.json"
 
 
 def _stable_report(setup):
@@ -727,6 +830,8 @@ def _setup_args(**overrides):
         "setup_action": None,
         "target": None,
         "yes": False,
+        "approval_token": None,
+        "write_approval_token": None,
     }
     values.update(overrides)
     return SimpleNamespace(**values)

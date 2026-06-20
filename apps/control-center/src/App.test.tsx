@@ -304,15 +304,19 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/Provider invocation/i).length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText(/Raw key collection/i)).toBeInTheDocument();
-    expect(screen.getByText(/Credential material stored/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Raw key collection/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Credential material stored/i).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getAllByText(/Vault adapter/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Credential adapter readiness/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Credential enrollment/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Validation readiness/i)).toBeInTheDocument();
     expect(screen.getByText(/External validation/i)).toBeInTheDocument();
-    expect(screen.getByText(/Provider response persisted/i)).toBeInTheDocument();
+    expect(screen.getByText(/Provider response persistence allowed/i)).toBeInTheDocument();
     expect(screen.getByText(/Invocation readiness/i)).toBeInTheDocument();
     expect(screen.getByText(/Vault adapter contract/i)).toBeInTheDocument();
+    expect(screen.getByText(/Credential enrollment contract/i)).toBeInTheDocument();
     expect(screen.getByText(/Provider validation contract/i)).toBeInTheDocument();
     expect(
       screen.getAllByText(/Governed provider invocation/i).length,
@@ -322,6 +326,13 @@ describe("Web Control Center shell", () => {
     );
     expect(
       screen.getByText(/PROVIDER_KEY_VALIDATION_NOT_SCOPED/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/CREDENTIAL_ENROLLMENT_NOT_SCOPED/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/TRANSIENT_SECRET_INTAKE_NOT_APPROVED/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/APPROVED_VAULT_BACKEND_REQUIRED/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED/i),
@@ -347,6 +358,16 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /test provider|call provider/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /enroll credential|add credential|store credential|resolve credential/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /validate provider|invoke provider/i,
+      }),
     ).not.toBeInTheDocument();
   });
 

@@ -498,6 +498,10 @@ function ProviderCredentialReadinessPanel({
           <dd>{readiness.vault_adapter_readiness.readiness_status}</dd>
         </div>
         <div>
+          <dt>Credential enrollment</dt>
+          <dd>{readiness.enrollment_readiness.readiness_status}</dd>
+        </div>
+        <div>
           <dt>Validation readiness</dt>
           <dd>{readiness.validation_readiness.readiness_status}</dd>
         </div>
@@ -506,7 +510,7 @@ function ProviderCredentialReadinessPanel({
           <dd>{readiness.validation_readiness.external_validation_allowed ? "yes" : "no"}</dd>
         </div>
         <div>
-          <dt>Provider response persisted</dt>
+          <dt>Provider response persistence allowed</dt>
           <dd>
             {readiness.validation_readiness
               .provider_response_persistence_allowed
@@ -533,6 +537,30 @@ function ProviderCredentialReadinessPanel({
               readiness.vault_adapter_readiness.storage_backend_kind,
             ],
             [
+              "Adapter available",
+              readiness.vault_adapter_readiness.adapter_available
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Vault write capability status",
+              readiness.vault_adapter_readiness.supports_write
+                ? "available"
+                : "disabled",
+            ],
+            [
+              "Handle resolution allowed",
+              readiness.vault_adapter_readiness.supports_read_handle
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Revocation capability status",
+              readiness.vault_adapter_readiness.supports_revoke
+                ? "available"
+                : "disabled",
+            ],
+            [
               "Repo-stored credential material",
               readiness.vault_adapter_readiness.credential_material_stored_by_repo
                 ? "yes"
@@ -550,6 +578,57 @@ function ProviderCredentialReadinessPanel({
             ],
           ]}
           blockerCodes={readiness.vault_adapter_readiness.blocker_codes}
+        />
+        <ReadinessGateCard
+          title="Credential enrollment contract"
+          status={readiness.enrollment_readiness.readiness_status}
+          summary={readiness.enrollment_readiness.safe_summary}
+          details={[
+            [
+              "Provider manifest ref",
+              readiness.enrollment_readiness.provider_manifest_ref,
+            ],
+            ["Credential ref", readiness.enrollment_readiness.credential_ref],
+            ["Consent ref", readiness.enrollment_readiness.consent_ref],
+            ["Policy ref", readiness.enrollment_readiness.policy_ref],
+            ["Approval ref", readiness.enrollment_readiness.approval_ref],
+            ["Revocation ref", readiness.enrollment_readiness.revocation_ref],
+            [
+              "Enrollment",
+              readiness.enrollment_readiness.enrollment_enabled
+                ? "enabled"
+                : "disabled",
+            ],
+            [
+              "Idempotency ref",
+              readiness.enrollment_readiness.idempotency_key_ref,
+            ],
+            ["Audit ref", readiness.enrollment_readiness.audit_ref],
+            ["Rollback ref", readiness.enrollment_readiness.rollback_ref],
+            [
+              "Safe-disable ref",
+              readiness.enrollment_readiness.safe_disable_ref,
+            ],
+            [
+              "Raw key collection",
+              readiness.enrollment_readiness.raw_key_collection_enabled
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Repo-stored credential material",
+              readiness.enrollment_readiness.credential_material_stored_by_repo
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Evidence contains credential material",
+              readiness.enrollment_readiness.evidence_contains_credential_material
+                ? "yes"
+                : "no",
+            ],
+          ]}
+          blockerCodes={readiness.enrollment_readiness.blocker_codes}
         />
         <ReadinessGateCard
           title="Provider validation contract"
@@ -589,12 +668,80 @@ function ProviderCredentialReadinessPanel({
                 : "no",
             ],
             [
+              "Credential ref required",
+              readiness.invocation_readiness.credential_ref_required
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Provider allowlist required",
+              readiness.invocation_readiness.provider_manifest_allowlist_required
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Redacted request summary only",
+              readiness.invocation_readiness.redacted_request_summary_only
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Redacted response summary only",
+              readiness.invocation_readiness.redacted_response_summary_only
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Receipt refs required",
+              readiness.invocation_readiness.receipt_refs_required
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Audit refs required",
+              readiness.invocation_readiness.audit_refs_required ? "yes" : "no",
+            ],
+            [
+              "Rollback or safe-disable required",
+              readiness.invocation_readiness.rollback_or_safe_disable_required
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Rate or budget boundary required",
+              readiness.invocation_readiness.rate_budget_boundary_required
+                ? "yes"
+                : "no",
+            ],
+            [
               "Streaming exposed",
               readiness.invocation_readiness.streaming_enabled ? "yes" : "no",
             ],
             [
               "Tools/functions exposed",
               readiness.invocation_readiness.tools_functions_enabled
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Memory writes",
+              readiness.invocation_readiness.memory_write_enabled ? "yes" : "no",
+            ],
+            [
+              "Context injection",
+              readiness.invocation_readiness.context_injection_enabled
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Browser/network automation",
+              readiness.invocation_readiness.browser_network_automation_enabled
+                ? "yes"
+                : "no",
+            ],
+            [
+              "Connector writes",
+              readiness.invocation_readiness.connector_writes_enabled
                 ? "yes"
                 : "no",
             ],

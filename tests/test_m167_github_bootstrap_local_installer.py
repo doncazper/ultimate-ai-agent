@@ -15,8 +15,10 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 BOOTSTRAP_DOC = ROOT / "docs" / "production" / "M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md"
 TRUST_ROOT_DOC = ROOT / "docs" / "production" / "UAA_BOOTSTRAP_TRUST_ROOT.md"
+MINISIGN_KEY = ROOT / "docs" / "production" / "UAA_BOOTSTRAP_MINISIGN.pub"
 BOOTSTRAP_DOC_REF = "docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md"
 TRUST_ROOT_DOC_REF = "docs/production/UAA_BOOTSTRAP_TRUST_ROOT.md"
+MINISIGN_KEY_REF = "docs/production/UAA_BOOTSTRAP_MINISIGN.pub"
 PINNED_OPENWEBUI_IMAGE = (
     "ghcr.io/open-webui/open-webui@"
     "sha256:7f1b0a1a50cfbac23da3b16f96bc968fd757b26dc9e54e93813d61768ea9184e"
@@ -136,6 +138,13 @@ def _provenance(*, digest: str, release_tag: str = "v0.102.0-m167", asset: str =
     ).encode("utf-8")
 
 
+def _minisign_signature() -> bytes:
+    return (
+        b"untrusted comment: UAA M167 bootstrap minisign detached signature\n"
+        b"RURVQUFNMTY3AejkqxQBxQH4fTMmnF7a4vD5wZ8iGTx0dj3p2pWAGmBeUAA=\n"
+    )
+
+
 def _patch_supported_home(setup, monkeypatch, home: Path) -> None:
     monkeypatch.setattr(setup, "_bootstrap_platform_status", lambda: (True, "macOS arm64 supported"))
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
@@ -160,8 +169,10 @@ def test_github_bootstrap_milestone_defines_required_boundary():
         "https://github.com/doncazper/ultimate-ai-agent",
         "main is denied",
         "latest is denied",
-        "signed checksum manifest",
-        "signature/provenance verification passes",
+        "detached minisign signature",
+        MINISIGN_KEY_REF,
+        "minisign -Vm",
+        "minisign signature verification passes",
         "cryptographic verification",
         TRUST_ROOT_DOC_REF,
         "uaa setup bootstrap --release-tag",
@@ -206,8 +217,11 @@ def test_trust_root_doc_exists_and_defines_fail_closed_verification():
     normalized = " ".join(text.lower().replace("`", "").split())
     for marker in [
         "uaa.bootstrap.provenance.v1",
+        "uaa.bootstrap.minisign_statement.v1",
         "local-dev-json",
         "minisign",
+        MINISIGN_KEY_REF,
+        "minisign -Vm",
         "https://github.com/doncazper/ultimate-ai-agent",
         "explicit immutable release tag",
         "sha-256",
@@ -219,6 +233,20 @@ def test_trust_root_doc_exists_and_defines_fail_closed_verification():
         "receipt-bound or marker-owned",
     ]:
         assert " ".join(marker.lower().replace("`", "").split()) in normalized
+
+
+def test_minisign_public_key_exists_and_is_pinned_by_setup_and_docs():
+    setup = _load_setup()
+    key_text = MINISIGN_KEY.read_text(encoding="utf-8")
+    trust_text = TRUST_ROOT_DOC.read_text(encoding="utf-8")
+    bootstrap_text = BOOTSTRAP_DOC.read_text(encoding="utf-8")
+
+    assert setup.BOOTSTRAP_MINISIGN_PUBLIC_KEY_REF == MINISIGN_KEY_REF
+    assert setup.BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256 == hashlib.sha256(key_text.encode("utf-8")).hexdigest()
+    assert key_text.startswith("untrusted comment: UAA M167 bootstrap minisign public key")
+    assert setup.BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256 in trust_text
+    assert MINISIGN_KEY_REF in trust_text
+    assert MINISIGN_KEY_REF in bootstrap_text
 
 
 def test_github_bootstrap_shell_examples_do_not_execute_unverified_remote_code():
@@ -687,6 +715,151 @@ def test_bootstrap_public_crypto_mode_rejects_json_only_provenance_before_execut
     assert "cryptographic" in captured.out.lower()
 
 
+def test_bootstrap_minisign_statement_binds_tag_asset_digest_target_and_trust_root(tmp_path, monkeypatch):
+    setup = _load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    _patch_supported_home(setup, monkeypatch, home)
+
+    plan = setup._bootstrap_plan(
+        tmp_path,
+        _bootstrap_args(
+            tmp_path,
+            sha256=hashlib.sha256(b"artifact").hexdigest(),
+            signature="uaa-bootstrap-darwin-arm64.tar.gz.minisig",
+            provenance_mode="minisign",
+        ),
+    )
+    statement = json.loads(setup._bootstrap_minisign_statement(plan).decode("utf-8"))
+
+    assert statement == {
+        "schema": "uaa.bootstrap.minisign_statement.v1",
+        "repo": "https://github.com/doncazper/ultimate-ai-agent",
+        "release_tag": "v0.102.0-m167",
+        "asset": "uaa-bootstrap-darwin-arm64.tar.gz",
+        "sha256": hashlib.sha256(b"artifact").hexdigest(),
+        "target": "openwebui",
+        "installer": "uaa-bootstrap",
+        "trust_root": TRUST_ROOT_DOC_REF,
+        "trust_root_identity": setup.BOOTSTRAP_MINISIGN_TRUST_ROOT_IDENTITY,
+        "public_key_ref": MINISIGN_KEY_REF,
+        "public_key_sha256": setup.BOOTSTRAP_MINISIGN_PUBLIC_KEY_SHA256,
+        "authority": "openwebui-local-dev-bootstrap-only",
+        "provenance_mode": "minisign",
+    }
+
+    changed = dict(plan)
+    changed["asset"] = "uaa-bootstrap-darwin-arm64-alt.tar.gz"
+    assert setup._bootstrap_minisign_statement(changed) != setup._bootstrap_minisign_statement(plan)
+    changed = dict(plan)
+    changed["release_tag"] = "v0.102.1-m167"
+    assert setup._bootstrap_minisign_statement(changed) != setup._bootstrap_minisign_statement(plan)
+    changed = dict(plan)
+    changed["target"] = "other"
+    assert setup._bootstrap_minisign_statement(changed) != setup._bootstrap_minisign_statement(plan)
+
+
+def test_bootstrap_public_minisign_mode_verifies_statement_before_execution(tmp_path, monkeypatch, capsys):
+    setup = _load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    _patch_supported_home(setup, monkeypatch, home)
+    _approve_interactively(setup, monkeypatch)
+    artifact = _tar_bytes()
+    digest = hashlib.sha256(artifact).hexdigest()
+    statements = []
+    commands = []
+
+    def fake_download(url, destination):
+        if url.endswith(".minisig"):
+            destination.write_bytes(_minisign_signature())
+        else:
+            destination.write_bytes(artifact)
+
+    def fake_verify(statement_path, signature_path, public_key):
+        statement = json.loads(statement_path.read_text(encoding="utf-8"))
+        statements.append(statement)
+        assert signature_path.name == "uaa-bootstrap-darwin-arm64.tar.gz.minisig"
+        assert public_key == setup._bootstrap_minisign_public_key(ROOT)
+        return {"verifier": "minisign", "raw_output_retained": False}
+
+    def fake_run(command):
+        commands.append(command)
+        return {"returncode": 0, "summary": "completed"}
+
+    monkeypatch.setattr(setup, "_download_bootstrap_file", fake_download)
+    monkeypatch.setattr(setup, "_run_minisign_verify", fake_verify)
+    monkeypatch.setattr(setup, "_run_bootstrap_installer_command", fake_run)
+
+    exit_code = setup.command_setup(
+        tmp_path,
+        _bootstrap_args(
+            tmp_path,
+            sha256=digest,
+            signature="uaa-bootstrap-darwin-arm64.tar.gz.minisig",
+            provenance_mode="minisign",
+        ),
+    )
+    captured = capsys.readouterr()
+    payload = json.loads((home / ".local/state/uaa/bootstrap-receipt.json").read_text(encoding="utf-8"))
+    approval_receipt = next((tmp_path / setup.SETUP_APPROVAL_RECEIPT_DIR).glob("github-bootstrap-*.json"))
+    approval_payload = json.loads(approval_receipt.read_text(encoding="utf-8"))
+
+    assert exit_code == 0
+    assert len(statements) == 1
+    assert statements[0]["release_tag"] == "v0.102.0-m167"
+    assert statements[0]["asset"] == "uaa-bootstrap-darwin-arm64.tar.gz"
+    assert statements[0]["sha256"] == digest
+    assert statements[0]["target"] == "openwebui"
+    assert statements[0]["public_key_ref"] == MINISIGN_KEY_REF
+    assert len(commands) == 1
+    assert payload["provenance_mode"] == "minisign"
+    assert payload["provenance_status"] == "verified"
+    assert payload["approval_authority"] == "PolicyEngine+LocalApprovalAuthority"
+    assert approval_payload["scope"]["release_tag"] == "v0.102.0-m167"
+    assert approval_payload["scope"]["asset"] == "uaa-bootstrap-darwin-arm64.tar.gz"
+    assert approval_payload["scope"]["provenance_mode"] == "minisign"
+    assert stat.S_IMODE(approval_receipt.stat().st_mode) == 0o600
+    assert "raw verifier" not in captured.out.lower()
+
+
+def test_bootstrap_public_minisign_missing_verifier_fails_before_execution(tmp_path, monkeypatch, capsys):
+    setup = _load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    _patch_supported_home(setup, monkeypatch, home)
+    _approve_interactively(setup, monkeypatch)
+    artifact = _tar_bytes()
+    digest = hashlib.sha256(artifact).hexdigest()
+
+    def fake_download(url, destination):
+        if url.endswith(".minisig"):
+            destination.write_bytes(_minisign_signature())
+        else:
+            destination.write_bytes(artifact)
+
+    monkeypatch.setattr(setup, "_download_bootstrap_file", fake_download)
+    monkeypatch.setattr(setup, "_resolve_command", lambda command: None if command == "minisign" else Path(f"/tmp/{command}"))
+    monkeypatch.setattr(setup, "_run_bootstrap_installer_command", lambda command: pytest.fail("installer should not run"))
+
+    exit_code = setup.command_setup(
+        tmp_path,
+        _bootstrap_args(
+            tmp_path,
+            sha256=digest,
+            signature="uaa-bootstrap-darwin-arm64.tar.gz.minisig",
+            provenance_mode="minisign",
+        ),
+    )
+    captured = capsys.readouterr()
+    payload = json.loads((home / ".local/state/uaa/bootstrap-receipt.json").read_text(encoding="utf-8"))
+
+    assert exit_code == 1
+    assert payload["status"] == "failed"
+    assert payload["provenance_status"] == "mismatch"
+    assert "minisign verifier is unavailable" in captured.out.lower()
+
+
 def test_bootstrap_approval_runs_only_verified_local_installer_and_writes_redacted_receipt(
     tmp_path,
     monkeypatch,
@@ -719,6 +892,8 @@ def test_bootstrap_approval_runs_only_verified_local_installer_and_writes_redact
     exit_code = setup.command_setup(tmp_path, _bootstrap_args(tmp_path, sha256=digest, receipt=str(receipt_path)))
     captured = capsys.readouterr()
     payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    approval_receipt = next((tmp_path / setup.SETUP_APPROVAL_RECEIPT_DIR).glob("github-bootstrap-*.json"))
+    approval_payload = json.loads(approval_receipt.read_text(encoding="utf-8"))
 
     assert exit_code == 0
     assert len(commands) == 1
@@ -742,6 +917,8 @@ def test_bootstrap_approval_runs_only_verified_local_installer_and_writes_redact
     assert payload["checksum_status"] == "verified"
     assert payload["provenance_status"] == "verified"
     assert payload["approval_mode"] == "typed"
+    assert payload["approval_authority"] == "PolicyEngine+LocalApprovalAuthority"
+    assert payload["approval_decision_ref"] == approval_payload["decision_ref"]
     assert payload["target"] == "openwebui"
     assert payload["bin_dir"] == "~/.local/bin"
     assert payload["install_dir"] == "~/.local/share/uaa"
@@ -749,6 +926,7 @@ def test_bootstrap_approval_runs_only_verified_local_installer_and_writes_redact
     assert "Running approved verified local installer command:" in captured.out
     assert "secret-value" not in captured.out
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
+    assert "secret-value" not in approval_receipt.read_text(encoding="utf-8")
 
 
 def test_plain_setup_stays_diagnostic_and_openwebui_image_installer_stays_separate(tmp_path, monkeypatch):

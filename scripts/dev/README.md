@@ -77,11 +77,15 @@ uaa setup install --target openwebui
 
 That command prints the exact `docker pull` command, asks you to type
 `install openwebui` before running it, and writes a redacted receipt under
-`.uaa/dev/setup-install-receipts/`. For already-approved automation or tests:
+`.uaa/dev/setup-install-receipts/`. For noninteractive automation, first write
+a preview-bound approval token after typed approval:
 
 ```bash
-uaa setup install --target openwebui --yes
+uaa setup install --target openwebui --write-approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
+uaa setup install --target openwebui --yes --approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
 ```
+
+Bare `--yes` fails closed before Docker is resolved.
 
 It does not install Python, Node/npm dependencies, Homebrew packages,
 llama.cpp, models, providers, plugins, browser tooling, credentials, or system

@@ -24,7 +24,8 @@ The only new CLI surface is:
 
 ```bash
 uaa setup install --target openwebui
-uaa setup install --target openwebui --yes
+uaa setup install --target openwebui --write-approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
+uaa setup install --target openwebui --yes --approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
 ```
 
 No API route, Control Center control, backend route, provider route, OpenWebUI
@@ -37,7 +38,8 @@ Allowed:
 
 - verify Docker CLI and Docker engine readiness
 - print the exact `docker pull` command before execution
-- require explicit operator approval or `--yes`
+- require explicit typed operator approval or a matching preview-bound
+  approval token for `--yes`
 - run the exact OpenWebUI image pull command
 - write a redacted local receipt under `.uaa/dev/setup-install-receipts/`
 
@@ -73,8 +75,17 @@ install openwebui
 ```
 
 `--yes` is allowed only for contexts where that approval has already been
-captured by the caller, such as deterministic tests or a future reviewed
-automation wrapper.
+captured as a chmod `0600`, single-use, unexpired preview-bound approval
+token. Bare `--yes` fails closed before Docker is resolved. Tokens bind the
+milestone ref, target, action, digest-pinned image ref, exact command preview,
+rollback scope, and preview hash. Tokens are marked used before any Docker
+pull and fail closed when missing, expired, replayed, mismatched, malformed,
+symlinked, or not chmod `0600`.
+
+Approved image-pull decisions are routed through the local PolicyEngine plus
+LocalApprovalAuthority adapter, which records a chmod `0600` redacted approval
+receipt with exact scope, actor, target, image ref, preview hash, revocation
+notes, and replay notes. The receipt grants no reusable runtime authority.
 
 ## Persistence Model
 
@@ -92,6 +103,9 @@ Each receipt records safe summary fields only:
 - milestone ref
 - action
 - image ref
+- preview hash
+- approval mode
+- approval authority decision ref
 - exact command label
 - status
 - result summary
@@ -108,9 +122,13 @@ cookies, or usernames.
 Focused tests must cover:
 
 - approval refusal does not run Docker pull
-- approved install runs only the expected OpenWebUI image pull argv
+- bare `--yes` fails before Docker is resolved
+- matching preview-bound approval token runs only the expected OpenWebUI image
+  pull argv and is marked used
+- stale, mismatched, replayed, bad-permission, or symlinked approval tokens
+  fail before Docker is resolved
 - Docker-not-ready path does not pull
-- receipts are chmod `0600` and redacted
+- install and approval receipts are chmod `0600`, exact-scope, and redacted
 - rollback text is present
 - plain `uaa setup` remains diagnostic and does not run install paths
 - launcher still refuses missing images and points to the setup install command
@@ -139,11 +157,10 @@ Remove the local Docker image:
 docker image rm ghcr.io/open-webui/open-webui@sha256:7f1b0a1a50cfbac23da3b16f96bc968fd757b26dc9e54e93813d61768ea9184e
 ```
 
-Remove local OpenWebUI state only when intentionally resetting it:
-
-```bash
-rm -rf .uaa/dev/openwebui-data
-```
+Review local OpenWebUI state only when intentionally resetting it. Setup
+install does not remove `.uaa/dev/openwebui-data`; any state cleanup must be a
+separate canonical-path review and must not be presented as part of the image
+pull rollback.
 
 Remove local setup install receipts only when no longer needed for support:
 

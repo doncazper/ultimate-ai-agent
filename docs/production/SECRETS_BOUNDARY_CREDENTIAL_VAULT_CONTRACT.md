@@ -23,9 +23,20 @@ Control Center control, no dependency, and no beta release.
 Control Center provider credential readiness may reference this boundary as a
 blocked future gate only. The current Settings visibility records safe refs,
 readiness status, and blocker codes for Provider Credential Vault Adapter v1,
-Provider Credential Validation v1, and Governed Provider Invocation v1. It does
-not implement vault runtime, key validation, provider invocation, key
-collection, credential material storage, environment-value reads, provider SDK
-calls, or external network validation.
+Credential Enrollment Readiness, Provider Credential Validation v1, and
+Governed Provider Invocation v1. The core exposes a typed blocked vault adapter
+boundary with capability inspection plus denied store, resolve, and revoke
+decisions. The blocked adapter reports no approved backend and never returns
+credential material or handles. It does not implement vault runtime, provider
+credential-reference validation, provider invocation, key collection,
+credential material storage, environment-value reads, provider SDK calls, or
+external network validation.
+
+Credential enrollment is disabled by default. Enrollment records are safe refs
+only: provider manifest ref, credential ref, consent ref, policy ref, approval
+ref, revocation ref, idempotency ref, audit ref, rollback ref, and safe-disable
+ref. Any future transient intake path requires a separate scoped M167+
+milestone and an approved vault/keychain backend that can accept material
+without repo-managed persistence or evidence exposure.
 
 M114 remains future. M150 remains the v1.2.0-alpha target.
