@@ -26,6 +26,20 @@ from ultimate_ai_agent.core.capabilities.models import (
 from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
 from ultimate_ai_agent.core.files.diffs import build_redacted_diff_summary, build_unified_diff, read_text_if_exists
 from ultimate_ai_agent.core.files.enums import FileKind, FileOperationStatus, FileSensitivity
+from ultimate_ai_agent.core.files.hash_refs import (
+    content_state_ref,
+    diff_ref as build_diff_ref,
+    hash_text,
+    patch_preview_ref,
+    patch_rollback_plan_ref,
+    patch_scope_ref,
+    receipt_ref,
+    safe_file_ref,
+    safe_path_ref,
+    safe_snapshot_ref,
+    safe_tree_label,
+    safe_tree_ref,
+)
 from ultimate_ai_agent.core.files.operations import (
     FileChange,
     FilePatchApplyResult,
@@ -90,11 +104,11 @@ class LocalFileManager:
         full_path = self.workspace_root / normalized
         stat = full_path.stat() if full_path.exists() else None
         return FileRef(
-            file_ref=f"file_{hashlib.sha256(normalized.encode()).hexdigest()[:12]}",
+            file_ref=safe_file_ref(normalized),
             path=normalized,
             kind=FileKind.artifact,
             sensitivity=FileSensitivity.project_private,
-            content_hash=self._hash_text_file(full_path) if stat else self._hash_text(""),
+            content_hash=self._hash_text_file(full_path) if stat else hash_text(""),
             size_bytes=stat.st_size if stat else 0,
             created_at=datetime.fromtimestamp(stat.st_ctime) if stat else None,
             updated_at=datetime.fromtimestamp(stat.st_mtime) if stat else None,
@@ -121,7 +135,7 @@ class LocalFileManager:
             preview_id=f"frp_{uuid.uuid4().hex[:8]}",
             path=normalized,
             size_bytes=stat.st_size if stat else 0,
-            content_hash=self._hash_text_file(full_path) if stat else self._hash_text(""),
+            content_hash=self._hash_text_file(full_path) if stat else hash_text(""),
             text_preview=preview_text,
             redactions_applied=redactions,
             truncated=truncated,
@@ -131,7 +145,7 @@ class LocalFileManager:
     def preview_tree(self, request: FileTreePreviewRequest) -> FileTreePreview:
         normalized_root = self.validate_path(request.root_path) if request.root_path else ""
         base = self.workspace_root / normalized_root if normalized_root else self.workspace_root
-        root_ref = self._safe_tree_ref(normalized_root, entry_type="directory")
+        root_ref = safe_tree_ref(normalized_root, entry_type="directory")
         entries: List[FileTreeEntry] = []
         blocked_entry_count = 0
         scanned_entry_count = 0
@@ -200,12 +214,12 @@ class LocalFileManager:
         reasons: List[str] = []
         redactions = ["raw_diff_omitted", "safe_refs_only"]
         normalized: str | None = None
-        target_ref = self._safe_path_ref("blocked")
+        target_ref = safe_path_ref("blocked")
         old_content = ""
 
         try:
             normalized = self.validate_path(proposal.target_path)
-            target_ref = self._safe_path_ref(normalized)
+            target_ref = safe_path_ref(normalized)
         except ValueError:
             reasons.append("FILE_PATH_BLOCKED")
 
@@ -229,7 +243,7 @@ class LocalFileManager:
             expected_file_ref = self.build_file_ref(normalized).file_ref
             if proposal.file_ref != expected_file_ref:
                 reasons.append("FILE_REF_PATH_BINDING_MISMATCH")
-            current_hash = self._hash_text_file(full_path) if full_path.exists() else self._hash_text("")
+            current_hash = self._hash_text_file(full_path) if full_path.exists() else hash_text("")
             if proposal.expected_existing_hash != current_hash:
                 reasons.append("PATCH_PROPOSAL_STALE")
             old_content = read_text_if_exists(full_path)
@@ -244,8 +258,8 @@ class LocalFileManager:
         if normalized is not None:
             preview_summary = build_redacted_diff_summary(normalized, old_content, proposal.new_content)
         if normalized is not None and not diff_contains_secret:
-            preview_ref = f"patch_preview_{self._hash_text(proposal.proposal_id + preview_summary)[:12]}"
-            rollback_plan_ref = f"patch_rollback_plan_{self._hash_text(proposal.proposal_id + target_ref)[:12]}"
+            preview_ref = patch_preview_ref(proposal.proposal_id, preview_summary)
+            rollback_plan_ref = patch_rollback_plan_ref(proposal.proposal_id, target_ref)
 
         allowed = not reasons
         return FilePatchProposalDecision(
@@ -277,7 +291,13 @@ class LocalFileManager:
         if not decision.allowed:
             raise ValueError("Patch proposal is blocked and cannot be submitted for approval.")
         normalized = self.validate_path(proposal.target_path)
-        scope_ref = self._patch_scope_ref(proposal, normalized)
+        scope_ref = patch_scope_ref(
+            proposal_id=proposal.proposal_id,
+            file_ref=proposal.file_ref,
+            target_ref=safe_path_ref(normalized),
+            expected_existing_hash=proposal.expected_existing_hash,
+            idempotency_key=proposal.idempotency_key,
+        )
         return ApprovalRequest(
             approval_request_id=f"areq_{proposal.proposal_id}",
             run_id=proposal.run_id,
@@ -288,7 +308,7 @@ class LocalFileManager:
             purpose=proposal.purpose,
             risk_level=ApprovalRiskLevel(proposal.risk_class),
             data_classification=self._data_classification_for_sensitivity(proposal.sensitivity),
-            resource_refs=[proposal.file_ref, self._safe_path_ref(normalized), scope_ref],
+            resource_refs=[proposal.file_ref, safe_path_ref(normalized), scope_ref],
             file_ref=proposal.file_ref,
             event_ref=proposal.event_ref,
             trace_id=proposal.proposal_id,
@@ -367,8 +387,8 @@ class LocalFileManager:
         normalized = self.validate_path(proposal.target_path)
         full_path = self.workspace_root / normalized
         old_content = read_text_if_exists(full_path)
-        before_hash = self._hash_text(old_content) if full_path.exists() else None
-        preimage_ref = self._content_state_ref("preimage", before_hash)
+        before_hash = hash_text(old_content) if full_path.exists() else None
+        preimage_ref = content_state_ref("preimage", before_hash)
         snapshot = self.snapshot(normalized)
         rollback_plan = RollbackPlan(
             rollback_ref=f"rb_{uuid.uuid4().hex[:10]}",
@@ -387,7 +407,7 @@ class LocalFileManager:
                 status=FileOperationStatus.failed,
                 target_ref=decision.target_ref,
                 preimage_ref=preimage_ref,
-                postimage_ref=self._content_state_ref("postimage", before_hash),
+                postimage_ref=content_state_ref("postimage", before_hash),
                 rollback_ref=rollback_plan.rollback_ref,
                 reason_codes=["PATCH_APPLY_FAILED"],
                 safe_message="Patch apply failed before replacement completed; previous content remains inspectable.",
@@ -415,8 +435,8 @@ class LocalFileManager:
                 redactions_applied=failure_receipt.redactions_applied,
                 receipt=failure_receipt,
             )
-        after_hash = self._hash_text(proposal.new_content)
-        postimage_ref = self._content_state_ref("postimage", after_hash)
+        after_hash = hash_text(proposal.new_content)
+        postimage_ref = content_state_ref("postimage", after_hash)
         self._patch_apply_idempotency_keys.add(proposal.idempotency_key)
         receipt = self._build_patch_mutation_receipt(
             proposal,
@@ -472,7 +492,7 @@ class LocalFileManager:
             reasons.append("CONTRACT_FILE_NOT_ALLOWED")
 
         full_path = self.workspace_root / normalized
-        existing_hash = self._hash_text(read_text_if_exists(full_path)) if full_path.exists() else None
+        existing_hash = hash_text(read_text_if_exists(full_path)) if full_path.exists() else None
         if full_path.exists():
             protected = proposal.file_kind in self.policy.protected_kinds
             if protected and not proposal.expected_existing_hash and not self.policy.allow_overwrite_without_hash:
@@ -491,7 +511,7 @@ class LocalFileManager:
             status=FileOperationStatus.proposed,
             reason_codes=["WRITE_PROPOSAL_ACCEPTED"],
             safe_message="File write proposal is safe to apply in this dev workspace.",
-            diff_ref=f"diff_{hashlib.sha256(diff.encode()).hexdigest()[:12]}",
+            diff_ref=build_diff_ref(diff),
             rollback_ref=None,
             event_ref=proposal.event_ref,
         )
@@ -521,7 +541,7 @@ class LocalFileManager:
         snapshot = FileSnapshot(
             snapshot_id=snapshot_id,
             path=normalized,
-            content_hash=self._hash_text(content),
+            content_hash=hash_text(content),
             content_ref=f"in_memory:{snapshot_id}",
         )
         self._snapshot_meta[snapshot_id] = snapshot
@@ -543,7 +563,7 @@ class LocalFileManager:
         event_ref: str | None = None,
     ) -> ApprovalRequest:
         target_ref = self._target_ref_for_rollback(rollback_plan)
-        snapshot_ref = self._safe_snapshot_ref(rollback_plan.snapshot_id)
+        snapshot_ref = safe_snapshot_ref(rollback_plan.snapshot_id)
         return ApprovalRequest(
             approval_request_id=f"areq_{rollback_plan.rollback_ref}",
             run_id=run_id,
@@ -673,12 +693,12 @@ class LocalFileManager:
             return receipt
 
         normalized = self.validate_path(rollback_plan.target_path)
-        target_ref = self._safe_path_ref(normalized)
+        target_ref = safe_path_ref(normalized)
         full_path = self.workspace_root / normalized
-        before_hash = self._hash_text(read_text_if_exists(full_path)) if full_path.exists() else None
-        preimage_ref = self._content_state_ref("rollback_preimage", before_hash)
+        before_hash = hash_text(read_text_if_exists(full_path)) if full_path.exists() else None
+        preimage_ref = content_state_ref("rollback_preimage", before_hash)
         content = self._snapshots[rollback_plan.snapshot_id]
-        restored_ref = self._content_state_ref("rollback_restored", self._hash_text(content))
+        restored_ref = content_state_ref("rollback_restored", hash_text(content))
         full_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             self._atomic_write_text(full_path, content)
@@ -750,12 +770,12 @@ class LocalFileManager:
         is_directory = path.is_dir()
         entry_type = "directory" if is_directory else "file"
         stat = path.stat()
-        entry_ref = self._safe_tree_ref(normalized, entry_type=entry_type)
+        entry_ref = safe_tree_ref(normalized, entry_type=entry_type)
         return FileTreeEntry(
             entry_ref=entry_ref,
             parent_ref=parent_ref,
             entry_type=entry_type,
-            safe_label=self._safe_tree_label(normalized, entry_type=entry_type),
+            safe_label=safe_tree_label(normalized, entry_type=entry_type),
             kind=FileKind.artifact,
             sensitivity=FileSensitivity.project_private,
             size_bytes=0 if is_directory else stat.st_size,
@@ -766,15 +786,15 @@ class LocalFileManager:
 
     def _target_ref_for_proposal(self, proposal: FilePatchProposal) -> str:
         try:
-            return self._safe_path_ref(self.validate_path(proposal.target_path))
+            return safe_path_ref(self.validate_path(proposal.target_path))
         except ValueError:
-            return self._safe_path_ref("blocked")
+            return safe_path_ref("blocked")
 
     def _target_ref_for_rollback(self, rollback_plan: RollbackPlan) -> str:
         try:
-            return self._safe_path_ref(self.validate_path(rollback_plan.target_path))
+            return safe_path_ref(self.validate_path(rollback_plan.target_path))
         except ValueError:
-            return self._safe_path_ref("blocked")
+            return safe_path_ref("blocked")
 
     def _workspace_mutation_policy_denials(
         self,
@@ -859,7 +879,7 @@ class LocalFileManager:
         safe_message: str,
         mutation_performed: bool,
     ) -> FilePatchMutationReceipt:
-        receipt_ref = self._receipt_ref(
+        mutation_receipt_ref = receipt_ref(
             "file_patch_receipt",
             proposal.proposal_id,
             proposal.idempotency_key,
@@ -867,7 +887,7 @@ class LocalFileManager:
             uuid.uuid4().hex[:8],
         )
         return FilePatchMutationReceipt(
-            receipt_ref=receipt_ref,
+            receipt_ref=mutation_receipt_ref,
             proposal_id=proposal.proposal_id,
             status=status,
             file_ref=proposal.file_ref,
@@ -899,7 +919,7 @@ class LocalFileManager:
         safe_message: str,
         rollback_performed: bool,
     ) -> FilePatchRollbackReceipt:
-        receipt_ref = self._receipt_ref(
+        rollback_receipt_ref = receipt_ref(
             "file_rollback_receipt",
             rollback_ref,
             idempotency_key,
@@ -907,7 +927,7 @@ class LocalFileManager:
             uuid.uuid4().hex[:8],
         )
         return FilePatchRollbackReceipt(
-            receipt_ref=receipt_ref,
+            receipt_ref=rollback_receipt_ref,
             rollback_ref=rollback_ref,
             status=status,
             target_ref=target_ref,
@@ -946,33 +966,6 @@ class LocalFileManager:
             approval_ref=proposal.approval_ref,
             redactions_applied=redactions_applied or ["raw_diff_omitted", "safe_refs_only"],
         )
-
-    def _safe_path_ref(self, normalized_path: str) -> str:
-        return f"file_path_{hashlib.sha256(normalized_path.encode()).hexdigest()[:16]}"
-
-    def _safe_snapshot_ref(self, snapshot_id: Optional[str]) -> str:
-        digest_source = snapshot_id or "missing"
-        return f"file_snapshot_{hashlib.sha256(digest_source.encode()).hexdigest()[:16]}"
-
-    def _content_state_ref(self, prefix: str, content_hash: Optional[str]) -> str:
-        digest_source = content_hash or "missing"
-        return f"file_{prefix}_{hashlib.sha256(digest_source.encode()).hexdigest()[:16]}"
-
-    def _receipt_ref(self, prefix: str, *parts: str) -> str:
-        digest_source = "|".join(parts)
-        return f"{prefix}_{hashlib.sha256(digest_source.encode()).hexdigest()[:16]}"
-
-    def _patch_scope_ref(self, proposal: FilePatchProposal, normalized_path: str) -> str:
-        scope = "|".join(
-            [
-                proposal.proposal_id,
-                proposal.file_ref,
-                self._safe_path_ref(normalized_path),
-                proposal.expected_existing_hash,
-                proposal.idempotency_key,
-            ]
-        )
-        return f"file_patch_scope_{hashlib.sha256(scope.encode()).hexdigest()[:16]}"
 
     def _data_classification_for_sensitivity(self, sensitivity: FileSensitivity) -> DataClassification:
         mapping = {
@@ -1013,20 +1006,6 @@ class LocalFileManager:
             redactions_applied=redactions_applied or [],
             event_ref=proposal.event_ref,
         )
-
-    def _hash_text(self, content: str) -> str:
-        return self._hash_bytes(content.encode("utf-8"))
-
-    def _hash_bytes(self, content: bytes) -> str:
-        return hashlib.sha256(content).hexdigest()
-
-    def _safe_tree_ref(self, normalized_path: str, *, entry_type: str) -> str:
-        ref_source = f"{entry_type}:{normalized_path or '<workspace-root>'}"
-        return f"file_tree_{hashlib.sha256(ref_source.encode()).hexdigest()[:16]}"
-
-    def _safe_tree_label(self, normalized_path: str, *, entry_type: str) -> str:
-        digest = hashlib.sha256(normalized_path.encode()).hexdigest()[:8]
-        return f"{entry_type}_ref_{digest}"
 
     def _hash_text_file(self, path: Path) -> str:
         digest = hashlib.sha256()
