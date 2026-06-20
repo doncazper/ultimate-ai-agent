@@ -1,7 +1,7 @@
 # Local Browser Smoke Readiness
 
 Status: active UAA-P1-032 browser smoke readiness
-Baseline: v2.0.0 / 2.0.0
+Baseline: v0.102.0 / 0.102.0
 
 This document defines local browser smoke readiness for the Web Control Center
 shell. It is local-only, optional, non-authoritative, and never a source of

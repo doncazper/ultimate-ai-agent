@@ -1,7 +1,7 @@
 # Local Browser Smoke Reporting
 
 Status: active UAA-P1-032 browser smoke readiness reporting
-Baseline: v2.0.0 / 2.0.0
+Baseline: v0.102.0 / 0.102.0
 
 This document defines the safe local browser smoke report format for the Web
 Control Center shell. A local browser smoke report is local-only, optional,

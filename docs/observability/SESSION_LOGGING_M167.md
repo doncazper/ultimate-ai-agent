@@ -1,7 +1,7 @@
 # M167 Session Logging + Redacted Observability Spine
 
 Status: shipped under the M167+ scoped productionization lane
-Baseline: v2.0.0 / 2.0.0
+Baseline: v0.102.0 / 0.102.0
 Scope: passive local observability for UAA-managed app and session behavior only
 
 This document defines the current M167 local session logging spine. It is a

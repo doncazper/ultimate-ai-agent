@@ -13570,7 +13570,7 @@ class FoundationGateEvaluator:
             from ultimate_ai_agent.api.app import app
 
             paths = set(app.openapi().get("paths", {}))
-            if (self._active_version() or "") >= "0.41.0":
+            if self._active_version_tuple() >= (0, 41, 0):
                 paths.discard(M37_ALLOWED_CAPTURE_ROUTE)
             failures.extend(m35_openapi_route_failures(paths))
         except Exception as exc:
@@ -13680,7 +13680,7 @@ class FoundationGateEvaluator:
     def check_m36_ccc_file_review_surface_safe(
         self, criterion: FoundationGateCriterion
     ) -> FoundationGateResult:
-        if (self._active_version() or "") >= "0.41.0":
+        if self._active_version_tuple() >= (0, 41, 0):
             return self._result(criterion, [], ["apps/control-center/src/components/FileReviewSurfacePanel.tsx"])
         required_files = [
             "apps/control-center/src/components/FileReviewSurfacePanel.tsx",
@@ -13759,7 +13759,7 @@ class FoundationGateEvaluator:
             from ultimate_ai_agent.api.app import app
 
             paths = set(app.openapi().get("paths", {}))
-            if (self._active_version() or "") >= "0.41.0":
+            if self._active_version_tuple() >= (0, 41, 0):
                 paths.discard(M37_ALLOWED_CAPTURE_ROUTE)
             failures.extend(m36_openapi_route_failures(paths))
         except Exception as exc:

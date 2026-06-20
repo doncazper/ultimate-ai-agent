@@ -3,8 +3,8 @@
 M168 adds Operator Runtime Excellence currentness and product-truth repair.
 
 The checkpoint originally repaired currentness against the v1.2.0-alpha /
-1.2.0a0 baseline. The current active product/package baseline is now v2.0.0 /
-2.0.0, and this checkpoint remains the latest accepted repository checkpoint
+1.2.0a0 baseline. The current active product/package baseline was later corrected to v0.102.0 /
+0.102.0, and this checkpoint remains the latest accepted repository checkpoint
 tag.
 It repairs the active README, documentation index, canonical map, roadmap,
 current board, API path-count references, and product-truth packet so the repo

@@ -51,7 +51,7 @@ real-state rollback success.
 | Section | Required content |
 |---|---|
 | `commit_ref` | Safe commit identifier for the reviewed release candidate. |
-| `baseline_ref` | Safe baseline identifier such as `baseline:v2.0.0`. |
+| `baseline_ref` | Safe baseline identifier such as `baseline:v0.102.0`. |
 | `verification_lanes` | Lane ids, status, command refs, report refs, and safe summaries from the release verification lanes. |
 | `report_refs` | Safe refs to Foundation Gate, documentation, OpenAPI, security, frontend, durability, backup/restore, local model, and performance evidence where applicable. |
 | `accepted_failures` | Empty when none exist; otherwise owner ref, reviewer ref, expiry, reason code, safe impact summary, and evidence refs. |

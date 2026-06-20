@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v2.0.0 plus accepted checkpoint-m168 and active Operator
+Current through: v0.102.0 plus accepted checkpoint-m168 and active Operator
 Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
 
 This is the human-facing entrypoint for active documentation. The full catalog
@@ -13,7 +13,7 @@ current implementation claims.
 
 | Need | Start with |
 |---|---|
-| Current repository story | `README.md`, `VERSION.md`, `docs/release_notes/v2_0_0.md` |
+| Current repository story | `README.md`, `VERSION.md`, `docs/release_notes/v0_102_0.md` |
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Product claims and gaps | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |
@@ -23,17 +23,17 @@ current implementation claims.
 
 ## Current Baseline Packet
 
-The product/package baseline is `v2.0.0` / `2.0.0`. The latest accepted
+The product/package baseline is `v0.102.0` / `0.102.0`. The latest accepted
 repository checkpoint tag is `checkpoint-m168`. The latest accepted local model
 lane checkpoint tags remain `checkpoint-m166` and `checkpoint-m167`.
 
 Current release and checkpoint refs:
 
 ```text
-docs/archive/releases/v2_0_0/README_IMPORT.md
-docs/archive/releases/v2_0_0/master_plan.md
-docs/release_notes/v2_0_0.md
-docs/implementation/foundation_gate_implementation_plan_v2_0_0.md
+docs/archive/releases/v0_102_0/README_IMPORT.md
+docs/archive/releases/v0_102_0/master_plan.md
+docs/release_notes/v0_102_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_102_0.md
 docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md

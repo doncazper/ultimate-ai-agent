@@ -70,7 +70,7 @@ Example shape:
 {
   "schema_version": "uaa-local-backup.v1",
   "backup_ref": "backup:local-state-p1-028",
-  "source_baseline_ref": "baseline:v2.0.0",
+  "source_baseline_ref": "baseline:v0.102.0",
   "component_refs": [
     "state-ref:durable-runs",
     "state-ref:durable-receipts",

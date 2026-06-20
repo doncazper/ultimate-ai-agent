@@ -4,7 +4,7 @@
   "packet_id": "release-packet:example-local-rc",
   "release_candidate_ref": "release-candidate:example-local-rc",
   "commit_ref": "commit:0000000",
-  "baseline_ref": "baseline:v2.0.0",
+  "baseline_ref": "baseline:v0.102.0",
   "created_at_utc": "2026-06-19T00:00:00Z",
   "status_semantics": {
     "pass": "The lane completed and produced safe summaries or safe refs.",

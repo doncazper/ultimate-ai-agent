@@ -12,7 +12,7 @@ hosted production service, broad-autonomy runtime, or unrestricted tool runner.
 
 | Field | Current state |
 |---|---|
-| Active baseline | **v2.0.0** / `2.0.0` |
+| Active baseline | **v0.102.0** / `0.102.0` |
 | Active program | **Operator Runtime Excellence** |
 | Current lane | **Operator Runtime Excellence P2 ecosystem inspection lane through UAA-P2-051** |
 | Latest repository checkpoint | **checkpoint-m168** |
@@ -21,7 +21,7 @@ hosted production service, broad-autonomy runtime, or unrestricted tool runner.
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 
-The active product/package baseline is `v2.0.0`. `checkpoint-m168` is the
+The active product/package baseline is `v0.102.0` / `0.102.0`. `checkpoint-m168` is the
 latest accepted repository checkpoint and repairs currentness across README,
 roadmap, board, checkpoint references, product truth, and route-count
 references. The M160-M167 local model lane remains scoped to local
@@ -36,8 +36,8 @@ is not the active package baseline.
 Current archived release packet refs:
 
 ```text
-docs/archive/releases/v2_0_0/README_IMPORT.md
-docs/archive/releases/v2_0_0/master_plan.md
+docs/archive/releases/v0_102_0/README_IMPORT.md
+docs/archive/releases/v0_102_0/master_plan.md
 ```
 
 ## What This Repo Is
@@ -158,7 +158,7 @@ Start here:
 - [Current roadmap](docs/canonical/09_roadmap.md)
 - [Operator Runtime Excellence roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
 - [Current Kanban board](docs/kanban/current_board.md)
-- [Release notes for v2.0.0](docs/release_notes/v2_0_0.md)
+- [Release notes for v0.102.0](docs/release_notes/v0_102_0.md)
 - [Checkpoint M168 notes](docs/release_notes/checkpoint_m168.md)
 
 Historical docs live under [docs/archive](docs/archive/README.md). They are
@@ -167,7 +167,7 @@ audit artifacts, not current implementation claims.
 ## Historical Roadmap Anchors
 
 The active roadmap keeps M34-M60 labels as immutable audit anchors while the
-current baseline remains v2.0.0:
+current baseline remains v0.102.0:
 
 | Release | Milestone |
 |---|---|

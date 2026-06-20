@@ -1,6 +1,11 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v2.0.0. Package version: v2.0.0.
+Active baseline: v0.102.0. Package version: 0.102.0.
+
+Version repair note: v2.0.0 is preserved as an immutable historical internal
+mislabel and must not be treated as the current project/package baseline.
+Existing tags remain historical records; do not delete, move, retarget, or
+force-push them without a separate explicit remote-repair approval.
 
 ## Scoped Productionization Lane (M167+)
 

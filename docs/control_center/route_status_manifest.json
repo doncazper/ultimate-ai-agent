@@ -1,7 +1,7 @@
 {
   "schema_version": "uaa-control-center-route-status.v1",
   "status": "active UAA-P1-030 route status manifest",
-  "baseline": "v2.0.0 / 2.0.0",
+  "baseline": "v0.102.0 / 0.102.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "openapi_path_count": 97,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",

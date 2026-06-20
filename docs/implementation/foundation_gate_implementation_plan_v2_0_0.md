@@ -1,14 +1,14 @@
-# Foundation Gate Implementation Plan v2.0.0
+# Superseded Foundation Gate Implementation Plan v2.0.0
 
-v2.0.0 keeps Foundation Gate coverage aligned with the accepted Operator Runtime
-Excellence P0 currentness baseline.
+This historical plan is preserved for audit context only. The active Foundation
+Gate implementation plan is `docs/implementation/foundation_gate_implementation_plan_v0_102_0.md`, and the active corrected baseline is v0.102.0 / 0.102.0.
 
 Gate coverage:
 
 - Current baseline labels are derived from `VERSION.md` and checked across
   active README, roadmap, docs index, canonical map, release notes, implementation
   plan, and archived release packet paths.
-- Active docs must preserve the current v2.0.0 baseline, checkpoint-m168
+- Active docs formerly preserved the v2.0.0 internal mislabel; active docs must now preserve the current v0.102.0 baseline, checkpoint-m168
   repository checkpoint, checkpoint-m166/checkpoint-m167 local model checkpoint
   context, Operator Runtime Excellence roadmap links, current Kanban board link,
   and the 97-path OpenAPI route count.
