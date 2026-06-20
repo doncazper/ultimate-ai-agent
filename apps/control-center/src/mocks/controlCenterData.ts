@@ -25,6 +25,7 @@ export const mockControlCenterData: ControlCenterData = {
       "control_center_m39_context_proposal_surface",
       "control_center_provider_credential_readiness",
       "control_center_macos_setup_assistant_preview",
+      "control_center_founder_loop_storage_summaries",
     ],
     blocked_capabilities: [
       "runtime_execution",
@@ -45,6 +46,10 @@ export const mockControlCenterData: ControlCenterData = {
       "/control-center/status",
       "/control-center/routes",
       "/control-center/actions/preview",
+      "/control-center/today/summary",
+      "/control-center/actions/inbox",
+      "/control-center/morning-briefing/summary",
+      "/control-center/storage/status",
     ],
     metadata: {
       mock: true,
@@ -274,8 +279,8 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
     api_summary: {
-      route_count: 108,
-      control_center_route_count: 9,
+      route_count: 112,
+      control_center_route_count: 13,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -1533,6 +1538,207 @@ export const mockControlCenterData: ControlCenterData = {
         mock: true,
       },
     ],
+  },
+  founderToday: {
+    schema_version: "founder_loop_storage.v1",
+    status: "mock_storage_backed_partial_loop",
+    surface: "Today",
+    storage_ref: "founder-loop-storage:mock-local-sqlite-jsonl",
+    side_effect_class: "local_dev_workspace_only",
+    approval_required_before_mutation: true,
+    sections: {
+      action_inbox_count: 2,
+      plan_count: 1,
+      memory_review_count: 1,
+      briefing_count: 2,
+    },
+    actions: [
+      {
+        item_ref: "founder-action:mock-setup-hardening",
+        title: "Setup Assistant hardening review",
+        safe_summary:
+          "Dry-run setup envelopes are visible for review; installer and background-service authority remain blocked.",
+        surface: "Actions",
+        priority: "high",
+        status: "review_ready",
+        side_effect_class: "validation_only",
+        approval_required: true,
+        blocked_state:
+          "Exact approval scope, idempotency, rollback, and receipt refs are required before mutation.",
+        evidence_refs: ["evidence-ref:founder-loop:mock-setup-hardening"],
+      },
+      {
+        item_ref: "founder-action:mock-briefing",
+        title: "Morning Briefing skeleton review",
+        safe_summary:
+          "Briefing cards are bounded summaries only; email and calendar reads remain future contracts.",
+        surface: "Today",
+        priority: "medium",
+        status: "review_ready",
+        side_effect_class: "local_dev_workspace_only",
+        approval_required: false,
+        blocked_state: "Connector reads and notification delivery are not scoped.",
+        evidence_refs: ["evidence-ref:founder-loop:mock-briefing"],
+      },
+    ],
+    plans: [
+      {
+        plan_ref: "plan-summary:founder-loop-v1",
+        title: "Founder Loop v1 product spine",
+        status: "partial_backend_not_product_ready",
+        safe_summary:
+          "Today, Actions, Plans, Memory, Evidence, and Settings are the active single-user operator loop.",
+        next_step_summary:
+          "Keep the loop storage-backed and review-gated before adding broader runtime surfaces.",
+        evidence_refs: ["evidence-ref:founder-loop:mock-product-spine"],
+      },
+    ],
+    memory_review_queue: [
+      {
+        review_ref: "memory-review:founder-loop-preferences",
+        title: "Founder Loop memory review",
+        safe_summary:
+          "Memory remains a review queue with safe summaries; recall is not truth or execution authority.",
+        status: "review_needed",
+        evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
+      },
+    ],
+    briefing_items: [
+      {
+        briefing_ref: "briefing:api-boundary-modularization",
+        title: "API boundary modularization",
+        safe_summary:
+          "New Founder Loop summaries use router and repository seams while the legacy FastAPI module remains a compatibility boundary.",
+        status: "active",
+        evidence_refs: ["evidence-ref:founder-loop:mock-api-boundary"],
+      },
+      {
+        briefing_ref: "briefing:storage-state-first-loop",
+        title: "Storage-backed first loop",
+        safe_summary:
+          "SQLite stores indexed loop state and JSONL refs cover redacted append-only proof lanes.",
+        status: "active",
+        evidence_refs: ["evidence-ref:founder-loop:mock-storage"],
+      },
+    ],
+    evidence_refs: ["evidence-ref:founder-loop:mock-today-summary"],
+    blocked_states: [
+      "no_action_execution_route",
+      "no_connector_write_route",
+      "no_runtime_model_call_route",
+    ],
+  },
+  founderActionsInbox: {
+    schema_version: "founder_loop_storage.v1",
+    status: "mock_storage_backed_review_queue",
+    surface: "Actions",
+    storage_ref: "founder-loop-storage:mock-local-sqlite-jsonl",
+    side_effect_class: "local_dev_workspace_only",
+    items: [
+      {
+        item_ref: "founder-action:mock-setup-hardening",
+        title: "Setup Assistant hardening review",
+        safe_summary:
+          "Dry-run setup envelopes are visible for review; installer and background-service authority remain blocked.",
+        surface: "Actions",
+        priority: "high",
+        status: "review_ready",
+        side_effect_class: "validation_only",
+        approval_required: true,
+        blocked_state:
+          "Exact approval scope, idempotency, rollback, and receipt refs are required before mutation.",
+        evidence_refs: ["evidence-ref:founder-loop:mock-setup-hardening"],
+      },
+      {
+        item_ref: "founder-action:mock-briefing",
+        title: "Morning Briefing skeleton review",
+        safe_summary:
+          "Briefing cards are bounded summaries only; email and calendar reads remain future contracts.",
+        surface: "Today",
+        priority: "medium",
+        status: "review_ready",
+        side_effect_class: "local_dev_workspace_only",
+        approval_required: false,
+        blocked_state: "Connector reads and notification delivery are not scoped.",
+        evidence_refs: ["evidence-ref:founder-loop:mock-briefing"],
+      },
+    ],
+    approval_required_before_mutation: true,
+    mutating_controls_enabled: false,
+    disabled_state_label: "Exact backend approval contract required",
+    evidence_refs: ["evidence-ref:founder-loop:mock-action-inbox"],
+  },
+  founderMorningBriefing: {
+    schema_version: "founder_loop_storage.v1",
+    status: "mock_storage_backed_briefing_skeleton",
+    surface: "Morning Briefing",
+    storage_ref: "founder-loop-storage:mock-local-sqlite-jsonl",
+    side_effect_class: "local_dev_workspace_only",
+    items: [
+      {
+        briefing_ref: "briefing:api-boundary-modularization",
+        title: "API boundary modularization",
+        safe_summary:
+          "New Founder Loop summaries use router and repository seams while the legacy FastAPI module remains a compatibility boundary.",
+        status: "active",
+        evidence_refs: ["evidence-ref:founder-loop:mock-api-boundary"],
+      },
+      {
+        briefing_ref: "briefing:storage-state-first-loop",
+        title: "Storage-backed first loop",
+        safe_summary:
+          "SQLite stores indexed loop state and JSONL refs cover redacted append-only proof lanes.",
+        status: "active",
+        evidence_refs: ["evidence-ref:founder-loop:mock-storage"],
+      },
+    ],
+    evidence_refs: ["evidence-ref:founder-loop:mock-morning-briefing"],
+    blocked_states: [
+      "no_email_read_authority",
+      "no_calendar_read_authority",
+      "no_notification_delivery",
+    ],
+  },
+  founderStorageStatus: {
+    schema_version: "founder_loop_storage.v1",
+    migration_version: "founder_loop_storage.v1",
+    storage_ref: "founder-loop-storage:mock-local-sqlite-jsonl",
+    sqlite_state_ref: "founder-loop-sqlite:mock-local-state",
+    jsonl_log_refs: {
+      audit: "founder-loop-log:audit",
+      transcript: "founder-loop-log:transcript",
+      realtime: "founder-loop-log:realtime",
+      receipt: "founder-loop-log:receipt",
+    },
+    counts: {
+      action_inbox: 2,
+      briefing_items: 2,
+      plan_summaries: 1,
+      memory_review_queue: 1,
+      idempotency_keys: 0,
+      route_state_snapshots: 0,
+      evidence_refs: 1,
+    },
+    safe_refs_only: true,
+    raw_content_stored: false,
+    postgres_sync_required: false,
+    postgres_sync_status: "adapter_boundary_only",
+    backup_manifest_ref: "backup-manifest:founder-loop-minimum-set",
+    backup_manifest: {
+      schema_version: "founder_loop_storage.v1",
+      manifest_ref: "backup-manifest:founder-loop-minimum-set",
+      required_artifact_refs: [
+        "founder-loop-sqlite:local-state",
+        "founder-loop-log:audit",
+        "founder-loop-log:transcript",
+        "founder-loop-log:realtime",
+        "founder-loop-log:receipt",
+      ],
+      raw_paths_included: false,
+      raw_logs_included: false,
+      safe_refs_only: true,
+    },
+    updated_at: "2026-01-01T00:00:00Z",
   },
   macosSetupAssistant: {
     planRef: "macos-setup-plan:foundation",

@@ -62,11 +62,12 @@ def test_frontend_package_has_only_local_shell_dependencies():
         '"expo"',
         '"react-native"',
         '"electron"',
-        '"playwright"',
         '"puppeteer"',
     ]
     for fragment in forbidden:
         assert fragment not in package
+    assert '"@playwright/test"' in package
+    assert '"visual:check": "playwright test --config=playwright.visual.config.ts"' in package
 
 
 def test_frontend_mocks_remain_non_authoritative():

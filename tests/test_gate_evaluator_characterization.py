@@ -1,0 +1,329 @@
+import json
+from pathlib import Path
+
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.gate import FoundationGateEvaluator as PackageFoundationGateEvaluator
+from ultimate_ai_agent.core.gate.criteria import default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate.evaluator_modules.route_contracts import (
+    evaluate_route_contract,
+    route_contract_registry,
+)
+from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
+    EXPECTED_M36_OPENAPI_PATH_COUNT,
+    EXPECTED_M167_OPENAPI_PATH_COUNT,
+    FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
+    POST_MILESTONE_SAFE_ROUTE_FAMILIES,
+    _historical_openapi_path_set,
+    _post_m151_route_boundary_path_set,
+)
+from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
+    forbidden_route_fragment_failures,
+    operation_id_failures,
+    unsafe_side_effect_class_failures,
+)
+from ultimate_ai_agent.core.gate.evaluator_registry import evaluator_registry
+from ultimate_ai_agent.core.gate.evaluators import (
+    FoundationGateEvaluator,
+    STATIC_SAFETY_EVALUATOR_DATA_FILES,
+    _is_static_safety_scan_allowed_file,
+    m21_forbidden_openwebui_runtime_fragment_failures,
+    m36_openapi_route_failures,
+    m167_openapi_route_failures,
+)
+from scripts.classify_foundation_gate_failures import classify_failures
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_foundation_gate_legacy_imports_remain_compatible():
+    assert PackageFoundationGateEvaluator is FoundationGateEvaluator
+    assert callable(m36_openapi_route_failures)
+    assert callable(m167_openapi_route_failures)
+
+
+def test_route_contract_module_delegates_to_legacy_facade_without_output_drift():
+    paths = app.openapi()["paths"].keys()
+
+    assert evaluate_route_contract(36, paths) == m36_openapi_route_failures(paths)
+    assert evaluate_route_contract(167, paths) == m167_openapi_route_failures(paths)
+    assert evaluate_route_contract(36, paths) == []
+    assert evaluate_route_contract(167, paths) == []
+
+
+def test_post_milestone_safe_route_families_are_explicitly_normalized():
+    paths = set(app.openapi()["paths"].keys())
+
+    assert FOUNDER_LOOP_CONTROL_CENTER_ROUTES == {
+        "/control-center/actions/inbox",
+        "/control-center/morning-briefing/summary",
+        "/control-center/storage/status",
+        "/control-center/today/summary",
+    }
+    assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
+        "control_center_setup_assistant",
+        "founder_loop",
+        "mattermost",
+        "packaging_proof",
+        "redacted_observability",
+        "task_decomposition",
+        "visual_proof",
+        "v1_local_model_gateway",
+    }
+    assert len(_post_m151_route_boundary_path_set(paths)) == EXPECTED_M167_OPENAPI_PATH_COUNT
+    assert len(_historical_openapi_path_set(paths)) == EXPECTED_M36_OPENAPI_PATH_COUNT
+
+
+def test_route_side_effect_helpers_match_current_manifest_contract():
+    from ultimate_ai_agent.api.manifest import iter_api_route_items
+    from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENTS
+
+    routes = iter_api_route_items(app)
+
+    assert operation_id_failures(routes) == []
+    assert forbidden_route_fragment_failures(routes, FORBIDDEN_ROUTE_FRAGMENTS) == []
+    assert unsafe_side_effect_class_failures(routes) == []
+
+
+def test_foundation_gate_failure_classification_fixture_is_safe_and_bounded():
+    fixture_path = ROOT / "tests/fixtures/foundation_gate_failure_classification.json"
+    summary = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    assert summary["schema_version"] == "uaa-foundation-gate-failure-classification.v1"
+    assert summary["source"]["report_ref"] == "foundation-gate-report:latest"
+    assert summary["source"]["failed_count"] == len(summary["items"])
+    assert set(summary["classification_counts"]).issubset(
+        {
+            "expected_safe_route_family_needs_normalization",
+            "real_unsafe_route_drift",
+            "stale_historical_expectation",
+            "unknown_needs_review",
+        }
+    )
+    assert "raw_paths_omitted" in summary["redactions_applied"]
+    assert "/Users/" not in json.dumps(summary)
+
+
+def test_static_safety_evaluator_data_file_exemption_is_exact():
+    route_boundary_data_file = "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
+
+    assert STATIC_SAFETY_EVALUATOR_DATA_FILES == frozenset({route_boundary_data_file})
+    assert _is_static_safety_scan_allowed_file(route_boundary_data_file, frozenset())
+    assert _is_static_safety_scan_allowed_file("src/allowed.py", {"src/allowed.py"})
+    assert not _is_static_safety_scan_allowed_file(
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_contracts.py",
+        frozenset(),
+    )
+
+
+def test_route_boundary_data_only_static_scan_failures_classify_as_stale():
+    summary = classify_failures(
+        {
+            "overall_status": "failed",
+            "results": [
+                {
+                    "criterion_id": "m100_mobile_permission_model_v1_static_safety",
+                    "status": "failed",
+                    "failures": [
+                        "M100 forbidden mobile permission fragment in "
+                        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py: "
+                        "backend_route_added=True",
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert summary["classification_counts"] == {"stale_historical_expectation": 1}
+    assert summary["items"][0]["reason_code"] == (
+        "EXTRACTED_EVALUATOR_DATA_STATIC_SCAN_FALSE_POSITIVE"
+    )
+
+
+def test_route_contract_registry_maps_existing_openapi_milestones():
+    registry = route_contract_registry()
+    milestones = {entry.milestone for entry in registry}
+
+    assert {16, 36, 80, 108, 167}.issubset(milestones)
+    assert all(entry.status == "extracted_route_boundary" for entry in registry)
+    assert all(
+        entry.module == "ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries"
+        for entry in registry
+    )
+
+
+def test_evaluator_registry_marks_route_contracts_as_extracted():
+    entries = {entry.name: entry for entry in evaluator_registry()}
+
+    route_entry = entries["route_contract_evaluators"]
+    assert route_entry.status == "extracted_route_boundary"
+    assert route_entry.module == "ultimate_ai_agent.core.gate.evaluator_modules.route_contracts"
+
+
+def test_foundation_gate_openapi_characterization_report_shape():
+    criteria_by_id = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    selected = [
+        criteria_by_id["api_manifest_endpoint_present"],
+        criteria_by_id["openapi_contract_valid"],
+        criteria_by_id["api_operation_ids_unique"],
+    ]
+
+    report = FoundationGateEvaluator(ROOT).evaluate(selected)
+    result_ids = {result.criterion_id for result in report.results}
+
+    assert result_ids == {
+        "api_manifest_endpoint_present",
+        "openapi_contract_valid",
+        "api_operation_ids_unique",
+    }
+    assert report.overall_status == "passed"
+    assert report.failed_count == 0
+    assert report.passed_count == 3
+    assert report.summary == "3 passed, 0 failed, 0 warnings, 0 blocked."
+
+
+def test_m12_accepts_exact_founder_loop_local_dev_summary_routes():
+    criteria_by_id = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+
+    report = FoundationGateEvaluator(ROOT).evaluate(
+        [criteria_by_id["m12_control_center_api_read_only"]]
+    )
+
+    assert report.overall_status == "passed"
+    assert report.failed_count == 0
+
+
+def test_proof_lane_normalizations_do_not_create_legacy_gate_false_positives():
+    criteria_by_id = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    selected = [
+        criteria_by_id["m13_web_shell_read_only_preview_only"],
+        criteria_by_id["m13_frontend_ci_covers_local_checks"],
+        criteria_by_id["m21_openwebui_bridge_contract_safe"],
+        criteria_by_id["m167_live_model_production_hardening_static_safety"],
+    ]
+
+    report = FoundationGateEvaluator(ROOT).evaluate(selected)
+
+    assert report.overall_status == "passed"
+    assert report.failed_count == 0
+
+
+def test_m13_playwright_ci_exception_rejects_chained_execution(tmp_path):
+    workflow = tmp_path / ".github/workflows/ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        "\n".join(
+            [
+                "jobs:",
+                "  release-lane-visual-regression:",
+                "    steps:",
+                "      - run: cd apps/control-center",
+                "      - run: npm ci",
+                "      - run: npm run typecheck --if-present",
+                "      - run: npm run lint --if-present",
+                "      - run: npm run test --if-present -- --run",
+                "      - run: npm run build --if-present",
+                "      - run: npm run visual:check",
+                "      - run: PYTHONPATH=src .venv/bin/python "
+                "scripts/verify_control_center_visual_regression.py",
+                "      - name: Install Playwright Chromium",
+                "        run: npx playwright install --with-deps chromium "
+                "&& npx playwright test https://example.invalid",
+                "  release-lane-desktop-packaging:",
+                "    steps:",
+                "      - run: PYTHONPATH=src .venv/bin/python "
+                "scripts/run_local_runtime_packaging_proof.py",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    criteria_by_id = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+
+    report = FoundationGateEvaluator(tmp_path).evaluate(
+        [criteria_by_id["m13_frontend_ci_covers_local_checks"]]
+    )
+
+    assert report.overall_status == "failed"
+    assert report.failed_count == 1
+    assert "CI includes forbidden browser/native/deploy fragment: playwright" in (
+        report.results[0].failures
+    )
+
+
+def test_m21_packaging_proof_exception_only_allows_compose_fragment(tmp_path):
+    script = tmp_path / "scripts/run_local_runtime_packaging_proof.py"
+    script.parent.mkdir(parents=True)
+    script.write_text('PROOF_SCOPE = "local docker-compose only"\n', encoding="utf-8")
+
+    assert m21_forbidden_openwebui_runtime_fragment_failures(tmp_path) == []
+
+    script.write_text(
+        '\n'.join(
+            [
+                'PROOF_SCOPE = "local docker-compose only"',
+                'UNSAFE = "openwebui_base_url /openwebui/execute"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    failures = m21_forbidden_openwebui_runtime_fragment_failures(tmp_path)
+    assert any("openwebui_base_url" in failure for failure in failures)
+    assert any("/openwebui/execute" in failure for failure in failures)
+
+
+def test_representative_static_safety_criteria_ignore_extracted_route_boundary_data():
+    criteria_by_id = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+    selected_ids = [
+        "m19_mobile_companion_contract_planning_safe",
+        "m20_device_capability_broker_contract_safe",
+        "m49_mobile_approval_static_safety",
+        "m80_network_browser_openwebui_hardening_freeze_static_safety",
+        "m100_mobile_permission_model_v1_static_safety",
+        "m125_connector_read_only_runtime_static_safety",
+        "m131_autonomy_mode4_scoped_work_session_static_safety",
+        "m150_ultimate_ai_agent_alpha_static_safety",
+        "m166_local_model_production_readiness_static_safety",
+    ]
+
+    report = FoundationGateEvaluator(ROOT).evaluate(
+        [criteria_by_id[criterion_id] for criterion_id in selected_ids]
+    )
+
+    assert report.overall_status == "passed", {
+        result.criterion_id: result.failures
+        for result in report.results
+        if result.status == "failed"
+    }
+
+
+def test_static_safety_scans_still_fail_non_exempt_source_files(tmp_path):
+    source_file = tmp_path / "src/ultimate_ai_agent/core/not_allowed.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("backend_route_added=True\n", encoding="utf-8")
+    criteria_by_id = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+
+    report = FoundationGateEvaluator(tmp_path).evaluate(
+        [criteria_by_id["m100_mobile_permission_model_v1_static_safety"]]
+    )
+
+    assert report.overall_status == "failed"
+    assert any("backend_route_added=True" in failure for failure in report.results[0].failures)

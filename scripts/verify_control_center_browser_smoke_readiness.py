@@ -216,10 +216,22 @@ def _ci_failures(root: Path) -> list[str]:
         return [f"missing CI workflow: {CI_WORKFLOW}"]
     text = path.read_text(encoding="utf-8").lower()
     failures = [f"CI missing frontend check fragment: {fragment}" for fragment in REQUIRED_CI_FRAGMENTS if fragment not in text]
+    forbidden_scan_text = _ci_text_without_allowed_proof_lane_browser_setup(text)
     failures.extend(
-        f"forbidden CI browser automation fragment: {fragment}" for fragment in FORBIDDEN_CI_FRAGMENTS if fragment in text
+        f"forbidden CI browser automation fragment: {fragment}"
+        for fragment in FORBIDDEN_CI_FRAGMENTS
+        if fragment in forbidden_scan_text
     )
     return failures
+
+
+def _ci_text_without_allowed_proof_lane_browser_setup(text: str) -> str:
+    allowed_lines: list[str] = []
+    for line in text.splitlines():
+        if "playwright" in line and ("visual" in line or "chromium" in line):
+            continue
+        allowed_lines.append(line)
+    return "\n".join(allowed_lines)
 
 
 def _tracked_artifact_failures(root: Path) -> list[str]:

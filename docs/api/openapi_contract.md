@@ -1,8 +1,8 @@
 # OpenAPI Contract
 
-Current active baseline: **v0.102.2**
+Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `108`.
+Current OpenAPI path count: `112`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -33,6 +33,11 @@ Contract rules:
   local, bounded, redacted-summary routes only; they must not expose raw JSONL
   records, request or response bodies, prompts, provider payloads, terminal
   output, credentials, or external telemetry.
+- `GET /control-center/today/summary`, `GET /control-center/actions/inbox`,
+  `GET /control-center/morning-briefing/summary`, and
+  `GET /control-center/storage/status` expose storage-backed Founder Loop
+  summaries using SQLite and JSONL refs only. They do not grant action
+  execution, connector writes, model/provider calls, or notification delivery.
 
 Forbidden by the current API boundary:
 

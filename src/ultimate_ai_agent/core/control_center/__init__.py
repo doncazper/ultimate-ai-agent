@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.control_center.enums import (
     ControlCenterRiskLevel,
     ControlCenterSurface,
 )
+from ultimate_ai_agent.core.control_center.founder_loop import FounderLoopControlCenterService
 from ultimate_ai_agent.core.control_center.manifest import (
     CONTROL_CENTER_ROUTES,
     ControlCenterManifest,
@@ -54,6 +55,7 @@ __all__ = [
     "ControlCenterRiskLevel",
     "ControlCenterSurface",
     "ControlCenterSurfaceManifest",
+    "FounderLoopControlCenterService",
     "GateSummary",
     "GovernedProviderInvocationReadiness",
     "MobilePlanningSummary",

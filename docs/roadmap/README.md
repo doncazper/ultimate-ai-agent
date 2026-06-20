@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v0.102.2 plus accepted checkpoint-m168 and active Operator Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
+Current through: v0.102.3 plus accepted checkpoint-m168 and active Operator Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap sources of truth:
@@ -50,7 +50,7 @@ complete the scoped local model live lane, M166 is the exact-scope local model
 production-readiness gate, and M167 hardens that gate with reviewed live
 evidence. The latest accepted repository checkpoint tag is `checkpoint-m168`;
 the latest accepted local model lane checkpoint tags remain `checkpoint-m166`
-and `checkpoint-m167`. The product/package baseline is v0.102.2 / 0.102.2.
+and `checkpoint-m167`. The product/package baseline is v0.102.3 / 0.102.3.
 
 Active program note: M168 starts the Operator Runtime Excellence currentness and
 product-truth lane; P0 repair work through UAA-P0-017 adds public security

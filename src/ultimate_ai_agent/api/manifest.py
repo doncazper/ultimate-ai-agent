@@ -22,6 +22,11 @@ CAPABILITIES_DECLARED = [
     "control_center_read_only_dashboard",
     "control_center_setup_assistant_summary",
     "control_center_setup_approval_envelopes_dry_run",
+    "control_center_founder_loop_storage_summaries",
+    "control_center_today_summary",
+    "control_center_action_inbox_summary",
+    "control_center_morning_briefing_summary",
+    "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
     "local_model_gateway_disabled_by_default",
     "local_loopback_runtime_disabled_by_default",
@@ -159,6 +164,12 @@ LOCAL_DEV_WORKSPACE_PREFIXES = (
     "/v1",
     "/integrations/mattermost",
 )
+CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
+    "/control-center/today",
+    "/control-center/actions/inbox",
+    "/control-center/morning-briefing",
+    "/control-center/storage",
+)
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 
 API_MANIFEST_CACHEABLE_FIELDS = (
@@ -242,6 +253,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.none
     if path.startswith("/web-evidence/"):
         return ApiRouteSideEffectClass.governed_network_read_only
+    if path.startswith(CONTROL_CENTER_LOCAL_STATE_PREFIXES):
+        return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith(LOCAL_DEV_WORKSPACE_PREFIXES):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if any(hint in path for hint in VALIDATION_HINTS):

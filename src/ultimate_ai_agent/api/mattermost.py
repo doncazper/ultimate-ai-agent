@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
 from pydantic import ValidationError
 
+from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.hygiene.envelopes import ErrorCategory, ErrorEnvelope, ResultEnvelope, Severity
 from ultimate_ai_agent.core.mattermost import (
     MattermostBridgeService,
@@ -153,13 +154,7 @@ def get_mattermost_receipts(
 
 
 def register_mattermost_routes(app: FastAPI) -> None:
-    if getattr(app.state, _REGISTERED_ATTR, False):
-        return
-    registered_paths = {getattr(route, "path", None) for route in app.router.routes}
-    for route in router.routes:
-        if getattr(route, "path", None) not in registered_paths:
-            app.router.routes.append(route)
-    setattr(app.state, _REGISTERED_ATTR, True)
+    register_router_once(app, router, state_attr=_REGISTERED_ATTR)
 
 
 def _require_mattermost_authority(authorization: str | None) -> None:

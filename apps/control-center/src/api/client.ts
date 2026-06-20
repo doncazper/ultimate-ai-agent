@@ -7,6 +7,10 @@ import type {
   ControlCenterData,
   ControlCenterManifest,
   ControlCenterStatus,
+  FounderLoopActionsInbox,
+  FounderLoopMorningBriefing,
+  FounderLoopStorageStatus,
+  FounderLoopTodaySummary,
   LocalModelsInspectionStatus,
   RedactedLocalChatProbeStatus,
   ResultEnvelope,
@@ -72,6 +76,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeCapabilityMatrix,
     ),
     readEnvelope<unknown>(API_ENDPOINTS.setupAssistantSummary),
+    readEnvelope<FounderLoopTodaySummary>(API_ENDPOINTS.founderTodaySummary),
+    readEnvelope<FounderLoopActionsInbox>(API_ENDPOINTS.founderActionsInbox),
+    readEnvelope<FounderLoopMorningBriefing>(
+      API_ENDPOINTS.founderMorningBriefing,
+    ),
+    readEnvelope<FounderLoopStorageStatus>(API_ENDPOINTS.founderStorageStatus),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -84,6 +94,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     fulfilledValue(results[6]),
     mockControlCenterData.macosSetupAssistant,
   );
+  const founderToday = fulfilledValue(results[7]);
+  const founderActionsInbox = fulfilledValue(results[8]);
+  const founderMorningBriefing = fulfilledValue(results[9]);
+  const founderStorageStatus = fulfilledValue(results[10]);
   const fulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
@@ -114,6 +128,13 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m36FileReview: mockControlCenterData.m36FileReview,
     m39ContextProposals: mockControlCenterData.m39ContextProposals,
     macosSetupAssistant: setupAssistant,
+    founderToday: founderToday ?? mockControlCenterData.founderToday,
+    founderActionsInbox:
+      founderActionsInbox ?? mockControlCenterData.founderActionsInbox,
+    founderMorningBriefing:
+      founderMorningBriefing ?? mockControlCenterData.founderMorningBriefing,
+    founderStorageStatus:
+      founderStorageStatus ?? mockControlCenterData.founderStorageStatus,
     source: "api",
     connection: mockControlCenterData.connection,
   };

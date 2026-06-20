@@ -37,6 +37,10 @@ def test_control_center_api_routes_are_read_only_preview_only():
         "/control-center/runtime-readiness/summary",
         "/control-center/foundation-gate/summary",
         "/control-center/setup-assistant/summary",
+        "/control-center/today/summary",
+        "/control-center/actions/inbox",
+        "/control-center/morning-briefing/summary",
+        "/control-center/storage/status",
     ]:
         response = client.get(path)
         assert response.status_code == 200
@@ -194,6 +198,10 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
         "/control-center/foundation-gate/summary",
         "/control-center/setup-assistant/summary",
         "/control-center/actions/preview",
+        "/control-center/today/summary",
+        "/control-center/actions/inbox",
+        "/control-center/morning-briefing/summary",
+        "/control-center/storage/status",
     }
     assert required.issubset(paths)
     for forbidden in [
@@ -221,8 +229,8 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
     assert "/observability/session-events" in paths
     assert "/observability/client-errors" in paths
     assert "/integrations/mattermost/events/message" in paths
-    assert len(paths) == 108
-    assert len(operation_ids) == len(set(operation_ids)) == 108
+    assert len(paths) == 112
+    assert len(operation_ids) == len(set(operation_ids)) == 112
 
 
 def test_control_center_operator_shell_gap_map_is_current_and_safe():
@@ -231,7 +239,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 108 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 112 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
@@ -262,6 +270,10 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
         "`get /observability/session-events`",
         "`post /observability/client-errors`",
         "`get /control-center/setup-assistant/summary`",
+        "`get /control-center/today/summary`",
+        "`get /control-center/actions/inbox`",
+        "`get /control-center/morning-briefing/summary`",
+        "`get /control-center/storage/status`",
         "`get /control-center/routes`",
     ]:
         assert route in compact
@@ -291,7 +303,7 @@ def test_control_center_route_status_manifest_covers_visible_actions():
 
     assert manifest["schema_version"] == "uaa-control-center-route-status.v1"
     assert manifest["status"] == "active UAA-P1-030 route status manifest"
-    assert manifest["openapi_path_count"] == 108
+    assert manifest["openapi_path_count"] == 112
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {

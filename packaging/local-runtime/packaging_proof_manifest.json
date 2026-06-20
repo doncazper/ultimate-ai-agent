@@ -1,0 +1,70 @@
+{
+  "schema_version": "uaa-local-runtime-packaging-proof.v1",
+  "status": "active executable launch-smoke proof",
+  "proof_command_ref": "command:desktop-packaging.proof",
+  "proof_script_ref": "script:local-runtime-packaging-proof",
+  "summary_schema": "uaa-local-runtime-packaging-proof-summary.v1",
+  "packaging_scope": "local loopback Docker compose proof only",
+  "distribution_claims_allowed": false,
+  "required_steps": [
+    {
+      "step_id": "compose-build",
+      "command_ref": "command:packaging.compose-build",
+      "status": "implemented local proof",
+      "safe_evidence_ref": "packaging-proof:compose-build",
+      "raw_log_included": false
+    },
+    {
+      "step_id": "api-health",
+      "command_ref": "command:packaging.api-health",
+      "status": "implemented local proof",
+      "safe_evidence_ref": "packaging-proof:api-health",
+      "raw_log_included": false
+    },
+    {
+      "step_id": "control-center-load",
+      "command_ref": "command:packaging.control-center-load",
+      "status": "implemented local proof",
+      "safe_evidence_ref": "packaging-proof:control-center-load",
+      "raw_log_included": false
+    },
+    {
+      "step_id": "route-manifest-check",
+      "command_ref": "command:packaging.route-manifest-check",
+      "status": "implemented local proof",
+      "safe_evidence_ref": "packaging-proof:route-manifest-check",
+      "raw_log_included": false
+    },
+    {
+      "step_id": "screenshot-capture",
+      "command_ref": "command:packaging.screenshot-capture",
+      "status": "implemented redacted proof",
+      "safe_evidence_ref": "packaging-proof:screenshot-capture",
+      "raw_log_included": false
+    },
+    {
+      "step_id": "clean-shutdown",
+      "command_ref": "command:packaging.clean-shutdown",
+      "status": "implemented local proof",
+      "safe_evidence_ref": "packaging-proof:clean-shutdown",
+      "raw_log_included": false
+    }
+  ],
+  "safety": {
+    "raw_prompt_included": false,
+    "raw_response_included": false,
+    "raw_provider_payload_included": false,
+    "raw_path_included": false,
+    "raw_log_included": false,
+    "username_included": false,
+    "hostname_included": false,
+    "environment_dump_included": false,
+    "credential_material_included": false
+  },
+  "non_goals": [
+    "does not claim signed installer readiness",
+    "does not claim public distribution readiness",
+    "does not add remote execution",
+    "does not include raw logs, local paths, usernames, hostnames, credentials, or environment dumps"
+  ]
+}

@@ -1,8 +1,8 @@
 # Route Inventory
 
-Current active baseline: **v0.102.2**
+Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `108`.
+Current OpenAPI path count: `112`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -102,6 +102,22 @@ installer actions, execute shell commands, download models, install/load/start
 LaunchAgents, install/load/start background services, handle credentials, claim
 signed installer readiness, claim public distribution, claim production
 readiness, or execute rollback.
+
+### Control Center Founder Loop summaries
+
+- `GET /control-center/today/summary`
+- `GET /control-center/actions/inbox`
+- `GET /control-center/morning-briefing/summary`
+- `GET /control-center/storage/status`
+
+These routes expose storage-backed Founder Loop v1 summaries for Today, Action
+Inbox, Morning Briefing, and local storage status. They return safe refs,
+bounded summaries, side-effect classes, evidence refs, blocked states, and
+backup manifest refs only. They do not approve, run, send, install, enable,
+dispatch, call providers, perform connector writes, read email/calendar data,
+deliver notifications, or expose raw prompts, raw responses, raw paths, raw
+logs, usernames, hostnames, environment dumps, credential material, or provider
+payloads.
 
 ### Local model and runtime readiness
 

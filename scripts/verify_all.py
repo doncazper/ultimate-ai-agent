@@ -278,6 +278,10 @@ OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "scripts/verify_all.py",
     "scripts/verify_control_center_frontend.py",
     "scripts/verify_documentation_integrity.py",
+    "scripts/run_local_runtime_packaging_proof.py",
+    "scripts/verify_local_runtime_packaging_proof.py",
+    "scripts/verify_release_lanes.py",
+    "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
     "src/ultimate_ai_agent/core/gate/evaluators.py",
     "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
     "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
@@ -901,7 +905,6 @@ def verify_m13_web_control_center_frontend_safety():
         "expo",
         "react-native",
         "electron",
-        "playwright",
         "puppeteer",
         "webdriver",
     ]
@@ -1521,6 +1524,7 @@ def verify_m25_truth_source_evidence_checker_safety():
             rel = path.relative_to(ROOT).as_posix()
             if rel in {
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
                 "src/ultimate_ai_agent/api/openapi.py",
             }:
                 continue
@@ -1933,6 +1937,7 @@ def verify_m26_grounded_recall_context_pack_safety():
             rel = path.relative_to(ROOT).as_posix()
             if rel in {
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
                 "src/ultimate_ai_agent/api/openapi.py",
             }:
                 continue
@@ -2183,6 +2188,7 @@ def verify_m27_tool_broker_v2_safety():
             rel = path.relative_to(ROOT).as_posix()
             if rel in {
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
                 "src/ultimate_ai_agent/api/openapi.py",
             }:
                 continue
@@ -2422,6 +2428,7 @@ def verify_m28_approval_authority_v2_safety():
             rel = path.relative_to(ROOT).as_posix()
             if rel in {
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
                 "src/ultimate_ai_agent/api/openapi.py",
             }:
                 continue
@@ -5331,6 +5338,7 @@ def verify_m41_local_prototype_safety_freeze():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "tests/test_m41_gate_integration.py",
         "tests/test_m41_local_prototype_safety_freeze.py",
     }
@@ -5448,6 +5456,7 @@ def verify_m42_mobile_product_contract_refresh():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "tests/test_m42_gate_integration.py",
         "tests/test_m42_mobile_product_contract_refresh.py",
     }
@@ -5564,6 +5573,7 @@ def verify_m43_mobile_api_boundary_read_only():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "tests/test_m43_gate_integration.py",
         "tests/test_m43_mobile_api_boundary_read_only.py",
     }
@@ -5733,6 +5743,7 @@ def verify_m44_ccc_ios_skeleton_no_authority():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "tests/test_m44_gate_integration.py",
         "tests/test_m44_ccc_ios_skeleton_no_authority.py",
     }
@@ -5907,6 +5918,7 @@ def verify_m45_ccc_ios_local_read_only_connection():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "tests/test_m45_gate_integration.py",
         "tests/test_m45_ccc_ios_local_read_only_connection.py",
     }
@@ -6093,6 +6105,7 @@ def verify_m46_ccc_ios_review_receipt_read_only_surfaces():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "tests/test_m46_gate_integration.py",
         "tests/test_m46_ccc_ios_review_receipt_read_only_surfaces.py",
     }
@@ -6261,6 +6274,7 @@ def verify_m47_testflight_pipeline_internal_only():
     source_roots = [ROOT / "src", ROOT / "apps" / "control-center" / "src", ios_root]
     allowed_files = {
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "tests/test_m47_gate_integration.py",
         "tests/test_m47_testflight_pipeline_internal_only.py",
     }
@@ -6613,6 +6627,7 @@ def verify_m49_mobile_review_approval_capture():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
         "tests/test_m49_mobile_review_approval_capture.py",
         "tests/test_m49_gate_integration.py",
@@ -6785,6 +6800,7 @@ def verify_m50_mobile_approval_audit_hardening():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
         "tests/test_m49_mobile_review_approval_capture.py",
         "tests/test_m49_gate_integration.py",
@@ -6964,6 +6980,7 @@ def verify_m51_openwebui_bridge_adapter_pilot():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
         "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
         "tests/test_m51_openwebui_bridge_adapter_pilot.py",
@@ -7172,6 +7189,7 @@ def verify_m52_openwebui_safe_conversation_surface():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/openwebui_bridge/contracts.py",
         "src/ultimate_ai_agent/core/openwebui_bridge/validation.py",
         "tests/test_m52_openwebui_safe_conversation_surface.py",
@@ -7497,6 +7515,7 @@ def verify_m54_safe_media_metadata_inspector():
         "src/ultimate_ai_agent/api/app.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/media/metadata.py",
         "tests/test_m54_safe_media_metadata_inspector.py",
         "tests/test_m54_gate_integration.py",
@@ -7742,6 +7761,7 @@ def verify_m55_redacted_observability_export():
         "src/ultimate_ai_agent/api/app.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/observability/export.py",
         "tests/test_m55_redacted_observability_export.py",
         "tests/test_m55_gate_integration.py",
@@ -7967,6 +7987,7 @@ def verify_m56_agent_eval_regression_harness():
         "src/ultimate_ai_agent/api/app.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/evals/regression.py",
         "tests/test_m56_agent_eval_regression_harness.py",
         "tests/test_m56_gate_integration.py",
@@ -8171,6 +8192,7 @@ def verify_m57_runtime_sandbox_architecture_review():
         "src/ultimate_ai_agent/api/app.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/architecture.py",
         "tests/test_m57_runtime_sandbox_architecture_review.py",
         "tests/test_m57_gate_integration.py",
@@ -8386,6 +8408,7 @@ def verify_m58_dry_run_execution_audit_harness():
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/dry_run_audit/harness.py",
         "tests/test_m58_dry_run_execution_audit_harness.py",
         "tests/test_m58_gate_integration.py",
@@ -8584,6 +8607,7 @@ def verify_m59_public_github_readiness():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/public_readiness/review.py",
         "tests/test_m59_public_github_readiness.py",
         "tests/test_m59_gate_integration.py",
@@ -8781,6 +8805,7 @@ def verify_m60_local_developer_beta_freeze():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m60_local_developer_beta_freeze.py",
         "tests/test_m60_gate_integration.py",
@@ -8990,6 +9015,7 @@ def verify_m61_autonomy_mode_charter():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/autonomy/modes.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m61_autonomy_mode_charter.py",
         "tests/test_m61_gate_integration.py",
@@ -9173,6 +9199,7 @@ def verify_m62_scoped_autonomy_session():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m62_scoped_autonomy_session_contracts.py",
         "tests/test_m62_gate_integration.py",
@@ -9383,6 +9410,7 @@ def verify_m63_autonomy_policy_engine():
         "src/ultimate_ai_agent/core/autonomy/policies.py",
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m63_autonomy_policy_engine_contracts.py",
         "tests/test_m63_gate_integration.py",
@@ -9610,6 +9638,7 @@ def verify_m64_autonomous_plan_simulator():
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m64_autonomous_plan_simulator_contracts.py",
         "tests/test_m64_gate_integration.py",
@@ -9854,6 +9883,7 @@ def verify_m65_autonomy_audit_replay_viewer():
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m65_autonomy_audit_replay_viewer_contracts.py",
         "tests/test_m65_gate_integration.py",
@@ -10116,6 +10146,7 @@ def verify_m66_scoped_approval_bundles():
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m66_scoped_approval_bundles.py",
         "tests/test_m66_gate_integration.py",
@@ -10400,6 +10431,7 @@ def verify_m67_revocation_kill_switch():
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m67_revocation_kill_switch.py",
         "tests/test_m67_gate_integration.py",
@@ -10619,6 +10651,7 @@ def verify_m68_autonomy_risk_classifier():
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m68_autonomy_risk_classifier.py",
         "tests/test_m68_gate_integration.py",
@@ -10881,6 +10914,7 @@ def verify_m69_low_risk_autonomous_dry_run():
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m69_low_risk_autonomous_dry_run.py",
         "tests/test_m69_gate_integration.py",
@@ -11102,6 +11136,7 @@ def verify_m70_autonomy_foundation_freeze():
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
         "tests/test_m70_autonomy_foundation_freeze.py",
         "tests/test_m70_gate_integration.py",
@@ -11369,6 +11404,7 @@ def verify_m71_network_tool_contract_review():
         "src/ultimate_ai_agent/core/network/__init__.py",
         "src/ultimate_ai_agent/core/tools/runtime/http_fetch.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
         "src/ultimate_ai_agent/core/autonomy/dry_run.py",
@@ -11621,6 +11657,7 @@ def verify_m72_read_only_http_fetch_tool():
     allowed_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/tools/runtime/http_fetch.py",
     }
@@ -11882,6 +11919,7 @@ def verify_m73_browser_automation_contract_review():
         "src/ultimate_ai_agent/core/browser/contract_review.py",
         "src/ultimate_ai_agent/core/browser/__init__.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
         "src/ultimate_ai_agent/core/autonomy/dry_run.py",
@@ -12115,6 +12153,7 @@ def verify_m74_browser_observe_only_adapter():
         "src/ultimate_ai_agent/core/browser/contract_review.py",
         "src/ultimate_ai_agent/core/browser/__init__.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
         "src/ultimate_ai_agent/core/autonomy/dry_run.py",
@@ -12340,6 +12379,7 @@ def verify_m75_browser_action_dry_run_planner():
         "src/ultimate_ai_agent/core/browser/contract_review.py",
         "src/ultimate_ai_agent/core/browser/__init__.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
         "src/ultimate_ai_agent/core/autonomy/dry_run.py",
@@ -13243,6 +13283,7 @@ def verify_m80_network_browser_openwebui_hardening_freeze():
 
     allowed_scan_files = {
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
         "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
     }
@@ -13451,6 +13492,7 @@ def verify_m81_runtime_sandbox_spec():
 
     allowed_scan_files = {
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
     }
@@ -13652,6 +13694,7 @@ def verify_m82_command_proposal_contracts():
 
     allowed_scan_files = {
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
     }
@@ -13871,6 +13914,7 @@ def verify_m83_shell_dry_run_classifier():
 
     allowed_scan_files = {
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
         "src/ultimate_ai_agent/core/sandbox/shell_dry_run_classifier.py",
@@ -14121,6 +14165,7 @@ def verify_m84_sandboxed_echo_noop_command():
 
     allowed_scan_files = {
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
         "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
@@ -14419,6 +14464,7 @@ def verify_m85_read_only_command_allowlist():
 
     allowed_scan_files = {
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
         "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
@@ -14650,6 +14696,7 @@ def verify_m86_shell_approval_gate():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
         "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
@@ -14864,6 +14911,7 @@ def verify_m87_sandboxed_command_audit_replay():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
         "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
@@ -15075,6 +15123,7 @@ def verify_m88_mutating_command_proposal():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
         "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
@@ -15292,6 +15341,7 @@ def verify_m89_emergency_stop_process_kill_safety():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
         "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
@@ -15530,6 +15580,7 @@ def verify_m90_shell_subprocess_hardening_freeze():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
         "src/ultimate_ai_agent/core/sandbox/command_proposal.py",
         "src/ultimate_ai_agent/core/sandbox/runtime_spec.py",
@@ -15778,6 +15829,7 @@ def verify_m91_autonomous_tool_execution_contract():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/tools/__init__.py",
         "src/ultimate_ai_agent/core/tools/autonomous_execution_contract.py",
         "src/ultimate_ai_agent/core/tools/runtime/invocation.py",
@@ -16044,6 +16096,7 @@ def verify_m92_low_risk_tool_autonomy_single_session():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
         "src/ultimate_ai_agent/core/autonomy/tool_autonomy_single_session.py",
         "src/ultimate_ai_agent/core/autonomy/dry_run.py",
@@ -16265,6 +16318,7 @@ def verify_m93_multi_tool_dry_run_promotion():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
         "src/ultimate_ai_agent/core/autonomy/dry_run_promotion.py",
         "src/ultimate_ai_agent/core/autonomy/tool_autonomy_single_session.py",
@@ -16495,6 +16549,7 @@ def verify_m94_low_risk_browser_clicks():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/browser/__init__.py",
         "src/ultimate_ai_agent/core/browser/low_risk_click.py",
     }
@@ -16712,6 +16767,7 @@ def verify_m95_authless_network_tool_expansion():
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/api/openapi.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/network/__init__.py",
         "src/ultimate_ai_agent/core/network/authless_expansion.py",
     }
@@ -16935,6 +16991,7 @@ def verify_m96_plugin_execution_sandbox():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/plugin_execution_sandbox/__init__.py",
         "src/ultimate_ai_agent/core/plugin_execution_sandbox/builtin_test_plugin.py",
     }
@@ -17113,6 +17170,7 @@ def verify_m97_recurring_automation_contracts():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/recurring_automation_contracts/__init__.py",
         "src/ultimate_ai_agent/core/recurring_automation_contracts/contracts.py",
     }
@@ -17293,6 +17351,7 @@ def verify_m98_scoped_recurring_low_risk_automation():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/scoped_recurring_low_risk_automation/__init__.py",
         "src/ultimate_ai_agent/core/scoped_recurring_low_risk_automation/contracts.py",
     }
@@ -17481,6 +17540,7 @@ def verify_m99_autonomy_v1_safety_freeze():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
         "src/ultimate_ai_agent/core/autonomy/v1_safety_freeze.py",
     }
@@ -17629,6 +17689,7 @@ def verify_m100_mobile_permission_model_v1():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
     }
@@ -18264,6 +18325,7 @@ def verify_m101_mobile_sensor_contract_review():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
         "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
@@ -18415,6 +18477,7 @@ def verify_m102_location_sensor_off_by_default():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
         "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
@@ -18586,6 +18649,7 @@ def verify_m103_camera_photos_metadata_only():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
         "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
@@ -18757,6 +18821,7 @@ def verify_m104_notification_planning_no_push():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
     }
@@ -18922,6 +18987,7 @@ def verify_m105_background_task_contract_no_execution():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
     }
@@ -19087,6 +19153,7 @@ def verify_m106_mobile_background_read_only_status_sync():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
@@ -19262,6 +19329,7 @@ def verify_m107_mobile_approval_renewal_ux():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
@@ -19448,6 +19516,7 @@ def verify_m108_mobile_kill_switch_revocation():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
@@ -19668,6 +19737,7 @@ def verify_m109_mobile_sensor_audit_ledger():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
@@ -19899,6 +19969,7 @@ def verify_m110_mobile_sensor_hardening_freeze():
     allowed_scan_files = {
         "scripts/verify_all.py",
         "src/ultimate_ai_agent/core/gate/evaluators.py",
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
         "src/ultimate_ai_agent/core/mobile_companion/__init__.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_hardening_freeze.py",
         "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_audit_ledger.py",
@@ -29505,13 +29576,13 @@ def verify_no_shell_execution_in_runtime():
         "subprocess.",
     ]
     allowed_shell_files = {
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
+        "src/ultimate_ai_agent/core/gate/evaluators.py",
         "src/ultimate_ai_agent/core/local_model_management/llama_cpp_supervisor.py",
     }
     for p in (ROOT / "src").rglob("*.py"):
         try:
             rel_path = p.relative_to(ROOT).as_posix()
-            if rel_path == "src/ultimate_ai_agent/core/gate/evaluators.py":
-                continue
             if rel_path in allowed_shell_files:
                 continue
             content = p.read_text(encoding="utf-8")
@@ -29687,6 +29758,7 @@ def verify_no_mobile_native_or_sensor_implementation():
                 "scripts/verify_all.py",
                 "scripts/verify_control_center_frontend.py",
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
+                "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
                 "tests/test_control_center_frontend_safety_verifier.py",
             }:
                 continue

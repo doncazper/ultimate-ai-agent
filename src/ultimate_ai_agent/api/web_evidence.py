@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, FastAPI
 from pydantic import ValidationError
 
+from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.hygiene.envelopes import ErrorCategory, ErrorEnvelope, ResultEnvelope, Severity
 from ultimate_ai_agent.core.network.governed_web_evidence import (
     GovernedWebEvidenceRequest,
@@ -72,13 +73,7 @@ def post_governed_web_evidence_request(request: GovernedWebEvidenceRequest) -> R
 
 
 def register_governed_web_evidence_routes(app: FastAPI) -> None:
-    if getattr(app.state, _REGISTERED_ATTR, False):
-        return
-    registered_paths = {getattr(route, "path", None) for route in app.router.routes}
-    for route in router.routes:
-        if getattr(route, "path", None) not in registered_paths:
-            app.router.routes.append(route)
-    setattr(app.state, _REGISTERED_ATTR, True)
+    register_router_once(app, router, state_attr=_REGISTERED_ATTR)
 
 
 def _error_envelope(*, request_ref: str, run_id: str, code: str) -> ResultEnvelope:

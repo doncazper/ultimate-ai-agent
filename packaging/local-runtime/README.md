@@ -21,7 +21,11 @@ Canonical operator guidance lives in
 ## Boundary
 
 - Host ports are bound only to `127.0.0.1`.
+- Host ports default to `8000` for the API and `5173` for Control Center, and
+  can be overridden with `UAA_LOCAL_RUNTIME_API_PORT` and
+  `UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT` for local proof runs.
 - Docker containers bind internally so host-loopback publishing can reach them.
+- API runtime scratch state uses container-local tmpfs, including `/app/.uaa`.
 - The package does not include OpenWebUI, `llama-server`, connector writes,
   plugin runtime import, browser automation, mobile control, or autonomous
   background execution.

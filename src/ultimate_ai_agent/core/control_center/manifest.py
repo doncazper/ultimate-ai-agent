@@ -10,14 +10,18 @@ from ultimate_ai_agent.core.time import utc_now
 
 CONTROL_CENTER_ROUTES = [
     "/control-center/actions/preview",
+    "/control-center/actions/inbox",
     "/control-center/approvals/summary",
     "/control-center/dashboard",
     "/control-center/foundation-gate/summary",
     "/control-center/manifest",
+    "/control-center/morning-briefing/summary",
     "/control-center/routes",
     "/control-center/runtime-readiness/summary",
     "/control-center/setup-assistant/summary",
     "/control-center/status",
+    "/control-center/storage/status",
+    "/control-center/today/summary",
 ]
 
 
@@ -79,14 +83,24 @@ def build_control_center_manifest(baseline_version: str | None = None) -> Contro
             _surface(
                 ControlCenterSurface.dashboard,
                 ControlCenterCapabilityStatus.available_read_only,
-                "Read-only dashboard snapshot for status and summaries.",
-                ["/control-center/dashboard", "/control-center/status"],
+                "Read-only dashboard snapshot for status and storage-backed Founder Loop summaries.",
+                [
+                    "/control-center/dashboard",
+                    "/control-center/status",
+                    "/control-center/today/summary",
+                    "/control-center/morning-briefing/summary",
+                    "/control-center/storage/status",
+                ],
             ),
             _surface(
                 ControlCenterSurface.approvals,
                 ControlCenterCapabilityStatus.preview_only,
-                "Approval queue summary and approval previews only; no grant is created.",
-                ["/control-center/approvals/summary", "/control-center/actions/preview"],
+                "Approval queue summary, action inbox summaries, and approval previews only; no grant is created.",
+                [
+                    "/control-center/approvals/summary",
+                    "/control-center/actions/inbox",
+                    "/control-center/actions/preview",
+                ],
                 preview_only=True,
             ),
             _surface(

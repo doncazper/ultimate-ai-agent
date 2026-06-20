@@ -13,6 +13,12 @@ import { EventTimelineTracePanel } from "./components/EventTimelineTracePanel";
 import { FileReviewSurfacePanel } from "./components/FileReviewSurfacePanel";
 import { FoundationGatePanel } from "./components/FoundationGatePanel";
 import {
+  ActionInboxSurfacePanel,
+  FounderLoopStoragePanel,
+  MorningBriefingPanel,
+  TodaySurfacePanel,
+} from "./components/FounderLoopPanels";
+import {
   LocalRuntimeStatusPanel,
   ManualSmokeControlSurfacePanel,
 } from "./components/LocalRuntimeStatusPanel";
@@ -33,37 +39,105 @@ import {
   RemoteWorkerSummaryPanel,
 } from "./components/SummaryPanels";
 
+export type NavGroup =
+  | "Founder Loop"
+  | "Review"
+  | "Runtime"
+  | "Evidence"
+  | "System";
+
+export type CommandPaletteItem = {
+  id: string;
+  label: string;
+  group: NavGroup;
+  path?: string;
+  status: string;
+  keywords: string[];
+  disabledReason?: string;
+};
+
 export const navItems = [
-  { path: "/", label: "Overview" },
-  { path: "/setup", label: "Setup" },
-  { path: "/dashboard", label: "Dashboard" },
-  { path: "/operator-loop", label: "Operator Loop" },
-  { path: "/chat", label: "Chat" },
-  { path: "/plans", label: "Plans" },
-  { path: "/models", label: "Models" },
-  { path: "/runtime", label: "Runtime" },
-  { path: "/foundation-gate", label: "Foundation Gate" },
-  { path: "/api-routes", label: "API Routes" },
-  { path: "/approvals", label: "Approvals" },
-  { path: "/receipts", label: "Receipts" },
-  { path: "/events", label: "Events" },
-  { path: "/events/timeline", label: "Timeline" },
-  { path: "/evidence", label: "Evidence" },
-  { path: "/files", label: "Files" },
-  { path: "/files/review", label: "File Review" },
-  { path: "/context/proposals", label: "Context Proposals" },
-  { path: "/memory", label: "Memory" },
-  { path: "/runtime/local", label: "Local Runtime" },
-  { path: "/runtime/manual-smoke", label: "Manual Smoke" },
-  { path: "/remote-workers", label: "Remote Workers" },
-  { path: "/mobile-planning", label: "Mobile Planning" },
-  { path: "/plugin-governance", label: "Plugin Governance" },
-  { path: "/settings", label: "Settings" },
-  { path: "/action-preview", label: "Action Preview" },
+  { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed" },
+  { path: "/actions", label: "Actions", group: "Founder Loop", status: "storage-backed" },
+  { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed" },
+  { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial" },
+  { path: "/memory", label: "Memory", group: "Founder Loop", status: "review queue" },
+  { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "summary" },
+  { path: "/settings", label: "Settings", group: "Founder Loop", status: "blocked" },
+  { path: "/", label: "Overview", group: "System", status: "read-only" },
+  { path: "/setup", label: "Setup", group: "Review", status: "dry-run" },
+  { path: "/dashboard", label: "Dashboard", group: "System", status: "read-only" },
+  { path: "/operator-loop", label: "Operator Loop", group: "Founder Loop", status: "readable loop" },
+  { path: "/chat", label: "Chat", group: "Review", status: "blocked" },
+  { path: "/models", label: "Models", group: "Review", status: "partial" },
+  { path: "/runtime", label: "Runtime", group: "Runtime", status: "summary" },
+  { path: "/storage", label: "Storage", group: "Runtime", status: "local state" },
+  { path: "/foundation-gate", label: "Foundation Gate", group: "Evidence", status: "summary" },
+  { path: "/api-routes", label: "API Routes", group: "System", status: "contract" },
+  { path: "/approvals", label: "Approvals", group: "Review", status: "summary" },
+  { path: "/receipts", label: "Receipts", group: "Evidence", status: "summary" },
+  { path: "/events", label: "Events", group: "Evidence", status: "summary" },
+  { path: "/events/timeline", label: "Timeline", group: "Evidence", status: "mock" },
+  { path: "/files", label: "Files", group: "Review", status: "safe refs" },
+  { path: "/files/review", label: "File Review", group: "Review", status: "review-only" },
+  { path: "/context/proposals", label: "Context Proposals", group: "Review", status: "review-only" },
+  { path: "/runtime/local", label: "Local Runtime", group: "Runtime", status: "manual" },
+  { path: "/runtime/manual-smoke", label: "Manual Smoke", group: "Runtime", status: "validation" },
+  { path: "/remote-workers", label: "Remote Workers", group: "Runtime", status: "dry-run" },
+  { path: "/mobile-planning", label: "Mobile Planning", group: "Runtime", status: "planned" },
+  { path: "/plugin-governance", label: "Plugin Governance", group: "Runtime", status: "planned" },
+  { path: "/action-preview", label: "Action Preview", group: "Review", status: "preview-only" },
 ] as const;
+
+const disabledCommandItems: CommandPaletteItem[] = [
+  {
+    id: "action-state-change",
+    label: "Action state change",
+    group: "Founder Loop",
+    status: "disabled",
+    keywords: ["inbox", "mutation", "approval", "receipt"],
+    disabledReason: "Scoped backend contract required",
+  },
+  {
+    id: "connector-read-contracts",
+    label: "Email and calendar contracts",
+    group: "Founder Loop",
+    status: "disabled",
+    keywords: ["briefing", "connector", "calendar", "email"],
+    disabledReason: "Read-only integration contracts are not scoped",
+  },
+  {
+    id: "desktop-package-proof",
+    label: "Desktop package proof",
+    group: "Runtime",
+    status: "planned",
+    keywords: ["packaging", "desktop", "smoke", "loopback"],
+    disabledReason: "Proof lane exists before distribution claims",
+  },
+];
+
+export const commandPaletteItems: CommandPaletteItem[] = [
+  ...navItems.map((item) => ({
+    id: `route:${item.path}`,
+    label: item.label,
+    group: item.group,
+    path: item.path,
+    status: item.status,
+    keywords: [item.path, item.group, item.status],
+  })),
+  ...disabledCommandItems,
+];
 
 export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
+    case "/today":
+      return <TodaySurfacePanel today={data.founderToday} />;
+    case "/actions":
+      return <ActionInboxSurfacePanel inbox={data.founderActionsInbox} />;
+    case "/briefing":
+      return <MorningBriefingPanel briefing={data.founderMorningBriefing} />;
+    case "/storage":
+      return <FounderLoopStoragePanel storage={data.founderStorageStatus} />;
     case "/setup":
       return <MacOSSetupAssistantPanel setup={data.macosSetupAssistant} />;
     case "/chat":

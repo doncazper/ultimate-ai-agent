@@ -10,6 +10,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+      - /app/.uaa
     environment:
       ENVIRONMENT: local-runtime
       HOST: 127.0.0.1
@@ -20,7 +21,7 @@ services:
     secrets:
       - uaa_local_runtime_secret
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${UAA_LOCAL_RUNTIME_API_PORT:-8000}:8000"
     command:
       - python
       - -m
@@ -49,9 +50,9 @@ services:
     image: ultimate-ai-agent-control-center:local
     init: true
     environment:
-      VITE_UAA_API_BASE_URL: http://127.0.0.1:8000
+      VITE_UAA_API_BASE_URL: http://127.0.0.1:${UAA_LOCAL_RUNTIME_API_PORT:-8000}
     ports:
-      - "127.0.0.1:5173:5173"
+      - "127.0.0.1:${UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT:-5173}:5173"
     depends_on:
       api:
         condition: service_healthy

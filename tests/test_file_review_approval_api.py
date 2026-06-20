@@ -56,7 +56,7 @@ def test_openapi_current_boundary_includes_review_capture_and_m151_smoke_routes(
     schema = app.openapi()
 
     assert schema["info"]["version"] == __version__
-    assert len(schema["paths"]) == 108
+    assert len(schema["paths"]) == 112
     assert "/files/review/approvals/capture" in schema["paths"]
     assert "/files/tree/preview" in schema["paths"]
     assert "/observability/session-events" in schema["paths"]

@@ -78,6 +78,117 @@ export interface ApiSummary {
   execution_routes_present: boolean;
 }
 
+export interface FounderLoopActionItem {
+  item_ref: string;
+  title: string;
+  safe_summary: string;
+  surface: string;
+  priority: string;
+  status: string;
+  side_effect_class: string;
+  approval_required: boolean;
+  blocked_state?: string | null;
+  evidence_refs: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface FounderLoopPlanSummary {
+  plan_ref: string;
+  title: string;
+  status: string;
+  safe_summary: string;
+  next_step_summary: string;
+  evidence_refs: string[];
+  updated_at?: string;
+}
+
+export interface FounderLoopMemoryReviewItem {
+  review_ref: string;
+  title: string;
+  safe_summary: string;
+  status: string;
+  evidence_refs: string[];
+  created_at?: string;
+}
+
+export interface FounderLoopBriefingItem {
+  briefing_ref: string;
+  title: string;
+  safe_summary: string;
+  status: string;
+  evidence_refs: string[];
+  created_at?: string;
+}
+
+export interface FounderLoopTodaySummary {
+  schema_version: string;
+  status: string;
+  surface: string;
+  storage_ref: string;
+  side_effect_class: string;
+  approval_required_before_mutation: boolean;
+  sections: {
+    action_inbox_count: number;
+    plan_count: number;
+    memory_review_count: number;
+    briefing_count: number;
+  };
+  actions: FounderLoopActionItem[];
+  plans: FounderLoopPlanSummary[];
+  memory_review_queue: FounderLoopMemoryReviewItem[];
+  briefing_items: FounderLoopBriefingItem[];
+  evidence_refs: string[];
+  blocked_states: string[];
+}
+
+export interface FounderLoopActionsInbox {
+  schema_version: string;
+  status: string;
+  surface: string;
+  storage_ref: string;
+  side_effect_class: string;
+  items: FounderLoopActionItem[];
+  approval_required_before_mutation: boolean;
+  mutating_controls_enabled: boolean;
+  disabled_state_label: string;
+  evidence_refs: string[];
+}
+
+export interface FounderLoopMorningBriefing {
+  schema_version: string;
+  status: string;
+  surface: string;
+  storage_ref: string;
+  side_effect_class: string;
+  items: FounderLoopBriefingItem[];
+  evidence_refs: string[];
+  blocked_states: string[];
+}
+
+export interface FounderLoopStorageStatus {
+  schema_version: string;
+  migration_version: string;
+  storage_ref: string;
+  sqlite_state_ref: string;
+  jsonl_log_refs: Record<string, string>;
+  counts: Record<string, number>;
+  safe_refs_only: boolean;
+  raw_content_stored: boolean;
+  postgres_sync_required: boolean;
+  postgres_sync_status: string;
+  backup_manifest_ref: string;
+  backup_manifest?: {
+    schema_version: string;
+    manifest_ref: string;
+    required_artifact_refs: string[];
+    raw_paths_included: boolean;
+    raw_logs_included: boolean;
+    safe_refs_only: boolean;
+  };
+  updated_at: string;
+}
+
 export interface RemoteWorkerSummary {
   status: string;
   execution_enabled: boolean;
@@ -918,6 +1029,10 @@ export interface ControlCenterData {
   m36FileReview: M36FileReviewData;
   m39ContextProposals: M39ContextProposalData;
   macosSetupAssistant: MacOSSetupAssistantData;
+  founderToday: FounderLoopTodaySummary;
+  founderActionsInbox: FounderLoopActionsInbox;
+  founderMorningBriefing: FounderLoopMorningBriefing;
+  founderStorageStatus: FounderLoopStorageStatus;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

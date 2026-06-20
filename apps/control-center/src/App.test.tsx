@@ -40,6 +40,8 @@ describe("Web Control Center shell", () => {
       screen.getByText(/API base: relative local API/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Today" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Actions" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Setup" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Runtime" })).toBeInTheDocument();
     expect(
@@ -93,6 +95,9 @@ describe("Web Control Center shell", () => {
   it("renders clear headings for every local shell page", async () => {
     const expectedHeadings = [
       ["/", /Dashboard overview/i],
+      ["/today", /^Today$/i],
+      ["/actions", /^Actions$/i],
+      ["/briefing", /Morning Briefing/i],
       ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
       ["/operator-loop", /Operator Loop/i],
@@ -111,6 +116,7 @@ describe("Web Control Center shell", () => {
       ["/files/review", /File Review Surface/i],
       ["/context/proposals", /Context Proposal Surface/i],
       ["/memory", /Memory Viewer/i],
+      ["/storage", /^Storage$/i],
       ["/runtime/local", /Local Runtime Status/i],
       ["/runtime/manual-smoke", /Manual Smoke Control Surface/i],
       ["/remote-workers", /Remote worker boundary/i],
@@ -130,6 +136,32 @@ describe("Web Control Center shell", () => {
       unmount();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("searches route and disabled action entries through the command palette", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/dashboard");
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /find route or action/i }));
+
+    const palette = screen.getByRole("dialog", { name: /command palette/i });
+    expect(palette).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
+      target: { value: "storage" },
+    });
+
+    expect(palette).toHaveTextContent("Storage");
+    expect(palette).toHaveTextContent("local state");
+
+    fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
+      target: { value: "state change" },
+    });
+    expect(palette).toHaveTextContent("Action state change");
+    expect(palette).toHaveTextContent("Scoped backend contract required");
+    expect(
+      screen.queryByRole("button", { name: /^run$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders accessible operator states for required Control Center surfaces", async () => {
@@ -1873,6 +1905,18 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
       true,
     );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderTodaySummary)).toBe(
+      true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderActionsInbox)).toBe(
+      true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMorningBriefing)).toBe(
+      true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderStorageStatus)).toBe(
+      true,
+    );
     expect(isAllowedReadEndpoint("/control-center/actions/execute")).toBe(
       false,
     );
@@ -1901,6 +1945,11 @@ function envelopeForReadEndpoint(url: string) {
       baseline_version: "0.20.1",
     },
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
+    [API_ENDPOINTS.founderTodaySummary]: mockApiData.founderToday,
+    [API_ENDPOINTS.founderActionsInbox]: mockApiData.founderActionsInbox,
+    [API_ENDPOINTS.founderMorningBriefing]:
+      mockApiData.founderMorningBriefing,
+    [API_ENDPOINTS.founderStorageStatus]: mockApiData.founderStorageStatus,
   };
   const endpoint = Object.keys(data).find((candidate) =>
     url.endsWith(candidate),
@@ -1961,8 +2010,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 93,
-      control_center_route_count: 9,
+      route_count: 112,
+      control_center_route_count: 13,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -2001,7 +2050,7 @@ const mockApiData = {
     message: "Local backend status only.",
   },
   routes: {
-    route_count: 9,
+    route_count: 13,
     routes: [
       {
         path: "/control-center/dashboard",
@@ -2180,5 +2229,141 @@ const mockApiData = {
         mock: true,
       },
     ],
+  },
+  founderToday: {
+    schema_version: "founder_loop_storage.v1",
+    status: "storage_backed_partial_loop",
+    surface: "Today",
+    storage_ref: "founder-loop-storage:test",
+    side_effect_class: "local_dev_workspace_only",
+    approval_required_before_mutation: true,
+    sections: {
+      action_inbox_count: 1,
+      plan_count: 1,
+      memory_review_count: 1,
+      briefing_count: 1,
+    },
+    actions: [
+      {
+        item_ref: "founder-action:test",
+        title: "Storage-backed action",
+        safe_summary: "Bounded action summary.",
+        surface: "Actions",
+        priority: "high",
+        status: "review_ready",
+        side_effect_class: "validation_only",
+        approval_required: true,
+        blocked_state: "Scoped backend contract required",
+        evidence_refs: ["evidence-ref:founder-loop:test-action"],
+      },
+    ],
+    plans: [
+      {
+        plan_ref: "plan-summary:test",
+        title: "Founder Loop test plan",
+        status: "partial_backend_not_product_ready",
+        safe_summary: "Bounded plan summary.",
+        next_step_summary: "Review route-backed summaries.",
+        evidence_refs: ["evidence-ref:founder-loop:test-plan"],
+      },
+    ],
+    memory_review_queue: [
+      {
+        review_ref: "memory-review:test",
+        title: "Memory review",
+        safe_summary: "Bounded memory summary.",
+        status: "review_needed",
+        evidence_refs: ["evidence-ref:founder-loop:test-memory"],
+      },
+    ],
+    briefing_items: [
+      {
+        briefing_ref: "briefing:test",
+        title: "Briefing item",
+        safe_summary: "Bounded briefing summary.",
+        status: "active",
+        evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
+      },
+    ],
+    evidence_refs: ["evidence-ref:founder-loop:test-today"],
+    blocked_states: ["no_action_execution_route"],
+  },
+  founderActionsInbox: {
+    schema_version: "founder_loop_storage.v1",
+    status: "storage_backed_review_queue",
+    surface: "Actions",
+    storage_ref: "founder-loop-storage:test",
+    side_effect_class: "local_dev_workspace_only",
+    items: [
+      {
+        item_ref: "founder-action:test",
+        title: "Storage-backed action",
+        safe_summary: "Bounded action summary.",
+        surface: "Actions",
+        priority: "high",
+        status: "review_ready",
+        side_effect_class: "validation_only",
+        approval_required: true,
+        blocked_state: "Scoped backend contract required",
+        evidence_refs: ["evidence-ref:founder-loop:test-action"],
+      },
+    ],
+    approval_required_before_mutation: true,
+    mutating_controls_enabled: false,
+    disabled_state_label: "Exact backend approval contract required",
+    evidence_refs: ["evidence-ref:founder-loop:test-inbox"],
+  },
+  founderMorningBriefing: {
+    schema_version: "founder_loop_storage.v1",
+    status: "storage_backed_briefing_skeleton",
+    surface: "Morning Briefing",
+    storage_ref: "founder-loop-storage:test",
+    side_effect_class: "local_dev_workspace_only",
+    items: [
+      {
+        briefing_ref: "briefing:test",
+        title: "Briefing item",
+        safe_summary: "Bounded briefing summary.",
+        status: "active",
+        evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
+      },
+    ],
+    evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
+    blocked_states: ["no_email_read_authority"],
+  },
+  founderStorageStatus: {
+    schema_version: "founder_loop_storage.v1",
+    migration_version: "founder_loop_storage.v1",
+    storage_ref: "founder-loop-storage:test",
+    sqlite_state_ref: "founder-loop-sqlite:test",
+    jsonl_log_refs: {
+      audit: "founder-loop-log:audit",
+      transcript: "founder-loop-log:transcript",
+      realtime: "founder-loop-log:realtime",
+      receipt: "founder-loop-log:receipt",
+    },
+    counts: {
+      action_inbox: 1,
+      briefing_items: 1,
+      plan_summaries: 1,
+      memory_review_queue: 1,
+      idempotency_keys: 0,
+      route_state_snapshots: 0,
+      evidence_refs: 1,
+    },
+    safe_refs_only: true,
+    raw_content_stored: false,
+    postgres_sync_required: false,
+    postgres_sync_status: "adapter_boundary_only",
+    backup_manifest_ref: "backup-manifest:founder-loop-minimum-set",
+    backup_manifest: {
+      schema_version: "founder_loop_storage.v1",
+      manifest_ref: "backup-manifest:founder-loop-minimum-set",
+      required_artifact_refs: ["founder-loop-sqlite:test"],
+      raw_paths_included: false,
+      raw_logs_included: false,
+      safe_refs_only: true,
+    },
+    updated_at: "2026-01-01T00:00:00Z",
   },
 };

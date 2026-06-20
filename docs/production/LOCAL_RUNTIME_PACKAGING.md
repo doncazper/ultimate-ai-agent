@@ -33,13 +33,14 @@ unsafe-pattern tests.
 
 | Control | Default |
 |---|---|
-| API host exposure | Host-loopback only: `127.0.0.1:8000`. |
-| Control Center exposure | Host-loopback only: `127.0.0.1:5173`. |
+| API host exposure | Host-loopback only: defaults to `127.0.0.1:8000`; local proof runs may override with `UAA_LOCAL_RUNTIME_API_PORT`. |
+| Control Center exposure | Host-loopback only: defaults to `127.0.0.1:5173`; local proof runs may override with `UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT`. |
 | Container internal bind | Internal container bind only so Docker host-loopback publishing works; not a remote support claim. |
 | API access posture | Existing UAA route policy and side-effect classification only; no new auth or execution authority. |
 | Local OpenWebUI test gateway | Disabled by default. |
 | Access logs | API container starts with access logs disabled to avoid raw path-oriented request logs. |
 | File API safe root | Container-local `/app` only. |
+| Container scratch state | API runtime scratch state uses container-local tmpfs, including `/app/.uaa`; it is not release evidence. |
 | Local state | Ignored `.uaa/local-runtime/` state only. |
 | Secret material | Generated local secret material, stored under ignored `.uaa/local-runtime/`, and never committed. |
 
@@ -83,6 +84,11 @@ open http://127.0.0.1:5173
 These commands are operator-run local packaging commands. The repository does
 not execute them as part of documentation verification, and this package does
 not add shell/subprocess authority to UAA runtime code.
+
+If either default loopback port is already in use, set
+`UAA_LOCAL_RUNTIME_API_PORT` or `UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT` to an
+available local port before starting compose. The package must remain bound to
+`127.0.0.1`.
 
 ## Configuration Boundaries
 

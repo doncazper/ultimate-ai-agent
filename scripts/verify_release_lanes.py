@@ -26,6 +26,8 @@ REQUIRED_LANE_IDS = {
     "local-model-e2e",
     "durability",
     "frontend",
+    "visual-regression",
+    "desktop-packaging",
     "performance",
 }
 STATUS_SEMANTICS = {
@@ -282,6 +284,65 @@ def release_lanes() -> tuple[ReleaseLane, ...]:
             blocked_policy="Blocked by hidden authority, raw JSON primary UI, inaccessible failure state, or failed frontend checks.",
             accepted_failure_policy="Accepted frontend failures require issue ref, owner, expiry, and release evidence packet entry.",
             evidence_refs=("docs/control_center/OPERATOR_SHELL_GAP_MAP.md",),
+        ),
+        ReleaseLane(
+            lane_id="visual-regression",
+            name="Control Center Visual Regression",
+            owner="operator-shell-review",
+            purpose="Prove required Control Center surfaces have safe redacted visual baseline coverage before screenshots count as evidence.",
+            commands=(
+                LaneCommand(
+                    command_ref="command:frontend.visual-regression",
+                    argv=("make", "frontend-visual-check"),
+                    purpose="Compare checked-in Playwright baselines for required Control Center surfaces.",
+                    report_ref="report:visual-regression:playwright-summary",
+                ),
+                LaneCommand(
+                    command_ref="command:frontend.visual-regression-contract",
+                    argv=(py, "scripts/verify_control_center_visual_regression.py"),
+                    env={"PYTHONPATH": "src"},
+                    purpose="Validate visual regression manifest safety, required surfaces, baseline policy, and PNG hash refs.",
+                    report_ref="report:visual-regression:manifest-summary",
+                ),
+            ),
+            required_for_release_candidate=True,
+            skipped_policy="Visual compare is skippable only when Playwright browser prerequisites are unavailable and no release claim depends on screenshot evidence.",
+            blocked_policy="Blocked by screenshot drift, missing required surfaces, unsafe screenshot refs, raw/private screenshots, missing redacted baseline policy, or hash mismatch.",
+            accepted_failure_policy="Accepted visual baseline failures require issue ref, owner, expiry, and release evidence packet entry.",
+            evidence_refs=(
+                "apps/control-center/playwright.visual.config.ts",
+                "docs/control_center/visual_regression_manifest.json",
+            ),
+        ),
+        ReleaseLane(
+            lane_id="desktop-packaging",
+            name="Desktop and Local Packaging Proof",
+            owner="local-runtime-review",
+            purpose="Prove local loopback packaging has explicit launch, health, Control Center, manifest, screenshot, and shutdown proof steps.",
+            commands=(
+                LaneCommand(
+                    command_ref="command:desktop-packaging.proof",
+                    argv=(py, "scripts/run_local_runtime_packaging_proof.py", "--timeout-seconds", "240"),
+                    env={"PYTHONPATH": "src"},
+                    purpose="Run local Docker compose launch smoke, API health, Control Center load, manifest check, screenshot capture, and clean shutdown.",
+                    report_ref="report:desktop-packaging:launch-smoke-summary",
+                ),
+                LaneCommand(
+                    command_ref="command:desktop-packaging.contract",
+                    argv=(py, "scripts/verify_local_runtime_packaging_proof.py"),
+                    env={"PYTHONPATH": "src"},
+                    purpose="Validate local runtime packaging proof manifest safety and script contract.",
+                    report_ref="report:desktop-packaging:manifest-summary",
+                ),
+            ),
+            required_for_release_candidate=True,
+            skipped_policy="Launch smoke is skippable only when local Docker or Playwright prerequisites are unavailable and the proof remains non-distribution evidence.",
+            blocked_policy="Blocked by launch smoke failure, API health failure, Control Center load failure, manifest mismatch, screenshot failure, shutdown failure, raw logs, raw paths, unsafe evidence refs, or distribution claims.",
+            accepted_failure_policy="Accepted packaging failures require owner, expiry, prerequisite reason, and release evidence packet entry.",
+            evidence_refs=(
+                "scripts/run_local_runtime_packaging_proof.py",
+                "packaging/local-runtime/packaging_proof_manifest.json",
+            ),
         ),
         ReleaseLane(
             lane_id="performance",

@@ -1622,7 +1622,7 @@ ACTIVE_BASELINE_LABEL_PATTERNS = [
     ),
 ]
 
-EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 108
+EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 112
 
 
 def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
@@ -1726,7 +1726,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
         "active docs must mention checkpoint-m168": "checkpoint-m168",
         "active docs must mention checkpoint-m166": "checkpoint-m166",
         "active docs must mention checkpoint-m167": "checkpoint-m167",
-        "active docs must preserve v0.102.2 baseline": "v0.102.2",
+        "active docs must preserve v0.102.3 baseline": "v0.102.3",
         "active docs must link Operator Runtime roadmap": (
             "docs/roadmap/operator_runtime_excellence_roadmap.md"
         ),
@@ -1806,7 +1806,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
 
     product_truth_required = {
         "product truth packet must identify UAA-P0-002": "task: uaa-p0-002",
-        "product truth packet must preserve active baseline": "baseline: v0.102.2 / 0.102.2",
+        "product truth packet must preserve active baseline": "baseline: v0.102.3 / 0.102.3",
         "product truth packet must list accepted repository checkpoint": (
             "accepted repository checkpoint: checkpoint-m168"
         ),
@@ -1847,7 +1847,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
             "| product shell |"
         ),
         "product truth packet must mark shipped API boundary": (
-            "shipped for the 108-path api boundary"
+            "shipped for the 112-path api boundary"
         ),
         "product truth packet must mark blocked local model claims": (
             "blocked for production-readiness claims"
@@ -1948,7 +1948,7 @@ def _verify_public_security_posture(root: Path) -> list[str]:
     security_required = {
         "SECURITY.md must identify UAA-P0-003": "program task: uaa-p0-003",
         "SECURITY.md must list supported versions": "## supported versions",
-        "SECURITY.md must preserve active baseline": "v0.102.2",
+        "SECURITY.md must preserve active baseline": "v0.102.3",
         "SECURITY.md must mention checkpoint-m166": "checkpoint-m166",
         "SECURITY.md must mention checkpoint-m167": "checkpoint-m167",
         "SECURITY.md must describe private reporting": "github private vulnerability reporting",
@@ -3367,8 +3367,8 @@ def _verify_local_runtime_packaging(root: Path) -> list[str]:
 
     compose = read_lower("packaging/local-runtime/compose.yaml")
     for fragment in [
-        "127.0.0.1:8000:8000",
-        "127.0.0.1:5173:5173",
+        "127.0.0.1:${uaa_local_runtime_api_port:-8000}:8000",
+        "127.0.0.1:${uaa_local_runtime_control_center_port:-5173}:5173",
         "uaa_local_runtime_secret_file",
         "uaa_openwebui_test_gateway_enabled: \"\"",
         "secrets:",
@@ -4889,12 +4889,12 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         "gap map must identify UAA-P0-007": (
             "status: active uaa-p0-007 operator-shell gap map"
         ),
-        "gap map must preserve baseline": "baseline: v0.102.2 / 0.102.2",
+        "gap map must preserve baseline": "baseline: v0.102.3 / 0.102.3",
         "gap map must cite M172": (
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),
         "gap map must include current API count": (
-            "api boundary: current fastapi manifest has 108 openapi paths"
+            "api boundary: current fastapi manifest has 112 openapi paths"
         ),
         "gap map must preserve shell authority boundary": (
             "control center and openwebui remain shells"
@@ -4999,8 +4999,8 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         failures.append("product truth packet must keep product-shell claims blocked")
 
     mock_data = read_lower("apps/control-center/src/mocks/controlCenterData.ts")
-    if "route_count: 108" not in mock_data:
-        failures.append("Control Center mock data must use current 108 route count")
+    if "route_count: 112" not in mock_data:
+        failures.append("Control Center mock data must use current 112 route count")
     if "route_count: 95" in mock_data:
         failures.append("Control Center mock data contains stale 95 route count")
     if "route_count: 94" in mock_data:

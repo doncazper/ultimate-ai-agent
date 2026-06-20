@@ -19,6 +19,8 @@ def test_release_lanes_cover_required_categories():
         "local-model-e2e",
         "durability",
         "frontend",
+        "visual-regression",
+        "desktop-packaging",
         "performance",
     }
     assert manifest["accepted_failures"] == []
@@ -79,7 +81,7 @@ def test_release_lane_script_emits_parseable_json(capsys):
     assert payload["overall_status"] == "definition_pass"
     assert payload["definition_status"] == "pass"
     assert payload["command_execution_status"] == "not_executed"
-    assert payload["lane_count"] == 8
+    assert payload["lane_count"] == 10
 
 
 def test_release_lane_script_does_not_add_command_execution_imports():

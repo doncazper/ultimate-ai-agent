@@ -1,8 +1,8 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.102.2**
+Current active baseline: **v0.102.3**
 
-v0.102.2 is the incremental Founder Command Center strategy-spine hardening
+v0.102.3 is the incremental Founder Command Center strategy-spine hardening
 baseline. It keeps the repository contract-first, review-gated, local-first,
 disabled by default, and non-production by default while aligning the
 macOS-of-agents strategy docs, first product-loop lane, planning-only
@@ -17,10 +17,10 @@ The latest accepted local model lane checkpoint tags remain **checkpoint-m166**
 and **checkpoint-m167**. Those post-M150 checkpoints extend the scoped local
 model lane through the M166 production-readiness gate and M167 live-evidence
 hardening. The active Operator Runtime Excellence Program starts at M168 with
-currentness/product truth repair and is now consolidated under the v0.102.2 / 0.102.2
+currentness/product truth repair and is now consolidated under the v0.102.3 / 0.102.3
 product/package baseline.
 
-v0.102.2 consolidates the current README, roadmap/status docs, release-truth
+v0.102.3 consolidates the current README, roadmap/status docs, release-truth
 packet, public security posture, API route currentness docs, Founder Command
 Center strategy spine, and Control Center operator-shell gap map under one
 active baseline. It adds no dependency, backend route, Control Center control,

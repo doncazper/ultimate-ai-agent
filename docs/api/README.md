@@ -1,8 +1,8 @@
 # API Boundary
 
-Current active baseline: **v0.102.2**
+Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `108`, generated from the FastAPI application and
+Current OpenAPI path count: `112`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -62,6 +62,12 @@ Current boundary summary:
   receipts, and audit summaries. It does not store raw transcripts, handle
   credentials or cookies, grant model-output authority, or perform unapproved
   connector writes.
+- `GET /control-center/today/summary`, `GET /control-center/actions/inbox`,
+  `GET /control-center/morning-briefing/summary`, and
+  `GET /control-center/storage/status` expose storage-backed Founder Loop
+  summaries with safe refs and bounded summaries only. They do not grant
+  action execution, connector writes, provider calls, email/calendar reads, or
+  notification delivery.
 - Route metadata must keep side-effect classes explicit.
 
 Denied by the current API boundary:

@@ -12,6 +12,7 @@ from typing import Any, List, Optional
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiManifest
+from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.mattermost import register_mattermost_routes
 from ultimate_ai_agent.api.openapi import configure_openapi_contract
@@ -207,6 +208,7 @@ app = FastAPI(
 )
 register_governed_web_evidence_routes(app)
 register_mattermost_routes(app)
+register_founder_loop_routes(app)
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()

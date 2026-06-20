@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { navItems } from "../routes";
+import { CommandPalette } from "./CommandPalette";
 
 interface AppShellProps {
   children: ReactNode;
@@ -40,6 +41,7 @@ export function AppShell({ children, activePath }: AppShellProps) {
             className="topbar-actions"
             aria-label="Control Center safety status"
           >
+            <CommandPalette activePath={activePath} />
             <span className="status-pill">Read-only</span>
             <span className="status-pill">No authority to run actions</span>
           </div>

@@ -1,0 +1,17 @@
+{
+  "classification_counts": {},
+  "family_counts": {},
+  "items": [],
+  "redactions_applied": [
+    "criterion_ids_only",
+    "raw_logs_omitted",
+    "raw_paths_omitted",
+    "safe_refs_only"
+  ],
+  "schema_version": "uaa-foundation-gate-failure-classification.v1",
+  "source": {
+    "failed_count": 0,
+    "overall_status": "passed",
+    "report_ref": "foundation-gate-report:latest"
+  }
+}

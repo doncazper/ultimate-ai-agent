@@ -1,6 +1,6 @@
 # Canonical Document Map
 
-Current active baseline: **v0.102.2**
+Current active baseline: **v0.102.3**
 
 This map links major systems to their canonical documentation. If a system has both canonical docs and runtime/API docs, canonical docs define principles and sequencing while runtime/API docs define current implementation boundaries.
 
@@ -8,7 +8,7 @@ This map links major systems to their canonical documentation. If a system has b
 
 | Field | Canonical source |
 |---|---|
-| Active baseline | `VERSION.md`, `README.md`, `docs/release_notes/v0_102_2.md` |
+| Active baseline | `VERSION.md`, `README.md`, `docs/release_notes/v0_102_3.md` |
 | Latest repository checkpoint | `docs/release_notes/checkpoint_m168.md` |
 | Active program | `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |

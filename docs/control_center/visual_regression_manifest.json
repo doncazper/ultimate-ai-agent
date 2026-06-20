@@ -1,0 +1,146 @@
+{
+  "schema_version": "uaa-control-center-visual-regression.v1",
+  "status": "active checked-in visual baseline",
+  "capture_command_ref": "command:frontend.visual-regression",
+  "playwright_dependency_status": "control-center devDependency",
+  "baseline_directory_ref": "visual-baselines:control-center:playwright-snapshots",
+  "baseline_policy": {
+    "checked_in_redacted_baselines_required": true,
+    "raw_private_screenshots_allowed": false,
+    "absolute_paths_allowed": false,
+    "local_user_paths_allowed": false,
+    "secret_material_allowed": false
+  },
+  "required_viewports": [
+    "viewport:desktop-1440x1000",
+    "viewport:mobile-390x844"
+  ],
+  "surfaces": [
+    {
+      "surface": "Overview",
+      "route": "/",
+      "baseline_ref": "visual-baseline:control-center:overview",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:overview",
+        "mobile": "visual-baseline-file:mobile:overview"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:8e0bb568f35d157df64aee5656e4ac237b28d15f8e8e1ac9f1d29289258465a3",
+        "mobile": "sha256:0c5393e1440b8a810c78d25ad3d0a76a55a735e1e7c2337e1953934f299ebbee"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Today",
+      "route": "/today",
+      "baseline_ref": "visual-baseline:control-center:today",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:today",
+        "mobile": "visual-baseline-file:mobile:today"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:752c8eb1ba3aca6aecc5df237aff231c2f35bb769d27fa31bd4fa5995dba8b16",
+        "mobile": "sha256:7bac5227312901e6135966a33350f9e28a02ffa1841e23f12774cf7b2a4a88ce"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Actions",
+      "route": "/actions",
+      "baseline_ref": "visual-baseline:control-center:actions",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:actions",
+        "mobile": "visual-baseline-file:mobile:actions"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:3af47ec41f4892cd40b0752eaf865b913fcdd2efa83086b56fdb53b5a6ceefa3",
+        "mobile": "sha256:c079e0fe2b9a8322705d41928cb723821b9cca35faa567174df6ca2430a37e4b"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Plans",
+      "route": "/plans",
+      "baseline_ref": "visual-baseline:control-center:plans",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:plans",
+        "mobile": "visual-baseline-file:mobile:plans"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:d9b4dffd5190e04044efdee2f2d4c03188d5b2fa336cf2a4735143ee3558cb0b",
+        "mobile": "sha256:7b3909818c6eb3f006d632d40483b9a0539e23788b50de995f1ae96e0b57e8ff"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Memory",
+      "route": "/memory",
+      "baseline_ref": "visual-baseline:control-center:memory",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:memory",
+        "mobile": "visual-baseline-file:mobile:memory"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:15e668c34d4ac36ee52748645d650e2d8d479134db26ef969745b947ba6858b2",
+        "mobile": "sha256:e29c4542544e70ff98a2ec6b5d54365d3593139ab95edf9445d8385e480118b5"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Evidence",
+      "route": "/evidence",
+      "baseline_ref": "visual-baseline:control-center:evidence",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:evidence",
+        "mobile": "visual-baseline-file:mobile:evidence"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:36225dbd30ffc0c74e27f7ed15edb622e51da40c9a0a52fc398d4ddda54b77c1",
+        "mobile": "sha256:f8fd80bc5f8fe4a4b09ba1552ff46d3aa2c0632e228272e75ac2761405187b76"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Settings",
+      "route": "/settings",
+      "baseline_ref": "visual-baseline:control-center:settings",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:settings",
+        "mobile": "visual-baseline-file:mobile:settings"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:3e7fe7ce3053b66fc063aa84383e3704679eefeb18132c9392131995213f036c",
+        "mobile": "sha256:5eac5285ad44b45d2852ed6bf8f11ab406d5134df42de25852c0345e13c5dc3e"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Setup",
+      "route": "/setup",
+      "baseline_ref": "visual-baseline:control-center:setup",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:setup",
+        "mobile": "visual-baseline-file:mobile:setup"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:e59902dcb2816a35f618d97f7b004edc7164d8d0773fadd5aa8955fc3d1b0a6a",
+        "mobile": "sha256:6fbd7b2465bafeb71ccaa5a7eaa2851d104fa7e12632fe9a759ce13fbf0a30f0"
+      },
+      "raw_private_screenshot_included": false
+    }
+  ],
+  "non_goals": [
+    "does not add browser automation authority",
+    "does not upload screenshots",
+    "does not claim public distribution readiness",
+    "does not include raw paths, raw logs, credentials, usernames, hostnames, or environment dumps"
+  ]
+}

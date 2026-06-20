@@ -39,6 +39,11 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned():
     assert "observability_safe_summary_api" in manifest["capabilities_declared"]
     assert "control_center_setup_assistant_summary" in manifest["capabilities_declared"]
     assert "control_center_setup_approval_envelopes_dry_run" in manifest["capabilities_declared"]
+    assert "control_center_founder_loop_storage_summaries" in manifest["capabilities_declared"]
+    assert "control_center_today_summary" in manifest["capabilities_declared"]
+    assert "control_center_action_inbox_summary" in manifest["capabilities_declared"]
+    assert "control_center_morning_briefing_summary" in manifest["capabilities_declared"]
+    assert "control_center_storage_status" in manifest["capabilities_declared"]
     assert "mattermost_agent_rooms_disabled_by_default" in manifest["capabilities_declared"]
     assert "mattermost_role_catalog" in manifest["capabilities_declared"]
     assert "mattermost_redacted_message_ingress" in manifest["capabilities_declared"]
@@ -64,6 +69,18 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert routes_by_path["/files/read/preview"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/control-center/setup-assistant/summary"]["side_effect_class"] == (
         "validation_only"
+    )
+    assert routes_by_path["/control-center/today/summary"]["side_effect_class"] == (
+        "local_dev_workspace_only"
+    )
+    assert routes_by_path["/control-center/actions/inbox"]["side_effect_class"] == (
+        "local_dev_workspace_only"
+    )
+    assert routes_by_path["/control-center/morning-briefing/summary"]["side_effect_class"] == (
+        "local_dev_workspace_only"
+    )
+    assert routes_by_path["/control-center/storage/status"]["side_effect_class"] == (
+        "local_dev_workspace_only"
     )
     assert "file_api_caller_selected_roots" in manifest["capabilities_blocked"]
     assert "file_api_raw_tree_paths" in manifest["capabilities_blocked"]
