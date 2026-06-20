@@ -8,6 +8,29 @@ behavior, mutation, persistence change, model/provider call, shell/browser
 behavior, plugin import, or public distribution claim must be separately scoped
 and gated.
 
+## Next Implementation Lane
+
+Work the next implementation lane in this order, starting from the accepted
+`UAA-P1-011` readable-loop baseline:
+
+1. macOS Setup Assistant hardening: tighten dry-run/read-only setup posture,
+   redacted summaries, blocked states, rollback refs, and safe local
+   prerequisite visibility.
+2. First product loop readability: make Today, Plans, Actions, Memory,
+   Evidence, and Settings easier to scan without adding route authority.
+3. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
+   class, approval requirement, expiry, idempotency, evidence, and rollback
+   posture before any approve affordance is wired.
+4. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
+   states, priorities, blockers, and next safe actions.
+5. Read-only email/calendar integration contracts later: define metadata-only
+   calendar/email contracts and draft-only outputs after the loop is readable.
+
+This lane is docs/contracts/tests/inspection first. It grants no new backend
+route, frontend mutation control, setup mutation, connector runtime,
+model/provider call, shell/browser/plugin/mobile/remote execution, installer
+authority, public distribution, or production authority.
+
 ## MVP v0 Surface Map
 
 ### Today Surface
@@ -21,7 +44,8 @@ Current repo evidence / status:
   `/runtime`, `/chat`, `/plans`, `/models`, `/evidence`, and `/settings`.
 - `apps/control-center/src/components/OperatorLoopPanel.tsx` and
   `OperatorFlowPanels.tsx` expose the current UAA-P1-011 loop posture.
-- `docs/kanban/current_board.md` keeps UAA-P1-011 in Now / Building.
+- `docs/kanban/current_board.md` treats UAA-P1-011 as the accepted
+  readable-loop baseline for the next Founder Command Center tasks.
 
 Required backend routes or service changes:
 

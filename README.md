@@ -18,7 +18,7 @@ runner.
 | Current lane | **Operator Runtime Excellence P2 ecosystem inspection lane through UAA-P2-051** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
-| API boundary | FastAPI route contract with **107** OpenAPI paths |
+| API boundary | FastAPI route contract with **108** OpenAPI paths |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 

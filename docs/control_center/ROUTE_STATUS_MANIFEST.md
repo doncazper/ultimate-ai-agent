@@ -50,6 +50,7 @@ connector write authority, plugin runtime authority, or mobile authority.
 
 The JSON manifest covers these UAA-P0-007 surfaces:
 
+- Setup Assistant
 - Chat Shell
 - Plans
 - Models
@@ -68,7 +69,7 @@ mock-only, or local-UI-state-only.
 
 The JSON manifest covers the current visible Control Center routes and actions:
 
-- Overview, Dashboard, and Operator Loop navigation
+- Setup Assistant, Overview, Dashboard, and Operator Loop navigation
 - Chat Shell, Plans, Models, Runtime, Foundation Gate, API Routes, Approvals,
   Receipts, Events, Timeline, Evidence, Files, File Review, Context Proposals,
   Memory, Local Runtime, Manual Smoke, Remote Workers, Mobile Planning, Plugin

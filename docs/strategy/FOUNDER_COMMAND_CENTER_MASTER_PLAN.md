@@ -173,6 +173,19 @@ P2 workflows:
 - Task planning and approval-bound task creation
 - Governed integrations after read-only contracts and exact approval gates
 
+## Next Implementation Lane
+
+The next tactical lane is defined in the
+[Founder Command Center MVP spec](FOUNDER_COMMAND_CENTER_MVP_SPEC.md#next-implementation-lane).
+In short: harden the macOS Setup Assistant, improve first product loop
+readability, shape the Action Inbox / approval envelope UX, add a Morning
+Briefing skeleton, and defer read-only email/calendar integration contracts
+until those surfaces are legible.
+
+This lane grants no new authority. The 30/60/90-day plan below still requires
+scoped tasks, tests, evidence, and gates before any route, runtime, connector,
+installer, or production claim changes.
+
 ## 30-Day Plan
 
 Goal: make the first product loop concrete and testable without adding new
