@@ -21,6 +21,15 @@ from ultimate_ai_agent.core.memory.enums import (
     MemoryWriteDecisionStatus,
     MemoryWriteDisposition,
 )
+from ultimate_ai_agent.core.memory.fcc_relationship_memory_schema import (
+    FCC_RELATIONSHIP_MEMORY_REASON_CODES,
+    FCC_RELATIONSHIP_MEMORY_SCHEMA_DOCS,
+    FCCRelationshipMemoryCandidate,
+    FCCRelationshipMemoryCandidateKind,
+    FCCRelationshipMemoryReviewState,
+    build_fcc_relationship_memory_candidate,
+    validate_fcc_relationship_memory_candidate,
+)
 from ultimate_ai_agent.core.memory.local_store import LocalMemoryStore
 from ultimate_ai_agent.core.memory.manifests import (
     MemoryProviderManifest,
@@ -90,8 +99,15 @@ __all__ = [
     "MemoryWriteRequest",
     "LegacyMemoryWriteRequest",
     "LocalMemoryStore",
+    "FCC_RELATIONSHIP_MEMORY_REASON_CODES",
+    "FCC_RELATIONSHIP_MEMORY_SCHEMA_DOCS",
+    "FCCRelationshipMemoryCandidate",
+    "FCCRelationshipMemoryCandidateKind",
+    "FCCRelationshipMemoryReviewState",
+    "build_fcc_relationship_memory_candidate",
     "build_default_memory_provider_manifest",
     "memory_contains_secret",
     "redact_memory_content",
+    "validate_fcc_relationship_memory_candidate",
     "validate_memory_record",
 ]

@@ -259,12 +259,18 @@ model list/chat readiness summaries, and local smoke validation.
 Candidate routes: `/runtime/*`, `/model-runtime/*`, `/v1/*`,
 `/models/route/preview`.
 
+Accepted UAA-P1-052 extraction splits this into `runtime_service` for
+`/runtime/*` readiness/boundary routes and `model_runtime_service` for
+`/model-*`, `/model-runtime/*`, local `/v1/*`, and OpenWebUI local test routes.
+
 ### `planning_service`
 
 Owns task classification, decomposition, plan validation, plan run summaries,
 and workflow planning envelopes.
 
-Candidate routes: `/task-decomposition/*`.
+Product-facing candidate routes: `/task-decomposition/*`.
+Accepted UAA-P1-052 extraction module name for current route movement:
+`task_decomposition_service`.
 
 ### `approval_service`
 
@@ -286,7 +292,9 @@ Candidate routes: `/memory/*` and future memory-review summaries.
 Owns safe file refs, tree preview, bounded read preview, write proposals, diff
 preview, atomic apply, rollback receipts, and file review approvals.
 
-Candidate routes: `/files/*`.
+Product-facing candidate routes: `/files/*`.
+Accepted UAA-P1-052 extraction module name for current route movement:
+`workspace_files_service`.
 
 ### `evidence_service`
 
@@ -308,12 +316,18 @@ runtime remains separately scoped.
 Candidate routes: `/integrations/*`, `/web-evidence/*`, future
 contract-only connector routes.
 
+Accepted UAA-P1-052 extraction module names are `integrations_service` for
+Mattermost-style integration routes and `governed_web_evidence_service` for
+`/web-evidence/*`.
+
 ### `settings_service`
 
 Owns safe setup summary, feature flag posture, kill-switch posture, disabled
 authority boundary summaries, and redacted local configuration status.
 
 Candidate routes: future settings/status routes only after scope approval.
+Accepted UAA-P1-052 extraction treats `settings_service` as future-scoped
+because no dedicated Settings route exists yet.
 
 ### `workflow_service`
 
@@ -322,6 +336,10 @@ Action Inbox, Memory Review Inbox, Evidence Timeline, and Weekly CEO Review.
 
 Candidate routes: future aggregation/status routes that compose existing safe
 summaries before adding any new authority.
+
+FCC-P1-012 keeps current Founder Command Center summary routes in the accepted
+`control_center_service` extraction boundary until a separate scoped
+`workflow_service` route contract exists.
 
 ## Migration Strategy
 

@@ -301,6 +301,58 @@ class FounderLoopBriefingRecord(BaseModel):
         return self
 
 
+class FounderLoopEvidenceTimelineItem(BaseModel):
+    timeline_item_ref: str = Field(..., min_length=1)
+    item_kind: str = Field(..., min_length=1, max_length=80)
+    title: str = Field(..., min_length=1, max_length=120)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    source_refs: list[str] = Field(default_factory=list)
+    status_refs: list[str] = Field(default_factory=list)
+    related_route_refs: list[str] = Field(default_factory=list)
+    side_effect_class: str = Field(default="local_dev_workspace_only", min_length=1, max_length=80)
+    authority_posture: str = Field(..., min_length=1, max_length=240)
+    approval_posture: str = Field(
+        default="approval_refs_are_identifiers_only_not_authority",
+        min_length=1,
+        max_length=160,
+    )
+    receipt_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    replay_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    rollback_blockers: list[str] = Field(default_factory=list)
+    latency_refs: list[str] = Field(default_factory=list)
+    foundation_gate_refs: list[str] = Field(default_factory=list)
+    redaction_status: str = Field(default="redacted_summary_only", min_length=1, max_length=80)
+    stale_state: str = Field(default="recheck_refs_before_use", min_length=1, max_length=120)
+    missing_evidence_posture: str = Field(default="no_missing_safe_refs", min_length=1, max_length=180)
+    blocked_states: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=240)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_record(self) -> "FounderLoopEvidenceTimelineItem":
+        _validate_safe_ref(self.timeline_item_ref, "timeline_item_ref")
+        for field_name in [
+            "source_refs",
+            "status_refs",
+            "receipt_refs",
+            "audit_refs",
+            "replay_refs",
+            "rollback_refs",
+            "latency_refs",
+            "foundation_gate_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        for route_ref in self.related_route_refs:
+            _validate_safe_text(route_ref, "related_route_ref")
+        _validate_safe_payload(self.model_dump(mode="json"), "evidence_timeline_item")
+        return self
+
+
 def _validate_safe_ref(value: str, field_name: str) -> None:
     validate_execution_ref(value, field_name)
 
@@ -334,6 +386,10 @@ def _validate_safe_payload(value: Any, field_name: str) -> None:
 def _json_dumps(value: Any) -> str:
     _validate_safe_payload(value, "json_payload")
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+
+def _timeline_ref(kind: str, source_ref: str) -> str:
+    return f"evidence-timeline:{kind}/{source_ref.replace(':', '/')}"
 
 
 def _utc_iso() -> str:
@@ -400,6 +456,12 @@ class FounderLoopRepository:
         plans = self.list_plan_summaries(limit=3)
         memory_items = self.list_memory_review_queue(limit=3)
         briefing_items = self.list_briefing_items(limit=3)
+        evidence_timeline = self._build_evidence_timeline(
+            actions=actions,
+            plans=plans,
+            memory_items=memory_items,
+            briefing_items=briefing_items,
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -412,6 +474,7 @@ class FounderLoopRepository:
                 "plan_count": len(plans),
                 "memory_review_count": len(memory_items),
                 "briefing_count": len(briefing_items),
+                "evidence_timeline_count": len(evidence_timeline),
             },
             "actions": actions,
             "plans": plans,
@@ -443,6 +506,23 @@ class FounderLoopRepository:
                 "no_background_sync",
             ],
             "briefing_items": briefing_items,
+            "evidence_timeline": evidence_timeline,
+            "evidence_timeline_route_ref": "/evidence",
+            "evidence_timeline_backend_route_ref": "GET /control-center/today/summary",
+            "evidence_timeline_status": "storage_backed_redacted_refs",
+            "evidence_timeline_authority_boundary": (
+                "Evidence Timeline is safe-ref and redacted-summary only. It does "
+                "not expose raw content, grant approval, execute rollback, or confer "
+                "production authority."
+            ),
+            "evidence_timeline_blocked_states": [
+                "no_raw_evidence_display",
+                "no_rollback_execution",
+                "approval_refs_are_identifiers_only",
+                "foundation_gate_refs_not_production_authority",
+                "latency_refs_not_authority",
+                "connector_source_runtime_blocked",
+            ],
             "evidence_refs": ["evidence-ref:founder-loop:today-summary"],
             "blocked_states": [
                 "no_action_execution_route",
@@ -450,6 +530,217 @@ class FounderLoopRepository:
                 "no_runtime_model_call_route",
             ],
         }
+
+    def _build_evidence_timeline(
+        self,
+        *,
+        actions: list[dict[str, Any]],
+        plans: list[dict[str, Any]],
+        memory_items: list[dict[str, Any]],
+        briefing_items: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        timeline: list[FounderLoopEvidenceTimelineItem] = []
+        for action in actions:
+            action_ref = str(action["item_ref"])
+            receipt_refs = list(action.get("receipt_refs") or [])
+            audit_refs = list(action.get("audit_refs") or [])
+            rollback_refs = [action["rollback_ref"]] if action.get("rollback_ref") else []
+            rollback_blockers = (
+                []
+                if rollback_refs
+                else ["rollback_refs_missing_until_scoped_state_change_contract"]
+            )
+            blocked_states = [
+                str(value)
+                for value in [
+                    action.get("blocked_state"),
+                    action.get("state_change_readiness"),
+                ]
+                if value
+            ]
+            timeline.append(
+                FounderLoopEvidenceTimelineItem(
+                    timeline_item_ref=_timeline_ref("action", action_ref),
+                    item_kind="receipt_audit_rollback_ref",
+                    title=str(action["title"]),
+                    safe_summary=(
+                        "Action evidence is shown as receipt, audit, idempotency, "
+                        "rollback, and safe-disable refs only; mutation stays blocked."
+                    ),
+                    source_refs=[action_ref],
+                    status_refs=["status-ref:founder-loop-action-inbox"],
+                    related_route_refs=["GET /control-center/actions/inbox", "/actions"],
+                    side_effect_class=str(action.get("side_effect_class", "validation_only")),
+                    authority_posture=str(action.get("authority_boundary")),
+                    approval_posture=str(
+                        action.get(
+                            "approval_envelope_status",
+                            "approval_refs_are_identifiers_only_not_authority",
+                        )
+                    ),
+                    receipt_refs=receipt_refs,
+                    audit_refs=audit_refs,
+                    replay_refs=["replay-ref:founder-loop:action-inbox"],
+                    rollback_refs=rollback_refs,
+                    rollback_blockers=rollback_blockers,
+                    redaction_status="redacted_summary_only",
+                    stale_state=str(action.get("stale_state", "recheck_action_refs_before_use")),
+                    missing_evidence_posture=(
+                        "receipt_refs_available"
+                        if receipt_refs
+                        else "receipt_refs_missing_until_scoped_contract"
+                    ),
+                    blocked_states=blocked_states,
+                    next_safe_action=str(action.get("next_safe_action")),
+                )
+            )
+        for plan in plans:
+            plan_ref = str(plan["plan_ref"])
+            timeline.append(
+                FounderLoopEvidenceTimelineItem(
+                    timeline_item_ref=_timeline_ref("plan", plan_ref),
+                    item_kind="plan_evidence_ref",
+                    title=str(plan["title"]),
+                    safe_summary=(
+                        "Plan evidence is a bounded summary ref. It does not create "
+                        "execution authority or a durable run by itself."
+                    ),
+                    source_refs=[plan_ref],
+                    status_refs=["status-ref:founder-loop-plan-summary"],
+                    related_route_refs=["/plans", "/task-decomposition/status"],
+                    side_effect_class="validation_only",
+                    authority_posture="Plan summary is inspection-only and not execution authority.",
+                    approval_posture="approval_required_before_execution_scope",
+                    receipt_refs=[],
+                    audit_refs=[],
+                    replay_refs=["replay-ref:founder-loop:plan-summary"],
+                    rollback_refs=[],
+                    rollback_blockers=["rollback_not_applicable_for_plan_summary"],
+                    redaction_status="redacted_summary_only",
+                    stale_state="recheck_plan_refs_before_execution_claims",
+                    missing_evidence_posture="run_receipt_missing_until_execution_contract",
+                    blocked_states=["no_plan_execution_from_evidence_timeline"],
+                    next_safe_action=str(plan.get("next_step_summary")),
+                )
+            )
+        for item in memory_items:
+            review_ref = str(item["review_ref"])
+            missing_contract_refs = list(item.get("missing_contract_refs") or [])
+            timeline.append(
+                FounderLoopEvidenceTimelineItem(
+                    timeline_item_ref=_timeline_ref("memory", review_ref),
+                    item_kind="memory_review_evidence_ref",
+                    title=str(item["title"]),
+                    safe_summary=(
+                        "Memory evidence is recall metadata only. Memory is not "
+                        "truth, not approval, and not context-injection authority."
+                    ),
+                    source_refs=[review_ref, *list(item.get("source_refs") or [])],
+                    status_refs=[
+                        "status-ref:founder-loop-memory-review",
+                        *missing_contract_refs,
+                    ],
+                    related_route_refs=["GET /control-center/today/summary", "/memory"],
+                    side_effect_class=str(item.get("side_effect_class", "local_dev_workspace_only")),
+                    authority_posture=str(item.get("authority_boundary")),
+                    approval_posture="memory_review_refs_do_not_authorize_writes",
+                    receipt_refs=[],
+                    audit_refs=[],
+                    replay_refs=["replay-ref:founder-loop:memory-review"],
+                    rollback_refs=[],
+                    rollback_blockers=["memory_write_or_delete_rollback_not_scoped"],
+                    redaction_status="redacted_summary_only",
+                    stale_state=str(item.get("stale_state", "recheck_memory_refs_before_use")),
+                    missing_evidence_posture=(
+                        "memory_contract_refs_missing_until_scoped_review_contracts"
+                        if missing_contract_refs
+                        else "no_missing_memory_contract_refs"
+                    ),
+                    blocked_states=list(item.get("blocked_states") or []),
+                    next_safe_action=str(item.get("next_safe_action")),
+                )
+            )
+        for item in briefing_items:
+            briefing_ref = str(item["briefing_ref"])
+            timeline.append(
+                FounderLoopEvidenceTimelineItem(
+                    timeline_item_ref=_timeline_ref("briefing", briefing_ref),
+                    item_kind="source_readiness_evidence_ref",
+                    title=str(item["title"]),
+                    safe_summary=(
+                        "Briefing evidence is source-readiness posture only. Email, "
+                        "calendar, connector, refresh, and notification runtime stay blocked."
+                    ),
+                    source_refs=[briefing_ref, *list(item.get("source_refs") or [])],
+                    status_refs=[
+                        _timeline_ref(
+                            "briefing-status",
+                            str(item.get("source_readiness", "blocked_missing_source_contract")),
+                        )
+                    ],
+                    related_route_refs=[
+                        "GET /control-center/morning-briefing/summary",
+                        "/briefing",
+                    ],
+                    side_effect_class=str(item.get("side_effect_class", "local_dev_workspace_only")),
+                    authority_posture=str(item.get("authority_boundary")),
+                    approval_posture="source_refs_do_not_authorize_connector_runtime",
+                    receipt_refs=[],
+                    audit_refs=[],
+                    replay_refs=["replay-ref:founder-loop:morning-briefing"],
+                    rollback_refs=[],
+                    rollback_blockers=["source_refresh_rollback_not_scoped"],
+                    redaction_status="redacted_summary_only",
+                    stale_state=str(item.get("stale_state", "recheck_source_refs_before_use")),
+                    missing_evidence_posture=str(item.get("evidence_gap")),
+                    blocked_states=list(item.get("blocked_states") or []),
+                    next_safe_action=str(item.get("next_safe_action")),
+                )
+            )
+        timeline.append(
+            FounderLoopEvidenceTimelineItem(
+                timeline_item_ref="evidence-timeline:foundation-gate/latency",
+                item_kind="foundation_gate_latency_ref",
+                title="Foundation Gate and latency posture",
+                safe_summary=(
+                    "Foundation Gate and latency refs are status evidence only; "
+                    "they do not grant production authority or runtime authority."
+                ),
+                source_refs=["status-ref:foundation-gate-summary"],
+                status_refs=["status-ref:foundation-gate-report"],
+                related_route_refs=[
+                    "GET /control-center/foundation-gate/summary",
+                    "/foundation-gate",
+                ],
+                side_effect_class="validation_only",
+                authority_posture=(
+                    "Foundation Gate status and latency measurements are evidence, "
+                    "not production authority."
+                ),
+                approval_posture="approval_refs_are_identifiers_only_not_authority",
+                audit_refs=["audit-ref:foundation-gate:latest"],
+                replay_refs=["replay-ref:foundation-gate:latest"],
+                rollback_blockers=["rollback_execution_not_scoped"],
+                latency_refs=[
+                    "latency-ref:foundation-gate:latest-report",
+                    "performance-ref:release-latency-baseline",
+                ],
+                foundation_gate_refs=["foundation-gate-ref:latest-report"],
+                redaction_status="safe_refs_only",
+                stale_state="recheck_foundation_gate_report_before_release_claim",
+                missing_evidence_posture="release_evidence_packet_missing_until_scoped_release",
+                blocked_states=[
+                    "foundation_gate_refs_not_production_authority",
+                    "latency_refs_not_authority",
+                    "no_release_authority",
+                ],
+                next_safe_action=(
+                    "Inspect Foundation Gate and latency refs; keep production "
+                    "claims blocked until release evidence is scoped."
+                ),
+            )
+        )
+        return [item.model_dump(mode="json") for item in timeline]
 
     def actions_inbox(self, *, limit: int = 50) -> dict[str, Any]:
         items = self.list_action_inbox(limit=limit)

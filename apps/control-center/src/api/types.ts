@@ -161,6 +161,32 @@ export interface FounderLoopBriefingItem {
   created_at?: string;
 }
 
+export interface FounderLoopEvidenceTimelineItem {
+  timeline_item_ref: string;
+  item_kind: string;
+  title: string;
+  safe_summary: string;
+  source_refs: string[];
+  status_refs: string[];
+  related_route_refs: string[];
+  side_effect_class: string;
+  authority_posture: string;
+  approval_posture: string;
+  receipt_refs: string[];
+  audit_refs: string[];
+  replay_refs: string[];
+  rollback_refs: string[];
+  rollback_blockers: string[];
+  latency_refs: string[];
+  foundation_gate_refs: string[];
+  redaction_status: string;
+  stale_state: string;
+  missing_evidence_posture: string;
+  blocked_states: string[];
+  next_safe_action: string;
+  created_at?: string;
+}
+
 export interface FounderLoopTodaySummary {
   schema_version: string;
   status: string;
@@ -173,6 +199,7 @@ export interface FounderLoopTodaySummary {
     plan_count: number;
     memory_review_count: number;
     briefing_count: number;
+    evidence_timeline_count?: number;
   };
   actions: FounderLoopActionItem[];
   plans: FounderLoopPlanSummary[];
@@ -187,6 +214,12 @@ export interface FounderLoopTodaySummary {
   memory_review_missing_contract_refs: string[];
   memory_review_blocked_states: string[];
   briefing_items: FounderLoopBriefingItem[];
+  evidence_timeline?: FounderLoopEvidenceTimelineItem[];
+  evidence_timeline_route_ref?: string;
+  evidence_timeline_backend_route_ref?: string;
+  evidence_timeline_status?: string;
+  evidence_timeline_authority_boundary?: string;
+  evidence_timeline_blocked_states?: string[];
   evidence_refs: string[];
   blocked_states: string[];
 }

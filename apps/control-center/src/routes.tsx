@@ -13,6 +13,7 @@ import { FileReviewSurfacePanel } from "./components/FileReviewSurfacePanel";
 import { FoundationGatePanel } from "./components/FoundationGatePanel";
 import {
   ActionInboxSurfacePanel,
+  EvidenceTimelineSurfacePanel,
   FounderLoopStoragePanel,
   InboxSurfacePanel,
   MemoryReviewSurfacePanel,
@@ -73,7 +74,7 @@ export const navItems: NavItem[] = [
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", role: "primary" },
   { path: "/actions", label: "Actions", group: "Founder Loop", status: "storage-backed", role: "primary" },
   { path: "/memory", label: "Memory", group: "Founder Loop", status: "review queue", role: "primary" },
-  { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "summary", role: "primary" },
+  { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "blocked", role: "primary" },
   { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", role: "supporting" },
   { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", role: "supporting" },
@@ -191,7 +192,12 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/events/timeline":
       return <EventTimelineTracePanel trace={data.m16Trace} />;
     case "/evidence":
-      return <EvidenceOperatorPanel data={data} />;
+      return (
+        <>
+          <EvidenceTimelineSurfacePanel today={data.founderToday} />
+          <EvidenceOperatorPanel data={data} />
+        </>
+      );
     case "/files":
       return <FileReferenceViewerPanel knowledge={data.m17Knowledge} />;
     case "/files/review":

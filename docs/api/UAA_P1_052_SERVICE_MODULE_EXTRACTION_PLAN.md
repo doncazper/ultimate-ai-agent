@@ -32,10 +32,11 @@ the typed metadata endpoint for the route inventory.
 |---|---|---|---|---|
 | `ultimate_ai_agent.api.routes.system_service` | `/health`, `/version`, `/api/manifest` | May read package/version constants and manifest builder only; no storage, policy, model, connector, or local runtime mutation. | Low for `/health` and `/version`; low-medium for `/api/manifest` because manifest generation must avoid circular imports. | OpenAPI contract, API manifest, control-center route contracts, Foundation Gate. |
 | `ultimate_ai_agent.api.routes.control_center_service` | `/control-center/*` summary and preview routes | May call existing storage/readiness helpers and return bounded safe refs only; no action execution, connector writes, model calls, email/calendar reads, notifications, or UI-only authority. | Medium because visible product language and route-status manifest must stay aligned. | Control Center API routes, focused frontend tests when UI contracts change, OpenAPI/API manifest. |
+| `ultimate_ai_agent.api.routes.runtime_service` | `/runtime/*` readiness, capability, boundary, and smoke-report validation routes | May expose readiness, capability, and validation summaries only; no lifecycle launch/stop, model download, provider SDK call, shell/subprocess execution, or production runtime authority. | Medium because runtime status is product-visible and must not imply lifecycle control. | Runtime readiness tests, OpenAPI contract, API manifest, Foundation Gate. |
 | `ultimate_ai_agent.api.routes.approval_service` | `/approvals/*`, `/consent/*` | May evaluate approval/consent contracts only; approval refs are identifiers and not authority without exact LocalApprovalAuthority validation. | Medium. | Approval authority tests, API manifest, OpenAPI contract. |
 | `ultimate_ai_agent.api.routes.workspace_files_service` | `/files/*` | Must preserve safe refs, redaction, approval-bound proposal/apply/rollback gates, idempotency, and secret-like blocking. | High. | File tree/preview/proposal/apply/rollback/secret-blocking tests plus API contract checks. |
 | `ultimate_ai_agent.api.routes.task_decomposition_service` | `/task-decomposition/*` | Must preserve disabled-by-default/local-dev auth, policy gates, approval refs, audit refs, and route side-effect classes. | High. | Task decomposition production API, approval integration, API contract checks. |
-| `ultimate_ai_agent.api.routes.model_runtime_service` | `/model-*`, `/runtime-*`, local `/v1/*`, OpenWebUI local test routes | Must preserve disabled/fallback-first behavior, loopback/bearer gates where applicable, no provider authority, no tools/functions/streaming authority, and safe model readiness refs. | High. | M151/M167 local model tests, route contract checks. |
+| `ultimate_ai_agent.api.routes.model_runtime_service` | `/model-*`, `/model-runtime/*`, local `/v1/*`, OpenWebUI local test routes | Must preserve disabled/fallback-first behavior, loopback/bearer gates where applicable, no provider authority, no tools/functions/streaming authority, and safe model readiness refs. | High. | M151/M167 local model tests, route contract checks. |
 | `ultimate_ai_agent.api.routes.integrations_service` | `/integrations/mattermost/*` | Must preserve disabled-by-default bridge posture, bounded message ingress, safe refs, no credentials, no session material, and no unapproved connector writes. | High. | Mattermost API tests, redaction/static gate checks, API contract checks. |
 | `ultimate_ai_agent.api.routes.memory_service` | `/memory/*` | Must preserve reviewed-write/evaluate boundaries, safe memory refs, no automatic memory writes, no context injection, and no raw source display. | High. | Memory API/storage tests, Foundation Gate, API contract checks. |
 | `ultimate_ai_agent.api.routes.evidence_service` | `/ledger/*`, evidence receipt families | Must preserve validation-only receipt/evidence behavior and safe refs only. | Medium. | Ledger/evidence tests, API contract checks. |
@@ -46,6 +47,37 @@ the typed metadata endpoint for the route inventory.
 | `ultimate_ai_agent.api.routes.remote_worker_service` | `/remote-workers/*` | Planning/preview/status contracts only; no remote execution or public distribution authority. | High. | Remote worker contract tests, API manifest. |
 | `ultimate_ai_agent.api.routes.observability_service` | `/observability/*` | Bounded redacted summaries only; no raw JSONL, prompts, provider payloads, local paths, logs, usernames, hostnames, environment dumps, credentials, or external telemetry. | Medium. | Session logging/client error tests, redaction/static checks. |
 | `ultimate_ai_agent.api.routes.security_services` | `/secrets/*`, `/tools/*`, provider/cost/runtime-risk contract routes | Validation/dry-run/evaluate contracts only; no secret exposure, tool execution, provider SDK calls, or mutable authority. | Medium-high. | Secret broker, tool broker, provider/cost tests, API manifest. |
+| Future `ultimate_ai_agent.api.routes.settings_service` | Future settings/status routes only | May expose safe setup, feature-flag posture, kill-switch posture, disabled boundaries, and redacted local configuration status only after a separate scoped route contract. | Future-scoped; no current route. | Future Settings route/API/frontend tests plus OpenAPI/API manifest. |
+| Future `ultimate_ai_agent.api.routes.workflow_service` | Future Founder Command Center aggregate/status routes only | May compose existing safe summaries for Today, Morning Briefing, Action Inbox, Memory Review, Evidence Timeline, and Weekly CEO Review only after a separate scoped route contract. | Future-scoped; no current route. | Future workflow route/API/frontend tests plus OpenAPI/API manifest. |
+
+## Founder Command Center Surface Alignment
+
+FCC-P1-012 accepts this document as the route-extraction plan for Founder
+Command Center surfaces. It does not create a separate extraction plan, route
+inventory, route module, or product roadmap. The surface mapping below is an
+alignment layer over UAA-P1-021 and UAA-P1-052 so later FCC work can point to
+the accepted service-module boundary without changing the current 112-path API.
+
+| FCC surface | Current route families or status refs | Accepted target service module | Extraction posture |
+|---|---|---|---|
+| Today / workflow aggregation | `GET /control-center/today/summary`, current safe summary refs | `ultimate_ai_agent.api.routes.control_center_service` first; future aggregate-only work may use `workflow_service` after a scoped route contract exists | No new route in FCC-P1-012; preserve local-dev side-effect class and safe refs. |
+| Morning Briefing | `GET /control-center/morning-briefing/summary` | `ultimate_ai_agent.api.routes.control_center_service`; future dedicated aggregation may use `workflow_service` | No email/calendar/notification runtime; preserve source-readiness and missing-contract posture. |
+| Action Inbox / approvals | `/control-center/actions/*`, `/control-center/approvals/summary`, `/approvals/*` | `ultimate_ai_agent.api.routes.control_center_service` for UI summaries; `ultimate_ai_agent.api.routes.approval_service` for approval contracts | Approval refs remain identifiers; no action execution or grant shortcut. |
+| Plans | `/task-decomposition/*` | `ultimate_ai_agent.api.routes.task_decomposition_service` | Use the accepted extraction name rather than a new `planning_service` module until a later contract changes it. |
+| Memory | `/memory/*` plus current Founder Loop memory-review summaries | `ultimate_ai_agent.api.routes.memory_service` and, for current `/control-center/*` summaries, `ultimate_ai_agent.api.routes.control_center_service` | Preserve review-only memory posture, safe refs, and no context injection. |
+| Evidence | `/receipts/*`, `/events/*`, `/gate/*`, `/observability/*`, `/control-center/foundation-gate/summary`, current Evidence Timeline refs | `ultimate_ai_agent.api.routes.evidence_service`, `ultimate_ai_agent.api.routes.verification_service`, and `ultimate_ai_agent.api.routes.observability_service` | Preserve validation/report-only posture and redacted summaries. |
+| Files | `/files/*` | `ultimate_ai_agent.api.routes.workspace_files_service` | Use the accepted extraction name rather than a new `file_service` module; preserve approval, redaction, idempotency, and rollback gates. |
+| Integrations | `/integrations/mattermost/*`, `/web-evidence/*`, and contract-only future connector surfaces | `ultimate_ai_agent.api.routes.integrations_service` and `ultimate_ai_agent.api.routes.governed_web_evidence_service` | No connector runtime/writes, unrestricted browsing, or credential handling. |
+| Runtime / models | `/runtime/*`, `/model-runtime/*`, `/models/route/preview`, local `/v1/*`, OpenWebUI local test routes | `ultimate_ai_agent.api.routes.runtime_service` and `ultimate_ai_agent.api.routes.model_runtime_service` | Preserve disabled/fallback-first local runtime posture and no provider/model authority. |
+| Settings | No dedicated route; related refs from `/control-center/status`, `/runtime/readiness`, `/runtime/capability-matrix`, and `/api/manifest` | Future `settings_service` only after a separate scoped route contract | FCC-P1-012 adds no settings route, feature-flag writes, or kill-switch execution. |
+| System health/version/API manifest | `GET /health`, `GET /version`, `GET /api/manifest` | `ultimate_ai_agent.api.routes.system_service` | First UAA-P1-058 candidate remains `GET /health` and `GET /version`; `GET /api/manifest` stays second because of manifest coupling. |
+
+The product-facing architecture may use broader names such as
+`planning_service`, `file_service`, `settings_service`, and `workflow_service`
+when describing future product ownership. UAA-P1-052 extraction prompts must
+use the accepted module names in this plan unless a later route-contract
+milestone updates UAA-P1-021, this plan, OpenAPI, `/api/manifest`, and tests in
+the same change.
 
 ## Registration Pattern
 
@@ -94,6 +126,7 @@ accepted route-contract milestone updates docs and tests in the same change:
 - operation ID
 - side-effect class
 - validation-only posture
+- local-dev and governed-read posture where applicable
 - auth posture
 - capability declarations
 - release status
@@ -116,6 +149,9 @@ accepted route-contract milestone updates docs and tests in the same change:
 
 - UAA-P1-052 accepts the extraction plan only; it does not implement
   UAA-P1-058.
+- FCC-P1-012 accepts the Founder Command Center surface alignment only; it does
+  not create a competing plan, route module, backend route, Control Center UI,
+  product authority, or UAA-P1-058 extraction.
 - UAA-P1-058 remains blocked until UAA-P1-020, UAA-P1-021, this plan,
   Foundation Gate, OpenAPI, and `/api/manifest` are green.
 - The first extraction must be a route-organization change only. Any route

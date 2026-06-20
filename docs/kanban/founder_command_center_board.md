@@ -10,11 +10,12 @@ readable-loop baseline; the next product slice starts from its proof chain and
 does not broaden runtime authority.
 
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005, FCC-P1-007,
-and FCC-P1-008 have scoped implementation slices ready for review. The active
-implementation sequence after those slices is:
+FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010, FCC-P1-011, and FCC-P1-012
+have scoped implementation slices ready for review. The active implementation
+sequence after those slices is:
 
-1. Human-readable Evidence Timeline.
-2. Draft-only email response proposal contract.
+1. UAA-P1-058 First low-risk API route-module extraction, only while the parent
+   foundation gates remain green.
 
 Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
 and new runtime authority lanes are not allowed to displace this sequence
@@ -238,8 +239,6 @@ route, Control Center control, connector write, or production authority.
 
 Blockers/dependencies: Future connector runtime milestone.
 
-## Ready
-
 ### FCC-P1-006 - P1 - Human-Readable Evidence Timeline
 
 Epic: Product/UX, Safety/Permissions
@@ -247,13 +246,15 @@ Epic: Product/UX, Safety/Permissions
 Description: Convert receipt, event, audit, latency, Foundation Gate, and
 rollback refs into a readable timeline.
 
-Repo areas likely touched: `apps/control-center/src/components/`,
-`src/ultimate_ai_agent/core/execution/`, `src/ultimate_ai_agent/core/observability/`,
-`tests/`.
+Repo areas touched: `src/ultimate_ai_agent/core/storage/founder_loop.py`,
+`apps/control-center/src/components/FounderLoopPanels.tsx`,
+`apps/control-center/src/api/types.ts`, `apps/control-center/src/routes.tsx`,
+`apps/control-center/src/mocks/controlCenterData.ts`, and focused tests.
 
 Acceptance criteria: Evidence appears as human summaries first, with safe refs
 and redaction status visible. Developer details never become the primary
-operator UI.
+operator UI. The current slice uses `GET /control-center/today/summary` and
+does not add a route, operation ID, side-effect class, or runtime authority.
 
 Required tests/verifiers: frontend tests, redaction tests,
 `.venv/bin/python scripts/verify_control_center_frontend.py`.
@@ -264,20 +265,20 @@ dump, credential material, or secret-like value.
 Blockers/dependencies: Builds on completed FCC-P0-001 baseline and current
 observability summaries.
 
-## Shaping
-
-### FCC-P1-009 - P1 - Draft-Only Reply Proposal Contract
+### FCC-P1-009 - P1 - Draft-Only Email Response Proposal Contract
 
 Epic: Tools/Integrations, Safety/Permissions
 
 Description: Define draft response proposals that can be edited or rejected
 but cannot send or mutate an account.
 
-Repo areas likely touched: `src/ultimate_ai_agent/core/`, `tests/`,
-`docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`.
+Repo areas touched: `src/ultimate_ai_agent/core/connectors/`,
+`docs/connectors/`, `tests/`, and Founder Command Center board/task docs.
 
 Acceptance criteria: Proposal includes safe summary, intent, recipient refs,
-evidence refs, and blocked send/write fields.
+evidence refs, and blocked send/write fields. The current slice is
+contract/test/docs only; it adds no connector runtime, route, Control Center
+control, model call, memory write, context injection, or account authority.
 
 Required tests/verifiers: contract tests proving send/write/delete/archive
 fields are denied.
@@ -294,11 +295,14 @@ Description: Add reviewed memory schema for profile, project, relationship,
 episodic, business, semantic-local knowledge, people, organizations, projects,
 deals, promises, and follow-ups.
 
-Repo areas likely touched: `src/ultimate_ai_agent/core/memory/`, `docs/memory/`,
-`tests/`.
+Repo areas touched: `src/ultimate_ai_agent/core/memory/`, focused tests, and
+Founder Command Center currentness docs.
 
 Acceptance criteria: Records require source/evidence refs, review state,
 confidence, correction path, retention/delete/export posture, and no model-output
+authority. The current slice is contract/test/docs only; it adds no automatic
+memory write, delete execution, export execution, context injection, connector
+runtime/write, route, UI control, model/provider authority, or production
 authority.
 
 Required tests/verifiers: memory tests and redaction tests.
@@ -312,42 +316,70 @@ Blockers/dependencies: FCC-P0-005.
 
 Epic: Safety/Permissions, Product/UX
 
-Description: Specify Settings summary, safe defaults, feature flag posture,
-kill-switch posture, and disabled authority boundaries.
+Description: Specifies the Settings summary posture, safe defaults,
+feature-flag posture, kill-switch posture, scoped permission-mode vocabulary,
+disabled authority boundaries, and future Settings contract requirements.
 
-Repo areas likely touched: `docs/control_center/`, `docs/strategy/`,
-`apps/control-center/src/components/Settings*`, tests after implementation.
+Repo areas touched: `docs/control_center/`,
+`docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`,
+`docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`,
+`docs/kanban/current_board.md`,
+`docs/kanban/founder_command_center_board.md`, and
+`docs/control_center/OPERATOR_SHELL_GAP_MAP.md`.
 
-Acceptance criteria: Spec names local-only setup, redaction, revocation,
-approval, audit, receipt, and rollback requirements for any future setting.
+Acceptance criteria: Spec names local-only setup, redaction, feature-flag
+posture, kill-switch posture, revocation refs, approval needs, audit refs,
+receipt refs, rollback/safe-disable refs, blocked authority boundaries, and next
+safe actions for any future setting. Planning labels do not grant authority.
 
-Required tests/verifiers: docs integrity now; frontend/API tests when
+Required tests/verifiers: documentation integrity and `git diff --check`.
+Frontend/API tests are required only when frontend or route contracts are
 implemented.
 
-Safety notes: No authority toggle and no credential collection in this task.
+Safety notes: No authority toggle, credential collection, Settings mutation,
+feature-flag write, kill-switch execution, revocation execution, route,
+Control Center control, connector runtime/write, model/provider authority,
+memory write, context injection, background job, shell/subprocess execution,
+public distribution, or production authority is added by this spec.
 
-Blockers/dependencies: None for docs-only shaping.
+Blockers/dependencies: Future Settings implementation requires a separate
+scoped milestone with PolicyEngine, LocalApprovalAuthority, route manifest,
+OpenAPI/API manifest, redaction, receipt/audit/revocation, rollback, and test
+evidence.
 
 ### FCC-P1-012 - P1 - FastAPI Service-Module Extraction Plan
 
 Epic: Core Agent Runtime, Infrastructure/Deployment
 
-Description: Plan route grouping into service modules without route drift.
+Description: Aligns Founder Command Center product-loop surfaces to the
+accepted UAA-P1-052 service-module extraction plan without route drift or route
+movement.
 
-Repo areas likely touched: `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`,
-`src/ultimate_ai_agent/api/app.py`, `src/ultimate_ai_agent/api/manifest.py`,
-`tests/test_api_manifest.py` after implementation.
+Repo areas touched: `docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md`,
+`docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`,
+`docs/kanban/current_board.md`,
+`docs/kanban/founder_command_center_board.md`, and
+`docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`.
 
 Acceptance criteria: Plan covers system, runtime, planning, approval, memory,
-file, evidence, integration, settings, and workflow services. OpenAPI operation
-IDs and side-effect classes remain stable.
+file, evidence, integration, settings, and workflow surfaces using accepted
+UAA-P1-052 module names. OpenAPI operation IDs, route count, auth posture,
+side-effect classes, API manifest truth, route-status truth, and Foundation Gate
+coverage remain stable.
 
-Required tests/verifiers: OpenAPI contract, API manifest tests, Foundation Gate
-after implementation.
+Required tests/verifiers: documentation integrity, OpenAPI contract, API
+manifest and Control Center route tests, Foundation Gate report-only, and
+`git diff --check`.
 
-Safety notes: Refactor-only until scoped implementation.
+Safety notes: Docs/plan-only. No route movement, backend route, APIRouter
+module, operation ID change, side-effect class change, auth change, schema
+change, dependency, Control Center UI, runtime authority, connector
+runtime/write, model/provider call, memory write, context injection,
+shell/subprocess execution, public distribution, or production authority.
 
-Blockers/dependencies: UAA-P1-052 on parent board.
+Blockers/dependencies: UAA-P1-058 remains blocked unless UAA-P1-020,
+UAA-P1-021, UAA-P1-052, Foundation Gate, OpenAPI, `/api/manifest`, and
+route-status checks are green on the target branch.
 
 ## Backlog
 

@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.storage import (
 from ultimate_ai_agent.core.storage.founder_loop import (
     FounderLoopActionRecord,
     FounderLoopBriefingRecord,
+    FounderLoopEvidenceTimelineItem,
     FounderLoopMemoryReviewRecord,
 )
 
@@ -69,6 +70,23 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path):
     assert "no_memory_write" in today["memory_review_blocked_states"]
     assert "no_context_injection" in today["memory_review_blocked_states"]
     assert "no_model_provider_authority" in today["memory_review_blocked_states"]
+    assert today["evidence_timeline_route_ref"] == "/evidence"
+    assert (
+        today["evidence_timeline_backend_route_ref"]
+        == "GET /control-center/today/summary"
+    )
+    assert today["evidence_timeline_status"] == "storage_backed_redacted_refs"
+    assert "safe-ref and redacted-summary only" in (
+        today["evidence_timeline_authority_boundary"]
+    )
+    assert "no_raw_evidence_display" in today["evidence_timeline_blocked_states"]
+    assert "no_rollback_execution" in today["evidence_timeline_blocked_states"]
+    assert "approval_refs_are_identifiers_only" in (
+        today["evidence_timeline_blocked_states"]
+    )
+    assert today["sections"]["evidence_timeline_count"] == len(
+        today["evidence_timeline"]
+    )
 
     approval_item = next(
         item
@@ -149,6 +167,66 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path):
     assert memory_item["stale_state"] == "recheck_source_refs_before_memory_use"
     assert "no_raw_source_display" in memory_item["blocked_states"]
     assert "scoped memory policy milestone" in memory_item["next_safe_action"]
+
+    timeline = today["evidence_timeline"]
+    timeline_kinds = {item["item_kind"] for item in timeline}
+    assert "receipt_audit_rollback_ref" in timeline_kinds
+    assert "plan_evidence_ref" in timeline_kinds
+    assert "memory_review_evidence_ref" in timeline_kinds
+    assert "source_readiness_evidence_ref" in timeline_kinds
+    assert "foundation_gate_latency_ref" in timeline_kinds
+
+    action_timeline_item = next(
+        item
+        for item in timeline
+        if item["timeline_item_ref"]
+        == "evidence-timeline:action/founder-action/setup-assistant-hardening"
+    )
+    assert action_timeline_item["receipt_refs"] == [
+        "receipt-plan:founder-loop:setup-assistant-hardening"
+    ]
+    assert action_timeline_item["audit_refs"] == [
+        "audit-plan:founder-loop:setup-assistant-hardening"
+    ]
+    assert action_timeline_item["rollback_refs"] == [
+        "rollback-plan:founder-loop:setup-assistant-hardening"
+    ]
+    assert action_timeline_item["redaction_status"] == "redacted_summary_only"
+    assert "GET /control-center/actions/inbox" in (
+        action_timeline_item["related_route_refs"]
+    )
+    assert "mutation stays blocked" in action_timeline_item["safe_summary"]
+
+    memory_timeline_item = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "memory_review_evidence_ref"
+    )
+    assert memory_timeline_item["approval_posture"] == (
+        "memory_review_refs_do_not_authorize_writes"
+    )
+    assert "Memory is not truth" in memory_timeline_item["safe_summary"]
+    assert "memory_write_or_delete_rollback_not_scoped" in (
+        memory_timeline_item["rollback_blockers"]
+    )
+
+    foundation_timeline_item = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "foundation_gate_latency_ref"
+    )
+    assert foundation_timeline_item["foundation_gate_refs"] == [
+        "foundation-gate-ref:latest-report"
+    ]
+    assert "latency-ref:foundation-gate:latest-report" in (
+        foundation_timeline_item["latency_refs"]
+    )
+    assert "foundation_gate_refs_not_production_authority" in (
+        foundation_timeline_item["blocked_states"]
+    )
+    assert foundation_timeline_item["rollback_blockers"] == [
+        "rollback_execution_not_scoped"
+    ]
 
     serialized = json.dumps(
         {"status": status, "today": today, "inbox": inbox, "briefing": briefing},
@@ -323,4 +401,18 @@ def test_founder_loop_storage_rejects_unsafe_payload_language(tmp_path):
                 surface="Actions",
                 evidence_refs=["evidence-ref:founder-loop:unsafe"],
             )
+        )
+
+
+def test_founder_loop_evidence_timeline_rejects_unsafe_content():
+    with pytest.raises(ValueError):
+        FounderLoopEvidenceTimelineItem(
+            timeline_item_ref="evidence-timeline:unsafe/test",
+            item_kind="unsafe_evidence_ref",
+            title="Unsafe evidence",
+            safe_summary="This includes raw_prompt material and must be denied.",
+            source_refs=["evidence-ref:founder-loop:unsafe"],
+            status_refs=["status-ref:founder-loop:unsafe"],
+            authority_posture="Review-only evidence posture.",
+            next_safe_action="Keep unsafe evidence blocked.",
         )

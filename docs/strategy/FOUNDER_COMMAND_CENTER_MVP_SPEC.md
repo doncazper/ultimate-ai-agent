@@ -24,8 +24,10 @@ Work the next implementation lane in this order, starting from the accepted
 4. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
 5. Read-only email/calendar integration contracts: metadata-only calendar/email
-   contracts are implemented as contract-only source-readiness support; draft-only
-   outputs remain later and connector runtime remains out of scope.
+   contracts are implemented as contract-only source-readiness support, and the
+   draft-only email response proposal contract is implemented as contract-only
+   proposal posture. Connector runtime, draft UI, account auth, and send/write
+   authority remain out of scope.
 
 This lane is docs/contracts/tests/inspection first. It grants no new backend
 route, frontend mutation control, setup mutation, connector runtime,
@@ -132,7 +134,8 @@ Required backend routes or service changes:
 
 - After the readability lane: email metadata read-only contract models over
   safe refs and redacted summaries.
-- After the readability lane: draft-only response proposal contract.
+- Draft-only response proposal contract exists as a Python-core contract-only
+  envelope; draft UI and connector runtime remain future scoped work.
 - Optional future status route for injected safe fixtures only.
 
 Required frontend components:
@@ -256,13 +259,19 @@ Current repo evidence / status:
   SQLite, and redacted export.
 - Memory is recall, not truth or authority.
 - Current Control Center memory surface is mostly evidence/ref viewing.
+- Relationship/follow-up memory schema exists as a Python-core contract-only,
+  review-only candidate envelope. It does not write, delete, export, inject
+  context, call models/providers, run connectors, add routes, or add UI
+  controls.
 
 Required backend routes or service changes:
 
 - Memory Review Inbox schema.
 - Memory candidate schemas for profile, project, relationship, episodic,
   business, and semantic-local knowledge layers.
-- Relationship/follow-up memory schema.
+- Relationship/follow-up memory schema is contract-only and available for safe
+  candidate validation; future routes can summarize reviewed candidate refs
+  without raw content.
 - Future route can summarize reviewed candidate refs without raw content.
 
 Required frontend components:
@@ -336,11 +345,13 @@ Current repo evidence / status:
 
 - Current Settings is inspection-only and shows safe local setup status plus
   disabled boundaries.
+- FCC-P1-011 adds the docs-only Settings posture spec:
+  `docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md`.
 - No settings mutation route exists.
 
 Required backend routes or service changes:
 
-- Settings surface spec first.
+- Settings surface spec first; FCC-P1-011 is that spec foundation only.
 - Future `GET /settings/summary` and validation-only feature flag/kill-switch
   posture routes only after scoped approval.
 
@@ -358,6 +369,10 @@ Safety/approval requirements:
 - Kill-switch posture is status-only in this MVP. `KillSwitchStatusPanel` and
   any settings summary route must not expose enabled stop, revoke, disable,
   feature-flag write, credential, or authority-toggle controls.
+- Feature-flag and scoped permission-mode names are posture vocabulary only;
+  naming them does not create approval refs, standing grants, execution rights,
+  connector writes, revocation actions, kill-switch actions, or production
+  authority.
 - Any future setting that enables runtime authority or mutation requires exact
   approval, audit, receipt, revocation, rollback/safe-disable, and tests.
 - Future safe-disable or revocation behavior is a separate mutating path and

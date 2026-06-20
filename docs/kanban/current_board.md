@@ -22,12 +22,18 @@ remain separately scoped.
 
 Founder Command Center state: macOS Setup Assistant hardening, first
 product-loop readability, Action Inbox approval-envelope/state-change posture,
-Morning Briefing source-readiness posture, and Memory Review candidate-review
-posture have scoped implementation slices ready for review. Next-lane order
-after those slices:
+Morning Briefing source-readiness posture, Memory Review candidate-review
+posture, read-only email/calendar metadata contracts, the Human-Readable
+Evidence Timeline, the draft-only email response proposal contract, and the
+relationship/follow-up memory schema have scoped implementation slices ready
+for review. The FCC-P1-011 Settings kill-switch and feature-flag spec is now a
+docs-only spec slice ready for review. FCC-P1-012 now aligns Founder Command
+Center surfaces to the accepted UAA-P1-052 service-module plan without adding
+routes or implementing extraction. Next-lane order after those slices:
 
-1. Read-only email/calendar contracts later.
-2. Human-readable Evidence Timeline.
+1. UAA-P1-058 First low-risk API route-module extraction, only while the
+   UAA-P1-020/UAA-P1-021/UAA-P1-052 maps remain accepted and Foundation Gate,
+   OpenAPI, `/api/manifest`, and route-status checks are green.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.

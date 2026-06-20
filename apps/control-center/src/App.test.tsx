@@ -1212,6 +1212,78 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
   });
 
+  it("renders FCC-P1-006 Evidence Timeline as readable safe refs", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("storage_backed_redacted_refs")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /control-center/today/summary").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(/Private source artifacts/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Approval refs are identifiers only/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/rollback refs do not perform rollback/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Foundation Gate refs do not confer release authority/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/latency refs are measurement evidence only/i),
+    ).toBeInTheDocument();
+
+    for (const marker of [
+      "receipt_audit_rollback_ref",
+      "plan_evidence_ref",
+      "memory_review_evidence_ref",
+      "source_readiness_evidence_ref",
+      "foundation_gate_latency_ref",
+      "receipt-plan:founder-loop:mock-setup-hardening",
+      "audit-plan:founder-loop:mock-setup-hardening",
+      "replay-ref:founder-loop:action-inbox",
+      "rollback-plan:founder-loop:mock-setup-hardening",
+      "latency-ref:foundation-gate:latest-report",
+      "foundation-gate-ref:latest-report",
+      "rollback_execution_not_scoped",
+      "no_raw_evidence_display",
+      "approval_refs_are_identifiers_only",
+      "foundation_gate_refs_not_production_authority",
+      "latency_refs_not_authority",
+      "connector_source_runtime_blocked",
+    ]) {
+      expect(screen.getAllByText(marker).length).toBeGreaterThan(0);
+    }
+
+    for (const label of [
+      /^execute$/i,
+      /^run$/i,
+      /^write$/i,
+      /^delete$/i,
+      /^rollback$/i,
+      /^approve$/i,
+      /^send$/i,
+      /^sync$/i,
+      /^reveal raw$/i,
+      /^show raw$/i,
+    ]) {
+      expect(
+        screen.queryByRole("button", { name: label }),
+      ).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw response/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw path/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw log/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/environment dump/i)).not.toBeInTheDocument();
+  });
+
   it("renders M17 file ref summaries without raw file contents or filesystem controls", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/files");
@@ -2558,6 +2630,7 @@ const mockApiData = {
       plan_count: 1,
       memory_review_count: 1,
       briefing_count: 1,
+      evidence_timeline_count: 5,
     },
     actions: [
       {
@@ -2689,6 +2762,187 @@ const mockApiData = {
           "Use route and storage refs only; define source contracts before refresh.",
         evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
       },
+    ],
+    evidence_timeline: [
+      {
+        timeline_item_ref: "evidence-timeline:action/founder-action/test",
+        item_kind: "receipt_audit_rollback_ref",
+        title: "Storage-backed action",
+        safe_summary:
+          "Action evidence is shown as receipt, audit, idempotency, rollback, and safe-disable refs only; mutation stays blocked.",
+        source_refs: ["founder-action:test"],
+        status_refs: ["status-ref:founder-loop-action-inbox"],
+        related_route_refs: ["GET /control-center/actions/inbox", "/actions"],
+        side_effect_class: "validation_only",
+        authority_posture:
+          "Review-only display; Python Agent Core and LocalApprovalAuthority must validate exact scope before mutation.",
+        approval_posture: "dry_run_ref_available",
+        receipt_refs: ["receipt-plan:founder-loop:test"],
+        audit_refs: ["audit-plan:founder-loop:test"],
+        replay_refs: ["replay-ref:founder-loop:action-inbox"],
+        rollback_refs: ["rollback-plan:founder-loop:test"],
+        rollback_blockers: [],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_action_summary_before_mutation",
+        missing_evidence_posture: "receipt_refs_available",
+        blocked_states: [
+          "blocked_pending_scoped_mutation_contract",
+          "approval_refs_are_identifiers_only",
+        ],
+        next_safe_action:
+          "Review refs only; request a scoped state-change milestone before mutation.",
+      },
+      {
+        timeline_item_ref: "evidence-timeline:plan/plan-summary/test",
+        item_kind: "plan_evidence_ref",
+        title: "Founder Loop test plan",
+        safe_summary:
+          "Plan evidence is a bounded summary ref and does not create execution authority or a durable run by itself.",
+        source_refs: ["plan-summary:test"],
+        status_refs: ["status-ref:founder-loop-plan-summary"],
+        related_route_refs: ["/plans", "/task-decomposition/status"],
+        side_effect_class: "validation_only",
+        authority_posture:
+          "Plan summary is inspection-only and not execution authority.",
+        approval_posture: "approval_required_before_execution_scope",
+        receipt_refs: [],
+        audit_refs: [],
+        replay_refs: ["replay-ref:founder-loop:plan-summary"],
+        rollback_refs: [],
+        rollback_blockers: ["rollback_not_applicable_for_plan_summary"],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_plan_refs_before_execution_claims",
+        missing_evidence_posture: "run_receipt_missing_until_execution_contract",
+        blocked_states: ["no_plan_execution_from_evidence_timeline"],
+        next_safe_action: "Review route-backed summaries.",
+      },
+      {
+        timeline_item_ref: "evidence-timeline:memory/memory-review/test",
+        item_kind: "memory_review_evidence_ref",
+        title: "Memory review",
+        safe_summary:
+          "Memory evidence is recall metadata only. Memory is not truth, not approval, and not context-injection authority.",
+        source_refs: ["memory-review:test", "source-ref:founder-loop-storage"],
+        status_refs: [
+          "status-ref:founder-loop-memory-review",
+          "contract-ref:memory-write-policy-binding-missing",
+          "contract-ref:memory-retention-delete-missing",
+          "contract-ref:memory-review-decision-capture-missing",
+          "contract-ref:context-injection-missing",
+        ],
+        related_route_refs: ["GET /control-center/today/summary", "/memory"],
+        side_effect_class: "local_dev_workspace_only",
+        authority_posture:
+          "Review-only memory candidate; recall is not truth, and writes, deletes, and context injection remain unscoped.",
+        approval_posture: "memory_review_refs_do_not_authorize_writes",
+        receipt_refs: [],
+        audit_refs: [],
+        replay_refs: ["replay-ref:founder-loop:memory-review"],
+        rollback_refs: [],
+        rollback_blockers: ["memory_write_or_delete_rollback_not_scoped"],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_source_refs_before_memory_use",
+        missing_evidence_posture:
+          "memory_contract_refs_missing_until_scoped_review_contracts",
+        blocked_states: [
+          "no_memory_write",
+          "no_context_injection",
+          "no_memory_delete",
+        ],
+        next_safe_action:
+          "Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.",
+      },
+      {
+        timeline_item_ref: "evidence-timeline:briefing/briefing/test",
+        item_kind: "source_readiness_evidence_ref",
+        title: "Briefing item",
+        safe_summary:
+          "Briefing evidence is source-readiness posture only. Email, calendar, connector, refresh, and notification runtime stay blocked.",
+        source_refs: ["briefing:test", "source-ref:control-center-route-status"],
+        status_refs: ["evidence-timeline:briefing-status/local_status_refs_only"],
+        related_route_refs: [
+          "GET /control-center/morning-briefing/summary",
+          "/briefing",
+        ],
+        side_effect_class: "local_dev_workspace_only",
+        authority_posture:
+          "Review-only briefing summary; source reads and delivery remain unscoped.",
+        approval_posture: "source_refs_do_not_authorize_connector_runtime",
+        receipt_refs: [],
+        audit_refs: [],
+        replay_refs: ["replay-ref:founder-loop:morning-briefing"],
+        rollback_refs: [],
+        rollback_blockers: ["source_refresh_rollback_not_scoped"],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_route_status_before_briefing_use",
+        missing_evidence_posture:
+          "missing_source_contract_refs_until_read_only_runtime_milestone",
+        blocked_states: [
+          "no_email_calendar_source_contract",
+          "no_background_refresh",
+        ],
+        next_safe_action:
+          "Use route and storage refs only; define source contracts before refresh.",
+      },
+      {
+        timeline_item_ref: "evidence-timeline:foundation-gate/latency",
+        item_kind: "foundation_gate_latency_ref",
+        title: "Foundation Gate and latency posture",
+        safe_summary:
+          "Foundation Gate and latency refs are status evidence only; they do not grant production authority or runtime authority.",
+        source_refs: ["status-ref:foundation-gate-summary"],
+        status_refs: ["status-ref:foundation-gate-report"],
+        related_route_refs: [
+          "GET /control-center/foundation-gate/summary",
+          "/foundation-gate",
+        ],
+        side_effect_class: "validation_only",
+        authority_posture:
+          "Foundation Gate status and latency measurements are evidence, not production authority.",
+        approval_posture: "approval_refs_are_identifiers_only_not_authority",
+        receipt_refs: [],
+        audit_refs: ["audit-ref:foundation-gate:latest"],
+        replay_refs: ["replay-ref:foundation-gate:latest"],
+        rollback_refs: [],
+        rollback_blockers: ["rollback_execution_not_scoped"],
+        latency_refs: [
+          "latency-ref:foundation-gate:latest-report",
+          "performance-ref:release-latency-baseline",
+        ],
+        foundation_gate_refs: ["foundation-gate-ref:latest-report"],
+        redaction_status: "safe_refs_only",
+        stale_state: "recheck_foundation_gate_report_before_release_claim",
+        missing_evidence_posture:
+          "release_evidence_packet_missing_until_scoped_release",
+        blocked_states: [
+          "foundation_gate_refs_not_production_authority",
+          "latency_refs_not_authority",
+          "no_release_authority",
+        ],
+        next_safe_action:
+          "Inspect Foundation Gate and latency refs; keep production claims blocked until release evidence is scoped.",
+      },
+    ],
+    evidence_timeline_route_ref: "/evidence",
+    evidence_timeline_backend_route_ref: "GET /control-center/today/summary",
+    evidence_timeline_status: "storage_backed_redacted_refs",
+    evidence_timeline_authority_boundary:
+      "Evidence Timeline is safe-ref and redacted-summary only. It does not expose private content, grant approval, perform rollback, or confer production authority.",
+    evidence_timeline_blocked_states: [
+      "no_raw_evidence_display",
+      "no_rollback_execution",
+      "approval_refs_are_identifiers_only",
+      "foundation_gate_refs_not_production_authority",
+      "latency_refs_not_authority",
+      "connector_source_runtime_blocked",
     ],
     evidence_refs: ["evidence-ref:founder-loop:test-today"],
     blocked_states: ["no_action_execution_route"],

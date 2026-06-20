@@ -23,6 +23,13 @@ FCC_SHARED_REASON_CODES = [
     "FCC_NO_AUTH_FETCH_WRITE_OR_BACKGROUND_COLLECTION",
 ]
 
+FCC_DRAFT_ONLY_REASON_CODES = [
+    "FCC_DRAFT_ONLY_EMAIL_PROPOSAL_CONTRACT",
+    "FCC_DRAFT_PROPOSAL_SAFE_REFS_ONLY",
+    "FCC_DRAFT_PROPOSAL_NO_SEND_WRITE_OR_ACCOUNT_AUTH",
+    "FCC_DRAFT_PROPOSAL_CONNECTOR_RUNTIME_MISSING",
+]
+
 FCC_SHARED_SOURCE_READINESS_REFS = [
     "source-readiness-ref:fcc-p1:manual-or-fixture-only",
     "source-readiness-ref:fcc-p1:connector-runtime-missing",
@@ -36,6 +43,12 @@ class FCCCalendarReadOnlyContractStatus(str, Enum):
 
 class FCCEmailMetadataReadOnlyContractStatus(str, Enum):
     email_metadata_contract = "email_metadata_contract"
+
+
+class FCCDraftEmailResponseProposalStatus(str, Enum):
+    draft_email_response_proposal_contract = (
+        "draft_email_response_proposal_contract"
+    )
 
 
 class FCCReadOnlyIntegrationPairStatus(str, Enum):
@@ -110,6 +123,50 @@ class FCCEmailMetadataReadOnlyPolicy(_FCCReadOnlyIntegrationModel):
     context_injection_enabled: bool = False
     backend_route_enabled: bool = False
     control_center_control_enabled: bool = False
+    dependency_added: bool = False
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        _validate_m61_ref(self.policy_ref, "policy_ref")
+        return self
+
+
+class FCCDraftEmailResponseProposalPolicy(_FCCReadOnlyIntegrationModel):
+    policy_ref: str = "fcc-draft-email-response-proposal-policy:fcc-p1-009"
+    contract_only: bool = True
+    read_only_required: bool = True
+    draft_only_required: bool = True
+    safe_refs_required: bool = True
+    connector_runtime_missing_required: bool = True
+    raw_body_enabled: bool = False
+    raw_draft_body_enabled: bool = False
+    subject_text_enabled: bool = False
+    participant_identifiers_enabled: bool = False
+    attachment_names_enabled: bool = False
+    attachment_download_enabled: bool = False
+    account_auth_enabled: bool = False
+    account_write_enabled: bool = False
+    email_fetch_runtime_enabled: bool = False
+    email_search_runtime_enabled: bool = False
+    reply_enabled: bool = False
+    forward_enabled: bool = False
+    send_enabled: bool = False
+    delete_enabled: bool = False
+    archive_enabled: bool = False
+    label_write_enabled: bool = False
+    move_enabled: bool = False
+    connector_runtime_enabled: bool = False
+    model_call_enabled: bool = False
+    memory_write_enabled: bool = False
+    context_injection_enabled: bool = False
+    backend_route_enabled: bool = False
+    control_center_control_enabled: bool = False
+    background_sync_enabled: bool = False
+    notification_delivery_enabled: bool = False
     dependency_added: bool = False
     public_beta_claim_enabled: bool = False
     public_distribution_claim_enabled: bool = False
@@ -283,6 +340,125 @@ class FCCEmailMetadataEnvelope(_FCCReadOnlyIntegrationModel):
         return self
 
 
+class FCCDraftEmailResponseProposalEnvelope(_FCCReadOnlyIntegrationModel):
+    draft_proposal_contract_ref: str
+    product_loop_ref: str
+    proposal_ref: str
+    source_email_metadata_refs: list[str]
+    thread_ref: str
+    sender_identity_ref: str
+    recipient_identity_refs: list[str]
+    account_identity_ref: str
+    time_window_ref: str
+    follow_up_refs: list[str]
+    purpose_label: str
+    intent_label: str
+    tone_label: str
+    style_label: str
+    draft_summary_ref: str
+    redacted_draft_summary: str
+    response_outline_ref: str
+    redacted_response_outline: list[str]
+    evidence_refs: list[str]
+    source_readiness_refs: list[str]
+    audit_ref: str
+    replay_ref: str
+    stale_state: str
+    missing_evidence_posture: str
+    approval_posture: str
+    blocked_send_write_states: list[str]
+    next_safe_action: str
+    missing_runtime_ref: str
+    blocked_runtime_refs: list[str]
+    status: FCCDraftEmailResponseProposalStatus = (
+        FCCDraftEmailResponseProposalStatus.draft_email_response_proposal_contract
+    )
+    contract_only: bool = True
+    read_only: bool = True
+    draft_only: bool = True
+    safe_refs_required: bool = True
+    connector_runtime_missing: bool = True
+    raw_body_enabled: bool = False
+    raw_draft_body_enabled: bool = False
+    subject_text_enabled: bool = False
+    participant_identifiers_enabled: bool = False
+    attachment_names_enabled: bool = False
+    attachment_download_enabled: bool = False
+    account_auth_enabled: bool = False
+    account_write_enabled: bool = False
+    email_fetch_runtime_enabled: bool = False
+    email_search_runtime_enabled: bool = False
+    reply_enabled: bool = False
+    forward_enabled: bool = False
+    send_enabled: bool = False
+    delete_enabled: bool = False
+    archive_enabled: bool = False
+    label_write_enabled: bool = False
+    move_enabled: bool = False
+    connector_runtime_enabled: bool = False
+    model_call_enabled: bool = False
+    memory_write_enabled: bool = False
+    context_injection_enabled: bool = False
+    backend_route_added: bool = False
+    control_center_control_added: bool = False
+    background_sync_enabled: bool = False
+    notification_delivery_enabled: bool = False
+    dependency_added: bool = False
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    side_effects_performed: list[str] = Field(default_factory=list)
+    reason_codes: list[str]
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        _validate_ref_fields(
+            [
+                (self.draft_proposal_contract_ref, "draft_proposal_contract_ref"),
+                (self.product_loop_ref, "product_loop_ref"),
+                (self.proposal_ref, "proposal_ref"),
+                (self.thread_ref, "thread_ref"),
+                (self.sender_identity_ref, "sender_identity_ref"),
+                (self.account_identity_ref, "account_identity_ref"),
+                (self.time_window_ref, "time_window_ref"),
+                (self.draft_summary_ref, "draft_summary_ref"),
+                (self.response_outline_ref, "response_outline_ref"),
+                (self.audit_ref, "audit_ref"),
+                (self.replay_ref, "replay_ref"),
+                (self.missing_runtime_ref, "missing_runtime_ref"),
+            ]
+        )
+        _validate_ref_list(
+            self.source_email_metadata_refs,
+            "source_email_metadata_ref",
+        )
+        _validate_ref_list(self.recipient_identity_refs, "recipient_identity_ref")
+        _validate_ref_list(self.follow_up_refs, "follow_up_ref")
+        _validate_ref_list(self.evidence_refs, "evidence_ref")
+        _validate_ref_list(self.source_readiness_refs, "source_readiness_ref")
+        _validate_ref_list(
+            self.blocked_send_write_states,
+            "blocked_send_write_state_ref",
+        )
+        _validate_ref_list(self.blocked_runtime_refs, "blocked_runtime_ref")
+        _validate_reason_codes(self.reason_codes)
+        for value in [
+            self.purpose_label,
+            self.intent_label,
+            self.tone_label,
+            self.style_label,
+            self.redacted_draft_summary,
+            self.stale_state,
+            self.missing_evidence_posture,
+            self.approval_posture,
+            self.next_safe_action,
+            *self.redacted_response_outline,
+        ]:
+            _validate_safe_text(value, "FCC_DRAFT_EMAIL_PRIVATE_CONTENT_DENIED")
+        return self
+
+
 class FCCReadOnlyIntegrationContractPair(_FCCReadOnlyIntegrationModel):
     pair_ref: str
     product_loop_ref: str
@@ -421,6 +597,90 @@ def build_fcc_email_metadata_envelope(
     return validate_fcc_email_metadata_envelope(envelope)
 
 
+def build_fcc_draft_email_response_proposal_envelope(
+    policy: FCCDraftEmailResponseProposalPolicy | None = None,
+) -> FCCDraftEmailResponseProposalEnvelope:
+    active_policy = validate_fcc_draft_email_response_proposal_policy(
+        policy or FCCDraftEmailResponseProposalPolicy()
+    )
+    envelope = FCCDraftEmailResponseProposalEnvelope(
+        draft_proposal_contract_ref=(
+            "fcc-draft-email-response-proposal-contract:fcc-p1-009"
+        ),
+        product_loop_ref="founder-command-center-product-loop:draft-only-email",
+        proposal_ref="draft-email-response-proposal-ref:fcc-p1-009:follow-up-placeholder",
+        source_email_metadata_refs=[
+            "email-metadata-ref:fcc-p1-008:follow-up-thread-safe-ref",
+            "email-metadata-ref:fcc-p1-008:inbox-readiness-summary",
+        ],
+        thread_ref="thread-ref:fcc-p1-008:follow-up-thread-safe-ref",
+        sender_identity_ref="sender-identity-ref:fcc-p1-009:safe-sender-class",
+        recipient_identity_refs=[
+            "recipient-identity-ref:fcc-p1-009:operator-reviewed-recipient-class",
+        ],
+        account_identity_ref="account-identity-ref:fcc-p1-009:email-account-safe-ref",
+        time_window_ref="time-window-ref:fcc-p1-009:bounded-follow-up-window",
+        follow_up_refs=[
+            "follow-up-ref:fcc-p1-009:reply-proposal-review",
+        ],
+        purpose_label="follow_up_review",
+        intent_label="operator_reviewed_reply_outline",
+        tone_label="concise_professional",
+        style_label="safe_outline_only",
+        draft_summary_ref="draft-summary-ref:fcc-p1-009:redacted-summary",
+        redacted_draft_summary=(
+            "Draft proposal is an editable outline over safe refs only; account "
+            "changes and connector runtime remain blocked."
+        ),
+        response_outline_ref="response-outline-ref:fcc-p1-009:redacted-outline",
+        redacted_response_outline=[
+            "Acknowledge the safe follow-up category.",
+            "List reviewed next-step refs for operator approval.",
+            "Keep account changes blocked until a later connector milestone.",
+        ],
+        evidence_refs=[
+            "evidence-ref:fcc-p1-009:draft-proposal-contract",
+            "evidence-ref:fcc-p1-009:blocked-send-write-posture",
+        ],
+        source_readiness_refs=list(FCC_SHARED_SOURCE_READINESS_REFS),
+        audit_ref="audit-ref:fcc-p1-009:draft-proposal-contract",
+        replay_ref="replay-ref:fcc-p1-009:draft-proposal-contract",
+        stale_state="recheck_safe_refs_before_review",
+        missing_evidence_posture=(
+            "connector_runtime_and_account_proof_missing_until_future_milestone"
+        ),
+        approval_posture="approval_refs_are_identifiers_only_not_send_authority",
+        blocked_send_write_states=[
+            "blocked-state-ref:fcc-p1-009:no-email-send",
+            "blocked-state-ref:fcc-p1-009:no-email-write",
+            "blocked-state-ref:fcc-p1-009:no-account-action",
+        ],
+        next_safe_action=(
+            "Review the safe proposal refs; keep connector runtime and account "
+            "changes blocked until separately scoped."
+        ),
+        missing_runtime_ref="missing-runtime-ref:fcc-p1-009:email-connector",
+        blocked_runtime_refs=[
+            "blocked-runtime-ref:fcc-p1-009:no-account-auth",
+            "blocked-runtime-ref:fcc-p1-009:no-email-fetch",
+            "blocked-runtime-ref:fcc-p1-009:no-email-send-or-write",
+            "blocked-runtime-ref:fcc-p1-009:no-model-drafting-runtime",
+        ],
+        contract_only=active_policy.contract_only,
+        read_only=active_policy.read_only_required,
+        draft_only=active_policy.draft_only_required,
+        safe_refs_required=active_policy.safe_refs_required,
+        connector_runtime_missing=active_policy.connector_runtime_missing_required,
+        side_effects_performed=[],
+        reason_codes=[
+            "FCC_P1_009_DRAFT_ONLY_EMAIL_RESPONSE_PROPOSAL",
+            *FCC_DRAFT_ONLY_REASON_CODES,
+            *FCC_SHARED_REASON_CODES,
+        ],
+    )
+    return validate_fcc_draft_email_response_proposal_envelope(envelope)
+
+
 def build_fcc_read_only_integration_contract_pair(
     *,
     calendar: FCCCalendarEventMetadataEnvelope | None = None,
@@ -498,6 +758,25 @@ def validate_fcc_email_metadata_read_only_policy(
     return validated
 
 
+def validate_fcc_draft_email_response_proposal_policy(
+    policy: FCCDraftEmailResponseProposalPolicy | dict[str, Any],
+) -> FCCDraftEmailResponseProposalPolicy:
+    payload = _payload(policy)
+    _reject_draft_email_private_payload(
+        payload,
+        allowed_keys=set(FCCDraftEmailResponseProposalPolicy.model_fields),
+    )
+    validated = FCCDraftEmailResponseProposalPolicy.model_validate(payload)
+    for field_name, reason in _DRAFT_EMAIL_REQUIRED_TRUE:
+        if not getattr(validated, field_name):
+            raise ValueError(reason)
+    for field_name, reason in _DRAFT_EMAIL_POLICY_DENIALS:
+        if getattr(validated, field_name):
+            raise ValueError(reason)
+    _reject_draft_email_private_payload(validated.metadata)
+    return validated
+
+
 def validate_fcc_calendar_event_metadata_envelope(
     envelope: FCCCalendarEventMetadataEnvelope | dict[str, Any],
 ) -> FCCCalendarEventMetadataEnvelope:
@@ -552,6 +831,36 @@ def validate_fcc_email_metadata_envelope(
         raise ValueError("SIDE_EFFECTS_DENIED")
     _validate_email_bindings(validated)
     _reject_email_private_payload(validated.metadata)
+    return validated
+
+
+def validate_fcc_draft_email_response_proposal_envelope(
+    envelope: FCCDraftEmailResponseProposalEnvelope | dict[str, Any],
+) -> FCCDraftEmailResponseProposalEnvelope:
+    payload = _payload(envelope)
+    _reject_draft_email_private_payload(
+        payload,
+        allowed_keys=set(FCCDraftEmailResponseProposalEnvelope.model_fields),
+    )
+    for field_name, reason in _DRAFT_EMAIL_RECORD_DENIALS:
+        if payload.get(field_name):
+            raise ValueError(reason)
+    validated = FCCDraftEmailResponseProposalEnvelope.model_validate(payload)
+    for field_name, reason in _DRAFT_EMAIL_RECORD_REQUIRED_TRUE:
+        if not getattr(validated, field_name):
+            raise ValueError(reason)
+    if (
+        validated.status
+        != FCCDraftEmailResponseProposalStatus.draft_email_response_proposal_contract
+    ):
+        raise ValueError("FCC_DRAFT_EMAIL_STATUS_REQUIRED")
+    for field_name, reason in _DRAFT_EMAIL_RECORD_DENIALS:
+        if getattr(validated, field_name):
+            raise ValueError(reason)
+    if validated.side_effects_performed:
+        raise ValueError("SIDE_EFFECTS_DENIED")
+    _validate_draft_email_bindings(validated)
+    _reject_draft_email_private_payload(validated.metadata)
     return validated
 
 
@@ -661,6 +970,29 @@ def _validate_email_bindings(envelope: FCCEmailMetadataEnvelope) -> None:
             raise ValueError("FCC_SHARED_REASON_CODE_REQUIRED")
 
 
+def _validate_draft_email_bindings(
+    envelope: FCCDraftEmailResponseProposalEnvelope,
+) -> None:
+    if (
+        envelope.draft_proposal_contract_ref
+        != "fcc-draft-email-response-proposal-contract:fcc-p1-009"
+    ):
+        raise ValueError("FCC_DRAFT_EMAIL_CONTRACT_REF_REQUIRED")
+    for field_name, refs in [
+        ("source_email_metadata_ref", envelope.source_email_metadata_refs),
+        ("recipient_identity_ref", envelope.recipient_identity_refs),
+        ("follow_up_ref", envelope.follow_up_refs),
+        ("evidence_ref", envelope.evidence_refs),
+        ("source_readiness_ref", envelope.source_readiness_refs),
+        ("blocked_send_write_state_ref", envelope.blocked_send_write_states),
+        ("blocked_runtime_ref", envelope.blocked_runtime_refs),
+    ]:
+        _validate_ref_list(refs, field_name)
+    for reason_code in [*FCC_DRAFT_ONLY_REASON_CODES, *FCC_SHARED_REASON_CODES]:
+        if reason_code not in envelope.reason_codes:
+            raise ValueError("FCC_DRAFT_EMAIL_REASON_CODE_REQUIRED")
+
+
 def _reject_calendar_private_payload(
     payload: Any,
     *,
@@ -683,6 +1015,18 @@ def _reject_email_private_payload(
     if _contains_forbidden_value(payload, _EMAIL_FORBIDDEN_VALUE_RE):
         raise ValueError("FCC_EMAIL_PRIVATE_CONTENT_DENIED")
     _reject_secret_like_payload(payload, "FCC_EMAIL_PRIVATE_CONTENT_DENIED")
+
+
+def _reject_draft_email_private_payload(
+    payload: Any,
+    *,
+    allowed_keys: set[str] | None = None,
+) -> None:
+    if _contains_forbidden_key(payload, _DRAFT_EMAIL_FORBIDDEN_KEY_RE, allowed_keys):
+        raise ValueError("FCC_DRAFT_EMAIL_PRIVATE_FIELD_DENIED")
+    if _contains_forbidden_value(payload, _DRAFT_EMAIL_FORBIDDEN_VALUE_RE):
+        raise ValueError("FCC_DRAFT_EMAIL_PRIVATE_CONTENT_DENIED")
+    _reject_secret_like_payload(payload, "FCC_DRAFT_EMAIL_PRIVATE_CONTENT_DENIED")
 
 
 def _reject_secret_like_payload(payload: Any, reason: str) -> None:
@@ -728,6 +1072,14 @@ _CALENDAR_REQUIRED_TRUE = [
 ]
 
 _EMAIL_REQUIRED_TRUE = list(_CALENDAR_REQUIRED_TRUE)
+
+_DRAFT_EMAIL_REQUIRED_TRUE = [
+    ("contract_only", "CONTRACT_ONLY_REQUIRED"),
+    ("read_only_required", "READ_ONLY_REQUIRED"),
+    ("draft_only_required", "DRAFT_ONLY_REQUIRED"),
+    ("safe_refs_required", "SAFE_REFS_REQUIRED"),
+    ("connector_runtime_missing_required", "CONNECTOR_RUNTIME_MISSING_REQUIRED"),
+]
 
 _CALENDAR_POLICY_DENIALS = [
     ("account_auth_enabled", "ACCOUNT_AUTH_DENIED"),
@@ -781,6 +1133,38 @@ _EMAIL_POLICY_DENIALS = [
     ("production_authority_enabled", "PRODUCTION_AUTHORITY_DENIED"),
 ]
 
+_DRAFT_EMAIL_POLICY_DENIALS = [
+    ("raw_body_enabled", "RAW_BODY_DENIED"),
+    ("raw_draft_body_enabled", "RAW_DRAFT_BODY_DENIED"),
+    ("subject_text_enabled", "SUBJECT_TEXT_DENIED"),
+    ("participant_identifiers_enabled", "PARTICIPANT_IDENTIFIERS_DENIED"),
+    ("attachment_names_enabled", "ATTACHMENT_NAMES_DENIED"),
+    ("attachment_download_enabled", "ATTACHMENT_DOWNLOAD_DENIED"),
+    ("account_auth_enabled", "ACCOUNT_AUTH_DENIED"),
+    ("account_write_enabled", "ACCOUNT_WRITE_DENIED"),
+    ("email_fetch_runtime_enabled", "EMAIL_FETCH_RUNTIME_DENIED"),
+    ("email_search_runtime_enabled", "EMAIL_SEARCH_RUNTIME_DENIED"),
+    ("reply_enabled", "EMAIL_REPLY_DENIED"),
+    ("forward_enabled", "EMAIL_FORWARD_DENIED"),
+    ("send_enabled", "EMAIL_SEND_DENIED"),
+    ("delete_enabled", "EMAIL_DELETE_DENIED"),
+    ("archive_enabled", "EMAIL_ARCHIVE_DENIED"),
+    ("label_write_enabled", "EMAIL_LABEL_WRITE_DENIED"),
+    ("move_enabled", "EMAIL_MOVE_DENIED"),
+    ("connector_runtime_enabled", "CONNECTOR_RUNTIME_DENIED"),
+    ("model_call_enabled", "MODEL_CALL_DENIED"),
+    ("memory_write_enabled", "MEMORY_WRITE_DENIED"),
+    ("context_injection_enabled", "CONTEXT_INJECTION_DENIED"),
+    ("backend_route_enabled", "BACKEND_ROUTE_DENIED"),
+    ("control_center_control_enabled", "CONTROL_CENTER_CONTROL_DENIED"),
+    ("background_sync_enabled", "BACKGROUND_SYNC_DENIED"),
+    ("notification_delivery_enabled", "NOTIFICATION_DELIVERY_DENIED"),
+    ("dependency_added", "DEPENDENCY_DENIED"),
+    ("public_beta_claim_enabled", "PUBLIC_BETA_CLAIM_DENIED"),
+    ("public_distribution_claim_enabled", "PUBLIC_DISTRIBUTION_CLAIM_DENIED"),
+    ("production_authority_enabled", "PRODUCTION_AUTHORITY_DENIED"),
+]
+
 _CALENDAR_RECORD_REQUIRED_TRUE = [
     ("contract_only", "CONTRACT_ONLY_REQUIRED"),
     ("read_only", "READ_ONLY_REQUIRED"),
@@ -790,6 +1174,14 @@ _CALENDAR_RECORD_REQUIRED_TRUE = [
 ]
 
 _EMAIL_RECORD_REQUIRED_TRUE = list(_CALENDAR_RECORD_REQUIRED_TRUE)
+
+_DRAFT_EMAIL_RECORD_REQUIRED_TRUE = [
+    ("contract_only", "CONTRACT_ONLY_REQUIRED"),
+    ("read_only", "READ_ONLY_REQUIRED"),
+    ("draft_only", "DRAFT_ONLY_REQUIRED"),
+    ("safe_refs_required", "SAFE_REFS_REQUIRED"),
+    ("connector_runtime_missing", "CONNECTOR_RUNTIME_MISSING_REQUIRED"),
+]
 
 _CALENDAR_RECORD_DENIALS = [
     *[
@@ -805,6 +1197,16 @@ _EMAIL_RECORD_DENIALS = [
     *[
         (field, reason)
         for field, reason in _EMAIL_POLICY_DENIALS
+        if field not in {"backend_route_enabled", "control_center_control_enabled"}
+    ],
+    ("backend_route_added", "BACKEND_ROUTE_DENIED"),
+    ("control_center_control_added", "CONTROL_CENTER_CONTROL_DENIED"),
+]
+
+_DRAFT_EMAIL_RECORD_DENIALS = [
+    *[
+        (field, reason)
+        for field, reason in _DRAFT_EMAIL_POLICY_DENIALS
         if field not in {"backend_route_enabled", "control_center_control_enabled"}
     ],
     ("backend_route_added", "BACKEND_ROUTE_DENIED"),
@@ -829,6 +1231,17 @@ _EMAIL_FORBIDDEN_KEY_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DRAFT_EMAIL_FORBIDDEN_KEY_RE = re.compile(
+    r"(raw|body|draft[_-]?body|subject|participant|recipient[_-]?name|"
+    r"sender[_-]?name|email[_-]?address|(?:^|[_-])address(?:[_-]|$)|"
+    r"(?:^|[_-])from(?:[_-]|$)|(?:^|[_-])to(?:[_-]|$)|"
+    r"(?:^|[_-])cc(?:[_-]|$)|(?:^|[_-])bcc(?:[_-]|$)|"
+    r"attachment[_-]?name|attachment|account[_-]?id|credential|password|"
+    r"token|secret|api[_-]?key|authorization|bearer|oauth|session|cookie|"
+    r"provider[_-]?payload|transcript|source[_-]?content)",
+    re.IGNORECASE,
+)
+
 _CALENDAR_FORBIDDEN_VALUE_RE = re.compile(
     r"(@|https?://|meet\.google|zoom\.us|teams\.microsoft|webex|"
     r"\btitle\s*:|\bsubject\s*:|\blocation\s*:|\baddress\s*:|"
@@ -841,5 +1254,14 @@ _EMAIL_FORBIDDEN_VALUE_RE = re.compile(
     r"(@|\bsubject\s*:|\bbody\s*:|\bfrom\s*:|\bto\s*:|\bcc\s*:|\bbcc\s*:|"
     r"\bparticipant\s*:|\battachment\s*:|\.pdf\b|\.docx\b|\.ics\b|"
     r"api[_-]?key|password|token|secret|bearer|oauth)",
+    re.IGNORECASE,
+)
+
+_DRAFT_EMAIL_FORBIDDEN_VALUE_RE = re.compile(
+    r"(@|\bsubject\s*:|\bbody\s*:|\bdraft\s*:|\bfrom\s*:|\bto\s*:|"
+    r"\bcc\s*:|\bbcc\s*:|\bparticipant\s*:|\brecipient\s*:|"
+    r"\battachment\s*:|\.pdf\b|\.docx\b|\.ics\b|provider[_-]?payload|"
+    r"raw[_-]?provider|transcript|raw\s+source|source\s+content|api[_-]?key|"
+    r"password|token|secret|bearer|oauth)",
     re.IGNORECASE,
 )

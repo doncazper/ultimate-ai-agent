@@ -3,6 +3,7 @@ import type {
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
+  FounderLoopEvidenceTimelineItem,
   FounderLoopMemoryReviewItem,
   FounderLoopMorningBriefing,
   FounderLoopPlanSummary,
@@ -334,6 +335,104 @@ export function MemoryReviewSurfacePanel({
   );
 }
 
+export function EvidenceTimelineSurfacePanel({
+  today,
+}: {
+  today: FounderLoopTodaySummary;
+}) {
+  const timeline = today.evidence_timeline ?? [];
+
+  return (
+    <section className="page-section" aria-labelledby="evidence-timeline-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Founder Loop</p>
+          <h2 id="evidence-timeline-heading">Evidence Timeline</h2>
+        </div>
+        <span className="status-pill compact">
+          {today.evidence_timeline_status ?? "storage_backed_redacted_refs"}
+        </span>
+      </div>
+      <div className="metric-grid">
+        <Metric
+          label="Timeline items"
+          value={today.sections.evidence_timeline_count ?? timeline.length}
+        />
+        <Metric label="Receipt/audit refs" value={countTimelineRefs(timeline, ["receipt_refs", "audit_refs"])} />
+        <Metric label="Rollback refs" value={countTimelineRefs(timeline, ["rollback_refs"])} />
+        <Metric label="Latency/Gate refs" value={countTimelineRefs(timeline, ["latency_refs", "foundation_gate_refs"])} />
+      </div>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Timeline posture</h3>
+            <span>{today.side_effect_class}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Frontend route"
+              value={today.evidence_timeline_route_ref ?? "/evidence"}
+            />
+            <DetailTerm
+              label="Backend route"
+              value={
+                today.evidence_timeline_backend_route_ref ??
+                "GET /control-center/today/summary"
+              }
+            />
+            <DetailTerm label="Storage ref" value={today.storage_ref} />
+            <DetailTerm
+              label="Authority boundary"
+              value={
+                today.evidence_timeline_authority_boundary ??
+                "Evidence Timeline is safe-ref and redacted-summary only."
+              }
+            />
+          </dl>
+          <p>
+            Timeline entries are readable inspection summaries. Private source
+            artifacts, prompts, responses, logs, local identifiers, auth
+            material, and secret-like values stay omitted.
+          </p>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Blocked authority</h3>
+            <span>safe refs only</span>
+          </div>
+          <p>
+            Approval refs are identifiers only, rollback refs do not perform
+            rollback, Foundation Gate refs do not confer release authority, and
+            latency refs are measurement evidence only.
+          </p>
+          <InlineListWithFallback
+            emptyLabel="Timeline blockers: evidence remains inspection-only"
+            items={today.evidence_timeline_blocked_states ?? []}
+          />
+        </article>
+      </div>
+      {timeline.length === 0 ? (
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>No timeline refs</h3>
+            <span>missing</span>
+          </div>
+          <p>
+            Evidence Timeline data is missing from the current summary. Keep
+            evidence review blocked until storage-backed safe refs are present.
+          </p>
+        </article>
+      ) : (
+        <div className="review-grid">
+          {timeline.map((item) => (
+            <EvidenceTimelineCard item={item} key={item.timeline_item_ref} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function FounderLoopStoragePanel({
   storage,
 }: {
@@ -387,6 +486,24 @@ export function FounderLoopStoragePanel({
   );
 }
 
+function countTimelineRefs(
+  timeline: FounderLoopEvidenceTimelineItem[],
+  fields: Array<
+    | "receipt_refs"
+    | "audit_refs"
+    | "rollback_refs"
+    | "latency_refs"
+    | "foundation_gate_refs"
+  >,
+) {
+  return timeline.reduce(
+    (count, item) =>
+      count +
+      fields.reduce((fieldCount, field) => fieldCount + item[field].length, 0),
+    0,
+  );
+}
+
 function LoopPanel({
   children,
   route,
@@ -405,6 +522,79 @@ function LoopPanel({
         </a>
       </div>
       <div className="compact-stack">{children}</div>
+    </article>
+  );
+}
+
+function EvidenceTimelineCard({
+  item,
+}: {
+  item: FounderLoopEvidenceTimelineItem;
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>{item.title}</h3>
+        <span>{item.item_kind}</span>
+      </div>
+      <p>{item.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Timeline ref" value={item.timeline_item_ref} />
+        <DetailTerm label="Side effect" value={item.side_effect_class} />
+        <DetailTerm label="Authority posture" value={item.authority_posture} />
+        <DetailTerm label="Approval posture" value={item.approval_posture} />
+        <DetailTerm label="Redaction" value={item.redaction_status} />
+        <DetailTerm label="Stale-state posture" value={item.stale_state} />
+        <DetailTerm
+          label="Missing evidence posture"
+          value={item.missing_evidence_posture}
+        />
+        <DetailTerm label="Next safe action" value={item.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Source refs: missing until evidence binding exists"
+        refs={item.source_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Status refs: missing until status binding exists"
+        refs={item.status_refs ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Route refs: no route binding available"
+        items={item.related_route_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: not available for this item"
+        refs={item.receipt_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Audit refs: not available for this item"
+        refs={item.audit_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Replay refs: not available for this item"
+        refs={item.replay_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Rollback refs: not available for this item"
+        refs={item.rollback_refs ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Rollback blockers: rollback remains inspection-only"
+        items={item.rollback_blockers ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Latency refs: not available for this item"
+        refs={item.latency_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Foundation Gate refs: not available for this item"
+        refs={item.foundation_gate_refs ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Item blockers: evidence remains inspection-only"
+        items={item.blocked_states ?? []}
+      />
     </article>
   );
 }

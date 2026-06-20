@@ -213,12 +213,22 @@ PR size: one backend contract PR.
 
 Type: backend contract/test/docs
 
+Current status: implemented as a contract-only, draft-only Python core envelope
+in `src/ultimate_ai_agent/core/connectors/`. No connector runtime, account auth,
+email fetch/search, send/write/reply/forward/delete/archive/label/move action,
+backend route, Control Center control, model call, memory write, context
+injection, dependency, public claim, or production authority is added.
+
 New authority: no.
 
 Acceptance criteria:
 
-- Draft proposal includes safe recipient refs, purpose, evidence refs, draft
-  summary ref, review state, expiry, and rejection/edit state.
+- Draft proposal includes safe source email metadata refs, sender/recipient
+  identity refs, account identity refs, time-window refs, follow-up refs,
+  purpose/intent/tone/style labels, draft summary/outline refs, evidence refs,
+  source-readiness refs, audit/replay refs, stale-state posture,
+  missing-evidence posture, approval posture, blocked send/write states, and
+  next safe action.
 - Send/write/delete/archive fields are denied.
 - Proposal output cannot authorize connector writes.
 
@@ -229,7 +239,7 @@ Tests to add/update:
 
 Likely files touched:
 
-- `src/ultimate_ai_agent/core/`
+- `src/ultimate_ai_agent/core/connectors/`
 - `tests/`
 - `docs/connectors/`
 
@@ -378,29 +388,52 @@ Type: docs-only first
 
 New authority: no.
 
+Current status: implemented as a Founder Command Center alignment section in
+`docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md`, with architecture and
+board currentness updates. It does not move routes, add routes, create
+APIRouter modules, rename paths, change operation IDs, change side-effect
+classes, change auth posture, change schemas, add dependencies, add Control
+Center UI, or implement UAA-P1-058.
+
 Acceptance criteria:
 
 - Plan maps routes to `system_service`, `runtime_service`,
-  `planning_service`, `approval_service`, `memory_service`, `file_service`,
-  `evidence_service`, `integration_service`, `settings_service`, and
-  `workflow_service`.
+  `task_decomposition_service` as the accepted current extraction name for
+  planning routes, `approval_service`, `memory_service`,
+  `workspace_files_service` as the accepted current extraction name for file
+  routes, `evidence_service`, `integrations_service`,
+  `governed_web_evidence_service`, `settings_service`, `workflow_service`, and
+  related Control Center/observability/verification modules.
 - Plan requires no route drift, stable operation IDs, side-effect class
-  preservation, API manifest truth, and Foundation Gate coverage.
+  preservation, auth posture preservation, API manifest truth, route-status
+  truth, OpenAPI truth, and Foundation Gate coverage.
+- First UAA-P1-058 candidate remains `GET /health` and `GET /version` into
+  `ultimate_ai_agent.api.routes.system_service`.
 
 Tests to add/update:
 
-- None for docs-only beyond documentation integrity.
+- Documentation integrity.
+- OpenAPI contract verification.
+- API manifest and Control Center route tests.
+- Foundation Gate report-only.
+- `git diff --check`.
 
 Likely files touched:
 
 - `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`
-- Possibly `docs/api/README.md`
+- `docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md`
 
 PR size: one docs PR.
 
 ## Task 13 - FCC-P1-006 Build Human-Readable Evidence Timeline
 
-Type: frontend first; backend aggregation later if scoped
+Type: frontend plus existing-route backend aggregation
+
+Current status: implemented as a storage-backed Evidence Timeline on
+`/evidence` using `GET /control-center/today/summary`. The slice adds readable
+receipt, audit, replay, rollback, latency, Foundation Gate, source-readiness,
+redaction, stale-state, missing-evidence, blocker, and next-safe-action
+posture without adding routes or runtime authority.
 
 New authority: no.
 
@@ -417,11 +450,14 @@ Tests to add/update:
 
 Likely files touched:
 
-- `apps/control-center/src/components/EvidenceTimelinePanel.tsx`
-- `apps/control-center/src/components/EventTimelineTracePanel.tsx`
+- `src/ultimate_ai_agent/core/storage/founder_loop.py`
+- `apps/control-center/src/components/FounderLoopPanels.tsx`
 - `apps/control-center/src/api/types.ts`
+- `apps/control-center/src/routes.tsx`
+- `apps/control-center/src/App.test.tsx`
 
-PR size: one frontend PR.
+PR size: one scoped full-stack product-readability PR using the existing
+read-only Today summary route.
 
 ## Task 14 - FCC-P1-013 Add Local Setup/Onboarding Wizard Spec
 
@@ -455,11 +491,22 @@ Type: docs-only first
 
 New authority: no.
 
+Current status: implemented as a docs-only spec foundation in
+`docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md`. No Settings
+mutation, feature-flag write, kill-switch execution, revocation execution,
+credential collection, backend route, Control Center control, connector
+runtime/write, model/provider authority, memory write, context injection,
+background job, shell/subprocess execution, public claim, or production
+authority is added.
+
 Acceptance criteria:
 
 - Spec names feature flag state, kill-switch state, disabled boundaries, audit
   refs, revocation refs, rollback/safe-disable refs, and approval needs.
 - Spec says no credential collection and no authority toggle in current UI.
+- Spec keeps feature flags and kill-switch states as posture labels only until
+  a separate scoped milestone grants exact authority with route, policy,
+  approval, evidence, rollback, and tests.
 
 Tests to add/update:
 
@@ -477,10 +524,12 @@ PR size: one docs PR.
 
 Type: docs/backend contract later
 
-New authority: no. This task may document planning labels and future contract
-requirements only. It must not create approval refs, standing grants, enabled UI
-controls, backend routes, mutating settings, runtime sessions, connector writes,
-background jobs, revocation actions, or kill-switch actions.
+New authority: no. This task documents planning labels and future contract
+requirements only in
+`docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md`. It does not
+create approval refs, standing grants, enabled UI controls, backend routes,
+mutating settings, runtime sessions, connector writes, background jobs,
+revocation actions, or kill-switch actions.
 
 Acceptance criteria:
 
@@ -517,14 +566,27 @@ PR size: docs PR first; backend contract PR later.
 
 Type: backend contract/test
 
+Current status: implemented as a contract-only, review-only Python core schema
+in `src/ultimate_ai_agent/core/memory/`. No automatic memory write, memory
+delete execution, export execution, context injection, connector runtime/write,
+account auth, email/calendar fetch, backend route, Control Center control,
+model/provider authority, dependency, public claim, or production authority is
+added.
+
 New authority: no automatic memory write.
 
 Acceptance criteria:
 
-- Schema covers person, organization, project, deal, promise, due window,
-  follow-up state, source refs, evidence refs, correction state, retention
-  posture, and confidence.
-- Model/provider output cannot authorize memory truth.
+- Schema covers person, organization, project, deal, promise, follow-up,
+  relationship, preference, business-context, semantic-local, and episodic
+  candidate kinds.
+- Candidates include safe display labels, redacted summaries, provenance refs,
+  source refs, evidence refs, related person/org/project/deal/follow-up refs,
+  review state, confidence posture, correction/rejection posture,
+  retention/delete/export posture, stale-state posture, authority boundary,
+  missing contract refs, blocked states, and next safe action.
+- Model/provider output, connector output, and memory refs cannot authorize
+  memory truth, approval, writes, delete/export execution, or context injection.
 
 Tests to add/update:
 
@@ -534,8 +596,8 @@ Tests to add/update:
 Likely files touched:
 
 - `src/ultimate_ai_agent/core/memory/`
-- `tests/test_memory*.py`
-- `docs/memory/`
+- focused tests under `tests/`
+- Founder Command Center board/spec docs
 
 PR size: one backend contract PR.
 

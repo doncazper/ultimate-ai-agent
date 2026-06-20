@@ -1,18 +1,22 @@
 # FCC Read-Only Integration Contracts
 
-Status: contract-only implementation support for FCC-P1-007 and FCC-P1-008
+Status: contract-only implementation support for FCC-P1-007, FCC-P1-008, and
+FCC-P1-009
 Baseline: v0.102.3 / 0.102.3
 
 FCC-P1-007 and FCC-P1-008 define paired Founder Command Center source-readiness
-contracts for calendar and email metadata. They are Python-core-owned contract
-models under `src/ultimate_ai_agent/core/connectors/` and do not add connector
-runtime, account authorization, network access, backend routes, Control Center
-controls, dependencies, public distribution, or production authority.
+contracts for calendar and email metadata. FCC-P1-009 adds a draft-only email
+response proposal contract for future inbox/follow-up review. They are
+Python-core-owned contract models under
+`src/ultimate_ai_agent/core/connectors/` and do not add connector runtime,
+account authorization, network access, backend routes, Control Center controls,
+dependencies, public distribution, or production authority.
 
 These contracts are product-loop contracts, not live M121/M122 connector
 runtime. M121 and M122 remain historical connector refresh precedents; this FCC
-pair uses the same contract-only posture for the Founder Command Center morning
-briefing, inbox, meeting-prep, and follow-up lanes.
+pair and the draft-only proposal contract use the same contract-only posture for
+the Founder Command Center morning briefing, inbox, meeting-prep, and follow-up
+lanes.
 
 ## Shared Vocabulary
 
@@ -26,6 +30,11 @@ Both contracts use:
 - `FCC_READ_ONLY_METADATA_CONTRACT_ONLY`, `FCC_SAFE_REFS_ONLY`,
   `FCC_CONNECTOR_RUNTIME_MISSING`, and
   `FCC_NO_AUTH_FETCH_WRITE_OR_BACKGROUND_COLLECTION` as shared reason codes.
+- `FCC_DRAFT_ONLY_EMAIL_PROPOSAL_CONTRACT`,
+  `FCC_DRAFT_PROPOSAL_SAFE_REFS_ONLY`,
+  `FCC_DRAFT_PROPOSAL_NO_SEND_WRITE_OR_ACCOUNT_AUTH`, and
+  `FCC_DRAFT_PROPOSAL_CONNECTOR_RUNTIME_MISSING` for draft-only proposal
+  posture.
 
 ## Calendar Contract
 
@@ -76,6 +85,38 @@ Denied:
 - context injection
 - backend routes
 - Control Center controls
+- dependencies
+- beta/public/production claims
+
+## Draft-Only Email Response Proposal Contract
+
+`FCCDraftEmailResponseProposalEnvelope` supports safe proposal, source email
+metadata, thread, sender identity, recipient identity, account identity,
+time-window, follow-up, draft summary, response outline, evidence,
+source-readiness, audit, and replay refs. It includes purpose, intent, tone,
+style, stale-state, missing-evidence, approval posture, blocked send/write
+state refs, and next safe action text.
+
+Denied:
+
+- raw email body
+- raw draft body
+- subject text
+- participant identifiers
+- attachment names/downloads
+- account authorization
+- account write
+- email fetch/search runtime
+- reply/forward/send
+- delete/archive/label write/move
+- connector runtime
+- model calls
+- memory writes
+- context injection
+- backend routes
+- Control Center controls
+- background sync/refresh
+- notification delivery
 - dependencies
 - beta/public/production claims
 
