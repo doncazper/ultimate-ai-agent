@@ -8,6 +8,7 @@ class ApiRouteSideEffectClass(str, Enum):
     none = "none"
     validation_only = "validation_only"
     local_dev_workspace_only = "local_dev_workspace_only"
+    governed_network_read_only = "governed_network_read_only"
 
 
 class ApiRouteInventoryItem(BaseModel):
