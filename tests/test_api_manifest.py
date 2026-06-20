@@ -37,6 +37,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned():
     assert "extension_activation_grant_records_exact_scope" in manifest["capabilities_declared"]
     assert "redacted_session_logging_local" in manifest["capabilities_declared"]
     assert "observability_safe_summary_api" in manifest["capabilities_declared"]
+    assert "mattermost_agent_rooms_disabled_by_default" in manifest["capabilities_declared"]
+    assert "mattermost_role_catalog" in manifest["capabilities_declared"]
+    assert "mattermost_redacted_message_ingress" in manifest["capabilities_declared"]
+    assert "mattermost_approval_required_tool_actions" in manifest["capabilities_declared"]
     assert manifest["route_count"] >= 43
     assert any(route["path"] == "/api/manifest" and route["method"] == "GET" for route in manifest["routes"])
     assert any(route["path"] == "/extensions/catalog" and route["method"] == "GET" for route in manifest["routes"])
@@ -74,6 +78,17 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "session_logging_raw_capture" in manifest["capabilities_blocked"]
     assert "session_logging_external_telemetry" in manifest["capabilities_blocked"]
     assert "session_logging_os_wide_activity_monitoring" in manifest["capabilities_blocked"]
+    assert "mattermost_raw_transcript_storage" in manifest["capabilities_blocked"]
+    assert "mattermost_unapproved_connector_writes" in manifest["capabilities_blocked"]
+    assert "mattermost_credential_or_cookie_handling" in manifest["capabilities_blocked"]
+    assert "mattermost_model_output_authority" in manifest["capabilities_blocked"]
+    assert "mattermost_unbounded_background_autonomy" in manifest["capabilities_blocked"]
+    assert routes_by_path["/integrations/mattermost/events/message"]["side_effect_class"] == (
+        "local_dev_workspace_only"
+    )
+    assert routes_by_path["/integrations/mattermost/roles/bind"]["side_effect_class"] == (
+        "local_dev_workspace_only"
+    )
     assert routes_by_path["/observability/session-events"]["side_effect_class"] == (
         "local_dev_workspace_only"
     )

@@ -1,8 +1,8 @@
 # Route Inventory
 
-Current active baseline: **v0.102.0**
+Current active baseline: **v0.102.1**
 
-Current OpenAPI path count: `99`.
+Current OpenAPI path count: `107`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -72,6 +72,23 @@ background monitoring, or process control.
 This route returns read-only inspectable extension catalog metadata with safe
 refs. It is separate from any callable catalog and does not install, import,
 enable, activate, revoke, execute, fetch, or mutate extensions.
+
+### Mattermost agent rooms
+
+- `GET /integrations/mattermost/status`
+- `GET /integrations/mattermost/roles/catalog`
+- `POST /integrations/mattermost/roles/suggest`
+- `POST /integrations/mattermost/roles/bind`
+- `POST /integrations/mattermost/roles/unbind`
+- `POST /integrations/mattermost/events/message`
+- `GET /integrations/mattermost/audit`
+- `GET /integrations/mattermost/receipts`
+
+These routes are disabled-by-default local bridge surfaces for UAA-managed
+Mattermost agent room roles. They expose safe refs, bounded previews, receipt
+refs, audit summaries, and reply-command proposals only. They do not persist raw
+transcripts, manage credentials or cookies, treat model output as authority, or
+perform unapproved connector writes.
 
 ### Local model and runtime readiness
 

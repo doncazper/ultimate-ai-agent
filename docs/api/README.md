@@ -1,8 +1,8 @@
 # API Boundary
 
-Current active baseline: **v0.102.0**
+Current active baseline: **v0.102.1**
 
-Current OpenAPI path count: `99`, generated from the FastAPI application and
+Current OpenAPI path count: `107`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -57,6 +57,11 @@ Current boundary summary:
   They do not enable unrestricted browsing, browser automation, request bodies,
   redirects, downloads, raw page/body storage, raw header storage, or hidden
   network access.
+- `/integrations/mattermost` exposes a disabled-by-default local bridge for
+  Mattermost agent-room role metadata, bounded message ingress, role bindings,
+  receipts, and audit summaries. It does not store raw transcripts, handle
+  credentials or cookies, grant model-output authority, or perform unapproved
+  connector writes.
 - Route metadata must keep side-effect classes explicit.
 
 Denied by the current API boundary:

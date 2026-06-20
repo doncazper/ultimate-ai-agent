@@ -1,29 +1,30 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.102.0**
+Current active baseline: **v0.102.1**
 
-v0.102.0 is the corrected pre-1.0 currentness and production-readiness documentation baseline
-for the accepted Operator Runtime Excellence P0 repair lane. It keeps the
-repository contract-first, review-gated, local-first, and non-production by
-default. Already-pushed tags remain immutable historical internal milestone
-tags. Beta and public distribution begin only after supporting safety/product
-work is reviewed, accepted, and explicitly promoted by a later roadmap patch.
+v0.102.1 is the incremental Mattermost Agent Rooms module baseline. It keeps
+the repository contract-first, review-gated, local-first, disabled by default,
+and non-production by default while adding a central UAA Mattermost bridge
+module plus an in-repo Mattermost plugin scaffold. Already-pushed tags remain
+immutable historical internal milestone tags. Beta and public distribution
+begin only after supporting safety/product work is reviewed, accepted, and
+explicitly promoted by a later roadmap patch.
 
 Latest accepted checkpoint tag: **checkpoint-m168**.
 The latest accepted local model lane checkpoint tags remain **checkpoint-m166**
 and **checkpoint-m167**. Those post-M150 checkpoints extend the scoped local
 model lane through the M166 production-readiness gate and M167 live-evidence
 hardening. The active Operator Runtime Excellence Program starts at M168 with
-currentness/product truth repair and is now consolidated under the v0.102.0 / 0.102.0
+currentness/product truth repair and is now consolidated under the v0.102.1 / 0.102.1
 product/package baseline.
 
-v0.102.0 consolidates the current README, roadmap/status docs, release-truth
-packet, public security posture, M167 evidence scaffolding, local model smoke
-harness, release latency baseline, and Control Center operator-shell gap map
-under one active baseline. It adds no dependency, backend route, Control Center
-control, provider/model call, shell/subprocess execution, network access,
-browser automation, tool execution authority, memory write, context injection,
-beta release, public distribution, or production authority.
+v0.102.1 consolidates the current README, roadmap/status docs, release-truth
+packet, public security posture, API route currentness docs, Mattermost bridge
+scope, and Control Center operator-shell gap map under one active baseline. It
+adds no dependency, Control Center control, provider/model call,
+shell/subprocess execution, unrestricted network access, browser automation,
+tool execution authority, memory write, context injection, beta release, public
+distribution, or production authority.
 
 M150 is contract-only, review-only, alpha-target-only, deterministic,
 local-only, safe-ref-only, disabled by default, route-free, and no-effect. It

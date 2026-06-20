@@ -143,9 +143,11 @@ def configure_openapi_contract(app: FastAPI) -> None:
 
 
 def _register_safe_api_extensions(app: FastAPI) -> None:
+    from ultimate_ai_agent.api.mattermost import register_mattermost_routes
     from ultimate_ai_agent.api.web_evidence import register_governed_web_evidence_routes
 
     register_governed_web_evidence_routes(app)
+    register_mattermost_routes(app)
 
 
 def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:

@@ -3,6 +3,7 @@ from pathlib import Path
 from ultimate_ai_agent.core.gate import FoundationGateStatus, default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluators import (
     M151_LOCAL_OPENWEBUI_TEST_ROUTES,
+    MATTERMOST_AGENT_ROOMS_ROUTES,
     m152_local_model_management_forbidden_fragment_failures,
     m152_openapi_route_failures,
 )
@@ -40,6 +41,16 @@ def test_m152_route_boundary_allows_only_existing_m151_smoke_routes() -> None:
     assert any("/local-models/download" in failure for failure in failures)
     assert any("/models/load" in failure for failure in failures)
     assert any("/control-center/local-models/execute" in failure for failure in failures)
+
+
+def test_m152_route_boundary_allows_disabled_mattermost_agent_rooms_routes() -> None:
+    assert not m152_openapi_route_failures(
+        {
+            *M151_LOCAL_OPENWEBUI_TEST_ROUTES,
+            *MATTERMOST_AGENT_ROOMS_ROUTES,
+        },
+        expected_path_count=0,
+    )
 
 
 def test_m152_static_safety_detects_future_live_runtime_fragments(tmp_path: Path) -> None:

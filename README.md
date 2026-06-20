@@ -13,16 +13,16 @@ runner.
 
 | Field | Current state |
 |---|---|
-| Active baseline | **v0.102.0** / `0.102.0` |
+| Active baseline | **v0.102.1** / `0.102.1` |
 | Active program | **Operator Runtime Excellence** |
 | Current lane | **Operator Runtime Excellence P2 ecosystem inspection lane through UAA-P2-051** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
-| API boundary | FastAPI route contract with **99** OpenAPI paths |
+| API boundary | FastAPI route contract with **107** OpenAPI paths |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 
-The active product/package baseline is `v0.102.0` / `0.102.0`.
+The active product/package baseline is `v0.102.1` / `0.102.1`.
 `checkpoint-m168` is the latest accepted repository checkpoint and repairs
 currentness across README, roadmap, board, checkpoint references, product truth,
 and route-count references. The M160-M167 local model lane remains scoped to
@@ -37,8 +37,8 @@ is not the active package baseline.
 Current archived release packet refs:
 
 ```text
-docs/archive/releases/v0_102_0/README_IMPORT.md
-docs/archive/releases/v0_102_0/master_plan.md
+docs/archive/releases/v0_102_1/README_IMPORT.md
+docs/archive/releases/v0_102_1/master_plan.md
 ```
 
 ## Operating Model
@@ -106,7 +106,7 @@ The Python Agent Core remains the authority boundary.
 |---|---|---|
 | Product truth | Evidence-backed release claims and gap matrix | [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md) |
 | Catch-up loop | Human-reconciled loop for ChatGPT/Codex recommendations and peer-gap closure | [operator excellence loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
-| API contract | 99 OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
+| API contract | 107 OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
 | Governed web evidence | UAA-P1-063 status/request contract, allowlisted HTTPS GET envelope, bounded redacted preview, chatbot disclosure | [governed web evidence](docs/network/GOVERNED_WEB_EVIDENCE_V1.md), [M72 fetch tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md) |
 | Security posture | Reporting, severity, triage, redaction invariants | [SECURITY.md](SECURITY.md), [triage runbook](docs/security/SECURITY_TRIAGE_RUNBOOK.md) |
 | Operator shell | Gap map and product language rules for visible surfaces | [gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md) |
@@ -160,7 +160,7 @@ distribution, hosted production support, or signed installer readiness.
 | Current roadmap | [docs/canonical/09_roadmap.md](docs/canonical/09_roadmap.md) |
 | Operator Runtime Excellence | [roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md), [current board](docs/kanban/current_board.md) |
 | Operator Excellence catch-up loop | [loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
-| Current release | [v0.102.0 notes](docs/release_notes/v0_102_0.md), [checkpoint M168](docs/release_notes/checkpoint_m168.md) |
+| Current release | [v0.102.1 notes](docs/release_notes/v0_102_1.md), [checkpoint M168](docs/release_notes/checkpoint_m168.md) |
 
 Historical docs live under [docs/archive](docs/archive/README.md). They are
 audit artifacts, not current implementation claims.
@@ -169,7 +169,7 @@ audit artifacts, not current implementation claims.
 
 These M34-M60 labels remain active audit anchors. They are historical milestone
 markers, not the current package baseline; the current baseline remains
-v0.102.0.
+v0.102.1.
 
 | Release | Milestone |
 |---|---|

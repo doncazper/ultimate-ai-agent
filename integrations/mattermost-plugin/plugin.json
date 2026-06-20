@@ -1,0 +1,138 @@
+{
+  "id": "com.ultimateaiagent.mattermost-agent-rooms",
+  "name": "UAA Mattermost Agent Rooms",
+  "description": "Allows approved UAA agent roles to participate in opted-in Mattermost rooms while UAA remains the authority layer.",
+  "homepage_url": "https://github.com/ultimate-ai-agent/ultimate-ai-agent",
+  "support_url": "https://github.com/ultimate-ai-agent/ultimate-ai-agent/issues",
+  "version": "0.1.0",
+  "min_server_version": "6.2.1",
+  "server": {
+    "executables": {
+      "linux-amd64": "server/dist/plugin-linux-amd64",
+      "linux-arm64": "server/dist/plugin-linux-arm64",
+      "darwin-amd64": "server/dist/plugin-darwin-amd64",
+      "darwin-arm64": "server/dist/plugin-darwin-arm64"
+    }
+  },
+  "settings_schema": {
+    "header": "Connect Mattermost to a local self-hosted UAA bridge. Keep this disabled until UAA_MATTERMOST_BRIDGE_ENABLED=1 and a local bridge bearer are configured.",
+    "settings": [
+      {
+        "key": "UAABaseURL",
+        "display_name": "UAA Base URL",
+        "type": "text",
+        "help_text": "Local UAA API base URL, for example http://127.0.0.1:8000.",
+        "default": "http://127.0.0.1:8000"
+      },
+      {
+        "key": "UAABridgeBearer",
+        "display_name": "UAA Bridge Bearer",
+        "type": "text",
+        "help_text": "Local-only bearer value used by the plugin when calling UAA.",
+        "secret": true,
+        "default": ""
+      },
+      {
+        "key": "WorkspaceRef",
+        "display_name": "Workspace Ref",
+        "type": "text",
+        "help_text": "Safe UAA workspace ref for this Mattermost server.",
+        "default": "mattermost-workspace:local"
+      },
+      {
+        "key": "AllowedChannelIDs",
+        "display_name": "Allowed Channel IDs",
+        "type": "text",
+        "help_text": "Comma-separated Mattermost channel IDs that may send bounded events to UAA. Empty means no channels are enabled.",
+        "default": ""
+      },
+      {
+        "key": "ReplyEnabled",
+        "display_name": "Enable Agent Replies",
+        "type": "bool",
+        "help_text": "When true, the plugin may post UAA-approved reply commands as role bots in enabled channels.",
+        "default": false
+      },
+      {
+        "key": "TriggerMode",
+        "display_name": "Default Trigger Mode",
+        "type": "dropdown",
+        "help_text": "Default mode for channel role bindings.",
+        "default": "mention_command",
+        "options": [
+          {"display_name": "Mention or command only", "value": "mention_command"},
+          {"display_name": "Enabled room", "value": "enabled_room"},
+          {"display_name": "Always on by role", "value": "always_on_by_role"}
+        ]
+      },
+      {
+        "key": "RoleCreationMode",
+        "display_name": "Role Creation Mode",
+        "type": "dropdown",
+        "help_text": "Default role creation mode for UAA role suggestions.",
+        "default": "proposal_then_approve",
+        "options": [
+          {"display_name": "Predefined only", "value": "predefined"},
+          {"display_name": "Proposal then approve", "value": "proposal_then_approve"},
+          {"display_name": "Auto-create when enabled", "value": "auto_create"}
+        ]
+      },
+      {
+        "key": "MaxPreviewChars",
+        "display_name": "Max Preview Characters",
+        "type": "number",
+        "help_text": "Maximum message preview characters sent to UAA.",
+        "default": 2000
+      },
+      {
+        "key": "TimeoutMillis",
+        "display_name": "UAA Request Timeout Millis",
+        "type": "number",
+        "help_text": "Maximum time the plugin waits for UAA bridge responses.",
+        "default": 5000
+      },
+      {
+        "key": "PlannerBotUserID",
+        "display_name": "Planner Bot User ID",
+        "type": "text",
+        "help_text": "Mattermost bot user ID used for planner replies.",
+        "default": ""
+      },
+      {
+        "key": "SummarizerBotUserID",
+        "display_name": "Summarizer Bot User ID",
+        "type": "text",
+        "help_text": "Mattermost bot user ID used for summarizer replies.",
+        "default": ""
+      },
+      {
+        "key": "CriticBotUserID",
+        "display_name": "Critic Bot User ID",
+        "type": "text",
+        "help_text": "Mattermost bot user ID used for critic replies.",
+        "default": ""
+      },
+      {
+        "key": "ImplementerBotUserID",
+        "display_name": "Implementer Bot User ID",
+        "type": "text",
+        "help_text": "Mattermost bot user ID used for implementer replies.",
+        "default": ""
+      },
+      {
+        "key": "SafetyReviewerBotUserID",
+        "display_name": "Safety Reviewer Bot User ID",
+        "type": "text",
+        "help_text": "Mattermost bot user ID used for safety-reviewer replies.",
+        "default": ""
+      },
+      {
+        "key": "FacilitatorBotUserID",
+        "display_name": "Facilitator Bot User ID",
+        "type": "text",
+        "help_text": "Mattermost bot user ID used for facilitator replies.",
+        "default": ""
+      }
+    ]
+  }
+}

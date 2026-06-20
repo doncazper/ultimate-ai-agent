@@ -40,6 +40,11 @@ CAPABILITIES_DECLARED = [
     "governed_web_evidence_status",
     "governed_web_evidence_allowlisted_https_get",
     "governed_web_evidence_chatbot_disclosure",
+    "mattermost_agent_rooms_disabled_by_default",
+    "mattermost_role_catalog",
+    "mattermost_redacted_message_ingress",
+    "mattermost_role_bound_speak_only_replies",
+    "mattermost_approval_required_tool_actions",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -93,6 +98,12 @@ CAPABILITIES_BLOCKED = [
     "governed_web_evidence_downloads",
     "governed_web_evidence_redirect_following",
     "governed_web_evidence_hidden_network_access",
+    "mattermost_raw_transcript_storage",
+    "mattermost_unapproved_connector_writes",
+    "mattermost_credential_or_cookie_handling",
+    "mattermost_model_output_authority",
+    "mattermost_unbounded_background_autonomy",
+    "mattermost_room_operations_without_user_request",
 ]
 
 ROUTE_GROUPS_BY_PREFIX = {
@@ -129,9 +140,18 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/v1": "openwebui-local-test",
     "/extensions": "extension-catalog",
     "/web-evidence": "governed-web-evidence",
+    "/integrations/mattermost": "mattermost",
 }
 
-LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition", "/observability", "/v1")
+LOCAL_DEV_WORKSPACE_PREFIXES = (
+    "/kernel",
+    "/files",
+    "/memory",
+    "/task-decomposition",
+    "/observability",
+    "/v1",
+    "/integrations/mattermost",
+)
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 
 API_MANIFEST_CACHEABLE_FIELDS = (

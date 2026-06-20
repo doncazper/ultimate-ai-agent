@@ -109,8 +109,9 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
     assert "/extensions/catalog" in paths
     assert "/observability/session-events" in paths
     assert "/observability/client-errors" in paths
-    assert len(paths) == 99
-    assert len(operation_ids) == len(set(operation_ids)) == 99
+    assert "/integrations/mattermost/events/message" in paths
+    assert len(paths) == 107
+    assert len(operation_ids) == len(set(operation_ids)) == 107
 
 
 def test_control_center_operator_shell_gap_map_is_current_and_safe():
@@ -119,7 +120,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 99 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 107 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
@@ -177,7 +178,7 @@ def test_control_center_route_status_manifest_covers_visible_actions():
 
     assert manifest["schema_version"] == "uaa-control-center-route-status.v1"
     assert manifest["status"] == "active UAA-P1-030 route status manifest"
-    assert manifest["openapi_path_count"] == 99
+    assert manifest["openapi_path_count"] == 107
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {

@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.102.0. Package version: 0.102.0.
+Active baseline: v0.102.1. Package version: 0.102.1.
 
 Version repair note: v2.0.0 is preserved as an immutable historical internal
 mislabel and must not be treated as the current project/package baseline.

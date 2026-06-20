@@ -2256,6 +2256,16 @@ M167_REDACTED_OBSERVABILITY_ROUTES = {
     "/observability/client-errors",
     "/observability/session-events",
 }
+MATTERMOST_AGENT_ROOMS_ROUTES = {
+    "/integrations/mattermost/audit",
+    "/integrations/mattermost/events/message",
+    "/integrations/mattermost/receipts",
+    "/integrations/mattermost/roles/bind",
+    "/integrations/mattermost/roles/catalog",
+    "/integrations/mattermost/roles/suggest",
+    "/integrations/mattermost/roles/unbind",
+    "/integrations/mattermost/status",
+}
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
 M152_FORBIDDEN_BACKEND_ROUTES = M150_FORBIDDEN_BACKEND_ROUTES + (
     "/hf/search",
@@ -2429,6 +2439,7 @@ def _post_m151_route_boundary_path_set(paths: Iterable[str]) -> set[str]:
     path_set = {path for path in paths}
     path_set.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
     path_set.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
+    path_set.difference_update(MATTERMOST_AGENT_ROOMS_ROUTES)
     path_set.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
     return path_set
 
