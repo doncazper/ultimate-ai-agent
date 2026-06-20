@@ -17,7 +17,7 @@ hosted production service, broad-autonomy runtime, or unrestricted tool runner.
 | Current lane | **Operator Runtime Excellence P2 ecosystem inspection lane through UAA-P2-051** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
-| API boundary | FastAPI route contract with **97** OpenAPI paths |
+| API boundary | FastAPI route contract with **99** OpenAPI paths |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 
@@ -54,6 +54,8 @@ The current implementation emphasizes:
 - local model readiness through a scoped llama.cpp/OpenWebUI shell lane
 - safe workspace previews, patch proposals, atomic apply, and rollback receipts
 - redacted session/run observability for UAA-managed surfaces only
+- governed web evidence status and allowlisted evidence request contracts with
+  bounded redacted previews and receipt refs
 - release verification lanes, Foundation Gate reports, OpenAPI checks, and
   documentation integrity checks
 - read-only plugin/skill ecosystem inspection, exact activation records, and an
@@ -105,7 +107,8 @@ The Python Agent Core remains the authority boundary.
 | Area | Current state | Primary refs |
 |---|---|---|
 | Product truth | Evidence-backed release claims and gap matrix | [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md) |
-| API contract | 97 OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
+| API contract | 99 OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
+| Governed web evidence | UAA-P1-063 status/request contract, allowlisted HTTPS GET envelope, bounded redacted preview, chatbot disclosure | [governed web evidence](docs/network/GOVERNED_WEB_EVIDENCE_V1.md), [M72 fetch tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md) |
 | Security posture | Reporting, severity, triage, redaction invariants | [SECURITY.md](SECURITY.md), [triage runbook](docs/security/SECURITY_TRIAGE_RUNBOOK.md) |
 | Operator shell | Gap map and product language rules for visible surfaces | [gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md) |
 | Local model lane | Local llama.cpp/OpenWebUI readiness, E2E smoke, evidence matrix | [M167 evidence matrix](docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md), [E2E smoke harness](docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md) |
