@@ -811,6 +811,99 @@ export interface M39ContextProposalData {
   proposals: ContextProposalSummary[];
 }
 
+export type MacOSSetupStepStatus =
+  | "planned"
+  | "ready"
+  | "dry_run_only"
+  | "approval_required"
+  | "blocked"
+  | "manual_only";
+
+export interface MacOSSetupAssistantStep {
+  stepId: string;
+  label: string;
+  kind: string;
+  status: MacOSSetupStepStatus;
+  safeSummary: string;
+  routeRefs: string[];
+  detailPreview: string[];
+  logPreview: string[];
+  approvalRequired: boolean;
+  setupApprovalRef?: string;
+  receiptRef: string;
+  rollbackRef: string;
+  latencyRef?: string;
+  reasonCodes: string[];
+  nextSafeAction: string;
+}
+
+export interface MacOSSetupModelRecommendation {
+  recommendationRef: string;
+  modelRef: string;
+  displayName: string;
+  fitSummary: string;
+  recommendedFor: string;
+  memoryBucket: string;
+  diskBucket: string;
+  privacySummary: string;
+  approvalRequiredBeforeDownload: boolean;
+  selectedByDefault: boolean;
+  reasonCodes: string[];
+}
+
+export interface MacOSSetupBridgePreview {
+  bridgeRef: string;
+  label: string;
+  status: MacOSSetupStepStatus;
+  safeSummary: string;
+  enablementDefault: string;
+  approvalRequired: boolean;
+  reasonCodes: string[];
+}
+
+export interface MacOSSetupReceiptPlan {
+  receiptPlanRef: string;
+  auditRef: string;
+  latencyRef: string;
+  safeSummary: string;
+  receiptCreated: boolean;
+  auditEventCreated: boolean;
+  terminalLogStored: boolean;
+  promptStored: boolean;
+  providerPayloadStored: boolean;
+  credentialMaterialStored: boolean;
+}
+
+export interface MacOSSetupRollbackPlan {
+  rollbackPlanRef: string;
+  uninstallRef: string;
+  safeSummary: string;
+  rollbackAvailableAfterApproval: boolean;
+  rollbackExecuted: boolean;
+}
+
+export interface MacOSSetupAssistantData {
+  planRef: string;
+  status: MacOSSetupStepStatus;
+  macosFirst: boolean;
+  localFirst: boolean;
+  disabledByDefault: boolean;
+  nativeMacosAppReady: boolean;
+  controlCenterPreviewReady: boolean;
+  setupQuestionAssistantEnabled: boolean;
+  modelOutputAuthoritative: boolean;
+  installerSideEffectsEnabled: boolean;
+  visualShellRef: string;
+  steps: MacOSSetupAssistantStep[];
+  modelRecommendations: MacOSSetupModelRecommendation[];
+  bridgePreviews: MacOSSetupBridgePreview[];
+  receiptPlan: MacOSSetupReceiptPlan;
+  rollbackPlan: MacOSSetupRollbackPlan;
+  blockedCapabilities: string[];
+  nextSteps: string[];
+  morningReviewChecklist: string[];
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;
@@ -824,6 +917,7 @@ export interface ControlCenterData {
   m18Runtime: M18RuntimeData;
   m36FileReview: M36FileReviewData;
   m39ContextProposals: M39ContextProposalData;
+  macosSetupAssistant: MacOSSetupAssistantData;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

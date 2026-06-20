@@ -16,6 +16,7 @@ import {
   LocalRuntimeStatusPanel,
   ManualSmokeControlSurfacePanel,
 } from "./components/LocalRuntimeStatusPanel";
+import { MacOSSetupAssistantPanel } from "./components/MacOSSetupAssistantPanel";
 import {
   ChatOperatorPanel,
   EvidenceOperatorPanel,
@@ -34,6 +35,7 @@ import {
 
 export const navItems = [
   { path: "/", label: "Overview" },
+  { path: "/setup", label: "Setup" },
   { path: "/dashboard", label: "Dashboard" },
   { path: "/operator-loop", label: "Operator Loop" },
   { path: "/chat", label: "Chat" },
@@ -62,6 +64,8 @@ export const navItems = [
 
 export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
+    case "/setup":
+      return <MacOSSetupAssistantPanel setup={data.macosSetupAssistant} />;
     case "/chat":
       return <ChatOperatorPanel data={data} />;
     case "/plans":

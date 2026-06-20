@@ -212,6 +212,79 @@ main {
   gap: 16px;
 }
 
+.setup-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.setup-flag,
+.setup-step {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.setup-flag {
+  display: grid;
+  gap: 6px;
+  min-height: 82px;
+  padding: 12px;
+}
+
+.setup-flag span {
+  color: #52606d;
+  font-size: 0.82rem;
+}
+
+.setup-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.setup-timeline {
+  display: grid;
+  gap: 12px;
+}
+
+.setup-step {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.setup-step.blocked,
+.setup-step.approval_required {
+  border-color: #f0b429;
+  background: #fffbea;
+}
+
+.setup-step.ready {
+  border-color: #b7d7c2;
+  background: #f2fbf5;
+}
+
+.setup-step p,
+.setup-step details {
+  margin: 0;
+  color: #52606d;
+  line-height: 1.5;
+}
+
+.setup-step summary {
+  cursor: pointer;
+  color: #0b69a3;
+  font-weight: 600;
+}
+
+.setup-detail-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .operator-status-panel.blocked,
 .operator-status-panel.denied {
   border-color: #f0b429;
@@ -740,9 +813,14 @@ th {
   }
 
   .review-layout,
+  .setup-layout,
   .detail-grid,
   .surface-state-grid {
     grid-template-columns: 1fr;
+  }
+
+  .setup-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .review-card-heading {

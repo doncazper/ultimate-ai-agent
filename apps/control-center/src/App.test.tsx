@@ -40,6 +40,7 @@ describe("Web Control Center shell", () => {
       screen.getByText(/API base: relative local API/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Setup" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Runtime" })).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Foundation Gate" }),
@@ -92,6 +93,7 @@ describe("Web Control Center shell", () => {
   it("renders clear headings for every local shell page", async () => {
     const expectedHeadings = [
       ["/", /Dashboard overview/i],
+      ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
       ["/operator-loop", /Operator Loop/i],
       ["/chat", /^Chat Shell$/i],
@@ -368,6 +370,43 @@ describe("Web Control Center shell", () => {
       screen.queryByRole("button", {
         name: /validate provider|invoke provider/i,
       }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders macOS setup assistant preview without installer authority", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/setup");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /macOS Setup Assistant/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Visual setup preview/i)).toBeInTheDocument();
+    expect(screen.getByText(/First launch setup/i)).toBeInTheDocument();
+    expect(screen.getByText(/Runtime health/i)).toBeInTheDocument();
+    expect(screen.getByText(/Local model readiness/i)).toBeInTheDocument();
+    expect(screen.getByText(/Model selection/i)).toBeInTheDocument();
+    expect(screen.getByText(/Fast local chat/i)).toBeInTheDocument();
+    expect(screen.getByText(/Balanced local assistant/i)).toBeInTheDocument();
+    expect(screen.getByText(/Coding local assistant/i)).toBeInTheDocument();
+    expect(screen.getByText(/approval-ref:macos-setup-model-selection/i)).toBeInTheDocument();
+    expect(screen.getByText(/macos-setup-receipt-plan:foundation/i)).toBeInTheDocument();
+    expect(screen.getByText(/macos-setup-rollback-plan:foundation/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/OpenWebUI bridge/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Mattermost Agent Rooms/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Verify the model choices/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no command executed/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Installer side effects/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", { name: /^run$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^install$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^approve$/i }),
     ).not.toBeInTheDocument();
   });
 

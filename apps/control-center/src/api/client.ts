@@ -107,6 +107,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m18Runtime: mockControlCenterData.m18Runtime,
     m36FileReview: mockControlCenterData.m36FileReview,
     m39ContextProposals: mockControlCenterData.m39ContextProposals,
+    macosSetupAssistant: mockControlCenterData.macosSetupAssistant,
     source: "api",
     connection: mockControlCenterData.connection,
   };
