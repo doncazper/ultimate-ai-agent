@@ -79,7 +79,7 @@ The JSON manifest covers the current visible Control Center routes and actions:
   Foundation Gate, API Routes, Approvals,
   Receipts, Events, Timeline, Evidence, Files, File Review, Context Proposals,
   Memory, Local Runtime, Manual Smoke, Remote Workers, Mobile Planning, Plugin
-  Governance, and Settings navigation
+  Governance, Settings, and Differentiators navigation
 - Action Preview submission
 - Action Inbox approval-envelope/state-change posture inspection
 - Morning Briefing source-readiness and missing-contract posture inspection

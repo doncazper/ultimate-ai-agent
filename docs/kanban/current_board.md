@@ -30,9 +30,13 @@ for review. The FCC-P1-011 Settings kill-switch and feature-flag spec is now a
 docs-only spec slice ready for review. FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
-accepted guardrails for route extraction and CI lane evidence. Next-lane order:
+accepted guardrails for route extraction and CI lane evidence. UAA-P1-054 adds
+the read-only Control Center differentiator screens for route authority,
+approval state, evidence receipts, safe workspace previews, local model status,
+and M167 observability posture. Next-lane order:
 
-1. UAA-P1-054 Control Center differentiator screens, only while UAA-P1-053
+1. UAA-P1-055 Security automation and artifact redaction lane, only while
+   UAA-P1-054, UAA-P1-053, UAA-P1-059, and UAA-P1-058
    CI lane workflow checks, route ownership, Foundation Gate, OpenAPI, and
    documentation checks remain green.
 
@@ -63,29 +67,25 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Pull UAA-P1-054 from Ready Next after
-UAA-P1-053 CI lane workflow checks remain green with Foundation Gate,
-OpenAPI, route ownership, safe-output, and documentation checks.
+No active foundation build item. Pull UAA-P1-055 from Ready Next after
+UAA-P1-054 differentiator screen checks remain green with frontend,
+Foundation Gate, OpenAPI, route ownership, safe-output, and documentation
+checks.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-054 Control Center differentiator screens
-Goal: product-grade screens for route authority, approval state, evidence
-receipts, safe workspace previews, local model status, and M167 observability
-timeline.
-Gate: UAA-P1-053 stays green; no new runtime authority, connector writes,
-provider/model calls, or production claims.
+UAA-P1-055 Security automation and artifact redaction lane
+Goal: add automated security scanning and release artifact redaction checks
+without external-audit, public-distribution, or signed-release claims.
+Gate: UAA-P1-054, UAA-P1-053, UAA-P1-059, UAA-P1-058, Foundation Gate,
+OpenAPI, frontend, route ownership, and documentation checks stay green.
 ```
 
 ## Shaping
 
 ```text
-UAA-P1-055 Security automation and artifact redaction lane
-Goal: add automated security scanning and release artifact redaction checks
-without external-audit, public-distribution, or signed-release claims.
-
 UAA-P1-057 Product truth regression checks
 Goal: prevent blocked, skipped, pending, mock-only, planned, or not-scoped work
 from being described as complete, production-ready, or publicly released.
@@ -198,6 +198,15 @@ visual regression, desktop/local packaging, performance, and a Foundation Gate
 `ci-parallel` aggregator. Lane summaries are safe-summary-only, raw command
 output stays runner-local and is not uploaded, and the OpenAPI lane includes
 the UAA-P1-059 route-module ownership guard.
+
+UAA-P1-054 Control Center differentiator screens
+Gate met: `/differentiators` exposes product-grade, human-readable screens for
+route authority, approval state, evidence receipts, safe workspace previews,
+local model status, and M167 observability posture using existing safe refs and
+redacted summaries only. No backend routes, operation IDs, side-effect classes,
+runtime authority, model/provider calls, connector writes, memory writes,
+context injection, shell/subprocess paths, public distribution claims, or
+production authority were added.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

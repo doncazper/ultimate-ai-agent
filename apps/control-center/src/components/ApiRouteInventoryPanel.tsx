@@ -29,7 +29,7 @@ export function ApiRouteInventoryPanel({ routes }: { routes: ApiRouteInventory }
               {routes.routes.map((route) => (
                 <tr key={`${route.path}-${route.operation_id}`}>
                   <td>{route.path}</td>
-                  <td>{route.methods.join(", ")}</td>
+                  <td>{route.methods?.join(", ") ?? "not returned"}</td>
                   <td>{route.operation_id}</td>
                   <td>{route.validation_only ? "yes" : "no"}</td>
                 </tr>
