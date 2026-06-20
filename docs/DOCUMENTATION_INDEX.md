@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.102.1**
+Current active baseline: **v0.102.2**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,7 +9,7 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Area | Canonical entry |
 |---|---|
 | GitHub landing page | `README.md` |
-| Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_1.md`, `docs/release_notes/checkpoint_m168.md` |
+| Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_2.md`, `docs/release_notes/checkpoint_m168.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
@@ -87,10 +87,10 @@ docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/kanban/current_board.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/archive/README.md
-docs/archive/releases/v0_102_1/README_IMPORT.md
-docs/archive/releases/v0_102_1/master_plan.md
-docs/release_notes/v0_102_1.md
-docs/implementation/foundation_gate_implementation_plan_v0_102_1.md
+docs/archive/releases/v0_102_2/README_IMPORT.md
+docs/archive/releases/v0_102_2/master_plan.md
+docs/release_notes/v0_102_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_102_2.md
 docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
@@ -1038,7 +1038,7 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.102.1 is the current active package baseline for the
+active M34-M60 sequence. v0.102.2 is the current active package baseline for the
 accepted Operator Runtime Excellence currentness and production-readiness
 documentation repair lane through P2 read-only ecosystem inspection,
 activation-record contracts, and MCP/A2A compatibility watchlist planning.
@@ -1125,7 +1125,7 @@ future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_102_1.md`
+Current release notes: `docs/release_notes/v0_102_2.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

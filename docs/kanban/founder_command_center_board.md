@@ -255,18 +255,21 @@ Blockers/dependencies: FCC-P1-008.
 
 Epic: Memory/Knowledge, Business Cofounder Workflows
 
-Description: Add reviewed memory schema for people, organizations, projects,
+Description: Add reviewed memory schema for profile, project, relationship,
+episodic, business, semantic-local knowledge, people, organizations, projects,
 deals, promises, and follow-ups.
 
 Repo areas likely touched: `src/ultimate_ai_agent/core/memory/`, `docs/memory/`,
 `tests/`.
 
 Acceptance criteria: Records require source/evidence refs, review state,
-confidence, correction path, retention posture, and no model-output authority.
+confidence, correction path, retention/delete/export posture, and no model-output
+authority.
 
 Required tests/verifiers: memory tests and redaction tests.
 
-Safety notes: No automatic capture and no hidden context injection.
+Safety notes: Memory remains recall, not truth or authority. No automatic
+capture, no automatic memory writes, and no hidden context injection.
 
 Blockers/dependencies: FCC-P0-005.
 
@@ -317,8 +320,8 @@ Blockers/dependencies: UAA-P1-052 on parent board.
 
 Epic: Business Cofounder Workflows
 
-Description: Define local founder workflow for lead, opportunity, contact,
-promise, due window, and next safe action tracking.
+Description: Define CRM-lite local founder workflow for lead, opportunity,
+contact, promise, due window, and next safe action tracking.
 
 Repo areas likely touched: `docs/strategy/`, `docs/memory/`,
 `src/ultimate_ai_agent/core/memory/` after implementation.
@@ -331,6 +334,32 @@ Required tests/verifiers: docs integrity now; memory tests later.
 Safety notes: Planning/spec only.
 
 Blockers/dependencies: FCC-P1-010.
+
+### FCC-P1-016 - P1 - First-Party Integration Direction Spec
+
+Epic: Tools/Integrations, Business Cofounder Workflows
+
+Description: Align first-party integration lanes for future contacts lookup
+contract planning, task creation proposals, governed article/evidence capture,
+GitHub read-only project status, and CRM-lite local lead/follow-up store.
+
+Repo areas likely touched: `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`,
+`docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`,
+`docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, and `docs/connectors/`.
+
+Acceptance criteria: Each lane stays contract-first with safe refs, redacted
+summaries, evidence refs, explicit consent/approval posture where relevant, and
+blocked runtime/write states.
+
+Required tests/verifiers: docs integrity now; contract tests only when later
+schemas are implemented.
+
+Safety notes: No account auth, connector runtime, contacts read/search/lookup
+runtime, connector writes, browser automation, plugin execution, hidden sync, or
+production authority.
+
+Blockers/dependencies: Read-only/draft-only MVP proof and separate scoped
+connector milestones.
 
 ### FCC-P1-015 - P1 - Weekly CEO Review Workflow Spec
 

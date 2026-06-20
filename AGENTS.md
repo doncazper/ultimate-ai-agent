@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.102.1. Package version: 0.102.1.
+Active baseline: v0.102.2. Package version: 0.102.2.
 
 Ultimate AI Agent is a local-first governed agent foundation plus an emerging
 Control Center/operator cockpit. Treat this repository as a contract-first
@@ -13,8 +13,11 @@ approval. The historical v2.0.0 label is not the current baseline.
 
 ## Current Strategic Priority
 
-Finish the Founder Command Center first product loop, starting with
-`UAA-P1-011` from `docs/kanban/current_board.md`. The product direction is a
+Use the accepted `UAA-P1-011` readable-loop baseline as the product spine, then
+work the Founder Command Center next implementation lane: local Control Center
+macOS-first Setup Assistant hardening, first product loop readability, Action
+Inbox / approval envelope UX, Morning Briefing skeleton, and read-only
+email/calendar integration contracts later. The product direction is a
 single-user founder/operator loop: Today, Inbox, Plans, Actions, Memory,
 Evidence, and Settings. Build useful, safe workflows before adding broad
 authority or more roadmap-only expansion.

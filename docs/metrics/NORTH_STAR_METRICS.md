@@ -18,13 +18,22 @@ draft, resolved follow-up, corrected memory record, reviewed plan, or closed
 decision. It is not a raw model response, mock fallback, preview-only route,
 or unreviewed automation.
 
+Inferred estimates may use only reviewed outcome metadata, safe summaries, and
+safe refs. They must not require raw private content, external telemetry, hidden
+tracking, raw calendars, raw messages, raw logs, raw paths, or credential
+material.
+
 ## Product Metrics
 
 | Metric | Definition | Why it matters | Safety requirement |
 |---|---|---|---|
 | Useful actions completed per day | Count of reviewed useful outcomes with safe evidence refs. | Measures real work, not surface area. | Count only redacted summaries and refs. |
+| Primary loop quality before new surfaces | Reviewed quality of Today, Inbox, Plans, Actions, Memory, Evidence, and Settings before adding net-new surfaces. | Prevents breadth from masquerading as product progress. | Safe summaries and refs only. |
 | User-approved action rate | Approved exact-scoped action proposals divided by total eligible proposals. | Shows whether proposals are useful and trusted. | Approval refs are identifiers only; no raw content. |
 | Time saved per day | User-entered or inferred safe estimate attached to reviewed outcomes. | Captures perceived leverage. | No private calendars/messages required for MVP. |
+| Setup clarity score | User-reviewed or checklist-backed signal that setup state, prerequisites, blocked states, and next safe actions are understandable. | Measures low setup pain and coherent first-run experience. | No shell output, raw paths, credentials, or logs required. |
+| Action review confidence | Reviewed action proposals marked clear enough to approve, edit, reject, or defer. | Measures beautiful action review before authority expands. | Count only safe summaries and refs. |
+| History and reversibility inspection | Evidence timeline or rollback/safe-disable refs inspected for completed scoped outcomes. | Measures whether history and reversibility are understandable. | Safe refs and redacted summaries only. |
 | Morning briefing adoption | Days with a reviewed Morning Briefing divided by active days. | Shows whether Today is habit-forming. | Local summary only. |
 | Follow-up capture rate | Follow-ups captured from reviewed plans, memory, inbox metadata, or manual entries divided by identified follow-up opportunities. | Measures business memory usefulness. | Safe refs and reviewed memory only. |
 | Draft acceptance/edit rate | Accepted or edited draft-only proposals divided by draft proposals. | Shows if draft-only help is useful before send authority exists. | No send/write tracking. |
@@ -81,6 +90,7 @@ or unreviewed automation.
 | API p95 latency | p95 for release-critical local API paths. | Within documented budgets. | Do not cache authority decisions. |
 | Control Center route success rate | Percent of primary local route reads that render online or correctly degraded state. | Up. | Mock fallback must stay non-authoritative. |
 | Mock/degraded state frequency | Frequency of mock fallback, degraded, skipped, or blocked prerequisites. | Down for intended local loop. | Must stay visible. |
+| Product-language consistency | Primary surfaces using shared labels for implemented, planned, partial, blocked, skipped, mock-only, missing, approval, evidence, and rollback states. | Up. | Product copy cannot imply unscoped authority. |
 | Percent workflows with receipts | Workflow outcomes with receipt/evidence refs divided by completed scoped outcomes. | Up. | Safe refs only. |
 | Percent proposed actions with evidence | Action proposals with evidence refs divided by all proposals. | Up. | Evidence must be redacted. |
 | Approval bypass test pass rate | Bypass/denial regression tests passing divided by total. | 100 percent. | Required before readiness claims. |
@@ -91,6 +101,9 @@ or unreviewed automation.
 ## Guardrail Metrics
 
 These must remain zero unless a private security triage record says otherwise:
+
+These zero-incident rules apply to durable evidence, docs, reports, tests,
+fixtures, logs, release packets, and product-facing summaries.
 
 - PolicyEngine bypass.
 - LocalApprovalAuthority bypass.

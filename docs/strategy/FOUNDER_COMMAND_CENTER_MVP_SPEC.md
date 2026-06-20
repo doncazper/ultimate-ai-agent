@@ -13,9 +13,9 @@ and gated.
 Work the next implementation lane in this order, starting from the accepted
 `UAA-P1-011` readable-loop baseline:
 
-1. Local Control Center Setup Assistant hardening: tighten dry-run/read-only
-   setup posture, redacted summaries, blocked states, rollback refs, and safe
-   local prerequisite visibility.
+1. Local Control Center macOS-first Setup Assistant hardening: tighten
+   dry-run/read-only setup posture, redacted summaries, blocked states,
+   rollback refs, and safe local prerequisite visibility.
 2. First product loop readability: make Today, Plans, Actions, Memory,
    Evidence, and Settings easier to scan without adding route authority.
 3. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
@@ -23,9 +23,9 @@ Work the next implementation lane in this order, starting from the accepted
    posture before any approve affordance is wired.
 4. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
-5. Read-only email/calendar contracts later: define metadata-only calendar/email
-   contracts and draft-only outputs after the loop is readable; connector
-   runtime remains out of scope.
+5. Read-only email/calendar integration contracts later: define metadata-only
+   calendar/email contracts and draft-only outputs after the loop is readable;
+   connector runtime remains out of scope.
 
 This lane is docs/contracts/tests/inspection first. It grants no new backend
 route, frontend mutation control, setup mutation, connector runtime,
@@ -38,18 +38,30 @@ Future Founder Command Center surfaces should use one shared permission
 vocabulary, without granting authority by naming it:
 
 - Observe: read or summarize safe refs only.
-- Draft: create editable proposals that cannot send, write, or execute.
-- Propose: describe a scoped action envelope for review.
+- Draft: create editable proposals that cannot send, write, execute, or persist
+  as truth.
+- Propose: describe a scoped action envelope for review with evidence, risk,
+  side-effect class, expiry, idempotency, receipt refs, and rollback/safe-disable
+  posture.
 - Approve once: future exact-scope approval for one reviewed action only.
 - Approve rule: future bounded rule approval with expiry, revocation, audit, and
   receipt requirements.
 - Autopilot micro-scope: future narrowly bounded repeated action class only
   after separate scoped approval.
-- Kill switch: visible stop/disable/revoke posture for any future authority lane.
+- Kill switch: visible status/plan for future stop, disable, or revoke
+  behavior.
 
-These labels are product language for planning and review. They do not bypass
-PolicyEngine, LocalApprovalAuthority, scoped milestone approval, route tests, or
-product-language verification.
+These are inert planning labels, not runtime modes, API capabilities, approval
+grants, UI affordances, feature flags, connector scopes, or background sessions.
+Observe does not fetch, crawl, refresh, or collect account/network data. Draft
+does not send, write, persist as truth, or authorize outbound side effects.
+Propose does not dispatch, schedule, retry, execute, or create a durable run.
+Approve once and Approve rule do not create approval refs, reusable grants, or
+standing authority. Autopilot micro-scope does not start background autonomy,
+polling, repeated execution, or connector writes. Kill switch is posture text
+only unless a later scoped mutation path is accepted. Any future implementation
+must be separately scoped, tested, auditable, revocable, and bound to
+PolicyEngine and LocalApprovalAuthority.
 
 ## MVP v0 Surface Map
 
@@ -235,19 +247,21 @@ Not scoped:
 
 ### Memory Surface
 
-User goal: Review proposed business memory about people, projects, deals, and
-promises with provenance and correction paths.
+User goal: Review proposed profile, project, relationship, episodic, business,
+and semantic-local knowledge memory with provenance and correction paths.
 
 Current repo evidence / status:
 
 - `LocalMemoryStore` supports reviewed local recall records, in-memory or
   SQLite, and redacted export.
-- Memory is recall, not authority.
+- Memory is recall, not truth or authority.
 - Current Control Center memory surface is mostly evidence/ref viewing.
 
 Required backend routes or service changes:
 
 - Memory Review Inbox schema.
+- Memory candidate schemas for profile, project, relationship, episodic,
+  business, and semantic-local knowledge layers.
 - Relationship/follow-up memory schema.
 - Future route can summarize reviewed candidate refs without raw content.
 
@@ -260,6 +274,7 @@ Required frontend components:
 Safety/approval requirements:
 
 - No automatic memory writes.
+- No context injection.
 - Every memory candidate needs provenance, source refs, evidence refs, review
   state, retention/deletion posture, and correction support.
 
@@ -340,8 +355,14 @@ Safety/approval requirements:
 
 - No credential collection.
 - No authority toggle.
+- Kill-switch posture is status-only in this MVP. `KillSwitchStatusPanel` and
+  any settings summary route must not expose enabled stop, revoke, disable,
+  feature-flag write, credential, or authority-toggle controls.
 - Any future setting that enables runtime authority or mutation requires exact
   approval, audit, receipt, revocation, rollback/safe-disable, and tests.
+- Future safe-disable or revocation behavior is a separate mutating path and
+  must be exact-scoped, PolicyEngine-classified, LocalApprovalAuthority-bound,
+  audited, receipt-backed, idempotent, redacted, and rollback-aware.
 
 Tests needed:
 
@@ -390,6 +411,18 @@ and manual user entries after scoped UI.
 Output: follow-up state, owner, due window, and next safe action.
 
 No connector write: required.
+
+### 4a. First-Party Integration Planning
+
+Inputs: contract-only refs for future contacts lookup contract planning, task
+creation proposals, governed article/evidence capture, GitHub read-only project
+status, and CRM-lite local lead/follow-up store.
+
+Output: safe proposal and metadata shapes for later scoped review.
+
+No account auth, connector runtime, contacts read/search/lookup runtime,
+connector write, browser automation, plugin execution, or production authority:
+required.
 
 ### 5. Action Inbox
 

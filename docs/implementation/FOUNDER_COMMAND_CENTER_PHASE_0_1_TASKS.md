@@ -421,7 +421,10 @@ PR size: one docs PR.
 
 Type: docs/backend contract later
 
-New authority: no by default.
+New authority: no. This task may document planning labels and future contract
+requirements only. It must not create approval refs, standing grants, enabled UI
+controls, backend routes, mutating settings, runtime sessions, connector writes,
+background jobs, revocation actions, or kill-switch actions.
 
 Acceptance criteria:
 
@@ -432,6 +435,11 @@ Acceptance criteria:
 - Modes bind to PolicyEngine, LocalApprovalAuthority, side-effect class, audit,
   receipt, revocation, and rollback requirements.
 - Naming a mode does not grant runtime authority.
+- Approval-like mode names do not create approval refs, standing grants,
+  background sessions, connector writes, execution rights, revocation actions, or
+  kill-switch actions.
+- Definitions must stay aligned with the MVP spec, target architecture, and
+  Codex prompt vocabulary.
 
 Tests to add/update:
 
@@ -441,6 +449,9 @@ Tests to add/update:
 Likely files touched:
 
 - `docs/approvals/`
+- `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`
+- `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`
+- `docs/codex/CODEX_EXECUTION_PROMPTS.md`
 - `docs/control_center/`
 - `src/ultimate_ai_agent/core/approvals/` in a later contract PR.
 

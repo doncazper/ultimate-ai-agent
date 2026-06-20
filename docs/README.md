@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.102.1 plus accepted checkpoint-m168 and active Operator
+Current through: v0.102.2 plus accepted checkpoint-m168 and active Operator
 Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
 
 This is the human-facing entrypoint for active documentation. The full catalog
@@ -13,7 +13,7 @@ current implementation claims.
 
 | Need | Start with |
 |---|---|
-| Current repository story | `README.md`, `VERSION.md`, `docs/release_notes/v0_102_1.md` |
+| Current repository story | `README.md`, `VERSION.md`, `docs/release_notes/v0_102_2.md` |
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md` |
@@ -25,17 +25,17 @@ current implementation claims.
 
 ## Current Baseline Packet
 
-The product/package baseline is `v0.102.1` / `0.102.1`. The latest accepted
+The product/package baseline is `v0.102.2` / `0.102.2`. The latest accepted
 repository checkpoint tag is `checkpoint-m168`. The latest accepted local model
 lane checkpoint tags remain `checkpoint-m166` and `checkpoint-m167`.
 
 Current release and checkpoint refs:
 
 ```text
-docs/archive/releases/v0_102_1/README_IMPORT.md
-docs/archive/releases/v0_102_1/master_plan.md
-docs/release_notes/v0_102_1.md
-docs/implementation/foundation_gate_implementation_plan_v0_102_1.md
+docs/archive/releases/v0_102_2/README_IMPORT.md
+docs/archive/releases/v0_102_2/master_plan.md
+docs/release_notes/v0_102_2.md
+docs/implementation/foundation_gate_implementation_plan_v0_102_2.md
 docs/release_notes/checkpoint_m168.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md

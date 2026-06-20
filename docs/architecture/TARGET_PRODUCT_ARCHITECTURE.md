@@ -139,10 +139,21 @@ posture:
   receipt requirements.
 - Autopilot micro-scope: future narrowly bounded repeated action class after a
   separate scoped milestone proves safety and usefulness.
-- Kill switch: visible stop/disable/revoke posture for any future authority lane.
+- Kill switch: visible status/plan for future stop, disable, or revoke
+  behavior.
 
-This taxonomy is product and architecture language only. It does not add
-approval authority, connector runtime, background autonomy, or execution.
+These are inert planning labels, not runtime modes, API capabilities, approval
+grants, UI affordances, feature flags, connector scopes, or background sessions.
+Observe does not fetch, crawl, refresh, or collect account/network data. Draft
+does not send, write, persist as truth, or authorize outbound side effects.
+Propose does not dispatch, schedule, retry, execute, or create a durable run.
+Approve once and Approve rule do not create approval refs, reusable grants, or
+standing authority. Autopilot micro-scope does not start background autonomy,
+polling, repeated execution, or connector writes. Kill switch is posture text
+only unless a later scoped mutation path is accepted. Future implementations
+must bind exact approvals, policy decisions, audit refs, receipt refs,
+revocation, and rollback/safe-disable behavior through PolicyEngine and
+LocalApprovalAuthority.
 
 ### Memory Layers
 
@@ -158,7 +169,7 @@ Target layers:
 - Episodic memory candidates for reviewed events, decisions, and outcomes.
 - Business memory candidates for deals, leads, customers, partnerships, and
   commitments.
-- Semantic local knowledge labels and summaries for future reviewed retrieval
+- Semantic-local knowledge labels and summaries for future reviewed retrieval
   UX, without implying embeddings, vector search, RAG ingestion, or context
   injection.
 - Reviewed local recall records and Memory Review Inbox state.
@@ -225,6 +236,14 @@ Local-first remains the default:
 These are target modules for future refactor tasks. They are not implemented by
 this document.
 
+Service ownership is routing and contract ownership only. It does not grant
+memory write authority, context injection, account auth, connector runtime,
+connector writes, browser automation, plugin execution, background polling, or
+production authority. Any future mutating or runtime adapter path must be
+separately scoped, PolicyEngine-classified, LocalApprovalAuthority-bound,
+redacted, auditable, revocable, receipt-backed, rollback/safe-disable-aware, and
+tested.
+
 ### `system_service`
 
 Owns health, version, API manifest, route inventory, and static metadata.
@@ -279,9 +298,12 @@ Candidate routes: `/receipts/*`, `/events/*`, `/observability/*`,
 
 ### `integration_service`
 
-Owns integration contracts and future governed adapters for email metadata,
-calendar read-only, draft-only response proposals, Mattermost, and governed
-web evidence status.
+Owns integration contract shapes for possible later adapter milestones covering
+email metadata, calendar read-only, future contacts lookup contract planning,
+draft-only response proposals, task creation proposals, governed
+article/evidence capture, GitHub read-only project status, CRM-lite local
+lead/follow-up contracts, Mattermost, and governed web evidence status. Adapter
+runtime remains separately scoped.
 
 Candidate routes: `/integrations/*`, `/web-evidence/*`, future
 contract-only connector routes.

@@ -1,6 +1,6 @@
 # Security Policy
 
-Status: active public security posture for v0.102.1
+Status: active public security posture for v0.102.2
 Program task: UAA-P0-003
 
 Ultimate AI Agent is a local-first alpha foundation, not a production service
@@ -11,7 +11,7 @@ what security invariants maintainers use while triaging reports.
 
 | Line | Support status | Notes |
 |---|---|---|
-| `main` / v0.102.1 / package `0.102.1` | Supported for security review and fixes | Current active baseline plus accepted checkpoint-m166 and checkpoint-m167 context. |
+| `main` / v0.102.2 / package `0.102.2` | Supported for security review and fixes | Current active baseline plus accepted checkpoint-m166 and checkpoint-m167 context. |
 | Historical release and checkpoint tags | Audit history only | Historical tags are not moved. Fixes land on current `main` unless a scoped maintenance decision says otherwise. |
 
 No public beta, signed release, external audit completion, production

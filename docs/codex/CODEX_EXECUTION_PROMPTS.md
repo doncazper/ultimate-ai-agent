@@ -29,6 +29,10 @@ Deliverables: update the smallest relevant docs. Keep the result subordinate to
 current baseline truth and checkpoint-m168. Avoid duplicating existing roadmap
 material.
 
+For Founder Command Center permission-mode work, preserve the MVP permission
+vocabulary: Observe, Draft, Propose, Approve once, Approve rule, Autopilot
+micro-scope, and Kill switch. Names grant no authority.
+
 Validation: run .venv/bin/python scripts/verify_documentation_integrity.py if
 available.
 
@@ -227,9 +231,27 @@ docs/control_center/OPERATOR_SHELL_GAP_MAP.md,
 docs/control_center/PRODUCT_LANGUAGE_RULES.md, and current source/test files
 for the target workflow.
 
+Implementation lane: follow
+docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md#next-implementation-lane,
+starting from the accepted UAA-P1-011 readable-loop baseline: local Control
+Center macOS-first Setup Assistant hardening, first product loop readability,
+Action Inbox / approval envelope UX, Morning Briefing skeleton, then read-only
+email/calendar integration contracts later.
+
 Requirements: readable product UI first; exact route/status/evidence refs;
 blocked states with next safe action; no fake completion; tests for happy,
 blocked, denied, and mock/degraded paths.
+Use the planning-only permission vocabulary from the MVP spec when relevant:
+Observe, Draft, Propose, Approve once, Approve rule, Autopilot micro-scope, and
+Kill switch. Naming a mode does not grant authority or bypass PolicyEngine,
+LocalApprovalAuthority, scoped milestones, tests, receipts, audit, revocation, or
+rollback/safe-disable requirements.
+When using these labels in implementation tasks, render Approve once, Approve
+rule, Autopilot micro-scope, and Kill switch as planned, blocked, disabled, or
+status-only text unless the current task explicitly implements an accepted
+backend contract. Do not add enabled controls, action handlers, routes, approval
+refs, standing grants, background sessions, connector writes, or
+revocation/kill-switch mutations from these labels alone.
 
 Validation: run focused Python tests, make frontend-check when frontend changes,
 OpenAPI contract when backend routes change, and documentation integrity when

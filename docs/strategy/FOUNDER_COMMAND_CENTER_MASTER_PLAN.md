@@ -58,6 +58,10 @@ safe but not yet a complete workbench. Memory is trustworthy but not yet a
 deep relationship/project/deal memory. Business cofounder workflows are mostly
 missing.
 
+Here, trustworthy means reviewable, provenance-bearing, redacted recall. Memory
+remains subordinate to canonical evidence and must not be used as truth, policy
+authority, approval evidence, or automatic context injection.
+
 The product risk is adding more roadmap, connector, plugin, mobile, browser,
 or shell surface before one single-user founder loop is excellent.
 
@@ -84,6 +88,16 @@ That foundation should become the product advantage.
 Ultimate AI Agent becomes the trusted operating system for a founder's personal
 and business life: polished, opinionated, deeply integrated, safe, delightful,
 local-first, and useful every day.
+
+In this plan, "operating system" and "deeply integrated" are product metaphors
+for coherent local operator workflows. They are not claims of native OS
+integration, signed packaging, signed installer readiness, notarization, public
+release, public distribution, or expanded runtime authority.
+
+The product bar is not just "safe." It should feel coherent, calm, reversible,
+and privacy-clear: setup should explain what is happening, action review should
+feel beautiful enough to use daily, evidence should read like history, and every
+blocked state should suggest the next safe move.
 
 The product should help the user answer:
 
@@ -143,11 +157,13 @@ Sam needs:
 - Safe planning that explains why each action matters.
 - Approval controls that are exact-scoped and easy to reject or edit.
 - Evidence and receipts that make outcomes reviewable.
+- Clear privacy and redaction posture without reading raw logs or release notes.
 - Business memory for people, projects, deals, and promises.
 - Weekly CEO review that turns activity into decisions.
 
 Sam does not need hidden autonomy, broad runtime authority, or many half-built
 surfaces.
+UAA should compete on trust and polish before breadth.
 
 ## Killer Workflows
 
@@ -174,6 +190,19 @@ P2 workflows:
 - Business memory for people, projects, deals, and promises
 - Task planning and approval-bound task creation
 - Governed integrations after read-only contracts and exact approval gates
+
+## Memory Direction
+
+Founder Command Center memory should grow as reviewed recall layers, not hidden
+truth or authority. Target layers are profile memory, project memory,
+relationship memory, episodic memory, business memory, and semantic-local
+knowledge labels/summaries. Each layer needs provenance, evidence refs, review
+state, correction/deletion/export posture, and retention rules before it becomes
+useful product memory.
+
+This direction does not add automatic memory writes, model-output memory writes,
+context injection, embeddings, vector search, RAG ingestion, account sync, or
+production memory authority.
 
 ## First-Party Tool Direction
 
@@ -299,6 +328,10 @@ Do not prioritize:
 - More roadmap-only milestones that do not advance the daily founder loop.
 
 ## Acceptance Criteria For "MVP Is Real"
+
+MVP is real means a reviewed local single-user product loop exists. It is not a
+production readiness, public beta, public distribution, signed installer,
+notarization, commercialization, or broad autonomy claim.
 
 The MVP is real when a single local user can complete this loop without reading
 raw API payloads:

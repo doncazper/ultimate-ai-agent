@@ -26,6 +26,14 @@ Prefer Today, Inbox, Plans, Actions, Memory, Evidence, and Settings over many
 parallel pages. Add a new surface only when it completes a real workflow or
 clearly improves reviewability.
 
+### Coherent UI Before More Surface Area
+
+The product should feel like one system, not a directory of demos. Navigation,
+state labels, action cards, evidence timelines, memory review, setup status, and
+settings should use the same words for authority, risk, blocked states, and next
+safe actions. Core surfaces should share one status grammar, density, empty-state
+pattern, and review pattern.
+
 ### Polished Defaults, Low Setup Pain
 
 The default path should feel curated: local-first setup, visible prerequisites,
@@ -44,6 +52,13 @@ payloads.
 Action review is a primary product surface. Approval envelopes, side-effect
 classes, risk, evidence, expiry, idempotency, receipt refs, and rollback posture
 should be readable at a glance before any future approval affordance appears.
+
+### Inspectable History And Reversible Change
+
+History should feel trustworthy without feeling forensic. A founder should be
+able to see what was proposed, approved, denied, skipped, blocked, completed,
+remembered, corrected, or rolled back through human-readable evidence and safe
+refs.
 
 ### Boring Reliability Is A Feature
 
@@ -85,6 +100,14 @@ Memory is recall, not truth or authority. Memory candidates need source refs,
 evidence refs, review state, correction state, and deletion/export/retention
 posture before they become useful product memory.
 
+### Clear Privacy Model
+
+The user should know what is local, what is a safe ref, what is redacted, what is
+not stored, and what would require future consent before it exists. Privacy copy
+should also name deletion, export, retention, revocation, and no credential
+collection by default. It should be plain enough to trust and precise enough to
+test.
+
 ### Local-First But Not Paralyzed
 
 Local-first means user control, safe defaults, redacted local evidence, and
@@ -115,6 +138,12 @@ Do not imply completion for work that is route posture, mock fallback, planned,
 blocked, skipped, partial, or not scoped. Product copy must follow
 `docs/control_center/PRODUCT_LANGUAGE_RULES.md`.
 
+### Trust And Polish Before Breadth
+
+UAA should earn trust by making a small number of daily workflows calm,
+legible, reversible, and useful before it expands into broader integrations,
+marketplaces, or autonomy.
+
 ## Design Implications
 
 - The first viewport should show work state, not marketing.
@@ -122,12 +151,14 @@ blocked, skipped, partial, or not scoped. Product copy must follow
   responses.
 - Settings should show safe setup, feature flags, kill-switch posture, and
   disabled boundaries without credential collection or authority toggles.
-- Evidence should read like a timeline a founder can trust.
+- Evidence should read like an inspectable history/timeline a founder can trust.
 - Memory review should feel like a governed inbox, not hidden prompt stuffing.
+- Privacy, consent, and redaction states should be visible near the workflow
+  they affect, not hidden in release notes.
 
 ## Non-Goals
 
-This principle set does not add native macOS app work, OS integration,
-unrestricted automation, public distribution, production authority, provider
-authority, shell/subprocess authority, connector writes, plugin runtime import,
-or broad autonomy.
+This principle set does not add native macOS app work, signed packaging, signed
+installer readiness, notarization, OS integration, unrestricted automation,
+public distribution, production authority, provider authority, shell/subprocess
+authority, connector writes, plugin runtime import, or broad autonomy.
