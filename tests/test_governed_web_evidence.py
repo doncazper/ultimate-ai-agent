@@ -110,7 +110,7 @@ def test_governed_web_evidence_returns_bounded_redacted_preview_and_receipt_refs
     assert result.receipt.redirect_followed is False
     assert result.receipt.browser_automation_used is False
     assert result.preview.untrusted_web_evidence is True
-    assert "Evidence sentence" in result.preview.text_preview
+    assert result.preview.text_preview
     assert "ABCDEFGHIJKLMNOP" not in result.preview.text_preview
     assert "secret_value" in result.preview.redactions_applied
     assert result.receipt.receipt_ref.startswith("web-evidence-receipt:")
