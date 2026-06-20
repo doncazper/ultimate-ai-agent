@@ -21,6 +21,7 @@ CAPABILITIES_DECLARED = [
     "manual_smoke_report_validation",
     "control_center_read_only_dashboard",
     "control_center_setup_assistant_summary",
+    "control_center_setup_approval_envelopes_dry_run",
     "openwebui_local_test_gateway_disabled_by_default",
     "local_model_gateway_disabled_by_default",
     "local_loopback_runtime_disabled_by_default",

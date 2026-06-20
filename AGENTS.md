@@ -30,7 +30,14 @@ Planning references:
 ## Non-Negotiable Invariants
 
 - Python Agent Core remains the brain.
+- CLI is a first-class operator surface. Any Control Center UI action that can
+  trigger or mutate an operator-relevant workflow must map to the same
+  underlying Python core/API contract and a command-line or repo-local script
+  inspection path, with tests and redacted evidence.
 - Control Center and OpenWebUI are shells, not authority.
+- Product behavior must not live only in React state. UI-only state is limited
+  to presentation concerns such as filters, expanded panels, selected tabs, and
+  layout preferences.
 - `PolicyEngine`, `LocalApprovalAuthority`, route side-effect classification,
   OpenAPI checks, and Foundation Gate checks remain hard boundaries.
 - `/api/manifest` is the typed metadata endpoint for the current API boundary.

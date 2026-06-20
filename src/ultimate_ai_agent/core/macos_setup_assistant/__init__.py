@@ -1,4 +1,6 @@
 from ultimate_ai_agent.core.macos_setup_assistant.contracts import (
+    MacOSSetupApprovalEnvelope,
+    MacOSSetupApprovalEnvelopeStatus,
     MacOSSetupAssistantPlan,
     MacOSSetupBridgePreview,
     MacOSSetupHardwareProfile,
@@ -16,6 +18,8 @@ from ultimate_ai_agent.core.macos_setup_assistant.planner import (
 
 __all__ = [
     "MacOSSetupAssistantPlan",
+    "MacOSSetupApprovalEnvelope",
+    "MacOSSetupApprovalEnvelopeStatus",
     "MacOSSetupBridgePreview",
     "MacOSSetupHardwareProfile",
     "MacOSSetupModelRecommendation",

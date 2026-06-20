@@ -21,8 +21,8 @@
       "side_effect_class": "validation_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "Every future setup mutation requires exact local approval; the preview grants no authority.",
-      "evidence_audit_output": "Read-only dry-run setup summary with preview-only receipt, audit, latency, and rollback refs.",
+      "approval_requirement": "Dry-run setup approval envelopes may name exact future LocalApprovalAuthority scope refs for review only; no envelope grants installer, model download, LaunchAgent, background-service, rollback, public distribution, production readiness, or production authority.",
+      "evidence_audit_output": "Read-only dry-run setup summary and approval-envelope metadata with bounded previews, safe approval refs, receipt refs, audit ref, latency ref, rollback refs, idempotency refs, stale-state handling, and denied side-effect flags only; no installer evidence is created.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -32,7 +32,7 @@
         }
       ],
       "missing_backend_routes": [
-        "setup-action-approval-envelope",
+        "setup-approval-grant-capture-route",
         "setup-rollback-status"
       ]
     },
@@ -355,8 +355,8 @@
       "side_effect_class": "validation_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "Future setup mutations require exact local approval; this route is preview-only.",
-      "evidence_audit_output": "Dry-run setup summary exposes bounded preview refs only; no installer evidence is created.",
+      "approval_requirement": "Dry-run setup approval envelopes may name exact future LocalApprovalAuthority scope refs for review only; no envelope grants installer, model download, LaunchAgent, background-service, rollback, public distribution, production readiness, or production authority.",
+      "evidence_audit_output": "Dry-run setup summary exposes bounded preview refs, approval-envelope metadata, receipt refs, audit ref, latency ref, rollback refs, idempotency refs, stale-state handling, and denied side-effect flags only; no installer evidence is created.",
       "backend_routes": [
         {
           "method": "GET",
@@ -366,7 +366,7 @@
         }
       ],
       "missing_backend_routes": [
-        "setup-action-approval-envelope"
+        "setup-approval-grant-capture-route"
       ]
     },
     {

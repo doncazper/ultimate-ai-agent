@@ -272,6 +272,7 @@ PRODUCT_LANGUAGE_RULES_DOC = "docs/control_center/PRODUCT_LANGUAGE_RULES.md"
 BROWSER_SMOKE_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE.md"
 BROWSER_SMOKE_REPORTING_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md"
 BROWSER_SMOKE_TEST = "apps/control-center/src/App.test.tsx"
+AGENTS_DOC = "AGENTS.md"
 REQUIRED_OPERATOR_SHELL_SURFACES = [
     "Chat Shell",
     "Plans",
@@ -311,13 +312,24 @@ ROUTE_STATUS_SURFACE_FIELDS = {
 }
 PRODUCT_LANGUAGE_REQUIRED_FRAGMENTS = {
     "status: active uaa-p1-031 product language rules",
+    "cli is a first-class operator surface",
+    "product behavior must not live only in react state",
     "no hidden authority",
     "no fake completion",
+    "no frontend-only product behavior",
     "no raw json as primary ui for operator-critical flows",
     "no production/public distribution claims without evidence",
     "no model/provider output as authority",
     "no completed-state language for blocked/skipped/pending work",
+    "today, inbox, plans, actions, memory, evidence, and settings",
     "scripts/verify_control_center_frontend.py",
+}
+ARCHITECTURAL_INVARIANT_REQUIRED_FRAGMENTS = {
+    "cli is a first-class operator surface",
+    "product behavior must not live only in react state",
+    "python core/api contract",
+    "command-line or repo-local script inspection path",
+    "tests and redacted evidence",
 }
 PRODUCT_LANGUAGE_FORBIDDEN_CLAIMS = [
     "production ready for external users",
@@ -1085,6 +1097,15 @@ def _product_language_rule_failures(root: Path) -> list[str]:
         if fragment not in doc_compact:
             failures.append(f"product language rules doc missing fragment: {fragment}")
 
+    agents_path = root / AGENTS_DOC
+    if not agents_path.exists():
+        failures.append(f"missing architectural invariant doc: {AGENTS_DOC}")
+    else:
+        agents_compact = " ".join(agents_path.read_text(encoding="utf-8").lower().split())
+        for fragment in ARCHITECTURAL_INVARIANT_REQUIRED_FRAGMENTS:
+            if fragment not in agents_compact:
+                failures.append(f"AGENTS.md missing architectural invariant fragment: {fragment}")
+
     link = PRODUCT_LANGUAGE_RULES_DOC.lower()
     for rel_path in [
         "README.md",
@@ -1240,6 +1261,18 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
         ),
         "operator-shell gap map must include product language rules": (
             "## product language rules"
+        ),
+        "operator-shell gap map must preserve CLI as first-class surface": (
+            "cli is a first-class operator surface"
+        ),
+        "operator-shell gap map must forbid React-only product behavior": (
+            "product behavior must not live only in react state"
+        ),
+        "operator-shell gap map must require frontend/core parity": (
+            "no frontend-only product behavior"
+        ),
+        "operator-shell gap map must name Founder Command Center surfaces": (
+            "today, inbox, plans, actions, memory, evidence, and settings"
         ),
         "operator-shell gap map must require no hidden authority": "no hidden authority",
         "operator-shell gap map must require no fake completion": "no fake completion",

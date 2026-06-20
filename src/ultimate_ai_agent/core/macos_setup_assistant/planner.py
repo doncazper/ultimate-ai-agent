@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from ultimate_ai_agent.core.macos_setup_assistant.contracts import (
+    MacOSSetupApprovalEnvelope,
+    MacOSSetupApprovalEnvelopeStatus,
     MacOSSetupAssistantPlan,
     MacOSSetupBridgePreview,
     MacOSSetupHardwareProfile,
@@ -68,10 +70,12 @@ def recommend_local_model_options(
 def build_default_macos_setup_assistant_plan(
     hardware_profile: MacOSSetupHardwareProfile | None = None,
 ) -> MacOSSetupAssistantPlan:
+    steps = _default_steps()
     return MacOSSetupAssistantPlan(
-        steps=_default_steps(),
+        steps=steps,
         model_recommendations=recommend_local_model_options(hardware_profile),
         bridge_previews=_bridge_previews(),
+        approval_envelopes=_approval_envelopes(steps),
         blocked_capabilities=[
             "macos-setup-runtime-installation",
             "macos-setup-model-download",
@@ -83,7 +87,7 @@ def build_default_macos_setup_assistant_plan(
         next_steps=[
             "Review the Control Center setup preview against the first-launch flow.",
             "Choose whether the next slice should be native SwiftUI or a packaged web shell.",
-            "Add a reviewed dry-run API route only after the contract shape settles.",
+            "Review dry-run approval envelopes before any setup mutation route is scoped.",
         ],
         morning_review_checklist=[
             "Verify the model choices are labels only and not live downloads.",
@@ -155,6 +159,71 @@ def _default_steps() -> list[MacOSSetupStep]:
             approval_ref="approval-ref:macos-setup-model-selection",
             reason_codes=["MACOS_SETUP_MODEL_APPROVAL_REQUIRED"],
             next_safe_action="review-model-choice",
+        ),
+        _step(
+            step_id="macos-setup-step:model-download-planning",
+            kind=MacOSSetupStepKind.model_download_planning,
+            label="Model download planning",
+            status=MacOSSetupStepStatus.approval_required,
+            safe_summary="Model download approval is represented as dry-run scope metadata only.",
+            detail_preview=[
+                "Future downloads require exact model refs and operator approval.",
+                "No model URL is fetched and no model file is written.",
+            ],
+            log_preview=["model download envelope created; no download attempted"],
+            approval_required=True,
+            approval_ref="approval-ref:macos-setup-model-download-planning",
+            reason_codes=["MACOS_SETUP_MODEL_DOWNLOAD_ENVELOPE_READY"],
+            next_safe_action="review-model-download-envelope",
+        ),
+        _step(
+            step_id="macos-setup-step:launch-agent-setup-planning",
+            kind=MacOSSetupStepKind.launch_agent_setup_planning,
+            label="LaunchAgent setup planning",
+            status=MacOSSetupStepStatus.blocked,
+            safe_summary="LaunchAgent setup remains blocked until a reviewed native packaging milestone.",
+            detail_preview=[
+                "The dry-run envelope names future approval scope refs only.",
+                "No launch agent file, load action, or start action is available.",
+            ],
+            log_preview=["launch agent envelope created; no launch action attempted"],
+            approval_required=True,
+            approval_ref="approval-ref:macos-setup-launch-agent-setup-planning",
+            reason_codes=["MACOS_SETUP_LAUNCH_AGENT_ENVELOPE_BLOCKED"],
+            next_safe_action="wait-for-native-packaging-milestone",
+        ),
+        _step(
+            step_id="macos-setup-step:local-bridge-setup-planning",
+            kind=MacOSSetupStepKind.local_bridge_setup_planning,
+            label="Local bridge setup planning",
+            status=MacOSSetupStepStatus.approval_required,
+            safe_summary="Local bridge enablement is represented as disabled-by-default dry-run scope metadata.",
+            route_refs=["/v1/models", "/v1/chat/completions"],
+            detail_preview=[
+                "Bridge setup requires exact local scope and credential-safe handling.",
+                "No bridge is enabled and no connector write occurs.",
+            ],
+            log_preview=["local bridge envelope created; no bridge contacted"],
+            approval_required=True,
+            approval_ref="approval-ref:macos-setup-local-bridge-setup-planning",
+            reason_codes=["MACOS_SETUP_LOCAL_BRIDGE_ENVELOPE_READY"],
+            next_safe_action="review-local-bridge-envelope",
+        ),
+        _step(
+            step_id="macos-setup-step:background-service-setup-planning",
+            kind=MacOSSetupStepKind.background_service_setup_planning,
+            label="Background-service setup planning",
+            status=MacOSSetupStepStatus.blocked,
+            safe_summary="Background-service setup remains not scoped and cannot start a daemon, scheduler, or worker.",
+            detail_preview=[
+                "The envelope documents denied authority for future review.",
+                "No background service, daemon, scheduler, worker, or auto-start mechanism is created.",
+            ],
+            log_preview=["background service envelope created; no service action attempted"],
+            approval_required=True,
+            approval_ref="approval-ref:macos-setup-background-service-setup-planning",
+            reason_codes=["MACOS_SETUP_BACKGROUND_SERVICE_NOT_SCOPED"],
+            next_safe_action="keep-background-service-not-scoped",
         ),
         _step(
             step_id="macos-setup-step:ask-setup-question",
@@ -233,6 +302,194 @@ def _default_steps() -> list[MacOSSetupStep]:
             reason_codes=["MACOS_SETUP_ROLLBACK_PLAN_VISIBLE"],
         ),
     ]
+
+
+def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalEnvelope]:
+    steps_by_kind = {step.kind: step for step in steps}
+    return [
+        _envelope(
+            step=steps_by_kind[MacOSSetupStepKind.model_download_planning],
+            status=MacOSSetupApprovalEnvelopeStatus.approval_required,
+            safe_summary="Dry-run envelope for future model download approval scope; no model is downloaded.",
+            requested_scope_refs=["scope-ref:macos-setup-model-download-planning"],
+            risk_class="high",
+            not_scoped_actions=[
+                "model-download-execution",
+                "model-file-read",
+                "model-call",
+                "raw-model-url-display",
+            ],
+            blocked_runtime_authority=[
+                "control-center-setup-model-downloads",
+                "runtime-model-calls",
+                "provider-api-calls",
+            ],
+            evidence_refs=[
+                "docs-ref:local-model-operational-runbook",
+                "docs-ref:local-model-packaging-provenance-checklist",
+            ],
+            verifier_refs=[
+                "pytest:test-macos-setup-assistant",
+                "pytest:test-api-manifest",
+                "verifier:openapi-contract",
+            ],
+            stale_state_handling=(
+                "Stale if model refs, route manifest, or local runtime prerequisites change; "
+                "rebuild the dry-run envelope before approval review."
+            ),
+            redaction_summary=(
+                "Safe refs and bounded summaries only; raw URLs, raw local paths, prompts, "
+                "logs, and provider payloads are omitted."
+            ),
+        ),
+        _envelope(
+            step=steps_by_kind[MacOSSetupStepKind.launch_agent_setup_planning],
+            status=MacOSSetupApprovalEnvelopeStatus.blocked_prerequisite_missing,
+            safe_summary="Dry-run envelope for future LaunchAgent setup scope; prerequisite authority is missing.",
+            requested_scope_refs=["scope-ref:macos-setup-launch-agent-setup-planning"],
+            risk_class="high",
+            not_scoped_actions=[
+                "launch-agent-installation",
+                "launch-agent-load",
+                "launch-agent-start",
+                "launchctl",
+            ],
+            blocked_runtime_authority=[
+                "control-center-setup-launch-agent-changes",
+                "shell-subprocess-execution",
+                "macos-system-control-authority",
+            ],
+            evidence_refs=[
+                "docs-ref:uaa-setup-assistant-plan",
+                "docs-ref:local-runtime-packaging",
+            ],
+            verifier_refs=[
+                "pytest:test-macos-setup-assistant",
+                "pytest:test-control-center-api-routes",
+                "verifier:documentation-integrity",
+            ],
+            stale_state_handling=(
+                "Stale until a scoped native packaging milestone defines reviewed LaunchAgent "
+                "approval and rollback evidence."
+            ),
+            redaction_summary=(
+                "Safe refs only; plist paths, user paths, hostnames, raw logs, and command "
+                "strings are omitted."
+            ),
+        ),
+        _envelope(
+            step=steps_by_kind[MacOSSetupStepKind.local_bridge_setup_planning],
+            status=MacOSSetupApprovalEnvelopeStatus.approval_required,
+            safe_summary="Dry-run envelope for future local bridge setup scope; no bridge is enabled.",
+            requested_scope_refs=["scope-ref:macos-setup-local-bridge-setup-planning"],
+            risk_class="high",
+            not_scoped_actions=[
+                "bridge-enable-now",
+                "credential-capture",
+                "connector-write",
+                "raw-transcript-storage",
+            ],
+            blocked_runtime_authority=[
+                "control-center-setup-credential-handling",
+                "openwebui-runtime-authority",
+                "connector-writes",
+            ],
+            evidence_refs=[
+                "docs-ref:local-model-operational-runbook",
+                "docs-ref:operator-shell-gap-map",
+            ],
+            verifier_refs=[
+                "pytest:test-macos-setup-assistant",
+                "pytest:test-control-center-no-execution",
+                "verifier:control-center-frontend",
+            ],
+            stale_state_handling=(
+                "Stale if bridge auth posture, local gateway refs, or credential handling "
+                "requirements change."
+            ),
+            redaction_summary=(
+                "Safe refs and disabled-by-default status only; credentials, cookies, "
+                "transcripts, prompts, and provider payloads are omitted."
+            ),
+        ),
+        _envelope(
+            step=steps_by_kind[MacOSSetupStepKind.background_service_setup_planning],
+            status=MacOSSetupApprovalEnvelopeStatus.not_scoped,
+            safe_summary="Dry-run envelope records that background-service setup is not scoped.",
+            requested_scope_refs=["scope-ref:macos-setup-background-service-setup-planning"],
+            risk_class="high",
+            not_scoped_actions=[
+                "background-service-installation",
+                "background-service-start",
+                "daemon-scheduler-worker",
+                "auto-start-mechanism",
+            ],
+            blocked_runtime_authority=[
+                "control-center-setup-background-service-changes",
+                "autonomous-background-execution",
+                "macos-system-control-authority",
+            ],
+            evidence_refs=[
+                "docs-ref:uaa-setup-assistant-plan",
+                "docs-ref:local-runtime-packaging",
+            ],
+            verifier_refs=[
+                "pytest:test-macos-setup-assistant",
+                "pytest:test-control-center-api-routes",
+                "verifier:documentation-integrity",
+            ],
+            stale_state_handling=(
+                "Stale only when a later accepted milestone scopes background-service "
+                "authority with approval, rollback, and safe-disable evidence."
+            ),
+            redaction_summary=(
+                "Safe refs only; service labels, host details, raw logs, paths, and command "
+                "strings are omitted."
+            ),
+        ),
+    ]
+
+
+def _envelope(
+    *,
+    step: MacOSSetupStep,
+    status: MacOSSetupApprovalEnvelopeStatus,
+    safe_summary: str,
+    requested_scope_refs: list[str],
+    risk_class: str,
+    not_scoped_actions: list[str],
+    blocked_runtime_authority: list[str],
+    evidence_refs: list[str],
+    verifier_refs: list[str],
+    stale_state_handling: str,
+    redaction_summary: str,
+) -> MacOSSetupApprovalEnvelope:
+    suffix = step.step_id.split(":")[-1]
+    return MacOSSetupApprovalEnvelope(
+        envelope_ref=f"macos-setup-approval-envelope:{suffix}",
+        status=status,
+        setup_step_id=step.step_id,
+        setup_step_kind=step.kind,
+        safe_summary=safe_summary,
+        requested_scope_refs=requested_scope_refs,
+        approval_request_ref=step.approval_ref or f"approval-ref:macos-setup-{suffix}",
+        expected_receipt_ref=step.receipt_ref,
+        rollback_plan_ref=step.rollback_ref,
+        idempotency_key_ref=f"idempotency-ref:macos-setup-{suffix}",
+        risk_class=risk_class,
+        side_effect_class="validation_only",
+        not_scoped_actions=not_scoped_actions,
+        blocked_runtime_authority=blocked_runtime_authority,
+        evidence_refs=evidence_refs,
+        verifier_refs=verifier_refs,
+        operator_next_action=step.next_safe_action,
+        stale_state_handling=stale_state_handling,
+        redaction_summary=redaction_summary,
+        reason_codes=[
+            "MACOS_SETUP_APPROVAL_ENVELOPE_DRY_RUN_ONLY",
+            "MACOS_SETUP_APPROVAL_REF_IDENTIFIER_ONLY",
+        ],
+    )
 
 
 def _bridge_previews() -> list[MacOSSetupBridgePreview]:

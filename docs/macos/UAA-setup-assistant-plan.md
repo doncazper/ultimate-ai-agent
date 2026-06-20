@@ -13,10 +13,16 @@ mutation is allowed.
 
 ## Current Slice
 
-This slice adds dry-run setup contracts and a read-only Control Center preview.
-It does not add a signed or notarized app bundle, model download, installer
-execution, LaunchAgent mutation, background service mutation, provider/model
-call, credential capture, shell/subprocess execution, or production authority.
+This slice adds dry-run setup contracts, per-step approval-envelope metadata,
+and a read-only Control Center preview. Approval envelopes validate exact
+proposed setup action refs, safe approval scope refs, receipt/audit/latency refs,
+rollback refs, idempotency refs, stale-state handling, and denied side-effect
+flags for review only. They do not authorize or perform installer execution,
+signed or notarized installer readiness, public distribution, production
+readiness, model downloads, LaunchAgent installation/load/start,
+background-service installation/load/start, bridge enablement, provider/model
+calls, credential capture, shell/subprocess execution, receipt persistence, audit
+persistence, rollback execution, or production authority.
 
 ## Flow
 
@@ -33,21 +39,37 @@ call, credential capture, shell/subprocess execution, or production authority.
 4. Model selection
    - Present local model classes as recommendation records.
    - Any download or safe-ref import remains approval-gated.
-5. Setup questions
+5. Model download planning
+   - Create a dry-run approval envelope with exact future scope refs.
+   - No model URL is fetched and no model file is written.
+6. LaunchAgent setup planning
+   - Create a dry-run approval envelope that remains blocked until a reviewed
+     native packaging milestone exists.
+   - No LaunchAgent file, load action, start action, or launch control command is
+     available.
+7. Local bridge setup planning
+   - Create a dry-run approval envelope for disabled-by-default bridge scope.
+   - No bridge is enabled, no credential is captured, and no connector write
+     occurs.
+8. Background-service setup planning
+   - Create a dry-run approval envelope that records background-service setup as
+     not scoped.
+   - No daemon, scheduler, worker, service, or auto-start mechanism is created.
+9. Setup questions
    - Planned assistant behavior can answer from setup state and docs only.
    - Model output is advice, never authority.
-6. Optional OpenWebUI bridge
+10. Optional OpenWebUI bridge
    - Disabled by default and explicit approval only.
-7. Optional Mattermost Agent Rooms bridge
+11. Optional Mattermost Agent Rooms bridge
    - Disabled by default, speak-only by default, explicit room approval only.
-8. Approvals
+12. Approvals
    - Visual shell cannot grant authority.
    - Exact local approval is required before future mutations.
-9. Receipts, audit, and latency
+13. Receipts, audit, and latency
    - Every proposed action must have receipt, audit, and latency refs.
    - Raw logs, raw prompts, raw provider payloads, tokens, cookies, and
      credentials must not be persisted.
-10. Rollback and uninstall
+14. Rollback and uninstall
    - Future model files, LaunchAgents, local config, and bridge state need
      explicit rollback refs before any setup mutation ships.
 
@@ -91,8 +113,11 @@ distribution slice.
 - Add a read-only `/control-center/setup-assistant/summary` route after the
   contract is reviewed.
 - Add bounded setup-log redaction tests before any real log source appears.
-- Add a per-step approval envelope before model download, LaunchAgent, bridge,
-  or background-service changes are allowed.
+- Harden per-step dry-run approval envelopes as validation/review metadata only.
+  They may describe future exact approval requirements, but they do not make
+  model download, LaunchAgent installation/load/start, bridge enablement,
+  background-service installation/load/start, rollback, or installer actions
+  available.
 - Add rollback rehearsals before shipping any mutation.
 - Add a native SwiftUI visual QA pass once `apps/uaa-macos/` exists.
 - Add signing, hardened runtime, and notarization validation only when a real

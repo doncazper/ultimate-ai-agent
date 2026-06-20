@@ -15,6 +15,13 @@ Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
 Foundation Gate checks remain the authority boundaries.
 
+CLI is a first-class operator surface. Product behavior must not live only in
+React state; UI-only state is limited to presentation concerns such as filters,
+expanded panels, selected tabs, and layout preferences. If the UI can trigger or
+mutate an operator-relevant workflow, the same underlying operation must have a
+Python core/API contract and a command-line or repo-local script inspection path
+with tests and redacted evidence.
+
 ## Rules
 
 | Rule | Required wording behavior | Release blocker |
@@ -22,6 +29,7 @@ Foundation Gate checks remain the authority boundaries.
 | No hidden authority | Operator-critical copy must name or link the route, side-effect class, approval requirement, authority boundary, and evidence output. | Any visible action that implies authority without a route/status manifest entry is blocked. |
 | No fake completion | Preview, validation, mock fallback, local UI state, and status-only views must say what did not happen. | Any unimplemented, blocked, skipped, or local-only action described as completed is blocked. |
 | No raw JSON as primary UI for operator-critical flows | Human summaries, safe refs, route status, evidence refs, and blockers must appear before developer payload inspection. | Any chat, plan, model, approval, file, settings, evidence, latency, or rollback flow that relies on JSON as the main operator view is blocked. |
+| No frontend-only product behavior | Operator-relevant workflows must identify the backing Python core/API contract and command-line or repo-local script inspection path. | Any Today, Inbox, Plans, Actions, Memory, Evidence, or Settings workflow that exists only in Control Center React state is blocked. |
 | No production/public distribution claims without evidence | Copy must say production readiness and public distribution are not claimed unless an accepted release packet proves otherwise. | Any public or production claim without source, test, verifier, release note, and rollback evidence is blocked. |
 | No model/provider output as authority | Model, provider, OpenWebUI, runtime, memory, and preview outputs may inform review but cannot authorize work. | Any copy that treats output as approval, truth authority, or execution authority is blocked. |
 | No completed-state language for blocked/skipped/pending work | Blocked, skipped, pending, mock-only, local-state-only, and partial states must keep that state visible. | Any blocked, skipped, pending, mock-only, or partial item labeled done, finished, succeeded, or completed is blocked. |
@@ -57,6 +65,11 @@ Buttons and menu labels must describe the real action available in the current
 UI. Preview-only controls use preview/review/view wording. Local-state-only
 controls must say review-only or local state. Disabled or missing work must stay
 blocked, partial, or not scoped.
+
+Future Founder Command Center surfaces for Today, Inbox, Plans, Actions, Memory,
+Evidence, and Settings must remain inspectable through backend/core contracts
+and, where appropriate, CLI commands or repo-local scripts. The frontend can make
+those workflows easier to operate, but it cannot become the only access path.
 
 Status panels must avoid standalone readiness claims. When a backend field uses
 a readiness-shaped name, the UI must frame it as a claim status or evidence

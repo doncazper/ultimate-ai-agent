@@ -95,10 +95,13 @@ perform unapproved connector writes.
 - `GET /control-center/setup-assistant/summary`
 
 This route returns the existing deterministic macOS Setup Assistant dry-run
-plan for read-only inspection. It does not run installer actions, shell
-commands, model downloads, LaunchAgent changes, background service changes,
-provider/model calls, credential handling, receipt creation, audit persistence,
-or rollback execution.
+plan and approval-envelope metadata for read-only inspection. Dry-run
+approval-envelope hardening validates proposed setup action metadata only. It
+does not capture approval grants, create receipts or audit records, run
+installer actions, execute shell commands, download models, install/load/start
+LaunchAgents, install/load/start background services, handle credentials, claim
+signed installer readiness, claim public distribution, claim production
+readiness, or execute rollback.
 
 ### Local model and runtime readiness
 

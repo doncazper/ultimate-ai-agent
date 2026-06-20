@@ -97,6 +97,49 @@ def test_control_center_setup_assistant_summary_is_dry_run_only():
         assert recommendation["raw_model_url_included"] is False
         assert recommendation["raw_local_path_included"] is False
 
+    approval_envelopes = data["approval_envelopes"]
+    assert len(approval_envelopes) == 4
+    envelope_kinds = {envelope["setup_step_kind"] for envelope in approval_envelopes}
+    assert envelope_kinds == {
+        "model_download_planning",
+        "launch_agent_setup_planning",
+        "local_bridge_setup_planning",
+        "background_service_setup_planning",
+    }
+    for envelope in approval_envelopes:
+        assert envelope["dry_run_only"] is True
+        assert envelope["approval_required"] is True
+        assert envelope["approval_ref_is_identifier_only"] is True
+        assert envelope["exact_scope_required"] is True
+        assert envelope["idempotency_required"] is True
+        assert envelope["rollback_required"] is True
+        assert envelope["redaction_required"] is True
+        assert envelope["disabled_by_default"] is True
+        assert envelope["side_effect_class"] == "validation_only"
+        assert envelope["requested_scope_refs"]
+        assert envelope["approval_request_ref"].startswith("approval-ref:")
+        assert envelope["expected_receipt_ref"].startswith("receipt-plan:")
+        assert envelope["rollback_plan_ref"].startswith("rollback-plan:")
+        assert envelope["idempotency_key_ref"].startswith("idempotency-ref:")
+        assert envelope["not_scoped_actions"]
+        assert envelope["blocked_runtime_authority"]
+        assert envelope["evidence_refs"]
+        assert envelope["verifier_refs"]
+        assert envelope["stale_state_handling"]
+        assert envelope["redaction_summary"]
+        assert envelope["real_execution_requested"] is False
+        assert envelope["real_installation_requested"] is False
+        assert envelope["subprocess_execution_requested"] is False
+        assert envelope["launchctl_requested"] is False
+        assert envelope["launch_agent_load_requested"] is False
+        assert envelope["launch_agent_start_requested"] is False
+        assert envelope["model_download_requested"] is False
+        assert envelope["background_service_start_requested"] is False
+        assert envelope["approval_grant_captured"] is False
+        assert envelope["receipt_created"] is False
+        assert envelope["audit_event_created"] is False
+        assert envelope["rollback_executed"] is False
+
     receipt_plan = data["receipt_plan"]
     assert receipt_plan["receipt_created"] is False
     assert receipt_plan["audit_event_created"] is False
@@ -343,17 +386,32 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready():
 def test_control_center_product_language_rules_are_current_and_enforced():
     doc_text = PRODUCT_LANGUAGE_RULES_PATH.read_text(encoding="utf-8").lower()
     doc_compact = " ".join(doc_text.split())
+    agents_text = (ROOT / "AGENTS.md").read_text(encoding="utf-8").lower()
+    agents_compact = " ".join(agents_text.split())
 
     for fragment in [
         "status: active uaa-p1-031 product language rules",
+        "cli is a first-class operator surface",
+        "product behavior must not live only in react state",
         "no hidden authority",
         "no fake completion",
+        "no frontend-only product behavior",
         "no raw json as primary ui for operator-critical flows",
         "no production/public distribution claims without evidence",
         "no model/provider output as authority",
         "no completed-state language for blocked/skipped/pending work",
+        "today, inbox, plans, actions, memory, evidence, and settings",
     ]:
         assert fragment in doc_compact
+
+    for fragment in [
+        "cli is a first-class operator surface",
+        "product behavior must not live only in react state",
+        "python core/api contract",
+        "command-line or repo-local script inspection path",
+        "tests and redacted evidence",
+    ]:
+        assert fragment in agents_compact
 
     for rel_path in [
         "README.md",
