@@ -69,7 +69,7 @@
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
       "approval_requirement": "Read-only inbox inspection needs no approval; state changes require exact approval scope, idempotency, rollback, audit, and receipt refs.",
-      "evidence_audit_output": "Storage-backed action proposal refs, side-effect classes, blocked states, and evidence refs only.",
+      "evidence_audit_output": "Storage-backed action proposal refs, dry-run approval-envelope refs or missing-envelope blockers, side-effect classes, receipt/audit/idempotency/rollback refs, blocked states, and evidence refs only.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -90,8 +90,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only briefing summaries; connector reads and notification delivery remain unscoped.",
-      "evidence_audit_output": "Storage-backed briefing refs and bounded summaries only; no email, calendar, notification, or external connector payloads.",
+      "approval_requirement": "None for read-only briefing summaries; source reads, refresh, notifications, connector access, and memory writes remain unscoped.",
+      "evidence_audit_output": "Storage-backed briefing refs, bounded summaries, source-readiness labels, missing email/calendar/notification contract refs, stale-state posture, evidence-gap summaries, evidence refs, and blocked states only.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -102,7 +102,32 @@
       ],
       "missing_backend_routes": [
         "email-calendar-read-only-contract",
+        "briefing-refresh-contract",
         "briefing-notification-contract"
+      ]
+    },
+    {
+      "surface": "Memory Review",
+      "owner": "founder-loop",
+      "auth_posture": "local_storage_backed_review_only",
+      "side_effect_class": "local_dev_workspace_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for read-only review queue inspection; accept, correct, reject, retain, delete, write, and context-injection decisions require later exact scoped memory contracts.",
+      "evidence_audit_output": "Storage-backed memory candidate refs, provenance refs, source refs, evidence refs, review state, correction/rejection posture, retention/delete posture, confidence posture, stale-state posture, authority boundary, blocked states, and next safe action labels only.",
+      "current_backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
+      "missing_backend_routes": [
+        "memory-review-decision-capture-contract",
+        "memory-write-policy-binding",
+        "memory-retention-delete-contract",
+        "context-injection-contract"
       ]
     },
     {
@@ -490,7 +515,7 @@
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
       "approval_requirement": "None for read-only action inbox inspection.",
-      "evidence_audit_output": "Storage-backed action proposal refs, blocked states, and evidence refs.",
+      "evidence_audit_output": "Storage-backed action proposal refs, approval-envelope posture, state-change readiness, receipt/audit/idempotency/rollback posture, blocked states, and evidence refs.",
       "backend_routes": [
         {
           "method": "GET",
@@ -500,7 +525,8 @@
         }
       ],
       "missing_backend_routes": [
-        "action-inbox-state-change-contract"
+        "action-inbox-state-change-contract",
+        "approval-envelope-capture-contract"
       ]
     },
     {
@@ -513,8 +539,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only briefing summaries.",
-      "evidence_audit_output": "Storage-backed briefing refs and bounded summaries.",
+      "approval_requirement": "None for read-only briefing summaries; source reads, refresh, notifications, and connector access remain unscoped.",
+      "evidence_audit_output": "Storage-backed briefing refs, source-readiness posture, missing contract refs, stale-state posture, evidence gaps, blocked states, and bounded summaries.",
       "backend_routes": [
         {
           "method": "GET",
@@ -524,7 +550,9 @@
         }
       ],
       "missing_backend_routes": [
-        "email-calendar-read-only-contract"
+        "email-calendar-read-only-contract",
+        "briefing-refresh-contract",
+        "briefing-notification-contract"
       ]
     },
     {
@@ -1000,19 +1028,28 @@
     {
       "action_id": "navigate-memory",
       "label": "Navigate Memory",
-      "ui_surface": "Evidence",
+      "ui_surface": "Memory Review",
       "frontend_route": "/memory",
-      "owner": "memory-governance",
-      "auth_posture": "mock_only",
-      "side_effect_class": "local_ui_state_only",
-      "risk_class": "high",
-      "release_status": "mock_only_not_product_ready",
-      "approval_requirement": "Later scoped memory read/write policy binding required.",
-      "evidence_audit_output": "Mock memory refs only.",
-      "backend_routes": [],
+      "owner": "founder-loop",
+      "auth_posture": "local_storage_backed_review_only",
+      "side_effect_class": "local_dev_workspace_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for read-only memory review inspection; writes, deletes, decision capture, and context injection require later scoped contracts.",
+      "evidence_audit_output": "Storage-backed memory review candidate refs, safe summaries, provenance refs, source refs, evidence refs, review state, correction/rejection posture, retention/delete posture, confidence posture, stale-state posture, authority boundary, blocked states, and next safe action labels.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
       "missing_backend_routes": [
-        "memory-lifecycle-status",
-        "memory-write-policy-status"
+        "memory-review-decision-capture-contract",
+        "memory-write-policy-binding",
+        "memory-retention-delete-contract",
+        "context-injection-contract"
       ]
     },
     {

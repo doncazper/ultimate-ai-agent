@@ -84,11 +84,25 @@ export interface FounderLoopActionItem {
   safe_summary: string;
   surface: string;
   priority: string;
+  risk_class: string;
   status: string;
   side_effect_class: string;
+  authority_boundary: string;
   approval_required: boolean;
+  approval_envelope_ref?: string | null;
+  approval_envelope_status: string;
+  state_change_contract_ref?: string | null;
+  state_change_readiness: string;
   blocked_state?: string | null;
   evidence_refs: string[];
+  receipt_refs: string[];
+  audit_refs: string[];
+  idempotency_key_ref?: string | null;
+  expires_at?: string | null;
+  stale_state: string;
+  rollback_ref?: string | null;
+  safe_disable_ref?: string | null;
+  next_safe_action: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -107,7 +121,23 @@ export interface FounderLoopMemoryReviewItem {
   review_ref: string;
   title: string;
   safe_summary: string;
+  candidate_kind: string;
+  priority: string;
   status: string;
+  review_state: string;
+  side_effect_class: string;
+  authority_boundary: string;
+  provenance_refs: string[];
+  source_refs: string[];
+  missing_contract_refs: string[];
+  correction_posture: string;
+  rejection_posture: string;
+  retention_posture: string;
+  delete_posture: string;
+  confidence_posture: string;
+  stale_state: string;
+  blocked_states: string[];
+  next_safe_action: string;
   evidence_refs: string[];
   created_at?: string;
 }
@@ -116,7 +146,17 @@ export interface FounderLoopBriefingItem {
   briefing_ref: string;
   title: string;
   safe_summary: string;
+  priority: string;
   status: string;
+  side_effect_class: string;
+  authority_boundary: string;
+  source_readiness: string;
+  source_refs: string[];
+  missing_contract_refs: string[];
+  blocked_states: string[];
+  stale_state: string;
+  evidence_gap: string;
+  next_safe_action: string;
   evidence_refs: string[];
   created_at?: string;
 }
@@ -137,6 +177,15 @@ export interface FounderLoopTodaySummary {
   actions: FounderLoopActionItem[];
   plans: FounderLoopPlanSummary[];
   memory_review_queue: FounderLoopMemoryReviewItem[];
+  memory_review_route_ref: string;
+  memory_review_backend_route_ref: string;
+  memory_review_status: string;
+  memory_review_authority_boundary: string;
+  memory_write_enabled: boolean;
+  memory_delete_enabled: boolean;
+  context_injection_enabled: boolean;
+  memory_review_missing_contract_refs: string[];
+  memory_review_blocked_states: string[];
   briefing_items: FounderLoopBriefingItem[];
   evidence_refs: string[];
   blocked_states: string[];
@@ -148,11 +197,15 @@ export interface FounderLoopActionsInbox {
   surface: string;
   storage_ref: string;
   side_effect_class: string;
+  route_ref: string;
+  read_only_route_refs: string[];
+  local_prerequisite_refs: string[];
   items: FounderLoopActionItem[];
   approval_required_before_mutation: boolean;
   mutating_controls_enabled: boolean;
   disabled_state_label: string;
   evidence_refs: string[];
+  blocked_states: string[];
 }
 
 export interface FounderLoopMorningBriefing {
@@ -161,6 +214,15 @@ export interface FounderLoopMorningBriefing {
   surface: string;
   storage_ref: string;
   side_effect_class: string;
+  route_ref: string;
+  read_only_route_refs: string[];
+  local_prerequisite_refs: string[];
+  source_readiness: string;
+  authority_boundary: string;
+  bounded_preview_only: boolean;
+  refresh_enabled: boolean;
+  notification_delivery_enabled: boolean;
+  missing_contract_refs: string[];
   items: FounderLoopBriefingItem[];
   evidence_refs: string[];
   blocked_states: string[];

@@ -3,10 +3,11 @@
 Status: planning and task-breakdown artifact
 Parent board: `docs/kanban/founder_command_center_board.md`
 
-These tasks are designed for future scoped Codex branches/PRs. This document
-does not implement workflows, add runtime authority, change the API boundary,
-or add dependencies. Most tasks should land as small PRs with tests before
-product claims change.
+These tasks are designed for scoped Codex branches/PRs. Some baseline slices
+are now implemented as review-ready local surfaces, but this document does not
+grant runtime authority, connector access, model/provider calls, or production
+claims. Most remaining tasks should land as small PRs with tests before product
+claims change.
 
 ## Task 1 - FCC-P0-001 Capture UAA-P1-011 Readable Baseline
 
@@ -80,7 +81,7 @@ Likely files touched:
 
 PR size: one frontend PR.
 
-## Task 3 - FCC-P0-003 Collapse/Organize Control Center Around Core Surfaces
+## Task 3 - FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces
 
 Type: frontend
 
@@ -107,18 +108,27 @@ Likely files touched:
 
 PR size: one frontend PR after Task 2.
 
-## Task 4 - FCC-P0-004 Implement Morning Briefing Workflow Skeleton
+## Task 4 - FCC-P0-003 Implement Morning Briefing Workflow Skeleton
 
 Type: frontend with possible backend aggregation later
+
+Current status: scoped read-only Morning Briefing posture is implemented with
+storage-backed briefing metadata, source-readiness labels, priority, per-item
+blockers, stale-state posture, evidence gaps, missing email/calendar/
+notification contract refs, and next safe action labels. Remaining work is the
+email/calendar read-only source contract, refresh contract, notification
+contract, and any source evidence binding under separate milestones.
 
 New authority: no.
 
 Acceptance criteria:
 
 - Today/Morning Briefing shows priorities, blockers, next safe actions,
-  evidence gaps, and review counts.
-- It uses existing summaries or safe mock fixtures.
-- It does not fetch email/calendar or generate background content.
+  evidence gaps, source-readiness posture, stale-state posture, missing source
+  contract refs, and review counts.
+- It uses storage-backed summaries or safe mock fixtures.
+- It does not fetch email/calendar, refresh sources, deliver notifications, or
+  generate background content.
 
 Tests to add/update:
 
@@ -131,8 +141,10 @@ Likely files touched:
 - `apps/control-center/src/components/TodaySurfacePanel.tsx`
 - `apps/control-center/src/mocks/controlCenterData.ts`
 - `apps/control-center/src/api/types.ts`
+- `src/ultimate_ai_agent/core/storage/founder_loop.py`
 
-PR size: one frontend PR. Add backend aggregation only in a later scoped PR.
+PR size: one scoped full-stack read-only PR. Add source integrations only in
+later scoped PRs.
 
 ## Task 5 - FCC-P1-007 Add Calendar Read-Only Integration Contract
 
@@ -218,6 +230,14 @@ PR size: one backend contract PR after Task 6.
 Type: full-stack if schema lands in Python; frontend-only if using mock-safe
 fixtures first
 
+Current status: scoped review-only Action Inbox posture is implemented with
+storage-backed action metadata, approval-envelope/state-change readiness,
+receipt/audit/idempotency refs, expiry posture, rollback/safe-disable posture,
+next safe action labels, explicit blocked states, and no mutation controls.
+Remaining work is the exact state-change/approval capture contract, durable
+receipt binding, and any future review decision capture under a separate
+milestone.
+
 New authority: no.
 
 Acceptance criteria:
@@ -225,8 +245,11 @@ Acceptance criteria:
 - Action cards show title, safe summary, route refs, side-effect class, risk,
   approval requirement, evidence refs, idempotency, expiry, and rollback or
   safe-disable posture.
-- Approve/edit/reject controls are clearly review-only unless exact backend
-  grant binding exists.
+- Approval-envelope refs are displayed when available; missing envelope,
+  receipt, audit, idempotency, rollback, and state-change refs remain explicit
+  blockers.
+- Approve, send, run, install, connect, write, and state-change controls are
+  absent until exact backend grant binding exists.
 
 Tests to add/update:
 
@@ -247,7 +270,15 @@ PR size: split into contract PR and UI PR if Python schema is added.
 
 Type: full-stack
 
-New authority: no automatic memory write.
+Current status: baseline implemented/ready for review as a read-only Founder
+Loop Memory Review surface on `/memory` backed by
+`GET /control-center/today/summary`. Remaining work is decision capture,
+memory write policy binding, retention/delete contract, context-injection
+contract, CLI inspection path, and durable receipt binding.
+
+New authority: no automatic memory write, memory delete, context injection,
+model/provider authority, connector write, raw source display, background sync,
+or production authority.
 
 Acceptance criteria:
 
@@ -256,23 +287,34 @@ Acceptance criteria:
   summary.
 - Accept/correct/reject states are review states until existing memory write
   policy is explicitly bound.
+- Route paths, operation IDs, and side-effect classes remain unchanged.
+- `/memory` is human-readable first and does not expose raw transcript, prompt,
+  source, path, log, provider payload, username, hostname, environment dump,
+  credential, token, or secret-like values.
 
 Tests to add/update:
 
-- Memory contract tests.
+- Focused Founder Loop storage/API contract tests.
 - `apps/control-center/src/App.test.tsx`
-- Redaction/export tests if memory output changes.
+- `make frontend-check`
+- `.venv/bin/python scripts/verify_control_center_frontend.py`
+- Docs integrity and OpenAPI/API manifest checks if route contracts change.
+- Browser smoke for `/memory`.
 
 Likely files touched:
 
-- `src/ultimate_ai_agent/core/memory/`
-- `apps/control-center/src/components/MemoryReviewInboxPanel.tsx`
+- `src/ultimate_ai_agent/core/storage/founder_loop.py`
+- `apps/control-center/src/components/FounderLoopPanels.tsx`
 - `apps/control-center/src/api/types.ts`
-- `tests/test_memory*.py`
+- `apps/control-center/src/mocks/controlCenterData.ts`
+- `tests/test_founder_loop_storage.py`
+- `tests/test_control_center_founder_loop_api.py`
+- `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`
+- `docs/control_center/route_status_manifest.json`
 
 PR size: split contract and UI if needed.
 
-## Task 10 - FCC-P0-003 Add Product E2E Test For Morning Briefing
+## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 
 Type: test-only
 

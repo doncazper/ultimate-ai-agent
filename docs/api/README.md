@@ -28,6 +28,8 @@ Current API docs:
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
+docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md
+docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md
 ```
 
 Current boundary summary:

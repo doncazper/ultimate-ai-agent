@@ -87,11 +87,48 @@ class FounderLoopActionRecord(BaseModel):
     safe_summary: str = Field(..., min_length=1, max_length=500)
     surface: str = Field(..., min_length=1, max_length=80)
     priority: str = Field(default="medium", min_length=1, max_length=40)
+    risk_class: str = Field(default="medium", min_length=1, max_length=40)
     status: str = Field(default="review_ready", min_length=1, max_length=80)
     side_effect_class: str = Field(default="validation_only", min_length=1, max_length=80)
+    authority_boundary: str = Field(
+        default=(
+            "Control Center is review-only; Python Agent Core approval is required "
+            "before mutation."
+        ),
+        min_length=1,
+        max_length=240,
+    )
     approval_required: bool = True
+    approval_envelope_ref: str | None = Field(default=None, max_length=120)
+    approval_envelope_status: str = Field(
+        default="missing_until_scoped_contract",
+        min_length=1,
+        max_length=80,
+    )
+    state_change_contract_ref: str | None = Field(default=None, max_length=120)
+    state_change_readiness: str = Field(
+        default="blocked_missing_backend_contract",
+        min_length=1,
+        max_length=80,
+    )
     blocked_state: str | None = Field(default=None, max_length=160)
     evidence_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    idempotency_key_ref: str | None = Field(default=None, max_length=120)
+    expires_at: str | None = Field(default=None, max_length=80)
+    stale_state: str = Field(
+        default="recheck_required_before_mutation",
+        min_length=1,
+        max_length=120,
+    )
+    rollback_ref: str | None = Field(default=None, max_length=120)
+    safe_disable_ref: str | None = Field(default=None, max_length=120)
+    next_safe_action: str = Field(
+        default="Review the safe summary and keep mutation blocked until a scoped backend contract exists.",
+        min_length=1,
+        max_length=240,
+    )
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -100,6 +137,19 @@ class FounderLoopActionRecord(BaseModel):
     @model_validator(mode="after")
     def validate_safe_record(self) -> "FounderLoopActionRecord":
         _validate_safe_ref(self.item_ref, "item_ref")
+        for field_name in [
+            "approval_envelope_ref",
+            "state_change_contract_ref",
+            "idempotency_key_ref",
+            "rollback_ref",
+            "safe_disable_ref",
+        ]:
+            ref_value = getattr(self, field_name)
+            if ref_value is not None:
+                _validate_safe_ref(ref_value, field_name)
+        for field_name in ["evidence_refs", "receipt_refs", "audit_refs"]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
         _validate_safe_payload(self.model_dump(mode="json"), "action_record")
         return self
 
@@ -126,7 +176,61 @@ class FounderLoopMemoryReviewRecord(BaseModel):
     review_ref: str = Field(..., min_length=1)
     title: str = Field(..., min_length=1, max_length=120)
     safe_summary: str = Field(..., min_length=1, max_length=500)
+    candidate_kind: str = Field(default="preference", min_length=1, max_length=80)
+    priority: str = Field(default="medium", min_length=1, max_length=40)
     status: str = Field(default="review_needed", min_length=1, max_length=80)
+    review_state: str = Field(default="review_needed", min_length=1, max_length=80)
+    side_effect_class: str = Field(default="local_dev_workspace_only", min_length=1, max_length=80)
+    authority_boundary: str = Field(
+        default=(
+            "Review-only memory candidate; memory writes and context injection "
+            "remain unscoped."
+        ),
+        min_length=1,
+        max_length=240,
+    )
+    provenance_refs: list[str] = Field(default_factory=list)
+    source_refs: list[str] = Field(default_factory=list)
+    missing_contract_refs: list[str] = Field(default_factory=list)
+    correction_posture: str = Field(
+        default="correction_requires_scoped_memory_write_contract",
+        min_length=1,
+        max_length=160,
+    )
+    rejection_posture: str = Field(
+        default="rejection_is_review_state_only",
+        min_length=1,
+        max_length=160,
+    )
+    retention_posture: str = Field(
+        default="retention_policy_not_bound",
+        min_length=1,
+        max_length=160,
+    )
+    delete_posture: str = Field(
+        default="delete_execution_not_scoped",
+        min_length=1,
+        max_length=160,
+    )
+    confidence_posture: str = Field(
+        default="safe_summary_unverified",
+        min_length=1,
+        max_length=160,
+    )
+    stale_state: str = Field(
+        default="recheck_source_refs_before_memory_use",
+        min_length=1,
+        max_length=160,
+    )
+    blocked_states: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(
+        default=(
+            "Review provenance and evidence refs; keep writes blocked until a "
+            "scoped memory policy milestone."
+        ),
+        min_length=1,
+        max_length=240,
+    )
     evidence_refs: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
 
@@ -135,6 +239,14 @@ class FounderLoopMemoryReviewRecord(BaseModel):
     @model_validator(mode="after")
     def validate_safe_record(self) -> "FounderLoopMemoryReviewRecord":
         _validate_safe_ref(self.review_ref, "review_ref")
+        for field_name in [
+            "provenance_refs",
+            "source_refs",
+            "missing_contract_refs",
+            "evidence_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
         _validate_safe_payload(self.model_dump(mode="json"), "memory_review_record")
         return self
 
@@ -143,7 +255,37 @@ class FounderLoopBriefingRecord(BaseModel):
     briefing_ref: str = Field(..., min_length=1)
     title: str = Field(..., min_length=1, max_length=120)
     safe_summary: str = Field(..., min_length=1, max_length=500)
+    priority: str = Field(default="medium", min_length=1, max_length=40)
     status: str = Field(default="active", min_length=1, max_length=80)
+    side_effect_class: str = Field(default="local_dev_workspace_only", min_length=1, max_length=80)
+    authority_boundary: str = Field(
+        default="Review-only briefing summary; source reads and delivery remain unscoped.",
+        min_length=1,
+        max_length=240,
+    )
+    source_readiness: str = Field(
+        default="blocked_missing_source_contract",
+        min_length=1,
+        max_length=100,
+    )
+    source_refs: list[str] = Field(default_factory=list)
+    missing_contract_refs: list[str] = Field(default_factory=list)
+    blocked_states: list[str] = Field(default_factory=list)
+    stale_state: str = Field(
+        default="recheck_required_before_source_contract",
+        min_length=1,
+        max_length=120,
+    )
+    evidence_gap: str = Field(
+        default="No source connector evidence is bound in this briefing slice.",
+        min_length=1,
+        max_length=240,
+    )
+    next_safe_action: str = Field(
+        default="Define read-only source contracts before source reads or refresh.",
+        min_length=1,
+        max_length=240,
+    )
     evidence_refs: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
 
@@ -152,6 +294,9 @@ class FounderLoopBriefingRecord(BaseModel):
     @model_validator(mode="after")
     def validate_safe_record(self) -> "FounderLoopBriefingRecord":
         _validate_safe_ref(self.briefing_ref, "briefing_ref")
+        for field_name in ["source_refs", "missing_contract_refs", "evidence_refs"]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
         _validate_safe_payload(self.model_dump(mode="json"), "briefing_record")
         return self
 
@@ -197,8 +342,11 @@ def _utc_iso() -> str:
 
 def _row_to_payload(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
-    if "evidence_refs_json" in payload:
-        payload["evidence_refs"] = json.loads(payload.pop("evidence_refs_json") or "[]")
+    for key in list(payload):
+        if key.endswith("_json"):
+            payload[key.removesuffix("_json")] = json.loads(payload.pop(key) or "[]")
+    if "approval_required" in payload:
+        payload["approval_required"] = bool(payload["approval_required"])
     return payload
 
 
@@ -268,6 +416,32 @@ class FounderLoopRepository:
             "actions": actions,
             "plans": plans,
             "memory_review_queue": memory_items,
+            "memory_review_route_ref": "/memory",
+            "memory_review_backend_route_ref": "GET /control-center/today/summary",
+            "memory_review_status": "storage_backed_review_queue",
+            "memory_review_authority_boundary": (
+                "Review-only memory candidates; recall is not truth, and writes, "
+                "deletes, context injection, connector writes, model/provider calls, "
+                "and background sync are unscoped."
+            ),
+            "memory_write_enabled": False,
+            "memory_delete_enabled": False,
+            "context_injection_enabled": False,
+            "memory_review_missing_contract_refs": [
+                "contract-ref:memory-write-policy-binding-missing",
+                "contract-ref:memory-retention-delete-missing",
+                "contract-ref:memory-review-decision-capture-missing",
+                "contract-ref:context-injection-missing",
+            ],
+            "memory_review_blocked_states": [
+                "no_memory_write",
+                "no_context_injection",
+                "no_memory_delete",
+                "no_raw_source_display",
+                "no_connector_write",
+                "no_model_provider_authority",
+                "no_background_sync",
+            ],
             "briefing_items": briefing_items,
             "evidence_refs": ["evidence-ref:founder-loop:today-summary"],
             "blocked_states": [
@@ -285,11 +459,31 @@ class FounderLoopRepository:
             "surface": "Actions",
             "storage_ref": "founder-loop-storage:local-sqlite-jsonl",
             "side_effect_class": "local_dev_workspace_only",
+            "route_ref": "/control-center/actions/inbox",
+            "read_only_route_refs": [
+                "GET /control-center/actions/inbox",
+                "GET /control-center/storage/status",
+                "GET /control-center/routes",
+                "GET /control-center/runtime-readiness/summary",
+                "GET /control-center/foundation-gate/summary",
+            ],
+            "local_prerequisite_refs": [
+                "status-ref:founder-loop-storage",
+                "status-ref:control-center-route-manifest",
+                "capability-ref:local-approval-authority",
+            ],
             "items": items,
             "approval_required_before_mutation": True,
             "mutating_controls_enabled": False,
             "disabled_state_label": "Exact backend approval contract required",
             "evidence_refs": ["evidence-ref:founder-loop:action-inbox"],
+            "blocked_states": [
+                "no_action_execution_route",
+                "no_approval_grant_capture_route",
+                "no_state_change_contract_route",
+                "no_connector_write_route",
+                "no_runtime_model_call_route",
+            ],
         }
 
     def morning_briefing(self, *, limit: int = 10) -> dict[str, Any]:
@@ -300,12 +494,45 @@ class FounderLoopRepository:
             "surface": "Morning Briefing",
             "storage_ref": "founder-loop-storage:local-sqlite-jsonl",
             "side_effect_class": "local_dev_workspace_only",
+            "route_ref": "/control-center/morning-briefing/summary",
+            "read_only_route_refs": [
+                "GET /control-center/morning-briefing/summary",
+                "GET /control-center/storage/status",
+                "GET /control-center/routes",
+                "GET /control-center/runtime-readiness/summary",
+                "GET /control-center/foundation-gate/summary",
+            ],
+            "local_prerequisite_refs": [
+                "status-ref:founder-loop-storage",
+                "status-ref:control-center-route-manifest",
+                "contract-ref:email-read-only-missing",
+                "contract-ref:calendar-read-only-missing",
+                "contract-ref:notification-delivery-missing",
+            ],
+            "source_readiness": "blocked_missing_email_calendar_notification_contracts",
+            "authority_boundary": (
+                "Read-only briefing summary; no email, calendar, connector, refresh, "
+                "notification, model, memory, or delivery authority."
+            ),
+            "bounded_preview_only": True,
+            "refresh_enabled": False,
+            "notification_delivery_enabled": False,
+            "missing_contract_refs": [
+                "contract-ref:email-read-only-missing",
+                "contract-ref:calendar-read-only-missing",
+                "contract-ref:notification-delivery-missing",
+            ],
             "items": items,
             "evidence_refs": ["evidence-ref:founder-loop:morning-briefing"],
             "blocked_states": [
                 "no_email_read_authority",
                 "no_calendar_read_authority",
+                "no_connector_runtime",
+                "no_account_auth",
+                "no_background_refresh",
                 "no_notification_delivery",
+                "no_memory_write",
+                "no_model_provider_call",
             ],
         }
 
@@ -313,8 +540,13 @@ class FounderLoopRepository:
         rows = self._fetch_all(
             """
             SELECT item_ref, title, safe_summary, surface, priority, status,
-                   side_effect_class, approval_required, blocked_state,
-                   evidence_refs_json, created_at, updated_at
+                   risk_class, side_effect_class, authority_boundary,
+                   approval_required, approval_envelope_ref,
+                   approval_envelope_status, state_change_contract_ref,
+                   state_change_readiness, blocked_state, evidence_refs_json,
+                   receipt_refs_json, audit_refs_json, idempotency_key_ref,
+                   expires_at, stale_state, rollback_ref, safe_disable_ref,
+                   next_safe_action, created_at, updated_at
             FROM action_inbox
             ORDER BY created_at ASC
             LIMIT ?
@@ -339,7 +571,13 @@ class FounderLoopRepository:
     def list_memory_review_queue(self, *, limit: int = 20) -> list[dict[str, Any]]:
         rows = self._fetch_all(
             """
-            SELECT review_ref, title, safe_summary, status, evidence_refs_json, created_at
+            SELECT review_ref, title, safe_summary, candidate_kind, priority,
+                   status, review_state, side_effect_class, authority_boundary,
+                   provenance_refs_json, source_refs_json,
+                   missing_contract_refs_json, correction_posture,
+                   rejection_posture, retention_posture, delete_posture,
+                   confidence_posture, stale_state, blocked_states_json,
+                   next_safe_action, evidence_refs_json, created_at
             FROM memory_review_queue
             ORDER BY created_at ASC
             LIMIT ?
@@ -351,7 +589,11 @@ class FounderLoopRepository:
     def list_briefing_items(self, *, limit: int = 20) -> list[dict[str, Any]]:
         rows = self._fetch_all(
             """
-            SELECT briefing_ref, title, safe_summary, status, evidence_refs_json, created_at
+            SELECT briefing_ref, title, safe_summary, priority, status,
+                   side_effect_class, authority_boundary, source_readiness,
+                   source_refs_json, missing_contract_refs_json,
+                   blocked_states_json, stale_state, evidence_gap,
+                   next_safe_action, evidence_refs_json, created_at
             FROM briefing_items
             ORDER BY created_at ASC
             LIMIT ?
@@ -365,20 +607,41 @@ class FounderLoopRepository:
             """
             INSERT INTO action_inbox (
                 item_ref, title, safe_summary, surface, priority, status,
-                side_effect_class, approval_required, blocked_state,
-                evidence_refs_json, created_at, updated_at
+                risk_class, side_effect_class, authority_boundary,
+                approval_required, approval_envelope_ref,
+                approval_envelope_status, state_change_contract_ref,
+                state_change_readiness, blocked_state, evidence_refs_json,
+                receipt_refs_json, audit_refs_json, idempotency_key_ref,
+                expires_at, stale_state, rollback_ref, safe_disable_ref,
+                next_safe_action, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
             ON CONFLICT(item_ref) DO UPDATE SET
                 title = excluded.title,
                 safe_summary = excluded.safe_summary,
                 surface = excluded.surface,
                 priority = excluded.priority,
                 status = excluded.status,
+                risk_class = excluded.risk_class,
                 side_effect_class = excluded.side_effect_class,
+                authority_boundary = excluded.authority_boundary,
                 approval_required = excluded.approval_required,
+                approval_envelope_ref = excluded.approval_envelope_ref,
+                approval_envelope_status = excluded.approval_envelope_status,
+                state_change_contract_ref = excluded.state_change_contract_ref,
+                state_change_readiness = excluded.state_change_readiness,
                 blocked_state = excluded.blocked_state,
                 evidence_refs_json = excluded.evidence_refs_json,
+                receipt_refs_json = excluded.receipt_refs_json,
+                audit_refs_json = excluded.audit_refs_json,
+                idempotency_key_ref = excluded.idempotency_key_ref,
+                expires_at = excluded.expires_at,
+                stale_state = excluded.stale_state,
+                rollback_ref = excluded.rollback_ref,
+                safe_disable_ref = excluded.safe_disable_ref,
+                next_safe_action = excluded.next_safe_action,
                 updated_at = excluded.updated_at
             """,
             (
@@ -388,10 +651,24 @@ class FounderLoopRepository:
                 record.surface,
                 record.priority,
                 record.status,
+                record.risk_class,
                 record.side_effect_class,
+                record.authority_boundary,
                 int(record.approval_required),
+                record.approval_envelope_ref,
+                record.approval_envelope_status,
+                record.state_change_contract_ref,
+                record.state_change_readiness,
                 record.blocked_state,
                 _json_dumps(record.evidence_refs),
+                _json_dumps(record.receipt_refs),
+                _json_dumps(record.audit_refs),
+                record.idempotency_key_ref,
+                record.expires_at,
+                record.stale_state,
+                record.rollback_ref,
+                record.safe_disable_ref,
+                record.next_safe_action,
                 record.created_at.isoformat(),
                 record.updated_at.isoformat(),
             ),
@@ -428,20 +705,58 @@ class FounderLoopRepository:
         self._execute(
             """
             INSERT INTO memory_review_queue (
-                review_ref, title, safe_summary, status, evidence_refs_json, created_at
+                review_ref, title, safe_summary, candidate_kind, priority,
+                status, review_state, side_effect_class, authority_boundary,
+                provenance_refs_json, source_refs_json, missing_contract_refs_json,
+                correction_posture, rejection_posture, retention_posture,
+                delete_posture, confidence_posture, stale_state,
+                blocked_states_json, next_safe_action, evidence_refs_json,
+                created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(review_ref) DO UPDATE SET
                 title = excluded.title,
                 safe_summary = excluded.safe_summary,
+                candidate_kind = excluded.candidate_kind,
+                priority = excluded.priority,
                 status = excluded.status,
+                review_state = excluded.review_state,
+                side_effect_class = excluded.side_effect_class,
+                authority_boundary = excluded.authority_boundary,
+                provenance_refs_json = excluded.provenance_refs_json,
+                source_refs_json = excluded.source_refs_json,
+                missing_contract_refs_json = excluded.missing_contract_refs_json,
+                correction_posture = excluded.correction_posture,
+                rejection_posture = excluded.rejection_posture,
+                retention_posture = excluded.retention_posture,
+                delete_posture = excluded.delete_posture,
+                confidence_posture = excluded.confidence_posture,
+                stale_state = excluded.stale_state,
+                blocked_states_json = excluded.blocked_states_json,
+                next_safe_action = excluded.next_safe_action,
                 evidence_refs_json = excluded.evidence_refs_json
             """,
             (
                 record.review_ref,
                 record.title,
                 record.safe_summary,
+                record.candidate_kind,
+                record.priority,
                 record.status,
+                record.review_state,
+                record.side_effect_class,
+                record.authority_boundary,
+                _json_dumps(record.provenance_refs),
+                _json_dumps(record.source_refs),
+                _json_dumps(record.missing_contract_refs),
+                record.correction_posture,
+                record.rejection_posture,
+                record.retention_posture,
+                record.delete_posture,
+                record.confidence_posture,
+                record.stale_state,
+                _json_dumps(record.blocked_states),
+                record.next_safe_action,
                 _json_dumps(record.evidence_refs),
                 record.created_at.isoformat(),
             ),
@@ -451,20 +766,44 @@ class FounderLoopRepository:
         self._execute(
             """
             INSERT INTO briefing_items (
-                briefing_ref, title, safe_summary, status, evidence_refs_json, created_at
+                briefing_ref, title, safe_summary, priority, status,
+                side_effect_class, authority_boundary, source_readiness,
+                source_refs_json, missing_contract_refs_json, blocked_states_json,
+                stale_state, evidence_gap, next_safe_action, evidence_refs_json,
+                created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(briefing_ref) DO UPDATE SET
                 title = excluded.title,
                 safe_summary = excluded.safe_summary,
+                priority = excluded.priority,
                 status = excluded.status,
+                side_effect_class = excluded.side_effect_class,
+                authority_boundary = excluded.authority_boundary,
+                source_readiness = excluded.source_readiness,
+                source_refs_json = excluded.source_refs_json,
+                missing_contract_refs_json = excluded.missing_contract_refs_json,
+                blocked_states_json = excluded.blocked_states_json,
+                stale_state = excluded.stale_state,
+                evidence_gap = excluded.evidence_gap,
+                next_safe_action = excluded.next_safe_action,
                 evidence_refs_json = excluded.evidence_refs_json
             """,
             (
                 record.briefing_ref,
                 record.title,
                 record.safe_summary,
+                record.priority,
                 record.status,
+                record.side_effect_class,
+                record.authority_boundary,
+                record.source_readiness,
+                _json_dumps(record.source_refs),
+                _json_dumps(record.missing_contract_refs),
+                _json_dumps(record.blocked_states),
+                record.stale_state,
+                record.evidence_gap,
+                record.next_safe_action,
                 _json_dumps(record.evidence_refs),
                 record.created_at.isoformat(),
             ),
@@ -539,10 +878,24 @@ class FounderLoopRepository:
                     surface TEXT NOT NULL,
                     priority TEXT NOT NULL,
                     status TEXT NOT NULL,
+                    risk_class TEXT NOT NULL DEFAULT 'medium',
                     side_effect_class TEXT NOT NULL,
+                    authority_boundary TEXT NOT NULL DEFAULT 'Control Center is review-only; Python Agent Core approval is required before mutation.',
                     approval_required INTEGER NOT NULL,
+                    approval_envelope_ref TEXT,
+                    approval_envelope_status TEXT NOT NULL DEFAULT 'missing_until_scoped_contract',
+                    state_change_contract_ref TEXT,
+                    state_change_readiness TEXT NOT NULL DEFAULT 'blocked_missing_backend_contract',
                     blocked_state TEXT,
                     evidence_refs_json TEXT NOT NULL,
+                    receipt_refs_json TEXT NOT NULL DEFAULT '[]',
+                    audit_refs_json TEXT NOT NULL DEFAULT '[]',
+                    idempotency_key_ref TEXT,
+                    expires_at TEXT,
+                    stale_state TEXT NOT NULL DEFAULT 'recheck_required_before_mutation',
+                    rollback_ref TEXT,
+                    safe_disable_ref TEXT,
+                    next_safe_action TEXT NOT NULL DEFAULT 'Review the safe summary and keep mutation blocked until a scoped backend contract exists.',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -559,7 +912,23 @@ class FounderLoopRepository:
                     review_ref TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     safe_summary TEXT NOT NULL,
+                    candidate_kind TEXT NOT NULL DEFAULT 'preference',
+                    priority TEXT NOT NULL DEFAULT 'medium',
                     status TEXT NOT NULL,
+                    review_state TEXT NOT NULL DEFAULT 'review_needed',
+                    side_effect_class TEXT NOT NULL DEFAULT 'local_dev_workspace_only',
+                    authority_boundary TEXT NOT NULL DEFAULT 'Review-only memory candidate; memory writes and context injection remain unscoped.',
+                    provenance_refs_json TEXT NOT NULL DEFAULT '[]',
+                    source_refs_json TEXT NOT NULL DEFAULT '[]',
+                    missing_contract_refs_json TEXT NOT NULL DEFAULT '[]',
+                    correction_posture TEXT NOT NULL DEFAULT 'correction_requires_scoped_memory_write_contract',
+                    rejection_posture TEXT NOT NULL DEFAULT 'rejection_is_review_state_only',
+                    retention_posture TEXT NOT NULL DEFAULT 'retention_policy_not_bound',
+                    delete_posture TEXT NOT NULL DEFAULT 'delete_execution_not_scoped',
+                    confidence_posture TEXT NOT NULL DEFAULT 'safe_summary_unverified',
+                    stale_state TEXT NOT NULL DEFAULT 'recheck_source_refs_before_memory_use',
+                    blocked_states_json TEXT NOT NULL DEFAULT '[]',
+                    next_safe_action TEXT NOT NULL DEFAULT 'Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.',
                     evidence_refs_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
@@ -567,7 +936,17 @@ class FounderLoopRepository:
                     briefing_ref TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     safe_summary TEXT NOT NULL,
+                    priority TEXT NOT NULL DEFAULT 'medium',
                     status TEXT NOT NULL,
+                    side_effect_class TEXT NOT NULL DEFAULT 'local_dev_workspace_only',
+                    authority_boundary TEXT NOT NULL DEFAULT 'Review-only briefing summary; source reads and delivery remain unscoped.',
+                    source_readiness TEXT NOT NULL DEFAULT 'blocked_missing_source_contract',
+                    source_refs_json TEXT NOT NULL DEFAULT '[]',
+                    missing_contract_refs_json TEXT NOT NULL DEFAULT '[]',
+                    blocked_states_json TEXT NOT NULL DEFAULT '[]',
+                    stale_state TEXT NOT NULL DEFAULT 'recheck_required_before_source_contract',
+                    evidence_gap TEXT NOT NULL DEFAULT 'No source connector evidence is bound in this briefing slice.',
+                    next_safe_action TEXT NOT NULL DEFAULT 'Define read-only source contracts before source reads or refresh.',
                     evidence_refs_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
@@ -600,8 +979,112 @@ class FounderLoopRepository:
                 """,
                 (FOUNDER_LOOP_SCHEMA_VERSION, _utc_iso()),
             )
+            self._ensure_action_inbox_contract_columns(conn)
+            self._ensure_memory_review_contract_columns(conn)
+            self._ensure_briefing_contract_columns(conn)
         if self.seed_defaults:
             self._seed_defaults_if_empty()
+            self._backfill_seed_action_contract_metadata()
+            self._backfill_seed_memory_review_contract_metadata()
+            self._backfill_seed_briefing_contract_metadata()
+
+    def _ensure_action_inbox_contract_columns(self, conn: sqlite3.Connection) -> None:
+        existing = {
+            str(row["name"])
+            for row in conn.execute("PRAGMA table_info(action_inbox)").fetchall()
+        }
+        additions = {
+            "risk_class": "TEXT NOT NULL DEFAULT 'medium'",
+            "authority_boundary": (
+                "TEXT NOT NULL DEFAULT 'Control Center is review-only; Python Agent Core "
+                "approval is required before mutation.'"
+            ),
+            "approval_envelope_ref": "TEXT",
+            "approval_envelope_status": "TEXT NOT NULL DEFAULT 'missing_until_scoped_contract'",
+            "state_change_contract_ref": "TEXT",
+            "state_change_readiness": "TEXT NOT NULL DEFAULT 'blocked_missing_backend_contract'",
+            "receipt_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "audit_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "idempotency_key_ref": "TEXT",
+            "expires_at": "TEXT",
+            "stale_state": "TEXT NOT NULL DEFAULT 'recheck_required_before_mutation'",
+            "rollback_ref": "TEXT",
+            "safe_disable_ref": "TEXT",
+            "next_safe_action": (
+                "TEXT NOT NULL DEFAULT 'Review the safe summary and keep mutation blocked "
+                "until a scoped backend contract exists.'"
+            ),
+        }
+        for column_name, column_spec in additions.items():
+            if column_name not in existing:
+                conn.execute(f"ALTER TABLE action_inbox ADD COLUMN {column_name} {column_spec}")
+
+    def _ensure_memory_review_contract_columns(self, conn: sqlite3.Connection) -> None:
+        existing = {
+            str(row["name"])
+            for row in conn.execute("PRAGMA table_info(memory_review_queue)").fetchall()
+        }
+        additions = {
+            "candidate_kind": "TEXT NOT NULL DEFAULT 'preference'",
+            "priority": "TEXT NOT NULL DEFAULT 'medium'",
+            "review_state": "TEXT NOT NULL DEFAULT 'review_needed'",
+            "side_effect_class": "TEXT NOT NULL DEFAULT 'local_dev_workspace_only'",
+            "authority_boundary": (
+                "TEXT NOT NULL DEFAULT 'Review-only memory candidate; memory writes "
+                "and context injection remain unscoped.'"
+            ),
+            "provenance_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "source_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "missing_contract_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "correction_posture": (
+                "TEXT NOT NULL DEFAULT 'correction_requires_scoped_memory_write_contract'"
+            ),
+            "rejection_posture": "TEXT NOT NULL DEFAULT 'rejection_is_review_state_only'",
+            "retention_posture": "TEXT NOT NULL DEFAULT 'retention_policy_not_bound'",
+            "delete_posture": "TEXT NOT NULL DEFAULT 'delete_execution_not_scoped'",
+            "confidence_posture": "TEXT NOT NULL DEFAULT 'safe_summary_unverified'",
+            "stale_state": "TEXT NOT NULL DEFAULT 'recheck_source_refs_before_memory_use'",
+            "blocked_states_json": "TEXT NOT NULL DEFAULT '[]'",
+            "next_safe_action": (
+                "TEXT NOT NULL DEFAULT 'Review provenance and evidence refs; keep "
+                "writes blocked until a scoped memory policy milestone.'"
+            ),
+        }
+        for column_name, column_spec in additions.items():
+            if column_name not in existing:
+                conn.execute(
+                    f"ALTER TABLE memory_review_queue ADD COLUMN {column_name} {column_spec}"
+                )
+
+    def _ensure_briefing_contract_columns(self, conn: sqlite3.Connection) -> None:
+        existing = {
+            str(row["name"])
+            for row in conn.execute("PRAGMA table_info(briefing_items)").fetchall()
+        }
+        additions = {
+            "priority": "TEXT NOT NULL DEFAULT 'medium'",
+            "side_effect_class": "TEXT NOT NULL DEFAULT 'local_dev_workspace_only'",
+            "authority_boundary": (
+                "TEXT NOT NULL DEFAULT 'Review-only briefing summary; source reads and "
+                "delivery remain unscoped.'"
+            ),
+            "source_readiness": "TEXT NOT NULL DEFAULT 'blocked_missing_source_contract'",
+            "source_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "missing_contract_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "blocked_states_json": "TEXT NOT NULL DEFAULT '[]'",
+            "stale_state": "TEXT NOT NULL DEFAULT 'recheck_required_before_source_contract'",
+            "evidence_gap": (
+                "TEXT NOT NULL DEFAULT 'No source connector evidence is bound in this "
+                "briefing slice.'"
+            ),
+            "next_safe_action": (
+                "TEXT NOT NULL DEFAULT 'Define read-only source contracts before source "
+                "reads or refresh.'"
+            ),
+        }
+        for column_name, column_spec in additions.items():
+            if column_name not in existing:
+                conn.execute(f"ALTER TABLE briefing_items ADD COLUMN {column_name} {column_spec}")
 
     def _seed_defaults_if_empty(self) -> None:
         if self._count("action_inbox") == 0:
@@ -615,11 +1098,30 @@ class FounderLoopRepository:
                     ),
                     surface="Actions",
                     priority="high",
+                    risk_class="high",
                     status="review_ready",
                     side_effect_class="validation_only",
+                    authority_boundary=(
+                        "Review-only display; Python Agent Core and LocalApprovalAuthority must "
+                        "validate exact scope before mutation."
+                    ),
                     approval_required=True,
+                    approval_envelope_ref="approval-envelope:founder-loop:setup-assistant-hardening",
+                    approval_envelope_status="dry_run_ref_available",
+                    state_change_contract_ref="contract-ref:founder-loop:setup-assistant-hardening",
+                    state_change_readiness="blocked_pending_scoped_mutation_contract",
                     blocked_state="Mutation requires exact approval, idempotency, rollback, and receipt refs.",
                     evidence_refs=["evidence-ref:founder-loop:setup-assistant"],
+                    receipt_refs=["receipt-plan:founder-loop:setup-assistant-hardening"],
+                    audit_refs=["audit-plan:founder-loop:setup-assistant-hardening"],
+                    idempotency_key_ref="idempotency-ref:founder-loop:setup-assistant-hardening",
+                    expires_at="review_required_before_mutation",
+                    stale_state="recheck_setup_summary_before_mutation",
+                    rollback_ref="rollback-plan:founder-loop:setup-assistant-hardening",
+                    safe_disable_ref="safe-disable:founder-loop:setup-assistant-hardening",
+                    next_safe_action=(
+                        "Review refs only; request a scoped state-change milestone before mutation."
+                    ),
                 )
             )
             self.upsert_action(
@@ -632,11 +1134,22 @@ class FounderLoopRepository:
                     ),
                     surface="Today",
                     priority="medium",
+                    risk_class="medium",
                     status="review_ready",
                     side_effect_class="local_dev_workspace_only",
+                    authority_boundary=(
+                        "Review-only display; source reads and delivery remain unscoped."
+                    ),
                     approval_required=False,
+                    approval_envelope_status="not_required_for_inspection",
+                    state_change_readiness="blocked_no_source_read_contract",
                     blocked_state="Connector reads and notification delivery are not scoped.",
                     evidence_refs=["evidence-ref:founder-loop:briefing"],
+                    audit_refs=["audit-plan:founder-loop:briefing-review"],
+                    expires_at="review_required_before_source_contract",
+                    stale_state="recheck_source_status_before_contract",
+                    safe_disable_ref="safe-disable:founder-loop:briefing-surface",
+                    next_safe_action="Define read-only briefing source refs before source reads.",
                 )
             )
         if self._count("plan_summaries") == 0:
@@ -664,7 +1177,41 @@ class FounderLoopRepository:
                         "Memory remains a review queue with safe summaries; recall is not treated "
                         "as truth or execution authority."
                     ),
+                    candidate_kind="operator_preference",
+                    priority="high",
                     status="review_needed",
+                    review_state="review_needed",
+                    authority_boundary=(
+                        "Review-only memory candidate; recall is not truth, and writes, "
+                        "deletes, and context injection remain unscoped."
+                    ),
+                    provenance_refs=["provenance-ref:founder-loop-memory:preferences"],
+                    source_refs=["source-ref:founder-loop-storage"],
+                    missing_contract_refs=[
+                        "contract-ref:memory-write-policy-binding-missing",
+                        "contract-ref:memory-retention-delete-missing",
+                        "contract-ref:memory-review-decision-capture-missing",
+                        "contract-ref:context-injection-missing",
+                    ],
+                    correction_posture="correction_requires_scoped_memory_write_contract",
+                    rejection_posture="rejection_is_review_state_only_until_capture_contract",
+                    retention_posture="retention_policy_not_bound",
+                    delete_posture="delete_execution_not_scoped",
+                    confidence_posture="safe_summary_unverified",
+                    stale_state="recheck_source_refs_before_memory_use",
+                    blocked_states=[
+                        "no_memory_write",
+                        "no_context_injection",
+                        "no_memory_delete",
+                        "no_raw_source_display",
+                        "no_connector_write",
+                        "no_model_provider_authority",
+                        "no_background_sync",
+                    ],
+                    next_safe_action=(
+                        "Review provenance and evidence refs; keep writes blocked until a "
+                        "scoped memory policy milestone."
+                    ),
                     evidence_refs=["evidence-ref:founder-loop:memory"],
                 )
             )
@@ -677,7 +1224,24 @@ class FounderLoopRepository:
                         "New Founder Loop summaries use router and repository seams while the "
                         "legacy FastAPI module remains a compatibility boundary."
                     ),
+                    priority="high",
                     status="active",
+                    source_readiness="local_status_refs_only",
+                    source_refs=["source-ref:control-center-route-status"],
+                    missing_contract_refs=[
+                        "contract-ref:email-read-only-missing",
+                        "contract-ref:calendar-read-only-missing",
+                        "contract-ref:notification-delivery-missing",
+                    ],
+                    blocked_states=[
+                        "no_email_calendar_source_contract",
+                        "no_background_refresh",
+                    ],
+                    stale_state="recheck_route_status_before_briefing_use",
+                    evidence_gap="No email, calendar, or notification source evidence is bound.",
+                    next_safe_action=(
+                        "Use route and storage refs only; define source contracts before refresh."
+                    ),
                     evidence_refs=["evidence-ref:founder-loop:api-boundary"],
                 )
             )
@@ -689,7 +1253,24 @@ class FounderLoopRepository:
                         "SQLite stores indexed loop state and JSONL logs are reserved for "
                         "redacted append-only receipts, audits, transcripts, and realtime events."
                     ),
+                    priority="medium",
                     status="active",
+                    source_readiness="local_storage_refs_only",
+                    source_refs=["source-ref:founder-loop-storage"],
+                    missing_contract_refs=[
+                        "contract-ref:email-read-only-missing",
+                        "contract-ref:calendar-read-only-missing",
+                        "contract-ref:notification-delivery-missing",
+                    ],
+                    blocked_states=[
+                        "no_connector_runtime",
+                        "no_notification_delivery",
+                    ],
+                    stale_state="recheck_storage_status_before_briefing_use",
+                    evidence_gap="No connector receipts or source refresh receipts are bound.",
+                    next_safe_action=(
+                        "Inspect storage status only; keep source reads blocked until scoped."
+                    ),
                     evidence_refs=["evidence-ref:founder-loop:storage"],
                 )
             )
@@ -705,6 +1286,282 @@ class FounderLoopRepository:
                     _utc_iso(),
                 ),
             )
+
+    def _backfill_seed_action_contract_metadata(self) -> None:
+        self._update_action_contract_metadata(
+            "founder-action:setup-assistant-hardening",
+            {
+                "risk_class": "high",
+                "authority_boundary": (
+                    "Review-only display; Python Agent Core and LocalApprovalAuthority must "
+                    "validate exact scope before mutation."
+                ),
+                "approval_envelope_ref": "approval-envelope:founder-loop:setup-assistant-hardening",
+                "approval_envelope_status": "dry_run_ref_available",
+                "state_change_contract_ref": "contract-ref:founder-loop:setup-assistant-hardening",
+                "state_change_readiness": "blocked_pending_scoped_mutation_contract",
+                "receipt_refs": ["receipt-plan:founder-loop:setup-assistant-hardening"],
+                "audit_refs": ["audit-plan:founder-loop:setup-assistant-hardening"],
+                "idempotency_key_ref": "idempotency-ref:founder-loop:setup-assistant-hardening",
+                "expires_at": "review_required_before_mutation",
+                "stale_state": "recheck_setup_summary_before_mutation",
+                "rollback_ref": "rollback-plan:founder-loop:setup-assistant-hardening",
+                "safe_disable_ref": "safe-disable:founder-loop:setup-assistant-hardening",
+                "next_safe_action": (
+                    "Review refs only; request a scoped state-change milestone before mutation."
+                ),
+            },
+        )
+        self._update_action_contract_metadata(
+            "founder-action:morning-briefing-skeleton",
+            {
+                "risk_class": "medium",
+                "authority_boundary": (
+                    "Review-only display; source reads and delivery remain unscoped."
+                ),
+                "approval_envelope_status": "not_required_for_inspection",
+                "state_change_readiness": "blocked_no_source_read_contract",
+                "audit_refs": ["audit-plan:founder-loop:briefing-review"],
+                "expires_at": "review_required_before_source_contract",
+                "stale_state": "recheck_source_status_before_contract",
+                "safe_disable_ref": "safe-disable:founder-loop:briefing-surface",
+                "next_safe_action": "Define read-only briefing source refs before source reads.",
+            },
+        )
+
+    def _update_action_contract_metadata(self, item_ref: str, metadata: dict[str, Any]) -> None:
+        _validate_safe_ref(item_ref, "item_ref")
+        _validate_safe_payload(metadata, "action_contract_metadata")
+        self._execute(
+            """
+            UPDATE action_inbox
+            SET risk_class = COALESCE(?, risk_class),
+                authority_boundary = COALESCE(?, authority_boundary),
+                approval_envelope_ref = ?,
+                approval_envelope_status = COALESCE(?, approval_envelope_status),
+                state_change_contract_ref = ?,
+                state_change_readiness = COALESCE(?, state_change_readiness),
+                receipt_refs_json = COALESCE(?, receipt_refs_json),
+                audit_refs_json = COALESCE(?, audit_refs_json),
+                idempotency_key_ref = ?,
+                expires_at = ?,
+                stale_state = COALESCE(?, stale_state),
+                rollback_ref = ?,
+                safe_disable_ref = ?,
+                next_safe_action = COALESCE(?, next_safe_action),
+                updated_at = ?
+            WHERE item_ref = ?
+            """,
+            (
+                metadata.get("risk_class"),
+                metadata.get("authority_boundary"),
+                metadata.get("approval_envelope_ref"),
+                metadata.get("approval_envelope_status"),
+                metadata.get("state_change_contract_ref"),
+                metadata.get("state_change_readiness"),
+                _json_dumps(metadata["receipt_refs"]) if "receipt_refs" in metadata else None,
+                _json_dumps(metadata["audit_refs"]) if "audit_refs" in metadata else None,
+                metadata.get("idempotency_key_ref"),
+                metadata.get("expires_at"),
+                metadata.get("stale_state"),
+                metadata.get("rollback_ref"),
+                metadata.get("safe_disable_ref"),
+                metadata.get("next_safe_action"),
+                _utc_iso(),
+                item_ref,
+            ),
+        )
+
+    def _backfill_seed_memory_review_contract_metadata(self) -> None:
+        self._update_memory_review_contract_metadata(
+            "memory-review:founder-loop-preferences",
+            {
+                "candidate_kind": "operator_preference",
+                "priority": "high",
+                "review_state": "review_needed",
+                "side_effect_class": "local_dev_workspace_only",
+                "authority_boundary": (
+                    "Review-only memory candidate; recall is not truth, and writes, "
+                    "deletes, and context injection remain unscoped."
+                ),
+                "provenance_refs": ["provenance-ref:founder-loop-memory:preferences"],
+                "source_refs": ["source-ref:founder-loop-storage"],
+                "missing_contract_refs": [
+                    "contract-ref:memory-write-policy-binding-missing",
+                    "contract-ref:memory-retention-delete-missing",
+                    "contract-ref:memory-review-decision-capture-missing",
+                    "contract-ref:context-injection-missing",
+                ],
+                "correction_posture": "correction_requires_scoped_memory_write_contract",
+                "rejection_posture": "rejection_is_review_state_only_until_capture_contract",
+                "retention_posture": "retention_policy_not_bound",
+                "delete_posture": "delete_execution_not_scoped",
+                "confidence_posture": "safe_summary_unverified",
+                "stale_state": "recheck_source_refs_before_memory_use",
+                "blocked_states": [
+                    "no_memory_write",
+                    "no_context_injection",
+                    "no_memory_delete",
+                    "no_raw_source_display",
+                    "no_connector_write",
+                    "no_model_provider_authority",
+                    "no_background_sync",
+                ],
+                "next_safe_action": (
+                    "Review provenance and evidence refs; keep writes blocked until a "
+                    "scoped memory policy milestone."
+                ),
+            },
+        )
+
+    def _update_memory_review_contract_metadata(
+        self,
+        review_ref: str,
+        metadata: dict[str, Any],
+    ) -> None:
+        _validate_safe_ref(review_ref, "review_ref")
+        _validate_safe_payload(metadata, "memory_review_contract_metadata")
+        self._execute(
+            """
+            UPDATE memory_review_queue
+            SET candidate_kind = COALESCE(?, candidate_kind),
+                priority = COALESCE(?, priority),
+                review_state = COALESCE(?, review_state),
+                side_effect_class = COALESCE(?, side_effect_class),
+                authority_boundary = COALESCE(?, authority_boundary),
+                provenance_refs_json = COALESCE(?, provenance_refs_json),
+                source_refs_json = COALESCE(?, source_refs_json),
+                missing_contract_refs_json = COALESCE(?, missing_contract_refs_json),
+                correction_posture = COALESCE(?, correction_posture),
+                rejection_posture = COALESCE(?, rejection_posture),
+                retention_posture = COALESCE(?, retention_posture),
+                delete_posture = COALESCE(?, delete_posture),
+                confidence_posture = COALESCE(?, confidence_posture),
+                stale_state = COALESCE(?, stale_state),
+                blocked_states_json = COALESCE(?, blocked_states_json),
+                next_safe_action = COALESCE(?, next_safe_action)
+            WHERE review_ref = ?
+            """,
+            (
+                metadata.get("candidate_kind"),
+                metadata.get("priority"),
+                metadata.get("review_state"),
+                metadata.get("side_effect_class"),
+                metadata.get("authority_boundary"),
+                (
+                    _json_dumps(metadata["provenance_refs"])
+                    if "provenance_refs" in metadata
+                    else None
+                ),
+                _json_dumps(metadata["source_refs"]) if "source_refs" in metadata else None,
+                (
+                    _json_dumps(metadata["missing_contract_refs"])
+                    if "missing_contract_refs" in metadata
+                    else None
+                ),
+                metadata.get("correction_posture"),
+                metadata.get("rejection_posture"),
+                metadata.get("retention_posture"),
+                metadata.get("delete_posture"),
+                metadata.get("confidence_posture"),
+                metadata.get("stale_state"),
+                _json_dumps(metadata["blocked_states"]) if "blocked_states" in metadata else None,
+                metadata.get("next_safe_action"),
+                review_ref,
+            ),
+        )
+
+    def _backfill_seed_briefing_contract_metadata(self) -> None:
+        common_missing_contract_refs = [
+            "contract-ref:email-read-only-missing",
+            "contract-ref:calendar-read-only-missing",
+            "contract-ref:notification-delivery-missing",
+        ]
+        self._update_briefing_contract_metadata(
+            "briefing:api-boundary-modularization",
+            {
+                "priority": "high",
+                "side_effect_class": "local_dev_workspace_only",
+                "authority_boundary": (
+                    "Review-only briefing summary; source reads and delivery remain unscoped."
+                ),
+                "source_readiness": "local_status_refs_only",
+                "source_refs": ["source-ref:control-center-route-status"],
+                "missing_contract_refs": common_missing_contract_refs,
+                "blocked_states": [
+                    "no_email_calendar_source_contract",
+                    "no_background_refresh",
+                ],
+                "stale_state": "recheck_route_status_before_briefing_use",
+                "evidence_gap": "No email, calendar, or notification source evidence is bound.",
+                "next_safe_action": (
+                    "Use route and storage refs only; define source contracts before refresh."
+                ),
+            },
+        )
+        self._update_briefing_contract_metadata(
+            "briefing:storage-state-first-loop",
+            {
+                "priority": "medium",
+                "side_effect_class": "local_dev_workspace_only",
+                "authority_boundary": (
+                    "Review-only briefing summary; source reads and delivery remain unscoped."
+                ),
+                "source_readiness": "local_storage_refs_only",
+                "source_refs": ["source-ref:founder-loop-storage"],
+                "missing_contract_refs": common_missing_contract_refs,
+                "blocked_states": [
+                    "no_connector_runtime",
+                    "no_notification_delivery",
+                ],
+                "stale_state": "recheck_storage_status_before_briefing_use",
+                "evidence_gap": "No connector receipts or source refresh receipts are bound.",
+                "next_safe_action": (
+                    "Inspect storage status only; keep source reads blocked until scoped."
+                ),
+            },
+        )
+
+    def _update_briefing_contract_metadata(
+        self,
+        briefing_ref: str,
+        metadata: dict[str, Any],
+    ) -> None:
+        _validate_safe_ref(briefing_ref, "briefing_ref")
+        _validate_safe_payload(metadata, "briefing_contract_metadata")
+        self._execute(
+            """
+            UPDATE briefing_items
+            SET priority = COALESCE(?, priority),
+                side_effect_class = COALESCE(?, side_effect_class),
+                authority_boundary = COALESCE(?, authority_boundary),
+                source_readiness = COALESCE(?, source_readiness),
+                source_refs_json = COALESCE(?, source_refs_json),
+                missing_contract_refs_json = COALESCE(?, missing_contract_refs_json),
+                blocked_states_json = COALESCE(?, blocked_states_json),
+                stale_state = COALESCE(?, stale_state),
+                evidence_gap = COALESCE(?, evidence_gap),
+                next_safe_action = COALESCE(?, next_safe_action)
+            WHERE briefing_ref = ?
+            """,
+            (
+                metadata.get("priority"),
+                metadata.get("side_effect_class"),
+                metadata.get("authority_boundary"),
+                metadata.get("source_readiness"),
+                _json_dumps(metadata["source_refs"]) if "source_refs" in metadata else None,
+                (
+                    _json_dumps(metadata["missing_contract_refs"])
+                    if "missing_contract_refs" in metadata
+                    else None
+                ),
+                _json_dumps(metadata["blocked_states"]) if "blocked_states" in metadata else None,
+                metadata.get("stale_state"),
+                metadata.get("evidence_gap"),
+                metadata.get("next_safe_action"),
+                briefing_ref,
+            ),
+        )
 
     def _schema_version(self) -> str:
         rows = self._fetch_all(

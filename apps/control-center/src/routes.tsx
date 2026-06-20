@@ -6,7 +6,6 @@ import { ContextProposalSurfacePanel } from "./components/ContextProposalSurface
 import { DashboardSummary } from "./components/DashboardSummary";
 import {
   FileReferenceViewerPanel,
-  MemoryViewerPanel,
 } from "./components/EvidenceFileMemoryViewerPanel";
 import { EventViewerPanel } from "./components/EventViewerPanel";
 import { EventTimelineTracePanel } from "./components/EventTimelineTracePanel";
@@ -16,6 +15,7 @@ import {
   ActionInboxSurfacePanel,
   FounderLoopStoragePanel,
   InboxSurfacePanel,
+  MemoryReviewSurfacePanel,
   MorningBriefingPanel,
   TodaySurfacePanel,
 } from "./components/FounderLoopPanels";
@@ -201,7 +201,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <ContextProposalSurfacePanel proposals={data.m39ContextProposals} />
       );
     case "/memory":
-      return <MemoryViewerPanel knowledge={data.m17Knowledge} />;
+      return <MemoryReviewSurfacePanel today={data.founderToday} />;
     case "/runtime/local":
       return (
         <LocalRuntimeStatusPanel

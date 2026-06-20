@@ -8,7 +8,11 @@ from ultimate_ai_agent.core.storage import (
     FounderLoopStorageDuplicateError,
     JsonlLogKind,
 )
-from ultimate_ai_agent.core.storage.founder_loop import FounderLoopActionRecord
+from ultimate_ai_agent.core.storage.founder_loop import (
+    FounderLoopActionRecord,
+    FounderLoopBriefingRecord,
+    FounderLoopMemoryReviewRecord,
+)
 
 
 def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path):
@@ -29,7 +33,122 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path):
     assert today["status"] == "storage_backed_partial_loop"
     assert today["actions"]
     assert inbox["mutating_controls_enabled"] is False
+    assert inbox["route_ref"] == "/control-center/actions/inbox"
+    assert "GET /control-center/storage/status" in inbox["read_only_route_refs"]
+    assert "capability-ref:local-approval-authority" in inbox["local_prerequisite_refs"]
+    assert "no_approval_grant_capture_route" in inbox["blocked_states"]
     assert briefing["items"]
+    assert briefing["route_ref"] == "/control-center/morning-briefing/summary"
+    assert "GET /control-center/storage/status" in briefing["read_only_route_refs"]
+    assert "contract-ref:email-read-only-missing" in briefing["missing_contract_refs"]
+    assert briefing["source_readiness"] == (
+        "blocked_missing_email_calendar_notification_contracts"
+    )
+    assert briefing["bounded_preview_only"] is True
+    assert briefing["refresh_enabled"] is False
+    assert briefing["notification_delivery_enabled"] is False
+    assert "no_background_refresh" in briefing["blocked_states"]
+    assert "no_notification_delivery" in briefing["blocked_states"]
+    assert today["memory_review_route_ref"] == "/memory"
+    assert (
+        today["memory_review_backend_route_ref"]
+        == "GET /control-center/today/summary"
+    )
+    assert today["memory_review_status"] == "storage_backed_review_queue"
+    assert today["memory_write_enabled"] is False
+    assert today["memory_delete_enabled"] is False
+    assert today["context_injection_enabled"] is False
+    assert (
+        "contract-ref:memory-write-policy-binding-missing"
+        in today["memory_review_missing_contract_refs"]
+    )
+    assert (
+        "contract-ref:memory-retention-delete-missing"
+        in today["memory_review_missing_contract_refs"]
+    )
+    assert "no_memory_write" in today["memory_review_blocked_states"]
+    assert "no_context_injection" in today["memory_review_blocked_states"]
+    assert "no_model_provider_authority" in today["memory_review_blocked_states"]
+
+    approval_item = next(
+        item
+        for item in inbox["items"]
+        if item["item_ref"] == "founder-action:setup-assistant-hardening"
+    )
+    assert approval_item["risk_class"] == "high"
+    assert approval_item["approval_required"] is True
+    assert (
+        approval_item["approval_envelope_ref"]
+        == "approval-envelope:founder-loop:setup-assistant-hardening"
+    )
+    assert approval_item["approval_envelope_status"] == "dry_run_ref_available"
+    assert (
+        approval_item["state_change_readiness"]
+        == "blocked_pending_scoped_mutation_contract"
+    )
+    assert approval_item["receipt_refs"] == [
+        "receipt-plan:founder-loop:setup-assistant-hardening"
+    ]
+    assert approval_item["audit_refs"] == [
+        "audit-plan:founder-loop:setup-assistant-hardening"
+    ]
+    assert (
+        approval_item["idempotency_key_ref"]
+        == "idempotency-ref:founder-loop:setup-assistant-hardening"
+    )
+    assert approval_item["rollback_ref"] == "rollback-plan:founder-loop:setup-assistant-hardening"
+    assert approval_item["safe_disable_ref"] == "safe-disable:founder-loop:setup-assistant-hardening"
+    assert "scoped state-change milestone" in approval_item["next_safe_action"]
+
+    briefing_item = next(
+        item
+        for item in briefing["items"]
+        if item["briefing_ref"] == "briefing:api-boundary-modularization"
+    )
+    assert briefing_item["priority"] == "high"
+    assert briefing_item["source_readiness"] == "local_status_refs_only"
+    assert briefing_item["source_refs"] == ["source-ref:control-center-route-status"]
+    assert "contract-ref:calendar-read-only-missing" in briefing_item["missing_contract_refs"]
+    assert "no_background_refresh" in briefing_item["blocked_states"]
+    assert briefing_item["stale_state"] == "recheck_route_status_before_briefing_use"
+    assert "source evidence is bound" in briefing_item["evidence_gap"]
+    assert "define source contracts" in briefing_item["next_safe_action"]
+
+    memory_item = next(
+        item
+        for item in today["memory_review_queue"]
+        if item["review_ref"] == "memory-review:founder-loop-preferences"
+    )
+    assert memory_item["candidate_kind"] == "operator_preference"
+    assert memory_item["priority"] == "high"
+    assert memory_item["review_state"] == "review_needed"
+    assert memory_item["side_effect_class"] == "local_dev_workspace_only"
+    assert (
+        "writes, deletes, and context injection remain unscoped"
+        in memory_item["authority_boundary"]
+    )
+    assert memory_item["provenance_refs"] == [
+        "provenance-ref:founder-loop-memory:preferences"
+    ]
+    assert memory_item["source_refs"] == ["source-ref:founder-loop-storage"]
+    assert (
+        "contract-ref:memory-review-decision-capture-missing"
+        in memory_item["missing_contract_refs"]
+    )
+    assert (
+        memory_item["correction_posture"]
+        == "correction_requires_scoped_memory_write_contract"
+    )
+    assert (
+        memory_item["rejection_posture"]
+        == "rejection_is_review_state_only_until_capture_contract"
+    )
+    assert memory_item["retention_posture"] == "retention_policy_not_bound"
+    assert memory_item["delete_posture"] == "delete_execution_not_scoped"
+    assert memory_item["confidence_posture"] == "safe_summary_unverified"
+    assert memory_item["stale_state"] == "recheck_source_refs_before_memory_use"
+    assert "no_raw_source_display" in memory_item["blocked_states"]
+    assert "scoped memory policy milestone" in memory_item["next_safe_action"]
 
     serialized = json.dumps(
         {"status": status, "today": today, "inbox": inbox, "briefing": briefing},
@@ -69,6 +188,13 @@ def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path):
 
     inbox = repo.actions_inbox()
     assert inbox["items"][0]["item_ref"] == "founder-action:test-review"
+    assert inbox["items"][0]["approval_envelope_status"] == "missing_until_scoped_contract"
+    assert inbox["items"][0]["state_change_readiness"] == "blocked_missing_backend_contract"
+    assert inbox["items"][0]["receipt_refs"] == []
+    assert inbox["items"][0]["audit_refs"] == []
+    assert inbox["items"][0]["idempotency_key_ref"] is None
+    assert inbox["items"][0]["rollback_ref"] is None
+    assert inbox["items"][0]["safe_disable_ref"] is None
     assert repo.storage_status()["counts"]["idempotency_keys"] == 1
 
     with pytest.raises(FounderLoopStorageDuplicateError):
@@ -77,6 +203,77 @@ def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path):
             scope_ref="approval-scope:founder-loop:test",
             receipt_ref="receipt-ref:founder-loop:test",
         )
+
+
+def test_founder_loop_briefing_defaults_are_blocked_and_read_only(tmp_path):
+    repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
+
+    repo.upsert_briefing_item(
+        FounderLoopBriefingRecord(
+            briefing_ref="briefing:test-review",
+            title="Briefing review",
+            safe_summary="Bounded briefing summary for a local review-only item.",
+            evidence_refs=["evidence-ref:founder-loop:test-briefing"],
+        )
+    )
+
+    briefing = repo.morning_briefing()
+    item = briefing["items"][0]
+    assert briefing["refresh_enabled"] is False
+    assert briefing["notification_delivery_enabled"] is False
+    assert item["briefing_ref"] == "briefing:test-review"
+    assert item["priority"] == "medium"
+    assert item["source_readiness"] == "blocked_missing_source_contract"
+    assert item["source_refs"] == []
+    assert item["missing_contract_refs"] == []
+    assert item["blocked_states"] == []
+    assert item["stale_state"] == "recheck_required_before_source_contract"
+    assert "source connector evidence" in item["evidence_gap"]
+    assert "read-only source contracts" in item["next_safe_action"]
+
+
+def test_founder_loop_memory_review_defaults_are_review_only(tmp_path):
+    repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
+
+    repo.upsert_memory_review(
+        FounderLoopMemoryReviewRecord(
+            review_ref="memory-review:test-review",
+            title="Memory review",
+            safe_summary="Bounded memory review summary for a local review-only item.",
+            evidence_refs=["evidence-ref:founder-loop:test-memory"],
+        )
+    )
+
+    today = repo.today_summary()
+    item = today["memory_review_queue"][0]
+    assert today["memory_review_route_ref"] == "/memory"
+    assert today["memory_write_enabled"] is False
+    assert today["memory_delete_enabled"] is False
+    assert today["context_injection_enabled"] is False
+    assert "contract-ref:context-injection-missing" in (
+        today["memory_review_missing_contract_refs"]
+    )
+    assert "no_background_sync" in today["memory_review_blocked_states"]
+    assert item["review_ref"] == "memory-review:test-review"
+    assert item["candidate_kind"] == "preference"
+    assert item["priority"] == "medium"
+    assert item["review_state"] == "review_needed"
+    assert item["side_effect_class"] == "local_dev_workspace_only"
+    assert "remain unscoped" in item["authority_boundary"]
+    assert item["provenance_refs"] == []
+    assert item["source_refs"] == []
+    assert item["missing_contract_refs"] == []
+    assert (
+        item["correction_posture"]
+        == "correction_requires_scoped_memory_write_contract"
+    )
+    assert item["rejection_posture"] == "rejection_is_review_state_only"
+    assert item["retention_posture"] == "retention_policy_not_bound"
+    assert item["delete_posture"] == "delete_execution_not_scoped"
+    assert item["confidence_posture"] == "safe_summary_unverified"
+    assert item["stale_state"] == "recheck_source_refs_before_memory_use"
+    assert item["blocked_states"] == []
+    assert "scoped memory policy milestone" in item["next_safe_action"]
 
 
 def test_founder_loop_jsonl_logs_are_append_only_and_redacted(tmp_path):

@@ -3,6 +3,7 @@ import type {
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
+  FounderLoopMemoryReviewItem,
   FounderLoopMorningBriefing,
   FounderLoopPlanSummary,
   FounderLoopStorageStatus,
@@ -43,14 +44,7 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         </LoopPanel>
         <LoopPanel title="Memory review" route="/memory">
           {today.memory_review_queue.map((item) => (
-            <article className="review-card" key={item.review_ref}>
-              <div className="review-card-heading">
-                <h3>{item.title}</h3>
-                <span>{item.status}</span>
-              </div>
-              <p>{item.safe_summary}</p>
-              <RefList refs={item.evidence_refs} />
-            </article>
+            <MemoryReviewCard item={item} key={item.review_ref} />
           ))}
         </LoopPanel>
       </div>
@@ -145,7 +139,15 @@ export function ActionInboxSurfacePanel({
           <span>{inbox.side_effect_class}</span>
         </div>
         <dl className="detail-list">
+          <DetailTerm
+            label="Backend route"
+            value={inbox.route_ref ?? "/control-center/actions/inbox"}
+          />
           <DetailTerm label="Storage ref" value={inbox.storage_ref} />
+          <DetailTerm
+            label="Approval before mutation"
+            value={inbox.approval_required_before_mutation ? "required" : "not required"}
+          />
           <DetailTerm
             label="Mutation controls"
             value={inbox.mutating_controls_enabled ? "scoped" : "disabled"}
@@ -153,11 +155,24 @@ export function ActionInboxSurfacePanel({
           <DetailTerm label="Disabled state" value={inbox.disabled_state_label} />
         </dl>
       </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Local prerequisites</h3>
+          <span>read-only refs</span>
+        </div>
+        <p>
+          These refs expose readiness only. They do not grant approval, state
+          changes, connector writes, or model/provider authority.
+        </p>
+        <RefList refs={inbox.read_only_route_refs ?? []} />
+        <RefList refs={inbox.local_prerequisite_refs ?? []} />
+      </article>
       <div className="review-grid">
         {inbox.items.map((item) => (
           <ActionItemCard item={item} key={item.item_ref} />
         ))}
       </div>
+      <BlockedStateList states={inbox.blocked_states ?? []} />
     </section>
   );
 }
@@ -176,12 +191,145 @@ export function MorningBriefingPanel({
         </div>
         <span className="status-pill compact">{briefing.status}</span>
       </div>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Source posture</h3>
+            <span>{briefing.side_effect_class}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Backend route"
+              value={briefing.route_ref ?? "/control-center/morning-briefing/summary"}
+            />
+            <DetailTerm label="Storage ref" value={briefing.storage_ref} />
+            <DetailTerm
+              label="Source readiness"
+              value={
+                briefing.source_readiness ??
+                "blocked_missing_email_calendar_notification_contracts"
+              }
+            />
+            <DetailTerm
+              label="Bounded preview"
+              value={briefing.bounded_preview_only ? "yes" : "blocked"}
+            />
+            <DetailTerm
+              label="Refresh"
+              value={briefing.refresh_enabled ? "scoped" : "disabled"}
+            />
+            <DetailTerm
+              label="Notifications"
+              value={briefing.notification_delivery_enabled ? "scoped" : "disabled"}
+            />
+            <DetailTerm
+              label="Authority boundary"
+              value={
+                briefing.authority_boundary ??
+                "Read-only briefing summary; source reads and delivery remain unscoped."
+              }
+            />
+          </dl>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Missing contracts</h3>
+            <span>explicit blockers</span>
+          </div>
+          <p>
+            Briefing uses local safe refs only. Email, calendar, refresh, and
+            notification source contracts remain blocked in this slice.
+          </p>
+          <RefList refs={briefing.read_only_route_refs ?? []} />
+          <RefList refs={briefing.local_prerequisite_refs ?? []} />
+          <RefList refs={briefing.missing_contract_refs ?? []} />
+        </article>
+      </div>
       <div className="review-grid">
         {briefing.items.map((item) => (
           <BriefingCard item={item} key={item.briefing_ref} />
         ))}
       </div>
-      <BlockedStateList states={briefing.blocked_states} />
+      <BlockedStateList states={briefing.blocked_states ?? []} />
+    </section>
+  );
+}
+
+export function MemoryReviewSurfacePanel({
+  today,
+}: {
+  today: FounderLoopTodaySummary;
+}) {
+  return (
+    <section className="page-section" aria-labelledby="memory-review-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Founder Loop</p>
+          <h2 id="memory-review-heading">Memory Review</h2>
+        </div>
+        <span className="status-pill compact">
+          {today.memory_review_status ?? "storage_backed_review_queue"}
+        </span>
+      </div>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Review posture</h3>
+            <span>{today.side_effect_class}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Frontend route"
+              value={today.memory_review_route_ref ?? "/memory"}
+            />
+            <DetailTerm
+              label="Backend route"
+              value={
+                today.memory_review_backend_route_ref ??
+                "GET /control-center/today/summary"
+              }
+            />
+            <DetailTerm label="Storage ref" value={today.storage_ref} />
+            <DetailTerm
+              label="Memory writes"
+              value={today.memory_write_enabled ? "scoped" : "disabled"}
+            />
+            <DetailTerm
+              label="Memory deletes"
+              value={today.memory_delete_enabled ? "scoped" : "disabled"}
+            />
+            <DetailTerm
+              label="Context injection"
+              value={today.context_injection_enabled ? "scoped" : "disabled"}
+            />
+            <DetailTerm
+              label="Authority boundary"
+              value={
+                today.memory_review_authority_boundary ??
+                "Review-only memory candidates; recall is not truth."
+              }
+            />
+          </dl>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Missing contracts</h3>
+            <span>explicit blockers</span>
+          </div>
+          <p>
+            Memory review is inspection-only. Accept, correct, reject, retain,
+            delete, write, and context-injection decisions require later scoped
+            contracts.
+          </p>
+          <RefList refs={today.memory_review_missing_contract_refs ?? []} />
+        </article>
+      </div>
+      <div className="review-grid">
+        {today.memory_review_queue.map((item) => (
+          <MemoryReviewCard item={item} key={item.review_ref} />
+        ))}
+      </div>
+      <BlockedStateList states={today.memory_review_blocked_states ?? []} />
     </section>
   );
 }
@@ -262,24 +410,68 @@ function LoopPanel({
 }
 
 function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
+  const riskClass = item.risk_class ?? "unspecified";
+  const authorityBoundary =
+    item.authority_boundary ?? "review-only; exact backend contract required";
+  const approvalEnvelopeValue = item.approval_envelope_ref
+    ? item.approval_envelope_ref
+    : "missing until scoped contract";
+  const stateChangeContractValue = item.state_change_contract_ref
+    ? item.state_change_contract_ref
+    : "missing until scoped contract";
+  const idempotencyValue = item.idempotency_key_ref
+    ? item.idempotency_key_ref
+    : "missing until scoped contract";
+  const expiryValue = item.expires_at ?? "review required before mutation";
+  const rollbackValue = item.rollback_ref ?? "missing until scoped contract";
+  const safeDisableValue = item.safe_disable_ref ?? "missing until scoped contract";
+  const envelopeStatus =
+    item.approval_envelope_status ?? "missing_until_scoped_contract";
+  const stateChangeReadiness =
+    item.state_change_readiness ?? "blocked_missing_backend_contract";
+  const staleState = item.stale_state ?? "recheck_required_before_mutation";
+  const nextSafeAction =
+    item.next_safe_action ??
+    "Review the safe summary and keep mutation blocked until a scoped backend contract exists.";
+
   return (
     <article className="review-card">
       <div className="review-card-heading">
         <h3>{item.title}</h3>
-        <span>{item.priority}</span>
+        <span>{item.priority} / {riskClass}</span>
       </div>
       <p>{item.safe_summary}</p>
       <dl className="detail-list">
         <DetailTerm label="Item ref" value={item.item_ref} />
         <DetailTerm label="Status" value={item.status} />
+        <DetailTerm label="Risk" value={riskClass} />
         <DetailTerm label="Side effect" value={item.side_effect_class} />
+        <DetailTerm label="Authority boundary" value={authorityBoundary} />
         <DetailTerm
           label="Approval before mutation"
           value={item.approval_required ? "required" : "not required"}
         />
+        <DetailTerm label="Approval envelope" value={approvalEnvelopeValue} />
+        <DetailTerm label="Envelope status" value={envelopeStatus} />
+        <DetailTerm label="State-change contract" value={stateChangeContractValue} />
+        <DetailTerm label="State-change readiness" value={stateChangeReadiness} />
+        <DetailTerm label="Idempotency" value={idempotencyValue} />
+        <DetailTerm label="Expiry posture" value={expiryValue} />
+        <DetailTerm label="Stale-state posture" value={staleState} />
+        <DetailTerm label="Rollback" value={rollbackValue} />
+        <DetailTerm label="Safe disable" value={safeDisableValue} />
+        <DetailTerm label="Next safe action" value={nextSafeAction} />
       </dl>
       {item.blocked_state ? <p className="muted">{item.blocked_state}</p> : null}
-      <RefList refs={item.evidence_refs} />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: missing until scoped contract"
+        refs={item.receipt_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Audit refs: missing until scoped contract"
+        refs={item.audit_refs ?? []}
+      />
+      <RefList refs={item.evidence_refs ?? []} />
     </article>
   );
 }
@@ -299,14 +491,120 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
 }
 
 function BriefingCard({ item }: { item: FounderLoopBriefingItem }) {
+  const priority = item.priority ?? "medium";
+  const sourceReadiness =
+    item.source_readiness ?? "blocked_missing_source_contract";
+  const sideEffect = item.side_effect_class ?? "local_dev_workspace_only";
+  const authorityBoundary =
+    item.authority_boundary ??
+    "Review-only briefing summary; source reads and delivery remain unscoped.";
+  const staleState =
+    item.stale_state ?? "recheck_required_before_source_contract";
+  const evidenceGap =
+    item.evidence_gap ??
+    "No source connector evidence is bound in this briefing slice.";
+  const nextSafeAction =
+    item.next_safe_action ??
+    "Define read-only source contracts before source reads or refresh.";
+
   return (
     <article className="review-card">
       <div className="review-card-heading">
         <h3>{item.title}</h3>
-        <span>{item.status}</span>
+        <span>{priority} / {item.status}</span>
       </div>
       <p>{item.safe_summary}</p>
-      <RefList refs={item.evidence_refs} />
+      <dl className="detail-list">
+        <DetailTerm label="Briefing ref" value={item.briefing_ref} />
+        <DetailTerm label="Priority" value={priority} />
+        <DetailTerm label="Status" value={item.status} />
+        <DetailTerm label="Side effect" value={sideEffect} />
+        <DetailTerm label="Source readiness" value={sourceReadiness} />
+        <DetailTerm label="Authority boundary" value={authorityBoundary} />
+        <DetailTerm label="Stale-state posture" value={staleState} />
+        <DetailTerm label="Evidence gap" value={evidenceGap} />
+        <DetailTerm label="Next safe action" value={nextSafeAction} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Source refs: missing until read-only source contract"
+        refs={item.source_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing contracts: email, calendar, notification"
+        refs={item.missing_contract_refs ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Item blockers: source contracts not scoped"
+        items={item.blocked_states ?? []}
+      />
+      <RefList refs={item.evidence_refs ?? []} />
+    </article>
+  );
+}
+
+function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
+  const candidateKind = item.candidate_kind ?? "memory_candidate";
+  const priority = item.priority ?? "medium";
+  const reviewState = item.review_state ?? item.status;
+  const sideEffect = item.side_effect_class ?? "local_dev_workspace_only";
+  const authorityBoundary =
+    item.authority_boundary ??
+    "Review-only memory candidate; memory writes and context injection remain unscoped.";
+  const correctionPosture =
+    item.correction_posture ??
+    "correction_requires_scoped_memory_write_contract";
+  const rejectionPosture =
+    item.rejection_posture ?? "rejection_is_review_state_only";
+  const retentionPosture =
+    item.retention_posture ?? "retention_policy_not_bound";
+  const deletePosture = item.delete_posture ?? "delete_execution_not_scoped";
+  const confidencePosture =
+    item.confidence_posture ?? "safe_summary_unverified";
+  const staleState =
+    item.stale_state ?? "recheck_source_refs_before_memory_use";
+  const nextSafeAction =
+    item.next_safe_action ??
+    "Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.";
+
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>{item.title}</h3>
+        <span>{priority} / {reviewState}</span>
+      </div>
+      <p>{item.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Review ref" value={item.review_ref} />
+        <DetailTerm label="Candidate kind" value={candidateKind} />
+        <DetailTerm label="Status" value={item.status} />
+        <DetailTerm label="Review state" value={reviewState} />
+        <DetailTerm label="Side effect" value={sideEffect} />
+        <DetailTerm label="Authority boundary" value={authorityBoundary} />
+        <DetailTerm label="Correction posture" value={correctionPosture} />
+        <DetailTerm label="Rejection posture" value={rejectionPosture} />
+        <DetailTerm label="Retention posture" value={retentionPosture} />
+        <DetailTerm label="Delete posture" value={deletePosture} />
+        <DetailTerm label="Confidence posture" value={confidencePosture} />
+        <DetailTerm label="Stale-state posture" value={staleState} />
+        <DetailTerm label="Next safe action" value={nextSafeAction} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Provenance refs: missing until memory review contract"
+        refs={item.provenance_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Source refs: missing until reviewed source binding"
+        refs={item.source_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing contracts: memory write, retention/delete, context injection"
+        refs={item.missing_contract_refs ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Item blockers: memory write and context injection not scoped"
+        items={item.blocked_states ?? []}
+      />
+      <RefList refs={item.evidence_refs ?? []} />
     </article>
   );
 }
@@ -347,6 +645,38 @@ function RefList({ refs }: { refs: string[] }) {
     <ul className="ref-list">
       {refs.map((ref) => (
         <li key={ref}>{ref}</li>
+      ))}
+    </ul>
+  );
+}
+
+function RefListWithFallback({
+  emptyLabel,
+  refs,
+}: {
+  emptyLabel: string;
+  refs: string[];
+}) {
+  if (refs.length === 0) {
+    return <p className="muted">{emptyLabel}</p>;
+  }
+  return <RefList refs={refs} />;
+}
+
+function InlineListWithFallback({
+  emptyLabel,
+  items,
+}: {
+  emptyLabel: string;
+  items: string[];
+}) {
+  if (items.length === 0) {
+    return <p className="muted">{emptyLabel}</p>;
+  }
+  return (
+    <ul className="ref-list">
+      {items.map((item) => (
+        <li key={item}>{item}</li>
       ))}
     </ul>
   );

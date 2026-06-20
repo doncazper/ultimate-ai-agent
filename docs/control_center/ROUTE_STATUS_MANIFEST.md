@@ -55,6 +55,7 @@ The JSON manifest covers these UAA-P0-007 surfaces:
 - Inbox
 - Action Inbox
 - Morning Briefing
+- Memory Review
 - Chat Shell
 - Plans
 - Models
@@ -80,6 +81,9 @@ The JSON manifest covers the current visible Control Center routes and actions:
   Memory, Local Runtime, Manual Smoke, Remote Workers, Mobile Planning, Plugin
   Governance, and Settings navigation
 - Action Preview submission
+- Action Inbox approval-envelope/state-change posture inspection
+- Morning Briefing source-readiness and missing-contract posture inspection
+- Memory Review candidate provenance/source/evidence posture inspection
 - Local detail-card selection
 - File Review approve/deny review-only local state
 

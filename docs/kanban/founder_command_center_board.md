@@ -9,13 +9,12 @@ Runtime Excellence and does not grant runtime authority. UAA-P1-011 is the
 readable-loop baseline; the next product slice starts from its proof chain and
 does not broaden runtime authority.
 
-FCC-MAC-001 and FCC-P0-002 have scoped implementation slices ready for review.
-The active implementation sequence after those slices is:
+FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, and FCC-P0-005 have
+scoped implementation slices ready for review. The active implementation
+sequence after those slices is:
 
-1. FCC-P0-004 Action Inbox approval envelopes.
-2. FCC-P0-003 Morning Briefing skeleton.
-3. FCC-P0-005 Memory Review Inbox contract and UI skeleton.
-4. Read-only email/calendar contracts later.
+1. Read-only email/calendar contracts later.
+2. Human-readable Evidence Timeline.
 
 Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
 and new runtime authority lanes are not allowed to displace this sequence
@@ -101,22 +100,25 @@ Safety notes: Frontend-only grouping must not imply completed backend flows.
 Blockers/dependencies: FCC-P0-001 defines the readable baseline; FCC-MAC-001
 keeps first-run/setup posture truthful.
 
-## Ready
-
 ### FCC-P0-004 - P0 - Action Inbox Contract And UI Skeleton
 
 Epic: Product/UX, Safety/Permissions
 
 Description: Define action proposal fields and an Action Inbox display for
-approve/edit/reject/defer review states.
+approval-envelope posture, state-change readiness, receipt/audit/idempotency
+refs, expiry posture, rollback/safe-disable posture, and next safe action
+labels.
 
-Repo areas likely touched: `src/ultimate_ai_agent/core/`,
-`apps/control-center/src/components/`, `tests/`,
+Repo areas likely touched: `src/ultimate_ai_agent/core/storage/`,
+`apps/control-center/src/components/`, `apps/control-center/src/api/types.ts`,
+`apps/control-center/src/mocks/controlCenterData.ts`, `tests/`,
+`docs/control_center/OPERATOR_SHELL_GAP_MAP.md`,
 `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`.
 
 Acceptance criteria: Action cards require safe refs, side-effect class, risk,
 authority boundary, approval requirement, evidence refs, idempotency, expiry,
-and rollback/safe-disable posture.
+rollback/safe-disable posture, receipt/audit refs where available or explicit
+missing-ref blockers, and no action execution controls.
 
 Required tests/verifiers: focused schema tests, `make frontend-check`,
 `.venv/bin/python scripts/verify_documentation_integrity.py`.
@@ -131,20 +133,26 @@ Blockers/dependencies: Builds on completed FCC-P0-001 baseline.
 Epic: Product/UX, Business Cofounder Workflows
 
 Description: Add a Today/Morning Briefing skeleton over existing status,
-route, plan, evidence, and blocked-state summaries.
+route, plan, evidence, source-readiness, stale-state, evidence-gap, missing
+contract, and blocked-state summaries.
 
 Repo areas likely touched: `apps/control-center/src/components/`,
 `apps/control-center/src/mocks/controlCenterData.ts`,
-`apps/control-center/src/api/types.ts`, `apps/control-center/src/App.test.tsx`.
+`apps/control-center/src/api/types.ts`, `apps/control-center/src/App.test.tsx`,
+`src/ultimate_ai_agent/core/storage/founder_loop.py`, and focused storage/API
+tests.
 
 Acceptance criteria: Briefing shows priorities, blockers, next safe actions,
-evidence gaps, and memory-review count using existing or mock-safe summaries.
+evidence gaps, source-readiness posture, stale-state posture, explicit missing
+email/calendar/notification contract refs, and memory-review count using
+existing or mock-safe summaries.
 
 Required tests/verifiers: `make frontend-check`,
 `.venv/bin/python scripts/verify_control_center_frontend.py`.
 
 Safety notes: No background generation, connector access, raw private content,
-or memory write.
+email/calendar access, source refresh, notification delivery, model/provider
+call, or memory write.
 
 Blockers/dependencies: FCC-P0-002 and FCC-P0-004.
 
@@ -152,24 +160,36 @@ Blockers/dependencies: FCC-P0-002 and FCC-P0-004.
 
 Epic: Memory/Knowledge, Business Cofounder Workflows
 
-Description: Add reviewed memory candidate shape for people, projects, deals,
-promises, corrections, and rejections.
+Description: Harden `/memory` as the storage-backed Founder Loop Memory Review
+surface using the existing read-only Today summary contract.
 
-Repo areas likely touched: `src/ultimate_ai_agent/core/memory/`,
-`apps/control-center/src/components/`, `tests/test_memory*.py`,
-`apps/control-center/src/App.test.tsx`.
+Repo areas likely touched: `src/ultimate_ai_agent/core/storage/`,
+`apps/control-center/src/components/`, `apps/control-center/src/api/types.ts`,
+`apps/control-center/src/mocks/controlCenterData.ts`,
+`apps/control-center/src/App.test.tsx`, focused Founder Loop storage/API tests,
+and Control Center route-status docs.
 
-Acceptance criteria: Memory candidates require provenance, source refs,
-evidence refs, review state, correction state, retention/delete posture, and
-safe summaries.
+Acceptance criteria: Memory candidates show provenance refs, source refs,
+evidence refs, review state, correction/rejection posture, retention/delete
+posture, confidence posture, stale-state posture, authority boundary, blocked
+states, and next safe action. Route paths, operation IDs, and side-effect
+classes remain unchanged.
 
-Required tests/verifiers: memory contract tests, redaction tests,
-`make frontend-check`.
+Required tests/verifiers: focused Founder Loop storage/API tests,
+`make frontend-check`, `.venv/bin/python scripts/verify_control_center_frontend.py`,
+OpenAPI/API manifest checks if contracts change, docs integrity, browser smoke
+for `/memory`, and `git diff --check`.
 
 Safety notes: Memory remains recall, not truth or authority. No automatic
-memory writes or context injection.
+memory writes, context injection, model/provider authority, connector writes,
+raw transcript/prompt/source display, background sync, delete execution, or
+production authority.
 
-Blockers/dependencies: Existing LocalMemoryStore policies.
+Blockers/dependencies: Decision capture, write policy binding,
+retention/delete contract, context-injection contract, CLI inspection path, and
+durable receipt binding remain future scoped work.
+
+## Ready
 
 ### FCC-P1-006 - P1 - Human-Readable Evidence Timeline
 

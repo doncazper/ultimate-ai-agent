@@ -15,6 +15,7 @@ import {
   READ_ENDPOINTS,
 } from "./api/endpoints";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
+import { mockControlCenterData } from "./mocks/controlCenterData";
 import { primaryNavItems, supportingNavItems } from "./routes";
 
 function mockFetchWithFallback() {
@@ -164,7 +165,7 @@ describe("Web Control Center shell", () => {
       ["/files", /File Reference Viewer/i],
       ["/files/review", /File Review Surface/i],
       ["/context/proposals", /Context Proposal Surface/i],
-      ["/memory", /Memory Viewer/i],
+      ["/memory", /^Memory Review$/i],
       ["/storage", /^Storage$/i],
       ["/runtime/local", /Local Runtime Status/i],
       ["/runtime/manual-smoke", /Manual Smoke Control Surface/i],
@@ -229,6 +230,97 @@ describe("Web Control Center shell", () => {
       /^approve$/i,
       /^run$/i,
       /^install$/i,
+    ]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+  });
+
+  it("renders Action Inbox approval-envelope posture without mutation controls", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Actions$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /State posture/i })).toBeInTheDocument();
+    expect(screen.getByText("/control-center/actions/inbox")).toBeInTheDocument();
+    expect(screen.getByText("Exact backend approval contract required")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Local prerequisites/i })).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/storage/status")).toBeInTheDocument();
+    expect(screen.getByText("status-ref:control-center-route-manifest")).toBeInTheDocument();
+    expect(screen.getByText("capability-ref:local-approval-authority")).toBeInTheDocument();
+
+    expect(screen.getByText("approval-envelope:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(screen.getByText("dry_run_ref_available")).toBeInTheDocument();
+    expect(screen.getByText("contract-ref:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(screen.getByText("blocked_pending_scoped_mutation_contract")).toBeInTheDocument();
+    expect(screen.getByText("receipt-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(screen.getByText("audit-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(screen.getByText("idempotency-ref:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(screen.getByText("rollback-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(screen.getByText("safe-disable:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Review refs only; request a scoped state-change milestone/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Receipt refs: missing until scoped contract")).toBeInTheDocument();
+    expect(screen.getByText("no_approval_grant_capture_route")).toBeInTheDocument();
+    expect(screen.getByText("no_state_change_contract_route")).toBeInTheDocument();
+
+    for (const label of [
+      /^approve$/i,
+      /^send$/i,
+      /^run$/i,
+      /^install$/i,
+      /^connect$/i,
+      /^write$/i,
+    ]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+  });
+
+  it("renders Morning Briefing source-readiness posture without source controls", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/briefing");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Morning Briefing/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Source posture/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Missing contracts/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByText("/control-center/morning-briefing/summary").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("blocked_missing_email_calendar_notification_contracts"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("status-ref:control-center-route-manifest")).toBeInTheDocument();
+    expect(screen.getAllByText("contract-ref:email-read-only-missing").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("contract-ref:calendar-read-only-missing").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:notification-delivery-missing").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("source-ref:control-center-route-status")).toBeInTheDocument();
+    expect(screen.getByText("local_status_refs_only")).toBeInTheDocument();
+    expect(screen.getByText("recheck_route_status_before_briefing_use")).toBeInTheDocument();
+    expect(
+      screen.getByText(/No email, calendar, or notification source evidence is bound/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Use route and storage refs only; define source contracts before refresh/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("no_background_refresh").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_notification_delivery").length).toBeGreaterThan(0);
+
+    for (const label of [
+      /^refresh$/i,
+      /^send$/i,
+      /^connect$/i,
+      /^write$/i,
+      /^approve$/i,
+      /^run$/i,
+      /^notify$/i,
     ]) {
       expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
     }
@@ -1553,40 +1645,100 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("renders M17 memory summaries as recall and never authority", async () => {
+  it("renders Memory Review as a review-only inbox with explicit memory authority blockers", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/memory");
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /Memory Viewer/i }),
+      await screen.findByRole("heading", { name: /^Memory Review$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Review posture/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Missing contracts/i })).toBeInTheDocument();
+    expect(screen.getByText("/memory")).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /control-center/today/summary"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("storage_backed_review_queue")).toBeInTheDocument();
+    expect(
+      screen.getByText("founder-loop-storage:mock-local-sqlite-jsonl"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Memory is recall, not authority/i),
-    ).toBeInTheDocument();
+      screen.getByText("Memory writes").nextElementSibling,
+    ).toHaveTextContent("disabled");
+    expect(
+      screen.getByText("Memory deletes").nextElementSibling,
+    ).toHaveTextContent("disabled");
+    expect(
+      screen.getByText("Context injection").nextElementSibling,
+    ).toHaveTextContent("disabled");
     expect(
       screen.getByText(
-        /Canonical files and governed source systems outrank memory/i,
+        /Review-only memory candidates; recall is not truth/i,
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("mock_memory_ref_001").length).toBeGreaterThan(
-      0,
-    );
-    // Each memory row reflects its own item's staleness/conflict, not a hardcoded placeholder.
-    expect(screen.getAllByText(/Marked stale/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Review freshness/i)).toBeInTheDocument();
     expect(
-      screen.queryByText(/source conflict flagged/i),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/Conflict indicator/i)).toBeInTheDocument();
+      screen.getByText(/Memory review is inspection-only/i),
+    ).toBeInTheDocument();
     expect(
-      screen.getByText(/Memory detail is redacted summary metadata only/i),
+      screen.getByText("memory-review:founder-loop-preferences"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("operator_preference")).toBeInTheDocument();
+    expect(screen.getAllByText("review_needed").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("correction_requires_scoped_memory_write_contract"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("rejection_is_review_state_only_until_capture_contract"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("retention_policy_not_bound")).toBeInTheDocument();
+    expect(screen.getByText("delete_execution_not_scoped")).toBeInTheDocument();
+    expect(screen.getByText("safe_summary_unverified")).toBeInTheDocument();
+    expect(
+      screen.getByText("recheck_source_refs_before_memory_use"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("provenance-ref:founder-loop-memory:mock-preferences"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("source-ref:founder-loop-storage").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:memory-write-policy-binding-missing").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:memory-retention-delete-missing").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:memory-review-decision-capture-missing").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:context-injection-missing").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_memory_write").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_context_injection").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_memory_delete").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_raw_source_display").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_connector_write").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("no_model_provider_authority").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_background_sync").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Review provenance and evidence refs/i),
     ).toBeInTheDocument();
 
     for (const label of [
-      /edit memory/i,
-      /delete memory/i,
-      /save memory/i,
+      /^accept$/i,
+      /^correct$/i,
+      /^reject$/i,
+      /^retain$/i,
+      /^delete$/i,
+      /^write$/i,
+      /^inject$/i,
+      /^approve$/i,
+      /^run$/i,
+      /^sync$/i,
+      /^export$/i,
+      /^save$/i,
       /learn this/i,
       /forget this/i,
     ]) {
@@ -1595,11 +1747,14 @@ describe("Web Control Center shell", () => {
       ).not.toBeInTheDocument();
     }
     expect(screen.queryByText(/raw memory content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw transcript/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw source/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/authoritative truth/i)).not.toBeInTheDocument();
   });
 
   it("keeps alternate M17 metadata selection read-only and redacted", async () => {
-    for (const route of ["/evidence", "/files", "/memory"]) {
+    for (const route of ["/evidence", "/files"]) {
       cleanup();
       mockFetchWithFallback();
       window.history.pushState({}, "", route);
@@ -1618,9 +1773,7 @@ describe("Web Control Center shell", () => {
       const expectedRef =
         route === "/evidence"
           ? "mock_evidence_ref_002"
-          : route === "/files"
-            ? "mock_file_ref_002"
-            : "mock_memory_ref_002";
+          : "mock_file_ref_002";
       expect(
         screen.getAllByRole("heading", { name: expectedRef }).length,
       ).toBeGreaterThan(0);
@@ -1657,6 +1810,9 @@ describe("Web Control Center shell", () => {
       ).not.toBeInTheDocument();
       expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
     }
+    expect(mockControlCenterData.m17Knowledge.memories[1].memoryRef).toBe(
+      "mock_memory_ref_002",
+    );
   });
 
   it("renders M18 local runtime status as read-only validation-only metadata", async () => {
@@ -2410,11 +2566,27 @@ const mockApiData = {
         safe_summary: "Bounded action summary.",
         surface: "Actions",
         priority: "high",
+        risk_class: "high",
         status: "review_ready",
         side_effect_class: "validation_only",
+        authority_boundary:
+          "Review-only display; Python Agent Core and LocalApprovalAuthority must validate exact scope before mutation.",
         approval_required: true,
+        approval_envelope_ref: "approval-envelope:founder-loop:test",
+        approval_envelope_status: "dry_run_ref_available",
+        state_change_contract_ref: "contract-ref:founder-loop:test",
+        state_change_readiness: "blocked_pending_scoped_mutation_contract",
         blocked_state: "Scoped backend contract required",
         evidence_refs: ["evidence-ref:founder-loop:test-action"],
+        receipt_refs: ["receipt-plan:founder-loop:test"],
+        audit_refs: ["audit-plan:founder-loop:test"],
+        idempotency_key_ref: "idempotency-ref:founder-loop:test",
+        expires_at: "review_required_before_mutation",
+        stale_state: "recheck_action_summary_before_mutation",
+        rollback_ref: "rollback-plan:founder-loop:test",
+        safe_disable_ref: "safe-disable:founder-loop:test",
+        next_safe_action:
+          "Review refs only; request a scoped state-change milestone before mutation.",
       },
     ],
     plans: [
@@ -2432,16 +2604,89 @@ const mockApiData = {
         review_ref: "memory-review:test",
         title: "Memory review",
         safe_summary: "Bounded memory summary.",
+        candidate_kind: "operator_preference",
+        priority: "high",
         status: "review_needed",
+        review_state: "review_needed",
+        side_effect_class: "local_dev_workspace_only",
+        authority_boundary:
+          "Review-only memory candidate; recall is not truth, and writes, deletes, and context injection remain unscoped.",
+        provenance_refs: ["provenance-ref:founder-loop-memory:test"],
+        source_refs: ["source-ref:founder-loop-storage"],
+        missing_contract_refs: [
+          "contract-ref:memory-write-policy-binding-missing",
+          "contract-ref:memory-retention-delete-missing",
+          "contract-ref:memory-review-decision-capture-missing",
+          "contract-ref:context-injection-missing",
+        ],
+        correction_posture: "correction_requires_scoped_memory_write_contract",
+        rejection_posture: "rejection_is_review_state_only_until_capture_contract",
+        retention_posture: "retention_policy_not_bound",
+        delete_posture: "delete_execution_not_scoped",
+        confidence_posture: "safe_summary_unverified",
+        stale_state: "recheck_source_refs_before_memory_use",
+        blocked_states: [
+          "no_memory_write",
+          "no_context_injection",
+          "no_memory_delete",
+          "no_raw_source_display",
+          "no_connector_write",
+          "no_model_provider_authority",
+          "no_background_sync",
+        ],
+        next_safe_action:
+          "Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.",
         evidence_refs: ["evidence-ref:founder-loop:test-memory"],
       },
+    ],
+    memory_review_route_ref: "/memory",
+    memory_review_backend_route_ref: "GET /control-center/today/summary",
+    memory_review_status: "storage_backed_review_queue",
+    memory_review_authority_boundary:
+      "Review-only memory candidates; recall is not truth, and writes, deletes, context injection, connector writes, model/provider calls, and background sync are unscoped.",
+    memory_write_enabled: false,
+    memory_delete_enabled: false,
+    context_injection_enabled: false,
+    memory_review_missing_contract_refs: [
+      "contract-ref:memory-write-policy-binding-missing",
+      "contract-ref:memory-retention-delete-missing",
+      "contract-ref:memory-review-decision-capture-missing",
+      "contract-ref:context-injection-missing",
+    ],
+    memory_review_blocked_states: [
+      "no_memory_write",
+      "no_context_injection",
+      "no_memory_delete",
+      "no_raw_source_display",
+      "no_connector_write",
+      "no_model_provider_authority",
+      "no_background_sync",
     ],
     briefing_items: [
       {
         briefing_ref: "briefing:test",
         title: "Briefing item",
         safe_summary: "Bounded briefing summary.",
+        priority: "high",
         status: "active",
+        side_effect_class: "local_dev_workspace_only",
+        authority_boundary:
+          "Review-only briefing summary; source reads and delivery remain unscoped.",
+        source_readiness: "local_status_refs_only",
+        source_refs: ["source-ref:control-center-route-status"],
+        missing_contract_refs: [
+          "contract-ref:email-read-only-missing",
+          "contract-ref:calendar-read-only-missing",
+          "contract-ref:notification-delivery-missing",
+        ],
+        blocked_states: [
+          "no_email_calendar_source_contract",
+          "no_background_refresh",
+        ],
+        stale_state: "recheck_route_status_before_briefing_use",
+        evidence_gap: "No email, calendar, or notification source evidence is bound.",
+        next_safe_action:
+          "Use route and storage refs only; define source contracts before refresh.",
         evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
       },
     ],
@@ -2454,6 +2699,19 @@ const mockApiData = {
     surface: "Actions",
     storage_ref: "founder-loop-storage:test",
     side_effect_class: "local_dev_workspace_only",
+    route_ref: "/control-center/actions/inbox",
+    read_only_route_refs: [
+      "GET /control-center/actions/inbox",
+      "GET /control-center/storage/status",
+      "GET /control-center/routes",
+      "GET /control-center/runtime-readiness/summary",
+      "GET /control-center/foundation-gate/summary",
+    ],
+    local_prerequisite_refs: [
+      "status-ref:founder-loop-storage",
+      "status-ref:control-center-route-manifest",
+      "capability-ref:local-approval-authority",
+    ],
     items: [
       {
         item_ref: "founder-action:test",
@@ -2461,17 +2719,38 @@ const mockApiData = {
         safe_summary: "Bounded action summary.",
         surface: "Actions",
         priority: "high",
+        risk_class: "high",
         status: "review_ready",
         side_effect_class: "validation_only",
+        authority_boundary:
+          "Review-only display; Python Agent Core and LocalApprovalAuthority must validate exact scope before mutation.",
         approval_required: true,
+        approval_envelope_ref: "approval-envelope:founder-loop:test",
+        approval_envelope_status: "dry_run_ref_available",
+        state_change_contract_ref: "contract-ref:founder-loop:test",
+        state_change_readiness: "blocked_pending_scoped_mutation_contract",
         blocked_state: "Scoped backend contract required",
         evidence_refs: ["evidence-ref:founder-loop:test-action"],
+        receipt_refs: ["receipt-plan:founder-loop:test"],
+        audit_refs: ["audit-plan:founder-loop:test"],
+        idempotency_key_ref: "idempotency-ref:founder-loop:test",
+        expires_at: "review_required_before_mutation",
+        stale_state: "recheck_action_summary_before_mutation",
+        rollback_ref: "rollback-plan:founder-loop:test",
+        safe_disable_ref: "safe-disable:founder-loop:test",
+        next_safe_action:
+          "Review refs only; request a scoped state-change milestone before mutation.",
       },
     ],
     approval_required_before_mutation: true,
     mutating_controls_enabled: false,
     disabled_state_label: "Exact backend approval contract required",
     evidence_refs: ["evidence-ref:founder-loop:test-inbox"],
+    blocked_states: [
+      "no_action_execution_route",
+      "no_approval_grant_capture_route",
+      "no_state_change_contract_route",
+    ],
   },
   founderMorningBriefing: {
     schema_version: "founder_loop_storage.v1",
@@ -2479,17 +2758,68 @@ const mockApiData = {
     surface: "Morning Briefing",
     storage_ref: "founder-loop-storage:test",
     side_effect_class: "local_dev_workspace_only",
+    route_ref: "/control-center/morning-briefing/summary",
+    read_only_route_refs: [
+      "GET /control-center/morning-briefing/summary",
+      "GET /control-center/storage/status",
+      "GET /control-center/routes",
+      "GET /control-center/runtime-readiness/summary",
+      "GET /control-center/foundation-gate/summary",
+    ],
+    local_prerequisite_refs: [
+      "status-ref:founder-loop-storage",
+      "status-ref:control-center-route-manifest",
+      "contract-ref:email-read-only-missing",
+      "contract-ref:calendar-read-only-missing",
+      "contract-ref:notification-delivery-missing",
+    ],
+    source_readiness: "blocked_missing_email_calendar_notification_contracts",
+    authority_boundary:
+      "Read-only briefing summary; no email, calendar, connector, refresh, notification, model, memory, or delivery authority.",
+    bounded_preview_only: true,
+    refresh_enabled: false,
+    notification_delivery_enabled: false,
+    missing_contract_refs: [
+      "contract-ref:email-read-only-missing",
+      "contract-ref:calendar-read-only-missing",
+      "contract-ref:notification-delivery-missing",
+    ],
     items: [
       {
         briefing_ref: "briefing:test",
         title: "Briefing item",
         safe_summary: "Bounded briefing summary.",
+        priority: "high",
         status: "active",
+        side_effect_class: "local_dev_workspace_only",
+        authority_boundary:
+          "Review-only briefing summary; source reads and delivery remain unscoped.",
+        source_readiness: "local_status_refs_only",
+        source_refs: ["source-ref:control-center-route-status"],
+        missing_contract_refs: [
+          "contract-ref:email-read-only-missing",
+          "contract-ref:calendar-read-only-missing",
+          "contract-ref:notification-delivery-missing",
+        ],
+        blocked_states: [
+          "no_email_calendar_source_contract",
+          "no_background_refresh",
+        ],
+        stale_state: "recheck_route_status_before_briefing_use",
+        evidence_gap: "No email, calendar, or notification source evidence is bound.",
+        next_safe_action:
+          "Use route and storage refs only; define source contracts before refresh.",
         evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
       },
     ],
     evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
-    blocked_states: ["no_email_read_authority"],
+    blocked_states: [
+      "no_email_read_authority",
+      "no_calendar_read_authority",
+      "no_connector_runtime",
+      "no_background_refresh",
+      "no_notification_delivery",
+    ],
   },
   founderStorageStatus: {
     schema_version: "founder_loop_storage.v1",

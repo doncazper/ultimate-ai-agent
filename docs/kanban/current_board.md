@@ -20,14 +20,14 @@ Operator Runtime Excellence work. `UAA-P1-011` is the accepted readable-loop
 baseline for the next Founder Command Center tasks; broader product surfaces
 remain separately scoped.
 
-Founder Command Center state: macOS Setup Assistant hardening and first
-product-loop readability have scoped implementation slices ready for review.
-Next-lane order after those slices:
+Founder Command Center state: macOS Setup Assistant hardening, first
+product-loop readability, Action Inbox approval-envelope/state-change posture,
+Morning Briefing source-readiness posture, and Memory Review candidate-review
+posture have scoped implementation slices ready for review. Next-lane order
+after those slices:
 
-1. Action Inbox approval envelopes.
-2. Morning Briefing skeleton.
-3. Memory Review Inbox contract and UI skeleton.
-4. Read-only email/calendar contracts later.
+1. Read-only email/calendar contracts later.
+2. Human-readable Evidence Timeline.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -56,24 +56,20 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-UAA-P1-020 PolicyEngine consolidation map
-Goal: map every policy/approval decision path before broadening product
-authority.
-Gate: every policy/approval decision path is identified; parallel authority
-shortcuts are removed or explicitly blocked.
+No active foundation build item. Pull UAA-P1-058 from Ready Next only after
+UAA-P1-020, UAA-P1-021, UAA-P1-052, Foundation Gate, OpenAPI, and
+/api/manifest checks are green on the target branch.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-021 FastAPI route grouping and side-effect classes
-Gate: route owners, service modules, auth posture, side-effect classes, risk
-classes, OpenAPI operation IDs, and release status remain consistent.
-
-UAA-P1-052 API service-module extraction plan
-Gate: module split plan covers health, manifest, local model gateway, task
-decomposition, workspace files, approvals, evidence/receipts, observability,
-extensions, and release verification without route-contract drift.
+UAA-P1-058 First low-risk API route-module extraction
+Goal: extract GET /health and GET /version into the accepted system service
+module without changing path behavior, auth posture, side-effect
+classification, API manifest, OpenAPI count, or operation IDs.
+Gate: UAA-P1-020, UAA-P1-021, and UAA-P1-052 stay accepted; Foundation Gate,
+OpenAPI, /api/manifest, and route-status checks remain green.
 ```
 
 ## Shaping
@@ -104,10 +100,6 @@ from being described as complete, production-ready, or publicly released.
 UAA-P1-022 Storage migration contract
 Goal: SQLite first, optional Postgres later, forward migrations, backup
 minimum set, verify, and offline restore.
-
-UAA-P1-058 First low-risk API route-module extraction
-Goal: extract one read-only route group without changing path behavior, auth
-posture, side-effect classification, API manifest, or operation IDs.
 
 UAA-P1-059 Route-module ownership tests
 Goal: future routes must declare owner, service module, side-effect class, risk,
@@ -176,6 +168,24 @@ Autonomous background sessions by default
 ## Done
 
 ```text
+UAA-P1-020 PolicyEngine consolidation map
+Gate met: current policy/approval decision paths are mapped by owner, input
+contract, gate, side-effect/risk behavior, evidence/ref behavior, tests, and
+allowed/blocked/parallel/missing/future-scoped posture in
+`docs/approvals/UAA_P1_020_POLICY_ENGINE_CONSOLIDATION_MAP.md`. Approval refs
+remain identifiers only, not authority.
+
+UAA-P1-021 FastAPI route grouping and side-effect classes
+Gate met: all 112 API paths are mapped by route group, owner, target service
+module, auth posture, side-effect class, risk class, operation ID posture, and
+release status in `docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md`.
+
+UAA-P1-052 API service-module extraction plan
+Gate met: target service modules, route families, dependency boundaries,
+registration pattern, tests, extraction order, no-route-drift rules, and first
+UAA-P1-058 candidate are documented in
+`docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md`.
+
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.
 
