@@ -106,7 +106,7 @@ The Python Agent Core remains the authority boundary.
 |---|---|---|
 | Product truth | Evidence-backed release claims and gap matrix | [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md) |
 | Catch-up loop | Human-reconciled loop for ChatGPT/Codex recommendations and peer-gap closure | [operator excellence loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
-| API contract | 107 OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
+| API contract | **108** OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
 | Governed web evidence | UAA-P1-063 status/request contract, allowlisted HTTPS GET envelope, bounded redacted preview, chatbot disclosure | [governed web evidence](docs/network/GOVERNED_WEB_EVIDENCE_V1.md), [M72 fetch tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md) |
 | Security posture | Reporting, severity, triage, redaction invariants | [SECURITY.md](SECURITY.md), [triage runbook](docs/security/SECURITY_TRIAGE_RUNBOOK.md) |
 | Operator shell | Gap map and product language rules for visible surfaces | [gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md) |

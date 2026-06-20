@@ -16,6 +16,7 @@ CONTROL_CENTER_ROUTES = [
     "/control-center/manifest",
     "/control-center/routes",
     "/control-center/runtime-readiness/summary",
+    "/control-center/setup-assistant/summary",
     "/control-center/status",
 ]
 
@@ -106,6 +107,13 @@ def build_control_center_manifest(baseline_version: str | None = None) -> Contro
                 "API route inventory summary only.",
                 ["/control-center/routes"],
             ),
+            _surface(
+                ControlCenterSurface.macos_setup_assistant,
+                ControlCenterCapabilityStatus.preview_only,
+                "macOS Setup Assistant dry-run summary only; no installer authority is exposed.",
+                ["/control-center/setup-assistant/summary"],
+                preview_only=True,
+            ),
             _surface(ControlCenterSurface.events, ControlCenterCapabilityStatus.available_read_only, "Event summaries only; raw event payloads are not exposed.", []),
             _surface(ControlCenterSurface.receipts, ControlCenterCapabilityStatus.available_read_only, "Receipt summaries only; raw receipts are not exposed.", []),
             _surface(ControlCenterSurface.model_runtime, ControlCenterCapabilityStatus.validation_only, "Model runtime status and validation summary only; no model call is made.", []),
@@ -127,6 +135,7 @@ def build_control_center_manifest(baseline_version: str | None = None) -> Contro
             "runtime_readiness_summary",
             "foundation_gate_summary",
             "approval_summary",
+            "setup_assistant_summary",
         ],
         blocked_capabilities=[
             "runtime_execution",

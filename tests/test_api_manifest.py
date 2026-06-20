@@ -37,6 +37,7 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned():
     assert "extension_activation_grant_records_exact_scope" in manifest["capabilities_declared"]
     assert "redacted_session_logging_local" in manifest["capabilities_declared"]
     assert "observability_safe_summary_api" in manifest["capabilities_declared"]
+    assert "control_center_setup_assistant_summary" in manifest["capabilities_declared"]
     assert "mattermost_agent_rooms_disabled_by_default" in manifest["capabilities_declared"]
     assert "mattermost_role_catalog" in manifest["capabilities_declared"]
     assert "mattermost_redacted_message_ingress" in manifest["capabilities_declared"]
@@ -60,12 +61,17 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert routes_by_path["/v1/chat/completions"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/tree/preview"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/read/preview"]["side_effect_class"] == "local_dev_workspace_only"
+    assert routes_by_path["/control-center/setup-assistant/summary"]["side_effect_class"] == (
+        "validation_only"
+    )
     assert "file_api_caller_selected_roots" in manifest["capabilities_blocked"]
     assert "file_api_raw_tree_paths" in manifest["capabilities_blocked"]
     assert "file_api_raw_content_write_payload" in manifest["capabilities_blocked"]
     assert "secret_api_raw_secret_values" in manifest["capabilities_blocked"]
     assert "local_loopback_default_bearer" in manifest["capabilities_blocked"]
     assert "local_loopback_raw_provider_payload_passthrough" in manifest["capabilities_blocked"]
+    assert "control_center_setup_installer_actions" in manifest["capabilities_blocked"]
+    assert "control_center_setup_model_downloads" in manifest["capabilities_blocked"]
     assert "task_decomposition_raw_request_echo" in manifest["capabilities_blocked"]
     assert "extension_catalog_callable_runtime" in manifest["capabilities_blocked"]
     assert "extension_catalog_runtime_import" in manifest["capabilities_blocked"]

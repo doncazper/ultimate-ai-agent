@@ -2266,6 +2266,9 @@ MATTERMOST_AGENT_ROOMS_ROUTES = {
     "/integrations/mattermost/roles/unbind",
     "/integrations/mattermost/status",
 }
+CONTROL_CENTER_SETUP_ASSISTANT_ROUTES = {
+    "/control-center/setup-assistant/summary",
+}
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
 M152_FORBIDDEN_BACKEND_ROUTES = M150_FORBIDDEN_BACKEND_ROUTES + (
     "/hf/search",
@@ -2440,6 +2443,7 @@ def _post_m151_route_boundary_path_set(paths: Iterable[str]) -> set[str]:
     path_set.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
     path_set.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
     path_set.difference_update(MATTERMOST_AGENT_ROOMS_ROUTES)
+    path_set.difference_update(CONTROL_CENTER_SETUP_ASSISTANT_ROUTES)
     path_set.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
     return path_set
 
@@ -8581,7 +8585,7 @@ class FoundationGateEvaluator:
                 f"boundary: expected {EXPECTED_M36_OPENAPI_PATH_COUNT}, found {len(historical_paths)}"
             )
         control_center_routes = [path for path in paths if path.startswith("/control-center")]
-        if len(control_center_routes) != 8:
+        if len(control_center_routes) != 9:
             failures.append(f"unexpected Control Center route count: {len(control_center_routes)}")
         forbidden = [
             "/control-center/actions/execute",

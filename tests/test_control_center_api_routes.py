@@ -36,6 +36,7 @@ def test_control_center_api_routes_are_read_only_preview_only():
         "/control-center/approvals/summary",
         "/control-center/runtime-readiness/summary",
         "/control-center/foundation-gate/summary",
+        "/control-center/setup-assistant/summary",
     ]:
         response = client.get(path)
         assert response.status_code == 200
@@ -44,6 +45,72 @@ def test_control_center_api_routes_are_read_only_preview_only():
     manifest = client.get("/control-center/manifest").json()["data"]
     assert manifest["metadata"]["frontend_implemented"] is False
     assert "runtime_execution" in manifest["blocked_capabilities"]
+
+
+def test_control_center_setup_assistant_summary_is_dry_run_only():
+    response = client.get("/control-center/setup-assistant/summary")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_setup_assistant_summary"
+    assert body["redactions_applied"] == ["setup_summary_only", "raw_logs_omitted"]
+
+    data = body["data"]
+    assert data["status"] == "dry_run_only"
+    assert data["macos_first"] is True
+    assert data["local_first"] is True
+    assert data["disabled_by_default"] is True
+    assert data["installer_side_effects_enabled"] is False
+    assert data["native_macos_app_ready"] is False
+    assert data["setup_question_assistant_enabled"] is False
+    assert data["model_output_authoritative"] is False
+
+    for step in data["steps"]:
+        assert step["state_change_allowed"] is False
+        assert step["state_change_performed"] is False
+        assert step["terminal_command_executed"] is False
+        assert step["model_download_performed"] is False
+        assert step["launch_agent_changed"] is False
+        assert step["background_service_changed"] is False
+        assert step["raw_log_stored"] is False
+        assert step["raw_prompt_stored"] is False
+        assert step["credential_material_stored"] is False
+        assert step["model_output_authoritative"] is False
+        assert step["receipt_ref"]
+        assert step["rollback_ref"]
+        for line in step["log_preview"]:
+            assert 0 < len(line) <= 400
+
+    approval_steps = [step for step in data["steps"] if step["approval_required"]]
+    assert approval_steps
+    for step in approval_steps:
+        assert step["approval_ref"]
+        assert step["receipt_ref"]
+        assert step["rollback_ref"]
+
+    for recommendation in data["model_recommendations"]:
+        assert recommendation["approval_required_before_download"] is True
+        assert recommendation["model_download_performed"] is False
+        assert recommendation["model_file_read_performed"] is False
+        assert recommendation["model_call_performed"] is False
+        assert recommendation["raw_model_url_included"] is False
+        assert recommendation["raw_local_path_included"] is False
+
+    receipt_plan = data["receipt_plan"]
+    assert receipt_plan["receipt_created"] is False
+    assert receipt_plan["audit_event_created"] is False
+    assert receipt_plan["raw_log_stored"] is False
+    assert receipt_plan["raw_prompt_stored"] is False
+    assert receipt_plan["raw_provider_payload_stored"] is False
+    assert receipt_plan["credential_material_stored"] is False
+
+    rollback_plan = data["rollback_plan"]
+    assert rollback_plan["rollback_available_after_approval"] is True
+    assert rollback_plan["rollback_executed"] is False
+    assert rollback_plan["launch_agent_removed"] is False
+    assert rollback_plan["model_files_removed"] is False
+    assert rollback_plan["config_removed"] is False
 
 
 def test_control_center_action_preview_api_denies_execute_and_does_not_echo_secret():
@@ -82,6 +149,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
         "/control-center/approvals/summary",
         "/control-center/runtime-readiness/summary",
         "/control-center/foundation-gate/summary",
+        "/control-center/setup-assistant/summary",
         "/control-center/actions/preview",
     }
     assert required.issubset(paths)
@@ -110,8 +178,8 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
     assert "/observability/session-events" in paths
     assert "/observability/client-errors" in paths
     assert "/integrations/mattermost/events/message" in paths
-    assert len(paths) == 107
-    assert len(operation_ids) == len(set(operation_ids)) == 107
+    assert len(paths) == 108
+    assert len(operation_ids) == len(set(operation_ids)) == 108
 
 
 def test_control_center_operator_shell_gap_map_is_current_and_safe():
@@ -120,7 +188,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 107 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 108 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
@@ -130,6 +198,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
 
     for surface in [
         "chat shell",
+        "setup assistant",
         "plans",
         "models",
         "approvals",
@@ -149,6 +218,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
         "`post /files/read/preview`",
         "`get /observability/session-events`",
         "`post /observability/client-errors`",
+        "`get /control-center/setup-assistant/summary`",
         "`get /control-center/routes`",
     ]:
         assert route in compact
@@ -178,7 +248,7 @@ def test_control_center_route_status_manifest_covers_visible_actions():
 
     assert manifest["schema_version"] == "uaa-control-center-route-status.v1"
     assert manifest["status"] == "active UAA-P1-030 route status manifest"
-    assert manifest["openapi_path_count"] == 107
+    assert manifest["openapi_path_count"] == 108
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {
@@ -208,6 +278,7 @@ def test_control_center_route_status_manifest_covers_visible_actions():
         assert action["evidence_audit_output"]
 
     for action_id in [
+        "navigate-setup-assistant",
         "submit-action-preview",
         "select-local-detail-card",
         "toggle-review-only-file-decision",

@@ -16,6 +16,7 @@ import type {
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
 import { API_ENDPOINTS } from "./endpoints";
+import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 import { sanitizeForDisplay } from "./redaction";
 
 const API_BASE_POLICY = resolveApiBaseUrl(
@@ -70,6 +71,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<RuntimeCapabilityMatrix>(
       API_ENDPOINTS.runtimeCapabilityMatrix,
     ),
+    readEnvelope<unknown>(API_ENDPOINTS.setupAssistantSummary),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -78,6 +80,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const routes = fulfilledValue(results[3]);
   const runtimeReadiness = fulfilledValue(results[4]);
   const capabilityMatrix = fulfilledValue(results[5]);
+  const setupAssistant = normalizeMacOSSetupAssistant(
+    fulfilledValue(results[6]),
+    mockControlCenterData.macosSetupAssistant,
+  );
   const fulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
@@ -107,7 +113,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m18Runtime: mockControlCenterData.m18Runtime,
     m36FileReview: mockControlCenterData.m36FileReview,
     m39ContextProposals: mockControlCenterData.m39ContextProposals,
-    macosSetupAssistant: mockControlCenterData.macosSetupAssistant,
+    macosSetupAssistant: setupAssistant,
     source: "api",
     connection: mockControlCenterData.connection,
   };

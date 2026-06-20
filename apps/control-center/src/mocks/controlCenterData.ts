@@ -274,8 +274,8 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
     api_summary: {
-      route_count: 107,
-      control_center_route_count: 8,
+      route_count: 108,
+      control_center_route_count: 9,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -700,7 +700,7 @@ export const mockControlCenterData: ControlCenterData = {
     message: "Mock status fallback; no backend authority is implied.",
   },
   routes: {
-    route_count: 8,
+    route_count: 9,
     routes: [
       {
         path: "/control-center/manifest",
@@ -713,6 +713,13 @@ export const mockControlCenterData: ControlCenterData = {
         path: "/control-center/actions/preview",
         methods: ["POST"],
         operation_id: "preview_control_center_action",
+        tags: ["control-center"],
+        validation_only: true,
+      },
+      {
+        path: "/control-center/setup-assistant/summary",
+        methods: ["GET"],
+        operation_id: "get_control_center_setup_assistant_summary",
         tags: ["control-center"],
         validation_only: true,
       },

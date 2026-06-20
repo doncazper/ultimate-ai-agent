@@ -147,6 +147,9 @@ from ultimate_ai_agent.core.runtime_readiness import (
     build_runtime_health_status,
     validate_manual_smoke_report,
 )
+from ultimate_ai_agent.core.macos_setup_assistant import (
+    build_default_macos_setup_assistant_plan,
+)
 from ultimate_ai_agent.core.control_center import (
     ControlCenterActionPreviewRequest,
     build_control_center_dashboard,
@@ -1737,8 +1740,12 @@ def get_control_center_manifest():
 @app.get("/control-center/dashboard", response_model=ResultEnvelope)
 def get_control_center_dashboard():
     api_manifest = build_api_manifest(app)
+    control_center_route_count = sum(
+        1 for route in api_manifest.routes if route.path.startswith("/control-center")
+    )
     dashboard = build_control_center_dashboard(
         api_route_count=api_manifest.route_count,
+        control_center_route_count=control_center_route_count,
         foundation_gate_status="not_run_by_endpoint",
     )
     return ResultEnvelope(
@@ -1816,6 +1823,19 @@ def get_control_center_foundation_gate_summary():
         service="ControlCenterAPI",
         trace_id="system",
         data=dashboard.foundation_gate_summary.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/setup-assistant/summary", response_model=ResultEnvelope)
+def get_control_center_setup_assistant_summary():
+    plan = build_default_macos_setup_assistant_plan()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_setup_assistant_summary",
+        service="ControlCenterAPI",
+        trace_id=plan.plan_ref,
+        data=plan.model_dump(mode="json"),
+        redactions_applied=["setup_summary_only", "raw_logs_omitted"],
     )
 
 

@@ -943,8 +943,8 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 107:
-        failures.append("route status manifest must record the 107-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != 108:
+        failures.append("route status manifest must record the 108-path OpenAPI boundary")
 
     allowed_status_values = manifest.get("allowed_release_statuses", [])
     if not isinstance(allowed_status_values, list):
@@ -1226,7 +1226,7 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 107 openapi paths"
+            "api boundary: current fastapi manifest has 108 openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "

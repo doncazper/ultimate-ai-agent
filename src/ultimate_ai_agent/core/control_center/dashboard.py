@@ -66,7 +66,7 @@ class ApprovalSummary(BaseModel):
 
 class ApiSummary(BaseModel):
     route_count: int = Field(0, ge=0)
-    control_center_route_count: int = Field(8, ge=0)
+    control_center_route_count: int = Field(9, ge=0)
     operation_ids_unique: bool = True
     execution_routes_present: bool = False
 
@@ -288,6 +288,7 @@ class ControlCenterDashboardSnapshot(BaseModel):
 def build_control_center_dashboard(
     baseline_version: str | None = None,
     api_route_count: int = 0,
+    control_center_route_count: int = 9,
     foundation_gate_status: str = "unknown",
     env: Mapping[str, str] | None = None,
 ) -> ControlCenterDashboardSnapshot:
@@ -302,7 +303,10 @@ def build_control_center_dashboard(
         foundation_gate_summary=GateSummary(status=foundation_gate_status),
         runtime_readiness_summary=RuntimeReadinessSummary(),
         approval_summary=ApprovalSummary(),
-        api_summary=ApiSummary(route_count=api_route_count),
+        api_summary=ApiSummary(
+            route_count=api_route_count,
+            control_center_route_count=control_center_route_count,
+        ),
         remote_worker_summary=RemoteWorkerSummary(),
         private_mesh_summary=PrivateMeshSummary(),
         mobile_planning_summary=MobilePlanningSummary(),

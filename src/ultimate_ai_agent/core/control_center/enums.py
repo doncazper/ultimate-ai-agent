@@ -7,6 +7,7 @@ class ControlCenterSurface(str, Enum):
     runtime_readiness = "runtime_readiness"
     foundation_gate = "foundation_gate"
     api_routes = "api_routes"
+    macos_setup_assistant = "macos_setup_assistant"
     events = "events"
     receipts = "receipts"
     model_runtime = "model_runtime"

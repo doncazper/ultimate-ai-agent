@@ -1692,6 +1692,32 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/Mock fallback active/i)).not.toBeInTheDocument();
   });
 
+  it("renders setup assistant summary from the local backend when available", async () => {
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        throw new Error("unexpected preview request");
+      }
+      return new Response(
+        JSON.stringify(envelopeForReadEndpoint(String(url))),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/setup");
+    render(<App />);
+
+    expect(await screen.findByText("Backend online")).toBeInTheDocument();
+    expect(
+      screen.getByText("Backend API setup timeline"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("control-center:setup-assistant-api-test"),
+    ).toBeInTheDocument();
+  });
+
   it("shows degraded local backend state when only part of the read set succeeds", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (String(url).includes(API_ENDPOINTS.runtimeCapabilityMatrix)) {
@@ -1874,6 +1900,7 @@ function envelopeForReadEndpoint(url: string) {
       ...mockApiData.capabilityMatrix,
       baseline_version: "0.20.1",
     },
+    [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
   };
   const endpoint = Object.keys(data).find((candidate) =>
     url.endsWith(candidate),
@@ -1935,7 +1962,7 @@ const mockApiData = {
     },
     api_summary: {
       route_count: 93,
-      control_center_route_count: 8,
+      control_center_route_count: 9,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -1974,7 +2001,7 @@ const mockApiData = {
     message: "Local backend status only.",
   },
   routes: {
-    route_count: 8,
+    route_count: 9,
     routes: [
       {
         path: "/control-center/dashboard",
@@ -2004,6 +2031,85 @@ const mockApiData = {
     baseline_version: "0.20.1",
     metadata: { no_model_was_called: true },
     entries: [],
+  },
+  setupAssistantSummary: {
+    plan_ref: "macos-setup-plan:api-test",
+    status: "dry_run_only",
+    macos_first: true,
+    local_first: true,
+    disabled_by_default: true,
+    native_macos_app_ready: false,
+    control_center_preview_ready: true,
+    setup_question_assistant_enabled: false,
+    model_output_authoritative: false,
+    installer_side_effects_enabled: false,
+    visual_shell_ref: "control-center:setup-assistant-api-test",
+    steps: [
+      {
+        step_id: "macos-setup-step:api-summary",
+        label: "Backend API setup timeline",
+        kind: "first_launch",
+        status: "dry_run_only",
+        safe_summary: "Read-only setup summary from backend test fixture.",
+        route_refs: ["/control-center/setup-assistant/summary"],
+        detail_preview: ["bounded setup preview only"],
+        log_preview: ["no command executed"],
+        approval_required: false,
+        receipt_ref: "receipt-plan:macos-setup-api-summary",
+        rollback_ref: "rollback-plan:macos-setup-api-summary",
+        latency_ref: "latency-ref:macos-setup-api-summary",
+        reason_codes: ["MACOS_SETUP_SUMMARY_API_TEST"],
+        next_safe_action: "inspect_setup_plan",
+      },
+    ],
+    model_recommendations: [
+      {
+        recommendation_ref: "macos-setup-model-rec:api-test",
+        model_ref: "local-model-option:api-test",
+        display_name: "API test model class",
+        fit_summary: "Recommendation class only.",
+        recommended_for: "Frontend mapper test.",
+        memory_bucket: "ram:test",
+        disk_bucket: "disk:test",
+        privacy_summary: "No model call is made.",
+        approval_required_before_download: true,
+        selected_by_default: true,
+        reason_codes: ["MACOS_SETUP_MODEL_RECOMMENDATION_ONLY"],
+      },
+    ],
+    bridge_previews: [
+      {
+        bridge_ref: "macos-setup-bridge:api-test",
+        label: "API test bridge",
+        status: "approval_required",
+        safe_summary: "Bridge preview only.",
+        enablement_default: "disabled",
+        approval_required: true,
+        reason_codes: ["MACOS_SETUP_BRIDGE_DISABLED_BY_DEFAULT"],
+      },
+    ],
+    receipt_plan: {
+      receipt_plan_ref: "macos-setup-receipt-plan:api-test",
+      audit_ref: "macos-setup-audit:api-test",
+      latency_ref: "macos-setup-latency:api-test",
+      safe_summary: "Receipt preview only.",
+      receipt_created: false,
+      audit_event_created: false,
+      raw_log_stored: false,
+      raw_prompt_stored: false,
+      raw_provider_payload_stored: false,
+      credential_material_stored: false,
+    },
+    rollback_plan: {
+      rollback_plan_ref: "macos-setup-rollback-plan:api-test",
+      uninstall_ref: "macos-setup-uninstall:api-test",
+      safe_summary: "Rollback preview only.",
+      rollback_available_after_approval: true,
+      rollback_executed: false,
+    },
+    blocked_capabilities: ["macos-setup-model-download"],
+    next_steps: ["Review setup summary."],
+    morning_review_checklist: ["Confirm setup summary is dry-run only."],
   },
   m15Review: {
     status: "mock_preview_only",

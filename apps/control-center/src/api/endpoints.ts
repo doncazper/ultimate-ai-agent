@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   approvalSummary: "/control-center/approvals/summary",
   runtimeReadinessSummary: "/control-center/runtime-readiness/summary",
   foundationGateSummary: "/control-center/foundation-gate/summary",
+  setupAssistantSummary: "/control-center/setup-assistant/summary",
   runtimeReadiness: "/runtime/readiness",
   runtimeCapabilityMatrix: "/runtime/capability-matrix",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
@@ -28,6 +29,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.approvalSummary,
   API_ENDPOINTS.runtimeReadinessSummary,
   API_ENDPOINTS.foundationGateSummary,
+  API_ENDPOINTS.setupAssistantSummary,
   API_ENDPOINTS.runtimeReadiness,
   API_ENDPOINTS.runtimeCapabilityMatrix,
 ] as const;

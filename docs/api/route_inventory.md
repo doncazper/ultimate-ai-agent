@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.1**
 
-Current OpenAPI path count: `107`.
+Current OpenAPI path count: `108`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -89,6 +89,16 @@ Mattermost agent room roles. They expose safe refs, bounded previews, receipt
 refs, audit summaries, and reply-command proposals only. They do not persist raw
 transcripts, manage credentials or cookies, treat model output as authority, or
 perform unapproved connector writes.
+
+### Control Center setup assistant
+
+- `GET /control-center/setup-assistant/summary`
+
+This route returns the existing deterministic macOS Setup Assistant dry-run
+plan for read-only inspection. It does not run installer actions, shell
+commands, model downloads, LaunchAgent changes, background service changes,
+provider/model calls, credential handling, receipt creation, audit persistence,
+or rollback execution.
 
 ### Local model and runtime readiness
 

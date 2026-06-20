@@ -14,11 +14,13 @@ def test_control_center_manifest_is_read_only_preview_only_and_deterministic():
     assert ControlCenterSurface.approvals in surfaces
     assert ControlCenterSurface.runtime_readiness in surfaces
     assert ControlCenterSurface.foundation_gate in surfaces
+    assert ControlCenterSurface.macos_setup_assistant in surfaces
     assert ControlCenterSurface.plugin_governance in surfaces
 
     statuses = {surface.surface: surface.status for surface in manifest.surfaces}
     assert statuses[ControlCenterSurface.dashboard] == ControlCenterCapabilityStatus.available_read_only
     assert statuses[ControlCenterSurface.approvals] == ControlCenterCapabilityStatus.preview_only
+    assert statuses[ControlCenterSurface.macos_setup_assistant] == ControlCenterCapabilityStatus.preview_only
     assert statuses[ControlCenterSurface.remote_workers] == ControlCenterCapabilityStatus.validation_only
     assert statuses[ControlCenterSurface.private_mesh] == ControlCenterCapabilityStatus.planned_disabled
     assert statuses[ControlCenterSurface.mobile_planning] == ControlCenterCapabilityStatus.planned_disabled
@@ -40,6 +42,8 @@ def test_control_center_manifest_blocks_execution_capabilities():
     ]:
         assert forbidden in manifest.blocked_capabilities
     assert "execute capability" not in manifest.allowed_capabilities
+    assert "setup_assistant_summary" in manifest.allowed_capabilities
+    assert "/control-center/setup-assistant/summary" in manifest.route_refs
     assert "api_key='abcdefghijklmnop'" not in dump
     assert manifest.metadata["frontend_implemented"] is False
     assert manifest.metadata["production_control_center"] is False
