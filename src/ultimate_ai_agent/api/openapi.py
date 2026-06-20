@@ -128,6 +128,7 @@ def forbidden_raw_provider_schema_fields(schema: dict) -> list[str]:
 
 
 def configure_openapi_contract(app: FastAPI) -> None:
+    _register_safe_api_extensions(app)
     for route in app.routes:
         if not isinstance(route, APIRoute):
             continue
@@ -139,6 +140,12 @@ def configure_openapi_contract(app: FastAPI) -> None:
         route.tags = list(route.tags or [route_group_for_path(route.path)])
         route.summary = route.summary or route_summary(method, route.path)
     app.openapi_schema = None
+
+
+def _register_safe_api_extensions(app: FastAPI) -> None:
+    from ultimate_ai_agent.api.web_evidence import register_governed_web_evidence_routes
+
+    register_governed_web_evidence_routes(app)
 
 
 def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
@@ -169,6 +176,7 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
             ApiRouteSideEffectClass.none.value,
             ApiRouteSideEffectClass.validation_only.value,
             ApiRouteSideEffectClass.local_dev_workspace_only.value,
+            ApiRouteSideEffectClass.governed_network_read_only.value,
         }:
             errors.append(f"Unsafe side-effect class on {route.method} {route.path}")
         if not route.requires_auth_future:
