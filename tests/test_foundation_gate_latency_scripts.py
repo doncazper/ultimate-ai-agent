@@ -41,6 +41,27 @@ def _release_latency_result(
     }
 
 
+def _release_latency_measurement_prerequisites() -> dict[str, object]:
+    return {
+        "status": "passed",
+        "api_manifest_static_cache_primed": True,
+        "primed_route_ref": "GET /api/manifest",
+        "static_metadata_cache_only": True,
+        "authority_decisions_cached_for_speed": False,
+        "policy_decisions_cached_for_speed": False,
+        "approval_decisions_cached_for_speed": False,
+        "approval_state_cached_for_speed": False,
+        "foundation_gate_status_cached_for_speed": False,
+        "mutable_user_data_cached_for_speed": False,
+        "secret_material_cached_for_speed": False,
+        "request_body_recorded": False,
+        "response_body_recorded": False,
+        "raw_path_recorded": False,
+        "raw_log_recorded": False,
+        "reason_codes": [],
+    }
+
+
 def _release_latency_success_payload(
     *,
     path_results: list[dict[str, object]] | None = None,
@@ -62,6 +83,9 @@ def _release_latency_success_payload(
         "release_latency_overall_status": "passed",
         "release_latency_path_repeat": 1,
         "release_latency_path_warmup": 0,
+        "release_latency_measurement_prerequisites": (
+            _release_latency_measurement_prerequisites()
+        ),
         "release_latency_budget_definitions_ms": dict(
             benchmark_foundation_gate.RELEASE_LATENCY_BUDGETS_MS
         ),
@@ -88,6 +112,7 @@ def _release_latency_source_report() -> dict[str, object]:
         "path_repeat": 1,
         "path_warmup": 0,
         "overall_status": "passed",
+        "measurement_prerequisites": _release_latency_measurement_prerequisites(),
         "budget_definitions_ms": dict(
             benchmark_foundation_gate.RELEASE_LATENCY_BUDGETS_MS
         ),
@@ -162,6 +187,17 @@ def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch):
     assert metrics["release_latency_schema_version"] == "uaa_release_latency_baseline.v1"
     assert metrics["release_latency_path_repeat"] == 1
     assert metrics["release_latency_path_warmup"] == 0
+    prerequisites = metrics["release_latency_measurement_prerequisites"]
+    assert prerequisites["status"] == "passed"
+    assert prerequisites["api_manifest_static_cache_primed"] is True
+    assert prerequisites["static_metadata_cache_only"] is True
+    assert prerequisites["authority_decisions_cached_for_speed"] is False
+    assert prerequisites["policy_decisions_cached_for_speed"] is False
+    assert prerequisites["approval_decisions_cached_for_speed"] is False
+    assert prerequisites["approval_state_cached_for_speed"] is False
+    assert prerequisites["foundation_gate_status_cached_for_speed"] is False
+    assert prerequisites["mutable_user_data_cached_for_speed"] is False
+    assert prerequisites["secret_material_cached_for_speed"] is False
     assert metrics["release_latency_budget_definitions_ms"] == (
         benchmark_foundation_gate.RELEASE_LATENCY_BUDGETS_MS
     )
@@ -234,6 +270,54 @@ def test_performance_regression_markdown_includes_retention_guidance():
     assert "Budget Comparison" in markdown
     assert "Retention Guidance" in markdown
     assert "Machine identity, environment variables, raw paths" in markdown
+
+
+def test_release_latency_markdown_includes_measurement_prerequisites():
+    markdown = benchmark_foundation_gate._performance_markdown(
+        _release_latency_source_report()
+    )
+
+    assert "Measurement Prerequisites" in markdown
+    assert "Static metadata cache only: `True`" in markdown
+    assert "Authority decisions cached for speed: `False`" in markdown
+    assert "Secret material cached for speed: `False`" in markdown
+
+
+def test_release_latency_report_fails_failed_measurement_prerequisite(monkeypatch):
+    failed_prerequisites = _release_latency_measurement_prerequisites()
+    failed_prerequisites["status"] = "failed"
+    failed_prerequisites["api_manifest_static_cache_primed"] = False
+    failed_prerequisites["reason_codes"] = ["API_MANIFEST_STATIC_CACHE_PRIMER_FAILED"]
+
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_prime_release_latency_prerequisites",
+        lambda: failed_prerequisites,
+    )
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_measure_release_paths",
+        lambda *, repeat, warmup: [
+            _release_latency_result(path_id)
+            for path_id in sorted(
+                benchmark_foundation_gate.RELEASE_LATENCY_REQUIRED_PATH_IDS
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_measure_hot_paths",
+        lambda *, repeat, warmup: _hot_path_rows(),
+    )
+
+    metrics = benchmark_foundation_gate._benchmark_release_latency_paths(
+        repeat=1,
+        warmup=0,
+        write_report=False,
+    )
+
+    assert metrics["release_latency_overall_status"] == "failed"
+    assert metrics["release_latency_measurement_prerequisites"] == failed_prerequisites
 
 
 def test_hot_path_profile_report_is_timing_summary_only():
@@ -453,6 +537,62 @@ def test_release_latency_gate_allows_optional_skipped_prerequisite():
     )
 
     assert failures == []
+
+
+def test_release_latency_gate_requires_measurement_prerequisites():
+    payload = _release_latency_success_payload()
+    payload.pop("release_latency_measurement_prerequisites")
+
+    failures = (
+        check_foundation_gate_latency._release_latency_measurement_prerequisite_failures(
+            payload
+        )
+    )
+
+    assert failures == [
+        "release latency measurement prerequisites are missing or malformed"
+    ]
+
+
+def test_release_latency_gate_rejects_unsafe_primer_caching():
+    payload = _release_latency_success_payload()
+    prerequisites = dict(payload["release_latency_measurement_prerequisites"])
+    prerequisites["authority_decisions_cached_for_speed"] = True
+    prerequisites["mutable_user_data_cached_for_speed"] = True
+    payload["release_latency_measurement_prerequisites"] = prerequisites
+
+    failures = (
+        check_foundation_gate_latency._release_latency_measurement_prerequisite_failures(
+            payload
+        )
+    )
+
+    assert (
+        "release latency primer reports authority decisions cached for speed"
+        in failures
+    )
+    assert (
+        "release latency primer reports mutable user data cached for speed"
+        in failures
+    )
+
+
+def test_release_latency_gate_rejects_missing_explicit_false_primer_flag():
+    payload = _release_latency_success_payload()
+    prerequisites = dict(payload["release_latency_measurement_prerequisites"])
+    prerequisites.pop("secret_material_cached_for_speed")
+    payload["release_latency_measurement_prerequisites"] = prerequisites
+
+    failures = (
+        check_foundation_gate_latency._release_latency_measurement_prerequisite_failures(
+            payload
+        )
+    )
+
+    assert (
+        "release latency primer secret material cached for speed flag is not explicitly false"
+        in failures
+    )
 
 
 def test_foundation_gate_latency_summary_keeps_optional_skips_visible():

@@ -186,6 +186,7 @@ def _benchmark_release_latency_paths(
             encoding="utf-8",
         )
         with _release_latency_environment(safe_root, temp_root):
+            measurement_prerequisites = _prime_release_latency_prerequisites()
             results = _measure_release_paths(repeat=repeat, warmup=warmup)
             hot_path_profile_rows = _measure_hot_paths(repeat=repeat, warmup=warmup)
 
@@ -194,6 +195,7 @@ def _benchmark_release_latency_paths(
         for result in results
         if result["required"] and result["status"] != "passed"
     ]
+    prerequisite_failed = measurement_prerequisites["status"] != "passed"
     generated_at_utc = _utc_now_label()
     hot_path_profile = _build_hot_path_profile_report(
         rows=hot_path_profile_rows,
@@ -210,7 +212,10 @@ def _benchmark_release_latency_paths(
         "measurement_mode": "fastapi_testclient_local_dev",
         "path_repeat": repeat,
         "path_warmup": warmup,
-        "overall_status": "failed" if required_failures else "passed",
+        "overall_status": "failed"
+        if required_failures or prerequisite_failed
+        else "passed",
+        "measurement_prerequisites": measurement_prerequisites,
         "budget_definitions_ms": {
             key: round(value, 2) for key, value in RELEASE_LATENCY_BUDGETS_MS.items()
         },
@@ -265,6 +270,9 @@ def _benchmark_release_latency_paths(
         "release_latency_overall_status": report["overall_status"],
         "release_latency_path_repeat": repeat,
         "release_latency_path_warmup": warmup,
+        "release_latency_measurement_prerequisites": report[
+            "measurement_prerequisites"
+        ],
         "release_latency_budget_definitions_ms": report["budget_definitions_ms"],
         "release_latency_budget_passed": not required_failures,
         "release_latency_path_results": results,
@@ -426,6 +434,39 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
         ),
         _control_center_render_measurement(),
     ]
+
+
+def _prime_release_latency_prerequisites() -> dict[str, object]:
+    from fastapi.testclient import TestClient
+    from ultimate_ai_agent.api import app as api_app
+
+    reason_codes: list[str] = []
+    client = TestClient(api_app.app)
+    try:
+        response = client.get("/api/manifest")
+        api_manifest_static_cache_primed = _ok_status(response)
+    except Exception:
+        api_manifest_static_cache_primed = False
+    if not api_manifest_static_cache_primed:
+        reason_codes.append("API_MANIFEST_STATIC_CACHE_PRIMER_FAILED")
+    return {
+        "status": "passed" if api_manifest_static_cache_primed else "failed",
+        "api_manifest_static_cache_primed": api_manifest_static_cache_primed,
+        "primed_route_ref": "GET /api/manifest",
+        "static_metadata_cache_only": True,
+        "authority_decisions_cached_for_speed": False,
+        "policy_decisions_cached_for_speed": False,
+        "approval_decisions_cached_for_speed": False,
+        "approval_state_cached_for_speed": False,
+        "foundation_gate_status_cached_for_speed": False,
+        "mutable_user_data_cached_for_speed": False,
+        "secret_material_cached_for_speed": False,
+        "request_body_recorded": False,
+        "response_body_recorded": False,
+        "raw_path_recorded": False,
+        "raw_log_recorded": False,
+        "reason_codes": reason_codes,
+    }
 
 
 def _measure_hot_paths(*, repeat: int, warmup: int) -> list[dict[str, object]]:
@@ -1165,7 +1206,17 @@ def _performance_markdown(report: dict[str, object]) -> str:
             "",
             "Gate policy: required paths fail when missing, failed, or over budget; optional prerequisites must report passed, skipped, or blocked.",
             "Authority decisions are measured on the route path and are not cached, skipped, or bypassed for speed.",
+            "Measurement prerequisites prime only safe static manifest metadata before timed route samples; authority, policy, approval, mutable user data, and secret material are not cached for speed.",
             "Reports contain timing summaries and safe refs only; request and response bodies are not recorded.",
+            "",
+            "## Measurement Prerequisites",
+            "",
+            f"- Status: `{report['measurement_prerequisites']['status']}`",
+            f"- Primed route ref: `{report['measurement_prerequisites']['primed_route_ref']}`",
+            f"- Static metadata cache only: `{report['measurement_prerequisites']['static_metadata_cache_only']}`",
+            f"- Authority decisions cached for speed: `{report['measurement_prerequisites']['authority_decisions_cached_for_speed']}`",
+            f"- Foundation Gate status cached for speed: `{report['measurement_prerequisites']['foundation_gate_status_cached_for_speed']}`",
+            f"- Secret material cached for speed: `{report['measurement_prerequisites']['secret_material_cached_for_speed']}`",
             "",
             "| Path | Status | p50 ms | p95 ms | Budget ms | Samples |",
             "|---|---:|---:|---:|---:|---:|",

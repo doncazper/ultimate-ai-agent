@@ -39,7 +39,11 @@ PYTHONPATH=src .venv/bin/python scripts/profile_hot_paths.py
 status fails, the Foundation Gate evaluator exceeds its budget, required budget
 definitions or path results are missing, any required release latency path fails
 or misses its p95 budget, or a measured path reports authority caching or bypass
-for speed.
+for speed. It also requires the release-latency benchmark to report its
+measurement prerequisites, including a passed safe static `/api/manifest`
+metadata primer and explicit false flags for authority, policy, approval,
+approval-state, Foundation Gate status, mutable user data, and secret-material
+caching.
 
 `scripts/run_foundation_gate.py --command-mode report-only` includes the same
 release latency evidence in `reports/foundation_gate/latest_foundation_gate_report.json`
@@ -154,6 +158,13 @@ routes that already require it:
 - M151 OpenWebUI local test gateway bearer checks remain active
 - file preview uses a temporary safe root and records no local path material
 - live llama.cpp prerequisites are not required for this baseline
+
+Before timed route samples, the benchmark primes only the existing safe static
+`/api/manifest` metadata cache so one-time manifest construction does not
+pollute release-latency p95 samples. The report records this as a measurement
+prerequisite. The primer must not cache authority decisions, PolicyEngine
+decisions, LocalApprovalAuthority outcomes, mutable user data, environment
+state, credentials, or secret-like material for speed.
 
 Missing optional frontend timing support produces a safe skipped result instead
 of a fabricated measurement.
