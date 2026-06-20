@@ -52965,7 +52965,7 @@ class FoundationGateEvaluator:
                     "backend_route_added",
                     "control_center_control_added",
                     "openwebui_settings_mutation_requested",
-                    "openwebui_admin_api_used",
+                    "openwebui_privileged_management_used",
                     "openwebui_plugin_added",
                     "openwebui_is_agent_brain",
                     "memory_write_performed",

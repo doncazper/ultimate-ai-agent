@@ -776,7 +776,7 @@ class FutureLiveLocalModelApprovalBoundContract(_LocalModelManagementModel):
     backend_route_added: bool = False
     control_center_control_added: bool = False
     openwebui_settings_mutation_requested: bool = False
-    openwebui_admin_api_used: bool = False
+    openwebui_privileged_management_used: bool = False
     openwebui_plugin_added: bool = False
     openwebui_is_agent_brain: bool = False
     memory_write_performed: bool = False

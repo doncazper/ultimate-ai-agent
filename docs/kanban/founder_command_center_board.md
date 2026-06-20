@@ -9,9 +9,17 @@ Runtime Excellence and does not grant runtime authority. UAA-P1-011 is the
 readable-loop baseline; the next product slice starts from its proof chain and
 does not broaden runtime authority.
 
-The active implementation sequence is FCC-MAC-001, FCC-P0-002, FCC-P0-004,
-FCC-P0-003, then read-only email/calendar contracts later. Ready-section order
-is not authority to skip that sequence.
+The active implementation sequence is:
+
+1. FCC-MAC-001 macOS Setup Assistant hardening.
+2. FCC-P0-002 first product-loop readability.
+3. FCC-P0-004 Action Inbox approval envelopes.
+4. FCC-P0-003 Morning Briefing skeleton.
+5. Read-only email/calendar contracts later.
+
+Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
+and new runtime authority lanes are not allowed to displace this sequence
+without a separate scoped dependency, safety boundary, tests, and verifier plan.
 
 ## WIP Limits
 
@@ -95,28 +103,6 @@ keeps first-run/setup posture truthful.
 
 ## Ready
 
-### FCC-P0-003 - P0 - Morning Briefing Workflow Skeleton
-
-Epic: Product/UX, Business Cofounder Workflows
-
-Description: Add a Today/Morning Briefing skeleton over existing status,
-route, plan, evidence, and blocked-state summaries.
-
-Repo areas likely touched: `apps/control-center/src/components/`,
-`apps/control-center/src/mocks/controlCenterData.ts`,
-`apps/control-center/src/api/types.ts`, `apps/control-center/src/App.test.tsx`.
-
-Acceptance criteria: Briefing shows priorities, blockers, next safe actions,
-evidence gaps, and memory-review count using existing or mock-safe summaries.
-
-Required tests/verifiers: `make frontend-check`,
-`.venv/bin/python scripts/verify_control_center_frontend.py`.
-
-Safety notes: No background generation, connector access, raw private content,
-or memory write.
-
-Blockers/dependencies: FCC-P0-002.
-
 ### FCC-P0-004 - P0 - Action Inbox Contract And UI Skeleton
 
 Epic: Product/UX, Safety/Permissions
@@ -139,6 +125,28 @@ Safety notes: No execution path and no broad approval. Approve controls stay
 disabled or absent until exact backend binding is scoped.
 
 Blockers/dependencies: Builds on completed FCC-P0-001 baseline.
+
+### FCC-P0-003 - P0 - Morning Briefing Workflow Skeleton
+
+Epic: Product/UX, Business Cofounder Workflows
+
+Description: Add a Today/Morning Briefing skeleton over existing status,
+route, plan, evidence, and blocked-state summaries.
+
+Repo areas likely touched: `apps/control-center/src/components/`,
+`apps/control-center/src/mocks/controlCenterData.ts`,
+`apps/control-center/src/api/types.ts`, `apps/control-center/src/App.test.tsx`.
+
+Acceptance criteria: Briefing shows priorities, blockers, next safe actions,
+evidence gaps, and memory-review count using existing or mock-safe summaries.
+
+Required tests/verifiers: `make frontend-check`,
+`.venv/bin/python scripts/verify_control_center_frontend.py`.
+
+Safety notes: No background generation, connector access, raw private content,
+or memory write.
+
+Blockers/dependencies: FCC-P0-002 and FCC-P0-004.
 
 ### FCC-P0-005 - P0 - Memory Review Inbox Contract And UI Skeleton
 

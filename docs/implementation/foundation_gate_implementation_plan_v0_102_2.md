@@ -35,6 +35,17 @@ work. It may define surfaces, wording, inspection flows, memory layers,
 first-party integration lanes, and permission vocabulary, but it does not grant
 runtime authority by itself.
 
+## Skill Package Security Rule
+
+All skills are untrusted packages by default. Any future skill package requires
+a manifest, declared permissions, source/provenance metadata, static review,
+sandbox test execution, Tool Broker permission mapping, Event Ledger logging,
+version pinning, revocation/disable support, and human approval for high-risk capabilities before any future enablement.
+
+This baseline does not install, load, execute, import, grant credentials to, or
+autonomously trust skill packages. The rule is a Foundation Gate requirement,
+not runtime plugin or skill authority.
+
 ## Denials
 
 v0.102.2 does not allow production authority, public distribution, public beta,

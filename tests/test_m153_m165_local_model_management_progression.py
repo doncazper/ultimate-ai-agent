@@ -130,7 +130,7 @@ def test_m163_m165_future_live_contracts_are_complete_no_pending_disabled_record
         assert validated.backend_route_added is False
         assert validated.control_center_control_added is False
         assert validated.openwebui_settings_mutation_requested is False
-        assert validated.openwebui_admin_api_used is False
+        assert validated.openwebui_privileged_management_used is False
         assert validated.openwebui_plugin_added is False
         assert validated.openwebui_is_agent_brain is False
         assert validated.memory_write_performed is False
@@ -166,6 +166,7 @@ def test_m160_m165_disabled_contract_builder_remains_m163_m165_compat_alias() ->
         ({"server_started": True}, "M163_LLAMA_CPP_SERVER_DENIED"),
         ({"model_call_performed": True}, "M164_MODEL_CALL_DENIED"),
         ({"settings_applied": True}, "M165_SETTINGS_APPLY_DENIED"),
+        ({"openwebui_privileged_management_used": True}, "M164_OPENWEBUI_ADMIN_API_DENIED"),
         ({"openwebui_is_agent_brain": True}, "M164_OPENWEBUI_AUTHORITY_DENIED"),
     ],
 )

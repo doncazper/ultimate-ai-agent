@@ -20,6 +20,19 @@ Operator Runtime Excellence work. `UAA-P1-011` is the accepted readable-loop
 baseline for the next Founder Command Center tasks; broader product surfaces
 remain separately scoped.
 
+Founder Command Center next-lane order:
+
+1. macOS Setup Assistant hardening.
+2. First product-loop readability.
+3. Action Inbox approval envelopes.
+4. Morning Briefing skeleton.
+5. Read-only email/calendar contracts later.
+
+Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
+new runtime authority lanes must not displace this first product-loop sequence.
+They remain separate scoped work unless the current board explicitly promotes
+them with a product-loop dependency, safety boundary, tests, and verifier plan.
+
 ## WIP Limits
 
 ```text

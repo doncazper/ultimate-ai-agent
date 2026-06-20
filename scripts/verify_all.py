@@ -1096,14 +1096,10 @@ def verify_no_local_runtime_activation_implementation():
         "/model-runtime/local/generate",
         "/model-runtime/execute",
     }
-    historical_paths = set(paths)
-    historical_paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
-    historical_paths.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
-    historical_paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
-    if len(historical_paths) > 74:
-        historical_paths.discard("/files/review/approvals/capture")
-    if len(historical_paths) != 78:
-        print(f"FAIL: M22 expected OpenAPI path count 78, found {len(historical_paths)}")
+    from ultimate_ai_agent.core.gate.evaluators import m22_openapi_route_failures
+
+    for failure in m22_openapi_route_failures(paths):
+        print(f"FAIL: {failure}")
         sys.exit(1)
     forbidden_present = sorted(paths.intersection(forbidden_routes))
     if forbidden_present:
@@ -5049,33 +5045,16 @@ def verify_m39_ccc_context_proposal_surface_safety():
         sys.path.insert(0, str(ROOT))
         sys.path.insert(0, str(ROOT / "src"))
         from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.core.gate.evaluators import m39_openapi_route_failures
 
-        paths = set(app.openapi().get("paths", {}))
-        paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
-        paths.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
-        paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
+        route_failures = m39_openapi_route_failures(app.openapi().get("paths", {}))
     except Exception as exc:
         print(f"FAIL: M39 OpenAPI route validation failed: {exc}")
         sys.exit(1)
 
-    if len(paths) != 79:
-        print(f"FAIL: M39 normalized OpenAPI path count changed: expected 79, found {len(paths)}")
+    for failure in route_failures:
+        print(f"FAIL: M39 {failure}")
         sys.exit(1)
-    if "/files/review/approvals/capture" not in paths:
-        print("FAIL: M39 expected M37 review approval capture route is missing")
-        sys.exit(1)
-    for forbidden in [
-        "/context/propose",
-        "/context/inject",
-        "/context/handoff",
-        "/openwebui/handoff",
-        "/memory/write",
-        "/tools/execute",
-        "/tool-runtime/execute",
-    ]:
-        if forbidden in paths:
-            print(f"FAIL: M39 forbidden backend route present: {forbidden}")
-            sys.exit(1)
 
     print("OK: M39 CCC context proposal surface is frontend-only, review-only, safe-ref-only, and non-authoritative")
 
@@ -5144,6 +5123,7 @@ def verify_m40_context_handoff_approval_safety():
             FileReviewApprovalRecord,
             build_file_review_packet,
         )
+        from ultimate_ai_agent.core.gate.evaluators import m40_openapi_route_failures
         from ultimate_ai_agent.core.tools.runtime import (
             FilePreviewRedactionSummary,
             RedactedFilePreviewOutput,
@@ -5255,29 +5235,9 @@ def verify_m40_context_handoff_approval_safety():
             print("FAIL: M40 approval_test_ mutation probe did not fail closed")
             sys.exit(1)
 
-        paths = set(app.openapi().get("paths", {}))
-        paths.difference_update(M151_LOCAL_OPENWEBUI_TEST_ROUTES)
-        paths.difference_update(M167_REDACTED_OBSERVABILITY_ROUTES)
-        paths.difference_update(TASK_DECOMPOSITION_CANONICAL_ROUTES)
-        if len(paths) != 79:
-            print(f"FAIL: M40 normalized OpenAPI path count changed: expected 79, found {len(paths)}")
+        for failure in m40_openapi_route_failures(app.openapi().get("paths", {})):
+            print(f"FAIL: M40 {failure}")
             sys.exit(1)
-        if "/files/review/approvals/capture" not in paths:
-            print("FAIL: M40 expected M37 review approval capture route is missing")
-            sys.exit(1)
-        for forbidden in [
-            "/context/propose",
-            "/context/handoff",
-            "/context/handoff/approve",
-            "/context/inject",
-            "/openwebui/handoff",
-            "/memory/write",
-            "/tools/execute",
-            "/tool-runtime/execute",
-        ]:
-            if forbidden in paths:
-                print(f"FAIL: M40 forbidden backend route present: {forbidden}")
-                sys.exit(1)
     except Exception as exc:
         print(f"FAIL: M40 context handoff approval validation failed: {exc}")
         sys.exit(1)

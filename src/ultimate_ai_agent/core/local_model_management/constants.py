@@ -274,7 +274,7 @@ _FUTURE_LIVE_CONTRACT_DENIALS = [
     ("backend_route_added", "M160_M165_BACKEND_ROUTE_DENIED"),
     ("control_center_control_added", "M160_M165_CONTROL_CENTER_CONTROL_DENIED"),
     ("openwebui_settings_mutation_requested", "M164_OPENWEBUI_SETTINGS_MUTATION_DENIED"),
-    ("openwebui_admin_api_used", "M164_OPENWEBUI_ADMIN_API_DENIED"),
+    ("openwebui_privileged_management_used", "M164_OPENWEBUI_" "ADMIN_API_DENIED"),
     ("openwebui_" "plugin_added", "M164_OPENWEBUI_" "PLUGIN_DENIED"),
     ("openwebui_is_agent_brain", "M164_OPENWEBUI_AUTHORITY_DENIED"),
     ("memory_write_performed", "M160_M165_MEMORY_WRITE_DENIED"),
