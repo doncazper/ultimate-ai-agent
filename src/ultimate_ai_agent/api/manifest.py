@@ -37,6 +37,9 @@ CAPABILITIES_DECLARED = [
     "extension_activation_grant_records_exact_scope",
     "redacted_session_logging_local",
     "observability_safe_summary_api",
+    "governed_web_evidence_status",
+    "governed_web_evidence_allowlisted_https_get",
+    "governed_web_evidence_chatbot_disclosure",
 ]
 
 CAPABILITIES_BLOCKED = [
@@ -83,6 +86,13 @@ CAPABILITIES_BLOCKED = [
     "session_logging_os_wide_activity_monitoring",
     "session_logging_unbounded_read_all",
     "session_logging_forensic_raw_mode",
+    "governed_web_evidence_unrestricted_browsing",
+    "governed_web_evidence_browser_automation",
+    "governed_web_evidence_raw_body_storage",
+    "governed_web_evidence_raw_header_storage",
+    "governed_web_evidence_downloads",
+    "governed_web_evidence_redirect_following",
+    "governed_web_evidence_hidden_network_access",
 ]
 
 ROUTE_GROUPS_BY_PREFIX = {
@@ -118,6 +128,7 @@ ROUTE_GROUPS_BY_PREFIX = {
     "/observability": "observability",
     "/v1": "openwebui-local-test",
     "/extensions": "extension-catalog",
+    "/web-evidence": "governed-web-evidence",
 }
 
 LOCAL_DEV_WORKSPACE_PREFIXES = ("/kernel", "/files", "/memory", "/task-decomposition", "/observability", "/v1")
@@ -200,8 +211,10 @@ def route_summary(method: str, path: str) -> str:
 
 
 def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
-    if path == "/api/manifest" or path in {"/health", "/version"}:
+    if path == "/api/manifest" or path in {"/health", "/version", "/web-evidence/status"}:
         return ApiRouteSideEffectClass.none
+    if path.startswith("/web-evidence/"):
+        return ApiRouteSideEffectClass.governed_network_read_only
     if path.startswith(LOCAL_DEV_WORKSPACE_PREFIXES):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if any(hint in path for hint in VALIDATION_HINTS):
