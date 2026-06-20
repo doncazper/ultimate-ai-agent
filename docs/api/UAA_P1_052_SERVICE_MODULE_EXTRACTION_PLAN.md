@@ -3,12 +3,12 @@
 Status: active gated foundation plan
 Baseline: v0.102.3 / 0.102.3
 Current OpenAPI path count: 112
-Scope: planning and extraction guardrails only
+Scope: planning, extraction guardrails, and first low-risk extraction status
 
-This plan accepts the service-module boundary for a later UAA-P1-058 route
-extraction. It does not move routes, add routes, remove routes, rename paths,
-change operation IDs, add dependencies, add auth behavior, add runtime
-authority, or expand product UI.
+This plan accepts the service-module boundary used by UAA-P1-058 for the first
+low-risk route extraction and by later scoped route extractions. It does not add
+routes, remove routes, rename paths, change operation IDs, add dependencies,
+add auth behavior, add runtime authority, or expand product UI.
 
 `src/ultimate_ai_agent/api/manifest.py` remains authoritative for side-effect
 classes. OpenAPI remains the public route contract. `/api/manifest` remains
@@ -20,7 +20,7 @@ the typed metadata endpoint for the route inventory.
 |---|---|
 | `docs/approvals/UAA_P1_020_POLICY_ENGINE_CONSOLIDATION_MAP.md` | Freezes current policy and approval decision owners before extraction. |
 | `docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md` | Freezes route group, owner, service module, auth posture, risk, release status, operation ID, and side-effect posture. |
-| `src/ultimate_ai_agent/api/app.py` | Current monolithic route registration source. |
+| `src/ultimate_ai_agent/api/app.py` | Current application factory/registration source. UAA-P1-058 now imports and registers the first system router from here. |
 | `src/ultimate_ai_agent/api/route_registration.py` | Current canonical operation ID generation helper. |
 | `src/ultimate_ai_agent/api/manifest.py` | Current API manifest and side-effect class source of truth. |
 | `docs/api/openapi_contract.md` | Current public OpenAPI contract summary. |
@@ -30,7 +30,7 @@ the typed metadata endpoint for the route inventory.
 
 | Target module | Route families owned | Dependency boundary | Initial extraction risk | Required tests |
 |---|---|---|---|---|
-| `ultimate_ai_agent.api.routes.system_service` | `/health`, `/version`, `/api/manifest` | May read package/version constants and manifest builder only; no storage, policy, model, connector, or local runtime mutation. | Low for `/health` and `/version`; low-medium for `/api/manifest` because manifest generation must avoid circular imports. | OpenAPI contract, API manifest, control-center route contracts, Foundation Gate. |
+| `ultimate_ai_agent.api.routes.system_service` | `/health`, `/version`; future candidate `/api/manifest` | May read package/version constants and manifest builder only; no storage, policy, model, connector, or local runtime mutation. | UAA-P1-058 extracted `/health` and `/version`; low-medium remains for `/api/manifest` because manifest generation must avoid circular imports. | OpenAPI contract, API manifest, control-center route contracts, Foundation Gate. |
 | `ultimate_ai_agent.api.routes.control_center_service` | `/control-center/*` summary and preview routes | May call existing storage/readiness helpers and return bounded safe refs only; no action execution, connector writes, model calls, email/calendar reads, notifications, or UI-only authority. | Medium because visible product language and route-status manifest must stay aligned. | Control Center API routes, focused frontend tests when UI contracts change, OpenAPI/API manifest. |
 | `ultimate_ai_agent.api.routes.runtime_service` | `/runtime/*` readiness, capability, boundary, and smoke-report validation routes | May expose readiness, capability, and validation summaries only; no lifecycle launch/stop, model download, provider SDK call, shell/subprocess execution, or production runtime authority. | Medium because runtime status is product-visible and must not imply lifecycle control. | Runtime readiness tests, OpenAPI contract, API manifest, Foundation Gate. |
 | `ultimate_ai_agent.api.routes.approval_service` | `/approvals/*`, `/consent/*` | May evaluate approval/consent contracts only; approval refs are identifiers and not authority without exact LocalApprovalAuthority validation. | Medium. | Approval authority tests, API manifest, OpenAPI contract. |
@@ -70,7 +70,7 @@ the accepted service-module boundary without changing the current 112-path API.
 | Integrations | `/integrations/mattermost/*`, `/web-evidence/*`, and contract-only future connector surfaces | `ultimate_ai_agent.api.routes.integrations_service` and `ultimate_ai_agent.api.routes.governed_web_evidence_service` | No connector runtime/writes, unrestricted browsing, or credential handling. |
 | Runtime / models | `/runtime/*`, `/model-runtime/*`, `/models/route/preview`, local `/v1/*`, OpenWebUI local test routes | `ultimate_ai_agent.api.routes.runtime_service` and `ultimate_ai_agent.api.routes.model_runtime_service` | Preserve disabled/fallback-first local runtime posture and no provider/model authority. |
 | Settings | No dedicated route; related refs from `/control-center/status`, `/runtime/readiness`, `/runtime/capability-matrix`, and `/api/manifest` | Future `settings_service` only after a separate scoped route contract | FCC-P1-012 adds no settings route, feature-flag writes, or kill-switch execution. |
-| System health/version/API manifest | `GET /health`, `GET /version`, `GET /api/manifest` | `ultimate_ai_agent.api.routes.system_service` | First UAA-P1-058 candidate remains `GET /health` and `GET /version`; `GET /api/manifest` stays second because of manifest coupling. |
+| System health/version/API manifest | `GET /health`, `GET /version`, `GET /api/manifest` | `ultimate_ai_agent.api.routes.system_service` | UAA-P1-058 extracted `GET /health` and `GET /version`; `GET /api/manifest` stays second because of manifest coupling. |
 
 The product-facing architecture may use broader names such as
 `planning_service`, `file_service`, `settings_service`, and `workflow_service`
@@ -100,14 +100,14 @@ the same change.
 
 | Order | Candidate | Reason | Gate before merge |
 |---:|---|---|---|
-| 1 | `system_service` for `GET /health` and `GET /version` | Smallest read-only pair, side-effect class `none`, no storage dependency, no local state mutation, no auth change, and lowest chance of product-language drift. | OpenAPI count 112, operation IDs unchanged, API manifest side-effect classes unchanged, Foundation Gate green. |
+| 1 | `system_service` for `GET /health` and `GET /version` | Smallest read-only pair, side-effect class `none`, no storage dependency, no local state mutation, no auth change, and lowest chance of product-language drift. | Implemented by UAA-P1-058 with OpenAPI count 112, operation IDs unchanged, API manifest side-effect classes unchanged, and Foundation Gate green. |
 | 2 | Add `GET /api/manifest` to `system_service` only after circular-import review | Read-only metadata route, but it depends on the manifest builder and static capability declarations. | Same gates plus explicit manifest-cache behavior check. |
 | 3 | `control_center_service` read-only summary routes | Product-facing but already inspection/preview oriented. This should wait until the first system extraction proves the registration pattern. | Control Center route-status manifest agreement and focused frontend/API route tests. |
 | 4 | `contracts_service` validation-only routes | Mostly low mutation risk but broader contract surface. | Contract tests and API manifest checks. |
 | 5 | Higher-risk local-dev, integration, memory, model, file, task, and web-evidence groups | These carry local-dev side effects, redaction, approval, disabled runtime, or governed network-read boundaries. | Dedicated scoped milestones per group. |
 
-First UAA-P1-058 candidate: extract `GET /health` and `GET /version` into
-`ultimate_ai_agent.api.routes.system_service`.
+UAA-P1-058 first extraction: `GET /health` and `GET /version` are extracted
+into `ultimate_ai_agent.api.routes.system_service`.
 
 `GET /api/manifest` is intentionally second within the same target module
 because it is read-only but more coupled to manifest generation and static
@@ -139,7 +139,7 @@ accepted route-contract milestone updates docs and tests in the same change:
 
 | Change type | Required checks |
 |---|---|
-| First system extraction | `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`; `PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py tests/test_control_center_api_routes.py`; `.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only`; `git diff --check`. |
+| First system extraction | `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`; `PYTHONPATH=src .venv/bin/python -m pytest tests/test_route_module_ownership.py tests/test_api_manifest.py tests/test_control_center_api_routes.py`; `.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only`; `git diff --check`. |
 | Control Center route extraction | First-system checks plus focused Control Center API/frontend tests and route-status manifest checks. |
 | Approval/policy route extraction | First-system checks plus `tests/test_approval_authority.py`, `tests/test_approval_authority_v2_contracts.py`, and `tests/test_approval_integration_kernel.py`. |
 | File/task/memory/model/integration extraction | First-system checks plus the focused suite for the moved group and Foundation Gate static safety checks. |
@@ -147,13 +147,14 @@ accepted route-contract milestone updates docs and tests in the same change:
 
 ## Acceptance Notes
 
-- UAA-P1-052 accepts the extraction plan only; it does not implement
-  UAA-P1-058.
+- UAA-P1-052 accepts the extraction plan and UAA-P1-058 records only the first
+  low-risk route-module extraction.
 - FCC-P1-012 accepts the Founder Command Center surface alignment only; it does
   not create a competing plan, route module, backend route, Control Center UI,
   product authority, or UAA-P1-058 extraction.
-- UAA-P1-058 remains blocked until UAA-P1-020, UAA-P1-021, this plan,
-  Foundation Gate, OpenAPI, and `/api/manifest` are green.
-- The first extraction must be a route-organization change only. Any route
-  behavior, authority, lifecycle, storage, UI, connector, model, or network
-  change must be rejected from that milestone.
+- Broader extraction remains blocked until UAA-P1-020, UAA-P1-021, this plan,
+  Foundation Gate, OpenAPI, and `/api/manifest` stay green on the target branch.
+- Every extraction must be a route-organization change only unless a separately
+  accepted route-contract milestone says otherwise. Any route behavior,
+  authority, lifecycle, storage, UI, connector, model, or network change must
+  be rejected from route-organization milestones.

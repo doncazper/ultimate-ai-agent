@@ -16,6 +16,7 @@ from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.mattermost import register_mattermost_routes
 from ultimate_ai_agent.api.openapi import configure_openapi_contract
+from ultimate_ai_agent.api.routes.system_service import register_system_routes
 from ultimate_ai_agent.api.web_evidence import register_governed_web_evidence_routes
 from ultimate_ai_agent.core.contracts import (
     ExecutionContract,
@@ -142,10 +143,8 @@ from ultimate_ai_agent.core.remote_workers import (
     evaluate_remote_job_policy,
 )
 from ultimate_ai_agent.core.runtime_readiness import (
-    RuntimeHealthStatus,
     build_matrix,
     build_readiness_report,
-    build_runtime_health_status,
     validate_manual_smoke_report,
 )
 from ultimate_ai_agent.core.macos_setup_assistant import (
@@ -540,13 +539,7 @@ async def session_log_api_middleware(request: Request, call_next):
         )
 
 
-@app.get("/health", response_model=RuntimeHealthStatus)
-def get_health():
-    return build_runtime_health_status()
-
-@app.get("/version")
-def get_version():
-    return {"version": __version__}
+register_system_routes(app)
 
 @app.get("/api/manifest", response_model=ApiManifest)
 def get_api_manifest():

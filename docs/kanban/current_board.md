@@ -62,30 +62,25 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Pull UAA-P1-058 from Ready Next only after
-UAA-P1-020, UAA-P1-021, UAA-P1-052, Foundation Gate, OpenAPI, and
-/api/manifest checks are green on the target branch.
+No active foundation build item. Pull UAA-P1-053 from Ready Next after
+UAA-P1-059 route-module ownership tests remain green with Foundation Gate,
+OpenAPI, /api/manifest, route-status, route-count, and documentation checks.
 ```
 
 ## Ready Next
-
-```text
-UAA-P1-058 First low-risk API route-module extraction
-Goal: extract GET /health and GET /version into the accepted system service
-module without changing path behavior, auth posture, side-effect
-classification, API manifest, OpenAPI count, or operation IDs.
-Gate: UAA-P1-020, UAA-P1-021, and UAA-P1-052 stay accepted; Foundation Gate,
-OpenAPI, /api/manifest, and route-status checks remain green.
-```
-
-## Shaping
 
 ```text
 UAA-P1-053 CI lane workflow expansion
 Goal: expose named docs, OpenAPI, Foundation Gate, API safety, frontend,
 security/redaction, local model, durability, performance, and packaging lanes in
 CI with safe output.
+Gate: UAA-P1-059 stays green; lane outputs remain safe, redacted, and
+non-authoritative.
+```
 
+## Shaping
+
+```text
 UAA-P1-054 Control Center differentiator screens
 Goal: product-grade screens for route authority, approval state, evidence
 receipts, safe workspace previews, local model status, and M167 observability
@@ -106,10 +101,6 @@ from being described as complete, production-ready, or publicly released.
 UAA-P1-022 Storage migration contract
 Goal: SQLite first, optional Postgres later, forward migrations, backup
 minimum set, verify, and offline restore.
-
-UAA-P1-059 Route-module ownership tests
-Goal: future routes must declare owner, service module, side-effect class, risk,
-auth posture, evidence behavior, and release status.
 
 UAA-P1-060 Operator-readiness status taxonomy
 Goal: share shipped/planned/blocked/skipped/mock/not-scoped status semantics
@@ -191,6 +182,18 @@ Gate met: target service modules, route families, dependency boundaries,
 registration pattern, tests, extraction order, no-route-drift rules, and first
 UAA-P1-058 candidate are documented in
 `docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md`.
+
+UAA-P1-058 First low-risk API route-module extraction
+Gate met: `GET /health` and `GET /version` are extracted into
+`ultimate_ai_agent.api.routes.system_service` without changing path behavior,
+auth posture, side-effect class, API manifest route count, OpenAPI path count,
+route-status truth, or operation IDs.
+
+UAA-P1-059 Route-module ownership tests
+Gate met: route ownership tests require every current API route to map to a
+route group, owner, target service module, side-effect class, risk class, auth
+posture, release status, operation ID posture, and route-status/evidence
+behavior before broader route extraction proceeds.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

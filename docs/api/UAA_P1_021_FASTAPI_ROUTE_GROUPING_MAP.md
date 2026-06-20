@@ -5,8 +5,8 @@ Baseline: v0.102.3 / 0.102.3
 Current OpenAPI path count: 112
 Scope: documentation and route ownership inventory only
 
-This map records the current FastAPI route groups before any UAA-P1-058
-service-module extraction proceeds. It does not move routes, add routes, remove
+This map records the current FastAPI route groups for UAA-P1-058 and future
+service-module extraction work. It does not move routes, add routes, remove
 routes, rename paths, change operation IDs, add dependencies, add auth
 behavior, add runtime authority, or implement product UI expansion.
 
@@ -22,6 +22,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `/api/manifest` route count | 112 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
+| Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | 65 backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
 | Route inventory doc | Current count matches 112; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
@@ -32,7 +33,8 @@ typed metadata endpoint for route inventory and capabilities.
 | OpenAPI vs `/api/manifest` | No current route count, path, operation ID, or side-effect mismatch found by required verifiers. | Keep checks release-blocking. |
 | Control Center route-status manifest vs `/api/manifest` | No current mismatch for manifest entries that name backend routes. The route-status manifest is a visible-action subset, not an all-route inventory. | Do not use it as the source for non-Control Center service extraction. |
 | `docs/api/route_inventory.md` vs `/api/manifest` | Count and high-level groups agree. The doc intentionally summarizes broad groups rather than listing all 112 rows. | This UAA-P1-021 map is the exhaustive grouping companion. |
-| UAA-P1-058 readiness | Extraction is still gated by this map, UAA-P1-020, UAA-P1-052, Foundation Gate, OpenAPI, and API manifest stability. | Do not start extraction until all are accepted and green. |
+| UAA-P1-058 readiness | First extraction is now limited to `GET /health` and `GET /version` under `system_service`; broader extraction remains gated by this map, UAA-P1-020, UAA-P1-052, Foundation Gate, OpenAPI, and API manifest stability. | Do not start broader extraction until all are accepted and green on the target branch. |
+| UAA-P1-059 ownership gate | `tests/test_route_module_ownership.py` now fails if a route appears without ownership, module, risk, auth, release, operation ID, side-effect, route-count, or evidence behavior coverage. | Keep this check in the route-modularity lane before broader extraction. |
 
 ## Route Group Summary
 
