@@ -11,6 +11,7 @@
     "release_candidate_ref",
     "commit_ref",
     "baseline_ref",
+    "operator_readiness_taxonomy_ref",
     "created_at_utc",
     "status_semantics",
     "verification_lanes",
@@ -45,6 +46,9 @@
     "baseline_ref": {
       "type": "string",
       "pattern": "^baseline:[A-Za-z0-9._:-]+$"
+    },
+    "operator_readiness_taxonomy_ref": {
+      "const": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     },
     "created_at_utc": {
       "type": "string",

@@ -36,12 +36,15 @@ approval state, evidence receipts, safe workspace previews, local model status,
 and M167 observability posture. UAA-P1-055 adds repo-local security/redaction
 artifact scanning for release-facing docs, reports, evidence templates, and
 frontend build output. UAA-P1-057 adds product-truth regression checks for
-release-facing docs and Control Center copy. Next-lane order:
+release-facing docs and Control Center copy. UAA-P1-060 adds the shared
+operator-readiness status taxonomy across route manifests, product language,
+release evidence, and Foundation Gate summaries. Next-lane order:
 
-1. UAA-P1-060 Operator-readiness status taxonomy, only while
+1. UAA-P1-061 Morning reconciliation artifact check, only while
    UAA-P1-055, UAA-P1-054, UAA-P1-053, UAA-P1-059, and UAA-P1-058
    CI lane workflow checks, route ownership, product-truth regression checks,
-   Foundation Gate, OpenAPI, and documentation checks remain green.
+   operator-readiness taxonomy checks, Foundation Gate, OpenAPI, and
+   documentation checks remain green.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -70,28 +73,29 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Pull UAA-P1-060 from Ready Next after
+No active foundation build item. Pull UAA-P1-061 from Ready Next after
 UAA-P1-057 product-truth regression checks remain green with UAA-P1-055
-security/redaction artifact checks, Foundation Gate, OpenAPI, route ownership,
-release lanes, release evidence, safe-output, and documentation checks.
+security/redaction artifact checks, UAA-P1-060 operator-readiness taxonomy
+checks, Foundation Gate, OpenAPI, route ownership, release lanes, release
+evidence, safe-output, and documentation checks.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-060 Operator-readiness status taxonomy
-Goal: share shipped/planned/blocked/skipped/mock/not-scoped status semantics
-across docs, route manifests, Control Center states, release evidence, and
-Foundation Gate reports.
-Gate: UAA-P1-057 product-truth regression checks, UAA-P1-055
-security/redaction artifact scan, Foundation Gate, OpenAPI, route ownership,
-product-language, and documentation checks stay green.
+UAA-P1-061 Morning reconciliation artifact check
+Goal: looped ChatGPT/Codex work sessions produce safe reconciliation summaries
+with completed, deferred, rejected, and blocked recommendation refs.
+Gate: UAA-P1-060 operator-readiness taxonomy checks, UAA-P1-057 product-truth
+regression checks, UAA-P1-055 security/redaction artifact scan, Foundation
+Gate, OpenAPI, route ownership, product-language, and documentation checks
+stay green.
 ```
 
 ## Shaping
 
 ```text
-No active shaping item after UAA-P1-060 promotion. Use Spec Draft for the next
+No active shaping item after UAA-P1-061 promotion. Use Spec Draft for the next
 candidate unless the roadmap promotes a new scoped lane.
 ```
 
@@ -101,10 +105,6 @@ candidate unless the roadmap promotes a new scoped lane.
 UAA-P1-022 Storage migration contract
 Goal: SQLite first, optional Postgres later, forward migrations, backup
 minimum set, verify, and offline restore.
-
-UAA-P1-061 Morning reconciliation artifact check
-Goal: looped ChatGPT/Codex work sessions produce safe reconciliation summaries
-with completed, deferred, rejected, and blocked recommendation refs.
 
 UAA-P1-062 Local Model Manager / Memory-Aware Runtime Control
 Goal: stage a governed local model manager after cleanup and read-only status so
@@ -239,6 +239,20 @@ signed, audited, and broad-autonomy overclaims. `tests/test_product_truth_verifi
 `scripts/verify_all.py`, and the CI workflow include the regression lane. The
 verifier reports safe category labels, line refs, and short evidence hashes
 without echoing offending content.
+
+UAA-P1-060 Operator-readiness status taxonomy
+Gate met: `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` defines shared
+readiness/status semantics for shipped, planned, blocked, skipped, mock-only,
+not-scoped, partial, status-only, preview-only, validation-only, review-only,
+local-UI-state-only, unknown, needs-review, and accepted-failure states.
+`docs/control_center/route_status_manifest.json`,
+`docs/control_center/PRODUCT_LANGUAGE_RULES.md`,
+`docs/production/RELEASE_VERIFICATION_LANES.md`,
+`docs/production/RELEASE_EVIDENCE_PACKET.md`, the release packet
+schema/template, `scripts/run_foundation_gate.py`, and
+`scripts/verify_operator_readiness_taxonomy.py` bind the taxonomy without
+adding routes, runtime authority, provider/model calls, web fetching, or
+frontend behavior changes.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

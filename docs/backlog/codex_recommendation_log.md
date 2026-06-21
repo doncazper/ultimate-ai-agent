@@ -42,6 +42,47 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-060 Operator-Readiness Status Taxonomy
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor loop.
+
+Recommendation: Bind one shared operator-readiness taxonomy across release
+truth, route status, Control Center language, release evidence packet semantics,
+and Foundation Gate release-lane summaries so shipped, planned, blocked,
+skipped, mock-only, not-scoped, partial, status-only, and accepted-failure
+language cannot drift by surface.
+
+Next prompt:
+
+```text
+Execute UAA-P1-061 Morning reconciliation artifact check. Keep it scoped to
+safe reconciliation summaries for looped ChatGPT/Codex work sessions with
+completed, deferred, rejected, and blocked recommendation refs. Do not add
+runtime authority, routes, model/provider calls, web fetching, dependencies, or
+undocumented milestones.
+```
+
+Decision: Accepted as the next M177 product-truth hardening lane.
+
+Status: accepted
+
+Completed: Added the active taxonomy doc, route-status manifest taxonomy
+mapping, product-language cross-link, release evidence schema/template binding,
+release-lane/packet documentation, static verifier, tests, `verify_all` hook,
+and board/roadmap status updates.
+
+Not done: No route payloads, OpenAPI operation IDs, runtime behavior, frontend
+behavior, provider/model calls, web fetching, dependencies, public distribution
+claims, or production authority were added.
+
+Evidence: `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md`,
+`scripts/verify_operator_readiness_taxonomy.py`,
+`tests/test_operator_readiness_taxonomy.py`,
+`docs/control_center/route_status_manifest.json`,
+`docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json`.
+
 ### 2026-06-21 - Documented Milestone Conveyor Pass 1
 
 Date: 2026-06-21

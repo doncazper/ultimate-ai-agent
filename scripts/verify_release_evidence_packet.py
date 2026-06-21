@@ -17,6 +17,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PACKET_SCHEMA_VERSION = "uaa_release_evidence_packet.v1"
 PACKET_TASK_REF = "UAA-P1-044"
+OPERATOR_READINESS_TAXONOMY_REF = "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
 SCHEMA_PATH = ROOT / "docs" / "schemas" / "release_evidence_packet.schema.json"
 TEMPLATE_PATH = ROOT / "docs" / "production" / "RELEASE_EVIDENCE_PACKET_TEMPLATE.json"
 DOC_PATH = ROOT / "docs" / "production" / "RELEASE_EVIDENCE_PACKET.md"
@@ -46,6 +47,7 @@ REQUIRED_TOP_LEVEL_KEYS = {
     "release_candidate_ref",
     "commit_ref",
     "baseline_ref",
+    "operator_readiness_taxonomy_ref",
     "created_at_utc",
     "status_semantics",
     "verification_lanes",
@@ -166,6 +168,8 @@ def validate_release_evidence_packet(
             "Status: active UAA-P1-044 release evidence packet format",
             "commit_ref",
             "verification_lanes",
+            "operator_readiness_taxonomy_ref",
+            OPERATOR_READINESS_TAXONOMY_REF,
             "report_refs",
             "accepted_failures",
             "artifact_hashes",
@@ -199,10 +203,16 @@ def validate_release_evidence_packet(
         else:
             schema_version = properties.get("schema_version", {})
             task_ref = properties.get("task_ref", {})
+            taxonomy_ref = properties.get("operator_readiness_taxonomy_ref", {})
             if not isinstance(schema_version, dict) or schema_version.get("const") != PACKET_SCHEMA_VERSION:
                 failures.append("release evidence schema must pin schema_version")
             if not isinstance(task_ref, dict) or task_ref.get("const") != PACKET_TASK_REF:
                 failures.append("release evidence schema must pin task_ref")
+            if (
+                not isinstance(taxonomy_ref, dict)
+                or taxonomy_ref.get("const") != OPERATOR_READINESS_TAXONOMY_REF
+            ):
+                failures.append("release evidence schema must pin operator readiness taxonomy ref")
         required = schema.get("required")
         if not isinstance(required, list) or set(required) != REQUIRED_TOP_LEVEL_KEYS:
             failures.append("release evidence schema required keys drifted")
@@ -227,6 +237,8 @@ def validate_release_evidence_packet(
             failures.append("release evidence template schema_version mismatch")
         if template.get("task_ref") != PACKET_TASK_REF:
             failures.append("release evidence template task_ref mismatch")
+        if template.get("operator_readiness_taxonomy_ref") != OPERATOR_READINESS_TAXONOMY_REF:
+            failures.append("release evidence template taxonomy ref mismatch")
         semantics = template.get("status_semantics")
         if not isinstance(semantics, dict) or set(semantics) != REQUIRED_STATUS_VALUES:
             failures.append("release evidence template status semantics are incomplete")

@@ -321,6 +321,9 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
 
     assert manifest["schema_version"] == "uaa-control-center-route-status.v1"
     assert manifest["status"] == "active UAA-P1-030 route status manifest"
+    assert manifest["operator_readiness_taxonomy_ref"] == (
+        "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
+    )
     assert manifest["openapi_path_count"] == 112
     assert _visible_frontend_routes().issubset(action_routes)
 
@@ -343,6 +346,14 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     assert len(action_ids) == len(set(action_ids))
 
     allowed_statuses = set(manifest["allowed_release_statuses"])
+    assert manifest["release_status_taxonomy_map"] == {
+        "status_available_not_completion": "status_only",
+        "preview_available_not_execution": "preview_only",
+        "partial_backend_not_product_ready": "partial",
+        "mock_only_not_product_ready": "mock_only",
+        "local_ui_state_only_not_evidence": "local_ui_state_only",
+        "blocked_missing_backend": "blocked",
+    }
     for action in visible_actions:
         assert required_fields.issubset(action)
         assert action["release_status"] in allowed_statuses

@@ -35,7 +35,10 @@ Local state rollback and safe-disable guidance is documented in
 
 These statuses apply when a lane command or equivalent required job has
 actually run. The inspection-only lane manifest reports definition validation
-separately.
+separately. Product/readiness language maps through
+`docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md`; a lane `pass` is check
+evidence only and does not by itself make a capability shipped, production
+ready, or publicly released.
 
 | Status | Meaning |
 |---|---|

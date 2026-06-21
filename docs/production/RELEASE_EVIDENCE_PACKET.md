@@ -16,6 +16,12 @@ scripts/verify_release_evidence_packet.py
 tests/test_release_evidence_packet.py
 ```
 
+Operator readiness taxonomy:
+
+```text
+docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md
+```
+
 ## Packet Purpose
 
 A release evidence packet is the repo-owned record for one local release
@@ -52,6 +58,7 @@ real-state rollback success.
 |---|---|
 | `commit_ref` | Safe commit identifier for the reviewed release candidate. |
 | `baseline_ref` | Safe baseline identifier such as `baseline:v0.102.0`. |
+| `operator_readiness_taxonomy_ref` | Repo-relative ref to the canonical readiness taxonomy used by packet status semantics. |
 | `verification_lanes` | Lane ids, status, command refs, report refs, and safe summaries from the release verification lanes. |
 | `report_refs` | Safe refs to Foundation Gate, documentation, OpenAPI, security, frontend, visual regression, desktop/local packaging, durability, backup/restore, local model, and performance evidence where applicable. |
 | `accepted_failures` | Empty when none exist; otherwise owner ref, reviewer ref, expiry, reason code, safe impact summary, and evidence refs. |
@@ -71,6 +78,12 @@ real-state rollback success.
 | skipped | A scoped optional prerequisite was unavailable and a safe reason code is recorded. |
 | blocked | A required gate, approval, or prerequisite is missing. |
 | accepted_failure | A reviewed failure is time-bound, owner-bound, evidence-bound, and recorded in the packet. |
+
+These are verification statuses, not product readiness labels. They map through
+`docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md`: `fail` and `blocked`
+remain blocked, `skipped` remains skipped, `accepted_failure` remains a
+release-packet exception only, and `pass` supports a shipped claim only when
+the exact capability has evidence refs and no open blocker.
 
 Accepted failures are never implicit. A lane manifest may describe the policy,
 but the release evidence packet is the required place to bind any accepted

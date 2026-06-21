@@ -27,8 +27,14 @@ def test_release_evidence_packet_schema_and_template_cover_required_fields() -> 
 
     assert schema["properties"]["schema_version"]["const"] == "uaa_release_evidence_packet.v1"
     assert schema["properties"]["task_ref"]["const"] == "UAA-P1-044"
+    assert schema["properties"]["operator_readiness_taxonomy_ref"]["const"] == (
+        "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
+    )
     assert template["schema_version"] == "uaa_release_evidence_packet.v1"
     assert template["task_ref"] == "UAA-P1-044"
+    assert template["operator_readiness_taxonomy_ref"] == (
+        "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
+    )
     assert set(template["status_semantics"]) == {
         "pass",
         "fail",

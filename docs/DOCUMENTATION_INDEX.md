@@ -10,7 +10,7 @@ This index is the active entrypoint for documentation navigation. Historical rel
 |---|---|
 | GitHub landing page | `README.md` |
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_3.md`, `docs/release_notes/checkpoint_m168.md` |
-| Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
+| Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md` |
@@ -72,6 +72,7 @@ docs/roadmap/README.md
 docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
+docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md
 docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md
 docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md
 docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md
@@ -194,6 +195,7 @@ docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md
 docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md
 docs/production/RELEASE_VERIFICATION_LANES.md
 docs/production/RELEASE_EVIDENCE_PACKET.md
+docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md
 docs/production/BACKUP_RESTORE_VERIFICATION.md
 docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md
 docs/production/LOCAL_RUNTIME_PACKAGING.md

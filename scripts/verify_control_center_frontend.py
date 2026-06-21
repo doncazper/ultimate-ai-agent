@@ -956,6 +956,10 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest status is not current")
     if manifest.get("openapi_path_count") != 112:
         failures.append("route status manifest must record the 112-path OpenAPI boundary")
+    if manifest.get("operator_readiness_taxonomy_ref") != (
+        "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
+    ):
+        failures.append("route status manifest taxonomy ref is missing or stale")
 
     allowed_status_values = manifest.get("allowed_release_statuses", [])
     if not isinstance(allowed_status_values, list):
@@ -972,6 +976,16 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
     }
     if not required_statuses.issubset(allowed_statuses):
         failures.append("route status manifest missing required release status values")
+    required_status_map = {
+        "status_available_not_completion": "status_only",
+        "preview_available_not_execution": "preview_only",
+        "partial_backend_not_product_ready": "partial",
+        "mock_only_not_product_ready": "mock_only",
+        "local_ui_state_only_not_evidence": "local_ui_state_only",
+        "blocked_missing_backend": "blocked",
+    }
+    if manifest.get("release_status_taxonomy_map") != required_status_map:
+        failures.append("route status manifest release status taxonomy map is missing or stale")
 
     surfaces_value = manifest.get("surfaces", [])
     if not isinstance(surfaces_value, list):

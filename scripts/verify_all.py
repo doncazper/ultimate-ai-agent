@@ -87,6 +87,7 @@ SCAN_SEQUENCE = [
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
     ("product truth regression scan", "verify_product_truth"),
+    ("operator-readiness taxonomy scan", "verify_operator_readiness_taxonomy"),
     ("repo awareness benchmark scan", "verify_repo_awareness_benchmark"),
     ("backup/restore verification scan", "verify_backup_restore_verification"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
@@ -29847,6 +29848,25 @@ def verify_product_truth() -> None:
             print(f"FAIL: {finding.safe_message} [{finding.evidence_hash}]")
         sys.exit(1)
     print("OK: No product-truth overclaims found in scoped docs and UI artifacts")
+
+
+def verify_operator_readiness_taxonomy() -> None:
+    print("\n[Verifier] Running operator-readiness taxonomy guard...")
+    verifier_path = ROOT / "scripts" / "verify_operator_readiness_taxonomy.py"
+    spec = importlib.util.spec_from_file_location("verify_operator_readiness_taxonomy", verifier_path)
+    if spec is None or spec.loader is None:
+        print("FAIL: operator-readiness taxonomy verifier could not be loaded")
+        sys.exit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    failures = module.validate_operator_readiness_taxonomy()
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}")
+        sys.exit(1)
+    print("OK: Operator-readiness status taxonomy is bound across active surfaces")
 
 
 def verify_backup_restore_verification() -> None:

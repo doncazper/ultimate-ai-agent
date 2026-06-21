@@ -79,7 +79,7 @@ They do not mark the capability shipped and do not grant new authority.
 | Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Local Model Manager / Memory-Aware Runtime Control | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state |
 | Productize extension boundary carefully | `UAA-P2-048` Static package review, `UAA-P2-056` Extension trust product surface | P2 | Trust/provenance inspection improves before plugin execution exists; runtime import remains disabled |
 | Treat installer/release workflows as catch-up after local loop usability | `UAA-P2-047` Signed installer and public distribution lane shaping | P2 | No signed/public distribution claim until local loop, security, durability, and artifact proof gates are green |
-| Preserve blocked/scoped/planned truthfulness | `UAA-P1-031` Done, `UAA-P1-057` Product truth regression checks | P0/P1 | Planned, blocked, skipped, mock, and not-scoped work cannot be described as complete or production-ready |
+| Preserve blocked/scoped/planned truthfulness | `UAA-P1-031` Done, `UAA-P1-057` Done, `UAA-P1-060` Done, `UAA-P1-061` Ready Next | P0/P1 | Planned, blocked, skipped, mock, and not-scoped work cannot be described as complete or production-ready; readiness language maps through a shared taxonomy and reconciliation artifacts |
 
 ## Non-Negotiable Invariants
 
@@ -536,10 +536,10 @@ Tasks:
   Control Center copy so blocked, skipped, pending, mock-only, planned, and
   not-scoped states cannot be described as complete, production-ready, or
   publicly released without evidence.
-- `UAA-P1-060` Ready Next: add an operator-readiness status taxonomy shared by docs,
+- `UAA-P1-060` Done: add an operator-readiness status taxonomy shared by docs,
   route manifests, Control Center states, release evidence packets, and
   Foundation Gate summaries.
-- `UAA-P1-061` Add a morning reconciliation report template check for looped
+- `UAA-P1-061` Ready Next: add a morning reconciliation report template check for looped
   work sessions so completed, deferred, rejected, and blocked recommendations
   are traceable to evidence refs.
 
@@ -617,7 +617,8 @@ Verification:
 - `UAA-P1-054` Done: Control Center differentiator screens.
 - `UAA-P1-055` Done: security automation and artifact redaction lane.
 - `UAA-P1-057` Done: product truth regression checks.
-- `UAA-P1-060` Ready Next: operator-readiness status taxonomy.
+- `UAA-P1-060` Done: operator-readiness status taxonomy.
+- `UAA-P1-061` Ready Next: morning reconciliation artifact check.
 - `UAA-P2-056` Shape: extension trust product surface.
 - `UAA-P2-058` Shape: Provider Credential Vault Adapter v1 as a
   disabled-by-default opaque-ref adapter contract. This gate must not collect,

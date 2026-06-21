@@ -4,6 +4,7 @@ Status: active UAA-P1-031 product language rules
 Baseline: v0.102.3 / 0.102.3
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
 Scope: Control Center UI strings and release-facing product docs
+Readiness taxonomy: `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md`
 
 This ruleset is an enforceable language contract for production-facing copy. It
 does not add runtime authority, backend routes, frontend controls,
@@ -37,8 +38,12 @@ with tests and redacted evidence.
 
 ## Approved State Language
 
-Use these words when they match the implementation and evidence:
+Use the canonical operator-readiness taxonomy in
+`docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md`. These words are approved
+when they match the implementation and evidence:
 
+- shipped
+- planned
 - status available
 - preview only
 - validation only
@@ -51,6 +56,9 @@ Use these words when they match the implementation and evidence:
 - skipped prerequisite
 - not scoped
 - status-only
+- unknown
+- needs review
+- accepted failure
 
 Completion words are allowed only when the implementation produced accepted
 durable evidence for the exact work described. A route returning a preview,

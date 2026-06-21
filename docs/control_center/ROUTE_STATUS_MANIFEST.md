@@ -26,6 +26,12 @@ Product language contract:
 docs/control_center/PRODUCT_LANGUAGE_RULES.md
 ```
 
+Operator readiness taxonomy:
+
+```text
+docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md
+```
+
 This manifest does not add runtime authority, backend routes, frontend
 controls, shell/subprocess behavior, unrestricted network or browser automation,
 connector writes, plugin runtime import, mobile control, autonomous background
@@ -41,6 +47,10 @@ execution, public distribution, or production readiness claims.
 | `mock_only_not_product_ready` | The visible surface is backed by mock or planning data only. |
 | `local_ui_state_only_not_evidence` | The visible action changes local UI state only and does not create release evidence. |
 | `blocked_missing_backend` | Required backend route(s), authority binding, or evidence output are missing. |
+
+These manifest values map to the canonical operator-readiness statuses in
+`docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md`: `status_only`,
+`preview_only`, `partial`, `mock_only`, `local_ui_state_only`, and `blocked`.
 
 No status in this manifest means public release readiness, broad autonomy,
 production runtime authority, model/provider authority, shell authority,
