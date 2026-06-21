@@ -71,12 +71,13 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
+| Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
-| Expand CI into named release lanes | `UAA-P1-013` Done, `UAA-P1-053` CI lane workflow expansion | P1 | docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction, local model, durability, performance, and packaging lanes are visible in CI without unsafe artifact leakage |
-| Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
+| Expand CI into named release lanes | `UAA-P1-013` Done, `UAA-P1-053` Done: CI lane workflow expansion | P1 | docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction, local model, durability, performance, and packaging lanes are visible in CI without unsafe artifact leakage |
+| Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Done: Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
 | Preserve UAA's stricter authority model | `UAA-P1-020` PolicyEngine consolidation map | P0/P1 | No copied peer runtime feature ships without exact policy, approval, audit, rollback, and redaction gates |
-| Add automated security scanning and artifact redaction checks | `UAA-P1-055` Security automation and artifact redaction lane | P1 | Security scans and artifact checks are safe, local/CI bounded, and do not claim external audit or public distribution |
-| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape; `UAA-P1-064` Done: read-only local model inventory backend + CLI | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. |
+| Add automated security scanning and artifact redaction checks | `UAA-P1-055` Done: security automation and artifact redaction lane | P1 | Security scans and artifact checks are safe, local/CI bounded, and do not claim external audit or public distribution |
+| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape; `UAA-P1-064` Done: read-only local model inventory backend + CLI; `UAA-P1-066` Ready Next: read-only Control Center inventory/status only | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. |
 | Productize extension boundary carefully | `UAA-P2-048` Static package review, `UAA-P2-056` Extension trust product surface | P2 | Trust/provenance inspection improves before plugin execution exists; runtime import remains disabled |
 | Treat installer/release workflows as catch-up after local loop usability | `UAA-P2-047` Signed installer and public distribution lane shaping | P2 | No signed/public distribution claim until local loop, security, durability, and artifact proof gates are green |
 | Preserve blocked/scoped/planned truthfulness | `UAA-P1-031` Done, `UAA-P1-057` Done, `UAA-P1-060` Done, `UAA-P1-061` Done | P0/P1 | Planned, blocked, skipped, mock, and not-scoped work cannot be described as complete or production-ready; readiness language maps through a shared taxonomy and reconciliation artifacts |
@@ -187,18 +188,24 @@ Tasks:
   switch with `/health` and `/v1/models` verification, UAA/OpenWebUI identity
   receipt, and redacted evidence; then model downloads/acquisition only after
   switching is solid.
-- Future exact-scoped Local Model Manager implementation should follow the
-  candidate sequence documented in
-  `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`: read-only
-  inventory over consolidated `$HOME/Models` roots; CLI-first
-  `uaa local-model status/list/inspect`; read-only Control Center status;
-  GGUF-only `llama-server --models-dir <approved-gguf-cache-ref> --models-max 1`
-  planning; dry-run switch planning; approval-bound switch; Desktop/Hermes UI
-  activation only after CLI/API safety; and MLX/Ollama/LM Studio adapters later.
+- The exact-scoped Local Model Manager sequence now has UAA-P1-064 completed
+  for read-only inventory over consolidated local roots and CLI-first
+  `uaa local-model status/list/inspect`. UAA-P1-066 is Ready Next for
+  read-only Control Center status only. Later stages still require separate
+  exact scoped milestones: GGUF-only
+  `llama-server --models-dir <approved-gguf-cache-ref> --models-max 1`
+  planning, dry-run switch planning, approval-bound switch, Desktop/Hermes UI
+  activation only after CLI/API safety, and MLX/Ollama/LM Studio adapters.
 - `UAA-P1-064` Done: implements only the read-only Python Agent Core inventory
   and CLI inspection slice from that sequence. This milestone excludes
   lifecycle control, switching, downloads, route/OpenAPI authority, Control
   Center activation controls, model/provider calls, and runtime adapters.
+- `UAA-P1-066` Ready Next: promote a strictly read-only Control
+  Center model inventory/status surface over UAA-P1-064 Python-core inventory
+  and CLI inspection. This milestone must not add lifecycle control, switching,
+  start/stop/activate/unload behavior, Desktop/Hermes activation, downloads,
+  runtime adapter execution, React-owned model truth, raw local path evidence,
+  or production-readiness claims.
 
 Acceptance:
 
@@ -218,6 +225,11 @@ Acceptance:
 - `UAA-P1-064` implementation evidence is
   `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`; it is
   accepted only for read-only inventory and CLI inspection.
+- `UAA-P1-066` scope evidence is
+  `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md`;
+  it is accepted only for the next read-only Control Center inventory/status
+  milestone and does not grant lifecycle, switch, download, or runtime adapter
+  authority.
 
 Verification:
 
@@ -307,9 +319,15 @@ Tasks:
   Evidence, and Settings in `apps/control-center/src/components/OperatorSurfaceStates.tsx`,
   `apps/control-center/src/routes.tsx`, `apps/control-center/src/App.test.tsx`,
   and `scripts/verify_control_center_frontend.py`.
-- `UAA-P1-054` Add product-grade Control Center differentiator screens for
+- `UAA-P1-054` Done: added product-grade Control Center differentiator screens for
   route authority, approval state, evidence receipts, safe workspace previews,
   local model status, and an observability timeline over M167 safe summaries.
+- `UAA-P1-065` Done: reconciled the Founder Command Center board against
+  completed and review-ready slices, removed stale sequencing, classified FCC
+  cards, and promoted exactly one later task: FCC-P0-002 Follow-Up
+  Collapse/Organize Control Center Around Core Surfaces. The pass adds no
+  routes, Control Center implementation, connector runtime, setup mutation,
+  model/provider calls, or runtime authority.
 
 Acceptance:
 
@@ -477,13 +495,14 @@ Tasks:
   backup-before-rollback, safe-disable, backup restore, unsupported recovery,
   and redacted evidence guidance; canonical doc is
   `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`.
-- `UAA-P1-053` Expand CI workflow posture around the named release lanes:
+- `UAA-P1-053` Done: expanded CI workflow posture around the named release lanes:
   docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction,
   local model, durability, performance, and packaging. This should wire lane
   visibility and safe reports, not weaken or skip lane checks.
-- `UAA-P1-055` Add automated security scanning and release artifact redaction
-  checks. Reports must be safe for release evidence and must not claim external
-  audit, signed release, hosted production support, or public distribution.
+- `UAA-P1-055` Done: added automated security scanning and release artifact
+  redaction checks. Reports must be safe for release evidence and must not claim
+  external audit, signed release, hosted production support, or public
+  distribution.
 - `UAA-P2-047` Shape signed installer and public distribution lane only after
   local loop, security, and durability gates are green.
 

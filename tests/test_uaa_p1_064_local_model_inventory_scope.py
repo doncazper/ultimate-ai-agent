@@ -40,7 +40,9 @@ def test_uaa_p1_064_reconciliation_artifact_points_to_restart_prompt() -> None:
         ).read_text(encoding="utf-8")
     )
 
-    assert artifact["next_prompt_ref"] == "prompt-ref:no-documented-ready-next"
+    assert artifact["next_prompt_ref"] == (
+        "prompt-ref:uaa-p1-065-founder-command-center-review-cleanup"
+    )
     assert set(artifact["reconciliation_safety"]) == verifier.REQUIRED_SAFETY_FLAGS
     assert all(value is False for value in artifact["reconciliation_safety"].values())
     assert artifact["completed_recommendations"][0]["recommendation_ref"] == (

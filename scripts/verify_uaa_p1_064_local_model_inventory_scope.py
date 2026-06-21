@@ -173,7 +173,8 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
         CURRENT_BOARD: [
             "UAA-P1-064 Local Model Inventory Read-Only Backend + CLI",
             "UAA-P1-064 adds the first read-only implementation slice",
-            "No documented Ready Next item",
+            "UAA-P1-065 Founder Command Center Review/Cleanup Lane",
+            "UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status",
             "CLI parity first: uaa local-model status",
             "No start, stop, activate, switch",
             "scripts/verify_uaa_p1_064_local_model_inventory_scope.py",
@@ -217,8 +218,11 @@ def _validate_reconciliation_artifact(root: Path, failures: list[str]) -> None:
         "reconciliation:2026-06-21-uaa-p1-064-ready-next-promotion"
     ):
         failures.append("UAA-P1-064 reconciliation artifact id drifted")
-    if artifact.get("next_prompt_ref") != "prompt-ref:no-documented-ready-next":
-        failures.append("UAA-P1-064 reconciliation artifact must record no documented Ready Next")
+    if (
+        artifact.get("next_prompt_ref")
+        != "prompt-ref:uaa-p1-065-founder-command-center-review-cleanup"
+    ):
+        failures.append("UAA-P1-064 reconciliation artifact must point to UAA-P1-065")
 
     safety = artifact.get("reconciliation_safety")
     if not isinstance(safety, dict) or set(safety) != REQUIRED_SAFETY_FLAGS:

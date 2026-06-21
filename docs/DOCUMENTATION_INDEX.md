@@ -12,13 +12,13 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_3.md`, `docs/release_notes/checkpoint_m168.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
-| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
+| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Release evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md` |
 | Governed web evidence | `docs/truth/GOVERNED_WEB_EVIDENCE.md` |
-| Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md` |
+| Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
 | Plugin/skill ecosystem | `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`, `docs/archive/README.md` |
@@ -183,6 +183,7 @@ docs/model_management/M162_GGUF_MODEL_ACQUISITION.md
 docs/model_management/M160_M165_LIVE_LANE_BOUNDARY.md
 docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md
 docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md
+docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md
 docs/production/LOCAL_MODEL_PRODUCTION_READINESS_GATE.md
 docs/production/LOCAL_MODEL_PRODUCTION_READINESS_BOUNDARY.md
 docs/production/LOCAL_MODEL_PRODUCTION_READINESS_RECEIPT_PLAN.md
@@ -205,6 +206,7 @@ docs/production/LOCAL_RUNTIME_PACKAGING.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/control_center/PRODUCT_LANGUAGE_RULES.md
+docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_BOUNDARY.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_NON_GOALS.md
 docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md

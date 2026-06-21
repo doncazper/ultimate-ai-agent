@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **Operator Runtime Excellence P2 ecosystem inspection lane through UAA-P2-051** |
+| Current lane | **UAA-P1-066 Ready Next after UAA-P1-065 Founder Command Center review cleanup** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -30,6 +30,9 @@ and route-count references. The M160-M167 local model lane remains scoped to
 local llama.cpp/OpenWebUI readiness evidence. M166 is the exact-scope local
 model production-readiness gate, and M167 adds live-evidence hardening and
 redacted session/run observability without adding broader production authority.
+UAA-P1-065 completes the Founder Command Center review cleanup without adding
+runtime authority, and UAA-P1-066 is Ready Next for strictly read-only Local
+Model Control Center inventory/status.
 
 Already-pushed tags remain immutable historical records. M150's
 `v1.2.0-alpha` label is preserved as historical alpha-target context only; it

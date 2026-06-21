@@ -1,0 +1,97 @@
+{
+  "schema_version": "uaa_morning_reconciliation_artifact.v1",
+  "task_ref": "UAA-P1-061",
+  "reconciliation_id": "reconciliation:2026-06-21-uaa-p1-065-066-next-milestones",
+  "created_at_utc": "2026-06-21T00:00:00Z",
+  "source_loop_ref": "loop:uaa-p1-065-066-next-milestone-promotion",
+  "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
+  "recommendation_log_ref": "docs/backlog/codex_recommendation_log.md",
+  "safe_summary": "UAA-P1-065 and UAA-P1-066 were promoted as the next two scoped milestones without adding runtime authority.",
+  "completed_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-065-founder-command-center-review-cleanup",
+      "status": "completed",
+      "source_milestone_ref": "UAA-P1-065",
+      "safe_summary": "Promoted a Founder Command Center review and cleanup lane to reconcile the FCC board and select one later review-ready UI or contract task.",
+      "reason_code": "PROMOTED_AS_READY_NEXT",
+      "evidence_refs": [
+        "doc:docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md",
+        "board:docs/kanban/current_board.md",
+        "board:docs/kanban/founder_command_center_board.md",
+        "roadmap:docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+      ],
+      "next_action_ref": "prompt-ref:uaa-p1-065-founder-command-center-review-cleanup"
+    },
+    {
+      "recommendation_ref": "recommendation:uaa-p1-066-local-model-read-only-control-center-status",
+      "status": "completed",
+      "source_milestone_ref": "UAA-P1-066",
+      "safe_summary": "Promoted the Local Model Manager continuation as a strictly read-only Control Center inventory and status milestone sequenced after UAA-P1-065.",
+      "reason_code": "PROMOTED_AS_SECOND_READY_NEXT",
+      "evidence_refs": [
+        "doc:docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
+        "board:docs/kanban/current_board.md",
+        "roadmap:docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "doc:docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+      ],
+      "next_action_ref": "milestone:uaa-p1-066-after-uaa-p1-065"
+    }
+  ],
+  "deferred_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-066-implementation",
+      "status": "deferred",
+      "source_milestone_ref": "UAA-P1-066",
+      "safe_summary": "Read-only Control Center inventory/status implementation is sequenced after UAA-P1-065 and remains limited to backend-owned status display.",
+      "reason_code": "SEQUENCED_AFTER_UAA_P1_065",
+      "evidence_refs": [
+        "doc:docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
+        "board:docs/kanban/current_board.md"
+      ],
+      "next_action_ref": "milestone:uaa-p1-066"
+    }
+  ],
+  "rejected_recommendations": [
+    {
+      "recommendation_ref": "recommendation:react-owned-local-model-truth",
+      "status": "rejected",
+      "source_milestone_ref": "UAA-P1-066",
+      "safe_summary": "React-owned model truth remains rejected; Control Center may only render Python Agent Core owned inventory/status state.",
+      "reason_code": "CONTROL_CENTER_NOT_AUTHORITY",
+      "evidence_refs": [
+        "doc:docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
+        "doc:docs/control_center/PRODUCT_LANGUAGE_RULES.md"
+      ],
+      "next_action_ref": "none:rejected"
+    }
+  ],
+  "blocked_recommendations": [
+    {
+      "recommendation_ref": "recommendation:local-model-lifecycle-switching-downloads",
+      "status": "blocked",
+      "source_milestone_ref": "UAA-P1-066",
+      "safe_summary": "Lifecycle control, switching, activation, downloads, runtime adapters, and production-readiness claims remain blocked without later exact scoped milestones.",
+      "reason_code": "MISSING_SCOPED_AUTHORITY",
+      "evidence_refs": [
+        "doc:docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
+        "board:docs/kanban/current_board.md",
+        "doc:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+      ],
+      "next_action_ref": "blocker:local-model-runtime-authority-scope"
+    }
+  ],
+  "next_prompt_ref": "prompt-ref:uaa-p1-065-founder-command-center-review-cleanup",
+  "reconciliation_safety": {
+    "raw_prompt_included": false,
+    "raw_response_included": false,
+    "raw_provider_payload_included": false,
+    "raw_path_included": false,
+    "raw_log_included": false,
+    "username_included": false,
+    "hostname_included": false,
+    "serial_included": false,
+    "environment_dump_included": false,
+    "credential_material_included": false,
+    "private_content_included": false
+  }
+}

@@ -42,6 +42,99 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-065 Founder Command Center Review/Cleanup Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor execution.
+
+Recommendation: Execute UAA-P1-065 as a docs-only Founder Command Center
+review/cleanup lane, classify the FCC board, remove stale sequencing, and
+promote exactly one later review-ready UI or contract task.
+
+Next prompt:
+
+```text
+Execute UAA-P1-066 Local Model Manager Read-Only Control Center
+Inventory/Status. Keep the work strictly read-only over Python Agent Core local
+model inventory and CLI parity. Do not add lifecycle, switching,
+activate/unload/start/stop, Desktop/Hermes activation, downloads, runtime
+adapters, React-owned model truth, raw local path evidence, model/provider
+calls, web fetching, shell/subprocess behavior, or production-readiness claims.
+```
+
+Decision: Accepted and completed for docs, boards, product-truth,
+recommendation, reconciliation, and verifier/test alignment only.
+
+Status: completed
+
+Completed: Classified Founder Command Center cards, removed stale active
+sequence wording, promoted FCC-P0-002 Follow-Up Collapse/Organize Control
+Center Around Core Surfaces as the single later FCC UI/readability candidate,
+and moved UAA-P1-066 into the next documented Ready Next slot.
+
+Not done: No backend route, OpenAPI operation, Control Center implementation,
+frontend mutation control, setup mutation, connector runtime, email/calendar
+access, model/provider call, web fetch, shell/subprocess behavior, model
+lifecycle action, public claim, or runtime authority was added.
+
+Evidence: `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`,
+`docs/kanban/current_board.md`,
+`docs/kanban/founder_command_center_board.md`,
+`docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`,
+`scripts/verify_uaa_p1_065_founder_command_center_review_cleanup.py`,
+`tests/test_uaa_p1_065_founder_command_center_review_cleanup.py`, and
+`docs/backlog/reconciliation/2026-06-21-uaa-p1-065-founder-command-center-review-cleanup.json`.
+
+### 2026-06-21 - UAA-P1-065 And UAA-P1-066 Next Milestones
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor continuation after UAA-P1-064.
+
+Recommendation: Make the next two milestones UAA-P1-065 Founder Command Center
+Review/Cleanup Lane, followed by UAA-P1-066 Local Model Manager Read-Only
+Control Center Inventory/Status.
+
+Next prompt:
+
+```text
+Execute UAA-P1-065 Founder Command Center Review/Cleanup Lane as a docs,
+board, product-truth, recommendation, reconciliation, and verifier cleanup
+milestone. Reconcile the Founder Command Center board against completed and
+review-ready slices, remove stale sequencing, and promote exactly one next
+review-ready UI or contract task for a later exact implementation pass. Do not
+add routes, Control Center implementation, setup mutation, connector runtime,
+model/provider calls, web fetching, shell/subprocess behavior, or runtime
+authority.
+```
+
+Decision: Accepted as the next two milestone sequence. UAA-P1-066 is queued
+behind UAA-P1-065 and remains strictly read-only Control Center inventory/status
+over Python Agent Core local model inventory.
+
+Status: accepted
+
+Completed: Promoted UAA-P1-065 and UAA-P1-066 on the parent board, aligned the
+Founder Command Center board with the parent sequence, added exact scope docs,
+updated roadmap/product-truth/gap-map references, and recorded a safe
+reconciliation artifact for the promotion.
+
+Not done: No backend route, OpenAPI operation, frontend implementation, setup
+mutation, approval grant capture, model lifecycle action, switch, activation,
+download, runtime adapter, connector runtime, provider/model call, web fetch,
+shell/subprocess behavior, production claim, or runtime authority was added.
+
+Evidence: `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`,
+`docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md`,
+`docs/kanban/current_board.md`,
+`docs/kanban/founder_command_center_board.md`,
+`docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`,
+`docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, and
+`docs/backlog/reconciliation/2026-06-21-uaa-p1-065-066-next-milestones.json`.
+
 ### 2026-06-21 - UAA-P1-064 Local Model Inventory Implemented
 
 Date: 2026-06-21

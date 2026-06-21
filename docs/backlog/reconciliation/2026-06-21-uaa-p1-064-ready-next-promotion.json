@@ -81,7 +81,7 @@
       "next_action_ref": "blocker:local-model-runtime-authority-scope"
     }
   ],
-  "next_prompt_ref": "prompt-ref:no-documented-ready-next",
+  "next_prompt_ref": "prompt-ref:uaa-p1-065-founder-command-center-review-cleanup",
   "reconciliation_safety": {
     "raw_prompt_included": false,
     "raw_response_included": false,

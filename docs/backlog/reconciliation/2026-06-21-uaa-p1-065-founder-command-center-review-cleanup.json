@@ -1,0 +1,96 @@
+{
+  "schema_version": "uaa_morning_reconciliation_artifact.v1",
+  "task_ref": "UAA-P1-061",
+  "reconciliation_id": "reconciliation:2026-06-21-uaa-p1-065-founder-command-center-review-cleanup",
+  "created_at_utc": "2026-06-21T00:00:00Z",
+  "source_loop_ref": "loop:uaa-p1-065-founder-command-center-review-cleanup",
+  "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
+  "recommendation_log_ref": "docs/backlog/codex_recommendation_log.md",
+  "safe_summary": "UAA-P1-065 completed a docs-only Founder Command Center review cleanup and promoted one later UI/readability candidate without adding runtime authority.",
+  "completed_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-065-fcc-board-reconciliation",
+      "status": "completed",
+      "source_milestone_ref": "UAA-P1-065",
+      "safe_summary": "Reconciled the Founder Command Center board against completed and review-ready slices, removed stale sequencing, and classified cards.",
+      "reason_code": "COMPLETED_WITH_EVIDENCE",
+      "evidence_refs": [
+        "doc:docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md",
+        "board:docs/kanban/current_board.md",
+        "board:docs/kanban/founder_command_center_board.md",
+        "roadmap:docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+      ],
+      "next_action_ref": "none:complete"
+    },
+    {
+      "recommendation_ref": "recommendation:fcc-p0-002-follow-up-candidate",
+      "status": "completed",
+      "source_milestone_ref": "UAA-P1-065",
+      "safe_summary": "Promoted FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces as the single later FCC UI/readability candidate.",
+      "reason_code": "PROMOTED_FOR_LATER_EXACT_MILESTONE",
+      "evidence_refs": [
+        "board:docs/kanban/founder_command_center_board.md",
+        "doc:docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md",
+        "doc:docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md"
+      ],
+      "next_action_ref": "milestone:fcc-p0-002-follow-up-later"
+    }
+  ],
+  "deferred_recommendations": [
+    {
+      "recommendation_ref": "recommendation:fcc-p0-002-follow-up-implementation",
+      "status": "deferred",
+      "source_milestone_ref": "UAA-P1-065",
+      "safe_summary": "The promoted Control Center organization task requires a later exact implementation milestone and was not implemented in UAA-P1-065.",
+      "reason_code": "OUTSIDE_CURRENT_MILESTONE",
+      "evidence_refs": [
+        "doc:docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md",
+        "board:docs/kanban/founder_command_center_board.md"
+      ],
+      "next_action_ref": "milestone:fcc-p0-002-follow-up-later"
+    }
+  ],
+  "rejected_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-065-frontend-implementation",
+      "status": "rejected",
+      "source_milestone_ref": "UAA-P1-065",
+      "safe_summary": "Implementing Control Center product code during the review/cleanup lane remains rejected.",
+      "reason_code": "DOCS_ONLY_SCOPE",
+      "evidence_refs": [
+        "doc:docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md",
+        "board:docs/kanban/current_board.md"
+      ],
+      "next_action_ref": "none:rejected"
+    }
+  ],
+  "blocked_recommendations": [
+    {
+      "recommendation_ref": "recommendation:fcc-runtime-authority",
+      "status": "blocked",
+      "source_milestone_ref": "UAA-P1-065",
+      "safe_summary": "Routes, setup mutation, connector runtime, model/provider calls, shell/subprocess behavior, and production authority remain blocked without later exact scoped milestones.",
+      "reason_code": "MISSING_SCOPED_AUTHORITY",
+      "evidence_refs": [
+        "doc:docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md",
+        "board:docs/kanban/current_board.md",
+        "doc:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+      ],
+      "next_action_ref": "blocker:fcc-runtime-authority-scope"
+    }
+  ],
+  "next_prompt_ref": "prompt-ref:uaa-p1-066-local-model-read-only-control-center-status",
+  "reconciliation_safety": {
+    "raw_prompt_included": false,
+    "raw_response_included": false,
+    "raw_provider_payload_included": false,
+    "raw_path_included": false,
+    "raw_log_included": false,
+    "username_included": false,
+    "hostname_included": false,
+    "serial_included": false,
+    "environment_dump_included": false,
+    "credential_material_included": false,
+    "private_content_included": false
+  }
+}

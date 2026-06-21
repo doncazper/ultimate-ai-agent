@@ -47,7 +47,10 @@ identity updates, downloads, process control, and runtime behavior remain
 blocked. UAA-P1-064 adds the first read-only implementation slice for
 Python-core inventory and CLI inspection only. No lifecycle, switching, route
 authority, downloads, runtime adapters, or Control Center activation controls
-are authorized. No documented Ready Next milestone remains after UAA-P1-064.
+are authorized. UAA-P1-065 reconciled the Founder Command Center board,
+promoted exactly one later FCC UI/readability candidate, and keeps UAA-P1-066
+queued next as the strictly read-only Control Center model inventory/status
+lane.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -76,24 +79,32 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item.
+No active build item is in progress. The next documented milestone is
+UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status.
 ```
 
 ## Ready Next
 
 ```text
-No documented Ready Next item. Later Local Model Manager read-only UI,
-lifecycle, switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters,
-and downloads require separate exact scoped milestones before implementation.
+UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
+Goal: promote a strictly read-only Control Center model inventory/status
+surface over the UAA-P1-064 Python-core inventory and CLI inspection contract.
+Scope: read-only status/inventory display only, backed by Python Agent Core and
+CLI parity. No lifecycle, switching, activate/unload/start/stop,
+Desktop/Hermes activation, downloads, runtime adapters, React-owned model
+truth, raw local path evidence, or production-readiness claim.
 ```
 
 ## Shaping
 
 ```text
-No active shaping item beyond the completed UAA-P1-064 read-only inventory
-slice. Later Local Model Manager lifecycle, switching, Desktop/Hermes
-activation, MLX/Ollama/LM Studio adapters, and downloads still require separate
-exact scoped milestones.
+UAA-P1-065 promoted exactly one later FCC candidate:
+FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
+That candidate remains a later exact implementation pass and is not implemented
+by UAA-P1-065. UAA-P1-066 is queued first as the next Local Model Manager
+read-only Control Center status milestone. Later Local Model Manager lifecycle,
+switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
+downloads still require separate exact scoped milestones.
 ```
 
 ## Spec Draft
@@ -273,6 +284,22 @@ start, stop, switch, unload, download, model/provider call, web fetch,
 Control Center activation control, runtime adapter execution, public release
 claim, or production authority. No start, stop, activate, switch, or unload
 behavior was added.
+
+UAA-P1-065 Founder Command Center Review/Cleanup Lane
+Gate met: `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`
+records the completed docs-only review/cleanup pass, classifies Founder
+Command Center cards as implemented/ready-for-review, candidate-next, or
+blocked/future, removes stale active sequence language from the subordinate FCC
+board, and promotes exactly one later FCC task:
+FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
+`scripts/verify_uaa_p1_065_founder_command_center_review_cleanup.py`,
+`tests/test_uaa_p1_065_founder_command_center_review_cleanup.py`, and
+`docs/backlog/reconciliation/2026-06-21-uaa-p1-065-founder-command-center-review-cleanup.json`
+bind the pass. This milestone adds no backend route, OpenAPI operation,
+Control Center implementation, frontend mutation control, setup mutation,
+connector runtime, model/provider call, web fetch, shell/subprocess behavior,
+public release claim, or runtime authority. UAA-P1-066 remains queued as the
+next documented Ready Next milestone.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

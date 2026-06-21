@@ -4333,14 +4333,17 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
 
     readme = read_lower("README.md")
     if (
-        "operator runtime excellence p2 ecosystem inspection lane through uaa-p2-051"
+        "uaa-p1-066 ready next after uaa-p1-065 founder command center review cleanup"
         not in readme
     ):
-        failures.append("README must identify current P2 lane through UAA-P2-051")
+        failures.append("README must identify UAA-P1-066 as Ready Next after UAA-P1-065")
 
     docs_readme = read_lower("docs/README.md")
-    if "work through uaa-p2-051" not in docs_readme:
-        failures.append("docs/README.md must identify current P2 work through UAA-P2-051")
+    if (
+        "uaa-p1-065 founder command center review cleanup" not in docs_readme
+        or "ready next uaa-p1-066" not in docs_readme
+    ):
+        failures.append("docs/README.md must identify UAA-P1-065 done and UAA-P1-066 Ready Next")
 
     return failures
 
@@ -4831,10 +4834,10 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
 
     readme = read_lower("README.md")
     if (
-        "operator runtime excellence p2 ecosystem inspection lane through uaa-p2-051"
+        "uaa-p1-066 ready next after uaa-p1-065 founder command center review cleanup"
         not in readme
     ):
-        failures.append("README must identify current P2 lane through UAA-P2-051")
+        failures.append("README must identify UAA-P1-066 as Ready Next after UAA-P1-065")
     if "p0-017 adds safe local model operational recovery guidance" not in readme:
         failures.append("README must mention P0-017 operational recovery")
 

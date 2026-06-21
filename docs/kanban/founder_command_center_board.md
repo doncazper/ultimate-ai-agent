@@ -11,11 +11,15 @@ does not broaden runtime authority.
 
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005, FCC-P1-007,
 FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010, FCC-P1-011, and FCC-P1-012
-have scoped implementation slices ready for review. The active implementation
-sequence after those slices is:
+have scoped implementation slices ready for review. UAA-P1-065 completed the
+Founder Command Center review/cleanup pass and promoted exactly one later FCC
+candidate: FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core
+Surfaces.
 
-1. UAA-P1-058 First low-risk API route-module extraction, only while the parent
-   foundation gates remain green.
+The parent board keeps UAA-P1-066 Local Model Manager Read-Only Control Center
+Inventory/Status queued next after UAA-P1-065. UAA-P1-066 remains strictly
+read-only and does not add lifecycle, switching, activation, download, runtime
+adapter, or production authority.
 
 Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
 and new runtime authority lanes are not allowed to displace this sequence
@@ -41,6 +45,50 @@ Authority-changing cards: 0 unless a separate scoped milestone is accepted
 7. Testing/Evals
 8. Infrastructure/Deployment
 9. Growth/Commercialization
+
+## Classification Summary
+
+```text
+Implemented / ready for review:
+FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
+FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
+FCC-P1-011, FCC-P1-012.
+
+Candidate-next:
+FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
+
+Blocked / future:
+FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016,
+FCC-BLOCK-001, FCC-BLOCK-002, FCC-BLOCK-003.
+```
+
+## Candidate Next
+
+### FCC-P0-002 Follow-Up - Collapse/Organize Control Center Around Core Surfaces
+
+Epic: Product/UX
+
+Promoted by: UAA-P1-065
+
+Type: frontend read-only product-surface organization
+
+Description: Collapse and organize Control Center around Today, Inbox, Plans,
+Actions, Memory, Evidence, and Settings as the primary product workflow while
+keeping legacy review surfaces reachable as supporting detail.
+
+Acceptance criteria: Today, Inbox, Plans, Actions, Memory, Evidence, and
+Settings remain the primary loop; legacy review surfaces are grouped as
+supporting detail; route truth, authority boundaries, blocked states, and
+existing route coverage remain visible and tested.
+
+Required tests/verifiers: `apps/control-center/src/App.test.tsx`,
+`make frontend-check`, `.venv/bin/python scripts/verify_control_center_frontend.py`,
+and `.venv/bin/python scripts/verify_documentation_integrity.py`.
+
+Safety notes: No backend route, no OpenAPI change, approval grant capture,
+frontend mutation control, connector runtime, model/provider call,
+shell/subprocess behavior, public distribution, production authority, or
+React-owned product truth. This task is not implemented by UAA-P1-065.
 
 ## Implemented / Ready For Review
 

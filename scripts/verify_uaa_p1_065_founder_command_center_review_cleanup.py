@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the UAA-P1-062 Local Model Manager docs-only scope.
-
-This verifier is inspection-only. It checks that the UAA-P1-062 lane shape
-remains documented as docs-only and that runtime model-manager authority stays
-blocked until later exact scoped milestones grant them.
-"""
+"""Validate the UAA-P1-065 Founder Command Center review cleanup scope."""
 from __future__ import annotations
 
 import argparse
@@ -15,21 +10,24 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TASK_REF = "UAA-P1-062"
-SCOPE_DOC = ROOT / "docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md"
+TASK_REF = "UAA-P1-065"
+SCOPE_DOC = ROOT / "docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md"
 CURRENT_BOARD = ROOT / "docs/kanban/current_board.md"
+FCC_BOARD = ROOT / "docs/kanban/founder_command_center_board.md"
 ROADMAP = ROOT / "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
 PRODUCT_TRUTH = ROOT / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
 GAP_MAP = ROOT / "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
 DOCS_README = ROOT / "docs/README.md"
 DOCS_INDEX = ROOT / "docs/DOCUMENTATION_INDEX.md"
-CANONICAL_MAP = ROOT / "docs/canonical/CANONICAL_DOC_MAP.md"
 RECOMMENDATION_LOG = ROOT / "docs/backlog/codex_recommendation_log.md"
 RECONCILIATION_ARTIFACT = (
     ROOT
-    / "docs/backlog/reconciliation/2026-06-21-uaa-p1-062-local-model-manager-shape.json"
+    / "docs/backlog/reconciliation/2026-06-21-uaa-p1-065-founder-command-center-review-cleanup.json"
 )
-SCOPE_REF = "docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md"
+
+SCOPE_REF = "docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md"
+PROMOTED_TASK = "FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces"
+NEXT_PROMPT_REF = "prompt-ref:uaa-p1-066-local-model-read-only-control-center-status"
 
 REQUIRED_SAFETY_FLAGS = {
     "raw_prompt_included",
@@ -115,7 +113,7 @@ def _require_fragments(
     for fragment in fragments:
         needle = fragment.lower()
         if needle not in lowered and needle not in compact:
-            failures.append(f"{rel_path} missing UAA-P1-062 fragment: {fragment}")
+            failures.append(f"{rel_path} missing UAA-P1-065 fragment: {fragment}")
 
 
 def _validate_scope_doc(root: Path, failures: list[str]) -> None:
@@ -126,22 +124,22 @@ def _validate_scope_doc(root: Path, failures: list[str]) -> None:
         _rel(SCOPE_DOC),
         text,
         [
-            "Status: docs-only lane shape",
-            "does not implement routes",
-            "Python Agent Core owns local model truth",
-            "No routes or OpenAPI changes",
-            "No CLI commands",
-            "No OpenWebUI config or runtime changes",
-            "no process control",
-            "no provider/model calls",
-            "Candidate Implementation Roadmap",
-            "Read-only inventory",
-            "uaa local-model status",
-            "llama-server --models-dir <approved-gguf-cache-ref> --models-max 1",
-            "uaa local-model switch --to <model-ref> --dry-run",
-            "Implementation Prompt For Later Scoped Milestone",
-            "Implement UAA-P1-064 Local Model Inventory Read-Only Backend + CLI",
-            "Future implementation stages need later documented scope",
+            "Status: Implemented",
+            "Classify Founder Command Center cards",
+            "Classification Output",
+            "Implemented / ready for review",
+            "Candidate-next",
+            "Blocked / future",
+            "Promoted Next FCC Task",
+            PROMOTED_TASK,
+            "frontend read-only product-surface organization",
+            "This task is not implemented by UAA-P1-065",
+            "No backend routes",
+            "No OpenAPI operation changes",
+            "No Control Center implementation work",
+            "No React-only product behavior",
+            "No model/provider calls, web fetching",
+            "scripts/verify_uaa_p1_065_founder_command_center_review_cleanup.py",
         ],
         failures,
     )
@@ -151,35 +149,47 @@ def _validate_scope_doc(root: Path, failures: list[str]) -> None:
 def _validate_active_docs(root: Path, failures: list[str]) -> None:
     required_by_doc = {
         CURRENT_BOARD: [
-            "UAA-P1-064 Local Model Inventory Read-Only Backend + CLI",
-            "UAA-P1-064 adds the first read-only implementation slice",
-            "backend routes, CLI commands, lifecycle authority",
-            "Later Local Model Manager lifecycle",
-            "This milestone adds no backend routes",
+            "UAA-P1-065 Founder Command Center Review/Cleanup Lane",
+            "UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status",
+            PROMOTED_TASK,
+            "next documented Ready Next milestone",
+            "This milestone adds no backend route",
+            "UAA-P1-066 remains queued",
+        ],
+        FCC_BOARD: [
+            "UAA-P1-065 completed",
+            "Classification Summary",
+            "Candidate Next",
+            PROMOTED_TASK,
+            "This task is not implemented by UAA-P1-065",
+            "No backend route",
+            "No OpenAPI change",
         ],
         ROADMAP: [
-            "`UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape",
-            "Runtime stages remain blocked until later exact scoped milestones",
-            "UAA-P1-064 completed for read-only inventory over consolidated local roots",
-            "uaa local-model status/list/inspect",
-            SCOPE_REF,
+            "`UAA-P1-065` Done",
+            PROMOTED_TASK,
+            "without adding routes",
+            "or runtime authority",
         ],
         PRODUCT_TRUTH: [
-            "UAA-P1-062 documents the Local Model Manager / Memory-Aware Runtime Control lane shape",
-            "planned/blocked for lifecycle",
+            "UAA-P1-065 completes a docs-only Founder Command Center review/cleanup pass",
+            PROMOTED_TASK,
             SCOPE_REF,
         ],
         GAP_MAP: [
-            "UAA-P1-062 scope doc",
-            "Blocked.",
-            "later backend contracts",
+            "FCC-P0-002",
+            "route authority",
         ],
-        DOCS_README: [SCOPE_REF],
+        DOCS_README: [
+            SCOPE_REF,
+            "completed UAA-P1-065 Founder Command Center review cleanup",
+            "Ready Next UAA-P1-066",
+        ],
         DOCS_INDEX: [SCOPE_REF],
-        CANONICAL_MAP: [SCOPE_REF],
         RECOMMENDATION_LOG: [
-            "UAA-P1-062 Local Model Manager Lane Shape",
-            "No backend route, CLI command, process control",
+            "UAA-P1-065 Founder Command Center Review/Cleanup Completed",
+            PROMOTED_TASK,
+            "UAA-P1-066 Local Model Manager Read-Only Control Center",
             SCOPE_REF,
         ],
     }
@@ -196,31 +206,39 @@ def _validate_reconciliation_artifact(root: Path, failures: list[str]) -> None:
     if not artifact:
         return
     if artifact.get("reconciliation_id") != (
-        "reconciliation:2026-06-21-uaa-p1-062-local-model-manager-shape"
+        "reconciliation:2026-06-21-uaa-p1-065-founder-command-center-review-cleanup"
     ):
-        failures.append("UAA-P1-062 reconciliation artifact id drifted")
-    if artifact.get("next_prompt_ref") != "prompt-ref:no-documented-ready-next":
-        failures.append("UAA-P1-062 reconciliation artifact must stop the conveyor")
+        failures.append("UAA-P1-065 reconciliation artifact id drifted")
+    if artifact.get("next_prompt_ref") != NEXT_PROMPT_REF:
+        failures.append("UAA-P1-065 reconciliation artifact must point to UAA-P1-066")
 
     safety = artifact.get("reconciliation_safety")
     if not isinstance(safety, dict) or set(safety) != REQUIRED_SAFETY_FLAGS:
-        failures.append("UAA-P1-062 reconciliation safety flags are incomplete")
+        failures.append("UAA-P1-065 reconciliation safety flags are incomplete")
     elif any(safety.get(flag) is not False for flag in REQUIRED_SAFETY_FLAGS):
-        failures.append("UAA-P1-062 reconciliation safety flags must all be false")
+        failures.append("UAA-P1-065 reconciliation safety flags must all be false")
 
     serialized = json.dumps(artifact, sort_keys=True)
     for fragment in [
-        "recommendation:uaa-p1-062-docs-only-shape",
-        "recommendation:uaa-p1-062-runtime-authority",
+        "recommendation:uaa-p1-065-fcc-board-reconciliation",
+        "recommendation:fcc-p0-002-follow-up-candidate",
+        "recommendation:fcc-p0-002-follow-up-implementation",
+        "recommendation:fcc-runtime-authority",
+        "COMPLETED_WITH_EVIDENCE",
+        "PROMOTED_FOR_LATER_EXACT_MILESTONE",
+        "OUTSIDE_CURRENT_MILESTONE",
         "MISSING_SCOPED_AUTHORITY",
         SCOPE_REF,
+        PROMOTED_TASK,
     ]:
         if fragment not in serialized:
-            failures.append(f"UAA-P1-062 reconciliation artifact missing: {fragment}")
+            failures.append(f"UAA-P1-065 reconciliation artifact missing: {fragment}")
     failures.extend(_scan_text(_rel(RECONCILIATION_ARTIFACT), serialized))
 
 
-def validate_uaa_p1_062_local_model_manager_scope(root: Path = ROOT) -> list[str]:
+def validate_uaa_p1_065_founder_command_center_review_cleanup(
+    root: Path = ROOT,
+) -> list[str]:
     failures: list[str] = []
     _validate_scope_doc(root, failures)
     _validate_active_docs(root, failures)
@@ -230,17 +248,19 @@ def validate_uaa_p1_062_local_model_manager_scope(root: Path = ROOT) -> list[str
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Validate UAA-P1-062 local model manager docs-only scope."
+        description="Validate UAA-P1-065 Founder Command Center review cleanup."
     )
     parser.add_argument("--root", default=str(ROOT), help="Repository root to validate.")
     args = parser.parse_args(argv)
-    failures = validate_uaa_p1_062_local_model_manager_scope(Path(args.root).resolve())
+    failures = validate_uaa_p1_065_founder_command_center_review_cleanup(
+        Path(args.root).resolve()
+    )
     if failures:
-        print("UAA-P1-062 local model manager scope verification FAILED")
+        print("UAA-P1-065 Founder Command Center review cleanup verification FAILED")
         for failure in failures:
             print(f"- {failure}")
         return 1
-    print("UAA-P1-062 local model manager scope verification PASSED")
+    print("UAA-P1-065 Founder Command Center review cleanup verification PASSED")
     return 0
 
 
