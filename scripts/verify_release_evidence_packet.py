@@ -119,6 +119,12 @@ def _load_json(path: Path, failures: list[str]) -> dict[str, Any]:
     return loaded
 
 
+def _resolve_repo_path(root: Path, path: Path | None, default: Path) -> Path:
+    if path is None:
+        return root / default.relative_to(ROOT)
+    return path if path.is_absolute() else root / path
+
+
 def _scan_text_for_forbidden_fragments(rel_path: str, text: str) -> list[str]:
     lowered = text.lower()
     failures: list[str] = []
@@ -142,10 +148,14 @@ def _template_lane_ids(template: dict[str, Any]) -> set[str]:
     }
 
 
-def validate_release_evidence_packet(root: Path = ROOT) -> list[str]:
+def validate_release_evidence_packet(
+    root: Path = ROOT,
+    packet_path: Path | None = None,
+) -> list[str]:
     failures: list[str] = []
     schema = _load_json(root / SCHEMA_PATH.relative_to(ROOT), failures)
-    template = _load_json(root / TEMPLATE_PATH.relative_to(ROOT), failures)
+    template_file = _resolve_repo_path(root, packet_path, TEMPLATE_PATH)
+    template = _load_json(template_file, failures)
 
     doc = root / DOC_PATH.relative_to(ROOT)
     if not doc.exists():
@@ -252,7 +262,7 @@ def validate_release_evidence_packet(root: Path = ROOT) -> list[str]:
         template_text = json.dumps(template, sort_keys=True)
         failures.extend(
             _scan_text_for_forbidden_fragments(
-                TEMPLATE_PATH.relative_to(ROOT).as_posix(),
+                template_file.relative_to(root).as_posix(),
                 template_text,
             )
         )
@@ -260,8 +270,11 @@ def validate_release_evidence_packet(root: Path = ROOT) -> list[str]:
     return failures
 
 
-def build_release_evidence_packet_summary(root: Path = ROOT) -> dict[str, Any]:
-    failures = validate_release_evidence_packet(root)
+def build_release_evidence_packet_summary(
+    root: Path = ROOT,
+    packet_path: Path | None = None,
+) -> dict[str, Any]:
+    failures = validate_release_evidence_packet(root, packet_path=packet_path)
     return {
         "schema_version": PACKET_SCHEMA_VERSION,
         "task_ref": PACKET_TASK_REF,
@@ -276,10 +289,16 @@ def build_release_evidence_packet_summary(root: Path = ROOT) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "packet_path",
+        nargs="?",
+        help="Optional repo-relative release evidence packet or template path.",
+    )
     parser.add_argument("--json", action="store_true", help="emit machine-readable summary")
     args = parser.parse_args(argv)
 
-    summary = build_release_evidence_packet_summary()
+    packet_path = Path(args.packet_path) if args.packet_path else None
+    summary = build_release_evidence_packet_summary(packet_path=packet_path)
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))
     elif summary["validation_failures"]:

@@ -56,10 +56,12 @@
       "command_refs": [
         "command:secret-broker.redaction",
         "command:file-secret.blocking",
-        "command:foundation-gate.secret-hygiene"
+        "command:foundation-gate.secret-hygiene",
+        "command:security.artifact-redaction"
       ],
       "report_refs": [
-        "report:security-redaction:pending"
+        "report:security-redaction:pending",
+        "report:security-redaction:artifact-scan"
       ],
       "safe_summary": "Replace with the security and redaction lane result summary for the release candidate."
     },

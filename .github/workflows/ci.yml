@@ -301,6 +301,7 @@ jobs:
           run_lane_command "command:secret-broker.redaction" env PYTHONPATH=src .venv/bin/python -m pytest tests/test_secret_broker_redaction.py
           run_lane_command "command:file-secret.blocking" env PYTHONPATH=src .venv/bin/python -m pytest tests/test_file_secret_blocking.py
           run_lane_command "command:foundation-gate.secret-hygiene" env PYTHONPATH=src .venv/bin/python -m pytest tests/test_foundation_gate_secret_hygiene.py
+          run_lane_command "command:security.artifact-redaction" .venv/bin/python scripts/verify_security_redaction_artifacts.py
           exit "$status"
 
   release-lane-local-model-e2e:

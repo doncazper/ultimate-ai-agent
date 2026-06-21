@@ -57,7 +57,7 @@ reason, impact, and safe evidence refs.
 | docs | `command:docs.integrity` | Not skippable for a release candidate; blocked by canonical docs, roadmap, or Kanban currentness failures. |
 | openapi | `command:openapi.contract`, `command:api.manifest.tests`, `command:route-module.ownership` | Not skippable for a release candidate; blocked by route-count drift, missing operation ids, unsafe route metadata, or missing route-module ownership coverage. |
 | api-safety | `command:api.safe-errors`, `command:control-center.api-routes` | Not skippable for a release candidate; blocked by unsafe error output or side-effect classification drift. |
-| security-redaction | `command:secret-broker.redaction`, `command:file-secret.blocking`, `command:foundation-gate.secret-hygiene` | Not skippable for a release candidate; blocked by raw prompt, raw response, raw path, raw log, or credential-like output. |
+| security-redaction | `command:secret-broker.redaction`, `command:file-secret.blocking`, `command:foundation-gate.secret-hygiene`, `command:security.artifact-redaction` | Not skippable for a release candidate; blocked by raw prompt, raw response, raw provider payload, raw path, raw log, username, hostname, serial, environment dump, credential-like output, or unsafe release claim. |
 | local-model-e2e | `command:local-model.release-gate`, `command:local-model.hardening`, `command:openwebui.local-gateway` | Live hardware or model prerequisites may be skipped only when the harness reports skipped with reason code; blocked by missing reviewed safe refs, approved model refs, or local-only auth prerequisites. |
 | durability | `command:durable.state-machine`, `command:event-ledger.append-only`, `command:file.atomic-writes`, `command:backup-restore.verify` | Not skippable for local durable-state release candidates; blocked by corruption, duplicate mutation, missing idempotency, unreceipted mutation, missing minimum backup set, or failed offline restore verification. |
 | frontend | `command:frontend.check`, `command:frontend.safety`, `command:frontend.browser-smoke` | Can be skipped only in split CI when an equivalent required frontend job is referenced; blocked by hidden authority, raw JSON primary UI, inaccessible failure state, or failed frontend checks. |
@@ -80,6 +80,35 @@ equivalent required job only when the release evidence packet records the job
 ref and the lane status is `pass`, `skipped`, `blocked`, or `accepted_failure`
 according to the semantics above.
 
+## Security And Artifact Redaction Lane
+
+UAA-P1-055 hardens the `security-redaction` lane with
+`scripts/verify_security_redaction_artifacts.py`. The verifier is internal
+repo automation only, not an external security audit, signed-release check,
+public beta gate, public distribution review, or production-readiness claim.
+
+The artifact scan covers active release/security docs, the current Kanban and
+product truth packet, Control Center product-language rules, Foundation Gate and
+performance reports, release evidence templates, and optional Control Center
+frontend build output under `apps/control-center/dist`. It intentionally does
+not scan historical archive folders, dependency folders, or external systems.
+
+The verifier fails when scoped artifacts contain raw prompt markers, raw
+response markers, raw provider payload markers, raw local path material, raw log
+material, usernames, hostnames, serials, environment dumps, credential-like
+assignments, bearer/private-key/token patterns, or unsafe public distribution,
+public release, public beta, signed-release, external-audit, production
+authority, or production-readiness claims.
+
+Failure output is safe-summary-only. It reports file refs, line refs, category
+labels, and short SHA-256 evidence hashes; it must not echo the offending raw
+content. The safe report ref for release packets is
+`report:security-redaction:artifact-scan`.
+
+The lane is pass/fail for release candidates. It is not skippable when release
+artifacts exist. Missing optional frontend build output is allowed because the
+frontend lane owns building that output; when present, `dist` is scanned.
+
 ## Safety
 
 Lane reports are redacted release evidence. They must not include raw prompts,
@@ -98,3 +127,10 @@ To roll back UAA-P1-013, remove `scripts/verify_release_lanes.py`, the
 `verify_release_verification_lanes` static scan in `scripts/verify_all.py`, this
 document, and the associated tests, docs index links, Kanban entry, and
 documentation-integrity checks.
+
+To roll back UAA-P1-055, remove
+`scripts/verify_security_redaction_artifacts.py`, remove
+`command:security.artifact-redaction` from the security/redaction lane, CI job,
+release evidence packet template, `verify_all` guard, focused tests, and this
+section. Do not remove the existing secret broker, file secret blocking, or
+Foundation Gate secret-hygiene checks.

@@ -70,6 +70,12 @@ def test_release_evidence_packet_schema_and_template_cover_required_fields():
     )
     assert "command:desktop-packaging.proof" in desktop["command_refs"]
 
+    security = next(
+        lane for lane in template["verification_lanes"] if lane["lane_id"] == "security-redaction"
+    )
+    assert "command:security.artifact-redaction" in security["command_refs"]
+    assert "report:security-redaction:artifact-scan" in security["report_refs"]
+
 
 def test_release_evidence_packet_lane_ids_match_release_lane_manifest():
     template = json.loads(
@@ -113,3 +119,12 @@ def test_release_evidence_packet_script_does_not_execute_commands():
     assert "import subprocess" not in text
     assert "os.system" not in text
     assert "subprocess.run" not in text
+
+
+def test_release_evidence_packet_script_accepts_template_path(capsys):
+    exit_code = release_packet.main(
+        ["docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json"]
+    )
+
+    assert exit_code == 0
+    assert "safe and complete" in capsys.readouterr().out
