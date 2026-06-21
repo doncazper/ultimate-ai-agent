@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Validate the UAA-P1-064 read-only local model inventory scope.
 
-This verifier is inspection-only. It checks that UAA-P1-064 is promoted as the
-Ready Next milestone for read-only Python Agent Core inventory and CLI
-inspection, while lifecycle, switching, downloads, route authority, Control
-Center activation, and runtime adapters remain blocked.
+This verifier is inspection-only. It checks that UAA-P1-064 is implemented only
+as read-only Python Agent Core inventory and CLI inspection, while lifecycle,
+switching, downloads, route authority, Control Center activation, and runtime
+adapters remain blocked.
 """
 from __future__ import annotations
 
@@ -31,6 +31,12 @@ RECONCILIATION_ARTIFACT = (
     / "docs/backlog/reconciliation/2026-06-21-uaa-p1-064-ready-next-promotion.json"
 )
 SCOPE_REF = "docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md"
+CORE_REF = "src/ultimate_ai_agent/core/local_model_management/inventory.py"
+CLI_REF = "scripts/dev/uaa_local_model.py"
+LAUNCHER_REF = "scripts/dev/uaa_launcher.py"
+CORE_TEST_REF = "tests/test_uaa_p1_064_local_model_inventory.py"
+SCOPE_TEST_REF = "tests/test_uaa_p1_064_local_model_inventory_scope.py"
+LAUNCHER_TEST_REF = "tests/test_dev_launcher.py"
 
 REQUIRED_SAFETY_FLAGS = {
     "raw_prompt_included",
@@ -127,7 +133,7 @@ def _validate_scope_doc(root: Path, failures: list[str]) -> None:
         _rel(SCOPE_DOC),
         text,
         [
-            "Status: Ready Next",
+            "Status: Implemented",
             "UAA-P1-064 is the first implementation milestone",
             "Python Agent Core as the authority",
             "read-only Python Agent Core inventory",
@@ -141,6 +147,12 @@ def _validate_scope_doc(root: Path, failures: list[str]) -> None:
             "runnable_now",
             "needs_adapter",
             "blocked",
+            CORE_REF,
+            CLI_REF,
+            LAUNCHER_REF,
+            CORE_TEST_REF,
+            SCOPE_TEST_REF,
+            LAUNCHER_TEST_REF,
             "No start, stop, activate, switch, or unload behavior",
             "No process control and no llama.cpp lifecycle management",
             "No OpenAPI or route authority",
@@ -160,31 +172,32 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
     required_by_doc = {
         CURRENT_BOARD: [
             "UAA-P1-064 Local Model Inventory Read-Only Backend + CLI",
-            "UAA-P1-064 is Ready Next only",
+            "UAA-P1-064 adds the first read-only implementation slice",
+            "No documented Ready Next item",
             "CLI parity first: uaa local-model status",
             "No start, stop, activate, switch",
             "scripts/verify_uaa_p1_064_local_model_inventory_scope.py",
         ],
         ROADMAP: [
-            "`UAA-P1-064` Ready Next: read-only local model inventory backend + CLI",
-            "`UAA-P1-064` Ready Next: implement only the read-only Python Agent Core",
+            "`UAA-P1-064` Done: read-only local model inventory backend + CLI",
+            "`UAA-P1-064` Done: implements only the read-only Python Agent Core",
             SCOPE_REF,
         ],
         PRODUCT_TRUTH: [
-            "UAA-P1-064 is Ready Next for read-only Python Agent Core inventory and CLI inspection only",
-            "Ready Next for UAA-P1-064 read-only inventory and CLI inspection",
+            "UAA-P1-064 implements read-only Python Agent Core inventory and CLI inspection only",
+            "UAA-P1-064 read-only inventory plus CLI inspection",
             SCOPE_REF,
         ],
         GAP_MAP: [
-            "UAA-P1-064 may add read-only inventory and CLI inspection only",
+            "UAA-P1-064 adds read-only Python Agent Core inventory and CLI inspection only",
             "UAA-P1-064 read-only inventory scope doc",
         ],
         DOCS_README: [SCOPE_REF],
         DOCS_INDEX: [SCOPE_REF],
         CANONICAL_MAP: [SCOPE_REF],
         RECOMMENDATION_LOG: [
-            "UAA-P1-064 Local Model Inventory Ready Next",
-            "implementation-ready for read-only inventory and CLI inspection only",
+            "UAA-P1-064 Local Model Inventory Implemented",
+            "Implemented bounded metadata-first local model inventory",
             SCOPE_REF,
         ],
     }
@@ -204,8 +217,8 @@ def _validate_reconciliation_artifact(root: Path, failures: list[str]) -> None:
         "reconciliation:2026-06-21-uaa-p1-064-ready-next-promotion"
     ):
         failures.append("UAA-P1-064 reconciliation artifact id drifted")
-    if artifact.get("next_prompt_ref") != "prompt-ref:uaa-p1-064-conveyor-restart":
-        failures.append("UAA-P1-064 reconciliation artifact must point to restart prompt")
+    if artifact.get("next_prompt_ref") != "prompt-ref:no-documented-ready-next":
+        failures.append("UAA-P1-064 reconciliation artifact must record no documented Ready Next")
 
     safety = artifact.get("reconciliation_safety")
     if not isinstance(safety, dict) or set(safety) != REQUIRED_SAFETY_FLAGS:
@@ -217,10 +230,14 @@ def _validate_reconciliation_artifact(root: Path, failures: list[str]) -> None:
     for fragment in [
         "recommendation:uaa-p1-064-ready-next-scope",
         "recommendation:uaa-p1-064-implementation",
+        "recommendation:uaa-p1-064-next-ui-read-only",
         "recommendation:uaa-p1-064-runtime-authority",
-        "READY_NEXT_NOT_STARTED",
+        "COMPLETED_WITH_EVIDENCE",
+        "OUTSIDE_CURRENT_MILESTONE",
         "MISSING_SCOPED_AUTHORITY",
         SCOPE_REF,
+        CORE_REF,
+        CLI_REF,
     ]:
         if fragment not in serialized:
             failures.append(f"UAA-P1-064 reconciliation artifact missing: {fragment}")

@@ -76,7 +76,7 @@ They do not mark the capability shipped and do not grant new authority.
 | Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
 | Preserve UAA's stricter authority model | `UAA-P1-020` PolicyEngine consolidation map | P0/P1 | No copied peer runtime feature ships without exact policy, approval, audit, rollback, and redaction gates |
 | Add automated security scanning and artifact redaction checks | `UAA-P1-055` Security automation and artifact redaction lane | P1 | Security scans and artifact checks are safe, local/CI bounded, and do not claim external audit or public distribution |
-| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape; `UAA-P1-064` Ready Next: read-only local model inventory backend + CLI | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. |
+| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape; `UAA-P1-064` Done: read-only local model inventory backend + CLI | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. |
 | Productize extension boundary carefully | `UAA-P2-048` Static package review, `UAA-P2-056` Extension trust product surface | P2 | Trust/provenance inspection improves before plugin execution exists; runtime import remains disabled |
 | Treat installer/release workflows as catch-up after local loop usability | `UAA-P2-047` Signed installer and public distribution lane shaping | P2 | No signed/public distribution claim until local loop, security, durability, and artifact proof gates are green |
 | Preserve blocked/scoped/planned truthfulness | `UAA-P1-031` Done, `UAA-P1-057` Done, `UAA-P1-060` Done, `UAA-P1-061` Done | P0/P1 | Planned, blocked, skipped, mock, and not-scoped work cannot be described as complete or production-ready; readiness language maps through a shared taxonomy and reconciliation artifacts |
@@ -195,8 +195,8 @@ Tasks:
   GGUF-only `llama-server --models-dir <approved-gguf-cache-ref> --models-max 1`
   planning; dry-run switch planning; approval-bound switch; Desktop/Hermes UI
   activation only after CLI/API safety; and MLX/Ollama/LM Studio adapters later.
-- `UAA-P1-064` Ready Next: implement only the read-only Python Agent Core
-  inventory and CLI inspection slice from that sequence. This milestone excludes
+- `UAA-P1-064` Done: implements only the read-only Python Agent Core inventory
+  and CLI inspection slice from that sequence. This milestone excludes
   lifecycle control, switching, downloads, route/OpenAPI authority, Control
   Center activation controls, model/provider calls, and runtime adapters.
 
@@ -215,7 +215,7 @@ Acceptance:
 - `UAA-P1-062` shape evidence is
   `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`; later
   implementation stages require separate documented scope.
-- `UAA-P1-064` scope evidence is
+- `UAA-P1-064` implementation evidence is
   `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`; it is
   accepted only for read-only inventory and CLI inspection.
 

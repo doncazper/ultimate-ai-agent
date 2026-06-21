@@ -3,10 +3,10 @@
   "task_ref": "UAA-P1-061",
   "reconciliation_id": "reconciliation:2026-06-21-uaa-p1-064-ready-next-promotion",
   "created_at_utc": "2026-06-21T00:00:00Z",
-  "source_loop_ref": "loop:uaa-p1-064-ready-next-promotion",
+  "source_loop_ref": "loop:uaa-p1-064-read-only-inventory-implementation",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
   "recommendation_log_ref": "docs/backlog/codex_recommendation_log.md",
-  "safe_summary": "UAA-P1-064 was promoted as the Ready Next read-only local model inventory and CLI inspection milestone; implementation has not started.",
+  "safe_summary": "UAA-P1-064 read-only local model inventory and CLI inspection were implemented with safe refs only; future UI and runtime authority remain outside scope.",
   "completed_recommendations": [
     {
       "recommendation_ref": "recommendation:uaa-p1-064-ready-next-scope",
@@ -20,21 +20,36 @@
         "roadmap:docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
         "doc:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
       ],
-      "next_action_ref": "prompt-ref:uaa-p1-064-conveyor-restart"
+      "next_action_ref": "none:complete"
+    },
+    {
+      "recommendation_ref": "recommendation:uaa-p1-064-implementation",
+      "status": "completed",
+      "source_milestone_ref": "UAA-P1-064",
+      "safe_summary": "Implemented bounded metadata-first local model inventory and CLI parity for status, list, and inspect without lifecycle or runtime authority.",
+      "reason_code": "COMPLETED_WITH_EVIDENCE",
+      "evidence_refs": [
+        "code:src/ultimate_ai_agent/core/local_model_management/inventory.py",
+        "code:scripts/dev/uaa_local_model.py",
+        "code:scripts/dev/uaa_launcher.py",
+        "test:tests/test_uaa_p1_064_local_model_inventory.py",
+        "test:tests/test_dev_launcher.py"
+      ],
+      "next_action_ref": "none:complete"
     }
   ],
   "deferred_recommendations": [
     {
-      "recommendation_ref": "recommendation:uaa-p1-064-implementation",
+      "recommendation_ref": "recommendation:uaa-p1-064-next-ui-read-only",
       "status": "deferred",
       "source_milestone_ref": "UAA-P1-064",
-      "safe_summary": "Implementation of read-only local model inventory and CLI inspection is deferred until the conveyor starts from the promoted milestone scope.",
-      "reason_code": "READY_NEXT_NOT_STARTED",
+      "safe_summary": "A read-only Control Center inventory table remains deferred until a later exact scoped UI milestone promotes it.",
+      "reason_code": "OUTSIDE_CURRENT_MILESTONE",
       "evidence_refs": [
         "doc:docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md",
         "board:docs/kanban/current_board.md"
       ],
-      "next_action_ref": "prompt-ref:uaa-p1-064-conveyor-restart"
+      "next_action_ref": "milestone:future-local-model-read-only-ui"
     }
   ],
   "rejected_recommendations": [
@@ -66,7 +81,7 @@
       "next_action_ref": "blocker:local-model-runtime-authority-scope"
     }
   ],
-  "next_prompt_ref": "prompt-ref:uaa-p1-064-conveyor-restart",
+  "next_prompt_ref": "prompt-ref:no-documented-ready-next",
   "reconciliation_safety": {
     "raw_prompt_included": false,
     "raw_response_included": false,

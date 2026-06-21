@@ -1,5 +1,6 @@
 from typing import Any
 import importlib.util
+import json
 import stat
 import subprocess
 import sys
@@ -257,6 +258,66 @@ def test_launcher_openwebui_service_config_is_localhost_only() -> None:
     assert service.health_url == "http://127.0.0.1:3000"
     assert service.pid_file.name == "openwebui.pid"
     assert service.log_file.name == "openwebui.log"
+
+
+def test_launcher_registers_local_model_subcommands() -> None:
+    launcher = load_launcher()
+
+    status_args = launcher.parse_args(["local-model", "status", "--root", "/safe-root", "--json"])
+    list_args = launcher.parse_args(["local-model", "list", "--root", "/safe-root"])
+    inspect_args = launcher.parse_args(["local-model", "inspect", "local-model:gguf:abc123"])
+
+    assert status_args.command == "local-model"
+    assert status_args.local_model_command == "status"
+    assert status_args.root == ["/safe-root"]
+    assert status_args.json is True
+    assert list_args.local_model_command == "list"
+    assert inspect_args.local_model_command == "inspect"
+    assert inspect_args.model_ref == "local-model:gguf:abc123"
+
+
+def test_launcher_local_model_status_uses_safe_inventory_refs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    launcher = load_launcher()
+    model_root = tmp_path / "models"
+    model_root.mkdir()
+    (model_root / "private-model-name.gguf").write_bytes(b"fixture")
+
+    result = launcher.main(["local-model", "status", "--root", str(model_root), "--json"])
+
+    assert result == 0
+    output = capsys.readouterr().out
+    data = json.loads(output)
+    assert data["schema_version"] == "uaa_local_model_inventory.v1"
+    assert data["models"][0]["model_ref"].startswith("local-model:gguf:")
+    assert str(tmp_path) not in output
+    assert "private-model-name.gguf" not in output
+
+
+def test_launcher_local_model_inspect_reports_missing_ref_without_crashing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    launcher = load_launcher()
+
+    result = launcher.main(
+        [
+            "local-model",
+            "inspect",
+            "local-model:gguf:missing",
+            "--root",
+            str(tmp_path / "missing"),
+            "--json",
+        ]
+    )
+
+    assert result == 1
+    output = capsys.readouterr().out
+    data = json.loads(output)
+    assert data["status"] == "blocked"
+    assert data["reason_code"] == "model_ref_not_found"
 
 
 def test_launch_ui_parser_defaults_to_designated_openwebui() -> None:

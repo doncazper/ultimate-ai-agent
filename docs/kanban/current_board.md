@@ -44,10 +44,10 @@ for completed, deferred, rejected, and blocked recommendation refs. UAA-P1-062
 adds the docs-only Local Model Manager / Memory-Aware Runtime Control lane
 shape; backend routes, CLI commands, lifecycle authority, switch execution,
 identity updates, downloads, process control, and runtime behavior remain
-blocked. UAA-P1-064 is promoted as the next read-only implementation slice for
-Python-core inventory and CLI inspection only. Next-lane order:
-
-1. UAA-P1-064 Local Model Inventory Read-Only Backend + CLI
+blocked. UAA-P1-064 adds the first read-only implementation slice for
+Python-core inventory and CLI inspection only. No lifecycle, switching, route
+authority, downloads, runtime adapters, or Control Center activation controls
+are authorized. No documented Ready Next milestone remains after UAA-P1-064.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -76,47 +76,24 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. UAA-P1-064 is Ready Next only and is not in
-Now/Building until the conveyor starts it from the documented scope.
+No active foundation build item.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-064 Local Model Inventory Read-Only Backend + CLI
-Goal: implement read-only Python Agent Core local model inventory and CLI
-inspection over consolidated model roots without lifecycle, switching,
-downloads, model calls, route authority, or Control Center activation controls.
-
-Scope:
-- Core inventory detects GGUF, Hugging Face/MLX-style directories, Ollama
-  manifests or blobs, LM Studio-style directories, and MLX directories.
-- CLI parity first: uaa local-model status, uaa local-model list, and
-  uaa local-model inspect <model-ref>.
-- Output is safe-ref only: model ref, runtime family, artifact kind, source
-  class, role hints, size bucket, runnable status, blocked reason code, memory
-  posture bucket, and adapter requirement.
-
-Non-goals:
-- No start, stop, activate, switch, unload, downloads, process control,
-  llama.cpp lifecycle management, dry-run switching, approval-bound switching,
-  OpenAPI/route changes, Control Center controls, model/provider calls, web
-  fetching, connector writes, plugin runtime import, or production authority.
-
-Verification:
-- .venv/bin/python scripts/verify_uaa_p1_064_local_model_inventory_scope.py
-- PYTHONPATH=src .venv/bin/python -m pytest
-  tests/test_uaa_p1_064_local_model_inventory_scope.py
-- .venv/bin/python scripts/verify_documentation_integrity.py
-- git diff --check
+No documented Ready Next item. Later Local Model Manager read-only UI,
+lifecycle, switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters,
+and downloads require separate exact scoped milestones before implementation.
 ```
 
 ## Shaping
 
 ```text
-No active shaping item beyond UAA-P1-064. Later Local Model Manager lifecycle,
-switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
-downloads still require separate exact scoped milestones.
+No active shaping item beyond the completed UAA-P1-064 read-only inventory
+slice. Later Local Model Manager lifecycle, switching, Desktop/Hermes
+activation, MLX/Ollama/LM Studio adapters, and downloads still require separate
+exact scoped milestones.
 ```
 
 ## Spec Draft
@@ -282,6 +259,20 @@ non-goals. This milestone adds no backend routes, CLI commands, process
 control, lifecycle authority, model switching, identity updates, downloads,
 dependencies, provider/model calls, OpenWebUI authority, Control Center-only
 authority, runtime behavior, public release claim, or production authority.
+
+UAA-P1-064 Local Model Inventory Read-Only Backend + CLI
+Gate met: `src/ultimate_ai_agent/core/local_model_management/inventory.py`
+implements bounded, metadata-first local model candidate inventory with safe
+model refs for GGUF, Hugging Face/MLX-style directories, Ollama manifests and
+blobs, LM Studio-style directories, and explicit blocked/needs-adapter states.
+CLI parity first: uaa local-model status, uaa local-model list, and
+uaa local-model inspect <model-ref>. Verification includes
+`scripts/verify_uaa_p1_064_local_model_inventory_scope.py`. This milestone
+adds no backend routes, OpenAPI operation, lifecycle command, process control,
+start, stop, switch, unload, download, model/provider call, web fetch,
+Control Center activation control, runtime adapter execution, public release
+claim, or production authority. No start, stop, activate, switch, or unload
+behavior was added.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

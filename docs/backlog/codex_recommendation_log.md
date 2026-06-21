@@ -42,6 +42,40 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-064 Local Model Inventory Implemented
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor implementation.
+
+Recommendation: Complete UAA-P1-064 as read-only Python Agent Core local model
+inventory plus CLI parity only. Keep lifecycle, switching, downloads, route
+authority, Control Center activation, runtime adapters, model/provider calls,
+web fetching, connector writes, plugin runtime import, and production authority
+blocked until later exact scoped milestones.
+
+Decision: Accepted for the scoped implementation only.
+
+Status: completed
+
+Completed: Implemented bounded metadata-first local model inventory, safe model refs,
+explicit blocked and needs-adapter states, and CLI parity for
+`uaa local-model status`, `uaa local-model list`, and
+`uaa local-model inspect <model-ref>`.
+
+Not done: No backend route, OpenAPI operation, lifecycle command, switch,
+unload, start, stop, download, model call, provider call, web fetch, process
+control, Control Center activation control, runtime adapter execution,
+production claim, or runtime authority was added.
+
+Evidence: `src/ultimate_ai_agent/core/local_model_management/inventory.py`,
+`scripts/dev/uaa_local_model.py`, `scripts/dev/uaa_launcher.py`,
+`tests/test_uaa_p1_064_local_model_inventory.py`,
+`tests/test_uaa_p1_064_local_model_inventory_scope.py`,
+`tests/test_dev_launcher.py`,
+`docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, and
+`docs/backlog/reconciliation/2026-06-21-uaa-p1-064-ready-next-promotion.json`.
+
 ### 2026-06-21 - UAA-P1-064 Local Model Inventory Ready Next
 
 Date: 2026-06-21

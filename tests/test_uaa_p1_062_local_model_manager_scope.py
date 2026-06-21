@@ -51,7 +51,7 @@ def test_uaa_p1_062_reconciliation_artifact_blocks_runtime_authority() -> None:
     )
 
 
-def test_uaa_p1_062_scope_verifier_reports_missing_uaa_p1_064_ready_next(
+def test_uaa_p1_062_scope_verifier_reports_missing_uaa_p1_064_successor_state(
     tmp_path: Path,
 ) -> None:
     source_files = [

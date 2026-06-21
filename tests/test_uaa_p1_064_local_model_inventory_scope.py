@@ -18,8 +18,10 @@ def test_uaa_p1_064_scope_doc_pins_read_only_cli_non_goals() -> None:
         ROOT / "docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md"
     ).read_text(encoding="utf-8")
 
-    assert "Status: Ready Next" in text
+    assert "Status: Implemented" in text
     assert "read-only Python Agent Core inventory" in text
+    assert "src/ultimate_ai_agent/core/local_model_management/inventory.py" in text
+    assert "scripts/dev/uaa_local_model.py" in text
     assert "uaa local-model status" in text
     assert "uaa local-model list" in text
     assert "uaa local-model inspect <model-ref>" in text
@@ -38,14 +40,17 @@ def test_uaa_p1_064_reconciliation_artifact_points_to_restart_prompt() -> None:
         ).read_text(encoding="utf-8")
     )
 
-    assert artifact["next_prompt_ref"] == "prompt-ref:uaa-p1-064-conveyor-restart"
+    assert artifact["next_prompt_ref"] == "prompt-ref:no-documented-ready-next"
     assert set(artifact["reconciliation_safety"]) == verifier.REQUIRED_SAFETY_FLAGS
     assert all(value is False for value in artifact["reconciliation_safety"].values())
     assert artifact["completed_recommendations"][0]["recommendation_ref"] == (
         "recommendation:uaa-p1-064-ready-next-scope"
     )
+    assert artifact["completed_recommendations"][1]["recommendation_ref"] == (
+        "recommendation:uaa-p1-064-implementation"
+    )
     assert artifact["deferred_recommendations"][0]["reason_code"] == (
-        "READY_NEXT_NOT_STARTED"
+        "OUTSIDE_CURRENT_MILESTONE"
     )
     assert artifact["blocked_recommendations"][0]["reason_code"] == (
         "MISSING_SCOPED_AUTHORITY"

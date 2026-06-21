@@ -152,7 +152,7 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
     required_by_doc = {
         CURRENT_BOARD: [
             "UAA-P1-064 Local Model Inventory Read-Only Backend + CLI",
-            "UAA-P1-064 is Ready Next only",
+            "UAA-P1-064 adds the first read-only implementation slice",
             "backend routes, CLI commands, lifecycle authority",
             "Later Local Model Manager lifecycle",
             "This milestone adds no backend routes",

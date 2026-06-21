@@ -1,6 +1,6 @@
 # UAA-P1-064 Local Model Inventory Read-Only Backend + CLI
 
-Status: Ready Next
+Status: Implemented
 Baseline: v0.102.3
 Parent lane: M170 Local Model Manager
 Predecessor: UAA-P1-062 Local Model Manager Shape
@@ -10,7 +10,7 @@ Decision date: 2026-06-21
 
 UAA-P1-064 is the first implementation milestone for the governed local model
 manager lane. It turns the UAA-P1-062 shape into a read-only inventory surface
-that can safely describe local model candidates before any lifecycle, switching,
+that safely describes local model candidates before any lifecycle, switching,
 or Control Center activation work exists.
 
 The milestone keeps Python Agent Core as the authority. The CLI is the first
@@ -69,24 +69,34 @@ contract and must not own model truth in React state.
 - No MLX, Ollama, or LM Studio runtime adapter execution.
 - No production-readiness, public distribution, or broad autonomy claims.
 
-## Acceptance Evidence
+## Implementation Evidence
 
 - `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md` defines
   the read-only scope, non-goals, CLI parity, and evidence requirements.
-- `docs/kanban/current_board.md` lists UAA-P1-064 as the documented Ready Next
-  milestone and keeps implementation out of Now/Building until the conveyor
-  starts it.
+- `src/ultimate_ai_agent/core/local_model_management/inventory.py` implements
+  bounded, metadata-first, read-only inventory with safe model refs and no raw
+  local path output.
+- `scripts/dev/uaa_local_model.py` and `scripts/dev/uaa_launcher.py` expose CLI
+  parity for `uaa local-model status`, `uaa local-model list`, and
+  `uaa local-model inspect <model-ref>`.
+- `tests/test_uaa_p1_064_local_model_inventory.py`,
+  `tests/test_dev_launcher.py`, and
+  `tests/test_uaa_p1_064_local_model_inventory_scope.py` cover core inventory,
+  CLI dispatch, scope, and artifact guardrails.
+- `docs/kanban/current_board.md` records UAA-P1-064 as done for read-only
+  inventory and CLI inspection only.
 - `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` points M170 from the
-  UAA-P1-062 shape to UAA-P1-064 as the next implementation milestone.
+  UAA-P1-062 shape to UAA-P1-064 as the completed first implementation slice.
 - `docs/backlog/reconciliation/2026-06-21-uaa-p1-064-ready-next-promotion.json`
-  records the promotion without claiming implementation.
+  records this implementation pass with safe evidence refs and keeps runtime
+  authority blocked.
 - A focused verifier and tests bind the scope and stop conditions.
 
 ## Verification Commands
 
 ```bash
 .venv/bin/python scripts/verify_uaa_p1_064_local_model_inventory_scope.py
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_uaa_p1_064_local_model_inventory_scope.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_uaa_p1_064_local_model_inventory.py tests/test_uaa_p1_064_local_model_inventory_scope.py tests/test_dev_launcher.py
 .venv/bin/python scripts/verify_documentation_integrity.py
 git diff --check
 ```

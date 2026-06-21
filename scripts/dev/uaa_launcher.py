@@ -1100,6 +1100,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     launch_ui_parser.add_argument("--target", choices=UI_TARGETS, default=DESIGNATED_UI_TARGET)
     logs_parser = subparsers.add_parser("logs")
     logs_parser.add_argument("--follow", action="store_true")
+    uaa_local_model = _load_local_model_module()
+    uaa_local_model.add_local_model_parser(subparsers)
     openwebui_parser = subparsers.add_parser("openwebui")
     openwebui_subparsers = openwebui_parser.add_subparsers(dest="openwebui_command")
     for command in ["doctor", "start", "status", "stop"]:
@@ -1144,6 +1146,7 @@ def main(argv: list[str] | None = None) -> int:
                 "status",
                 "logs",
                 "launch-ui",
+                "local-model",
                 "openwebui",
                 "setup",
                 "stop",
@@ -1165,6 +1168,9 @@ def main(argv: list[str] | None = None) -> int:
             return command_status(root)
         if command == "logs":
             return command_logs(root, follow=args.follow)
+        if command == "local-model":
+            uaa_local_model = _load_local_model_module()
+            return uaa_local_model.command_local_model(root, args)
         if command == "openwebui":
             openwebui_command = args.openwebui_command or "status"
             if openwebui_command == "doctor":
@@ -1203,6 +1209,20 @@ def _load_setup_module() -> Any:
     spec = importlib.util.spec_from_file_location(module_name, setup_path)
     if spec is None or spec.loader is None:
         raise RuntimeError("Unable to load local setup assistant")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_local_model_module() -> Any:
+    module_name = "uaa_local_model"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    local_model_path = Path(__file__).resolve().with_name("uaa_local_model.py")
+    spec = importlib.util.spec_from_file_location(module_name, local_model_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load local model inventory command")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
