@@ -50,9 +50,10 @@ authority, downloads, runtime adapters, or Control Center activation controls
 are authorized. UAA-P1-065 reconciled the Founder Command Center board and
 promoted exactly one later FCC UI/readability candidate. UAA-P1-067 completed
 the Today-spine, memory-first beta-readiness planning/currentness lane and
-recorded the milestone conveyor. The active product path now promotes
-UAA-P1-068 Today Product Spine Contract as Ready Next, with UAA-P1-066 kept
-queued as a strictly read-only Local Model Control Center inventory/status
+recorded the milestone conveyor. UAA-P1-068 completed the Today Product Spine
+Contract on the existing Today summary route. The active product path now
+promotes UAA-P1-069 Evidence History Grammar as Ready Next, with UAA-P1-066
+kept queued as a strictly read-only Local Model Control Center inventory/status
 support lane.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
@@ -83,21 +84,20 @@ Gate = required acceptance evidence before Done
 
 ```text
 No active build item is in progress. The next documented milestone is
-UAA-P1-068 Today Product Spine Contract.
+UAA-P1-069 Evidence History Grammar.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-068 Today Product Spine Contract
-Goal: define how every module feeds Today, Actions, Evidence, and Memory.
-Today shows current priorities, blockers, follow-ups, plan/action state,
-memory review count, stale-source posture, and next safe actions. A module is
-not complete until its state lands in Today or another governed loop surface.
-Scope: contract, docs, fixtures, and tests first. No connector runtime, account
-auth, automatic refresh, background execution, model/provider authority,
-automatic memory writes, hidden context injection, public beta, public
-distribution, or production authority.
+UAA-P1-069 Evidence History Grammar
+Goal: make Evidence read as history: what was proposed, approved, happened,
+changed, can be undone, is stale, or remains blocked. Memory, Plans, Chat,
+Code, and Actions must be able to reference this grammar.
+Scope: evidence grammar contract, safe refs, docs, fixtures, and tests first.
+No raw evidence display, raw log display, raw path display, rollback execution,
+approval grant, connector runtime, model/provider authority, public beta,
+public distribution, or production authority.
 
 UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
 Goal: queued support lane for a strictly read-only Control Center model
@@ -116,11 +116,12 @@ UAA-P1-065 promoted exactly one later FCC candidate:
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 That candidate remains a later exact implementation pass and is not implemented
 by UAA-P1-065. UAA-P1-067 completed the Today-spine, memory-first
-beta-readiness planning/currentness path. UAA-P1-068 is queued first as the
-Ready Next product-spine contract, and UAA-P1-066 remains queued behind or
-alongside that path as read-only local model status support. Later Local Model
-Manager lifecycle, switching, Desktop/Hermes activation, MLX/Ollama/LM Studio
-adapters, and downloads still require separate exact scoped milestones.
+beta-readiness planning/currentness path. UAA-P1-068 completed the
+product-spine contract. UAA-P1-069 is queued first as the Ready Next evidence
+history grammar, and UAA-P1-066 remains queued behind or alongside that path as
+read-only local model status support. Later Local Model Manager lifecycle,
+switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
+downloads still require separate exact scoped milestones.
 ```
 
 ## Spec Draft
@@ -138,10 +139,6 @@ UAA-P2-056 Extension trust product surface
 Goal: surface static package review, provenance, hash refs, declared
 capabilities, requested grants, activation/revocation state, and risk flags
 without runtime import or execution.
-
-UAA-P1-069 Evidence History Grammar
-Goal: make Evidence read as history: what was proposed, approved, happened,
-changed, can be undone, is stale, or remains blocked.
 
 UAA-P1-070 Memory Source And Provenance Model
 Goal: define source refs for manual notes, external assistant review summaries,
@@ -372,21 +369,40 @@ Control Center implementation, frontend mutation control, setup mutation,
 connector runtime, model/provider call, web fetch, shell/subprocess behavior,
 public release claim, or runtime authority. UAA-P1-066 remains queued as a
 read-only local model status support lane, while UAA-P1-067 completed the
-Today-spine, memory-first planning/currentness path and UAA-P1-068 is the
-current Ready Next product-spine contract.
+Today-spine, memory-first planning/currentness path, UAA-P1-068 completed the
+Today product-spine contract, and UAA-P1-069 is the current Ready Next
+evidence history grammar.
 
 UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 Gate met: Active docs, roadmap, current board, Founder Command Center board,
 product truth, strategy/task docs, and the Codex prompt library identify Today
-as the product spine, memory as the reviewed differentiator, UAA-P1-068 as the
-Ready Next Today Product Spine Contract, and UAA-P1-066 as queued read-only
-local model support. `docs/codex/CODEX_EXECUTION_PROMPTS.md` records the
+as the product spine, memory as the reviewed differentiator, UAA-P1-068 as
+completed Today Product Spine Contract work, UAA-P1-069 as Ready Next Evidence
+History Grammar, and UAA-P1-066 as queued read-only local model support.
+`docs/codex/CODEX_EXECUTION_PROMPTS.md` records the
 milestone conveyor from UAA-P1-067 through UAA-P1-079 with review/fix,
 hardening, commit/push, and next-prompt mechanics. This milestone adds no
 backend route, OpenAPI operation, Control Center implementation, frontend
 mutation control, connector runtime, model/provider call, web fetch,
 shell/subprocess behavior, automatic memory write, context injection, public
 beta, public distribution, production claim, or runtime authority.
+
+UAA-P1-068 Today Product Spine Contract
+Gate met: `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`
+defines the Today spine contract; `GET /control-center/today/summary` exposes
+`contract-ref:today-product-spine:v1`, required Today signals, module feed
+rows, necessary-not-sufficient completion posture, plan/action state,
+stale-source posture, and next safe actions; `docs/schemas/today_product_spine_contract.schema.json`,
+`scripts/verify_uaa_p1_068_today_product_spine_contract.py`,
+`tests/test_uaa_p1_068_today_product_spine_contract.py`,
+`tests/test_founder_loop_storage.py`, `tests/test_control_center_founder_loop_api.py`,
+and `apps/control-center/src/App.test.tsx` bind the contract. This milestone
+adds no new route, OpenAPI operation, side-effect class, backend mutation,
+frontend mutation control, connector runtime, account auth, automatic refresh,
+model/provider authority, automatic memory write, context injection, raw
+private evidence, public beta, public distribution, production readiness, or
+production authority. UAA-P1-069 is the current Ready Next evidence history
+grammar milestone.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

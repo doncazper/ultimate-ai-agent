@@ -5,6 +5,7 @@ import pytest
 
 from ultimate_ai_agent.core.storage import (
     FOUNDER_LOOP_SCHEMA_VERSION,
+    TODAY_PRODUCT_SPINE_CONTRACT_REF,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
     JsonlLogKind,
@@ -33,6 +34,76 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert status["postgres_sync_status"] == "adapter_boundary_only"
     assert status["counts"]["action_inbox"] >= 1
     assert today["status"] == "storage_backed_partial_loop"
+    assert today["product_spine_contract_ref"] == TODAY_PRODUCT_SPINE_CONTRACT_REF
+    assert today["required_loop_surfaces"] == [
+        "Today",
+        "Actions",
+        "Evidence",
+        "Memory",
+    ]
+    assert {
+        item["signal"]
+        for item in today["required_today_signals"]
+        if item["required"] is True
+    } == {
+        "priorities",
+        "blockers",
+        "follow_ups",
+        "plan_action_state",
+        "memory_review_count",
+        "stale_source_posture",
+        "next_safe_actions",
+    }
+    module_feeds = {
+        item["module"]: item
+        for item in today["module_feed_contract"]
+    }
+    assert {
+        "Today",
+        "Actions",
+        "Plans",
+        "Memory",
+        "Evidence",
+        "Morning Briefing",
+        "Chat",
+        "Code",
+    } <= set(module_feeds)
+    for feed in module_feeds.values():
+        assert feed["standalone_complete_allowed"] is False
+        assert len(feed["required_loop_outputs"]) == 4
+        assert feed["current_feed_refs"]
+    assert today["module_completion_contract"] == {
+        "visibility_requirement": (
+            "Module state must be visible in Today, Actions, Evidence, and "
+            "Memory before completion can be claimed."
+        ),
+        "visibility_is_sufficient_for_completion": False,
+        "standalone_module_complete_allowed": False,
+        "required_done_gates": [
+            "definition_of_done",
+            "schema_or_typed_contract",
+            "focused_tests",
+            "redaction_checks",
+            "policy_approval_boundary",
+            "openapi_api_manifest_when_routes_change",
+            "cli_or_repo_local_inspection_path",
+        ],
+    }
+    assert today["plan_action_state"] == {
+        "action_count": len(today["actions"]),
+        "plan_count": len(today["plans"]),
+        "approval_required_before_mutation": True,
+        "mutating_controls_enabled": False,
+        "execution_authorized": False,
+        "action_envelope_contract_status": "blocked_until_uaa_p1_073",
+    }
+    assert today["stale_source_posture"]["source_refresh_enabled"] is False
+    assert today["stale_source_posture"]["connector_runtime_enabled"] is False
+    assert today["stale_source_posture"]["stale_state_refs"]
+    assert today["priority_refs"]
+    assert today["blocker_refs"]
+    assert today["follow_up_refs"]
+    assert today["next_safe_actions"]
     assert today["actions"]
     assert inbox["mutating_controls_enabled"] is False
     assert inbox["route_ref"] == "/control-center/actions/inbox"

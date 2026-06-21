@@ -1,0 +1,220 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ultimate-ai-agent.local/schemas/today_product_spine_contract.schema.json",
+  "title": "Today Product Spine Contract",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "product_spine_contract_ref",
+    "required_loop_surfaces",
+    "required_today_signals",
+    "module_feed_contract",
+    "module_completion_contract",
+    "plan_action_state",
+    "stale_source_posture",
+    "next_safe_actions"
+  ],
+  "properties": {
+    "product_spine_contract_ref": {
+      "const": "contract-ref:today-product-spine:v1"
+    },
+    "required_loop_surfaces": {
+      "type": "array",
+      "items": {
+        "enum": ["Today", "Actions", "Evidence", "Memory"]
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "required_today_signals": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["signal", "source", "required"],
+        "properties": {
+          "signal": {
+            "enum": [
+              "priorities",
+              "blockers",
+              "follow_ups",
+              "plan_action_state",
+              "memory_review_count",
+              "stale_source_posture",
+              "next_safe_actions"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "const": true
+          }
+        }
+      }
+    },
+    "module_feed_contract": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "module",
+          "status",
+          "required_loop_outputs",
+          "current_feed_refs",
+          "standalone_complete_allowed"
+        ],
+        "properties": {
+          "module": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_loop_outputs": {
+            "type": "array",
+            "minItems": 4,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "current_feed_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "standalone_complete_allowed": {
+            "const": false
+          }
+        }
+      }
+    },
+    "module_completion_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visibility_requirement",
+        "visibility_is_sufficient_for_completion",
+        "standalone_module_complete_allowed",
+        "required_done_gates"
+      ],
+      "properties": {
+        "visibility_requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visibility_is_sufficient_for_completion": {
+          "const": false
+        },
+        "standalone_module_complete_allowed": {
+          "const": false
+        },
+        "required_done_gates": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "plan_action_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_count",
+        "plan_count",
+        "approval_required_before_mutation",
+        "mutating_controls_enabled",
+        "execution_authorized",
+        "action_envelope_contract_status"
+      ],
+      "properties": {
+        "action_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "approval_required_before_mutation": {
+          "const": true
+        },
+        "mutating_controls_enabled": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "action_envelope_contract_status": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "stale_source_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "source_refresh_enabled",
+        "connector_runtime_enabled",
+        "stale_state_refs"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refresh_enabled": {
+          "const": false
+        },
+        "connector_runtime_enabled": {
+          "const": false
+        },
+        "stale_state_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "next_safe_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["surface", "source_ref", "safe_summary"],
+        "properties": {
+          "surface": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "safe_summary": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

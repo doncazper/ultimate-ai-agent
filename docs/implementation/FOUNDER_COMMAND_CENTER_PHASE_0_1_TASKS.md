@@ -350,7 +350,7 @@ PR size: split contract and UI if needed.
 
 ## Task 9a - UAA-P1-068 Today Product Spine Contract
 
-Type: backend contract/test/docs first
+Type: backend contract/test/docs/frontend-read-only first
 
 New authority: no.
 
@@ -360,10 +360,24 @@ Acceptance criteria:
 - Today shows priorities, blockers, follow-ups, plan/action state, memory
   review count, stale-source posture, and next safe actions.
 - Module completion definitions must avoid standalone "module complete" claims.
+  Loop visibility is necessary but not sufficient for completion; Definition of
+  Done, typed contract/schema coverage, focused tests, redaction checks,
+  policy/approval boundaries, and route/API or CLI inspection paths still
+  apply.
+- Fixtures and rendered contract state use synthetic safe refs only. No raw
+  private content, account identifiers, usernames, hostnames, local paths,
+  raw logs, raw prompts, raw responses, provider payloads, credentials, or
+  secret-like values are allowed.
 
 Tests to add/update:
 
-- Focused spine contract tests when schema exists.
+- `docs/schemas/today_product_spine_contract.schema.json`.
+- `scripts/verify_uaa_p1_068_today_product_spine_contract.py`.
+- `tests/test_uaa_p1_068_today_product_spine_contract.py`.
+- Focused Founder Loop storage and API assertions for required loop surfaces,
+  Today signals, module feed rows, necessary-not-sufficient completion posture,
+  plan/action state, stale-source posture, and next safe actions.
+- Read-only Today render assertions when the contract fields are surfaced.
 - Documentation integrity.
 
 PR size: one contract/docs PR.

@@ -27,6 +27,116 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         <Metric label="Memory" value={today.sections.memory_review_count} />
         <Metric label="Briefing" value={today.sections.briefing_count} />
       </div>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Product spine contract</h3>
+            <span>read-only</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Contract ref" value={today.product_spine_contract_ref} />
+            <DetailTerm
+              label="Loop visibility sufficient"
+              value={
+                today.module_completion_contract.visibility_is_sufficient_for_completion
+                  ? "yes"
+                  : "no"
+              }
+            />
+            <DetailTerm
+              label="Standalone completion"
+              value={
+                today.module_completion_contract.standalone_module_complete_allowed
+                  ? "allowed"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Execution authorized"
+              value={today.plan_action_state.execution_authorized ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Source refresh"
+              value={today.stale_source_posture.source_refresh_enabled ? "enabled" : "blocked"}
+            />
+          </dl>
+          <p>{today.module_completion_contract.visibility_requirement}</p>
+          <RefList refs={today.required_loop_surfaces} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Today required signals</h3>
+            <span>{today.required_today_signals.length}</span>
+          </div>
+          <InlineListWithFallback
+            emptyLabel="Required signals missing from Today contract"
+            items={today.required_today_signals.map((signal) => signal.signal)}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Plan/action state</h3>
+            <span>{today.plan_action_state.action_envelope_contract_status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Action count"
+              value={String(today.plan_action_state.action_count)}
+            />
+            <DetailTerm
+              label="Plan count"
+              value={String(today.plan_action_state.plan_count)}
+            />
+            <DetailTerm
+              label="Mutation controls"
+              value={today.plan_action_state.mutating_controls_enabled ? "enabled" : "blocked"}
+            />
+          </dl>
+          <RefList refs={today.follow_up_refs} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Next safe actions</h3>
+            <span>{today.next_safe_actions.length}</span>
+          </div>
+          <ul className="ref-list">
+            {today.next_safe_actions.map((item) => (
+              <li key={`${item.surface}:${item.source_ref}`}>
+                {item.surface}: {item.safe_summary}
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Module feed contract</h3>
+            <span>{today.module_feed_contract.length}</span>
+          </div>
+          <ul className="ref-list">
+            {today.module_feed_contract.map((feed) => (
+              <li key={feed.module}>
+                {feed.module}: {feed.status}; standalone complete{" "}
+                {feed.standalone_complete_allowed ? "allowed" : "blocked"}
+              </li>
+            ))}
+          </ul>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Stale-source posture</h3>
+            <span>{today.stale_source_posture.status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Connector runtime"
+              value={today.stale_source_posture.connector_runtime_enabled ? "enabled" : "blocked"}
+            />
+          </dl>
+          <RefList refs={today.stale_source_posture.stale_state_refs} />
+        </article>
+      </div>
       <div className="founder-loop-grid">
         <LoopPanel title="Action inbox" route="/actions">
           {today.actions.map((item) => (

@@ -10,12 +10,12 @@ permission vocabulary, memory direction, first-party integration direction,
 Codex prompts, north-star metrics, and release currentness metadata.
 UAA-P1-067 completes the Today-Spine Founder Command Center beta-readiness
 planning/currentness pass and records the milestone conveyor without adding
-runtime authority. The active product path now emphasizes UAA-P1-068 Today
-Product Spine Contract before broader authority expansion: every module must
-feed Today, Actions, Evidence, and Memory before robust reviewed memory,
-Evidence-as-history, Plans-to-Action envelopes, Chat operator truth, governed
-Code diffs, and private local beta-readiness can be claimed. No public beta or
-distribution claim is granted.
+runtime authority. UAA-P1-068 completes the Today Product Spine Contract on the
+existing Today summary route with contract metadata, schema, verifier, focused
+tests, and read-only Today rendering. The active product path now emphasizes
+UAA-P1-069 Evidence History Grammar before broader authority expansion. No
+public beta, distribution, production readiness, or production authority claim
+is granted.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.

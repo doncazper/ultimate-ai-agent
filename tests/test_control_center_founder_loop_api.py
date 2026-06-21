@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.storage import TODAY_PRODUCT_SPINE_CONTRACT_REF
 
 
 client = TestClient(app)
@@ -96,6 +97,38 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
     assert "define source contracts" in briefing_item["next_safe_action"]
 
     today = client.get("/control-center/today/summary").json()["data"]
+    assert today["product_spine_contract_ref"] == TODAY_PRODUCT_SPINE_CONTRACT_REF
+    assert today["required_loop_surfaces"] == [
+        "Today",
+        "Actions",
+        "Evidence",
+        "Memory",
+    ]
+    assert {
+        item["signal"]
+        for item in today["required_today_signals"]
+    } == {
+        "priorities",
+        "blockers",
+        "follow_ups",
+        "plan_action_state",
+        "memory_review_count",
+        "stale_source_posture",
+        "next_safe_actions",
+    }
+    assert today["module_completion_contract"]["visibility_is_sufficient_for_completion"] is False
+    assert today["module_completion_contract"]["standalone_module_complete_allowed"] is False
+    module_feeds = {
+        item["module"]: item
+        for item in today["module_feed_contract"]
+    }
+    assert {"Today", "Actions", "Plans", "Memory", "Evidence", "Chat", "Code"} <= set(module_feeds)
+    assert module_feeds["Chat"]["status"] == "planned_blocked_until_uaa_p1_074"
+    assert module_feeds["Code"]["status"] == "planned_blocked_until_uaa_p1_075"
+    assert today["plan_action_state"]["execution_authorized"] is False
+    assert today["plan_action_state"]["mutating_controls_enabled"] is False
+    assert today["stale_source_posture"]["connector_runtime_enabled"] is False
+    assert today["next_safe_actions"]
     assert today["memory_review_route_ref"] == "/memory"
     assert (
         today["memory_review_backend_route_ref"]

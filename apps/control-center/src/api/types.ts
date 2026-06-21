@@ -187,6 +187,49 @@ export interface FounderLoopEvidenceTimelineItem {
   created_at?: string;
 }
 
+export interface FounderLoopTodaySignal {
+  signal: string;
+  source: string;
+  required: boolean;
+}
+
+export interface FounderLoopModuleFeedContract {
+  module: string;
+  status: string;
+  required_loop_outputs: string[];
+  current_feed_refs: string[];
+  standalone_complete_allowed: boolean;
+}
+
+export interface FounderLoopModuleCompletionContract {
+  visibility_requirement: string;
+  visibility_is_sufficient_for_completion: boolean;
+  standalone_module_complete_allowed: boolean;
+  required_done_gates: string[];
+}
+
+export interface FounderLoopNextSafeAction {
+  surface: string;
+  source_ref: string;
+  safe_summary: string;
+}
+
+export interface FounderLoopPlanActionState {
+  action_count: number;
+  plan_count: number;
+  approval_required_before_mutation: boolean;
+  mutating_controls_enabled: boolean;
+  execution_authorized: boolean;
+  action_envelope_contract_status: string;
+}
+
+export interface FounderLoopStaleSourcePosture {
+  status: string;
+  source_refresh_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  stale_state_refs: string[];
+}
+
 export interface FounderLoopTodaySummary {
   schema_version: string;
   status: string;
@@ -194,6 +237,17 @@ export interface FounderLoopTodaySummary {
   storage_ref: string;
   side_effect_class: string;
   approval_required_before_mutation: boolean;
+  product_spine_contract_ref: string;
+  required_loop_surfaces: string[];
+  required_today_signals: FounderLoopTodaySignal[];
+  module_feed_contract: FounderLoopModuleFeedContract[];
+  module_completion_contract: FounderLoopModuleCompletionContract;
+  priority_refs: string[];
+  blocker_refs: string[];
+  follow_up_refs: string[];
+  plan_action_state: FounderLoopPlanActionState;
+  stale_source_posture: FounderLoopStaleSourcePosture;
+  next_safe_actions: FounderLoopNextSafeAction[];
   sections: {
     action_inbox_count: number;
     plan_count: number;

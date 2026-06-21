@@ -7,18 +7,19 @@ Program in `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, tracked by
 
 Current planning overlay: the active product/package baseline is v0.102.3 /
 0.102.3. UAA-P1-065 is complete, UAA-P1-067 is complete for Today-spine
-beta-readiness planning/currentness, UAA-P1-068 is the Ready Next Today Product
-Spine Contract, and UAA-P1-066 remains queued as a strictly read-only Local
-Model Control Center inventory/status support lane. The product path runs
-through UAA-P1-068 to UAA-P1-078: Today spine, Evidence-as-history, memory
-source provenance, review decisions, business/CRM-lite memory, memory quality
-controls, Plans-to-Action envelopes, Chat operator truth, governed Code diffs,
-cross-surface intake, Today/Action/Evidence/Memory binding, and private local
-beta-readiness evidence. UAA-P1-079 is the later user-intent-understanding lane
-after that loop has evidence. This path adds no production authority, public
-beta, public distribution, connector writes, provider/model authority,
-unrestricted shell, automatic memory writes, hidden context injection, or raw
-private-content export.
+beta-readiness planning/currentness, UAA-P1-068 is complete for the Today
+Product Spine Contract, UAA-P1-069 is the Ready Next Evidence History Grammar,
+and UAA-P1-066 remains queued as a strictly read-only Local Model Control
+Center inventory/status support lane. The product path runs through UAA-P1-069
+to UAA-P1-078: Evidence-as-history, memory source provenance, review decisions,
+business/CRM-lite memory, memory quality controls, Plans-to-Action envelopes,
+Chat operator truth, governed Code diffs, cross-surface intake,
+Today/Action/Evidence/Memory binding, and private local beta-readiness
+evidence. UAA-P1-079 is the later user-intent-understanding lane after that
+loop has evidence. This path adds no production authority, public beta, public
+distribution, connector writes, provider/model authority, unrestricted shell,
+automatic memory writes, hidden context injection, or raw private-content
+export.
 
 ## North Star
 

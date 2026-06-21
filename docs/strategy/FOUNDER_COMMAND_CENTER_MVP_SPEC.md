@@ -14,7 +14,10 @@ Work the next implementation lane in this order, starting from the accepted
 `UAA-P1-011` readable-loop baseline:
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
-   and Memory. Avoid standalone "module complete" definitions.
+   and Memory. Avoid standalone "module complete" definitions. Loop visibility
+   is necessary but not sufficient for completion; typed contracts, tests,
+   redaction, policy/approval, route/API or CLI inspection, and blocked
+   follow-on work remain visible.
 2. Evidence history grammar: Evidence reads as what was proposed, approved,
    happened, changed, can be undone, is stale, and remains blocked.
 3. Memory source/provenance and review decisions: make reviewed memory the

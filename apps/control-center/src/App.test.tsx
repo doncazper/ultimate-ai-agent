@@ -112,6 +112,20 @@ describe("Web Control Center shell", () => {
     expect(within(navigation).getByRole("link", { name: "API Routes" })).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "Differentiators" })).toBeInTheDocument();
     expect(within(navigation).getByText("blocked/planned")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Product spine contract/i })).toBeInTheDocument();
+    expect(screen.getByText("contract-ref:today-product-spine:v1")).toBeInTheDocument();
+    expect(screen.getByText("Loop visibility sufficient").nextElementSibling).toHaveTextContent("no");
+    expect(screen.getByText("Standalone completion").nextElementSibling).toHaveTextContent("blocked");
+    expect(screen.getByRole("heading", { name: /Today required signals/i })).toBeInTheDocument();
+    expect(screen.getByText("priorities")).toBeInTheDocument();
+    expect(screen.getByText("stale_source_posture")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Plan\/action state/i })).toBeInTheDocument();
+    expect(screen.getByText("blocked_until_uaa_p1_073")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Module feed contract/i })).toBeInTheDocument();
+    expect(screen.getByText(/Chat: planned_blocked_until_uaa_p1_074/i)).toBeInTheDocument();
+    expect(screen.getByText(/Code: planned_blocked_until_uaa_p1_075/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Stale-source posture/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
   });
 
   it("renders runtime, remote, mobile, and plugin governance panels as safe summaries", async () => {
@@ -2737,6 +2751,214 @@ const mockApiData = {
     storage_ref: "founder-loop-storage:test",
     side_effect_class: "local_dev_workspace_only",
     approval_required_before_mutation: true,
+    product_spine_contract_ref: "contract-ref:today-product-spine:v1",
+    required_loop_surfaces: ["Today", "Actions", "Evidence", "Memory"],
+    required_today_signals: [
+      {
+        signal: "priorities",
+        source: "action_and_briefing_priority_fields",
+        required: true,
+      },
+      {
+        signal: "blockers",
+        source: "blocked_states_and_missing_contract_refs",
+        required: true,
+      },
+      {
+        signal: "follow_ups",
+        source: "next_safe_action_fields",
+        required: true,
+      },
+      {
+        signal: "plan_action_state",
+        source: "plans_actions_and_approval_posture",
+        required: true,
+      },
+      {
+        signal: "memory_review_count",
+        source: "sections.memory_review_count",
+        required: true,
+      },
+      {
+        signal: "stale_source_posture",
+        source: "stale_state_fields",
+        required: true,
+      },
+      {
+        signal: "next_safe_actions",
+        source: "next_safe_actions",
+        required: true,
+      },
+    ],
+    module_feed_contract: [
+      {
+        module: "Today",
+        status: "implemented_storage_backed_partial_loop",
+        required_loop_outputs: ["today_state", "action_state", "evidence_state", "memory_state"],
+        current_feed_refs: [
+          "GET /control-center/today/summary",
+          "evidence-ref:founder-loop:today-summary",
+        ],
+        standalone_complete_allowed: false,
+      },
+      {
+        module: "Actions",
+        status: "implemented_review_queue_execution_blocked",
+        required_loop_outputs: [
+          "today_priority_or_blocker",
+          "action_envelope_or_blocked_state",
+          "evidence_ref",
+          "memory_review_or_blocked_state",
+        ],
+        current_feed_refs: [
+          "GET /control-center/actions/inbox",
+          "evidence-ref:founder-loop:action-inbox",
+        ],
+        standalone_complete_allowed: false,
+      },
+      {
+        module: "Plans",
+        status: "partial_action_envelope_contract_missing",
+        required_loop_outputs: [
+          "today_plan_state",
+          "action_envelope_or_blocked_state",
+          "plan_evidence_ref",
+          "memory_candidate_or_blocked_state",
+        ],
+        current_feed_refs: [
+          "status-ref:founder-loop-plan-summary",
+          "contract-ref:plans-action-envelope-missing",
+        ],
+        standalone_complete_allowed: false,
+      },
+      {
+        module: "Memory",
+        status: "implemented_review_queue_decision_capture_missing",
+        required_loop_outputs: [
+          "today_memory_review_count",
+          "action_or_follow_up_candidate",
+          "memory_evidence_ref",
+          "reviewed_recall_or_blocked_state",
+        ],
+        current_feed_refs: [
+          "status-ref:founder-loop-memory-review",
+          "contract-ref:memory-review-decision-capture-missing",
+        ],
+        standalone_complete_allowed: false,
+      },
+      {
+        module: "Evidence",
+        status: "implemented_redacted_refs_history_grammar_missing",
+        required_loop_outputs: [
+          "today_evidence_state",
+          "action_receipt_or_blocked_state",
+          "evidence_timeline_ref",
+          "memory_evidence_or_blocked_state",
+        ],
+        current_feed_refs: [
+          "GET /control-center/today/summary",
+          "contract-ref:evidence-history-grammar-missing",
+        ],
+        standalone_complete_allowed: false,
+      },
+      {
+        module: "Morning Briefing",
+        status: "implemented_skeleton_source_contracts_missing",
+        required_loop_outputs: [
+          "today_priority_or_blocker",
+          "follow_up_or_action_candidate",
+          "source_readiness_evidence_ref",
+          "memory_candidate_or_blocked_state",
+        ],
+        current_feed_refs: [
+          "GET /control-center/morning-briefing/summary",
+          "contract-ref:calendar-read-only-missing",
+        ],
+        standalone_complete_allowed: false,
+      },
+      {
+        module: "Chat",
+        status: "planned_blocked_until_uaa_p1_074",
+        required_loop_outputs: [
+          "today_chat_state",
+          "plan_or_action_handoff_state",
+          "chat_evidence_ref",
+          "memory_candidate_or_blocked_state",
+        ],
+        current_feed_refs: ["contract-ref:chat-local-operator-surface-missing"],
+        standalone_complete_allowed: false,
+      },
+      {
+        module: "Code",
+        status: "planned_blocked_until_uaa_p1_075",
+        required_loop_outputs: [
+          "today_code_state",
+          "action_or_apply_blocked_state",
+          "diff_validation_evidence_ref",
+          "memory_candidate_or_blocked_state",
+        ],
+        current_feed_refs: ["contract-ref:governed-code-workbench-missing"],
+        standalone_complete_allowed: false,
+      },
+    ],
+    module_completion_contract: {
+      visibility_requirement:
+        "Module state must be visible in Today, Actions, Evidence, and Memory before completion can be claimed.",
+      visibility_is_sufficient_for_completion: false,
+      standalone_module_complete_allowed: false,
+      required_done_gates: [
+        "definition_of_done",
+        "schema_or_typed_contract",
+        "focused_tests",
+        "redaction_checks",
+        "policy_approval_boundary",
+        "openapi_api_manifest_when_routes_change",
+        "cli_or_repo_local_inspection_path",
+      ],
+    },
+    priority_refs: [
+      "priority-ref:action:high:founder-action-test",
+      "priority-ref:briefing:medium:briefing-test",
+    ],
+    blocker_refs: [
+      "blocked-state:no_action_execution_route",
+      "blocked-state:no_connector_write_route",
+      "blocked-state:no_runtime_model_call_route",
+    ],
+    follow_up_refs: [
+      "follow-up-ref:actions:founder-action-test",
+      "follow-up-ref:plans:plan-summary-test",
+    ],
+    plan_action_state: {
+      action_count: 1,
+      plan_count: 1,
+      approval_required_before_mutation: true,
+      mutating_controls_enabled: false,
+      execution_authorized: false,
+      action_envelope_contract_status: "blocked_until_uaa_p1_073",
+    },
+    stale_source_posture: {
+      status: "recheck_required_before_action_or_source_use",
+      source_refresh_enabled: false,
+      connector_runtime_enabled: false,
+      stale_state_refs: [
+        "stale-ref:action:founder-action-test",
+        "stale-ref:memory:memory-review-test",
+      ],
+    },
+    next_safe_actions: [
+      {
+        surface: "Actions",
+        source_ref: "founder-action:test",
+        safe_summary:
+          "Review refs only; request a scoped state-change milestone before mutation.",
+      },
+      {
+        surface: "Plans",
+        source_ref: "plan-summary:test",
+        safe_summary: "Review route-backed summaries.",
+      },
+    ],
     sections: {
       action_inbox_count: 1,
       plan_count: 1,

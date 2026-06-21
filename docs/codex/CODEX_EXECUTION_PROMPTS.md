@@ -371,6 +371,10 @@ public beta, public distribution, or production readiness.
 Current conveyor status: UAA-P1-067 is complete for planning/currentness. The
 next incomplete documented milestone is UAA-P1-068 Today Product Spine
 Contract unless active docs show a later milestone has already been completed.
+The conveyor auto-advances after each successful milestone commit/push. Do not
+stop after merely recommending the next prompt; create and execute the next
+milestone prompt in the same Codex run until all documented milestones are
+complete or a real blocker/safety split requires stopping.
 
 ```text
 You are working only in doncazper/ultimate-ai-agent.
@@ -499,13 +503,16 @@ Execution workflow:
    and push the current branch. Do not stage unrelated user changes. If push is
    blocked by credentials, remote state, branch policy, or failing checks, do
    not force it; report the blocker and leave the work unpushed.
-8. Recommend the next prompt: after the commit/push step succeeds or is clearly
-   blocked, add a "Next prompt" section to the final answer and, when useful,
-   to docs/backlog/codex_recommendation_log.md. The next prompt must repeat the
-   required review-doc list above and either:
-   - continue with an incremental suffix for the same milestone when remaining
-     acceptance criteria are incomplete, or
-   - move to the next documented milestone when the current one is complete.
+8. Advance: after commit/push succeeds, immediately identify the next
+   incomplete documented milestone, create/update its prompt, and execute it in
+   the same run. Add or update a "Next prompt" section in
+   docs/backlog/codex_recommendation_log.md only as conveyor state, not as a
+   stopping point. Stop only when:
+   - all milestones through UAA-P1-079 are complete and verified,
+   - the next slice is too large or unsafe and needs an incremental prompt that
+     cannot be executed safely in the same run,
+   - verification, push, dependencies, or repo state blocks progress, or
+   - the user asks to pause/stop.
 
 Definition of complete for a milestone:
 - The scoped acceptance criteria in the reviewed roadmap/board/task docs are
@@ -521,7 +528,8 @@ Definition of complete for a milestone:
   introduced.
 - No unsafe authority or raw/private evidence was introduced.
 - A commit was created and pushed, or the exact push blocker is recorded.
-- The next prompt is recommended.
+- The next prompt is either created and executed in the same run or an exact
+  blocker explains why auto-advance stopped.
 
 Initial milestone prompt to create and execute:
 
@@ -560,7 +568,7 @@ when relevant.
 Acceptance criteria:
 - When UAA-P1-067 is still incomplete, active docs mark it as the
   planning/currentness milestone in progress; after completion, active docs
-  mark it complete and promote UAA-P1-068 as Ready Next.
+  mark it complete and promote the next incomplete documented milestone.
 - The milestone conveyor order is explicit: UAA-P1-068 Today spine,
   UAA-P1-069 Evidence history, UAA-P1-070 memory provenance, UAA-P1-071 Memory
   Review decisions, UAA-P1-072 business memory and quality, UAA-P1-073 Plans to
@@ -576,8 +584,8 @@ Acceptance criteria:
 - UAA-P1-066 remains a queued read-only local model support lane and does not
   displace the product spine.
 - The prompt conveyor is recorded so future Codex runs create, execute, review,
-  harden, commit, push, and recommend the next prompt until documented
-  milestones are complete.
+  harden, commit, push, and then auto-advance to the next documented milestone
+  until all documented milestones are complete.
 - Nontrivial conveyor runs use at least one scoped subagent for gap review,
   contract/test review, or adversarial safety/product-language review before
   hardening. Subagent findings are advisory and must preserve the same
@@ -604,9 +612,110 @@ Commit/push:
 - Push the current branch. If push is blocked, report the exact blocker and do
   not force-push.
 
-Next prompt recommendation:
-- If UAA-P1-067 is incomplete, recommend UAA-P1-067.1 with the same review-doc
-  list and the remaining acceptance criteria.
-- If UAA-P1-067 is complete, recommend UAA-P1-068 Today Product Spine Contract
-  with the same review-doc list.
+Auto-advance rule:
+- If UAA-P1-067 is incomplete, create and execute UAA-P1-067.1 with the same
+  review-doc list and the remaining acceptance criteria.
+- If UAA-P1-067 is complete, create and execute UAA-P1-068 Today Product Spine
+  Contract with the same review-doc list in the same run unless blocked.
+```
+
+## 11. UAA-P1-068 Today Product Spine Contract Prompt
+
+Use this prompt when UAA-P1-067 is complete and UAA-P1-068 is the first
+incomplete Today-spine milestone. This prompt is contract/test/docs first and
+auto-advances after successful commit/push.
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: UAA-P1-068 Today Product Spine Contract.
+
+Goal: define and implement the shared Today spine contract that every module
+must feed: Today, Actions, Evidence, and Memory. Today must expose priorities,
+blockers, follow-up posture, plan/action state, memory review count,
+stale-source posture, and next safe actions. Loop visibility is necessary but
+not sufficient for completion; normal Definition of Done, typed contracts,
+redaction, policy/approval boundaries, OpenAPI/API manifest checks when routes
+change, CLI or repo-local inspection paths, and tests still apply.
+
+Read first:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[agents_md_support.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/standards/agents_md_support.md)
+[definition_of_ready.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_ready.md)
+[definition_of_done.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_done.md)
+[foundation_first_build_policy.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/operating/foundation_first_build_policy.md)
+[PRODUCT_LANGUAGE_RULES.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+
+If present, also read SPECS.md, specs.md, SDLC.md, sdlc.md, and the closest
+task-specific spec, ADR, schema, standards, or process docs discovered with
+rg --files. Treat these documents as contributor guidance, not runtime
+configuration or product authority.
+
+Subagent plan:
+- Use at least one read-only subagent for contract/test gap review.
+- Use at least one read-only subagent for adversarial product-language,
+  redaction, and authority review.
+- Subagents are advisory. The main Codex run owns integration, verification,
+  commit/push, and auto-advance.
+
+Scope:
+- Existing Today summary route/payload, TypeScript API type, read-only Today
+  render, docs, schema, focused tests, and verifier.
+- Do not add a new route, operation ID, side-effect class, backend mutation,
+  frontend mutation control, connector runtime, account auth, automatic
+  refresh, background execution, model/provider authority, automatic memory
+  write, hidden context injection, raw private evidence, public beta, public
+  distribution, production readiness, or production authority.
+
+Acceptance criteria:
+- Existing `GET /control-center/today/summary` exposes
+  `contract-ref:today-product-spine:v1`.
+- Required loop surfaces are Today, Actions, Evidence, and Memory.
+- Required Today signals are priorities, blockers, follow-ups or follow-up
+  posture, plan/action state, memory review count, stale-source posture, and
+  next safe actions.
+- Every module feed row has four loop outputs, safe current refs or missing
+  contract refs, a partial/planned/blocked/implemented status, and
+  `standalone_complete_allowed: false`.
+- Completion contract says loop visibility is necessary but not sufficient.
+- Fixtures are synthetic safe refs only and deny raw prompts, raw responses,
+  raw provider payloads, raw paths, raw logs, account IDs, usernames,
+  hostnames, credential material, and secret-like values.
+- Today renders the contract read-only without approve/run/send/write/sync/
+  execute controls.
+- Active docs mark UAA-P1-068 complete and promote UAA-P1-069 Evidence History
+  Grammar as the next incomplete milestone.
+
+Review/fix:
+- Perform adversarial review for standalone-complete claims, unsafe beta or
+  production language, route/OpenAPI drift, raw evidence leakage, authority
+  expansion, and UI mutation controls.
+- Fix P0/P1 issues before hardening.
+
+Hardening:
+- Run PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_founder_loop_storage.py
+  tests/test_control_center_founder_loop_api.py
+  tests/test_uaa_p1_068_today_product_spine_contract.py
+- Run .venv/bin/python scripts/verify_uaa_p1_068_today_product_spine_contract.py
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run make frontend-check when frontend files changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-068 plus any conveyor auto-advance fix
+  intentionally made for this run.
+- Commit with message: implement UAA-P1-068 today product spine contract
+- Push the current branch.
+
+Auto-advance:
+- After commit/push succeeds, immediately create/update and execute the
+  UAA-P1-069 Evidence History Grammar prompt in the same run unless blocked.
+- Stop only for an exact blocker, unsafe scope split, failed verification,
+  failed push, or user pause/stop.
 ```

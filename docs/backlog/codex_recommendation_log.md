@@ -42,6 +42,55 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-068 Today Product Spine Contract Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor auto-advance after UAA-P1-067.
+
+Recommendation: Complete UAA-P1-068 as the Today Product Spine Contract over
+the existing `GET /control-center/today/summary` route, then auto-advance to
+UAA-P1-069 Evidence History Grammar instead of stopping at a next-prompt
+handoff.
+
+Next prompt state:
+
+```text
+Auto-advance into UAA-P1-069 Evidence History Grammar after commit/push. Review
+the active roadmap, current board, Founder Command Center board, phase tasks,
+MVP spec, AGENTS.md, process/spec guidance, Product Language Rules, and the
+UAA-P1-068 contract evidence. Make Evidence read as history: proposed,
+approved, happened, changed, undoable, stale, and blocked. Keep safe refs and
+redacted summaries only. Do not add raw evidence display, raw logs, raw paths,
+rollback execution, approval grants, connector runtime, model/provider
+authority, public beta, public distribution, production readiness, or
+production authority.
+```
+
+Decision: Accepted and completed for the UAA-P1-068 contract slice.
+
+Status: completed
+
+Completed: Added `contract-ref:today-product-spine:v1` to the existing Today
+summary, defined required loop surfaces/signals/module feed rows, encoded the
+necessary-not-sufficient completion rule, rendered the contract read-only on
+Today, added the schema and verifier, and promoted UAA-P1-069 as Ready Next.
+
+Not done: No new route, OpenAPI operation, side-effect class, backend mutation,
+frontend mutation control, connector runtime, account auth, automatic refresh,
+model/provider authority, automatic memory write, context injection, raw
+private evidence, public beta, public distribution, production readiness, or
+production authority was added.
+
+Evidence: `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`,
+`docs/schemas/today_product_spine_contract.schema.json`,
+`scripts/verify_uaa_p1_068_today_product_spine_contract.py`,
+`tests/test_uaa_p1_068_today_product_spine_contract.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`,
+`apps/control-center/src/App.test.tsx`, and
+`docs/codex/CODEX_EXECUTION_PROMPTS.md`.
+
 ### 2026-06-21 - UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 
 Date: 2026-06-21
@@ -82,8 +131,8 @@ Status: completed
 Completed: Promoted UAA-P1-067 through active docs, roadmap, boards, strategy
 docs, product truth, and the Codex prompt library as the completed
 Today-spine, memory-first planning/currentness path; recorded the UAA-P1-067
-through UAA-P1-079 milestone conveyor; promoted UAA-P1-068 as Ready Next; and
-kept UAA-P1-066 queued as read-only local model support.
+through UAA-P1-079 milestone conveyor; initially advanced the conveyor to
+UAA-P1-068; and kept UAA-P1-066 queued as read-only local model support.
 
 Not done: No runtime authority, connector runtime, account import, web fetch,
 provider/model authority, automatic memory write, context injection, raw

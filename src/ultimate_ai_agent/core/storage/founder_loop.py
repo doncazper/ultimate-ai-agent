@@ -20,6 +20,161 @@ from ultimate_ai_agent.core.time import utc_now
 FOUNDER_LOOP_SCHEMA_VERSION = "founder_loop_storage.v1"
 FOUNDER_LOOP_STATE_DIR_ENV = "UAA_FOUNDER_LOOP_STATE_DIR"
 DEFAULT_FOUNDER_LOOP_STATE_DIR = Path(".uaa") / "founder_loop"
+TODAY_PRODUCT_SPINE_CONTRACT_REF = "contract-ref:today-product-spine:v1"
+TODAY_PRODUCT_SPINE_LOOP_SURFACES = ["Today", "Actions", "Evidence", "Memory"]
+TODAY_PRODUCT_SPINE_REQUIRED_SIGNALS = [
+    {
+        "signal": "priorities",
+        "source": "action_and_briefing_priority_fields",
+        "required": True,
+    },
+    {
+        "signal": "blockers",
+        "source": "blocked_states_and_missing_contract_refs",
+        "required": True,
+    },
+    {
+        "signal": "follow_ups",
+        "source": "next_safe_action_fields",
+        "required": True,
+    },
+    {
+        "signal": "plan_action_state",
+        "source": "plans_actions_and_approval_posture",
+        "required": True,
+    },
+    {
+        "signal": "memory_review_count",
+        "source": "sections.memory_review_count",
+        "required": True,
+    },
+    {
+        "signal": "stale_source_posture",
+        "source": "stale_state_fields",
+        "required": True,
+    },
+    {
+        "signal": "next_safe_actions",
+        "source": "next_safe_actions",
+        "required": True,
+    },
+]
+TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
+    {
+        "module": "Today",
+        "status": "implemented_storage_backed_partial_loop",
+        "required_loop_outputs": [
+            "today_state",
+            "action_state",
+            "evidence_state",
+            "memory_state",
+        ],
+        "current_feed_refs": [
+            "GET /control-center/today/summary",
+            "evidence-ref:founder-loop:today-summary",
+        ],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "Actions",
+        "status": "implemented_review_queue_execution_blocked",
+        "required_loop_outputs": [
+            "today_priority_or_blocker",
+            "action_envelope_or_blocked_state",
+            "evidence_ref",
+            "memory_review_or_blocked_state",
+        ],
+        "current_feed_refs": [
+            "GET /control-center/actions/inbox",
+            "evidence-ref:founder-loop:action-inbox",
+        ],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "Plans",
+        "status": "partial_action_envelope_contract_missing",
+        "required_loop_outputs": [
+            "today_plan_state",
+            "action_envelope_or_blocked_state",
+            "plan_evidence_ref",
+            "memory_candidate_or_blocked_state",
+        ],
+        "current_feed_refs": [
+            "status-ref:founder-loop-plan-summary",
+            "contract-ref:plans-action-envelope-missing",
+        ],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "Memory",
+        "status": "implemented_review_queue_decision_capture_missing",
+        "required_loop_outputs": [
+            "today_memory_review_count",
+            "action_or_follow_up_candidate",
+            "memory_evidence_ref",
+            "reviewed_recall_or_blocked_state",
+        ],
+        "current_feed_refs": [
+            "status-ref:founder-loop-memory-review",
+            "contract-ref:memory-review-decision-capture-missing",
+        ],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "Evidence",
+        "status": "implemented_redacted_refs_history_grammar_missing",
+        "required_loop_outputs": [
+            "today_evidence_state",
+            "action_receipt_or_blocked_state",
+            "evidence_timeline_ref",
+            "memory_evidence_or_blocked_state",
+        ],
+        "current_feed_refs": [
+            "GET /control-center/today/summary",
+            "contract-ref:evidence-history-grammar-missing",
+        ],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "Morning Briefing",
+        "status": "implemented_skeleton_source_contracts_missing",
+        "required_loop_outputs": [
+            "today_priority_or_blocker",
+            "follow_up_or_action_candidate",
+            "source_readiness_evidence_ref",
+            "memory_candidate_or_blocked_state",
+        ],
+        "current_feed_refs": [
+            "GET /control-center/morning-briefing/summary",
+            "contract-ref:calendar-read-only-missing",
+        ],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "Chat",
+        "status": "planned_blocked_until_uaa_p1_074",
+        "required_loop_outputs": [
+            "today_chat_state",
+            "plan_or_action_handoff_state",
+            "chat_evidence_ref",
+            "memory_candidate_or_blocked_state",
+        ],
+        "current_feed_refs": ["contract-ref:chat-local-operator-surface-missing"],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "Code",
+        "status": "planned_blocked_until_uaa_p1_075",
+        "required_loop_outputs": [
+            "today_code_state",
+            "action_or_apply_blocked_state",
+            "diff_validation_evidence_ref",
+            "memory_candidate_or_blocked_state",
+        ],
+        "current_feed_refs": ["contract-ref:governed-code-workbench-missing"],
+        "standalone_complete_allowed": False,
+    },
+]
 
 UNSAFE_STORAGE_TEXT_FRAGMENTS = (
     "raw prompt",
@@ -396,6 +551,95 @@ def _utc_iso() -> str:
     return utc_now().isoformat()
 
 
+def _priority_refs(
+    actions: list[dict[str, Any]],
+    briefing_items: list[dict[str, Any]],
+) -> list[str]:
+    refs: list[str] = []
+    for action in actions:
+        refs.append(
+            f"priority-ref:action:{action['priority']}:{str(action['item_ref']).replace(':', '-')}"
+        )
+    for item in briefing_items:
+        refs.append(
+            f"priority-ref:briefing:{item['priority']}:{str(item['briefing_ref']).replace(':', '-')}"
+        )
+    return refs[:8]
+
+
+def _blocked_state_refs(
+    actions: list[dict[str, Any]],
+    memory_items: list[dict[str, Any]],
+    briefing_items: list[dict[str, Any]],
+) -> list[str]:
+    refs = [
+        "blocked-state:no_action_execution_route",
+        "blocked-state:no_connector_write_route",
+        "blocked-state:no_runtime_model_call_route",
+    ]
+    for action in actions:
+        item_ref = str(action["item_ref"]).replace(":", "-")
+        if action.get("blocked_state"):
+            refs.append(f"blocked-state:action:{item_ref}:mutation-blocked")
+        if action.get("state_change_readiness"):
+            refs.append(
+                f"blocked-state:action:{str(action['state_change_readiness']).replace('_', '-')}"
+            )
+    for item in memory_items:
+        refs.extend(
+            f"blocked-state:memory:{str(value).replace('_', '-')}"
+            for value in item.get("blocked_states", [])
+        )
+    for item in briefing_items:
+        refs.extend(
+            f"blocked-state:briefing:{str(value).replace('_', '-')}"
+            for value in item.get("blocked_states", [])
+        )
+    return refs[:16]
+
+
+def _next_safe_actions(
+    actions: list[dict[str, Any]],
+    plans: list[dict[str, Any]],
+    memory_items: list[dict[str, Any]],
+    briefing_items: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    for action in actions[:3]:
+        items.append(
+            {
+                "surface": "Actions",
+                "source_ref": str(action["item_ref"]),
+                "safe_summary": str(action["next_safe_action"]),
+            }
+        )
+    for plan in plans[:2]:
+        items.append(
+            {
+                "surface": "Plans",
+                "source_ref": str(plan["plan_ref"]),
+                "safe_summary": str(plan["next_step_summary"]),
+            }
+        )
+    for item in memory_items[:2]:
+        items.append(
+            {
+                "surface": "Memory",
+                "source_ref": str(item["review_ref"]),
+                "safe_summary": str(item["next_safe_action"]),
+            }
+        )
+    for item in briefing_items[:2]:
+        items.append(
+            {
+                "surface": "Today",
+                "source_ref": str(item["briefing_ref"]),
+                "safe_summary": str(item["next_safe_action"]),
+            }
+        )
+    return items[:8]
+
+
 def _row_to_payload(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     for key in list(payload):
@@ -462,6 +706,12 @@ class FounderLoopRepository:
             memory_items=memory_items,
             briefing_items=briefing_items,
         )
+        next_safe_actions = _next_safe_actions(
+            actions=actions,
+            plans=plans,
+            memory_items=memory_items,
+            briefing_items=briefing_items,
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -469,6 +719,61 @@ class FounderLoopRepository:
             "storage_ref": "founder-loop-storage:local-sqlite-jsonl",
             "side_effect_class": "local_dev_workspace_only",
             "approval_required_before_mutation": True,
+            "product_spine_contract_ref": TODAY_PRODUCT_SPINE_CONTRACT_REF,
+            "required_loop_surfaces": TODAY_PRODUCT_SPINE_LOOP_SURFACES,
+            "required_today_signals": TODAY_PRODUCT_SPINE_REQUIRED_SIGNALS,
+            "module_feed_contract": TODAY_PRODUCT_SPINE_MODULE_FEEDS,
+            "module_completion_contract": {
+                "visibility_requirement": (
+                    "Module state must be visible in Today, Actions, Evidence, "
+                    "and Memory before completion can be claimed."
+                ),
+                "visibility_is_sufficient_for_completion": False,
+                "standalone_module_complete_allowed": False,
+                "required_done_gates": [
+                    "definition_of_done",
+                    "schema_or_typed_contract",
+                    "focused_tests",
+                    "redaction_checks",
+                    "policy_approval_boundary",
+                    "openapi_api_manifest_when_routes_change",
+                    "cli_or_repo_local_inspection_path",
+                ],
+            },
+            "priority_refs": _priority_refs(actions, briefing_items),
+            "blocker_refs": _blocked_state_refs(actions, memory_items, briefing_items),
+            "follow_up_refs": [
+                f"follow-up-ref:{item['surface'].lower()}:{item['source_ref'].replace(':', '-')}"
+                for item in next_safe_actions
+            ],
+            "plan_action_state": {
+                "action_count": len(actions),
+                "plan_count": len(plans),
+                "approval_required_before_mutation": True,
+                "mutating_controls_enabled": False,
+                "execution_authorized": False,
+                "action_envelope_contract_status": "blocked_until_uaa_p1_073",
+            },
+            "stale_source_posture": {
+                "status": "recheck_required_before_action_or_source_use",
+                "source_refresh_enabled": False,
+                "connector_runtime_enabled": False,
+                "stale_state_refs": [
+                    *[
+                        f"stale-ref:action:{str(action['item_ref']).replace(':', '-')}"
+                        for action in actions
+                    ],
+                    *[
+                        f"stale-ref:memory:{str(item['review_ref']).replace(':', '-')}"
+                        for item in memory_items
+                    ],
+                    *[
+                        f"stale-ref:briefing:{str(item['briefing_ref']).replace(':', '-')}"
+                        for item in briefing_items
+                    ],
+                ][:12],
+            },
+            "next_safe_actions": next_safe_actions,
             "sections": {
                 "action_inbox_count": len(actions),
                 "plan_count": len(plans),
