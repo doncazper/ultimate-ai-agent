@@ -88,6 +88,7 @@ SCAN_SEQUENCE = [
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
     ("product truth regression scan", "verify_product_truth"),
     ("operator-readiness taxonomy scan", "verify_operator_readiness_taxonomy"),
+    ("morning reconciliation artifact scan", "verify_morning_reconciliation_artifact"),
     ("repo awareness benchmark scan", "verify_repo_awareness_benchmark"),
     ("backup/restore verification scan", "verify_backup_restore_verification"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
@@ -29867,6 +29868,28 @@ def verify_operator_readiness_taxonomy() -> None:
             print(f"FAIL: {failure}")
         sys.exit(1)
     print("OK: Operator-readiness status taxonomy is bound across active surfaces")
+
+
+def verify_morning_reconciliation_artifact() -> None:
+    print("\n[Verifier] Running morning reconciliation artifact guard...")
+    verifier_path = ROOT / "scripts" / "verify_morning_reconciliation_artifact.py"
+    spec = importlib.util.spec_from_file_location(
+        "verify_morning_reconciliation_artifact",
+        verifier_path,
+    )
+    if spec is None or spec.loader is None:
+        print("FAIL: morning reconciliation artifact verifier could not be loaded")
+        sys.exit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    failures = module.validate_morning_reconciliation_artifact()
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}")
+        sys.exit(1)
+    print("OK: Morning reconciliation artifact schema and template are safe")
 
 
 def verify_backup_restore_verification() -> None:

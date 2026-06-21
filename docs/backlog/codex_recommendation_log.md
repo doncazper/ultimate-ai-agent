@@ -42,6 +42,49 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-061 Morning Reconciliation Artifact Check
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor loop.
+
+Recommendation: Add a safe, repo-local morning reconciliation artifact format
+so looped ChatGPT/Codex work sessions can summarize completed, deferred,
+rejected, and blocked recommendations with evidence refs before progressing.
+
+Next prompt:
+
+```text
+Stop the conveyor after UAA-P1-061 unless a later scoped prompt or board update
+promotes another documented Ready Next milestone. UAA-P1-062 remains Spec Draft
+and needs explicit backend contract, approval, receipt, rollback, and verifier
+scope before implementation.
+```
+
+Decision: Accepted as the final currently Ready Next M177 product-truth
+hardening lane.
+
+Status: accepted
+
+Completed: Added `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md`,
+`docs/backlog/MORNING_RECONCILIATION_TEMPLATE.json`,
+`docs/schemas/morning_reconciliation_artifact.schema.json`,
+`scripts/verify_morning_reconciliation_artifact.py`,
+`tests/test_morning_reconciliation_artifact.py`, a `verify_all` hook, and
+active docs/index/board/roadmap links.
+
+Not done: No actual private-session transcript, raw prompt, raw response, raw
+provider payload, raw local path, raw log, route, runtime authority,
+provider/model call, web fetch, dependency, frontend behavior, or undocumented
+milestone was added. UAA-P1-062 remains deferred in Spec Draft until separately
+promoted.
+
+Evidence: `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md`,
+`docs/backlog/MORNING_RECONCILIATION_TEMPLATE.json`,
+`docs/schemas/morning_reconciliation_artifact.schema.json`,
+`scripts/verify_morning_reconciliation_artifact.py`,
+`tests/test_morning_reconciliation_artifact.py`.
+
 ### 2026-06-21 - UAA-P1-060 Operator-Readiness Status Taxonomy
 
 Date: 2026-06-21

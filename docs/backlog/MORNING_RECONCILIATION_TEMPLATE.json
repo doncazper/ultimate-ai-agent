@@ -1,0 +1,80 @@
+{
+  "schema_version": "uaa_morning_reconciliation_artifact.v1",
+  "task_ref": "UAA-P1-061",
+  "reconciliation_id": "reconciliation:example-morning-loop",
+  "created_at_utc": "2026-06-21T00:00:00Z",
+  "source_loop_ref": "loop:example-codex-conveyor",
+  "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
+  "recommendation_log_ref": "docs/backlog/codex_recommendation_log.md",
+  "safe_summary": "Example reconciliation checkpoint with safe refs only. Replace with a bounded summary before progressing.",
+  "completed_recommendations": [
+    {
+      "recommendation_ref": "recommendation:example-completed",
+      "status": "completed",
+      "source_milestone_ref": "UAA-P1-060",
+      "safe_summary": "Completed scoped taxonomy binding with verifier evidence.",
+      "reason_code": "COMPLETED_WITH_EVIDENCE",
+      "evidence_refs": [
+        "doc:docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
+        "script:scripts/verify_operator_readiness_taxonomy.py",
+        "test:tests/test_operator_readiness_taxonomy.py"
+      ],
+      "next_action_ref": "none:complete"
+    }
+  ],
+  "deferred_recommendations": [
+    {
+      "recommendation_ref": "recommendation:example-deferred",
+      "status": "deferred",
+      "source_milestone_ref": "UAA-P1-062",
+      "safe_summary": "Useful local model manager runtime controls remain deferred until exact backend and approval scope is ready.",
+      "reason_code": "OUTSIDE_CURRENT_MILESTONE",
+      "evidence_refs": [
+        "board:docs/kanban/current_board.md",
+        "roadmap:docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+      ],
+      "next_action_ref": "milestone:UAA-P1-062"
+    }
+  ],
+  "rejected_recommendations": [
+    {
+      "recommendation_ref": "recommendation:example-rejected",
+      "status": "rejected",
+      "source_milestone_ref": "UAA-P1-061",
+      "safe_summary": "Raw prompt transcript capture is rejected for reconciliation artifacts.",
+      "reason_code": "RAW_CONTENT_NOT_ALLOWED",
+      "evidence_refs": [
+        "doc:docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md"
+      ],
+      "next_action_ref": "none:rejected"
+    }
+  ],
+  "blocked_recommendations": [
+    {
+      "recommendation_ref": "recommendation:example-blocked",
+      "status": "blocked",
+      "source_milestone_ref": "UAA-P1-062",
+      "safe_summary": "Executable local model switching remains blocked until backend contracts, approvals, receipts, and rollback evidence exist.",
+      "reason_code": "MISSING_SCOPED_AUTHORITY",
+      "evidence_refs": [
+        "board:docs/kanban/current_board.md",
+        "doc:docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+      ],
+      "next_action_ref": "blocker:uaa-p1-062-scope"
+    }
+  ],
+  "next_prompt_ref": "prompt-ref:next-documented-ready-milestone",
+  "reconciliation_safety": {
+    "raw_prompt_included": false,
+    "raw_response_included": false,
+    "raw_provider_payload_included": false,
+    "raw_path_included": false,
+    "raw_log_included": false,
+    "username_included": false,
+    "hostname_included": false,
+    "serial_included": false,
+    "environment_dump_included": false,
+    "credential_material_included": false,
+    "private_content_included": false
+  }
+}

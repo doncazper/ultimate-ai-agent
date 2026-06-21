@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "uaa_morning_reconciliation_artifact",
+  "description": "Safe reconciliation artifact for looped ChatGPT/Codex recommendation work. Records completed, deferred, rejected, and blocked recommendation refs without raw private material.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_ref",
+    "reconciliation_id",
+    "created_at_utc",
+    "source_loop_ref",
+    "operator_readiness_taxonomy_ref",
+    "recommendation_log_ref",
+    "safe_summary",
+    "completed_recommendations",
+    "deferred_recommendations",
+    "rejected_recommendations",
+    "blocked_recommendations",
+    "next_prompt_ref",
+    "reconciliation_safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa_morning_reconciliation_artifact.v1"
+    },
+    "task_ref": {
+      "const": "UAA-P1-061"
+    },
+    "reconciliation_id": {
+      "type": "string",
+      "pattern": "^reconciliation:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_loop_ref": {
+      "type": "string",
+      "pattern": "^loop:[a-z0-9][a-z0-9._:-]*$"
+    },
+    "operator_readiness_taxonomy_ref": {
+      "const": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
+    },
+    "recommendation_log_ref": {
+      "const": "docs/backlog/codex_recommendation_log.md"
+    },
+    "safe_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "completed_recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recommendation_entry"
+      }
+    },
+    "deferred_recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recommendation_entry"
+      }
+    },
+    "rejected_recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recommendation_entry"
+      }
+    },
+    "blocked_recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recommendation_entry"
+      }
+    },
+    "next_prompt_ref": {
+      "type": "string",
+      "pattern": "^(prompt-ref|next-action):[a-z0-9][a-z0-9._:-]*$"
+    },
+    "reconciliation_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_prompt_included",
+        "raw_response_included",
+        "raw_provider_payload_included",
+        "raw_path_included",
+        "raw_log_included",
+        "username_included",
+        "hostname_included",
+        "serial_included",
+        "environment_dump_included",
+        "credential_material_included",
+        "private_content_included"
+      ],
+      "properties": {
+        "raw_prompt_included": {
+          "const": false
+        },
+        "raw_response_included": {
+          "const": false
+        },
+        "raw_provider_payload_included": {
+          "const": false
+        },
+        "raw_path_included": {
+          "const": false
+        },
+        "raw_log_included": {
+          "const": false
+        },
+        "username_included": {
+          "const": false
+        },
+        "hostname_included": {
+          "const": false
+        },
+        "serial_included": {
+          "const": false
+        },
+        "environment_dump_included": {
+          "const": false
+        },
+        "credential_material_included": {
+          "const": false
+        },
+        "private_content_included": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "recommendation_status": {
+      "enum": [
+        "completed",
+        "deferred",
+        "rejected",
+        "blocked"
+      ]
+    },
+    "recommendation_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommendation_ref",
+        "status",
+        "source_milestone_ref",
+        "safe_summary",
+        "reason_code",
+        "evidence_refs",
+        "next_action_ref"
+      ],
+      "properties": {
+        "recommendation_ref": {
+          "type": "string",
+          "pattern": "^recommendation:[a-z0-9][a-z0-9._:-]*$"
+        },
+        "status": {
+          "$ref": "#/$defs/recommendation_status"
+        },
+        "source_milestone_ref": {
+          "type": "string",
+          "pattern": "^(UAA|FCC|M)[A-Za-z0-9._:-]*$"
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_:-]+$"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^(doc|test|script|commit|report|schema|template|log|board|roadmap|verifier):[A-Za-z0-9._:/-]+$"
+          }
+        },
+        "next_action_ref": {
+          "type": "string",
+          "pattern": "^(none|next-action|prompt-ref|blocker|milestone):[A-Za-z0-9._:/-]+$"
+        }
+      }
+    }
+  }
+}

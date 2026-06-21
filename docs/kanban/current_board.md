@@ -38,13 +38,14 @@ artifact scanning for release-facing docs, reports, evidence templates, and
 frontend build output. UAA-P1-057 adds product-truth regression checks for
 release-facing docs and Control Center copy. UAA-P1-060 adds the shared
 operator-readiness status taxonomy across route manifests, product language,
-release evidence, and Foundation Gate summaries. Next-lane order:
+release evidence, and Foundation Gate summaries. UAA-P1-061 adds the safe
+morning reconciliation artifact format, schema, template, verifier, and tests
+for completed, deferred, rejected, and blocked recommendation refs. Next-lane
+order:
 
-1. UAA-P1-061 Morning reconciliation artifact check, only while
-   UAA-P1-055, UAA-P1-054, UAA-P1-053, UAA-P1-059, and UAA-P1-058
-   CI lane workflow checks, route ownership, product-truth regression checks,
-   operator-readiness taxonomy checks, Foundation Gate, OpenAPI, and
-   documentation checks remain green.
+1. No Ready Next milestone is currently promoted after UAA-P1-061. UAA-P1-062
+   remains in Spec Draft until a later scoped prompt or board update promotes
+   it with backend contract, approval, receipt, rollback, and verifier scope.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -73,23 +74,15 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Pull UAA-P1-061 from Ready Next after
-UAA-P1-057 product-truth regression checks remain green with UAA-P1-055
-security/redaction artifact checks, UAA-P1-060 operator-readiness taxonomy
-checks, Foundation Gate, OpenAPI, route ownership, release lanes, release
-evidence, safe-output, and documentation checks.
+No active foundation build item. Do not pull UAA-P1-062 from Spec Draft without
+a later scoped prompt or board update that grants exact backend contract,
+approval, receipt, rollback, and verifier scope.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-061 Morning reconciliation artifact check
-Goal: looped ChatGPT/Codex work sessions produce safe reconciliation summaries
-with completed, deferred, rejected, and blocked recommendation refs.
-Gate: UAA-P1-060 operator-readiness taxonomy checks, UAA-P1-057 product-truth
-regression checks, UAA-P1-055 security/redaction artifact scan, Foundation
-Gate, OpenAPI, route ownership, product-language, and documentation checks
-stay green.
+No documented Ready Next milestone remains after UAA-P1-061.
 ```
 
 ## Shaping
@@ -253,6 +246,15 @@ schema/template, `scripts/run_foundation_gate.py`, and
 `scripts/verify_operator_readiness_taxonomy.py` bind the taxonomy without
 adding routes, runtime authority, provider/model calls, web fetching, or
 frontend behavior changes.
+
+UAA-P1-061 Morning reconciliation artifact check
+Gate met: `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` defines the safe
+artifact format for looped work-session reconciliation, with schema/template
+coverage for completed, deferred, rejected, and blocked recommendation refs.
+`scripts/verify_morning_reconciliation_artifact.py`,
+`tests/test_morning_reconciliation_artifact.py`, and the `verify_all` hook bind
+the check without adding routes, runtime authority, provider/model calls, web
+fetching, dependencies, or frontend behavior changes.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.
