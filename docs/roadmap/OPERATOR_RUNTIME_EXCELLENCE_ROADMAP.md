@@ -532,11 +532,11 @@ production-ready.
 
 Tasks:
 
-- `UAA-P1-057` Add product truth regression checks for release-facing docs and
+- `UAA-P1-057` Done: add product truth regression checks for release-facing docs and
   Control Center copy so blocked, skipped, pending, mock-only, planned, and
   not-scoped states cannot be described as complete, production-ready, or
   publicly released without evidence.
-- `UAA-P1-060` Add an operator-readiness status taxonomy shared by docs,
+- `UAA-P1-060` Ready Next: add an operator-readiness status taxonomy shared by docs,
   route manifests, Control Center states, release evidence packets, and
   Foundation Gate summaries.
 - `UAA-P1-061` Add a morning reconciliation report template check for looped
@@ -610,13 +610,14 @@ Verification:
 - `UAA-P2-051` Done: MCP/A2A compatibility watchlist.
 - `UAA-P1-011` Done baseline: first readable operator-loop proof chain exists;
   Founder Command Center work now builds readability and product surfaces on top.
-- `UAA-P1-020` Shape: PolicyEngine consolidation map.
-- `UAA-P1-021` Shape: FastAPI route grouping and side-effect classes.
-- `UAA-P1-052` Shape: API service-module extraction plan.
-- `UAA-P1-053` Shape: CI lane workflow expansion.
-- `UAA-P1-054` Shape: Control Center differentiator screens.
-- `UAA-P1-055` Shape: security automation and artifact redaction lane.
-- `UAA-P1-057` Shape: product truth regression checks.
+- `UAA-P1-020` Done: PolicyEngine consolidation map.
+- `UAA-P1-021` Done: FastAPI route grouping and side-effect classes.
+- `UAA-P1-052` Done: API service-module extraction plan.
+- `UAA-P1-053` Done: CI lane workflow expansion.
+- `UAA-P1-054` Done: Control Center differentiator screens.
+- `UAA-P1-055` Done: security automation and artifact redaction lane.
+- `UAA-P1-057` Done: product truth regression checks.
+- `UAA-P1-060` Ready Next: operator-readiness status taxonomy.
 - `UAA-P2-056` Shape: extension trust product surface.
 - `UAA-P2-058` Shape: Provider Credential Vault Adapter v1 as a
   disabled-by-default opaque-ref adapter contract. This gate must not collect,

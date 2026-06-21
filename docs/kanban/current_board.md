@@ -35,12 +35,13 @@ the read-only Control Center differentiator screens for route authority,
 approval state, evidence receipts, safe workspace previews, local model status,
 and M167 observability posture. UAA-P1-055 adds repo-local security/redaction
 artifact scanning for release-facing docs, reports, evidence templates, and
-frontend build output. Next-lane order:
+frontend build output. UAA-P1-057 adds product-truth regression checks for
+release-facing docs and Control Center copy. Next-lane order:
 
-1. UAA-P1-057 Product truth regression checks, only while
+1. UAA-P1-060 Operator-readiness status taxonomy, only while
    UAA-P1-055, UAA-P1-054, UAA-P1-053, UAA-P1-059, and UAA-P1-058
-   CI lane workflow checks, route ownership, Foundation Gate, OpenAPI, and
-   documentation checks remain green.
+   CI lane workflow checks, route ownership, product-truth regression checks,
+   Foundation Gate, OpenAPI, and documentation checks remain green.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -69,27 +70,28 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Pull UAA-P1-057 from Ready Next after
-UAA-P1-055 security/redaction artifact checks remain green with Foundation
-Gate, OpenAPI, route ownership, release lanes, release evidence, safe-output,
-and documentation checks.
+No active foundation build item. Pull UAA-P1-060 from Ready Next after
+UAA-P1-057 product-truth regression checks remain green with UAA-P1-055
+security/redaction artifact checks, Foundation Gate, OpenAPI, route ownership,
+release lanes, release evidence, safe-output, and documentation checks.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-057 Product truth regression checks
-Goal: prevent blocked, skipped, pending, mock-only, planned, or not-scoped work
-from being described as complete, production-ready, or publicly released.
-Gate: UAA-P1-055, release-lane security/redaction artifact scan, Foundation
-Gate, OpenAPI, frontend, route ownership, product-language, and documentation
-checks stay green.
+UAA-P1-060 Operator-readiness status taxonomy
+Goal: share shipped/planned/blocked/skipped/mock/not-scoped status semantics
+across docs, route manifests, Control Center states, release evidence, and
+Foundation Gate reports.
+Gate: UAA-P1-057 product-truth regression checks, UAA-P1-055
+security/redaction artifact scan, Foundation Gate, OpenAPI, route ownership,
+product-language, and documentation checks stay green.
 ```
 
 ## Shaping
 
 ```text
-No active shaping item after UAA-P1-057 promotion. Use Spec Draft for the next
+No active shaping item after UAA-P1-060 promotion. Use Spec Draft for the next
 candidate unless the roadmap promotes a new scoped lane.
 ```
 
@@ -99,11 +101,6 @@ candidate unless the roadmap promotes a new scoped lane.
 UAA-P1-022 Storage migration contract
 Goal: SQLite first, optional Postgres later, forward migrations, backup
 minimum set, verify, and offline restore.
-
-UAA-P1-060 Operator-readiness status taxonomy
-Goal: share shipped/planned/blocked/skipped/mock/not-scoped status semantics
-across docs, route manifests, Control Center states, release evidence, and
-Foundation Gate reports.
 
 UAA-P1-061 Morning reconciliation artifact check
 Goal: looped ChatGPT/Codex work sessions produce safe reconciliation summaries
@@ -232,6 +229,16 @@ not add external audit, public distribution, signed-release, public beta,
 production authority, runtime authority, model/provider calls, connector
 writes, browser/network automation, plugin runtime import, memory writes, or
 context injection.
+
+UAA-P1-057 Product truth regression checks
+Gate met: `scripts/verify_product_truth.py` scans release-facing docs,
+Control Center product-language surfaces, route-status truth, release evidence
+docs/templates, and optional Control Center build output for blocked, skipped,
+pending, mock-only, planned, partial, not-scoped, public-release, production,
+signed, audited, and broad-autonomy overclaims. `tests/test_product_truth_verifier.py`,
+`scripts/verify_all.py`, and the CI workflow include the regression lane. The
+verifier reports safe category labels, line refs, and short evidence hashes
+without echoing offending content.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

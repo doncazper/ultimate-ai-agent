@@ -22,6 +22,8 @@ in_progress
 done
 deferred
 rejected
+blocked
+needs-review
 ```
 
 Each entry should record:
@@ -39,6 +41,39 @@ Evidence:
 ```
 
 ## Entries
+
+### 2026-06-21 - Documented Milestone Conveyor Pass 1
+
+Date: 2026-06-21
+
+Thread: User-requested documented-milestone conveyor loop.
+
+Recommendation: Keep the active board and roadmap snapshot synchronized before
+executing the next milestone. `UAA-P1-057` was already merged and verified, so
+it should not remain in Ready Next or Shape-only state; the documented next
+lane should be `UAA-P1-060` while it remains scoped to taxonomy alignment.
+
+Next prompt:
+
+```text
+Execute UAA-P1-060 Operator-readiness status taxonomy. Keep the change scoped
+to shared readiness/status semantics across docs, route manifests, Control
+Center states, release evidence, and Foundation Gate summaries. Do not add
+routes, runtime authority, provider/model calls, web fetching, dependencies, or
+new undocumented milestones.
+```
+
+Decision: Accepted as conveyor housekeeping before implementation.
+
+Status: accepted
+
+Completed: Updated the active Kanban board and Operator Runtime Excellence
+roadmap snapshot so `UAA-P1-057` is Done and `UAA-P1-060` is Ready Next.
+
+Not done: No `UAA-P1-060` implementation was added in this housekeeping pass.
+
+Evidence: `docs/kanban/current_board.md`,
+`docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`.
 
 ### 2026-06-21 - Local Model Manager / Memory-Aware Runtime Control
 
