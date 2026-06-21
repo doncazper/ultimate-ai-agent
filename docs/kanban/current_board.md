@@ -40,14 +40,14 @@ release-facing docs and Control Center copy. UAA-P1-060 adds the shared
 operator-readiness status taxonomy across route manifests, product language,
 release evidence, and Foundation Gate summaries. UAA-P1-061 adds the safe
 morning reconciliation artifact format, schema, template, verifier, and tests
-for completed, deferred, rejected, and blocked recommendation refs. Next-lane
-order:
+for completed, deferred, rejected, and blocked recommendation refs. UAA-P1-062
+adds the docs-only Local Model Manager / Memory-Aware Runtime Control lane
+shape; backend routes, CLI commands, lifecycle authority, switch execution,
+identity updates, downloads, process control, and runtime behavior remain
+blocked. Next-lane order:
 
-1. No Ready Next milestone is currently promoted after UAA-P1-061. UAA-P1-062
-   may now be pulled only as a docs-only shaping pass for the Local Model
-   Manager / Memory-Aware Runtime Control lane. Runtime lifecycle, switch,
-   identity, rollback, download, process-control, route, and CLI authority
-   remain blocked until later exact scoped milestones.
+1. No documented Ready Next milestone remains after UAA-P1-062. Future Local
+   Model Manager implementation stages require later exact scoped milestones.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -76,30 +76,22 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Pull UAA-P1-062 from Ready Next only as a
-docs-only lane-shaping pass; do not add backend routes, CLI commands,
-process control, lifecycle authority, downloads, dependencies, model/provider
-calls, or runtime behavior.
+No active foundation build item. Do not pull future Local Model Manager
+implementation stages without later exact scoped milestones for backend
+contracts, approvals, receipts, rollback, CLI parity, route side-effect
+classes, verifier coverage, and safe-disable behavior.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-062 Local Model Manager / Memory-Aware Runtime Control
-Goal: shape the documented local model manager lane into a contract-first,
-memory-aware runtime control plan with read-only status as the first future
-implementation slice and explicit blockers for lifecycle/switch/download
-authority.
-Gate: docs-only. No routes, CLI commands, process control, lifecycle
-mutation, model switching, identity updates, downloads, dependencies,
-model/provider calls, OpenWebUI authority, Control Center-only authority, or
-runtime behavior.
+No documented Ready Next milestone remains after UAA-P1-062.
 ```
 
 ## Shaping
 
 ```text
-No active shaping item after UAA-P1-061 promotion. Use Spec Draft for the next
+No active shaping item after UAA-P1-062 completion. Use Spec Draft for the next
 candidate unless the roadmap promotes a new scoped lane.
 ```
 
@@ -257,6 +249,15 @@ coverage for completed, deferred, rejected, and blocked recommendation refs.
 `tests/test_morning_reconciliation_artifact.py`, and the `verify_all` hook bind
 the check without adding routes, runtime authority, provider/model calls, web
 fetching, dependencies, or frontend behavior changes.
+
+UAA-P1-062 Local Model Manager / Memory-Aware Runtime Control
+Gate met: `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`
+documents the local model manager lane shape, Python Agent Core authority
+boundary, future interface surfaces, staged order, required contracts, and
+non-goals. This milestone adds no backend routes, CLI commands, process
+control, lifecycle authority, model switching, identity updates, downloads,
+dependencies, provider/model calls, OpenWebUI authority, Control Center-only
+authority, runtime behavior, public release claim, or production authority.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

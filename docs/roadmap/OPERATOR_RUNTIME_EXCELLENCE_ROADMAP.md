@@ -76,7 +76,7 @@ They do not mark the capability shipped and do not grant new authority.
 | Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
 | Preserve UAA's stricter authority model | `UAA-P1-020` PolicyEngine consolidation map | P0/P1 | No copied peer runtime feature ships without exact policy, approval, audit, rollback, and redaction gates |
 | Add automated security scanning and artifact redaction checks | `UAA-P1-055` Security automation and artifact redaction lane | P1 | Security scans and artifact checks are safe, local/CI bounded, and do not claim external audit or public distribution |
-| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Local Model Manager / Memory-Aware Runtime Control | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state |
+| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. |
 | Productize extension boundary carefully | `UAA-P2-048` Static package review, `UAA-P2-056` Extension trust product surface | P2 | Trust/provenance inspection improves before plugin execution exists; runtime import remains disabled |
 | Treat installer/release workflows as catch-up after local loop usability | `UAA-P2-047` Signed installer and public distribution lane shaping | P2 | No signed/public distribution claim until local loop, security, durability, and artifact proof gates are green |
 | Preserve blocked/scoped/planned truthfulness | `UAA-P1-031` Done, `UAA-P1-057` Done, `UAA-P1-060` Done, `UAA-P1-061` Done | P0/P1 | Planned, blocked, skipped, mock, and not-scoped work cannot be described as complete or production-ready; readiness language maps through a shared taxonomy and reconciliation artifacts |
@@ -179,7 +179,7 @@ Tasks:
   GGUF, stuck download, port conflict, credential rotation, rollback, offline
   mode, safe evidence collection, blocked/unknown model state, and safe-disable
   in `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`.
-- `UAA-P1-062` Shape the Local Model Manager / Memory-Aware Runtime Control
+- `UAA-P1-062` Done: shape the Local Model Manager / Memory-Aware Runtime Control
   lane after cleanup and status truth. The staged order is cleanup and
   consolidation; read-only model status; approval-bound start/stop for the
   current server; dry-run switch planning with RAM/VRAM/context impact,
@@ -200,6 +200,9 @@ Acceptance:
 - `UAA-P1-062` does not ship until CLI parity, route side-effect classes,
   exact approval requirements, redacted evidence, rollback/safe-disable
   behavior, and verifier coverage are accepted for each staged capability.
+- `UAA-P1-062` shape evidence is
+  `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`; later
+  implementation stages require separate documented scope.
 
 Verification:
 

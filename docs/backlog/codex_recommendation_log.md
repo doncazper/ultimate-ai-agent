@@ -42,6 +42,46 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-062 Local Model Manager Lane Shape
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor continuation.
+
+Recommendation: Complete UAA-P1-062 as a docs-only Local Model Manager /
+Memory-Aware Runtime Control lane shape, keeping Python Agent Core as
+authority and leaving runtime stages blocked until later exact scope exists.
+
+Next prompt:
+
+```text
+Stop the conveyor unless the board or roadmap promotes a new documented Ready
+Next milestone. Future Local Model Manager implementation stages need later
+exact scoped milestones before any route, CLI, lifecycle, switch, identity,
+download, process-control, or rollback implementation.
+```
+
+Decision: Accepted as the documented UAA-P1-062 scope. The first future
+implementation slice should be read-only installed/current/memory-fit status,
+but that slice is not implemented or promoted by this pass.
+
+Status: accepted
+
+Completed: Added `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`,
+updated roadmap/product-truth/gap-map/board/index references, and created a
+safe reconciliation artifact for the milestone pass.
+
+Not done: No backend route, CLI command, process control, lifecycle mutation,
+model switch, identity update, download, dependency, provider/model call,
+OpenWebUI runtime/config change, Control Center control, production claim, or
+runtime authority was added.
+
+Evidence: `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`,
+`docs/kanban/current_board.md`,
+`docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`,
+`docs/backlog/reconciliation/2026-06-21-uaa-p1-062-local-model-manager-shape.json`.
+
 ### 2026-06-21 - Conveyor Reconciliation Durability And UAA-P1-062 Scope
 
 Date: 2026-06-21

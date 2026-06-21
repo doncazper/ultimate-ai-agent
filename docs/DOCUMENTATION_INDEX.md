@@ -18,7 +18,7 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Release evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md` |
 | Governed web evidence | `docs/truth/GOVERNED_WEB_EVIDENCE.md` |
-| Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
+| Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
 | Plugin/skill ecosystem | `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`, `docs/archive/README.md` |
@@ -73,6 +73,7 @@ docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md
+docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md
 docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md
 docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md
 docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md
@@ -180,6 +181,7 @@ docs/model_management/M160_HUGGING_FACE_GGUF_SEARCH.md
 docs/model_management/M161_LOCAL_SYSTEM_CAPABILITY_PROBE.md
 docs/model_management/M162_GGUF_MODEL_ACQUISITION.md
 docs/model_management/M160_M165_LIVE_LANE_BOUNDARY.md
+docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md
 docs/production/LOCAL_MODEL_PRODUCTION_READINESS_GATE.md
 docs/production/LOCAL_MODEL_PRODUCTION_READINESS_BOUNDARY.md
 docs/production/LOCAL_MODEL_PRODUCTION_READINESS_RECEIPT_PLAN.md

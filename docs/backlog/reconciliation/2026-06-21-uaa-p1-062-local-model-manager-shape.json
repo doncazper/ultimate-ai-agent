@@ -1,0 +1,83 @@
+{
+  "schema_version": "uaa_morning_reconciliation_artifact.v1",
+  "task_ref": "UAA-P1-061",
+  "reconciliation_id": "reconciliation:2026-06-21-uaa-p1-062-local-model-manager-shape",
+  "created_at_utc": "2026-06-21T00:00:00Z",
+  "source_loop_ref": "loop:uaa-p1-062-local-model-manager-shape",
+  "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
+  "recommendation_log_ref": "docs/backlog/codex_recommendation_log.md",
+  "safe_summary": "UAA-P1-062 completed as a docs-only Local Model Manager lane shape; runtime implementation remains blocked.",
+  "completed_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-062-docs-only-shape",
+      "status": "completed",
+      "source_milestone_ref": "UAA-P1-062",
+      "safe_summary": "Documented the Local Model Manager / Memory-Aware Runtime Control lane shape with core authority, future interfaces, staged order, required contracts, and non-goals.",
+      "reason_code": "COMPLETED_WITH_EVIDENCE",
+      "evidence_refs": [
+        "doc:docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md",
+        "board:docs/kanban/current_board.md",
+        "roadmap:docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "doc:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+      ],
+      "next_action_ref": "none:complete"
+    }
+  ],
+  "deferred_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-062-read-only-status-implementation",
+      "status": "deferred",
+      "source_milestone_ref": "UAA-P1-062",
+      "safe_summary": "Read-only installed/current/memory-fit status implementation remains deferred until a later exact scoped milestone defines backend contracts and verifier coverage.",
+      "reason_code": "REQUIRES_LATER_SCOPE",
+      "evidence_refs": [
+        "doc:docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md",
+        "board:docs/kanban/current_board.md"
+      ],
+      "next_action_ref": "blocker:local-model-read-only-status-scope"
+    }
+  ],
+  "rejected_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-062-react-authority",
+      "status": "rejected",
+      "source_milestone_ref": "UAA-P1-062",
+      "safe_summary": "React-only local model authority remains rejected; UI surfaces may render state and request governed actions only.",
+      "reason_code": "CONTROL_CENTER_NOT_AUTHORITY",
+      "evidence_refs": [
+        "doc:docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md",
+        "doc:docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+      ],
+      "next_action_ref": "none:rejected"
+    }
+  ],
+  "blocked_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-062-runtime-authority",
+      "status": "blocked",
+      "source_milestone_ref": "UAA-P1-062",
+      "safe_summary": "Start, stop, switch, identity update, download, process-control, and rollback execution remain blocked without later exact scoped milestones.",
+      "reason_code": "MISSING_SCOPED_AUTHORITY",
+      "evidence_refs": [
+        "doc:docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md",
+        "board:docs/kanban/current_board.md",
+        "doc:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+      ],
+      "next_action_ref": "blocker:uaa-p1-062-runtime-implementation-scope"
+    }
+  ],
+  "next_prompt_ref": "prompt-ref:no-documented-ready-next",
+  "reconciliation_safety": {
+    "raw_prompt_included": false,
+    "raw_response_included": false,
+    "raw_provider_payload_included": false,
+    "raw_path_included": false,
+    "raw_log_included": false,
+    "username_included": false,
+    "hostname_included": false,
+    "serial_included": false,
+    "environment_dump_included": false,
+    "credential_material_included": false,
+    "private_content_included": false
+  }
+}
