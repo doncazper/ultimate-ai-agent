@@ -42,6 +42,47 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - Conveyor Reconciliation Durability And UAA-P1-062 Scope
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor continuation.
+
+Recommendation: Make future conveyor passes create safe reconciliation
+artifact instances from the UAA-P1-061 template, and scope UAA-P1-062 only as
+a docs-only Local Model Manager / Memory-Aware Runtime Control shaping pass.
+
+Next prompt:
+
+```text
+Execute UAA-P1-062 Local Model Manager / Memory-Aware Runtime Control as a
+docs-only lane-shaping milestone. Do not add routes, CLI commands, process
+control, lifecycle authority, downloads, dependencies, model/provider calls,
+OpenWebUI authority, Control Center-only authority, or runtime behavior.
+```
+
+Decision: Accepted for the conveyor repair pass. UAA-P1-062 can move from
+Spec Draft to Ready Next only in docs-only shaping scope; all runtime stages
+remain blocked until later exact scoped milestones exist.
+
+Status: accepted
+
+Completed: Added the reconciliation artifact instance ledger convention under
+`docs/backlog/reconciliation/`, created the first safe artifact instance for
+this conveyor run, updated the morning reconciliation verifier/tests to require
+artifact instances, and promoted UAA-P1-062 to Ready Next as docs-only shaping.
+
+Not done: No runtime model manager implementation, backend route, CLI command,
+process control, lifecycle mutation, model switch, identity update, download,
+dependency, model/provider call, OpenWebUI authority, Control Center authority,
+or production claim was added.
+
+Evidence: `docs/backlog/reconciliation/README.md`,
+`docs/backlog/reconciliation/2026-06-21-conveyor-reconciliation-durability.json`,
+`scripts/verify_morning_reconciliation_artifact.py`,
+`tests/test_morning_reconciliation_artifact.py`,
+`docs/kanban/current_board.md`.
+
 ### 2026-06-21 - UAA-P1-061 Morning Reconciliation Artifact Check
 
 Date: 2026-06-21

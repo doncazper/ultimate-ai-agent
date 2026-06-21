@@ -1,0 +1,83 @@
+{
+  "schema_version": "uaa_morning_reconciliation_artifact.v1",
+  "task_ref": "UAA-P1-061",
+  "reconciliation_id": "reconciliation:2026-06-21-conveyor-reconciliation-durability",
+  "created_at_utc": "2026-06-21T00:00:00Z",
+  "source_loop_ref": "loop:conveyor-reconciliation-durability",
+  "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
+  "recommendation_log_ref": "docs/backlog/codex_recommendation_log.md",
+  "safe_summary": "Conveyor repair pass for safe reconciliation artifact instances and UAA-P1-062 scope posture.",
+  "completed_recommendations": [
+    {
+      "recommendation_ref": "recommendation:reconciliation-instance-ledger",
+      "status": "completed",
+      "source_milestone_ref": "UAA-P1-061",
+      "safe_summary": "Added a repo-local reconciliation instance ledger convention and verifier coverage for safe JSON artifacts.",
+      "reason_code": "COMPLETED_WITH_EVIDENCE",
+      "evidence_refs": [
+        "doc:docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md",
+        "doc:docs/backlog/reconciliation/README.md",
+        "script:scripts/verify_morning_reconciliation_artifact.py",
+        "test:tests/test_morning_reconciliation_artifact.py"
+      ],
+      "next_action_ref": "none:complete"
+    }
+  ],
+  "deferred_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-062-runtime-stages",
+      "status": "deferred",
+      "source_milestone_ref": "UAA-P1-062",
+      "safe_summary": "Runtime lifecycle, switch execution, identity mutation, rollback execution, and downloads remain deferred until exact later scope exists.",
+      "reason_code": "OUTSIDE_CURRENT_MILESTONE",
+      "evidence_refs": [
+        "roadmap:docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "board:docs/kanban/current_board.md"
+      ],
+      "next_action_ref": "milestone:UAA-P1-062"
+    }
+  ],
+  "rejected_recommendations": [
+    {
+      "recommendation_ref": "recommendation:raw-session-transcript-storage",
+      "status": "rejected",
+      "source_milestone_ref": "UAA-P1-061",
+      "safe_summary": "Raw session transcript capture remains rejected for reconciliation artifacts.",
+      "reason_code": "RAW_CONTENT_NOT_ALLOWED",
+      "evidence_refs": [
+        "doc:docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md",
+        "doc:docs/backlog/reconciliation/README.md"
+      ],
+      "next_action_ref": "none:rejected"
+    }
+  ],
+  "blocked_recommendations": [
+    {
+      "recommendation_ref": "recommendation:uaa-p1-062-authority-promotion",
+      "status": "blocked",
+      "source_milestone_ref": "UAA-P1-062",
+      "safe_summary": "Any start, stop, switch, identity update, lifecycle mutation, download, or process-control implementation remains blocked without exact backend contracts, approvals, receipts, rollback, CLI parity, route side-effect classes, and verifier scope.",
+      "reason_code": "MISSING_SCOPED_AUTHORITY",
+      "evidence_refs": [
+        "board:docs/kanban/current_board.md",
+        "roadmap:docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+        "doc:docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+      ],
+      "next_action_ref": "blocker:uaa-p1-062-authority-scope"
+    }
+  ],
+  "next_prompt_ref": "prompt-ref:uaa-p1-062-docs-only-shape",
+  "reconciliation_safety": {
+    "raw_prompt_included": false,
+    "raw_response_included": false,
+    "raw_provider_payload_included": false,
+    "raw_path_included": false,
+    "raw_log_included": false,
+    "username_included": false,
+    "hostname_included": false,
+    "serial_included": false,
+    "environment_dump_included": false,
+    "credential_material_included": false,
+    "private_content_included": false
+  }
+}

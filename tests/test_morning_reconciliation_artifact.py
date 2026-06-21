@@ -52,11 +52,32 @@ def test_morning_reconciliation_safety_flags_are_false() -> None:
     assert all(value is False for value in template["reconciliation_safety"].values())
 
 
+def test_morning_reconciliation_artifact_instances_are_checked() -> None:
+    artifacts = sorted(
+        (ROOT / "docs/backlog/reconciliation").glob("*.json")
+    )
+
+    assert artifacts
+    for artifact_path in artifacts:
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+        assert artifact["schema_version"] == verifier.SCHEMA_VERSION
+        assert artifact["task_ref"] == verifier.TASK_REF
+        assert artifact["reconciliation_id"] != "reconciliation:example-morning-loop"
+        assert artifact["source_loop_ref"] != "loop:example-codex-conveyor"
+        assert set(artifact["reconciliation_safety"]) == verifier.REQUIRED_SAFETY_FLAGS
+        assert all(value is False for value in artifact["reconciliation_safety"].values())
+        for bucket, status in verifier.BUCKETS.items():
+            assert artifact[bucket][0]["status"] == status
+
+
 def test_morning_reconciliation_verifier_reports_missing_bucket(tmp_path: Path) -> None:
     source_files = [
         "docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md",
         "docs/backlog/MORNING_RECONCILIATION_TEMPLATE.json",
         "docs/schemas/morning_reconciliation_artifact.schema.json",
+        "docs/backlog/reconciliation/README.md",
+        "docs/backlog/reconciliation/2026-06-21-conveyor-reconciliation-durability.json",
         "docs/backlog/codex_recommendation_log.md",
         "docs/kanban/current_board.md",
         "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
@@ -78,6 +99,38 @@ def test_morning_reconciliation_verifier_reports_missing_bucket(tmp_path: Path) 
         "morning reconciliation template missing bucket: blocked_recommendations"
         in failures
     )
+
+
+def test_morning_reconciliation_verifier_reports_example_instance(tmp_path: Path) -> None:
+    source_files = [
+        "docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md",
+        "docs/backlog/MORNING_RECONCILIATION_TEMPLATE.json",
+        "docs/schemas/morning_reconciliation_artifact.schema.json",
+        "docs/backlog/reconciliation/README.md",
+        "docs/backlog/reconciliation/2026-06-21-conveyor-reconciliation-durability.json",
+        "docs/backlog/codex_recommendation_log.md",
+        "docs/kanban/current_board.md",
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
+    ]
+    for rel_path in source_files:
+        src = ROOT / rel_path
+        dst = tmp_path / rel_path
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    artifact_path = (
+        tmp_path
+        / "docs/backlog/reconciliation/2026-06-21-conveyor-reconciliation-durability.json"
+    )
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    artifact["reconciliation_id"] = "reconciliation:example-morning-loop"
+    artifact["source_loop_ref"] = "loop:example-codex-conveyor"
+    artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+
+    failures = verifier.validate_morning_reconciliation_artifact(tmp_path)
+
+    assert any("must replace the example reconciliation_id" in failure for failure in failures)
+    assert any("must replace the example source_loop_ref" in failure for failure in failures)
 
 
 def test_morning_reconciliation_script_does_not_execute_commands() -> None:

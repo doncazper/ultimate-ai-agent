@@ -20,6 +20,8 @@ SCHEMA_VERSION = "uaa_morning_reconciliation_artifact.v1"
 TASK_REF = "UAA-P1-061"
 ARTIFACT_DOC = ROOT / "docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md"
 TEMPLATE_PATH = ROOT / "docs/backlog/MORNING_RECONCILIATION_TEMPLATE.json"
+ARTIFACT_INSTANCE_DIR = ROOT / "docs/backlog/reconciliation"
+ARTIFACT_INSTANCE_README = ARTIFACT_INSTANCE_DIR / "README.md"
 SCHEMA_PATH = ROOT / "docs/schemas/morning_reconciliation_artifact.schema.json"
 RECOMMENDATION_LOG = ROOT / "docs/backlog/codex_recommendation_log.md"
 CURRENT_BOARD = ROOT / "docs/kanban/current_board.md"
@@ -99,16 +101,20 @@ def _read_text(root: Path, path: Path, failures: list[str]) -> str:
 
 def _read_json(root: Path, path: Path, failures: list[str]) -> dict[str, Any]:
     target = root / path.relative_to(ROOT)
+    return _read_json_target(target, path.relative_to(ROOT).as_posix(), failures)
+
+
+def _read_json_target(target: Path, rel_path: str, failures: list[str]) -> dict[str, Any]:
     if not target.exists():
-        failures.append(f"missing required file: {path.relative_to(ROOT).as_posix()}")
+        failures.append(f"missing required file: {rel_path}")
         return {}
     try:
         loaded = json.loads(target.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        failures.append(f"invalid JSON in {path.relative_to(ROOT).as_posix()}: {exc.msg}")
+        failures.append(f"invalid JSON in {rel_path}: {exc.msg}")
         return {}
     if not isinstance(loaded, dict):
-        failures.append(f"{path.relative_to(ROOT).as_posix()} must contain a JSON object")
+        failures.append(f"{rel_path} must contain a JSON object")
         return {}
     return loaded
 
@@ -216,29 +222,71 @@ def _validate_template(root: Path, failures: list[str]) -> None:
     template = _read_json(root, TEMPLATE_PATH, failures)
     if not template:
         return
-    if set(template) != REQUIRED_TOP_LEVEL_KEYS:
-        failures.append("morning reconciliation template top-level keys drifted")
-    if template.get("schema_version") != SCHEMA_VERSION:
-        failures.append("morning reconciliation template schema_version mismatch")
-    if template.get("task_ref") != TASK_REF:
-        failures.append("morning reconciliation template task_ref mismatch")
-    if template.get("operator_readiness_taxonomy_ref") != TAXONOMY_REF:
-        failures.append("morning reconciliation template taxonomy ref mismatch")
-    if template.get("recommendation_log_ref") != RECOMMENDATION_LOG_REF:
-        failures.append("morning reconciliation template recommendation log ref mismatch")
+    _validate_payload("morning reconciliation template", template, failures)
+    failures.extend(_scan_text(_rel(TEMPLATE_PATH), json.dumps(template, sort_keys=True)))
+
+
+def _validate_payload(label: str, payload: dict[str, Any], failures: list[str]) -> None:
+    if set(payload) != REQUIRED_TOP_LEVEL_KEYS:
+        failures.append(f"{label} top-level keys drifted")
+    if payload.get("schema_version") != SCHEMA_VERSION:
+        failures.append(f"{label} schema_version mismatch")
+    if payload.get("task_ref") != TASK_REF:
+        failures.append(f"{label} task_ref mismatch")
+    if payload.get("operator_readiness_taxonomy_ref") != TAXONOMY_REF:
+        failures.append(f"{label} taxonomy ref mismatch")
+    if payload.get("recommendation_log_ref") != RECOMMENDATION_LOG_REF:
+        failures.append(f"{label} recommendation log ref mismatch")
     for bucket, expected_status in BUCKETS.items():
-        entries = template.get(bucket)
+        entries = payload.get(bucket)
         if not isinstance(entries, list) or not entries:
-            failures.append(f"morning reconciliation template missing bucket: {bucket}")
+            failures.append(f"{label} missing bucket: {bucket}")
             continue
         for entry in entries:
             _validate_entry(bucket, expected_status, entry, failures)
-    safety = template.get("reconciliation_safety")
+    safety = payload.get("reconciliation_safety")
     if not isinstance(safety, dict) or set(safety) != REQUIRED_SAFETY_FLAGS:
-        failures.append("morning reconciliation template safety flags are incomplete")
+        failures.append(f"{label} safety flags are incomplete")
     elif any(safety.get(flag) is not False for flag in REQUIRED_SAFETY_FLAGS):
-        failures.append("morning reconciliation template safety flags must all be false")
-    failures.extend(_scan_text(_rel(TEMPLATE_PATH), json.dumps(template, sort_keys=True)))
+        failures.append(f"{label} safety flags must all be false")
+
+
+def _validate_artifact_instances(root: Path, failures: list[str]) -> None:
+    readme = _read_text(root, ARTIFACT_INSTANCE_README, failures)
+    if readme:
+        _require_fragments(
+            _rel(ARTIFACT_INSTANCE_README),
+            readme,
+            [
+                "safe JSON reconciliation artifacts",
+                "docs/backlog/MORNING_RECONCILIATION_TEMPLATE.json",
+                "scripts/verify_morning_reconciliation_artifact.py",
+                "raw prompt content",
+            ],
+            failures,
+        )
+        failures.extend(_scan_text(_rel(ARTIFACT_INSTANCE_README), readme))
+
+    target_dir = root / ARTIFACT_INSTANCE_DIR.relative_to(ROOT)
+    if not target_dir.exists():
+        failures.append(f"missing required directory: {_rel(ARTIFACT_INSTANCE_DIR)}")
+        return
+    json_paths = sorted(path for path in target_dir.glob("*.json") if path.is_file())
+    if not json_paths:
+        failures.append("morning reconciliation artifact instance directory is empty")
+        return
+
+    for artifact_path in json_paths:
+        rel_path = artifact_path.relative_to(root).as_posix()
+        artifact = _read_json_target(artifact_path, rel_path, failures)
+        if not artifact:
+            continue
+        _validate_payload(rel_path, artifact, failures)
+        if artifact.get("reconciliation_id") == "reconciliation:example-morning-loop":
+            failures.append(f"{rel_path} must replace the example reconciliation_id")
+        if artifact.get("source_loop_ref") == "loop:example-codex-conveyor":
+            failures.append(f"{rel_path} must replace the example source_loop_ref")
+        failures.extend(_scan_text(rel_path, json.dumps(artifact, sort_keys=True)))
 
 
 def _validate_active_links(root: Path, failures: list[str]) -> None:
@@ -261,6 +309,7 @@ def validate_morning_reconciliation_artifact(root: Path = ROOT) -> list[str]:
     _validate_doc(root, failures)
     _validate_schema(root, failures)
     _validate_template(root, failures)
+    _validate_artifact_instances(root, failures)
     _validate_active_links(root, failures)
     return failures
 

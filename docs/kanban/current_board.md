@@ -44,8 +44,10 @@ for completed, deferred, rejected, and blocked recommendation refs. Next-lane
 order:
 
 1. No Ready Next milestone is currently promoted after UAA-P1-061. UAA-P1-062
-   remains in Spec Draft until a later scoped prompt or board update promotes
-   it with backend contract, approval, receipt, rollback, and verifier scope.
+   may now be pulled only as a docs-only shaping pass for the Local Model
+   Manager / Memory-Aware Runtime Control lane. Runtime lifecycle, switch,
+   identity, rollback, download, process-control, route, and CLI authority
+   remain blocked until later exact scoped milestones.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -74,15 +76,24 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Do not pull UAA-P1-062 from Spec Draft without
-a later scoped prompt or board update that grants exact backend contract,
-approval, receipt, rollback, and verifier scope.
+No active foundation build item. Pull UAA-P1-062 from Ready Next only as a
+docs-only lane-shaping pass; do not add backend routes, CLI commands,
+process control, lifecycle authority, downloads, dependencies, model/provider
+calls, or runtime behavior.
 ```
 
 ## Ready Next
 
 ```text
-No documented Ready Next milestone remains after UAA-P1-061.
+UAA-P1-062 Local Model Manager / Memory-Aware Runtime Control
+Goal: shape the documented local model manager lane into a contract-first,
+memory-aware runtime control plan with read-only status as the first future
+implementation slice and explicit blockers for lifecycle/switch/download
+authority.
+Gate: docs-only. No routes, CLI commands, process control, lifecycle
+mutation, model switching, identity updates, downloads, dependencies,
+model/provider calls, OpenWebUI authority, Control Center-only authority, or
+runtime behavior.
 ```
 
 ## Shaping
@@ -98,15 +109,6 @@ candidate unless the roadmap promotes a new scoped lane.
 UAA-P1-022 Storage migration contract
 Goal: SQLite first, optional Postgres later, forward migrations, backup
 minimum set, verify, and offline restore.
-
-UAA-P1-062 Local Model Manager / Memory-Aware Runtime Control
-Goal: stage a governed local model manager after cleanup and read-only status so
-Python Agent Core, not React or OpenWebUI, owns installed GGUF discovery,
-current-model status, memory-fit planning, llama.cpp lifecycle, safe switching,
-identity receipts, redacted logs/status, and rollback.
-Gate: no lifecycle or switch authority until backend contracts, CLI parity,
-route side-effect classes, exact approvals, one-big-model enforcement,
-safe-disable/rollback behavior, redacted evidence, and verifier coverage exist.
 
 UAA-P2-047 Signed installer and public distribution lane shaping
 Goal: shape installer/release workflow proof only after the local operator loop,

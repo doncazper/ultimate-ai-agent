@@ -17,6 +17,7 @@ Canonical files:
 
 ```text
 docs/backlog/MORNING_RECONCILIATION_TEMPLATE.json
+docs/backlog/reconciliation/
 docs/schemas/morning_reconciliation_artifact.schema.json
 scripts/verify_morning_reconciliation_artifact.py
 tests/test_morning_reconciliation_artifact.py
@@ -36,6 +37,26 @@ A reconciliation artifact answers four questions for one work-session loop:
 The artifact is a companion to `docs/backlog/codex_recommendation_log.md`. The
 recommendation log can capture the running history; the reconciliation artifact
 is the checkpoint summary before proceeding.
+
+## Artifact Instances
+
+Actual conveyor reconciliation artifacts live under:
+
+```text
+docs/backlog/reconciliation/
+```
+
+Each conveyor pass should create or update one JSON artifact from
+`docs/backlog/MORNING_RECONCILIATION_TEMPLATE.json`. Instance files must use
+safe refs and summaries only. They must not store raw session transcripts,
+raw prompts, raw responses, raw provider payloads, raw local paths, raw logs,
+account data, private content, or credential material.
+
+Use a stable, date-prefixed filename such as:
+
+```text
+docs/backlog/reconciliation/2026-06-21-conveyor-reconciliation-durability.json
+```
 
 ## Required Fields
 
@@ -83,9 +104,9 @@ Run:
 ```
 
 The verifier is deterministic and inspection-only. It validates the schema,
-template, required buckets, safety flags, safe-ref posture, and active docs
-links. It does not execute prompts, inspect private conversation content, call
-models, fetch the web, or create artifacts.
+template, artifact instances, required buckets, safety flags, safe-ref posture,
+and active docs links. It does not execute prompts, inspect private conversation
+content, call models, fetch the web, or create artifacts.
 
 ## Rollback
 

@@ -973,6 +973,7 @@ docs/backlog/codex_plugin_enablement_backlog.md
 docs/backlog/open_design_system_backlog.md
 docs/backlog/codex_recommendation_log.md
 docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md
+docs/backlog/reconciliation/README.md
 ```
 
 Backlog files are not implementation claims.
