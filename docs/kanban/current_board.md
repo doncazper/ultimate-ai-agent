@@ -109,6 +109,15 @@ UAA-P1-061 Morning reconciliation artifact check
 Goal: looped ChatGPT/Codex work sessions produce safe reconciliation summaries
 with completed, deferred, rejected, and blocked recommendation refs.
 
+UAA-P1-062 Local Model Manager / Memory-Aware Runtime Control
+Goal: stage a governed local model manager after cleanup and read-only status so
+Python Agent Core, not React or OpenWebUI, owns installed GGUF discovery,
+current-model status, memory-fit planning, llama.cpp lifecycle, safe switching,
+identity receipts, redacted logs/status, and rollback.
+Gate: no lifecycle or switch authority until backend contracts, CLI parity,
+route side-effect classes, exact approvals, one-big-model enforcement,
+safe-disable/rollback behavior, redacted evidence, and verifier coverage exist.
+
 UAA-P2-047 Signed installer and public distribution lane shaping
 Goal: shape installer/release workflow proof only after the local operator loop,
 security, durability, and artifact evidence gates are green.

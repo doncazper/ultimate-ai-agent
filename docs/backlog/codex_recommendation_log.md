@@ -40,6 +40,84 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - Local Model Manager / Memory-Aware Runtime Control
+
+Date: 2026-06-21
+
+Thread: User-provided model changer roadmap review.
+
+Recommendation: Add a later governed Local Model Manager lane for llama.cpp
+that keeps Python Agent Core as the authority for installed GGUF discovery,
+current loaded-model status, memory-fit planning, start/stop, safe switching,
+one-big-model enforcement, UAA/OpenWebUI identity receipts, redacted status/logs,
+and rollback. Control Center and OpenWebUI should render the cockpit and request
+governed actions only.
+
+Next prompt:
+
+```text
+Implement UAA-P1-062 as a docs-only roadmap and product-truth update. Keep it in
+Spec Draft after cleanup/product-truth work; add no routes, CLI commands,
+process control, downloads, dependencies, model calls, or runtime authority.
+```
+
+Decision: Accepted as roadmap/task-shaping guidance.
+
+Status: accepted
+
+Completed: Mapped the recommendation to `UAA-P1-062` in the Operator Runtime
+Excellence roadmap, current Kanban Spec Draft, Control Center gap map, product
+truth packet, and product language rules.
+
+Not done: No runtime implementation, backend route, CLI command, process
+control, download authority, model call, dependency, Control Center execute
+control, or production authority was added.
+
+Evidence: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/kanban/current_board.md`, `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`,
+`docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`,
+`docs/control_center/PRODUCT_LANGUAGE_RULES.md`.
+
+### 2026-06-21 - Branch Cleanup Triage
+
+Date: 2026-06-21
+
+Thread: Repository cleanup across stale Codex branches and local worktrees.
+
+Recommendation: Treat `codex/uaa-p1-053-ci-lane-workflow`,
+`codex/uaa-p1-054-control-center-screens`,
+`codex/latency-lane-hardening`, and
+`origin/codex/uaa-p1-055-security-redaction` as superseded by the current
+mainline squash commits and verification lanes rather than merging stale branch
+heads. Defer `codex/typescript-7-rc-upgrade` because it only upgrades the
+Control Center to a TypeScript 7 release candidate from an older frontend
+baseline. Reject the untracked local `scripts/dev/start_*.sh` launcher scripts
+from the repo because they hardcode local paths, direct process launches, an
+external routing proxy, and local API-key literals outside the governed local
+model manager lane.
+
+Next prompt:
+
+```text
+Fold any surviving branch-cleanup ideas into active docs only, keep runtime
+authority blocked, and delete stale local/remote branch refs after main passes
+verification.
+```
+
+Decision: Accepted as cleanup guidance.
+
+Status: accepted
+
+Completed: Preserved the useful model lifecycle idea in `UAA-P1-062` and kept
+stale branch/runtime launcher work out of the active code path.
+
+Not done: No TypeScript RC upgrade, direct llama.cpp launch script, external
+routing proxy script, or branch-head merge was added to main.
+
+Evidence: `docs/kanban/current_board.md`,
+`docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/control_center/OPERATOR_SHELL_GAP_MAP.md`.
+
 ### 2026-06-19 - Two-Layer Product Direction Prompt
 
 Date: 2026-06-19

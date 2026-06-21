@@ -32,6 +32,7 @@ with tests and redacted evidence.
 | No frontend-only product behavior | Operator-relevant workflows must identify the backing Python core/API contract and command-line or repo-local script inspection path. | Any Today, Inbox, Plans, Actions, Memory, Evidence, or Settings workflow that exists only in Control Center React state is blocked. |
 | No production/public distribution claims without evidence | Copy must say production readiness and public distribution are not claimed unless an accepted release packet proves otherwise. | Any public or production claim without source, test, verifier, release note, and rollback evidence is blocked. |
 | No model/provider output as authority | Model, provider, OpenWebUI, runtime, memory, and preview outputs may inform review but cannot authorize work. | Any copy that treats output as approval, truth authority, or execution authority is blocked. |
+| No model lifecycle completion words without backend receipts | Words such as loaded, running, switched, and updated identity require backend receipt/evidence refs from Python Agent Core. Without those refs, use planned, blocked, unknown, or status-only language. | Any Control Center or OpenWebUI copy that treats React state, `/v1/models`, logs, or model output as proof of local model lifecycle completion is blocked. |
 | No completed-state language for blocked/skipped/pending work | Blocked, skipped, pending, mock-only, local-state-only, and partial states must keep that state visible. | Any blocked, skipped, pending, mock-only, or partial item labeled done, finished, succeeded, or completed is blocked. |
 
 ## Approved State Language
@@ -49,6 +50,7 @@ Use these words when they match the implementation and evidence:
 - pending evidence
 - skipped prerequisite
 - not scoped
+- status-only
 
 Completion words are allowed only when the implementation produced accepted
 durable evidence for the exact work described. A route returning a preview,
@@ -80,9 +82,9 @@ status and keep false/unproven values visibly unclaimed.
 The current Control Center still has blocked, mock-only, local-state-only, and
 partial surfaces. The route status manifest is the current release evidence for
 visible action truth, not evidence that the first operator loop is complete.
-Chat Shell and Settings remain blocked, and completed product-surface claims
-remain blocked until later M172 gates add reviewed routes, UI, evidence, and
-rollback proof.
+Chat Shell, Models lifecycle controls, and Settings remain blocked, and
+completed product-surface claims remain blocked until later M172 gates add
+reviewed routes, UI, evidence, and rollback proof.
 
 ## Enforcement
 
