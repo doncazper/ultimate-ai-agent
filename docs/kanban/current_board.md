@@ -29,11 +29,18 @@ relationship/follow-up memory schema have scoped implementation slices ready
 for review. The FCC-P1-011 Settings kill-switch and feature-flag spec is now a
 docs-only spec slice ready for review. FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
-routes or implementing extraction. Next-lane order after those slices:
+routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
+accepted guardrails for route extraction and CI lane evidence. UAA-P1-054 adds
+the read-only Control Center differentiator screens for route authority,
+approval state, evidence receipts, safe workspace previews, local model status,
+and M167 observability posture. UAA-P1-055 adds repo-local security/redaction
+artifact scanning for release-facing docs, reports, evidence templates, and
+frontend build output. Next-lane order:
 
-1. UAA-P1-058 First low-risk API route-module extraction, only while the
-   UAA-P1-020/UAA-P1-021/UAA-P1-052 maps remain accepted and Foundation Gate,
-   OpenAPI, `/api/manifest`, and route-status checks are green.
+1. UAA-P1-057 Product truth regression checks, only while
+   UAA-P1-055, UAA-P1-054, UAA-P1-053, UAA-P1-059, and UAA-P1-058
+   CI lane workflow checks, route ownership, Foundation Gate, OpenAPI, and
+   documentation checks remain green.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -62,37 +69,28 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Pull UAA-P1-053 from Ready Next after
-UAA-P1-059 route-module ownership tests remain green with Foundation Gate,
-OpenAPI, /api/manifest, route-status, route-count, and documentation checks.
+No active foundation build item. Pull UAA-P1-057 from Ready Next after
+UAA-P1-055 security/redaction artifact checks remain green with Foundation
+Gate, OpenAPI, route ownership, release lanes, release evidence, safe-output,
+and documentation checks.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-053 CI lane workflow expansion
-Goal: expose named docs, OpenAPI, Foundation Gate, API safety, frontend,
-security/redaction, local model, durability, performance, and packaging lanes in
-CI with safe output.
-Gate: UAA-P1-059 stays green; lane outputs remain safe, redacted, and
-non-authoritative.
+UAA-P1-057 Product truth regression checks
+Goal: prevent blocked, skipped, pending, mock-only, planned, or not-scoped work
+from being described as complete, production-ready, or publicly released.
+Gate: UAA-P1-055, release-lane security/redaction artifact scan, Foundation
+Gate, OpenAPI, frontend, route ownership, product-language, and documentation
+checks stay green.
 ```
 
 ## Shaping
 
 ```text
-UAA-P1-054 Control Center differentiator screens
-Goal: product-grade screens for route authority, approval state, evidence
-receipts, safe workspace previews, local model status, and M167 observability
-timeline.
-
-UAA-P1-055 Security automation and artifact redaction lane
-Goal: add automated security scanning and release artifact redaction checks
-without external-audit, public-distribution, or signed-release claims.
-
-UAA-P1-057 Product truth regression checks
-Goal: prevent blocked, skipped, pending, mock-only, planned, or not-scoped work
-from being described as complete, production-ready, or publicly released.
+No active shaping item after UAA-P1-057 promotion. Use Spec Draft for the next
+candidate unless the roadmap promotes a new scoped lane.
 ```
 
 ## Spec Draft
@@ -194,6 +192,37 @@ Gate met: route ownership tests require every current API route to map to a
 route group, owner, target service module, side-effect class, risk class, auth
 posture, release status, operation ID posture, and route-status/evidence
 behavior before broader route extraction proceeds.
+
+UAA-P1-053 CI lane workflow expansion
+Gate met: `.github/workflows/ci.yml` exposes named release-lane jobs for docs,
+OpenAPI, API safety, security/redaction, local model, durability, frontend,
+visual regression, desktop/local packaging, performance, and a Foundation Gate
+`ci-parallel` aggregator. Lane summaries are safe-summary-only, raw command
+output stays runner-local and is not uploaded, and the OpenAPI lane includes
+the UAA-P1-059 route-module ownership guard.
+
+UAA-P1-054 Control Center differentiator screens
+Gate met: `/differentiators` exposes product-grade, human-readable screens for
+route authority, approval state, evidence receipts, safe workspace previews,
+local model status, and M167 observability posture using existing safe refs and
+redacted summaries only. No backend routes, operation IDs, side-effect classes,
+runtime authority, model/provider calls, connector writes, memory writes,
+context injection, shell/subprocess paths, public distribution claims, or
+production authority were added.
+
+UAA-P1-055 Security automation and artifact redaction lane
+Gate met: `scripts/verify_security_redaction_artifacts.py` scans scoped
+release-facing docs, Foundation Gate and performance reports, release evidence
+templates, current board/truth language, Control Center product-language docs,
+and optional Control Center `dist` output for raw/private material and unsafe
+release claims. The security/redaction release lane, CI job, release evidence
+template, and `verify_all` guard include
+`command:security.artifact-redaction`; output is safe-summary-only with file
+refs, line refs, category labels, and short SHA-256 evidence hashes. This does
+not add external audit, public distribution, signed-release, public beta,
+production authority, runtime authority, model/provider calls, connector
+writes, browser/network automation, plugin runtime import, memory writes, or
+context injection.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

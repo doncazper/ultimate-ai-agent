@@ -260,6 +260,76 @@ main {
   gap: 16px;
 }
 
+.differentiator-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.differentiator-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.differentiator-panel .metadata-list {
+  margin-top: 0;
+}
+
+.proof-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.proof-metric-grid div {
+  display: grid;
+  gap: 4px;
+  min-height: 72px;
+  padding: 10px;
+  border-radius: 6px;
+  background: #f0f4f8;
+}
+
+.proof-metric-grid span {
+  color: #52606d;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.proof-metric-grid strong {
+  overflow-wrap: anywhere;
+  color: #102a43;
+  font-size: 1rem;
+}
+
+.proof-route-list {
+  display: grid;
+  gap: 10px;
+}
+
+.proof-route-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.proof-route-row strong,
+.proof-route-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.proof-route-row span {
+  margin-top: 3px;
+  color: #52606d;
+  font-size: 0.88rem;
+}
+
 .operator-flow-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1061,11 +1131,13 @@ th {
   }
 
   .panel-grid,
-  .founder-loop-grid {
+  .founder-loop-grid,
+  .differentiator-grid {
     grid-template-columns: 1fr;
   }
 
-  .metric-grid {
+  .metric-grid,
+  .proof-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

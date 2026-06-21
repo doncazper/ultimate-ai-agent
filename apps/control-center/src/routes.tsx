@@ -4,6 +4,7 @@ import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
 import { ContextProposalSurfacePanel } from "./components/ContextProposalSurfacePanel";
 import { DashboardSummary } from "./components/DashboardSummary";
+import { DifferentiatorScreensPanel } from "./components/DifferentiatorScreensPanel";
 import {
   FileReferenceViewerPanel,
 } from "./components/EvidenceFileMemoryViewerPanel";
@@ -100,6 +101,7 @@ export const navItems: NavItem[] = [
   { path: "/", label: "Overview", group: "System", status: "read-only", role: "supporting" },
   { path: "/dashboard", label: "Dashboard", group: "System", status: "read-only", role: "supporting" },
   { path: "/api-routes", label: "API Routes", group: "System", status: "contract", role: "supporting" },
+  { path: "/differentiators", label: "Differentiators", group: "System", status: "operator proof", role: "supporting" },
 ];
 
 export const primaryNavItems = navItems.filter((item) => item.role === "primary");
@@ -183,6 +185,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
       );
     case "/api-routes":
       return <ApiRouteInventoryPanel routes={data.routes} />;
+    case "/differentiators":
+      return <DifferentiatorScreensPanel data={data} />;
     case "/approvals":
       return <ApprovalQueuePanel review={data.m15Review} />;
     case "/receipts":

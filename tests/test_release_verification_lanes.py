@@ -58,6 +58,40 @@ def test_durability_lane_includes_backup_restore_verification():
     assert "docs/production/BACKUP_RESTORE_VERIFICATION.md" in durability["evidence_refs"]
 
 
+def test_openapi_lane_includes_route_module_ownership_guard():
+    manifest = release_lanes.build_release_lane_manifest()
+    openapi = next(lane for lane in manifest["lanes"] if lane["lane_id"] == "openapi")
+
+    command_refs = {command["command_ref"] for command in openapi["commands"]}
+
+    assert "command:openapi.contract" in command_refs
+    assert "command:api.manifest.tests" in command_refs
+    assert "command:route-module.ownership" in command_refs
+    assert "docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md" in openapi["evidence_refs"]
+    assert "docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md" in openapi["evidence_refs"]
+
+
+def test_security_redaction_lane_includes_artifact_scan():
+    manifest = release_lanes.build_release_lane_manifest()
+    security = next(
+        lane for lane in manifest["lanes"] if lane["lane_id"] == "security-redaction"
+    )
+
+    command_refs = {command["command_ref"] for command in security["commands"]}
+    artifact_scan = next(
+        command
+        for command in security["commands"]
+        if command["command_ref"] == "command:security.artifact-redaction"
+    )
+
+    assert "command:secret-broker.redaction" in command_refs
+    assert "command:file-secret.blocking" in command_refs
+    assert "command:foundation-gate.secret-hygiene" in command_refs
+    assert "command:security.artifact-redaction" in command_refs
+    assert artifact_scan["report_ref"] == "report:security-redaction:artifact-scan"
+    assert "scripts/verify_security_redaction_artifacts.py" in security["evidence_refs"]
+
+
 def test_release_lane_manifest_is_report_safe():
     manifest = release_lanes.build_release_lane_manifest()
 

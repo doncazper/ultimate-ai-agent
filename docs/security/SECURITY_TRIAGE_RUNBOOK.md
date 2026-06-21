@@ -59,6 +59,7 @@ Run the focused checks for UAA-P0-003 after any security-posture change:
 ```bash
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_safe_exception_messages.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_secret_broker_redaction.py
+.venv/bin/python scripts/verify_security_redaction_artifacts.py
 .venv/bin/python scripts/verify_all.py --skip-ruff --skip-pytest
 ```
 

@@ -255,6 +255,63 @@ def _release_latency_gate_failures(metrics: dict[str, object]) -> list[str]:
     return failures
 
 
+def _release_latency_measurement_prerequisite_failures(
+    metrics: dict[str, object],
+) -> list[str]:
+    prerequisites = metrics.get("release_latency_measurement_prerequisites")
+    if not isinstance(prerequisites, dict):
+        return ["release latency measurement prerequisites are missing or malformed"]
+
+    failures: list[str] = []
+    if prerequisites.get("status") != "passed":
+        failures.append("release latency measurement prerequisites did not pass")
+    if prerequisites.get("api_manifest_static_cache_primed") is not True:
+        failures.append("api manifest static metadata primer did not pass")
+    if prerequisites.get("static_metadata_cache_only") is not True:
+        failures.append("api manifest primer is not marked static-metadata only")
+    false_required_flags = {
+        "request_body_recorded": "request body recorded",
+        "response_body_recorded": "response body recorded",
+        "raw_path_recorded": "raw path recorded",
+        "raw_log_recorded": "raw log recorded",
+    }
+    for flag, label in false_required_flags.items():
+        value = prerequisites.get(flag)
+        if value is True:
+            failures.append(f"release latency primer reports {label}")
+        elif value is not False:
+            failures.append(
+                f"release latency primer {label} flag is not explicitly false"
+            )
+
+    unsafe_cache_flags = {
+        "authority_decisions_cached_for_speed": (
+            "authority decisions cached for speed"
+        ),
+        "policy_decisions_cached_for_speed": "policy decisions cached for speed",
+        "approval_decisions_cached_for_speed": (
+            "approval decisions cached for speed"
+        ),
+        "approval_state_cached_for_speed": "approval state cached for speed",
+        "foundation_gate_status_cached_for_speed": (
+            "Foundation Gate status cached for speed"
+        ),
+        "mutable_user_data_cached_for_speed": (
+            "mutable user data cached for speed"
+        ),
+        "secret_material_cached_for_speed": "secret material cached for speed",
+    }
+    for flag, label in unsafe_cache_flags.items():
+        value = prerequisites.get(flag)
+        if value is True:
+            failures.append(f"release latency primer reports {label}")
+        elif value is not False:
+            failures.append(
+                f"release latency primer {label} flag is not explicitly false"
+            )
+    return failures
+
+
 def _foundation_gate_latency_failures(
     metrics: dict[str, object],
     *,
@@ -287,6 +344,7 @@ def _foundation_gate_latency_failures(
             f"release latency overall status is {release_latency_status!r}, "
             "expected 'passed'"
         )
+    failures.extend(_release_latency_measurement_prerequisite_failures(metrics))
     failures.extend(_release_latency_gate_failures(metrics))
     return failures
 

@@ -520,10 +520,19 @@ export interface ControlCenterStatus {
 
 export interface ApiRouteSummary {
   path: string;
-  methods: string[];
+  methods?: string[];
   operation_id: string;
-  tags: string[];
+  tags?: string[];
   validation_only: boolean;
+  route_group?: string;
+  owner?: string;
+  service_module?: string;
+  side_effect_class?: string;
+  risk_class?: string;
+  release_status?: string;
+  auth_posture?: string;
+  blocked_from_production?: boolean;
+  evidence_refs?: string[];
 }
 
 export interface ApiRouteInventory {

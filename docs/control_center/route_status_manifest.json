@@ -832,6 +832,46 @@
       "missing_backend_routes": []
     },
     {
+      "action_id": "navigate-differentiators",
+      "label": "Navigate Differentiators",
+      "ui_surface": "System",
+      "frontend_route": "/differentiators",
+      "owner": "control-center",
+      "auth_posture": "local_read_only_status",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "status_available_not_completion",
+      "approval_requirement": "None for read-only differentiator proof display; approval refs remain identifiers only and cannot authorize mutation.",
+      "evidence_audit_output": "Human-readable route authority, approval state, evidence receipt, safe workspace preview, local model status, and M167 observability refs from existing redacted summaries only.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/api/manifest",
+          "operation_id": "get_api_manifest",
+          "side_effect_class": "none"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/routes",
+          "operation_id": "get_control_center_routes",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary",
+          "side_effect_class": "validation_only"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only"
+        }
+      ],
+      "missing_backend_routes": []
+    },
+    {
       "action_id": "navigate-approvals",
       "label": "Navigate Approvals",
       "ui_surface": "Approvals",

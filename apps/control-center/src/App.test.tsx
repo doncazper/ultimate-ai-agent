@@ -84,6 +84,7 @@ describe("Web Control Center shell", () => {
         "Operator Loop",
         "Runtime",
         "API Routes",
+        "Differentiators",
         "Action Preview",
       ]),
     );
@@ -109,6 +110,7 @@ describe("Web Control Center shell", () => {
     expect(within(navigation).getByText("Supporting Surfaces")).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "Setup" })).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "API Routes" })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "Differentiators" })).toBeInTheDocument();
     expect(within(navigation).getByText("blocked/planned")).toBeInTheDocument();
   });
 
@@ -151,6 +153,7 @@ describe("Web Control Center shell", () => {
       ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
       ["/operator-loop", /Operator Loop/i],
+      ["/differentiators", /Control Center Differentiators/i],
       ["/chat", /^Chat Shell$/i],
       ["/plans", /^Plans$/i],
       ["/models", /^Models$/i],
@@ -879,6 +882,103 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByRole("button", { name: /^send$/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders UAA-P1-054 differentiator screens without adding authority controls", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/differentiators");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Control Center Differentiators/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/safe-ref \/ redacted-first/i)).toBeInTheDocument();
+    expect(screen.getByText(/OpenAPI, \/api\/manifest, PolicyEngine/i)).toBeInTheDocument();
+
+    const routePanel = screen
+      .getByRole("heading", { name: /Route Authority/i })
+      .closest("article");
+    expect(routePanel).not.toBeNull();
+    expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
+    expect(within(routePanel!).getByText("112")).toBeInTheDocument();
+    expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
+    expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
+    expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
+    expect(within(routePanel!).getAllByText(/Owner \/ service/i).length).toBeGreaterThan(0);
+    expect(within(routePanel!).getByText(/docs\/api\/openapi_contract.md/i)).toBeInTheDocument();
+
+    const approvalPanel = screen
+      .getByRole("heading", { name: /Approval State/i })
+      .closest("article");
+    expect(approvalPanel).not.toBeNull();
+    expect(within(approvalPanel!).getByText(/Approval ref/i)).toBeInTheDocument();
+    expect(within(approvalPanel!).getByText(/Exact scope/i)).toBeInTheDocument();
+    expect(within(approvalPanel!).getByText(/Stale \/ expiry/i)).toBeInTheDocument();
+    expect(within(approvalPanel!).getByText(/refs are identifiers only/i)).toBeInTheDocument();
+    expect(within(approvalPanel!).getByText(/mock_receipt_ref_001/i)).toBeInTheDocument();
+
+    const receiptPanel = screen
+      .getByRole("heading", { name: /Evidence Receipts/i })
+      .closest("article");
+    expect(receiptPanel).not.toBeNull();
+    expect(within(receiptPanel!).getByText(/Foundation Gate refs/i)).toBeInTheDocument();
+    expect(within(receiptPanel!).getByText(/foundation-gate-ref:latest-report/i)).toBeInTheDocument();
+    expect(within(receiptPanel!).getByText(/Latency refs/i)).toBeInTheDocument();
+    expect(within(receiptPanel!).getByText(/latency-ref:foundation-gate:latest-report/i)).toBeInTheDocument();
+    expect(within(receiptPanel!).getByText(/Rollback refs/i)).toBeInTheDocument();
+
+    const workspacePanel = screen
+      .getByRole("heading", { name: /Safe Workspace Preview/i })
+      .closest("article");
+    expect(workspacePanel).not.toBeNull();
+    expect(within(workspacePanel!).getByText(/bounded preview/i)).toBeInTheDocument();
+    expect(within(workspacePanel!).getByText(/Path posture/i)).toBeInTheDocument();
+    expect(within(workspacePanel!).getByText(/redacted_safe_label_only/i)).toBeInTheDocument();
+    expect(within(workspacePanel!).getByText(/patch apply, rollback execution/i)).toBeInTheDocument();
+
+    const modelPanel = screen
+      .getByRole("heading", { name: /Local Model \/ M167 Status/i })
+      .closest("article");
+    expect(modelPanel).not.toBeNull();
+    expect(within(modelPanel!).getByText(/Runtime readiness/i)).toBeInTheDocument();
+    expect(within(modelPanel!).getByText(/OpenWebUI shell/i)).toBeInTheDocument();
+    expect(within(modelPanel!).getByText(/output is not production authority/i)).toBeInTheDocument();
+    expect(within(modelPanel!).getByText(/model download, GGUF approval/i)).toBeInTheDocument();
+
+    const observabilityPanel = screen
+      .getByRole("heading", { name: /M167 Observability Timeline/i })
+      .closest("article");
+    expect(observabilityPanel).not.toBeNull();
+    expect(within(observabilityPanel!).getByText(/Session \/ run ref/i)).toBeInTheDocument();
+    expect(within(observabilityPanel!).getByText(/Client-error posture/i)).toBeInTheDocument();
+    expect(within(observabilityPanel!).getByText(/unredacted forensic mode is blocked/i)).toBeInTheDocument();
+    expect(within(observabilityPanel!).getByText(/External telemetry/i)).toBeInTheDocument();
+
+    for (const label of [
+      /^approve$/i,
+      /^deny$/i,
+      /^grant$/i,
+      /^revoke$/i,
+      /^execute$/i,
+      /^run$/i,
+      /^send$/i,
+      /^write$/i,
+      /^download$/i,
+      /^upload$/i,
+      /^export$/i,
+      /^start$/i,
+      /^stop$/i,
+      /^install$/i,
+      /^load$/i,
+      /^browse$/i,
+    ]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/environment dump/i)).not.toBeInTheDocument();
   });
 
   it("renders loading and empty states with safe operational copy", () => {
@@ -2411,6 +2511,18 @@ const mockApiData = {
         operation_id: "get_control_center_dashboard",
         tags: ["control-center"],
         validation_only: true,
+        route_group: "control-center",
+        owner: "Python Agent Core",
+        service_module: "control_center_service",
+        side_effect_class: "read_only",
+        risk_class: "low",
+        release_status: "implemented",
+        auth_posture: "local-dev unauthenticated; production auth future",
+        blocked_from_production: true,
+        evidence_refs: [
+          "docs/control_center/route_status_manifest.json",
+          "tests/test_control_center_api_routes.py",
+        ],
       },
     ],
   },
