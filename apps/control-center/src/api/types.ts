@@ -166,12 +166,19 @@ export interface FounderLoopEvidenceTimelineItem {
   item_kind: string;
   title: string;
   safe_summary: string;
+  history_contract_ref: string;
+  history_answers: FounderLoopEvidenceHistoryAnswers;
   source_refs: string[];
   status_refs: string[];
   related_route_refs: string[];
   side_effect_class: string;
   authority_posture: string;
   approval_posture: string;
+  approval_ref_authority: boolean;
+  rollback_execution_enabled: boolean;
+  memory_truth_authority: boolean;
+  context_injection_authorized: boolean;
+  raw_evidence_included: boolean;
   receipt_refs: string[];
   audit_refs: string[];
   replay_refs: string[];
@@ -185,6 +192,36 @@ export interface FounderLoopEvidenceTimelineItem {
   blocked_states: string[];
   next_safe_action: string;
   created_at?: string;
+}
+
+export interface FounderLoopEvidenceHistoryQuestion {
+  key: "proposed" | "approved" | "happened" | "changed" | "undoable" | "stale" | "blocked";
+  question: string;
+  required: boolean;
+}
+
+export interface FounderLoopEvidenceHistoryAnswer {
+  question: string;
+  answer: string;
+  refs: string[];
+  status: string;
+}
+
+export interface FounderLoopEvidenceHistoryAnswers {
+  proposed: FounderLoopEvidenceHistoryAnswer;
+  approved: FounderLoopEvidenceHistoryAnswer;
+  happened: FounderLoopEvidenceHistoryAnswer;
+  changed: FounderLoopEvidenceHistoryAnswer;
+  undoable: FounderLoopEvidenceHistoryAnswer;
+  stale: FounderLoopEvidenceHistoryAnswer;
+  blocked: FounderLoopEvidenceHistoryAnswer;
+}
+
+export interface FounderLoopEvidenceHistorySurfaceBinding {
+  surface: string;
+  current_status: string;
+  required_history_keys: string[];
+  authority_boundary: string;
 }
 
 export interface FounderLoopTodaySignal {
@@ -242,6 +279,10 @@ export interface FounderLoopTodaySummary {
   required_today_signals: FounderLoopTodaySignal[];
   module_feed_contract: FounderLoopModuleFeedContract[];
   module_completion_contract: FounderLoopModuleCompletionContract;
+  evidence_history_contract_ref: string;
+  evidence_history_required_states: string[];
+  evidence_history_required_questions: FounderLoopEvidenceHistoryQuestion[];
+  evidence_history_surface_bindings: FounderLoopEvidenceHistorySurfaceBinding[];
   priority_refs: string[];
   blocker_refs: string[];
   follow_up_refs: string[];
@@ -268,7 +309,7 @@ export interface FounderLoopTodaySummary {
   memory_review_missing_contract_refs: string[];
   memory_review_blocked_states: string[];
   briefing_items: FounderLoopBriefingItem[];
-  evidence_timeline?: FounderLoopEvidenceTimelineItem[];
+  evidence_timeline: FounderLoopEvidenceTimelineItem[];
   evidence_timeline_route_ref?: string;
   evidence_timeline_backend_route_ref?: string;
   evidence_timeline_status?: string;

@@ -4,8 +4,9 @@ Status: active
 Current through: v0.102.3 plus accepted checkpoint-m168, completed
 UAA-P1-065 Founder Command Center review cleanup, completed UAA-P1-067
 Today-Spine Founder Command Center beta-readiness planning/currentness work,
-completed UAA-P1-068 Today Product Spine Contract work, and Ready Next
-UAA-P1-069 Evidence History Grammar work.
+completed UAA-P1-068 Today Product Spine Contract work, completed UAA-P1-069
+Evidence History Grammar work, and Ready Next UAA-P1-070 Memory Source And
+Provenance Model work.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -46,17 +47,17 @@ docs/release_notes/checkpoint_m167.md
 
 The active Operator Runtime Excellence sequence now points from completed
 UAA-P1-065 Founder Command Center review cleanup, completed UAA-P1-067
-Today-spine beta-readiness planning/currentness, and completed UAA-P1-068
-Today Product Spine Contract to Ready Next UAA-P1-069 Evidence History Grammar.
-UAA-P1-066 remains queued as a strictly read-only Local Model Control Center
-inventory/status support lane. This sequence makes Today the product spine and
-keeps memory, Evidence, Plans, Chat, Code, and Actions bound to safe refs,
-review decisions, receipts, and rollback posture. It adds no production
-authority, public beta, public distribution, broad autonomy, shell/subprocess
-authority, unrestricted network/browser automation, connector writes, plugin
-runtime import, mobile control, model/provider authority, raw prompt export,
-raw response export, raw provider payload export, or no-secret-output
-regression.
+Today-spine beta-readiness planning/currentness, completed UAA-P1-068 Today
+Product Spine Contract, and completed UAA-P1-069 Evidence History Grammar to
+Ready Next UAA-P1-070 Memory Source And Provenance Model. UAA-P1-066 remains
+queued as a strictly read-only Local Model Control Center inventory/status
+support lane. This sequence makes Today the product spine and keeps memory,
+Evidence, Plans, Chat, Code, and Actions bound to safe refs, review decisions,
+receipts, and rollback posture. It adds no production authority, public beta,
+public distribution, broad autonomy, shell/subprocess authority, unrestricted
+network/browser automation, connector writes, plugin runtime import, mobile
+control, model/provider authority, raw prompt export, raw response export, raw
+provider payload export, or no-secret-output regression.
 
 ## Active Program Areas
 
@@ -66,7 +67,7 @@ regression.
 | Founder Command Center product-loop planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`, `docs/metrics/NORTH_STAR_METRICS.md`, `docs/codex/CODEX_EXECUTION_PROMPTS.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product truth packet | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
-| Control Center readiness | `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/ROUTE_STATUS_MANIFEST.md`, `docs/control_center/route_status_manifest.json`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md` |
+| Control Center readiness | `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/ROUTE_STATUS_MANIFEST.md`, `docs/control_center/route_status_manifest.json`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md` |
 | Local model production-readiness lane | `docs/production/M166_PRODUCTION_AUTHORITY_GATE.md`, `docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md`, `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
 | Local model operations | `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Release verification and evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `docs/production/BACKUP_RESTORE_VERIFICATION.md`, `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`, `docs/production/LOCAL_RUNTIME_PACKAGING.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |

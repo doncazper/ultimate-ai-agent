@@ -71,7 +71,7 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
-| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Ready Next: Evidence History Grammar; then `UAA-P1-070` through `UAA-P1-078` for memory provenance/review, Plans-to-Action envelopes, Chat operator surface, governed Code workbench, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
+| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Ready Next: Memory Source And Provenance Model; then `UAA-P1-071` through `UAA-P1-078` for memory review, Plans-to-Action envelopes, Chat operator surface, governed Code workbench, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
 | Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
 | Expand CI into named release lanes | `UAA-P1-013` Done, `UAA-P1-053` Done: CI lane workflow expansion | P1 | docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction, local model, durability, performance, and packaging lanes are visible in CI without unsafe artifact leakage |
@@ -377,11 +377,11 @@ Tasks:
   necessary but not sufficient for completion; normal Definition of Done,
   redaction, policy/approval, route, CLI/repo-local inspection, and test gates
   still apply.
-- `UAA-P1-069` Ready Next: Evidence history grammar: make Evidence read like history:
+- `UAA-P1-069` Done: Evidence history grammar: make Evidence read like history:
   what was proposed, what was approved, what happened, what changed, what can
-  be undone, what is stale, and what remains blocked. This grammar becomes the
+  be undone, what is stale, and what remains blocked. This grammar is now the
   receipt language for Memory, Plans, Chat, Code, and Actions.
-- `UAA-P1-070` Memory source and provenance model: define safe source refs for
+- `UAA-P1-070` Ready Next: Memory source and provenance model: define safe source refs for
   manual notes, ChatGPT/exported review summaries, local chat turns, local
   coding session summaries, task plans, action proposals, evidence timeline
   refs, read-only calendar/email metadata, and CRM-lite business records. Raw
@@ -772,9 +772,9 @@ Verification:
   beta-readiness planning/currentness path.
 - `UAA-P1-068` Done: Today product spine contract for how every module feeds
   Today, Actions, Evidence, and Memory.
-- `UAA-P1-069` Ready Next: Evidence history grammar for proposed/approved/happened/
+- `UAA-P1-069` Done: Evidence history grammar for proposed/approved/happened/
   changed/undoable/stale/blocked history.
-- `UAA-P1-070` Shape: memory source/provenance model for manual notes,
+- `UAA-P1-070` Ready Next: memory source/provenance model for manual notes,
   external assistant review summaries, local chat/coding summaries, plans,
   actions, evidence refs, and read-only calendar/email metadata refs.
 - `UAA-P1-071` Shape: Memory Review decision capture for accept, correct,

@@ -384,7 +384,9 @@ PR size: one contract/docs PR.
 
 ## Task 9b - UAA-P1-069 Evidence History Grammar
 
-Type: backend contract/test plus UI display later
+Status: done.
+
+Type: backend contract/test plus read-only UI display
 
 New authority: no.
 
@@ -400,10 +402,16 @@ Tests to add/update:
 - Evidence grammar contract tests.
 - Founder Loop storage/API tests if persisted.
 - Frontend render tests if surfaced.
+- `docs/schemas/evidence_history_grammar.schema.json`.
+- `scripts/verify_uaa_p1_069_evidence_history_grammar.py`.
+- `tests/test_uaa_p1_069_evidence_history_grammar.py`.
 
-PR size: split contract and UI if needed.
+PR size: one contract/docs/UI-read-only slice completed without new route or
+authority.
 
 ## Task 9c - UAA-P1-070 Memory Source And Provenance Model
+
+Status: ready next.
 
 Type: backend contract/test/docs
 

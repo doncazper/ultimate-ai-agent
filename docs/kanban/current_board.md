@@ -51,10 +51,11 @@ are authorized. UAA-P1-065 reconciled the Founder Command Center board and
 promoted exactly one later FCC UI/readability candidate. UAA-P1-067 completed
 the Today-spine, memory-first beta-readiness planning/currentness lane and
 recorded the milestone conveyor. UAA-P1-068 completed the Today Product Spine
-Contract on the existing Today summary route. The active product path now
-promotes UAA-P1-069 Evidence History Grammar as Ready Next, with UAA-P1-066
-kept queued as a strictly read-only Local Model Control Center inventory/status
-support lane.
+Contract on the existing Today summary route. UAA-P1-069 completed the Evidence
+History Grammar contract on that same route. The active product path now
+promotes UAA-P1-070 Memory Source And Provenance Model as Ready Next, with
+UAA-P1-066 kept queued as a strictly read-only Local Model Control Center
+inventory/status support lane.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -84,20 +85,23 @@ Gate = required acceptance evidence before Done
 
 ```text
 No active build item is in progress. The next documented milestone is
-UAA-P1-069 Evidence History Grammar.
+UAA-P1-070 Memory Source And Provenance Model.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-069 Evidence History Grammar
-Goal: make Evidence read as history: what was proposed, approved, happened,
-changed, can be undone, is stale, or remains blocked. Memory, Plans, Chat,
-Code, and Actions must be able to reference this grammar.
-Scope: evidence grammar contract, safe refs, docs, fixtures, and tests first.
-No raw evidence display, raw log display, raw path display, rollback execution,
-approval grant, connector runtime, model/provider authority, public beta,
-public distribution, or production authority.
+UAA-P1-070 Memory Source And Provenance Model
+Goal: define source refs for manual notes, external assistant review summaries,
+local chat summaries, local coding summaries, task plans, action proposals,
+evidence timeline refs, read-only calendar/email metadata refs, and CRM-lite
+business records.
+Scope: memory source/provenance schema, safe refs, redaction denial posture,
+docs, fixtures, and tests first. No raw prompt, raw response, provider payload,
+raw path, raw log, account identifier, username, hostname, credential material,
+automatic memory write, hidden context injection, connector runtime,
+model/provider authority, public beta, public distribution, or production
+authority.
 
 UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
 Goal: queued support lane for a strictly read-only Control Center model
@@ -117,9 +121,10 @@ FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 That candidate remains a later exact implementation pass and is not implemented
 by UAA-P1-065. UAA-P1-067 completed the Today-spine, memory-first
 beta-readiness planning/currentness path. UAA-P1-068 completed the
-product-spine contract. UAA-P1-069 is queued first as the Ready Next evidence
-history grammar, and UAA-P1-066 remains queued behind or alongside that path as
-read-only local model status support. Later Local Model Manager lifecycle,
+product-spine contract. UAA-P1-069 completed the Evidence History Grammar
+contract, UAA-P1-070 is queued first as the Ready Next memory source/provenance
+model, and UAA-P1-066 remains queued behind or alongside that path as read-only
+local model status support. Later Local Model Manager lifecycle,
 switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
 downloads still require separate exact scoped milestones.
 ```
@@ -139,12 +144,6 @@ UAA-P2-056 Extension trust product surface
 Goal: surface static package review, provenance, hash refs, declared
 capabilities, requested grants, activation/revocation state, and risk flags
 without runtime import or execution.
-
-UAA-P1-070 Memory Source And Provenance Model
-Goal: define source refs for manual notes, external assistant review summaries,
-local chat, local coding summaries, task plans, action proposals, evidence
-timeline refs, read-only calendar/email metadata refs, and CRM-lite business
-records without storing raw private content.
 
 UAA-P1-071 Memory Review Decision Capture
 Goal: define accept, correct, reject, defer, merge, supersede, and
@@ -370,8 +369,9 @@ connector runtime, model/provider call, web fetch, shell/subprocess behavior,
 public release claim, or runtime authority. UAA-P1-066 remains queued as a
 read-only local model status support lane, while UAA-P1-067 completed the
 Today-spine, memory-first planning/currentness path, UAA-P1-068 completed the
-Today product-spine contract, and UAA-P1-069 is the current Ready Next
-evidence history grammar.
+Today product-spine contract, UAA-P1-069 completed the evidence history
+grammar, and UAA-P1-070 is the current Ready Next memory source/provenance
+model.
 
 UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 Gate met: Active docs, roadmap, current board, Founder Command Center board,
@@ -401,8 +401,27 @@ adds no new route, OpenAPI operation, side-effect class, backend mutation,
 frontend mutation control, connector runtime, account auth, automatic refresh,
 model/provider authority, automatic memory write, context injection, raw
 private evidence, public beta, public distribution, production readiness, or
-production authority. UAA-P1-069 is the current Ready Next evidence history
-grammar milestone.
+production authority. UAA-P1-069 completed the Evidence History Grammar
+contract and UAA-P1-070 is the current Ready Next memory source/provenance
+milestone.
+
+UAA-P1-069 Evidence History Grammar
+Gate met: `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`
+defines the shared evidence history grammar; `GET /control-center/today/summary`
+exposes `contract-ref:evidence-history-grammar:v1`, required history states and
+questions, surface bindings, and per-timeline proposed/approved/happened/changed/
+undoable/stale/blocked answers; `docs/schemas/evidence_history_grammar.schema.json`,
+`scripts/verify_uaa_p1_069_evidence_history_grammar.py`,
+`tests/test_uaa_p1_069_evidence_history_grammar.py`,
+`tests/test_founder_loop_storage.py`, `tests/test_control_center_founder_loop_api.py`,
+`tests/test_control_center_api_routes.py`, and `apps/control-center/src/App.test.tsx`
+bind the contract. This milestone adds no new route, OpenAPI operation,
+side-effect class, backend mutation, frontend mutation control, connector
+runtime, account auth, automatic refresh, model/provider authority, automatic
+memory write, context injection, raw private evidence, rollback execution,
+approval grant, public beta, public distribution, production readiness, or
+production authority. UAA-P1-070 is the current Ready Next memory
+source/provenance milestone.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

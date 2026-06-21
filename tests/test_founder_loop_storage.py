@@ -4,6 +4,7 @@ import json
 import pytest
 
 from ultimate_ai_agent.core.storage import (
+    EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
     FOUNDER_LOOP_SCHEMA_VERSION,
     TODAY_PRODUCT_SPINE_CONTRACT_REF,
     FounderLoopRepository,
@@ -16,6 +17,29 @@ from ultimate_ai_agent.core.storage.founder_loop import (
     FounderLoopEvidenceTimelineItem,
     FounderLoopMemoryReviewRecord,
 )
+
+
+HISTORY_KEYS = {
+    "proposed",
+    "approved",
+    "happened",
+    "changed",
+    "undoable",
+    "stale",
+    "blocked",
+}
+
+
+def _history_answers() -> dict[str, dict[str, object]]:
+    return {
+        key: {
+            "question": f"What is {key}?",
+            "answer": f"Safe redacted answer for {key}.",
+            "refs": [f"status-ref:test-{key}"],
+            "status": "present",
+        }
+        for key in HISTORY_KEYS
+    }
 
 
 def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) -> None:
@@ -35,6 +59,26 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert status["counts"]["action_inbox"] >= 1
     assert today["status"] == "storage_backed_partial_loop"
     assert today["product_spine_contract_ref"] == TODAY_PRODUCT_SPINE_CONTRACT_REF
+    assert today["evidence_history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF
+    assert set(today["evidence_history_required_states"]) == HISTORY_KEYS
+    assert {
+        item["key"]
+        for item in today["evidence_history_required_questions"]
+        if item["required"] is True
+    } == HISTORY_KEYS
+    surface_bindings = {
+        item["surface"]: item
+        for item in today["evidence_history_surface_bindings"]
+    }
+    assert {"Actions", "Plans", "Memory", "Chat", "Code"} <= set(surface_bindings)
+    assert (
+        surface_bindings["Chat"]["current_status"]
+        == "planned_blocked_until_uaa_p1_074"
+    )
+    assert (
+        surface_bindings["Code"]["current_status"]
+        == "planned_blocked_until_uaa_p1_075"
+    )
     assert today["required_loop_surfaces"] == [
         "Today",
         "Actions",
@@ -147,7 +191,10 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         today["evidence_timeline_backend_route_ref"]
         == "GET /control-center/today/summary"
     )
-    assert today["evidence_timeline_status"] == "storage_backed_redacted_refs"
+    assert (
+        today["evidence_timeline_status"]
+        == "storage_backed_redacted_history_grammar_refs"
+    )
     assert "safe-ref and redacted-summary only" in (
         today["evidence_timeline_authority_boundary"]
     )
@@ -247,6 +294,18 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "memory_review_evidence_ref" in timeline_kinds
     assert "source_readiness_evidence_ref" in timeline_kinds
     assert "foundation_gate_latency_ref" in timeline_kinds
+    for item in timeline:
+        assert item["history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF
+        assert set(item["history_answers"]) == HISTORY_KEYS
+        assert item["approval_ref_authority"] is False
+        assert item["rollback_execution_enabled"] is False
+        assert item["memory_truth_authority"] is False
+        assert item["context_injection_authorized"] is False
+        assert item["raw_evidence_included"] is False
+        assert item["redaction_status"] in {"redacted_summary_only", "safe_refs_only"}
+        for answer in item["history_answers"].values():
+            assert answer["answer"]
+            assert isinstance(answer["refs"], list)
 
     action_timeline_item = next(
         item
@@ -268,6 +327,20 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         action_timeline_item["related_route_refs"]
     )
     assert "mutation stays blocked" in action_timeline_item["safe_summary"]
+    assert (
+        action_timeline_item["history_answers"]["approved"]["status"]
+        == "posture_only"
+    )
+    assert "identifiers, not authority" in (
+        action_timeline_item["history_answers"]["approved"]["answer"]
+    )
+    assert (
+        action_timeline_item["history_answers"]["undoable"]["status"]
+        == "posture_only"
+    )
+    assert "do not execute rollback" in (
+        action_timeline_item["history_answers"]["undoable"]["answer"]
+    )
 
     memory_timeline_item = next(
         item
@@ -278,6 +351,10 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "memory_review_refs_do_not_authorize_writes"
     )
     assert "Memory is not truth" in memory_timeline_item["safe_summary"]
+    assert memory_timeline_item["history_answers"]["approved"]["status"] == "blocked"
+    assert "No memory write" in memory_timeline_item["history_answers"]["approved"]["answer"]
+    assert memory_timeline_item["memory_truth_authority"] is False
+    assert memory_timeline_item["context_injection_authorized"] is False
     assert "memory_write_or_delete_rollback_not_scoped" in (
         memory_timeline_item["rollback_blockers"]
     )
@@ -299,6 +376,13 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert foundation_timeline_item["rollback_blockers"] == [
         "rollback_execution_not_scoped"
     ]
+    assert (
+        foundation_timeline_item["history_answers"]["approved"]["status"]
+        == "blocked"
+    )
+    assert "No production" in (
+        foundation_timeline_item["history_answers"]["approved"]["answer"]
+    )
 
     serialized = json.dumps(
         {"status": status, "today": today, "inbox": inbox, "briefing": briefing},
@@ -483,8 +567,37 @@ def test_founder_loop_evidence_timeline_rejects_unsafe_content() -> None:
             item_kind="unsafe_evidence_ref",
             title="Unsafe evidence",
             safe_summary="This includes raw_prompt material and must be denied.",
+            history_answers=_history_answers(),
             source_refs=["evidence-ref:founder-loop:unsafe"],
             status_refs=["status-ref:founder-loop:unsafe"],
             authority_posture="Review-only evidence posture.",
             next_safe_action="Keep unsafe evidence blocked.",
+        )
+
+
+@pytest.mark.parametrize(
+    "unsafe_update",
+    [
+        {"approval_ref_authority": True},
+        {"rollback_execution_enabled": True},
+        {"memory_truth_authority": True},
+        {"context_injection_authorized": True},
+        {"raw_evidence_included": True},
+    ],
+)
+def test_founder_loop_evidence_timeline_rejects_authority_creep(
+    unsafe_update: dict[str, bool],
+) -> None:
+    with pytest.raises(ValueError):
+        FounderLoopEvidenceTimelineItem(
+            timeline_item_ref="evidence-timeline:unsafe/authority",
+            item_kind="unsafe_authority_ref",
+            title="Unsafe authority",
+            safe_summary="Safe summary for rejected authority posture.",
+            history_answers=_history_answers(),
+            source_refs=["evidence-ref:founder-loop:unsafe-authority"],
+            status_refs=["status-ref:founder-loop:unsafe-authority"],
+            authority_posture="Review-only evidence posture.",
+            next_safe_action="Keep unsafe authority blocked.",
+            **unsafe_update,
         )

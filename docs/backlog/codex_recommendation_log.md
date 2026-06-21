@@ -42,6 +42,62 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-069 Evidence History Grammar Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor auto-advance after UAA-P1-068.
+
+Recommendation: Complete UAA-P1-069 as the Evidence History Grammar over the
+existing `GET /control-center/today/summary` route, then auto-advance to
+UAA-P1-070 Memory Source And Provenance Model instead of stopping at a
+next-prompt handoff.
+
+Next prompt state:
+
+```text
+Auto-advance into UAA-P1-070 Memory Source And Provenance Model after
+commit/push. Review the active roadmap, current board, Founder Command Center
+board, phase tasks, MVP spec, AGENTS.md, process/spec guidance, Product
+Language Rules, and the UAA-P1-068/UAA-P1-069 contract evidence. Define safe
+source refs for manual notes, external assistant review summaries, local chat
+summaries, local coding summaries, task plans, action proposals, evidence
+timeline refs, read-only calendar/email metadata refs, and CRM-lite business
+records. Deny raw prompts, raw responses, provider payloads, raw paths, raw
+logs, account identifiers, usernames, hostnames, credentials, automatic memory
+writes, hidden context injection, connector runtime, model/provider authority,
+public beta, public distribution, production readiness, or production
+authority.
+```
+
+Decision: Accepted and completed for the UAA-P1-069 contract slice.
+
+Status: completed
+
+Completed: Added `contract-ref:evidence-history-grammar:v1` to the existing
+Today summary, defined the seven required history states/questions, added
+surface bindings for Actions, Plans, Memory, Chat, and Code, required each
+Evidence Timeline item to answer proposed/approved/happened/changed/undoable/
+stale/blocked, rendered the grammar read-only on `/evidence`, added the schema
+and verifier, fixed the route-status manifest evidence route binding, and
+promoted UAA-P1-070 as Ready Next.
+
+Not done: No new route, OpenAPI operation, side-effect class, backend mutation,
+frontend mutation control, SQLite history table, raw evidence/log/path display,
+rollback execution, approval grant, connector runtime, email/calendar fetch,
+model/provider authority, memory write, hidden context injection, public beta,
+public distribution, production readiness, or production authority was added.
+
+Evidence: `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`,
+`docs/schemas/evidence_history_grammar.schema.json`,
+`scripts/verify_uaa_p1_069_evidence_history_grammar.py`,
+`tests/test_uaa_p1_069_evidence_history_grammar.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`,
+`tests/test_control_center_api_routes.py`,
+`apps/control-center/src/App.test.tsx`, and
+`docs/codex/CODEX_EXECUTION_PROMPTS.md`.
+
 ### 2026-06-21 - UAA-P1-068 Today Product Spine Contract Completed
 
 Date: 2026-06-21

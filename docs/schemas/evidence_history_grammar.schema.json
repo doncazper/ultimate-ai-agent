@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/evidence_history_grammar.schema.json",
+  "title": "UAA-P1-069 Evidence History Grammar",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_history_contract_ref",
+    "evidence_history_required_states",
+    "evidence_history_required_questions",
+    "evidence_history_surface_bindings",
+    "evidence_timeline"
+  ],
+  "properties": {
+    "evidence_history_contract_ref": {
+      "const": "contract-ref:evidence-history-grammar:v1"
+    },
+    "evidence_history_required_states": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "proposed" },
+        { "const": "approved" },
+        { "const": "happened" },
+        { "const": "changed" },
+        { "const": "undoable" },
+        { "const": "stale" },
+        { "const": "blocked" }
+      ],
+      "items": false,
+      "minItems": 7,
+      "maxItems": 7
+    },
+    "evidence_history_required_questions": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "question", "required"],
+        "properties": {
+          "key": {
+            "enum": [
+              "proposed",
+              "approved",
+              "happened",
+              "changed",
+              "undoable",
+              "stale",
+              "blocked"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "required": {
+            "const": true
+          }
+        }
+      }
+    },
+    "evidence_history_surface_bindings": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "current_status",
+          "required_history_keys",
+          "authority_boundary"
+        ],
+        "properties": {
+          "surface": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "current_status": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "required_history_keys": {
+            "$ref": "#/properties/evidence_history_required_states"
+          },
+          "authority_boundary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          }
+        }
+      }
+    },
+    "evidence_timeline": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence_timeline_item"
+      }
+    }
+  },
+  "$defs": {
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+    },
+    "safe_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "not": {
+        "pattern": "(?i)(raw[_ -]?(prompt|response|path|log)|provider[_ -]?payload|api[_ -]?key|authorization|cookie|password|private[_ -]?key|secret|token|/Users/|/home/|/var/|/etc/|username|hostname|account[_ -]?id)"
+      }
+    },
+    "safe_ref_list": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "history_answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "answer", "refs", "status"],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "answer": {
+          "$ref": "#/$defs/safe_text"
+        },
+        "refs": {
+          "$ref": "#/$defs/safe_ref_list"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "history_answers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposed",
+        "approved",
+        "happened",
+        "changed",
+        "undoable",
+        "stale",
+        "blocked"
+      ],
+      "properties": {
+        "proposed": { "$ref": "#/$defs/history_answer" },
+        "approved": { "$ref": "#/$defs/history_answer" },
+        "happened": { "$ref": "#/$defs/history_answer" },
+        "changed": { "$ref": "#/$defs/history_answer" },
+        "undoable": { "$ref": "#/$defs/history_answer" },
+        "stale": { "$ref": "#/$defs/history_answer" },
+        "blocked": { "$ref": "#/$defs/history_answer" }
+      }
+    },
+    "evidence_timeline_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeline_item_ref",
+        "item_kind",
+        "title",
+        "safe_summary",
+        "history_contract_ref",
+        "history_answers",
+        "source_refs",
+        "status_refs",
+        "related_route_refs",
+        "side_effect_class",
+        "authority_posture",
+        "approval_posture",
+        "approval_ref_authority",
+        "rollback_execution_enabled",
+        "memory_truth_authority",
+        "context_injection_authorized",
+        "raw_evidence_included",
+        "receipt_refs",
+        "audit_refs",
+        "replay_refs",
+        "rollback_refs",
+        "rollback_blockers",
+        "latency_refs",
+        "foundation_gate_refs",
+        "redaction_status",
+        "stale_state",
+        "missing_evidence_posture",
+        "blocked_states",
+        "next_safe_action"
+      ],
+      "properties": {
+        "timeline_item_ref": { "$ref": "#/$defs/safe_ref" },
+        "item_kind": { "$ref": "#/$defs/safe_text" },
+        "title": { "$ref": "#/$defs/safe_text" },
+        "safe_summary": { "$ref": "#/$defs/safe_text" },
+        "history_contract_ref": {
+          "const": "contract-ref:evidence-history-grammar:v1"
+        },
+        "history_answers": { "$ref": "#/$defs/history_answers" },
+        "source_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "status_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "related_route_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 160 }
+        },
+        "side_effect_class": { "$ref": "#/$defs/safe_text" },
+        "authority_posture": { "$ref": "#/$defs/safe_text" },
+        "approval_posture": { "$ref": "#/$defs/safe_text" },
+        "approval_ref_authority": { "const": false },
+        "rollback_execution_enabled": { "const": false },
+        "memory_truth_authority": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "raw_evidence_included": { "const": false },
+        "receipt_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "audit_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "replay_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "rollback_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "rollback_blockers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safe_text" }
+        },
+        "latency_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "foundation_gate_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "redaction_status": {
+          "enum": ["redacted_summary_only", "safe_refs_only"]
+        },
+        "stale_state": { "$ref": "#/$defs/safe_text" },
+        "missing_evidence_posture": { "$ref": "#/$defs/safe_text" },
+        "blocked_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safe_text" }
+        },
+        "next_safe_action": { "$ref": "#/$defs/safe_text" },
+        "created_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    }
+  }
+}

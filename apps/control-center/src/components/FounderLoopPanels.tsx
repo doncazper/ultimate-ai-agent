@@ -11,6 +11,16 @@ import type {
   FounderLoopTodaySummary,
 } from "../api/types";
 
+const evidenceHistoryKeys = [
+  "proposed",
+  "approved",
+  "happened",
+  "changed",
+  "undoable",
+  "stale",
+  "blocked",
+] as const;
+
 export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary }) {
   return (
     <section className="page-section" aria-labelledby="today-surface-heading">
@@ -450,7 +460,7 @@ export function EvidenceTimelineSurfacePanel({
 }: {
   today: FounderLoopTodaySummary;
 }) {
-  const timeline = today.evidence_timeline ?? [];
+  const timeline = today.evidence_timeline;
 
   return (
     <section className="page-section" aria-labelledby="evidence-timeline-heading">
@@ -460,7 +470,7 @@ export function EvidenceTimelineSurfacePanel({
           <h2 id="evidence-timeline-heading">Evidence Timeline</h2>
         </div>
         <span className="status-pill compact">
-          {today.evidence_timeline_status ?? "storage_backed_redacted_refs"}
+          {today.evidence_timeline_status ?? "storage_backed_redacted_history_grammar_refs"}
         </span>
       </div>
       <div className="metric-grid">
@@ -473,6 +483,28 @@ export function EvidenceTimelineSurfacePanel({
         <Metric label="Latency/Gate refs" value={countTimelineRefs(timeline, ["latency_refs", "foundation_gate_refs"])} />
       </div>
       <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Evidence history grammar</h3>
+            <span>read-only</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.evidence_history_contract_ref}
+            />
+            <DetailTerm
+              label="Required questions"
+              value={String(today.evidence_history_required_questions.length)}
+            />
+          </dl>
+          <RefList refs={today.evidence_history_required_states} />
+          <ul className="ref-list">
+            {today.evidence_history_required_questions.map((question) => (
+              <li key={question.key}>{question.question}</li>
+            ))}
+          </ul>
+        </article>
         <article className="status-card">
           <div className="status-card-header">
             <h3>Timeline posture</h3>
@@ -519,6 +551,19 @@ export function EvidenceTimelineSurfacePanel({
             emptyLabel="Timeline blockers: evidence remains inspection-only"
             items={today.evidence_timeline_blocked_states ?? []}
           />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Surface bindings</h3>
+            <span>{today.evidence_history_surface_bindings.length}</span>
+          </div>
+          <ul className="ref-list">
+            {today.evidence_history_surface_bindings.map((binding) => (
+              <li key={binding.surface}>
+                {binding.surface}: {binding.current_status}
+              </li>
+            ))}
+          </ul>
         </article>
       </div>
       {timeline.length === 0 ? (
@@ -650,9 +695,30 @@ function EvidenceTimelineCard({
       <p>{item.safe_summary}</p>
       <dl className="detail-list">
         <DetailTerm label="Timeline ref" value={item.timeline_item_ref} />
+        <DetailTerm label="History contract" value={item.history_contract_ref} />
         <DetailTerm label="Side effect" value={item.side_effect_class} />
         <DetailTerm label="Authority posture" value={item.authority_posture} />
         <DetailTerm label="Approval posture" value={item.approval_posture} />
+        <DetailTerm
+          label="Approval ref authority"
+          value={item.approval_ref_authority ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Rollback execution"
+          value={item.rollback_execution_enabled ? "enabled" : "not scoped"}
+        />
+        <DetailTerm
+          label="Memory truth authority"
+          value={item.memory_truth_authority ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={item.context_injection_authorized ? "authorized" : "not authorized"}
+        />
+        <DetailTerm
+          label="Raw evidence included"
+          value={item.raw_evidence_included ? "yes" : "no"}
+        />
         <DetailTerm label="Redaction" value={item.redaction_status} />
         <DetailTerm label="Stale-state posture" value={item.stale_state} />
         <DetailTerm
@@ -661,6 +727,22 @@ function EvidenceTimelineCard({
         />
         <DetailTerm label="Next safe action" value={item.next_safe_action} />
       </dl>
+      <div>
+        <div className="status-card-header">
+          <h4>History answers</h4>
+          <span>{evidenceHistoryKeys.length}</span>
+        </div>
+        <ul className="ref-list">
+          {evidenceHistoryKeys.map((key) => {
+            const answer = item.history_answers[key];
+            return (
+              <li key={key}>
+                {answer.question}: {answer.answer} ({answer.status})
+              </li>
+            );
+          })}
+        </ul>
+      </div>
       <RefListWithFallback
         emptyLabel="Source refs: missing until evidence binding exists"
         refs={item.source_refs ?? []}

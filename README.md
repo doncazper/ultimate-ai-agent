@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-069 Ready Next: Evidence History Grammar** |
+| Current lane | **UAA-P1-070 Ready Next: Memory Source And Provenance Model** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -35,13 +35,14 @@ runtime authority. UAA-P1-067 completes the Today-spine, memory-first
 beta-readiness planning/currentness pass and adds the milestone conveyor
 without adding runtime authority. UAA-P1-068 completes the Today Product Spine
 Contract on the existing Today summary route with a schema, verifier, focused
-tests, and read-only Today render. The product path now promotes UAA-P1-069
-Evidence History Grammar as the next product lane: Evidence must read as what
-was proposed, approved, happened, changed, can be undone, is stale, and remains
-blocked before later memory provenance, Plans-to-Action envelopes, Chat
-operator truth, governed Code diffs, and private local beta-readiness gates can
-be claimed. UAA-P1-066 remains queued as a strictly read-only Local Model
-Control Center inventory/status support lane.
+tests, and read-only Today render. UAA-P1-069 completes the Evidence History
+Grammar contract so Evidence answers what was proposed, approved, happened,
+changed, can be undone, is stale, and remains blocked with safe refs and
+redacted summaries only. The product path now promotes UAA-P1-070 Memory Source
+And Provenance Model before later memory decisions/quality, Plans-to-Action
+envelopes, Chat operator truth, governed Code diffs, and private local
+beta-readiness gates can be claimed. UAA-P1-066 remains queued as a strictly
+read-only Local Model Control Center inventory/status support lane.
 
 Already-pushed tags remain immutable historical records. M150's
 `v1.2.0-alpha` label is preserved as historical alpha-target context only; it

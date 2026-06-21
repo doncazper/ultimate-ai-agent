@@ -981,8 +981,14 @@
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
       "approval_requirement": "None for read-only evidence inspection.",
-      "evidence_audit_output": "Audit summary refs and Foundation Gate refs.",
+      "evidence_audit_output": "Founder Loop evidence history grammar refs, audit summary refs, and Foundation Gate refs.",
       "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only"
+        },
         {
           "method": "GET",
           "path": "/task-decomposition/audit",

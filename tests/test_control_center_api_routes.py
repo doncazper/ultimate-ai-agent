@@ -369,6 +369,18 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     ]:
         assert action_id in action_ids
 
+    evidence_action = next(
+        action
+        for action in visible_actions
+        if action["action_id"] == "navigate-evidence"
+    )
+    assert {
+        "method": "GET",
+        "path": "/control-center/today/summary",
+        "operation_id": "get_control_center_today_summary",
+        "side_effect_class": "local_dev_workspace_only",
+    } in evidence_action["backend_routes"]
+
 
 def test_control_center_route_status_manifest_matches_openapi_and_api_manifest() -> None:
     route_status = _load_route_status_manifest()

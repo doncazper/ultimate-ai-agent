@@ -13,6 +13,10 @@ and gated.
 Work the next implementation lane in this order, starting from the accepted
 `UAA-P1-011` readable-loop baseline:
 
+Current status: UAA-P1-068 Today Product Spine Contract and UAA-P1-069
+Evidence History Grammar are implemented as contract/test/read-only UI slices.
+UAA-P1-070 Memory Source And Provenance Model is the next incomplete lane.
+
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
    is necessary but not sufficient for completion; typed contracts, tests,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime
 from enum import Enum
@@ -20,8 +21,105 @@ from ultimate_ai_agent.core.time import utc_now
 FOUNDER_LOOP_SCHEMA_VERSION = "founder_loop_storage.v1"
 FOUNDER_LOOP_STATE_DIR_ENV = "UAA_FOUNDER_LOOP_STATE_DIR"
 DEFAULT_FOUNDER_LOOP_STATE_DIR = Path(".uaa") / "founder_loop"
+SAFE_STATUS_REF_CHARS = re.compile(r"[^a-z0-9_.@-]+")
 TODAY_PRODUCT_SPINE_CONTRACT_REF = "contract-ref:today-product-spine:v1"
+EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF = "contract-ref:evidence-history-grammar:v1"
 TODAY_PRODUCT_SPINE_LOOP_SURFACES = ["Today", "Actions", "Evidence", "Memory"]
+EVIDENCE_HISTORY_GRAMMAR_KEYS = (
+    "proposed",
+    "approved",
+    "happened",
+    "changed",
+    "undoable",
+    "stale",
+    "blocked",
+)
+EVIDENCE_HISTORY_GRAMMAR_REQUIRED_QUESTIONS = [
+    {
+        "key": "proposed",
+        "question": "What was proposed?",
+        "required": True,
+    },
+    {
+        "key": "approved",
+        "question": "What was approved?",
+        "required": True,
+    },
+    {
+        "key": "happened",
+        "question": "What happened?",
+        "required": True,
+    },
+    {
+        "key": "changed",
+        "question": "What changed?",
+        "required": True,
+    },
+    {
+        "key": "undoable",
+        "question": "What can be undone?",
+        "required": True,
+    },
+    {
+        "key": "stale",
+        "question": "What is stale?",
+        "required": True,
+    },
+    {
+        "key": "blocked",
+        "question": "What remains blocked?",
+        "required": True,
+    },
+]
+EVIDENCE_HISTORY_SURFACE_BINDINGS = [
+    {
+        "surface": "Actions",
+        "current_status": "implemented_via_action_timeline_refs",
+        "required_history_keys": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
+        "authority_boundary": (
+            "Action evidence can describe proposals, approval posture, receipts, "
+            "changes, rollback posture, stale state, and blockers without "
+            "granting approval or execution."
+        ),
+    },
+    {
+        "surface": "Plans",
+        "current_status": "partial_until_action_envelopes",
+        "required_history_keys": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
+        "authority_boundary": (
+            "Plan evidence can describe proposal and missing approval/receipt "
+            "posture, but plan summaries are not execution authority."
+        ),
+    },
+    {
+        "surface": "Memory",
+        "current_status": "implemented_review_queue_refs_only",
+        "required_history_keys": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
+        "authority_boundary": (
+            "Memory evidence can describe source, review, stale, and blocked "
+            "posture; recall is not truth, write authority, or context injection."
+        ),
+    },
+    {
+        "surface": "Chat",
+        "current_status": "planned_blocked_until_uaa_p1_074",
+        "required_history_keys": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
+        "authority_boundary": (
+            "Chat evidence must use the same grammar after a local operator "
+            "surface exists; model output remains non-authoritative."
+        ),
+    },
+    {
+        "surface": "Code",
+        "current_status": "planned_blocked_until_uaa_p1_075",
+        "required_history_keys": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
+        "authority_boundary": (
+            "Code evidence must use the same grammar for diffs, validation, "
+            "apply posture, rollback posture, and blockers; unrestricted shell "
+            "or broad coding autonomy is not scoped."
+        ),
+    },
+]
 TODAY_PRODUCT_SPINE_REQUIRED_SIGNALS = [
     {
         "signal": "priorities",
@@ -122,7 +220,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
     },
     {
         "module": "Evidence",
-        "status": "implemented_redacted_refs_history_grammar_missing",
+        "status": "implemented_redacted_history_grammar_contract_partial",
         "required_loop_outputs": [
             "today_evidence_state",
             "action_receipt_or_blocked_state",
@@ -131,7 +229,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         ],
         "current_feed_refs": [
             "GET /control-center/today/summary",
-            "contract-ref:evidence-history-grammar-missing",
+            EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
         ],
         "standalone_complete_allowed": False,
     },
@@ -456,11 +554,33 @@ class FounderLoopBriefingRecord(BaseModel):
         return self
 
 
+class FounderLoopEvidenceHistoryAnswer(BaseModel):
+    question: str = Field(..., min_length=1, max_length=80)
+    answer: str = Field(..., min_length=1, max_length=320)
+    refs: list[str] = Field(default_factory=list)
+    status: str = Field(default="present", min_length=1, max_length=80)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_answer(self) -> "FounderLoopEvidenceHistoryAnswer":
+        for ref_value in self.refs:
+            _validate_safe_ref(ref_value, "history_answer_ref")
+        _validate_safe_payload(self.model_dump(mode="json"), "evidence_history_answer")
+        return self
+
+
 class FounderLoopEvidenceTimelineItem(BaseModel):
     timeline_item_ref: str = Field(..., min_length=1)
     item_kind: str = Field(..., min_length=1, max_length=80)
     title: str = Field(..., min_length=1, max_length=120)
     safe_summary: str = Field(..., min_length=1, max_length=500)
+    history_contract_ref: str = Field(
+        default=EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
+        min_length=1,
+        max_length=120,
+    )
+    history_answers: dict[str, FounderLoopEvidenceHistoryAnswer]
     source_refs: list[str] = Field(default_factory=list)
     status_refs: list[str] = Field(default_factory=list)
     related_route_refs: list[str] = Field(default_factory=list)
@@ -471,6 +591,11 @@ class FounderLoopEvidenceTimelineItem(BaseModel):
         min_length=1,
         max_length=160,
     )
+    approval_ref_authority: bool = False
+    rollback_execution_enabled: bool = False
+    memory_truth_authority: bool = False
+    context_injection_authorized: bool = False
+    raw_evidence_included: bool = False
     receipt_refs: list[str] = Field(default_factory=list)
     audit_refs: list[str] = Field(default_factory=list)
     replay_refs: list[str] = Field(default_factory=list)
@@ -490,6 +615,21 @@ class FounderLoopEvidenceTimelineItem(BaseModel):
     @model_validator(mode="after")
     def validate_safe_record(self) -> "FounderLoopEvidenceTimelineItem":
         _validate_safe_ref(self.timeline_item_ref, "timeline_item_ref")
+        _validate_safe_ref(self.history_contract_ref, "history_contract_ref")
+        if self.history_contract_ref != EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF:
+            raise ValueError("evidence timeline item must use the current history grammar")
+        if set(self.history_answers) != set(EVIDENCE_HISTORY_GRAMMAR_KEYS):
+            raise ValueError("evidence timeline item must answer every history grammar question")
+        if self.approval_ref_authority:
+            raise ValueError("approval refs are identifiers only")
+        if self.rollback_execution_enabled:
+            raise ValueError("rollback execution is not scoped")
+        if self.memory_truth_authority:
+            raise ValueError("memory evidence is not truth authority")
+        if self.context_injection_authorized:
+            raise ValueError("context injection is not authorized")
+        if self.raw_evidence_included:
+            raise ValueError("raw evidence is not allowed")
         for field_name in [
             "source_refs",
             "status_refs",
@@ -545,6 +685,53 @@ def _json_dumps(value: Any) -> str:
 
 def _timeline_ref(kind: str, source_ref: str) -> str:
     return f"evidence-timeline:{kind}/{source_ref.replace(':', '/')}"
+
+
+def _status_ref(prefix: str, value: str) -> str:
+    safe_value = SAFE_STATUS_REF_CHARS.sub("-", value.lower()).strip("-")
+    if not safe_value:
+        safe_value = "missing"
+    return f"{prefix}:{safe_value}"
+
+
+def _history_answer(
+    key: str,
+    answer: str,
+    *,
+    refs: list[str] | None = None,
+    status: str = "present",
+) -> FounderLoopEvidenceHistoryAnswer:
+    question_by_key = {
+        item["key"]: str(item["question"])
+        for item in EVIDENCE_HISTORY_GRAMMAR_REQUIRED_QUESTIONS
+    }
+    return FounderLoopEvidenceHistoryAnswer(
+        question=question_by_key[key],
+        answer=answer,
+        refs=refs or [],
+        status=status,
+    )
+
+
+def _history_answers(
+    *,
+    proposed: FounderLoopEvidenceHistoryAnswer,
+    approved: FounderLoopEvidenceHistoryAnswer,
+    happened: FounderLoopEvidenceHistoryAnswer,
+    changed: FounderLoopEvidenceHistoryAnswer,
+    undoable: FounderLoopEvidenceHistoryAnswer,
+    stale: FounderLoopEvidenceHistoryAnswer,
+    blocked: FounderLoopEvidenceHistoryAnswer,
+) -> dict[str, FounderLoopEvidenceHistoryAnswer]:
+    return {
+        "proposed": proposed,
+        "approved": approved,
+        "happened": happened,
+        "changed": changed,
+        "undoable": undoable,
+        "stale": stale,
+        "blocked": blocked,
+    }
 
 
 def _utc_iso() -> str:
@@ -740,6 +927,12 @@ class FounderLoopRepository:
                     "cli_or_repo_local_inspection_path",
                 ],
             },
+            "evidence_history_contract_ref": EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
+            "evidence_history_required_states": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
+            "evidence_history_required_questions": (
+                EVIDENCE_HISTORY_GRAMMAR_REQUIRED_QUESTIONS
+            ),
+            "evidence_history_surface_bindings": EVIDENCE_HISTORY_SURFACE_BINDINGS,
             "priority_refs": _priority_refs(actions, briefing_items),
             "blocker_refs": _blocked_state_refs(actions, memory_items, briefing_items),
             "follow_up_refs": [
@@ -814,7 +1007,7 @@ class FounderLoopRepository:
             "evidence_timeline": evidence_timeline,
             "evidence_timeline_route_ref": "/evidence",
             "evidence_timeline_backend_route_ref": "GET /control-center/today/summary",
-            "evidence_timeline_status": "storage_backed_redacted_refs",
+            "evidence_timeline_status": "storage_backed_redacted_history_grammar_refs",
             "evidence_timeline_authority_boundary": (
                 "Evidence Timeline is safe-ref and redacted-summary only. It does "
                 "not expose raw content, grant approval, execute rollback, or confer "
@@ -863,6 +1056,22 @@ class FounderLoopRepository:
                 ]
                 if value
             ]
+            approval_history_ref = action.get("approval_envelope_ref") or _status_ref(
+                "approval-status",
+                str(action.get("approval_envelope_status", "missing_until_scoped_contract")),
+            )
+            changed_history_ref = action.get("state_change_contract_ref") or _status_ref(
+                "change-status",
+                str(action.get("state_change_readiness", "blocked_missing_backend_contract")),
+            )
+            action_stale_ref = _status_ref(
+                "stale-ref",
+                str(action.get("stale_state", "recheck_action_refs_before_use")),
+            )
+            blocked_history_refs = (
+                [_status_ref("blocked-state", value) for value in blocked_states]
+                or ["blocked-state:no-action-blockers-recorded"]
+            )
             timeline.append(
                 FounderLoopEvidenceTimelineItem(
                     timeline_item_ref=_timeline_ref("action", action_ref),
@@ -871,6 +1080,50 @@ class FounderLoopRepository:
                     safe_summary=(
                         "Action evidence is shown as receipt, audit, idempotency, "
                         "rollback, and safe-disable refs only; mutation stays blocked."
+                    ),
+                    history_answers=_history_answers(
+                        proposed=_history_answer(
+                            "proposed",
+                            "A reviewed Action item was proposed from a safe summary ref.",
+                            refs=[action_ref, "status-ref:founder-loop-action-inbox"],
+                        ),
+                        approved=_history_answer(
+                            "approved",
+                            "Only approval posture is recorded; approval refs are identifiers, not authority.",
+                            refs=[str(approval_history_ref)],
+                            status="posture_only",
+                        ),
+                        happened=_history_answer(
+                            "happened",
+                            "Receipt and audit refs are available for inspection; execution remains blocked here.",
+                            refs=[*receipt_refs, *audit_refs]
+                            or ["receipt-status:missing-until-scoped-contract"],
+                            status="receipt_refs_available" if receipt_refs else "blocked",
+                        ),
+                        changed=_history_answer(
+                            "changed",
+                            "A state-change contract or readiness posture is recorded without applying a mutation.",
+                            refs=[str(changed_history_ref)],
+                            status="posture_only",
+                        ),
+                        undoable=_history_answer(
+                            "undoable",
+                            "Rollback refs describe undo posture only and do not execute rollback.",
+                            refs=rollback_refs or ["undo-blocker:rollback-refs-missing"],
+                            status="posture_only" if rollback_refs else "blocked",
+                        ),
+                        stale=_history_answer(
+                            "stale",
+                            "The action must be rechecked before any future mutation or approval.",
+                            refs=[action_stale_ref],
+                            status="recheck_required",
+                        ),
+                        blocked=_history_answer(
+                            "blocked",
+                            "Mutation, approval grant capture, and execution remain blocked until a scoped contract exists.",
+                            refs=blocked_history_refs,
+                            status="blocked",
+                        ),
                     ),
                     source_refs=[action_ref],
                     status_refs=["status-ref:founder-loop-action-inbox"],
@@ -910,6 +1163,49 @@ class FounderLoopRepository:
                         "Plan evidence is a bounded summary ref. It does not create "
                         "execution authority or a durable run by itself."
                     ),
+                    history_answers=_history_answers(
+                        proposed=_history_answer(
+                            "proposed",
+                            "A plan summary was proposed as bounded review context.",
+                            refs=[plan_ref, "status-ref:founder-loop-plan-summary"],
+                        ),
+                        approved=_history_answer(
+                            "approved",
+                            "Execution approval is not present; action envelopes are still a later contract.",
+                            refs=["approval-status:required-before-execution-scope"],
+                            status="blocked",
+                        ),
+                        happened=_history_answer(
+                            "happened",
+                            "Only plan summary inspection happened; no durable run or execution receipt is created.",
+                            refs=["replay-ref:founder-loop:plan-summary"],
+                            status="inspection_only",
+                        ),
+                        changed=_history_answer(
+                            "changed",
+                            "No repo, connector, or task state changed from this plan evidence item.",
+                            refs=["change-status:no-state-change-from-plan-summary"],
+                            status="not_applicable",
+                        ),
+                        undoable=_history_answer(
+                            "undoable",
+                            "There is no applied plan mutation to undo in this timeline item.",
+                            refs=["undo-blocker:rollback-not-applicable-for-plan-summary"],
+                            status="not_applicable",
+                        ),
+                        stale=_history_answer(
+                            "stale",
+                            "Plan refs must be rechecked before any future execution claim.",
+                            refs=["stale-ref:recheck-plan-refs-before-execution-claims"],
+                            status="recheck_required",
+                        ),
+                        blocked=_history_answer(
+                            "blocked",
+                            "Plan execution and action envelope dispatch remain blocked.",
+                            refs=["blocked-state:no-plan-execution-from-evidence-timeline"],
+                            status="blocked",
+                        ),
+                    ),
                     source_refs=[plan_ref],
                     status_refs=["status-ref:founder-loop-plan-summary"],
                     related_route_refs=["/plans", "/task-decomposition/status"],
@@ -931,6 +1227,17 @@ class FounderLoopRepository:
         for item in memory_items:
             review_ref = str(item["review_ref"])
             missing_contract_refs = list(item.get("missing_contract_refs") or [])
+            memory_stale_ref = _status_ref(
+                "stale-ref",
+                str(item.get("stale_state", "recheck_memory_refs_before_use")),
+            )
+            memory_blocked_refs = (
+                [
+                    _status_ref("blocked-state", str(value))
+                    for value in item.get("blocked_states", [])
+                ]
+                or ["blocked-state:no-memory-blockers-recorded"]
+            )
             timeline.append(
                 FounderLoopEvidenceTimelineItem(
                     timeline_item_ref=_timeline_ref("memory", review_ref),
@@ -939,6 +1246,50 @@ class FounderLoopRepository:
                     safe_summary=(
                         "Memory evidence is recall metadata only. Memory is not "
                         "truth, not approval, and not context-injection authority."
+                    ),
+                    history_answers=_history_answers(
+                        proposed=_history_answer(
+                            "proposed",
+                            "A memory review candidate was proposed from safe source refs.",
+                            refs=[review_ref, *list(item.get("source_refs") or [])],
+                        ),
+                        approved=_history_answer(
+                            "approved",
+                            "No memory write, delete, correction, context injection, or authority is approved here.",
+                            refs=["approval-status:memory-review-refs-do-not-authorize-writes"],
+                            status="blocked",
+                        ),
+                        happened=_history_answer(
+                            "happened",
+                            "Only review-queue inspection happened; memory remains recall metadata.",
+                            refs=["status-ref:founder-loop-memory-review"],
+                            status="inspection_only",
+                        ),
+                        changed=_history_answer(
+                            "changed",
+                            "No accepted memory, correction, merge, supersede, or forget decision was captured.",
+                            refs=missing_contract_refs
+                            or ["change-status:no-memory-decision-captured"],
+                            status="blocked",
+                        ),
+                        undoable=_history_answer(
+                            "undoable",
+                            "Memory write/delete rollback is not scoped because no memory mutation is performed.",
+                            refs=["undo-blocker:memory-write-or-delete-rollback-not-scoped"],
+                            status="blocked",
+                        ),
+                        stale=_history_answer(
+                            "stale",
+                            "Source refs must be rechecked before memory can inform future work.",
+                            refs=[memory_stale_ref],
+                            status="recheck_required",
+                        ),
+                        blocked=_history_answer(
+                            "blocked",
+                            "Memory writes, deletes, context injection, and model/provider authority remain blocked.",
+                            refs=memory_blocked_refs,
+                            status="blocked",
+                        ),
                     ),
                     source_refs=[review_ref, *list(item.get("source_refs") or [])],
                     status_refs=[
@@ -967,6 +1318,21 @@ class FounderLoopRepository:
             )
         for item in briefing_items:
             briefing_ref = str(item["briefing_ref"])
+            source_readiness_ref = _timeline_ref(
+                "briefing-status",
+                str(item.get("source_readiness", "blocked_missing_source_contract")),
+            )
+            briefing_stale_ref = _status_ref(
+                "stale-ref",
+                str(item.get("stale_state", "recheck_source_refs_before_use")),
+            )
+            briefing_blocked_refs = (
+                [
+                    _status_ref("blocked-state", str(value))
+                    for value in item.get("blocked_states", [])
+                ]
+                or ["blocked-state:no-briefing-blockers-recorded"]
+            )
             timeline.append(
                 FounderLoopEvidenceTimelineItem(
                     timeline_item_ref=_timeline_ref("briefing", briefing_ref),
@@ -976,12 +1342,52 @@ class FounderLoopRepository:
                         "Briefing evidence is source-readiness posture only. Email, "
                         "calendar, connector, refresh, and notification runtime stay blocked."
                     ),
+                    history_answers=_history_answers(
+                        proposed=_history_answer(
+                            "proposed",
+                            "A briefing summary was proposed from local safe refs only.",
+                            refs=[briefing_ref, *list(item.get("source_refs") or [])],
+                        ),
+                        approved=_history_answer(
+                            "approved",
+                            "Source refs do not approve connector runtime, refresh, or delivery.",
+                            refs=["approval-status:source-refs-do-not-authorize-connector-runtime"],
+                            status="blocked",
+                        ),
+                        happened=_history_answer(
+                            "happened",
+                            "Only source-readiness inspection happened; no email, calendar, or notification read occurred.",
+                            refs=[source_readiness_ref],
+                            status="inspection_only",
+                        ),
+                        changed=_history_answer(
+                            "changed",
+                            "No external source, account, connector, or notification state changed.",
+                            refs=["change-status:no-source-state-change"],
+                            status="not_applicable",
+                        ),
+                        undoable=_history_answer(
+                            "undoable",
+                            "There is no source refresh or delivery mutation to undo.",
+                            refs=["undo-blocker:source-refresh-rollback-not-scoped"],
+                            status="blocked",
+                        ),
+                        stale=_history_answer(
+                            "stale",
+                            "Briefing source posture must be rechecked before future source use.",
+                            refs=[briefing_stale_ref],
+                            status="recheck_required",
+                        ),
+                        blocked=_history_answer(
+                            "blocked",
+                            "Email, calendar, connector runtime, refresh, and notification delivery remain blocked.",
+                            refs=briefing_blocked_refs,
+                            status="blocked",
+                        ),
+                    ),
                     source_refs=[briefing_ref, *list(item.get("source_refs") or [])],
                     status_refs=[
-                        _timeline_ref(
-                            "briefing-status",
-                            str(item.get("source_readiness", "blocked_missing_source_contract")),
-                        )
+                        source_readiness_ref
                     ],
                     related_route_refs=[
                         "GET /control-center/morning-briefing/summary",
@@ -1010,6 +1416,56 @@ class FounderLoopRepository:
                 safe_summary=(
                     "Foundation Gate and latency refs are status evidence only; "
                     "they do not grant production authority or runtime authority."
+                ),
+                history_answers=_history_answers(
+                    proposed=_history_answer(
+                        "proposed",
+                        "Foundation Gate and latency refs were proposed as status evidence for release review.",
+                        refs=["status-ref:foundation-gate-summary"],
+                    ),
+                    approved=_history_answer(
+                        "approved",
+                        "No production, release, or runtime authority is approved by these refs.",
+                        refs=["approval-status:foundation-gate-refs-not-production-authority"],
+                        status="blocked",
+                    ),
+                    happened=_history_answer(
+                        "happened",
+                        "Foundation Gate and latency status refs are inspectable as evidence only.",
+                        refs=[
+                            "foundation-gate-ref:latest-report",
+                            "latency-ref:foundation-gate:latest-report",
+                        ],
+                        status="status_available",
+                    ),
+                    changed=_history_answer(
+                        "changed",
+                        "No release, runtime, connector, memory, or provider state changed.",
+                        refs=["change-status:no-release-state-change"],
+                        status="not_applicable",
+                    ),
+                    undoable=_history_answer(
+                        "undoable",
+                        "There is no production release mutation to undo in this timeline item.",
+                        refs=["undo-blocker:rollback-execution-not-scoped"],
+                        status="blocked",
+                    ),
+                    stale=_history_answer(
+                        "stale",
+                        "Reports must be rechecked before any future release or readiness claim.",
+                        refs=["stale-ref:recheck-foundation-gate-report-before-release-claim"],
+                        status="recheck_required",
+                    ),
+                    blocked=_history_answer(
+                        "blocked",
+                        "Production, release, and runtime authority claims remain blocked.",
+                        refs=[
+                            "blocked-state:foundation-gate-refs-not-production-authority",
+                            "blocked-state:latency-refs-not-authority",
+                            "blocked-state:no-release-authority",
+                        ],
+                        status="blocked",
+                    ),
                 ),
                 source_refs=["status-ref:foundation-gate-summary"],
                 status_refs=["status-ref:foundation-gate-report"],

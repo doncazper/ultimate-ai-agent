@@ -4,7 +4,10 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
-from ultimate_ai_agent.core.storage import TODAY_PRODUCT_SPINE_CONTRACT_REF
+from ultimate_ai_agent.core.storage import (
+    EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
+    TODAY_PRODUCT_SPINE_CONTRACT_REF,
+)
 
 
 client = TestClient(app)
@@ -98,6 +101,27 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
 
     today = client.get("/control-center/today/summary").json()["data"]
     assert today["product_spine_contract_ref"] == TODAY_PRODUCT_SPINE_CONTRACT_REF
+    assert today["evidence_history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF
+    assert set(today["evidence_history_required_states"]) == {
+        "proposed",
+        "approved",
+        "happened",
+        "changed",
+        "undoable",
+        "stale",
+        "blocked",
+    }
+    assert {
+        item["key"]
+        for item in today["evidence_history_required_questions"]
+    } == set(today["evidence_history_required_states"])
+    evidence_bindings = {
+        item["surface"]: item
+        for item in today["evidence_history_surface_bindings"]
+    }
+    assert {"Actions", "Plans", "Memory", "Chat", "Code"} <= set(evidence_bindings)
+    assert evidence_bindings["Chat"]["current_status"] == "planned_blocked_until_uaa_p1_074"
+    assert evidence_bindings["Code"]["current_status"] == "planned_blocked_until_uaa_p1_075"
     assert today["required_loop_surfaces"] == [
         "Today",
         "Actions",
@@ -175,6 +199,26 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
     assert memory_item["stale_state"] == "recheck_source_refs_before_memory_use"
     assert "no_model_provider_authority" in memory_item["blocked_states"]
     assert "scoped memory policy milestone" in memory_item["next_safe_action"]
+
+    timeline = today["evidence_timeline"]
+    assert today["evidence_timeline_status"] == "storage_backed_redacted_history_grammar_refs"
+    assert timeline
+    for item in timeline:
+        assert item["history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF
+        assert set(item["history_answers"]) == set(today["evidence_history_required_states"])
+        assert item["approval_ref_authority"] is False
+        assert item["rollback_execution_enabled"] is False
+        assert item["memory_truth_authority"] is False
+        assert item["context_injection_authorized"] is False
+        assert item["raw_evidence_included"] is False
+
+    action_history = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "receipt_audit_rollback_ref"
+    )["history_answers"]
+    assert "identifiers, not authority" in action_history["approved"]["answer"]
+    assert "do not execute rollback" in action_history["undoable"]["answer"]
 
 
 def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_class(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

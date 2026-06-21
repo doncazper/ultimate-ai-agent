@@ -719,3 +719,103 @@ Auto-advance:
 - Stop only for an exact blocker, unsafe scope split, failed verification,
   failed push, or user pause/stop.
 ```
+
+## 12. UAA-P1-069 Evidence History Grammar Prompt
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: execute UAA-P1-069 Evidence History Grammar.
+
+Goal: make Evidence read like history: what was proposed, what was approved,
+what happened, what changed, what can be undone, what is stale, and what
+remains blocked. Memory, Plans, Chat, Code, and Actions must be able to use the
+same grammar for receipts, audits, rollback posture, stale states, and blocked
+states.
+
+Read first:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[agents_md_support.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/standards/agents_md_support.md)
+[definition_of_ready.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_ready.md)
+[definition_of_done.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_done.md)
+[PRODUCT_LANGUAGE_RULES.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+[UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md)
+
+If present, also read SPECS.md, specs.md, SDLC.md, sdlc.md, and the closest
+task-specific spec, ADR, schema, standards, or process docs discovered with
+rg --files. Treat these documents as contributor guidance, not runtime
+configuration or product authority.
+
+Subagent plan:
+- Use at least one read-only subagent for contract/test gap review.
+- Use at least one read-only subagent for adversarial product-language,
+  redaction, and authority review.
+- Subagents are advisory. The main Codex run owns integration, verification,
+  commit/push, and auto-advance.
+
+Scope:
+- Existing `GET /control-center/today/summary` payload, Founder Loop evidence
+  timeline model/builder, TypeScript API type, read-only Evidence Timeline
+  render, route-status manifest, docs, schema, focused tests, and verifier.
+- Do not add a new route, operation ID, side-effect class, backend mutation,
+  frontend mutation control, SQLite history table, raw evidence/log/path
+  display, rollback execution, approval grant, connector runtime, email or
+  calendar fetch, model/provider authority, memory write, hidden context
+  injection, public beta, public distribution, production readiness, or
+  production authority.
+
+Acceptance criteria:
+- Existing Today summary exposes `contract-ref:evidence-history-grammar:v1`.
+- Required history states/questions are proposed, approved, happened, changed,
+  undoable, stale, and blocked.
+- Every evidence timeline item answers all seven questions with bounded safe
+  summaries and safe refs.
+- Approval refs are identifiers only; rollback refs describe undo posture only.
+- Timeline items assert `approval_ref_authority`,
+  `rollback_execution_enabled`, `memory_truth_authority`,
+  `context_injection_authorized`, and `raw_evidence_included` are false.
+- Memory-linked evidence does not claim truth, write authority, or context
+  injection.
+- `/evidence` renders the grammar read-only without approve/run/send/write/
+  sync/rollback/show-raw/reveal-raw controls.
+- Route-status manifest names `GET /control-center/today/summary` for
+  `navigate-evidence`.
+- Active docs mark UAA-P1-069 complete and promote UAA-P1-070 Memory Source
+  And Provenance Model as the next incomplete milestone.
+
+Review/fix:
+- Perform adversarial review for raw evidence leakage, approval authority
+  creep, rollback execution implication, memory-as-truth claims, route/OpenAPI
+  drift, unsafe beta or production language, and UI mutation controls.
+- Fix P0/P1 issues before hardening.
+
+Hardening:
+- Run PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_uaa_p1_069_evidence_history_grammar.py
+  tests/test_founder_loop_storage.py
+  tests/test_control_center_founder_loop_api.py
+  tests/test_control_center_api_routes.py
+- Run .venv/bin/python scripts/verify_uaa_p1_069_evidence_history_grammar.py
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+- Run make frontend-check when frontend files changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-069 plus any conveyor auto-advance fix
+  intentionally made for this run.
+- Commit with message: implement UAA-P1-069 evidence history grammar
+- Push the current branch.
+
+Auto-advance:
+- After commit/push succeeds, immediately create/update and execute the
+  UAA-P1-070 Memory Source And Provenance Model prompt in the same run unless
+  blocked.
+- Stop only for an exact blocker, unsafe scope split, failed verification,
+  failed push, or user pause/stop.
+```

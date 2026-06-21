@@ -18,7 +18,8 @@ Surfaces.
 
 UAA-P1-067 completed the Today-spine, memory-first beta-readiness
 planning/currentness path. UAA-P1-068 completed the Today Product Spine
-Contract. The parent board now promotes UAA-P1-069 Evidence History Grammar as
+Contract. UAA-P1-069 completed the Evidence History Grammar contract. The
+parent board now promotes UAA-P1-070 Memory Source And Provenance Model as
 Ready Next. UAA-P1-066 remains queued as a strictly read-only Local Model
 Manager support lane and does not add lifecycle, switching, activation,
 download, runtime adapter, or production authority.
@@ -54,14 +55,14 @@ Authority-changing cards: 0 unless a separate scoped milestone is accepted
 Implemented / ready for review:
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
-FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068.
+FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069.
 
 Candidate-next:
-UAA-P1-069 Evidence History Grammar.
+UAA-P1-070 Memory Source And Provenance Model.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
+UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
@@ -69,29 +70,31 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ## Candidate Next
 
-### UAA-P1-069 - Evidence History Grammar
+### UAA-P1-070 - Memory Source And Provenance Model
 
-Epic: Evidence/Receipts, Product/UX
+Epic: Memory/Knowledge, Safety/Permissions
 
-Promoted by: UAA-P1-068
+Promoted by: UAA-P1-069
 
 Type: contract/docs/test first
 
-Description: Make Evidence read like history: what was proposed, what was
-approved, what happened, what changed, what can be undone, what is stale, and
-what remains blocked.
+Description: Define safe source refs for manual notes, external assistant
+review summaries, local chat summaries, local coding summaries, task plans,
+action proposals, evidence timeline refs, read-only calendar/email metadata
+refs, and CRM-lite business records.
 
-Acceptance criteria: Memory, Plans, Chat, Code, and Actions can all use the
-same evidence grammar for receipts, audits, rollbacks, stale states, and
-blocked states.
+Acceptance criteria: Memory candidates can identify where they came from
+without storing raw prompts, raw responses, raw provider payloads, raw local
+paths, raw logs, account identifiers, usernames, hostnames, credentials, or raw
+private content.
 
-Required tests/verifiers: evidence payload tests when schema exists, frontend
-render tests when surfaced, and documentation integrity.
+Required tests/verifiers: focused memory/source schema tests, redaction denial
+tests, Founder Loop storage/API tests if persisted, and documentation
+integrity.
 
-Safety notes: Safe refs and redacted summaries only. No raw evidence display,
-raw log display, raw path display, rollback execution, approval grant,
-connector runtime, model/provider authority, public beta, public distribution,
-or production authority.
+Safety notes: No provider calls, browser import, connector runtime, account
+auth, automatic memory write, hidden context injection, or production
+authority.
 
 ### FCC-P0-002 Follow-Up - Collapse/Organize Control Center Around Core Surfaces
 
@@ -129,13 +132,13 @@ Implemented by: Documented-milestone conveyor execution
 
 Description: Completed the planning/currentness pass that makes Today the
 product spine, robust reviewed memory the product differentiator, and
-UAA-P1-068 the Ready Next Today Product Spine Contract before broader product
-or authority expansion.
+UAA-P1-068 the next Today Product Spine Contract before broader product or
+authority expansion.
 
 Acceptance evidence: Active docs, roadmap, current board, product truth, MVP
 spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
-UAA-P1-068 as complete, UAA-P1-069 as Ready Next, and UAA-P1-066 as read-only
-local model support.
+UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as Ready Next, and
+UAA-P1-066 as read-only local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,

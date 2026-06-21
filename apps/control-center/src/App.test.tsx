@@ -1334,10 +1334,31 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /Evidence Timeline/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("storage_backed_redacted_refs")).toBeInTheDocument();
+    expect(
+      screen.getByText("storage_backed_redacted_history_grammar_refs"),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByText("GET /control-center/today/summary").length,
     ).toBeGreaterThan(0);
+    expect(screen.getByText("Evidence history grammar")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:evidence-history-grammar:v1").length,
+    ).toBeGreaterThan(0);
+    for (const question of [
+      "What was proposed?",
+      "What was approved?",
+      "What happened?",
+      "What changed?",
+      "What can be undone?",
+      "What is stale?",
+      "What remains blocked?",
+    ]) {
+      expect(screen.getAllByText(question).length).toBeGreaterThan(0);
+    }
+    expect(screen.getAllByText(/Approval ref authority/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Rollback execution/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Memory truth authority/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Raw evidence included/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Private source artifacts/i)).toBeInTheDocument();
     expect(
       screen.getByText(/Approval refs are identifiers only/i),
@@ -2412,7 +2433,7 @@ function envelopeForReadEndpoint(url: string) {
       baseline_version: "0.20.1",
     },
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
-    [API_ENDPOINTS.founderTodaySummary]: mockApiData.founderToday,
+    [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
     [API_ENDPOINTS.founderActionsInbox]: mockApiData.founderActionsInbox,
     [API_ENDPOINTS.founderMorningBriefing]:
       mockApiData.founderMorningBriefing,
@@ -2848,7 +2869,7 @@ const mockApiData = {
       },
       {
         module: "Evidence",
-        status: "implemented_redacted_refs_history_grammar_missing",
+        status: "implemented_redacted_history_grammar_contract_partial",
         required_loop_outputs: [
           "today_evidence_state",
           "action_receipt_or_blocked_state",
@@ -2857,7 +2878,7 @@ const mockApiData = {
         ],
         current_feed_refs: [
           "GET /control-center/today/summary",
-          "contract-ref:evidence-history-grammar-missing",
+          "contract-ref:evidence-history-grammar:v1",
         ],
         standalone_complete_allowed: false,
       },
@@ -3267,7 +3288,7 @@ const mockApiData = {
     ],
     evidence_timeline_route_ref: "/evidence",
     evidence_timeline_backend_route_ref: "GET /control-center/today/summary",
-    evidence_timeline_status: "storage_backed_redacted_refs",
+    evidence_timeline_status: "storage_backed_redacted_history_grammar_refs",
     evidence_timeline_authority_boundary:
       "Evidence Timeline is safe-ref and redacted-summary only. It does not expose private content, grant approval, perform rollback, or confer production authority.",
     evidence_timeline_blocked_states: [

@@ -1,4 +1,83 @@
-import type { ControlCenterData } from "../api/types";
+import type {
+  ControlCenterData,
+  FounderLoopEvidenceHistoryAnswer,
+  FounderLoopEvidenceHistoryAnswers,
+} from "../api/types";
+
+type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
+
+const evidenceHistoryQuestions: Record<EvidenceHistoryKey, string> = {
+  proposed: "What was proposed?",
+  approved: "What was approved?",
+  happened: "What happened?",
+  changed: "What changed?",
+  undoable: "What can be undone?",
+  stale: "What is stale?",
+  blocked: "What remains blocked?",
+};
+
+function historyAnswer(
+  key: EvidenceHistoryKey,
+  sourceRef: string,
+  answer: string,
+  status: string,
+): FounderLoopEvidenceHistoryAnswer {
+  return {
+    question: evidenceHistoryQuestions[key],
+    answer,
+    refs: [sourceRef, `history-ref:${sourceRef.replaceAll(":", "-")}:${key}`],
+    status,
+  };
+}
+
+function evidenceHistoryAnswers(
+  sourceRef: string,
+): FounderLoopEvidenceHistoryAnswers {
+  return {
+    proposed: historyAnswer(
+      "proposed",
+      sourceRef,
+      "A safe-ref evidence item was proposed for review.",
+      "present",
+    ),
+    approved: historyAnswer(
+      "approved",
+      sourceRef,
+      "Approval posture is recorded as identifiers only; no authority is granted.",
+      "posture_only",
+    ),
+    happened: historyAnswer(
+      "happened",
+      sourceRef,
+      "Only redacted inspection evidence is recorded in this timeline item.",
+      "inspection_only",
+    ),
+    changed: historyAnswer(
+      "changed",
+      sourceRef,
+      "No external, memory, connector, provider, or runtime state changed.",
+      "not_applicable",
+    ),
+    undoable: historyAnswer(
+      "undoable",
+      sourceRef,
+      "Rollback refs describe undo posture only and do not execute rollback.",
+      "posture_only",
+    ),
+    stale: historyAnswer(
+      "stale",
+      sourceRef,
+      "Refs must be rechecked before any future claim or mutation.",
+      "recheck_required",
+    ),
+    blocked: historyAnswer(
+      "blocked",
+      sourceRef,
+      "Approval grants, rollback execution, raw evidence, connector runtime, model/provider authority, and production claims remain blocked.",
+      "blocked",
+    ),
+  };
+}
 
 export const mockControlCenterData: ControlCenterData = {
   source: "mock",
@@ -1679,7 +1758,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         module: "Evidence",
-        status: "implemented_redacted_refs_history_grammar_missing",
+        status: "implemented_redacted_history_grammar_contract_partial",
         required_loop_outputs: [
           "today_evidence_state",
           "action_receipt_or_blocked_state",
@@ -1688,7 +1767,7 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         current_feed_refs: [
           "GET /control-center/today/summary",
-          "contract-ref:evidence-history-grammar-missing",
+          "contract-ref:evidence-history-grammar:v1",
         ],
         standalone_complete_allowed: false,
       },
@@ -1747,6 +1826,130 @@ export const mockControlCenterData: ControlCenterData = {
         "cli_or_repo_local_inspection_path",
       ],
     },
+    evidence_history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+    evidence_history_required_states: [
+      "proposed",
+      "approved",
+      "happened",
+      "changed",
+      "undoable",
+      "stale",
+      "blocked",
+    ],
+    evidence_history_required_questions: [
+      {
+        key: "proposed",
+        question: "What was proposed?",
+        required: true,
+      },
+      {
+        key: "approved",
+        question: "What was approved?",
+        required: true,
+      },
+      {
+        key: "happened",
+        question: "What happened?",
+        required: true,
+      },
+      {
+        key: "changed",
+        question: "What changed?",
+        required: true,
+      },
+      {
+        key: "undoable",
+        question: "What can be undone?",
+        required: true,
+      },
+      {
+        key: "stale",
+        question: "What is stale?",
+        required: true,
+      },
+      {
+        key: "blocked",
+        question: "What remains blocked?",
+        required: true,
+      },
+    ],
+    evidence_history_surface_bindings: [
+      {
+        surface: "Actions",
+        current_status: "implemented_via_action_timeline_refs",
+        required_history_keys: [
+          "proposed",
+          "approved",
+          "happened",
+          "changed",
+          "undoable",
+          "stale",
+          "blocked",
+        ],
+        authority_boundary:
+          "Action evidence can describe posture and refs without granting approval or execution.",
+      },
+      {
+        surface: "Plans",
+        current_status: "partial_until_action_envelopes",
+        required_history_keys: [
+          "proposed",
+          "approved",
+          "happened",
+          "changed",
+          "undoable",
+          "stale",
+          "blocked",
+        ],
+        authority_boundary:
+          "Plan evidence is inspection-only until Action envelopes are scoped.",
+      },
+      {
+        surface: "Memory",
+        current_status: "implemented_review_queue_refs_only",
+        required_history_keys: [
+          "proposed",
+          "approved",
+          "happened",
+          "changed",
+          "undoable",
+          "stale",
+          "blocked",
+        ],
+        authority_boundary:
+          "Memory evidence is recall metadata only, not truth or context injection.",
+      },
+      {
+        surface: "Chat",
+        current_status: "planned_blocked_until_uaa_p1_074",
+        required_history_keys: [
+          "proposed",
+          "approved",
+          "happened",
+          "changed",
+          "undoable",
+          "stale",
+          "blocked",
+        ],
+        authority_boundary:
+          "Chat evidence remains blocked until the local operator surface is scoped.",
+      },
+      {
+        surface: "Code",
+        current_status: "planned_blocked_until_uaa_p1_075",
+        required_history_keys: [
+          "proposed",
+          "approved",
+          "happened",
+          "changed",
+          "undoable",
+          "stale",
+          "blocked",
+        ],
+        authority_boundary:
+          "Code evidence remains blocked until governed diffs and validation proof are scoped.",
+      },
+    ],
     priority_refs: [
       "priority-ref:action:high:founder-action-mock-setup-hardening",
       "priority-ref:briefing:medium:briefing-mock-source-readiness",
@@ -1997,6 +2200,8 @@ export const mockControlCenterData: ControlCenterData = {
         title: "Setup Assistant hardening review",
         safe_summary:
           "Action evidence is shown as receipt, audit, idempotency, rollback, and safe-disable refs only; mutation stays blocked.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers("founder-action:mock-setup-hardening"),
         source_refs: ["founder-action:mock-setup-hardening"],
         status_refs: ["status-ref:founder-loop-action-inbox"],
         related_route_refs: ["GET /control-center/actions/inbox", "/actions"],
@@ -2004,6 +2209,11 @@ export const mockControlCenterData: ControlCenterData = {
         authority_posture:
           "Review-only display; Python Agent Core and LocalApprovalAuthority must validate exact scope before mutation.",
         approval_posture: "dry_run_ref_available",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
         receipt_refs: ["receipt-plan:founder-loop:mock-setup-hardening"],
         audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
         replay_refs: ["replay-ref:founder-loop:action-inbox"],
@@ -2027,6 +2237,8 @@ export const mockControlCenterData: ControlCenterData = {
         title: "Founder Loop v1 product spine",
         safe_summary:
           "Plan evidence is a bounded summary ref and does not create execution authority or a durable run by itself.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers("plan-summary:founder-loop-v1"),
         source_refs: ["plan-summary:founder-loop-v1"],
         status_refs: ["status-ref:founder-loop-plan-summary"],
         related_route_refs: ["/plans", "/task-decomposition/status"],
@@ -2034,6 +2246,11 @@ export const mockControlCenterData: ControlCenterData = {
         authority_posture:
           "Plan summary is inspection-only and not execution authority.",
         approval_posture: "approval_required_before_execution_scope",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
         receipt_refs: [],
         audit_refs: [],
         replay_refs: ["replay-ref:founder-loop:plan-summary"],
@@ -2054,6 +2271,8 @@ export const mockControlCenterData: ControlCenterData = {
         title: "Founder Loop memory review",
         safe_summary:
           "Memory evidence is recall metadata only. Memory is not truth, not approval, and not context-injection authority.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers("memory-review:founder-loop-preferences"),
         source_refs: [
           "memory-review:founder-loop-preferences",
           "source-ref:founder-loop-storage",
@@ -2070,6 +2289,11 @@ export const mockControlCenterData: ControlCenterData = {
         authority_posture:
           "Review-only memory candidate; recall is not truth, and writes, deletes, and context injection remain unscoped.",
         approval_posture: "memory_review_refs_do_not_authorize_writes",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
         receipt_refs: [],
         audit_refs: [],
         replay_refs: ["replay-ref:founder-loop:memory-review"],
@@ -2095,6 +2319,8 @@ export const mockControlCenterData: ControlCenterData = {
         title: "API boundary modularization",
         safe_summary:
           "Briefing evidence is source-readiness posture only. Email, calendar, connector, refresh, and notification runtime stay blocked.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers("briefing:api-boundary-modularization"),
         source_refs: [
           "briefing:api-boundary-modularization",
           "source-ref:control-center-route-status",
@@ -2108,6 +2334,11 @@ export const mockControlCenterData: ControlCenterData = {
         authority_posture:
           "Review-only briefing summary; source reads and delivery remain unscoped.",
         approval_posture: "source_refs_do_not_authorize_connector_runtime",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
         receipt_refs: [],
         audit_refs: [],
         replay_refs: ["replay-ref:founder-loop:morning-briefing"],
@@ -2132,6 +2363,8 @@ export const mockControlCenterData: ControlCenterData = {
         title: "Foundation Gate and latency posture",
         safe_summary:
           "Foundation Gate and latency refs are status evidence only; they do not grant production authority or runtime authority.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers("status-ref:foundation-gate-summary"),
         source_refs: ["status-ref:foundation-gate-summary"],
         status_refs: ["status-ref:foundation-gate-report"],
         related_route_refs: [
@@ -2142,6 +2375,11 @@ export const mockControlCenterData: ControlCenterData = {
         authority_posture:
           "Foundation Gate status and latency measurements are evidence, not production authority.",
         approval_posture: "approval_refs_are_identifiers_only_not_authority",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
         receipt_refs: [],
         audit_refs: ["audit-ref:foundation-gate:latest"],
         replay_refs: ["replay-ref:foundation-gate:latest"],
@@ -2167,7 +2405,7 @@ export const mockControlCenterData: ControlCenterData = {
     ],
     evidence_timeline_route_ref: "/evidence",
     evidence_timeline_backend_route_ref: "GET /control-center/today/summary",
-    evidence_timeline_status: "storage_backed_redacted_refs",
+    evidence_timeline_status: "storage_backed_redacted_history_grammar_refs",
     evidence_timeline_authority_boundary:
       "Evidence Timeline is safe-ref and redacted-summary only. It does not expose private content, grant approval, perform rollback, or confer production authority.",
     evidence_timeline_blocked_states: [
