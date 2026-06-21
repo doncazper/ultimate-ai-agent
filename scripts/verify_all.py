@@ -85,6 +85,7 @@ SCAN_SEQUENCE = [
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
+    ("product truth regression scan", "verify_product_truth"),
     ("repo awareness benchmark scan", "verify_repo_awareness_benchmark"),
     ("backup/restore verification scan", "verify_backup_restore_verification"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
@@ -29826,6 +29827,25 @@ def verify_security_redaction_artifacts():
             print(f"FAIL: {finding.safe_message} [{finding.evidence_hash}]")
         sys.exit(1)
     print("OK: Security/redaction artifacts are safe-summary-only")
+
+
+def verify_product_truth():
+    print("\n[Verifier] Running product truth regression guard...")
+    verifier_path = ROOT / "scripts" / "verify_product_truth.py"
+    spec = importlib.util.spec_from_file_location("verify_product_truth", verifier_path)
+    if spec is None or spec.loader is None:
+        print("FAIL: product truth verifier could not be loaded")
+        sys.exit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    findings = module.validate_product_truth()
+    if findings:
+        for finding in findings:
+            print(f"FAIL: {finding.safe_message} [{finding.evidence_hash}]")
+        sys.exit(1)
+    print("OK: No product-truth overclaims found in scoped docs and UI artifacts")
 
 
 def verify_backup_restore_verification():
