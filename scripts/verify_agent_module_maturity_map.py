@@ -17,6 +17,7 @@ REQUIRED_MODULE_IDS = {
     "workflow_engine",
     "state_manager",
     "context_manager",
+    "memory_module",
     "tool_registry",
     "capability_registry",
     "multi_agent_coordinator",

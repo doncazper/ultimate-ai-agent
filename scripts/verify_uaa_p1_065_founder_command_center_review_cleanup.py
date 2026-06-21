@@ -152,7 +152,8 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
             "UAA-P1-065 Founder Command Center Review/Cleanup Lane",
             "UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status",
             PROMOTED_TASK,
-            "next documented Ready Next milestone",
+            "UAA-P1-067 completed",
+            "UAA-P1-068 is the\ncurrent Ready Next",
             "This milestone adds no backend route",
             "UAA-P1-066 remains queued",
         ],
@@ -183,7 +184,8 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
         DOCS_README: [
             SCOPE_REF,
             "completed UAA-P1-065 Founder Command Center review cleanup",
-            "Ready Next UAA-P1-066",
+            "completed UAA-P1-067",
+            "Ready Next UAA-P1-068",
         ],
         DOCS_INDEX: [SCOPE_REF],
         RECOMMENDATION_LOG: [

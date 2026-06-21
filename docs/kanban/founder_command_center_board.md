@@ -16,10 +16,11 @@ Founder Command Center review/cleanup pass and promoted exactly one later FCC
 candidate: FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core
 Surfaces.
 
-The parent board keeps UAA-P1-066 Local Model Manager Read-Only Control Center
-Inventory/Status queued next after UAA-P1-065. UAA-P1-066 remains strictly
-read-only and does not add lifecycle, switching, activation, download, runtime
-adapter, or production authority.
+UAA-P1-067 completed the Today-spine, memory-first beta-readiness
+planning/currentness path. The parent board now promotes UAA-P1-068 Today
+Product Spine Contract as Ready Next. UAA-P1-066 remains queued as a strictly
+read-only Local Model Manager support lane and does not add lifecycle,
+switching, activation, download, runtime adapter, or production authority.
 
 Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
 and new runtime authority lanes are not allowed to displace this sequence
@@ -52,17 +53,44 @@ Authority-changing cards: 0 unless a separate scoped milestone is accepted
 Implemented / ready for review:
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
-FCC-P1-011, FCC-P1-012.
+FCC-P1-011, FCC-P1-012, UAA-P1-067.
 
 Candidate-next:
+UAA-P1-068 Today Product Spine Contract.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016,
+UAA-P1-069, UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073,
+UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078,
+UAA-P1-079, FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016,
 FCC-BLOCK-001, FCC-BLOCK-002, FCC-BLOCK-003.
 ```
 
 ## Candidate Next
+
+### UAA-P1-068 - Today Product Spine Contract
+
+Epic: Product/UX, Safety/Permissions
+
+Promoted by: UAA-P1-067
+
+Type: contract/docs/test first
+
+Description: Define the shared loop contract every module must feed: Today,
+Actions, Evidence, and Memory.
+
+Acceptance criteria: Today shows current priorities, blockers, follow-ups,
+plan/action state, memory review count, stale-source posture, and next safe
+actions. A module is not complete unless it lands reviewable state in Today or
+one of the loop surfaces.
+
+Required tests/verifiers: focused contract tests when schema exists and
+documentation integrity.
+
+Safety notes: No connector runtime, account auth, automatic refresh,
+background execution, model/provider authority, automatic memory writes,
+hidden context injection, public beta, public distribution, or production
+authority.
 
 ### FCC-P0-002 Follow-Up - Collapse/Organize Control Center Around Core Surfaces
 
@@ -91,6 +119,26 @@ shell/subprocess behavior, public distribution, production authority, or
 React-owned product truth. This task is not implemented by UAA-P1-065.
 
 ## Implemented / Ready For Review
+
+### UAA-P1-067 - Today-Spine Founder Command Center Beta-Readiness Path
+
+Epic: Memory/Knowledge, Business Cofounder Workflows, Product/UX
+
+Implemented by: Documented-milestone conveyor execution
+
+Description: Completed the planning/currentness pass that makes Today the
+product spine, robust reviewed memory the product differentiator, and
+UAA-P1-068 the Ready Next Today Product Spine Contract before broader product
+or authority expansion.
+
+Acceptance evidence: Active docs, roadmap, current board, product truth, MVP
+spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
+UAA-P1-068 as Ready Next, and UAA-P1-066 as read-only local model support.
+
+Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
+Control Center implementation, connector runtime, provider/model call,
+automatic memory write, context injection, public beta, public distribution,
+production claim, or runtime authority.
 
 ### FCC-MAC-001 - P0 - macOS Setup Assistant Hardening
 
@@ -430,6 +478,210 @@ UAA-P1-021, UAA-P1-052, Foundation Gate, OpenAPI, `/api/manifest`, and
 route-status checks are green on the target branch.
 
 ## Backlog
+
+### UAA-P1-069 - Evidence History Grammar
+
+Epic: Evidence/Receipts, Product/UX
+
+Description: Make Evidence read like history: what was proposed, what was
+approved, what happened, what changed, what can be undone, what is stale, and
+what remains blocked.
+
+Acceptance criteria: Memory, Plans, Chat, Code, and Actions can all use the
+same evidence grammar for receipts, audits, rollbacks, stale states, and
+blocked states.
+
+Required tests/verifiers: evidence payload tests when schema exists, frontend
+render tests when surfaced, and documentation integrity.
+
+Safety notes: Safe refs and redacted summaries only. No raw evidence display,
+raw log display, raw path display, or authority grant.
+
+### UAA-P1-070 - Memory Source And Provenance Model
+
+Epic: Memory/Knowledge, Safety/Permissions
+
+Description: Define safe source refs for manual notes, external assistant
+review summaries, local chat, local coding summaries, task plans, action
+proposals, evidence timeline refs, read-only calendar/email metadata refs, and
+CRM-lite business records.
+
+Acceptance criteria: Memory candidates can identify where they came from
+without storing raw prompts, raw responses, raw provider payloads, raw local
+paths, raw logs, account identifiers, usernames, hostnames, credentials, or raw
+private content.
+
+Required tests/verifiers: focused memory/source schema tests and documentation
+integrity.
+
+Safety notes: No provider calls, browser import, connector runtime, account
+auth, automatic memory write, context injection, or production authority.
+
+### UAA-P1-071 - Memory Review Decision Capture
+
+Epic: Memory/Knowledge, Safety/Permissions
+
+Description: Define accept, correct, reject, defer, merge, supersede, and
+forget-request review states before any candidate becomes reviewed recall.
+
+Acceptance criteria: Decisions carry actor refs, source refs, evidence refs,
+stale-state posture, retention posture, audit refs, receipt refs, and blocked
+states for unimplemented write/delete/export behavior.
+
+Required tests/verifiers: focused Memory Review decision tests, Founder Loop
+storage/API tests if persisted, and frontend tests if surfaced.
+
+Safety notes: Review decisions do not create automatic context injection,
+connector writes, model/provider authority, or hidden memory writes.
+
+### UAA-P1-072 - Business Memory And Memory Quality Controls
+
+Epic: Memory/Knowledge, Business Cofounder Workflows
+
+Description: Shape reviewed candidate kinds for profile, project,
+relationship, organization, deal/opportunity, promise, follow-up, preference,
+decision, and commitment memory, plus dedupe, conflict, stale/expired,
+low-confidence, source-missing, and evidence-missing posture.
+
+Acceptance criteria: Business memory shows provenance, review state,
+correction path, stale-state posture, retention/delete/export posture, quality
+posture, and evidence refs. It feeds Today, Action Inbox, Evidence Timeline,
+and Weekly CEO Review without external CRM writes or account sync.
+
+Required tests/verifiers: memory schema tests, raw-content denial tests,
+memory quality tests, and documentation integrity.
+
+Safety notes: Local CRM-lite only. No connector writes, hidden sync, account
+auth, raw private-content display, or production authority.
+
+### UAA-P1-073 - Plans To Reviewable Action Envelopes
+
+Epic: Plans/Actions, Safety/Permissions
+
+Description: Plans must produce approve/edit/reject/defer-ready Action
+envelopes with exact scope, side-effect class, risk, approval requirement,
+idempotency, expiry, evidence refs, expected receipt refs, rollback or
+safe-disable posture, and blocked-state reasons.
+
+Acceptance criteria: Classification and decomposition alone are not enough.
+The user can review an Action envelope, edit its scope, reject it, defer it, or
+approve it only through exact scoped authority when such authority exists.
+
+Required tests/verifiers: plan/action envelope contract tests, approval-scope
+tests, route/API manifest checks if routes change, and documentation integrity.
+
+Safety notes: No execution, no reusable approval ref, no broad autonomy, and
+no connector writes by default.
+
+### UAA-P1-074 - Chat Local Operator Surface
+
+Epic: Chat, Local Model, Product/UX
+
+Description: Chat must send a local turn, show model/runtime/auth/tool-denial
+truth, produce safe evidence, and hand off to Plans or Actions.
+
+Acceptance criteria: A user can see whether local model runtime, auth, route
+availability, and tool/function denial are true. Model output is not treated as
+truth, memory, approval evidence, or execution authority.
+
+Required tests/verifiers: local gateway/API tests, Control Center render tests,
+auth/tool-denial tests, evidence-summary tests, and documentation integrity.
+
+Safety notes: No provider SDK calls, web fetching, tool execution, automatic
+memory write, hidden context injection, or production authority.
+
+### UAA-P1-075 - Governed Code Workbench V1
+
+Epic: Code/Workspace, Evidence/Receipts, Safety/Permissions
+
+Description: Build a narrow, better-governed code path before chasing broad
+coding-agent autonomy: repo-local safe diffs, validation proof, exact approval
+before apply, atomic apply, rollback receipts, and evidence timeline binding.
+
+Acceptance criteria: Code proposals show scope, diff summary, validation plan,
+validation result refs, approval requirement, apply receipt, rollback receipt,
+and Evidence history entries.
+
+Required tests/verifiers: file/diff/apply/rollback tests, redaction tests,
+frontend render tests when surfaced, OpenAPI/API manifest tests if routes
+change, and documentation integrity.
+
+Safety notes: No unrestricted shell, remote execution, broad coding-agent
+autonomy, raw path evidence, or unapproved mutation.
+
+### UAA-P1-076 - Cross-Surface Memory Intake
+
+Epic: Memory/Knowledge, Product/UX
+
+Description: Bind memory proposals from Today, Chat, Plans, Actions, Evidence,
+local coding summaries, and manual external-assistant review imports.
+
+Acceptance criteria: Each intake path produces bounded safe summaries,
+source/evidence refs, missing-evidence posture, confidence posture, and next
+safe action labels. External assistant output is treated as untrusted review
+input, not truth or authority.
+
+Required tests/verifiers: cross-surface fixture tests and Control Center
+render tests for proposed candidates.
+
+Safety notes: No automatic import from ChatGPT, browser state, local shell
+history, provider payloads, account content, or raw files.
+
+### UAA-P1-077 - Memory-To-Loop Binding
+
+Epic: Product/UX, Memory/Knowledge
+
+Description: Make Today, Action Inbox, Evidence Timeline, and Weekly CEO Review
+show memory candidates, accepted recall refs, corrections, rejected items,
+follow-up commitments, stale-state posture, and missing-evidence blockers.
+
+Acceptance criteria: Memory is visible as part of the daily operating loop,
+not a hidden background store. Every memory-derived action proposal names its
+source refs, evidence refs, side-effect class, and approval posture.
+
+Required tests/verifiers: Control Center render tests, Founder Loop storage/API
+tests if route payloads change, frontend safety verifier, and docs integrity.
+
+Safety notes: Memory-derived UI does not grant approval, execute work, inject
+context, or mutate external systems.
+
+### UAA-P1-078 - Private Beta-Readiness Gate
+
+Epic: Testing/Evals, Product/UX, Safety/Permissions
+
+Description: Define the local/private beta-test acceptance gate for Morning
+Briefing, Action Inbox, Memory Review, Evidence Timeline, safe local
+Chat/Plans handoff, governed Code diffs, and CRM-lite follow-ups.
+
+Acceptance criteria: Beta-readiness evidence distinguishes pass, fail, skipped,
+blocked, partial, mock-only, and accepted-failure states; no public beta,
+public distribution, production readiness, broad autonomy, connector write, or
+provider/model authority is claimed.
+
+Required tests/verifiers: documentation integrity, product truth verifier,
+frontend checks, focused Founder Loop tests, and Foundation Gate report-only
+summary when implementation exists.
+
+Safety notes: Private local beta-test readiness is not public beta or
+production authority.
+
+### UAA-P1-079 - User Intent Understanding V1
+
+Epic: Intent/Planning, Product/UX, Safety/Permissions
+
+Description: Later, after the loop has reviewed memory, evidence history,
+Action envelopes, Chat receipts, and Code receipts, shape a reviewable intent
+classifier.
+
+Acceptance criteria: Intent proposals include confidence, source refs,
+ambiguity posture, ask/act/defer routing, and evidence refs. Low-confidence or
+conflicting intent asks the user rather than acting.
+
+Required tests/verifiers: intent taxonomy tests, ambiguity tests, product
+language checks, and documentation integrity.
+
+Safety notes: Intent classification is not hidden authority, approval, memory
+truth, or broad autonomy.
 
 ### FCC-P1-014 - P1 - Lead And Follow-Up Tracker Spec
 

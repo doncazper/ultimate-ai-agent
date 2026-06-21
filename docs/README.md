@@ -2,8 +2,9 @@
 
 Status: active
 Current through: v0.102.3 plus accepted checkpoint-m168, completed
-UAA-P1-065 Founder Command Center review cleanup, and Ready Next UAA-P1-066
-read-only Local Model Control Center inventory/status work.
+UAA-P1-065 Founder Command Center review cleanup, completed UAA-P1-067
+Today-Spine Founder Command Center beta-readiness planning/currentness work,
+and Ready Next UAA-P1-068 Today Product Spine Contract work.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -43,13 +44,17 @@ docs/release_notes/checkpoint_m167.md
 ```
 
 The active Operator Runtime Excellence sequence now points from completed
-UAA-P1-065 Founder Command Center review cleanup to Ready Next UAA-P1-066
-read-only Local Model Control Center inventory/status. This sequence adds no
-production authority, public distribution, broad autonomy, shell/subprocess
-authority, unrestricted network/browser automation, connector writes, plugin
-runtime import, mobile control, model/provider authority, raw prompt export,
-raw response export, raw provider payload export, or no-secret-output
-regression.
+UAA-P1-065 Founder Command Center review cleanup and completed UAA-P1-067
+Today-spine beta-readiness planning/currentness to Ready Next UAA-P1-068 Today
+Product Spine Contract. UAA-P1-066 remains queued as a strictly read-only Local
+Model Control Center inventory/status support lane. This sequence makes Today
+the product spine and keeps memory, Evidence, Plans, Chat, Code, and Actions
+bound to safe refs, review decisions, receipts, and rollback posture. It adds
+no production authority, public beta, public distribution, broad autonomy,
+shell/subprocess authority, unrestricted network/browser automation, connector
+writes, plugin runtime import, mobile control, model/provider authority, raw
+prompt export, raw response export, raw provider payload export, or
+no-secret-output regression.
 
 ## Active Program Areas
 

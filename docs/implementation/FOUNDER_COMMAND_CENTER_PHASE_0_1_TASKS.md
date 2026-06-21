@@ -293,8 +293,10 @@ Type: full-stack
 Current status: baseline implemented/ready for review as a read-only Founder
 Loop Memory Review surface on `/memory` backed by
 `GET /control-center/today/summary`. Remaining work is decision capture,
-memory write policy binding, retention/delete contract, context-injection
-contract, CLI inspection path, and durable receipt binding.
+memory source/provenance modeling, cross-surface intake, business memory
+candidate kinds, quality controls, memory write policy binding,
+retention/delete contract, context-injection contract, CLI inspection path, and
+durable receipt binding.
 
 New authority: no automatic memory write, memory delete, context injection,
 model/provider authority, connector write, raw source display, background sync,
@@ -305,8 +307,18 @@ Acceptance criteria:
 - Memory candidates include provenance, source refs, evidence refs, review
   state, correction state, confidence, retention/delete posture, and safe
   summary.
-- Accept/correct/reject states are review states until existing memory write
-  policy is explicitly bound.
+- Accept/correct/reject/defer/merge/supersede/forget-request states are review
+  states until existing memory write policy is explicitly bound.
+- Memory candidates distinguish manual notes, external assistant review
+  summaries, local chat summaries, local coding summaries, plans, actions,
+  evidence refs, read-only calendar/email metadata refs, and CRM-lite business
+  records.
+- Business memory candidates cover profile, project, relationship,
+  organization, deal/opportunity, promise, follow-up, preference, decision, and
+  commitment refs.
+- Quality posture distinguishes duplicate, conflict, stale/expired,
+  low-confidence, source-missing, evidence-missing, blocked, and reviewed
+  states.
 - Route paths, operation IDs, and side-effect classes remain unchanged.
 - `/memory` is human-readable first and does not expose raw transcript, prompt,
   source, path, log, provider payload, username, hostname, environment dump,
@@ -315,6 +327,8 @@ Acceptance criteria:
 Tests to add/update:
 
 - Focused Founder Loop storage/API contract tests.
+- Memory source/provenance and decision-state tests.
+- Memory quality/dedupe/conflict/stale posture tests.
 - `apps/control-center/src/App.test.tsx`
 - `make frontend-check`
 - `.venv/bin/python scripts/verify_control_center_frontend.py`
@@ -333,6 +347,286 @@ Likely files touched:
 - `docs/control_center/route_status_manifest.json`
 
 PR size: split contract and UI if needed.
+
+## Task 9a - UAA-P1-068 Today Product Spine Contract
+
+Type: backend contract/test/docs first
+
+New authority: no.
+
+Acceptance criteria:
+
+- Define how every module feeds Today, Actions, Evidence, and Memory.
+- Today shows priorities, blockers, follow-ups, plan/action state, memory
+  review count, stale-source posture, and next safe actions.
+- Module completion definitions must avoid standalone "module complete" claims.
+
+Tests to add/update:
+
+- Focused spine contract tests when schema exists.
+- Documentation integrity.
+
+PR size: one contract/docs PR.
+
+## Task 9b - UAA-P1-069 Evidence History Grammar
+
+Type: backend contract/test plus UI display later
+
+New authority: no.
+
+Acceptance criteria:
+
+- Evidence entries answer: what was proposed, what was approved, what happened,
+  what changed, what can be undone, what is stale, and what remains blocked.
+- Memory, Plans, Chat, Code, and Actions can all reference this grammar.
+- Evidence stays safe-ref/redacted-summary first, never raw logs or raw paths.
+
+Tests to add/update:
+
+- Evidence grammar contract tests.
+- Founder Loop storage/API tests if persisted.
+- Frontend render tests if surfaced.
+
+PR size: split contract and UI if needed.
+
+## Task 9c - UAA-P1-070 Memory Source And Provenance Model
+
+Type: backend contract/test/docs
+
+New authority: no.
+
+Acceptance criteria:
+
+- Define safe source refs for manual notes, external assistant review summaries,
+  local chat summaries, local coding summaries, task plans, action proposals,
+  evidence timeline refs, read-only calendar/email metadata refs, and CRM-lite
+  business records.
+- Deny raw prompt, raw response, raw provider payload, raw local path, raw log,
+  account identifier, username, hostname, credential, token, and raw private
+  content fields in durable evidence.
+- Mark external assistant and local model output as untrusted source input until
+  reviewed.
+
+Tests to add/update:
+
+- Focused memory source/provenance schema tests.
+- Redaction denial tests for raw/private fields.
+- Documentation integrity.
+
+PR size: one backend contract PR.
+
+## Task 9d - UAA-P1-071 Memory Review Decision Capture
+
+Type: backend contract/test plus UI display later
+
+New authority: no automatic write/delete/export/context injection.
+
+Acceptance criteria:
+
+- Support accept, correct, reject, defer, merge, supersede, and forget-request
+  review states.
+- Decisions include actor refs, source refs, evidence refs, stale-state
+  posture, retention posture, audit refs, receipt refs, and blocked-state refs.
+- Decision capture does not turn memory into truth, approval evidence, or
+  context-injection authority.
+
+Tests to add/update:
+
+- Focused decision-state tests.
+- Founder Loop storage/API tests if persisted.
+- Frontend tests if decision states are rendered.
+
+PR size: split contract and UI if needed.
+
+## Task 9e - UAA-P1-072 Business Memory And Memory Quality Controls
+
+Type: backend contract/test plus UI display later
+
+New authority: no connector writes or account sync.
+
+Acceptance criteria:
+
+- Add candidate kinds for profile, project, relationship, organization,
+  deal/opportunity, promise, follow-up, preference, decision, and commitment.
+- Distinguish duplicate, conflict, stale/expired, low-confidence,
+  source-missing, evidence-missing, blocked, and reviewed memory posture.
+- Business memory feeds Today, Action Inbox, Evidence Timeline, and Weekly CEO
+  Review as safe refs only.
+
+Tests to add/update:
+
+- Business memory schema tests.
+- Memory quality contract tests.
+- Raw-content denial tests.
+- Control Center render tests when surfaced.
+
+PR size: split contract and UI if needed.
+
+## Task 9f - UAA-P1-073 Plans To Reviewable Action Envelopes
+
+Type: backend contract/test plus UI display later
+
+New authority: no execution or approval grant.
+
+Acceptance criteria:
+
+- Plans produce approve/edit/reject/defer-ready Action envelopes with exact
+  scope, side-effect class, risk, approval requirement, idempotency, expiry,
+  evidence refs, expected receipt refs, rollback/safe-disable posture, and
+  blocked-state reasons.
+- Classification and decomposition are not treated as product completion.
+- Approval refs remain identifiers unless exact LocalApprovalAuthority scope is
+  validated by a later accepted implementation.
+
+Tests to add/update:
+
+- Plan/action envelope contract tests.
+- Approval-scope tests.
+- OpenAPI/API manifest tests if routes change.
+- Documentation integrity.
+
+PR size: one contract PR, then one UI PR if needed.
+
+## Task 9g - UAA-P1-074 Chat Local Operator Surface
+
+Type: backend/local gateway plus UI display later
+
+New authority: no provider SDK, tool execution, or memory write.
+
+Acceptance criteria:
+
+- Chat can send a local turn through the governed local gateway.
+- Chat shows model/runtime/auth/tool-denial truth and safe evidence refs.
+- Chat can hand off to Plans or Actions as proposals only.
+- Model output is not truth, memory, approval evidence, or execution authority.
+
+Tests to add/update:
+
+- Local gateway/API tests.
+- Auth/tool-denial tests.
+- Control Center render tests.
+- Documentation integrity.
+
+PR size: split backend and UI if needed.
+
+## Task 9h - UAA-P1-075 Governed Code Workbench V1
+
+Type: backend contract/test plus UI display later
+
+New authority: no unapproved mutation or unrestricted shell.
+
+Acceptance criteria:
+
+- Code proposals show repo-local scope, safe diff summary, validation plan,
+  validation result refs, approval requirement, apply receipt, rollback receipt,
+  and Evidence history entries.
+- Apply remains approval-bound, atomic, idempotent, auditable, rollback-aware,
+  and redacted.
+- Broad coding-agent autonomy, unrestricted shell, and remote execution remain
+  blocked.
+
+Tests to add/update:
+
+- File/diff/apply/rollback tests.
+- Redaction tests.
+- OpenAPI/API manifest tests if routes change.
+- Frontend render tests when surfaced.
+
+PR size: split contract, apply, and UI if needed.
+
+## Task 9i - UAA-P1-076 Cross-Surface Memory Intake
+
+Type: full-stack read-only/proposal
+
+New authority: no.
+
+Acceptance criteria:
+
+- Today, Chat, Plans, Actions, Evidence, local coding summaries, and manual
+  external-assistant review imports can produce memory proposals with bounded
+  safe summaries and source/evidence refs.
+- Intake paths expose missing-evidence, confidence, stale-state, and next safe
+  action labels.
+- No provider calls, account fetch, browser import, shell history import, raw
+  file import, automatic memory write, or context injection is added.
+
+Tests to add/update:
+
+- Cross-surface fixture tests.
+- Control Center render tests for proposed candidates.
+- Frontend safety verifier updates if new UI is added.
+
+PR size: one proposal/intake PR after provenance and decision contracts.
+
+## Task 9j - UAA-P1-077 Memory-To-Loop Binding
+
+Type: full-stack read-only product-surface binding
+
+New authority: no.
+
+Acceptance criteria:
+
+- Today, Action Inbox, Evidence Timeline, and Weekly CEO Review show memory
+  candidates, accepted recall refs, corrections, rejected items, follow-up
+  commitments, stale-state posture, and missing-evidence blockers.
+- Every memory-derived action proposal names source refs, evidence refs,
+  side-effect class, approval posture, and next safe action.
+
+Tests to add/update:
+
+- Founder Loop storage/API tests.
+- `apps/control-center/src/App.test.tsx`
+- `make frontend-check`
+- Documentation integrity.
+
+PR size: one read-only UI/API binding PR after Tasks 9a-9i.
+
+## Task 9k - UAA-P1-078 Private Beta-Readiness Gate
+
+Type: docs/test/release-evidence planning first
+
+New authority: no public beta, distribution, or production claim.
+
+Acceptance criteria:
+
+- Define private local beta-test evidence for Morning Briefing, Action Inbox,
+  Memory Review, Evidence Timeline, safe local Chat/Plans handoff, governed
+  Code diffs, and CRM-lite follow-ups.
+- Gate distinguishes pass, fail, skipped, blocked, partial, mock-only, and
+  accepted-failure states.
+- Public beta, public distribution, production readiness, broad autonomy,
+  connector writes, provider/model authority, unrestricted shell, remote
+  execution, and account sync remain blocked.
+
+Tests to add/update:
+
+- Documentation integrity.
+- Product truth verifier.
+- Focused Founder Loop tests after implementation.
+
+PR size: one docs/test planning PR, then implementation evidence PRs later.
+
+## Task 9l - UAA-P1-079 User Intent Understanding V1
+
+Type: later backend contract/test/docs
+
+New authority: no.
+
+Acceptance criteria:
+
+- Intent proposals include confidence, source refs, ambiguity posture,
+  ask/act/defer routing, and evidence refs.
+- Intent understanding depends on reviewed memory, evidence history, action
+  envelopes, Chat receipts, and Code receipts.
+- Low-confidence or conflicting intent asks the user rather than acting.
+
+Tests to add/update:
+
+- Intent taxonomy tests.
+- Ambiguity and ask-rather-than-act tests.
+- Documentation integrity.
+
+PR size: later contract PR only after UAA-P1-078 evidence exists.
 
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 

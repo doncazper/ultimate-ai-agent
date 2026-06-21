@@ -233,10 +233,12 @@ for the target workflow.
 
 Implementation lane: follow
 docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md#next-implementation-lane,
-starting from the accepted UAA-P1-011 readable-loop baseline: local Control
-Center macOS-first Setup Assistant hardening, first product loop readability,
-Action Inbox / approval envelope UX, Morning Briefing skeleton, then read-only
-email/calendar integration contracts later.
+starting from the accepted UAA-P1-011 readable-loop baseline: Today product
+spine, Evidence history, Memory source/provenance and review decisions, Plans
+to Action envelopes, Chat local operator surface, governed Code workbench,
+Setup Assistant hardening, first product loop readability, Action Inbox /
+approval envelope UX, Morning Briefing skeleton, then read-only email/calendar
+integration contracts later.
 
 Requirements: readable product UI first; exact route/status/evidence refs;
 blocked states with next safe action; no fake completion; tests for happy,
@@ -357,4 +359,191 @@ If docs change, run:
 Final summary must list files changed, tests/verifiers run, skipped checks with
 reasons, setup authority boundaries preserved, route/operation ID impact,
 side-effect class impact, and remaining blocked items.
+```
+
+## 10. Today-Spine Milestone Conveyor Prompt
+
+Use this prompt to run the UAA-P1-067 through UAA-P1-079 conveyor. The
+conveyor is repo-local process guidance only. It does not grant runtime
+authority, connector authority, provider/model authority, unrestricted shell,
+public beta, public distribution, or production readiness.
+
+Current conveyor status: UAA-P1-067 is complete for planning/currentness. The
+next incomplete documented milestone is UAA-P1-068 Today Product Spine
+Contract unless active docs show a later milestone has already been completed.
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: implement the next Today-spine Founder Command Center milestone in the
+documented conveyor. Start with UAA-P1-067 Today-Spine Founder Command Center
+beta-readiness planning unless the reviewed docs show UAA-P1-067 is already
+complete. Then choose the next incomplete documented milestone in order:
+UAA-P1-068, UAA-P1-069, UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073,
+UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, then UAA-P1-079.
+Stop after UAA-P1-079 is complete and verified. Do not invent milestones after
+UAA-P1-079 unless the active roadmap explicitly documents them.
+
+Review the following documents first:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+
+Milestone selection:
+1. Inspect the active docs and git history/status.
+2. Identify the first incomplete milestone in the documented order.
+3. If the selected milestone is too large for one safe change, create an
+   incremental prompt for the smallest useful slice using suffixes such as
+   UAA-P1-067.1, UAA-P1-067.2, etc. Incremental prompts must stay inside the
+   parent milestone acceptance criteria and must not create competing roadmap
+   truth.
+4. If the selected milestone can be completed in one pass, create the exact
+   implementation prompt for that milestone.
+
+Before editing, create the milestone prompt in the repo:
+- Add or update the relevant section in
+  docs/codex/CODEX_EXECUTION_PROMPTS.md, or add a subordinate prompt artifact
+  only if the prompt is too large for that file.
+- The created prompt must include: scope, non-goals, files to read, acceptance
+  criteria, implementation steps, review/fix phase, hardening phase, validation
+  commands, commit/push instructions, and the next-prompt recommendation rule.
+- After creating the prompt, execute that created prompt in the same Codex run
+  unless doing so would be unsafe, ambiguous, or too large. If execution is not
+  safe, stop after creating the prompt and explain the blocker.
+
+Global safety boundaries:
+- Do not add production authority, public beta, public distribution, broad
+  autonomy, unrestricted shell/subprocess execution, unrestricted network or
+  browser automation, connector writes, plugin runtime import, mobile control,
+  provider/model authority, automatic memory writes, hidden context injection,
+  raw prompt/response/provider payload/path/log evidence, credential material,
+  usernames, hostnames, environment dumps, or secret-like durable output.
+- Preserve Python Agent Core as the brain. Control Center and OpenWebUI are
+  shells.
+- Mutating paths must be exact-scoped, approval-bound, idempotent, auditable,
+  rollback-aware, redacted, and tested.
+- Product behavior must not live only in React state. UI-only state is limited
+  to presentation concerns.
+
+Execution workflow:
+1. Review: read the required docs, inspect current code/tests/docs for the
+   selected milestone, and write down the exact current gap.
+2. Implement: make the smallest scoped changes needed to satisfy the selected
+   milestone or incremental slice.
+3. Review and fix: perform an adversarial self-review before hardening. Look
+   for stale roadmap truth, unsafe product claims, route/OpenAPI drift,
+   authority expansion, raw/private evidence leaks, missing tests, UI-only
+   product behavior, broken CLI/API parity, and unclear next-prompt state.
+   Fix all P0/P1 issues found by the review before moving on.
+4. Harden: add or tighten tests, static verifiers, docs integrity checks,
+   redaction checks, frontend checks, OpenAPI/API manifest checks, or Foundation
+   Gate report-only checks as appropriate for the changed files.
+5. Verify: run focused tests first, then required verifiers. At minimum for
+   docs/planning changes run:
+   .venv/bin/python scripts/verify_documentation_integrity.py
+   git diff --check
+   For backend route/API changes also run:
+   PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+   PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
+   PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py
+   For frontend changes also run:
+   make frontend-check
+   .venv/bin/python scripts/verify_control_center_frontend.py
+6. Commit and push: only after checks pass, inspect git status, stage only the
+   files changed for this milestone, commit with a concise milestone message,
+   and push the current branch. Do not stage unrelated user changes. If push is
+   blocked by credentials, remote state, branch policy, or failing checks, do
+   not force it; report the blocker and leave the work unpushed.
+7. Recommend the next prompt: after the commit/push step succeeds or is clearly
+   blocked, add a "Next prompt" section to the final answer and, when useful,
+   to docs/backlog/codex_recommendation_log.md. The next prompt must repeat the
+   required review-doc list above and either:
+   - continue with an incremental suffix for the same milestone when remaining
+     acceptance criteria are incomplete, or
+   - move to the next documented milestone when the current one is complete.
+
+Definition of complete for a milestone:
+- The scoped acceptance criteria in the reviewed roadmap/board/task docs are
+  satisfied.
+- Active docs and boards mark the milestone truthfully.
+- Relevant tests/verifiers pass or blockers are reported.
+- Product language distinguishes implemented, partial, planned, blocked,
+  skipped, mock-only, and missing states.
+- No unsafe authority or raw/private evidence was introduced.
+- A commit was created and pushed, or the exact push blocker is recorded.
+- The next prompt is recommended.
+
+Initial milestone prompt to create and execute:
+
+Task: UAA-P1-067 Today-Spine Founder Command Center beta-readiness planning.
+
+Goal: complete the planning/currentness milestone that defines the conveyor
+from UAA-P1-067 through UAA-P1-079. Make Today the product spine, keep robust
+reviewed memory as the differentiator, and ensure every documented module feeds
+Today, Actions, Evidence, and Memory rather than claiming standalone completion.
+
+Scope: docs, boards, prompt library, recommendation log, and verifier
+alignment only unless the reviewed docs already scope a focused test/verifier
+change. Do not add backend routes, frontend controls, dependencies, runtime
+behavior, connector runtime, provider/model calls, shell/browser/plugin/mobile
+authority, automatic memory writes, context injection, public beta, public
+distribution, or production authority.
+
+Read first:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+
+Acceptance criteria:
+- When UAA-P1-067 is still incomplete, active docs mark it as the
+  planning/currentness milestone in progress; after completion, active docs
+  mark it complete and promote UAA-P1-068 as Ready Next.
+- The milestone conveyor order is explicit: UAA-P1-068 Today spine,
+  UAA-P1-069 Evidence history, UAA-P1-070 memory provenance, UAA-P1-071 Memory
+  Review decisions, UAA-P1-072 business memory and quality, UAA-P1-073 Plans to
+  Action envelopes, UAA-P1-074 Chat operator surface, UAA-P1-075 governed Code,
+  UAA-P1-076 cross-surface memory intake, UAA-P1-077 memory-to-loop binding,
+  UAA-P1-078 private beta-readiness gate, and UAA-P1-079 later intent
+  understanding.
+- The docs explain that Today is the product spine and every module feeds
+  Today, Actions, Evidence, and Memory.
+- The docs explain that Evidence must read as history, Plans must produce
+  reviewable Action envelopes, Chat must be a real local operator surface, and
+  Code must be narrower than Goat but better governed.
+- UAA-P1-066 remains a queued read-only local model support lane and does not
+  displace the product spine.
+- The prompt conveyor is recorded so future Codex runs create, execute, review,
+  harden, commit, push, and recommend the next prompt until documented
+  milestones are complete.
+
+Review/fix phase:
+- After edits, perform an adversarial review for stale milestone numbering,
+  unsafe beta/public/production claims, missing stop condition, missing commit
+  and push instructions, missing next-prompt recommendation rule, and any text
+  implying runtime authority.
+- Fix issues before hardening.
+
+Hardening/validation:
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run .venv/bin/python scripts/verify_uaa_p1_065_founder_command_center_review_cleanup.py
+- Run .venv/bin/python scripts/verify_agent_module_maturity_map.py if maturity
+  docs changed.
+- Run focused pytest for any verifier changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-067.
+- Commit with message: docs: add UAA-P1-067 milestone conveyor
+- Push the current branch. If push is blocked, report the exact blocker and do
+  not force-push.
+
+Next prompt recommendation:
+- If UAA-P1-067 is incomplete, recommend UAA-P1-067.1 with the same review-doc
+  list and the remaining acceptance criteria.
+- If UAA-P1-067 is complete, recommend UAA-P1-068 Today Product Spine Contract
+  with the same review-doc list.
 ```

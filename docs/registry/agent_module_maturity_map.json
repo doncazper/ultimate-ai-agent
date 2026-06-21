@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "baseline": "v0.102.0",
-  "assessed_on": "2026-06-19",
+  "baseline": "v0.102.3",
+  "assessed_on": "2026-06-21",
   "assessment_scope": "Repository-local maturity for requested agent modules. Scores measure implemented, documented, and tested UAA artifacts, not product ambition or roadmap intent.",
   "maturity_levels": [
     {
@@ -342,6 +342,54 @@
         "No automatic memory-to-context expansion."
       ],
       "next_checkpoint": "Promote from validated_contract only after a reviewed no-injection-to-injection boundary is designed."
+    },
+    {
+      "id": "memory_module",
+      "name": "Memory module",
+      "requested_definition": "Stores, reviews, recalls, corrects, expires, and explains user/project/business memory without making memory authoritative.",
+      "status": "present_bounded_local",
+      "maturity": "constrained_local_runtime",
+      "maturity_score": 4,
+      "summary": "UAA has governed memory records, write policy, local in-memory and SQLite-backed stores, source refs, provenance, recall metadata, redaction, retention/delete/export contracts, supersession, relationship/follow-up candidate schema, and Founder Loop memory review storage. It is not yet the robust Founder Command Center memory advantage because cross-surface intake, review decision capture, business-memory quality controls, and Today/Action/Evidence binding are still planned.",
+      "primary_paths": [
+        "src/ultimate_ai_agent/core/memory/provider.py",
+        "src/ultimate_ai_agent/core/memory/local_store.py",
+        "src/ultimate_ai_agent/core/memory/store.py",
+        "src/ultimate_ai_agent/core/memory/records.py",
+        "src/ultimate_ai_agent/core/memory/policy.py",
+        "src/ultimate_ai_agent/core/memory/fcc_relationship_memory_schema.py",
+        "src/ultimate_ai_agent/core/storage/founder_loop.py"
+      ],
+      "supporting_paths": [
+        "docs/memory/MEMORY_PROVIDER_ABSTRACTION.md",
+        "docs/memory/LOCAL_MEMORY_STORE.md",
+        "docs/memory/MEMORY_REVIEW_AND_PROVENANCE.md",
+        "docs/memory/MEMORY_RETENTION_DELETE_EXPORT.md",
+        "docs/memory/MEMORY_CONFLICT_AND_STALENESS.md",
+        "docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md",
+        "docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md"
+      ],
+      "test_paths": [
+        "tests/test_m24_memory_provider_contracts.py",
+        "tests/test_m24_local_memory_store.py",
+        "tests/test_m24_memory_write_validation.py",
+        "tests/test_memory_store.py",
+        "tests/test_memory_supersession.py",
+        "tests/test_memory_redaction.py",
+        "tests/test_fcc_p1_010_relationship_memory_schema.py",
+        "tests/test_founder_loop_storage.py"
+      ],
+      "evidence": [
+        "M24 memory provider contracts and local stores are tested with source refs, review states, retention posture, redaction, and forbidden raw-content boundaries.",
+        "Founder Loop storage and relationship/follow-up candidate tests prove a bounded Memory Review substrate, not automatic memory authority."
+      ],
+      "gaps": [
+        "No persisted accept/correct/reject/defer/merge/supersede/forget-request decision capture for Memory Review.",
+        "No cross-surface intake from local chat, local coding summaries, manual external-assistant review summaries, plans, actions, calendar/email metadata refs, and evidence timeline refs.",
+        "No full CRM-lite business-memory quality layer for people, projects, organizations, opportunities, promises, follow-ups, decisions, preferences, conflicts, and stale records.",
+        "No completed Today/Action/Evidence/Weekly Review binding that makes reviewed memory feel like the product spine."
+      ],
+      "next_checkpoint": "Use UAA-P1-070 through UAA-P1-077 to add source provenance, decision capture, business memory, quality controls, cross-surface intake, and loop binding before raising maturity."
     },
     {
       "id": "tool_registry",

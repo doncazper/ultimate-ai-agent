@@ -71,13 +71,14 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
+| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Ready Next: Today Product Spine Contract; then `UAA-P1-069` through `UAA-P1-078` for evidence history, memory provenance/review, Plans-to-Action envelopes, Chat operator surface, governed Code workbench, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
 | Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
 | Expand CI into named release lanes | `UAA-P1-013` Done, `UAA-P1-053` Done: CI lane workflow expansion | P1 | docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction, local model, durability, performance, and packaging lanes are visible in CI without unsafe artifact leakage |
 | Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Done: Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
 | Preserve UAA's stricter authority model | `UAA-P1-020` PolicyEngine consolidation map | P0/P1 | No copied peer runtime feature ships without exact policy, approval, audit, rollback, and redaction gates |
 | Add automated security scanning and artifact redaction checks | `UAA-P1-055` Done: security automation and artifact redaction lane | P1 | Security scans and artifact checks are safe, local/CI bounded, and do not claim external audit or public distribution |
-| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape; `UAA-P1-064` Done: read-only local model inventory backend + CLI; `UAA-P1-066` Ready Next: read-only Control Center inventory/status only | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. |
+| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape; `UAA-P1-064` Done: read-only local model inventory backend + CLI; `UAA-P1-066` queued: read-only Control Center inventory/status only | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. UAA-P1-066 supports the memory-first product path but does not displace it. |
 | Productize extension boundary carefully | `UAA-P2-048` Static package review, `UAA-P2-056` Extension trust product surface | P2 | Trust/provenance inspection improves before plugin execution exists; runtime import remains disabled |
 | Treat installer/release workflows as catch-up after local loop usability | `UAA-P2-047` Signed installer and public distribution lane shaping | P2 | No signed/public distribution claim until local loop, security, durability, and artifact proof gates are green |
 | Preserve blocked/scoped/planned truthfulness | `UAA-P1-031` Done, `UAA-P1-057` Done, `UAA-P1-060` Done, `UAA-P1-061` Done | P0/P1 | Planned, blocked, skipped, mock, and not-scoped work cannot be described as complete or production-ready; readiness language maps through a shared taxonomy and reconciliation artifacts |
@@ -190,8 +191,9 @@ Tasks:
   switching is solid.
 - The exact-scoped Local Model Manager sequence now has UAA-P1-064 completed
   for read-only inventory over consolidated local roots and CLI-first
-  `uaa local-model status/list/inspect`. UAA-P1-066 is Ready Next for
-  read-only Control Center status only. Later stages still require separate
+  `uaa local-model status/list/inspect`. UAA-P1-066 remains queued for
+  read-only Control Center status only and supports, but does not supersede,
+  the memory-first product beta-readiness path. Later stages still require separate
   exact scoped milestones: GGUF-only
   `llama-server --models-dir <approved-gguf-cache-ref> --models-max 1`
   planning, dry-run switch planning, approval-bound switch, Desktop/Hermes UI
@@ -200,7 +202,7 @@ Tasks:
   and CLI inspection slice from that sequence. This milestone excludes
   lifecycle control, switching, downloads, route/OpenAPI authority, Control
   Center activation controls, model/provider calls, and runtime adapters.
-- `UAA-P1-066` Ready Next: promote a strictly read-only Control
+- `UAA-P1-066` Queued support lane: promote a strictly read-only Control
   Center model inventory/status surface over UAA-P1-064 Python-core inventory
   and CLI inspection. This milestone must not add lifecycle control, switching,
   start/stop/activate/unload behavior, Desktop/Hermes activation, downloads,
@@ -351,6 +353,114 @@ Verification:
 make frontend-check
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py
 PYTHONPATH=src .venv/bin/python scripts/verify_control_center_frontend.py
+```
+
+### M172.1 - Today-Spine Founder Command Center Beta-Readiness Path
+
+Goal: make Today the product spine and make robust reviewed memory the product
+differentiator for a private local beta-test candidate. Every module must feed
+Today, Actions, Evidence, and Memory. Chat, Plans, Code, and Evidence are not
+standalone-complete modules; they are complete only when their outputs land in
+the governed daily loop with safe refs, review decisions, action envelopes,
+rollback posture, and human-readable history.
+
+Tasks:
+
+- `UAA-P1-067` Done: define the Today-spine, memory-first Founder Command
+  Center beta-readiness path, promote product-loop sequencing ahead of broad
+  surface expansion, and record the milestone conveyor. This is
+  planning/currentness only and grants no runtime authority.
+- `UAA-P1-068` Ready Next: Today product spine contract: define the shared loop contract
+  every module must feed: Today, Actions, Evidence, and Memory. Today shows
+  current priorities, blockers, follow-ups, plan/action state, memory review
+  count, stale-source posture, and next safe actions. A module is not complete
+  until its state is visible in this loop.
+- `UAA-P1-069` Evidence history grammar: make Evidence read like history:
+  what was proposed, what was approved, what happened, what changed, what can
+  be undone, what is stale, and what remains blocked. This grammar becomes the
+  receipt language for Memory, Plans, Chat, Code, and Actions.
+- `UAA-P1-070` Memory source and provenance model: define safe source refs for
+  manual notes, ChatGPT/exported review summaries, local chat turns, local
+  coding session summaries, task plans, action proposals, evidence timeline
+  refs, read-only calendar/email metadata, and CRM-lite business records. Raw
+  prompts, raw responses, raw provider payloads, raw paths, raw logs, account
+  identifiers, and raw private content remain denied in durable evidence.
+- `UAA-P1-071` Memory Review decision capture: add exact reviewed states for
+  accept, correct, reject, defer, merge, supersede, and forget-request posture
+  before any memory candidate becomes recall. Decisions need actor refs,
+  source refs, evidence refs, stale-state posture, audit refs, and receipt refs.
+- `UAA-P1-072` Business memory and memory quality controls: add profile, project,
+  relationship, organization, deal/opportunity, promise, follow-up, decision,
+  preference, and commitment candidate kinds with provenance, review posture,
+  dedupe, conflict, stale/expired, low-confidence, source-missing, and
+  evidence-missing posture. External CRM writes and account sync remain out of
+  scope.
+- `UAA-P1-073` Plans to reviewable Action envelopes: Plans must produce
+  approve/edit/reject/defer-ready Action envelopes with exact scope,
+  side-effect class, risk, approval requirement, idempotency, expiry,
+  evidence refs, expected receipt refs, rollback/safe-disable posture, and
+  blocked-state reasons. Classification/decomposition alone is not enough.
+- `UAA-P1-074` Chat local operator surface: Chat must send a local turn through
+  the governed local gateway, show model/runtime/auth/tool-denial truth, produce
+  safe evidence, and hand off to Plans or Actions without treating model output
+  as authority, truth, memory, or execution permission.
+- `UAA-P1-075` Governed Code workbench v1: Code should be narrower than Goat
+  but better governed: repo-local safe diffs, validation proof, exact approval
+  before apply, atomic apply, rollback receipts, and evidence timeline binding.
+  Broad coding-agent autonomy, unrestricted shell, and remote execution remain
+  blocked.
+- `UAA-P1-076` Cross-surface memory intake: bind safe memory candidates from
+  Today, Chat, Plans, Actions, Evidence, local coding summaries, and manual
+  external-assistant review imports. This is intake/proposal only; it must not
+  call providers, fetch accounts, import browser state, read shell history, or
+  inject context.
+- `UAA-P1-077` Memory-to-loop binding: Today, Action Inbox, Evidence Timeline,
+  and Weekly CEO Review must show memory candidates, accepted recall refs,
+  corrections, rejected items, follow-up commitments, and missing-evidence
+  blockers in human-readable form.
+- `UAA-P1-078` Private beta-readiness gate: define local/private beta-test
+  acceptance evidence for Morning Briefing, Action Inbox, Memory Review,
+  Evidence Timeline, safe local Chat/Plans handoff, governed Code diffs, and
+  CRM-lite follow-ups. This gate is not public beta, public distribution,
+  production readiness, or broad autonomy.
+- `UAA-P1-079` Later intent understanding v1: only after the above loop has
+  reviewed memory, evidence history, action envelopes, and Chat/Code receipts,
+  add a reviewable intent classifier that proposes user intent with confidence,
+  source refs, ambiguity posture, and ask/act/defer routing. It must not become
+  hidden authority or broad autonomy.
+
+Acceptance:
+
+- Today is the product spine; module completion means the module feeds Today,
+  Actions, Evidence, and Memory with safe refs and human-readable state.
+- Evidence reads as narrative history, not compliance paperwork.
+- Memory is reviewable product state, not hidden prompt stuffing.
+- Plans produce reviewable Action envelopes with approve/edit/reject/defer
+  posture, exact scope, receipts, and rollback/safe-disable posture.
+- Chat shows local model/runtime/auth/tool-denial truth, produces evidence, and
+  hands off to Plans or Actions without granting authority.
+- Code work stays repo-local and governed by safe diffs, validation proof,
+  approval-bound apply, rollback, and evidence.
+- A user can import or summarize external assistant review output as safe
+  memory candidates without treating external output as truth or authority.
+- Local coding and Chat surfaces can create memory proposals with source/evidence
+  refs, but cannot write memory automatically or inject it into context.
+- Business memory supports people, organizations, projects, opportunities,
+  promises, follow-ups, preferences, decisions, and stale-state posture.
+- Every accepted memory has provenance, evidence, review decision, retention
+  posture, correction path, deletion/export posture, and audit/receipt refs.
+- Private beta readiness requires completed local workflows and safe evidence;
+  public beta, account sync, connector writes, provider authority, browser
+  automation, unrestricted shell, remote execution, and production authority
+  remain blocked.
+
+Verification:
+
+```bash
+.venv/bin/python scripts/verify_documentation_integrity.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_founder_loop_storage.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_founder_loop_api.py
+make frontend-check
 ```
 
 ### M172.5 - API Service Boundaries and Route Modularity
@@ -656,6 +766,36 @@ Verification:
 - `UAA-P1-057` Done: product truth regression checks.
 - `UAA-P1-060` Done: operator-readiness status taxonomy.
 - `UAA-P1-061` Done: morning reconciliation artifact check.
+- `UAA-P1-067` Done: Today-spine, memory-first Founder Command Center
+  beta-readiness planning/currentness path.
+- `UAA-P1-068` Ready Next: Today product spine contract for how every module feeds
+  Today, Actions, Evidence, and Memory.
+- `UAA-P1-069` Shape: Evidence history grammar for proposed/approved/happened/
+  changed/undoable/stale/blocked history.
+- `UAA-P1-070` Shape: memory source/provenance model for manual notes,
+  external assistant review summaries, local chat/coding summaries, plans,
+  actions, evidence refs, and read-only calendar/email metadata refs.
+- `UAA-P1-071` Shape: Memory Review decision capture for accept, correct,
+  reject, defer, merge, supersede, and forget-request posture.
+- `UAA-P1-072` Shape: business memory and memory quality controls for CRM-lite
+  candidate kinds, dedupe, conflicts, stale state, low confidence,
+  source-missing, and evidence-missing posture.
+- `UAA-P1-073` Shape: Plans to reviewable Action envelopes with exact scope,
+  approve/edit/reject/defer posture, receipts, and rollback/safe-disable state.
+- `UAA-P1-074` Shape: Chat local operator surface with turn send,
+  model/runtime/auth/tool-denial truth, safe evidence, and handoff to Plans or
+  Actions.
+- `UAA-P1-075` Shape: governed Code workbench v1 for repo-local safe diffs,
+  validation proof, approval-bound apply, rollback, and evidence.
+- `UAA-P1-076` Shape: cross-surface memory intake from Today, Chat, Plans,
+  Actions, Evidence, local coding summaries, and manual external-assistant
+  review imports.
+- `UAA-P1-077` Shape: bind memory state into Today, Action Inbox, Evidence
+  Timeline, and Weekly CEO Review.
+- `UAA-P1-078` Shape: private beta-readiness gate for the local Founder Command
+  Center loop without public beta/distribution claims.
+- `UAA-P1-079` Later: user-intent understanding v1 after memory, evidence,
+  Chat, Plans, Code, and Actions produce reviewable loop evidence.
 - `UAA-P2-056` Shape: extension trust product surface.
 - `UAA-P2-058` Shape: Provider Credential Vault Adapter v1 as a
   disabled-by-default opaque-ref adapter contract. This gate must not collect,
@@ -702,8 +842,14 @@ An item is Done only when:
 |---|---|---|---|
 | Current release truth | mixed M150-M167 story | single currentness packet | P0 |
 | Public security posture | missing tracked `SECURITY.md` | public reporting and triage | P0 |
-| Local model product loop | strong contracts, partial live lane | real redacted E2E proof | P0 |
-| Operator UI | small Control Center | focused product shell | P0 |
+| Today product spine | partial Today summary | every module feeds Today, Actions, Evidence, and Memory | P0 |
+| Memory-first product loop | review-only memory and safe refs | robust reviewed business memory feeding Today, Actions, Evidence, and Weekly Review | P0 |
+| Evidence history | receipts and audit refs | human-readable proposed/approved/happened/changed/undoable history | P0 |
+| Plans to Actions | decomposition/classification | approve/edit/reject/defer Action envelopes with exact scope and receipts | P0 |
+| Chat operator surface | readiness/probe shell | local turn send, model/runtime/auth/tool-denial truth, safe evidence, handoff to Plans/Actions | P0 |
+| Governed Code workbench | safe file contracts and previews | repo-local safe diffs, validation proof, approval-bound apply, rollback, evidence | P0/P1 |
+| Local model product loop | strong contracts, partial live lane | real redacted E2E proof supporting local Chat/Code | P0/P1 |
+| Operator UI | small Control Center | focused memory-first product shell | P0 |
 | Durable runtime | contracts and local pieces | restart-safe run spine | P1 |
 | Workspace workbench | file contracts and previews | safe patch/apply/rollback | P1 |
 | Performance gate | foundation latency scripts | release-blocking p95 budgets | P1 |
@@ -716,22 +862,36 @@ An item is Done only when:
 
 ## First Product Loop
 
-The first loop that proves UAA is becoming a product:
+The first loop that proves UAA is becoming a private local beta-testable
+product:
 
-1. Start local FastAPI app.
-2. Open Control Center.
-3. Inspect runtime health and local model readiness.
-4. Select or approve a local GGUF model.
-5. Launch loopback llama.cpp through reviewed settings.
-6. Use OpenWebUI or Control Center chat shell through UAA `/v1`.
-7. Create a task decomposition plan.
-8. Capture exact approval for one safe registered capability.
-9. Execute the plan through durable local run state.
-10. Inspect redacted receipt, audit summary, latency report, and rollback status.
+1. Open Control Center to Today.
+2. Review Morning Briefing, priorities, blockers, follow-ups, and memory review
+   count.
+3. Inspect Evidence as history: what was proposed, approved, happened, changed,
+   can be undone, is stale, or remains blocked.
+4. Inspect memory candidates from manual notes, Chat/local coding summaries,
+   plans, actions, evidence refs, and read-only calendar/email metadata refs.
+5. Accept, correct, reject, defer, merge, or mark forget-request posture for
+   memory candidates through reviewed decision capture.
+6. Convert relevant briefing, plan, memory, chat, or code items into Action
+   Inbox envelopes with approve/edit/reject/defer posture, exact scope,
+   side-effect class, risk, evidence refs, idempotency, receipts, and rollback
+   or safe-disable posture.
+7. Use Chat as a real local operator surface: send a turn, see
+   model/runtime/auth/tool-denial truth, produce safe evidence, and hand off to
+   Plans or Actions.
+8. Use governed Code for repo-local safe diffs with validation proof,
+   approval-bound apply, rollback, and evidence.
+9. Inspect Evidence Timeline and Weekly CEO Review summaries showing what was
+   proposed, approved, blocked, corrected, remembered, rejected, changed, or
+   stale.
 
-This is stronger than a broad console claim because it proves authority, state,
-evidence, and speed in one narrow but real operator loop.
+Local model readiness, UAA `/v1`, task decomposition, and safe workspace work
+remain important support lanes. They should feed the memory-first daily loop
+instead of displacing it as the product spine.
 
-`UAA-P1-011` has shipped the readable baseline for this shape. The broader
-Founder Command Center daily loop now builds on that baseline and remains
-partial until separately scoped surfaces add evidence.
+`UAA-P1-011` has shipped the readable baseline for the earlier operator-loop
+shape. The broader Founder Command Center daily loop now builds on that
+baseline and remains partial until the Today-spine beta-readiness milestones
+land with evidence.

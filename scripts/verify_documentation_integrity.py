@@ -4333,17 +4333,32 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
 
     readme = read_lower("README.md")
     if (
-        "uaa-p1-066 ready next after uaa-p1-065 founder command center review cleanup"
-        not in readme
+        "uaa-p1-068 ready next: today product spine contract" not in readme
+        or "uaa-p1-067 completes" not in readme
+        or (
+            "uaa-p1-066 remains queued" not in readme
+            and "uaa-p1-066\nremains queued" not in readme
+        )
     ):
-        failures.append("README must identify UAA-P1-066 as Ready Next after UAA-P1-065")
+        failures.append(
+            "README must identify UAA-P1-067 complete, UAA-P1-068 Ready Next, "
+            "and UAA-P1-066 queued support"
+        )
 
     docs_readme = read_lower("docs/README.md")
     if (
         "uaa-p1-065 founder command center review cleanup" not in docs_readme
-        or "ready next uaa-p1-066" not in docs_readme
+        or "completed uaa-p1-067" not in docs_readme
+        or "ready next uaa-p1-068" not in docs_readme
+        or (
+            "uaa-p1-066 remains queued" not in docs_readme
+            and "uaa-p1-066 remains\nqueued" not in docs_readme
+        )
     ):
-        failures.append("docs/README.md must identify UAA-P1-065 done and UAA-P1-066 Ready Next")
+        failures.append(
+            "docs/README.md must identify UAA-P1-065 done, UAA-P1-067 complete, "
+            "UAA-P1-068 Ready Next, and UAA-P1-066 queued support"
+        )
 
     return failures
 
@@ -4834,10 +4849,17 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
 
     readme = read_lower("README.md")
     if (
-        "uaa-p1-066 ready next after uaa-p1-065 founder command center review cleanup"
-        not in readme
+        "uaa-p1-068 ready next: today product spine contract" not in readme
+        or "uaa-p1-067 completes" not in readme
+        or (
+            "uaa-p1-066 remains queued" not in readme
+            and "uaa-p1-066\nremains queued" not in readme
+        )
     ):
-        failures.append("README must identify UAA-P1-066 as Ready Next after UAA-P1-065")
+        failures.append(
+            "README must identify UAA-P1-067 complete, UAA-P1-068 Ready Next, "
+            "and UAA-P1-066 queued support"
+        )
     if "p0-017 adds safe local model operational recovery guidance" not in readme:
         failures.append("README must mention P0-017 operational recovery")
 

@@ -1,6 +1,6 @@
 # Agent Module Maturity Map
 
-Status: active review artifact. Baseline: v0.102.0. Assessed: 2026-06-19.
+Status: active review artifact. Baseline: v0.102.3. Assessed: 2026-06-21.
 
 This audit maps common agent-system modules to what UAA actually has today. It is intentionally strict: a module gets credit for typed contracts, deterministic evaluators, tests, and bounded local/dev runtime behavior, but it does not get credit for roadmap ambition.
 
@@ -37,6 +37,7 @@ No requested module is scored 5 or 6 in this audit.
 | Workflow engine | No-effect only | 3 | `src/ultimate_ai_agent/core/execution/state_machine.py`, `src/ultimate_ai_agent/core/execution/runs.py`, `src/ultimate_ai_agent/core/execution/steps.py` | The execution framework models multi-step runs, dependencies, transitions, replay protection, and no-effect completion. It does not run real workflows. | Actual workflow runner, scheduler, persistence, tool execution, send/deliver actions. |
 | State manager | Fragmented | 3 | `src/ultimate_ai_agent/core/world_state/models.py`, `src/ultimate_ai_agent/core/world_state/snapshots.py`, `src/ultimate_ai_agent/core/ledger/run_state.py` | World state, run state, execution state, and ledger pieces exist and are tested in bounded domains. | Unified live state manager for attempts, retries, active work, and resumption. |
 | Context manager | Yes, no injection | 3 | `src/ultimate_ai_agent/core/contracts/context_pack.py`, `src/ultimate_ai_agent/core/recall/context_pack.py`, `src/ultimate_ai_agent/core/context_budget/trimming.py`, `src/ultimate_ai_agent/core/context_handoff/workflow.py` | UAA has safe context packs, grounded recall selection, context-budget trimming, proposals, and handoff approval contracts. | Live context-window manager and context injection into model sessions. |
+| Memory module | Yes, bounded local | 4 | `src/ultimate_ai_agent/core/memory/provider.py`, `src/ultimate_ai_agent/core/memory/local_store.py`, `src/ultimate_ai_agent/core/memory/fcc_relationship_memory_schema.py`, `src/ultimate_ai_agent/core/storage/founder_loop.py` | UAA has governed memory contracts, local stores, source refs, provenance, recall metadata, redaction, retention/delete/export posture, supersession, relationship/follow-up candidates, and Founder Loop memory review storage. | Persisted review decisions, cross-surface intake, CRM-lite business memory, quality controls, and Today/Action/Evidence/Weekly Review binding. |
 | Tool registry | Yes, bounded | 4 | `src/ultimate_ai_agent/core/tools/registry.py`, `src/ultimate_ai_agent/core/tools/broker.py`, `src/ultimate_ai_agent/core/tools/runtime/invocation.py` | Tool manifests, registry, broker, consent/approval checks, and allowlisted runtime adapters exist. Arbitrary dynamic dispatch is denied. | General tool execution runtime, plugin marketplace authority, arbitrary callable loading. |
 | Capability registry | Yes, bounded | 4 | `src/ultimate_ai_agent/core/capabilities/registry.py`, `src/ultimate_ai_agent/core/capabilities/models.py`, `src/ultimate_ai_agent/core/capabilities/policy.py`, `src/ultimate_ai_agent/core/capabilities/coordinator.py` | UAA has a typed capability registry and coordinator lane with compact catalog disclosure, manifest loading after selection, policy checks, exact approval validation, durable local state, telemetry, single-writer locking, adapter health checks, and tests. | Registry coverage for all legacy modules, governed external adapters, arbitrary runtime authority. |
 | Multi-agent coordinator | Yes, bounded | 4 | `src/ultimate_ai_agent/core/capabilities/coordinator.py`, `src/ultimate_ai_agent/core/capabilities/policy.py`, `src/ultimate_ai_agent/core/capabilities/adapters/base.py`, `src/ultimate_ai_agent/core/capabilities/state.py` | UAA has a bounded local coordinator that plans centrally, routes registered specialists as tools, supports read-only fan-out, serializes mutating work, records durable local state, validates approval grants, and returns structured artifacts. Remote dispatch, network coordination, and arbitrary agent spawning remain denied. | Remote agent runtime, networked inter-agent bus, production remote execution authority. |
@@ -49,6 +50,8 @@ No requested module is scored 5 or 6 in this audit.
 - No-effect and review-only state transitions.
 - Exact-scope approvals for bounded local/dev flows.
 - Tool, context, planning, execution, and recall contracts with tests.
+- Governed local memory contracts and stores that already enforce recall-only,
+  source-linked, redacted, review-aware posture.
 
 ## What UAA Is Missing
 
@@ -58,6 +61,8 @@ No requested module is scored 5 or 6 in this audit.
 - A full orchestration/workflow runtime.
 - A remote or externally networked multi-agent coordinator.
 - A product-grade state service.
+- Memory Review decision capture, cross-surface intake, CRM-lite memory quality,
+  and loop binding that make memory visibly useful every day.
 - Production authority for agent autonomy, external dispatch, browser/tool/plugin execution, or model/provider authority.
 
 ## Keeping This Honest

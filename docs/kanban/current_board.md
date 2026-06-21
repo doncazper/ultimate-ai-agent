@@ -47,10 +47,13 @@ identity updates, downloads, process control, and runtime behavior remain
 blocked. UAA-P1-064 adds the first read-only implementation slice for
 Python-core inventory and CLI inspection only. No lifecycle, switching, route
 authority, downloads, runtime adapters, or Control Center activation controls
-are authorized. UAA-P1-065 reconciled the Founder Command Center board,
-promoted exactly one later FCC UI/readability candidate, and keeps UAA-P1-066
-queued next as the strictly read-only Control Center model inventory/status
-lane.
+are authorized. UAA-P1-065 reconciled the Founder Command Center board and
+promoted exactly one later FCC UI/readability candidate. UAA-P1-067 completed
+the Today-spine, memory-first beta-readiness planning/currentness lane and
+recorded the milestone conveyor. The active product path now promotes
+UAA-P1-068 Today Product Spine Contract as Ready Next, with UAA-P1-066 kept
+queued as a strictly read-only Local Model Control Center inventory/status
+support lane.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -80,15 +83,26 @@ Gate = required acceptance evidence before Done
 
 ```text
 No active build item is in progress. The next documented milestone is
-UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status.
+UAA-P1-068 Today Product Spine Contract.
 ```
 
 ## Ready Next
 
 ```text
+UAA-P1-068 Today Product Spine Contract
+Goal: define how every module feeds Today, Actions, Evidence, and Memory.
+Today shows current priorities, blockers, follow-ups, plan/action state,
+memory review count, stale-source posture, and next safe actions. A module is
+not complete until its state lands in Today or another governed loop surface.
+Scope: contract, docs, fixtures, and tests first. No connector runtime, account
+auth, automatic refresh, background execution, model/provider authority,
+automatic memory writes, hidden context injection, public beta, public
+distribution, or production authority.
+
 UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
-Goal: promote a strictly read-only Control Center model inventory/status
-surface over the UAA-P1-064 Python-core inventory and CLI inspection contract.
+Goal: queued support lane for a strictly read-only Control Center model
+inventory/status surface over the UAA-P1-064 Python-core inventory and CLI
+inspection contract.
 Scope: read-only status/inventory display only, backed by Python Agent Core and
 CLI parity. No lifecycle, switching, activate/unload/start/stop,
 Desktop/Hermes activation, downloads, runtime adapters, React-owned model
@@ -101,10 +115,12 @@ truth, raw local path evidence, or production-readiness claim.
 UAA-P1-065 promoted exactly one later FCC candidate:
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 That candidate remains a later exact implementation pass and is not implemented
-by UAA-P1-065. UAA-P1-066 is queued first as the next Local Model Manager
-read-only Control Center status milestone. Later Local Model Manager lifecycle,
-switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
-downloads still require separate exact scoped milestones.
+by UAA-P1-065. UAA-P1-067 completed the Today-spine, memory-first
+beta-readiness planning/currentness path. UAA-P1-068 is queued first as the
+Ready Next product-spine contract, and UAA-P1-066 remains queued behind or
+alongside that path as read-only local model status support. Later Local Model
+Manager lifecycle, switching, Desktop/Hermes activation, MLX/Ollama/LM Studio
+adapters, and downloads still require separate exact scoped milestones.
 ```
 
 ## Spec Draft
@@ -122,6 +138,62 @@ UAA-P2-056 Extension trust product surface
 Goal: surface static package review, provenance, hash refs, declared
 capabilities, requested grants, activation/revocation state, and risk flags
 without runtime import or execution.
+
+UAA-P1-069 Evidence History Grammar
+Goal: make Evidence read as history: what was proposed, approved, happened,
+changed, can be undone, is stale, or remains blocked.
+
+UAA-P1-070 Memory Source And Provenance Model
+Goal: define source refs for manual notes, external assistant review summaries,
+local chat, local coding summaries, task plans, action proposals, evidence
+timeline refs, read-only calendar/email metadata refs, and CRM-lite business
+records without storing raw private content.
+
+UAA-P1-071 Memory Review Decision Capture
+Goal: define accept, correct, reject, defer, merge, supersede, and
+forget-request review states with actor refs, source refs, evidence refs, audit
+refs, receipt refs, stale-state posture, retention posture, and no automatic
+memory write.
+
+UAA-P1-072 Business Memory And Memory Quality Controls
+Goal: shape CRM-lite business memory candidates and quality posture for dedupe,
+conflict, stale/expired, low-confidence, source-missing, and evidence-missing
+states before any memory is treated as useful recall.
+
+UAA-P1-073 Plans To Reviewable Action Envelopes
+Goal: make Plans produce approve/edit/reject/defer-ready Action envelopes with
+exact scope, side-effect class, evidence refs, receipts, and rollback posture.
+
+UAA-P1-074 Chat Local Operator Surface
+Goal: send a local chat turn, show model/runtime/auth/tool-denial truth,
+produce safe evidence, and hand off to Plans or Actions without granting model
+output authority.
+
+UAA-P1-075 Governed Code Workbench V1
+Goal: support repo-local safe diffs, validation proof, approval-bound apply,
+rollback, and evidence before broad coding-agent autonomy.
+
+UAA-P1-076 Cross-Surface Memory Intake
+Goal: bind memory proposals from Today, Chat, Plans, Actions, Evidence, local
+coding summaries, and manual external-assistant review imports while denying
+provider calls, account fetch, browser import, shell history import, and
+context injection.
+
+UAA-P1-077 Memory-To-Loop Binding
+Goal: make Today, Action Inbox, Evidence Timeline, and Weekly CEO Review show
+memory candidates, accepted recall refs, corrections, rejected items,
+follow-up commitments, and blockers in human-readable form.
+
+UAA-P1-078 Private Beta-Readiness Gate
+Goal: define local/private beta-test acceptance evidence for Morning Briefing,
+Action Inbox, Memory Review, Evidence Timeline, safe local Chat/Plans handoff,
+governed Code diffs, and CRM-lite follow-ups without public beta or
+distribution claims.
+
+UAA-P1-079 User Intent Understanding V1
+Goal: later, after the loop has reviewed memory/evidence/action/chat/code
+signals, shape user-intent classification with confidence, ambiguity posture,
+ask/act/defer routing, and no hidden authority.
 ```
 
 ## QA / Verification
@@ -298,8 +370,23 @@ FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 bind the pass. This milestone adds no backend route, OpenAPI operation,
 Control Center implementation, frontend mutation control, setup mutation,
 connector runtime, model/provider call, web fetch, shell/subprocess behavior,
-public release claim, or runtime authority. UAA-P1-066 remains queued as the
-next documented Ready Next milestone.
+public release claim, or runtime authority. UAA-P1-066 remains queued as a
+read-only local model status support lane, while UAA-P1-067 completed the
+Today-spine, memory-first planning/currentness path and UAA-P1-068 is the
+current Ready Next product-spine contract.
+
+UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
+Gate met: Active docs, roadmap, current board, Founder Command Center board,
+product truth, strategy/task docs, and the Codex prompt library identify Today
+as the product spine, memory as the reviewed differentiator, UAA-P1-068 as the
+Ready Next Today Product Spine Contract, and UAA-P1-066 as queued read-only
+local model support. `docs/codex/CODEX_EXECUTION_PROMPTS.md` records the
+milestone conveyor from UAA-P1-067 through UAA-P1-079 with review/fix,
+hardening, commit/push, and next-prompt mechanics. This milestone adds no
+backend route, OpenAPI operation, Control Center implementation, frontend
+mutation control, connector runtime, model/provider call, web fetch,
+shell/subprocess behavior, automatic memory write, context injection, public
+beta, public distribution, production claim, or runtime authority.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

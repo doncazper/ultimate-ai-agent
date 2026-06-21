@@ -25,6 +25,10 @@ task decomposition, memory as recall-not-authority, and release gates.
 The next product leap is not more broad authority. The next product leap is a
 single excellent daily founder/operator loop that turns safe planning,
 preview, approval, receipts, evidence, and memory review into a useful product.
+The next beta-readiness path is Today-spine and memory-first: Today is the
+product spine, every module feeds Today, Actions, Evidence, and Memory, and
+robust reviewed memory becomes the connective tissue across Chat, local coding,
+Plans, Actions, Evidence, calendar/email metadata, and CRM-lite business flow.
 
 ## Current Reality
 
@@ -63,7 +67,10 @@ remains subordinate to canonical evidence and must not be used as truth, policy
 authority, approval evidence, or automatic context injection.
 
 The product risk is adding more roadmap, connector, plugin, mobile, browser,
-or shell surface before one single-user founder loop is excellent.
+or shell surface before one single-user founder loop is excellent. A second
+risk is treating memory as a generic recall store instead of the product's
+reviewed business context layer for people, projects, deals, promises,
+follow-ups, decisions, preferences, and evidence-backed corrections.
 
 ## Why UAA Has A Strong Foundation
 
@@ -204,6 +211,18 @@ This direction does not add automatic memory writes, model-output memory writes,
 context injection, embeddings, vector search, RAG ingestion, account sync, or
 production memory authority.
 
+The memory system should explicitly handle the reality that a founder may use
+ChatGPT for prompt review, local models for coding, Control Center for planning,
+and separate tools for meetings or notes. External assistant output, local chat
+summaries, local coding summaries, manual notes, plans, action proposals,
+calendar/email metadata refs, and evidence timeline refs can become memory
+candidates only after they are transformed into bounded safe summaries with
+source refs, confidence posture, stale-state posture, and review decisions.
+
+This cross-surface direction does not add browser import, raw chat/prompt
+import, connector runtime, connector writes, account auth, provider/model
+authority, or automatic context injection.
+
 ## First-Party Tool Direction
 
 The product should prefer a small number of excellent first-party workflows over
@@ -241,14 +260,22 @@ installer, or production claim changes.
 
 ## 30-Day Plan
 
-Goal: make the first product loop concrete and testable without adding new
-authority.
+Goal: make the first Today-spine, memory-first product loop concrete and
+testable without adding new authority.
 
 - Build on the `UAA-P1-011` readable operator-loop baseline.
 - Create Founder Command Center information architecture around Today, Inbox,
   Plans, Actions, Memory, Evidence, and Settings.
-- Add Action Inbox and Memory Review Inbox schemas as contract/test work only
-  unless a scoped implementation task says otherwise.
+- Treat UAA-P1-067 as the completed Today-spine, memory-first
+  planning/currentness pass, promote UAA-P1-068 Today Product Spine Contract
+  as the next product lane, and keep UAA-P1-066 as read-only local model
+  support rather than the product spine.
+- Define the Today spine contract so every module feeds Today, Actions,
+  Evidence, and Memory.
+- Define Evidence as history: proposed, approved, happened, changed, undoable,
+  stale, and blocked.
+- Add memory source/provenance and Memory Review decision capture as
+  contract/test work only unless a scoped implementation task says otherwise.
 - Add Morning Briefing skeleton using existing summaries, safe refs, blocked
   states, and mock/degraded semantics.
 - Add product E2E tests for Morning Briefing and mock-only draft email fixture
@@ -258,19 +285,28 @@ authority.
 
 ## 60-Day Plan
 
-Goal: make the daily loop useful with read-only sources and draft-only outputs.
+Goal: make the daily loop useful with reviewed memory, read-only sources, and
+draft-only outputs.
 
 - Add calendar read-only integration contract.
 - Add email metadata read-only integration contract.
 - Add draft-only email response proposal contract.
 - Build human-readable Evidence Timeline over existing safe refs.
-- Add relationship/follow-up memory schema and review inbox.
+- Add business memory candidate kinds for people, organizations, projects,
+  opportunities, promises, follow-ups, preferences, decisions, and commitments.
+- Add memory quality posture for dedupe, conflicts, stale/expired state,
+  low-confidence items, missing source refs, and missing evidence refs.
+- Shape Plans to produce reviewable Action envelopes with approve/edit/reject/
+  defer posture, exact scope, receipt refs, and rollback/safe-disable posture.
+- Shape Chat as a real local operator surface that sends a turn, shows
+  model/runtime/auth/tool-denial truth, produces safe evidence, and hands off
+  to Plans or Actions.
 - Define scoped permission modes and Settings kill-switch/feature-flag spec.
 - Add local setup/onboarding wizard spec tied to safe local prerequisites.
 
 ## 90-Day Plan
 
-Goal: complete the single-user Founder Command Center MVP loop.
+Goal: complete the private local beta-test loop around reviewed memory.
 
 - Today surface shows briefing, plan, action inbox, blocked states, and next
   safe actions.
@@ -281,8 +317,16 @@ Goal: complete the single-user Founder Command Center MVP loop.
   lanes.
 - Evidence Timeline gives human-readable receipts, audit refs, latency refs,
   and rollback refs.
-- Memory Review Inbox supports accept/correct/reject semantics through reviewed
-  contracts.
+- Memory Review Inbox supports accept, correct, reject, defer, merge,
+  supersede, and forget-request posture through reviewed contracts.
+- Governed Code workbench supports repo-local safe diffs, validation proof,
+  approval-bound apply, rollback, and evidence before broad coding-agent
+  autonomy.
+- Cross-surface memory intake binds Today, Chat, Plans, Actions, Evidence, and
+  local coding summaries as safe proposals only.
+- External assistant review summaries and local coding/chat summaries can be
+  manually represented as safe source refs for review, but never as automatic
+  truth, account sync, or context injection.
 - Weekly CEO Review summarizes outcomes, stuck loops, follow-ups, and memory
   corrections.
 

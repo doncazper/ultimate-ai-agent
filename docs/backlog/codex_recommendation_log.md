@@ -42,6 +42,65 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
+
+Date: 2026-06-21
+
+Thread: Product-roadmap refinement after the adversarial GoatCitadel feature
+parity review and Founder Command Center fundamentals check.
+
+Recommendation: Complete UAA-P1-067 as the Today-Spine Founder Command Center
+beta-readiness planning/currentness pass, then promote UAA-P1-068 Today
+Product Spine Contract as the current Ready Next product lane. Keep UAA-P1-066
+queued as strictly read-only Local Model Control Center inventory/status
+support rather than making local model UI the product spine.
+
+Next prompt:
+
+```text
+Execute UAA-P1-068 Today Product Spine Contract as a contract, docs, fixture,
+and focused-test pass. Define how every module feeds Today, Actions, Evidence,
+and Memory; specify the Today summary contract for priorities, blockers,
+follow-ups, plan/action state, memory review count, stale-source posture, and
+next safe actions; and ensure module completion cannot be claimed unless state
+lands in the governed loop. Include review/fix, hardening, commit/push, and
+next-prompt recommendation mechanics. Do not add connector runtime, account
+auth, automatic refresh, background execution, provider/model authority,
+automatic memory writes, context injection, public beta, public distribution,
+or production claims.
+```
+
+Decision: Accepted and expanded. The near-term path should make Today the
+product spine and robust reviewed memory the differentiator for a
+founder/operator loop that spans Today, Actions, Evidence, local Chat, Plans,
+governed Code diffs, local coding-session summaries, manual external assistant
+review summaries, read-only calendar/email metadata contracts, and CRM-lite
+business memory.
+
+Status: completed
+
+Completed: Promoted UAA-P1-067 through active docs, roadmap, boards, strategy
+docs, product truth, and the Codex prompt library as the completed
+Today-spine, memory-first planning/currentness path; recorded the UAA-P1-067
+through UAA-P1-079 milestone conveyor; promoted UAA-P1-068 as Ready Next; and
+kept UAA-P1-066 queued as read-only local model support.
+
+Not done: No runtime authority, connector runtime, account import, web fetch,
+provider/model authority, automatic memory write, context injection, raw
+prompt/response/provider/path/log evidence, public beta, public distribution,
+or production claim is granted by this planning update.
+
+Evidence: `README.md`, `VERSION.md`,
+`docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/kanban/current_board.md`,
+`docs/kanban/founder_command_center_board.md`,
+`docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`,
+`docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, and
+`docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`,
+`docs/codex/CODEX_EXECUTION_PROMPTS.md`,
+`scripts/verify_documentation_integrity.py`, and
+`scripts/verify_uaa_p1_065_founder_command_center_review_cleanup.py`.
+
 ### 2026-06-21 - UAA-P1-065 Founder Command Center Review/Cleanup Completed
 
 Date: 2026-06-21

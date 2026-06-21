@@ -13,17 +13,34 @@ and gated.
 Work the next implementation lane in this order, starting from the accepted
 `UAA-P1-011` readable-loop baseline:
 
-1. Local Control Center macOS-first Setup Assistant hardening: tighten
+1. Today product spine contract: every module feeds Today, Actions, Evidence,
+   and Memory. Avoid standalone "module complete" definitions.
+2. Evidence history grammar: Evidence reads as what was proposed, approved,
+   happened, changed, can be undone, is stale, and remains blocked.
+3. Memory source/provenance and review decisions: make reviewed memory the
+   product differentiator for Today, Actions, Evidence, Weekly Review,
+   Chat/local coding summaries, manual external-assistant review imports, and
+   CRM-lite business flow.
+4. Plans to Action envelopes: Plans produce approve/edit/reject/defer-ready
+   envelopes with exact scope, receipts, expiry, idempotency, evidence, and
+   rollback/safe-disable posture.
+5. Chat local operator surface: Chat sends a local turn, shows
+   model/runtime/auth/tool-denial truth, produces safe evidence, and hands off
+   to Plans or Actions.
+6. Governed Code workbench: repo-local safe diffs, validation proof,
+   approval-bound apply, rollback, and evidence before broad coding-agent
+   autonomy.
+7. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.
-2. First product loop readability: make Today, Plans, Actions, Memory,
+8. First product loop readability: make Today, Plans, Actions, Memory,
    Evidence, and Settings easier to scan without adding route authority.
-3. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
+9. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
    class, approval requirement, expiry, idempotency, evidence, and rollback
    posture before any approve affordance is wired.
-4. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
+10. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
-5. Read-only email/calendar integration contracts: metadata-only calendar/email
+11. Read-only email/calendar integration contracts: metadata-only calendar/email
    contracts are implemented as contract-only source-readiness support, and the
    draft-only email response proposal contract is implemented as contract-only
    proposal posture. Connector runtime, draft UI, account auth, and send/write
@@ -252,6 +269,10 @@ Not scoped:
 
 User goal: Review proposed profile, project, relationship, episodic, business,
 and semantic-local knowledge memory with provenance and correction paths.
+Memory should help the founder reconcile useful context from UAA chat, local
+coding, task planning, action proposals, evidence, calendar/email metadata,
+manual notes, and external assistant review summaries without treating any
+source as truth or authority.
 
 Current repo evidence / status:
 
@@ -269,6 +290,15 @@ Required backend routes or service changes:
 - Memory Review Inbox schema.
 - Memory candidate schemas for profile, project, relationship, episodic,
   business, and semantic-local knowledge layers.
+- Memory source/provenance schema for manual notes, external assistant review
+  summaries, local chat summaries, local coding session summaries, plans,
+  actions, evidence refs, read-only calendar/email metadata refs, and CRM-lite
+  business records.
+- Memory review decision schema for accept, correct, reject, defer, merge,
+  supersede, and forget-request posture before any candidate becomes reviewed
+  recall.
+- Memory quality posture for duplicate, conflicting, stale/expired,
+  low-confidence, source-missing, evidence-missing, and blocked candidates.
 - Relationship/follow-up memory schema is contract-only and available for safe
   candidate validation; future routes can summarize reviewed candidate refs
   without raw content.
@@ -279,6 +309,9 @@ Required frontend components:
 - `MemoryReviewInboxPanel`
 - `RelationshipMemoryCard`
 - `MemoryCorrectionPanel`
+- `MemorySourceProvenancePanel`
+- `MemoryQualityBadge`
+- `BusinessMemoryCandidateCard`
 
 Safety/approval requirements:
 
@@ -286,10 +319,21 @@ Safety/approval requirements:
 - No context injection.
 - Every memory candidate needs provenance, source refs, evidence refs, review
   state, retention/deletion posture, and correction support.
+- External assistant output, local coding summaries, and local chat summaries
+  are untrusted source inputs until reviewed; they cannot become truth,
+  approval evidence, context injection, or action authority by themselves.
+- Business memory for people, organizations, opportunities, promises,
+  follow-ups, preferences, and decisions must remain safe-ref and
+  redacted-summary only until later scoped connector or CRM runtime authority
+  exists.
 
 Tests needed:
 
 - Memory schema tests for provenance and raw-content denial.
+- Memory review decision tests for accept/correct/reject/defer/merge/supersede
+  and forget-request posture.
+- Memory quality tests for duplicate/conflict/stale/low-confidence/missing
+  evidence states.
 - Redacted export regression tests if export shape changes.
 
 Not scoped:
@@ -297,6 +341,8 @@ Not scoped:
 - Hidden context injection.
 - Model-output-to-memory writes.
 - Vector DB or embeddings.
+- Automatic ChatGPT/browser/account imports.
+- Connector runtime or external CRM writes.
 
 ### Evidence Surface
 
@@ -450,11 +496,17 @@ No execution without exact scoped approval: required.
 
 ### 6. Memory Review Inbox
 
-Inputs: memory candidate refs with provenance.
+Inputs: memory candidate refs with provenance from manual notes, external
+assistant review summaries, local chat summaries, local coding summaries,
+plans, actions, evidence refs, read-only calendar/email metadata refs, and
+CRM-lite business records.
 
-Output: accepted/corrected/rejected memory records through reviewed contracts.
+Output: accepted, corrected, rejected, deferred, merged, superseded, or
+forget-request memory records through reviewed contracts, with quality posture
+for duplicate, conflicting, stale, low-confidence, source-missing, and
+evidence-missing candidates.
 
-No automatic memory write: required.
+No automatic memory write or hidden context injection: required.
 
 ### 7. Evidence Timeline
 
@@ -467,9 +519,11 @@ No raw evidence display: required.
 
 ### 8. Weekly CEO Review
 
-Inputs: Today, Plans, Actions, Follow-Up, Memory, and Evidence summaries.
+Inputs: Today, Plans, Actions, Follow-Up, Memory, Evidence summaries, and
+business memory candidates for people, organizations, opportunities, promises,
+preferences, decisions, and commitments.
 
 Output: decisions made, commitments, unresolved blockers, carry-forward tasks,
-and memory corrections.
+memory corrections, stale memory to revisit, and follow-up opportunities.
 
 No broad autonomy: required.
