@@ -231,6 +231,7 @@ SCAN_SEQUENCE = [
     ("M162 exact-approved GGUF acquisition scan", "verify_m162_exact_approved_gguf_acquisition"),
     ("M166 local model production readiness gate scan", "verify_m166_local_model_production_readiness_gate"),
     ("M167 live model production hardening scan", "verify_m167_live_model_production_hardening"),
+    ("UAA-P1-062 local model manager scope scan", "verify_uaa_p1_062_local_model_manager_scope"),
     ("local developer launcher safety scan", "verify_local_developer_launcher_safety"),
     ("v0.29.2 local dev API authority/raw preview hardening scan", "verify_v0292_local_dev_api_hardening"),
     ("shell execution scan", "verify_no_shell_execution_in_runtime"),
@@ -29890,6 +29891,28 @@ def verify_morning_reconciliation_artifact() -> None:
             print(f"FAIL: {failure}")
         sys.exit(1)
     print("OK: Morning reconciliation artifact schema and template are safe")
+
+
+def verify_uaa_p1_062_local_model_manager_scope() -> None:
+    print("\n[Verifier] Running UAA-P1-062 Local Model Manager scope guard...")
+    verifier_path = ROOT / "scripts" / "verify_uaa_p1_062_local_model_manager_scope.py"
+    spec = importlib.util.spec_from_file_location(
+        "verify_uaa_p1_062_local_model_manager_scope",
+        verifier_path,
+    )
+    if spec is None or spec.loader is None:
+        print("FAIL: UAA-P1-062 local model manager scope verifier could not be loaded")
+        sys.exit(1)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    failures = module.validate_uaa_p1_062_local_model_manager_scope()
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}")
+        sys.exit(1)
+    print("OK: UAA-P1-062 local model manager remains docs-only and no-authority")
 
 
 def verify_backup_restore_verification() -> None:

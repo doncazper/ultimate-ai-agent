@@ -89,3 +89,14 @@ scope, and documentation/product-truth/reconciliation checks pass.
 Future implementation stages need later documented scope. Do not reuse
 UAA-P1-062 as authority to implement lifecycle, switching, downloads, routes,
 CLI commands, or process control.
+
+## Verification
+
+```bash
+.venv/bin/python scripts/verify_uaa_p1_062_local_model_manager_scope.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_uaa_p1_062_local_model_manager_scope.py
+```
+
+The verifier is inspection-only. It checks that active docs, product truth,
+gap maps, board state, and reconciliation artifacts preserve the docs-only
+scope and keep runtime stages blocked.
