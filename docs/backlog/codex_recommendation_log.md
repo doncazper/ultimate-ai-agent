@@ -42,6 +42,50 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-064 Local Model Inventory Ready Next
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor continuation.
+
+Recommendation: Promote the first Local Model Manager implementation slice as
+read-only Python Agent Core inventory plus CLI inspection only. Keep lifecycle,
+switching, downloads, route authority, Control Center activation, and runtime
+adapters blocked until later exact scoped milestones.
+
+Next prompt:
+
+```text
+Continue the documented-milestone conveyor from UAA-P1-064 Local Model
+Inventory Read-Only Backend + CLI. Implement read-only Python Agent Core
+inventory and CLI parity only. Do not add lifecycle, switching, downloads,
+route/OpenAPI authority, Control Center activation controls, model/provider
+calls, web fetching, connector writes, plugin runtime import, or production
+authority.
+```
+
+Decision: Accepted as the documented Ready Next milestone. The scope is
+implementation-ready for read-only inventory and CLI inspection only.
+
+Status: accepted
+
+Completed: Added
+`docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, promoted
+UAA-P1-064 on the active board and M170 roadmap, updated docs indexes and
+product-truth references, and recorded a safe reconciliation artifact for the
+promotion.
+
+Not done: No backend route, OpenAPI operation, lifecycle command, switch,
+download, model call, provider call, web fetch, process control, Control Center
+activation control, runtime adapter execution, production claim, or runtime
+authority was added.
+
+Evidence: `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`,
+`docs/kanban/current_board.md`,
+`docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`,
+`docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, and
+`docs/backlog/reconciliation/2026-06-21-uaa-p1-064-ready-next-promotion.json`.
+
 ### 2026-06-21 - UAA-P1-062 Local Model Manager Lane Shape
 
 Date: 2026-06-21

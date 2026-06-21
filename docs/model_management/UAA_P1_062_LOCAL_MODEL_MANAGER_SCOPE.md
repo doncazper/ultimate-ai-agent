@@ -51,6 +51,82 @@ identity updates, safe-disable, or rollback.
 6. Downloads/acquisition:
    Add search/download only after switching is solid and separately approved.
 
+## Candidate Implementation Roadmap
+
+The next implementation milestones should preserve this order. These items are
+roadmap shape only until later exact scoped milestones grant implementation
+authority.
+
+1. Read-only inventory:
+   Build Python-core inventory over the consolidated local model root such as
+   `$HOME/Models`. Detect GGUF, MLX/Hugging Face cache, Ollama, and LM Studio
+   candidates. Return safe model refs, runtime type, size bucket, role hints,
+   and explicit `runnable_now`, `needs_adapter`, or `blocked` status.
+2. CLI first:
+   Add `uaa local-model status`, `uaa local-model list`, and
+   `uaa local-model inspect <model-ref>` before any UI controls or lifecycle
+   actions. No switching or process control is allowed in this stage.
+3. Control Center read-only UI:
+   Replace the blocked Models surface with a backend-owned read-only table for
+   installed, runnable, active, blocked, needs-adapter, and memory-posture
+   states. Do not expose a start, stop, switch, activate, or settings mutation
+   control in this stage.
+4. llama.cpp router mode:
+   Add governed GGUF-only lifecycle planning around
+   `llama-server --models-dir <approved-gguf-cache-ref> --models-max 1`.
+   Enforce one-heavy-model policy and verify `/health`, `/v1/models`, and
+   active model identity before any later lifecycle claim.
+5. Dry-run switch planner:
+   Add `uaa local-model switch --to <model-ref> --dry-run`. The plan must name
+   current model posture, target model ref, memory risk, alias, loopback
+   endpoint ref, rollback plan, safe-disable plan, and exact approval scope
+   required. It must not start, stop, unload, or load a model.
+6. Approval-bound switch:
+   Add executable switch only after dry-run contracts pass. The command shape is
+   `uaa local-model switch --to <model-ref> --approval-ref <ref>`. It must emit
+   a redacted receipt, validate exact LocalApprovalAuthority scope, verify
+   health and model identity, and preserve rollback.
+7. Desktop/Hermes UI control:
+   Add an `Activate` or equivalent control only after CLI/API behavior is safe
+   and tested. The UI requests governed Python-core actions only; React state
+   never owns model truth, lifecycle, identity, approval, or rollback state.
+8. MLX/Ollama/LM Studio later:
+   Add MLX, Ollama, and LM Studio adapters only after the GGUF path is solid.
+   MLX/Hugging Face cache entries remain installed-but-needs-adapter until an
+   approved MLX runner/server contract exists.
+
+## Implementation Prompt For Later Scoped Milestone
+
+Use this prompt when creating the next exact scoped milestone. Do not treat this
+prompt as implementation authority by itself.
+
+```text
+Implement UAA-P1-064 Local Model Inventory Read-Only Backend + CLI.
+
+Scope:
+- Build Python Agent Core inventory for consolidated local model roots such as
+  $HOME/Models/huggingface, $HOME/Models/llama.cpp/model-cache,
+  $HOME/Models/ollama, $HOME/Models/lm-studio, and $HOME/Models/mlx.
+- Detect GGUF, MLX/Hugging Face cache, Ollama manifest, and LM Studio candidate
+  records.
+- Return safe model refs, runtime family, runnable status, needs-adapter status,
+  blocked reason refs, size buckets, role hints, source class, and memory-posture
+  summary refs without durable raw local paths.
+- Add CLI parity first: uaa local-model status, uaa local-model list, and
+  uaa local-model inspect <model-ref>.
+- Add tests and docs proving no model calls, no downloads, no process control,
+  no provider calls, no web fetching, no raw path evidence, and no Control
+  Center authority.
+
+Out of scope:
+- no start/stop/switch
+- no llama-server lifecycle
+- no OpenAPI route unless separately accepted with side-effect classification
+- no Control Center mutation controls
+- no MLX/Ollama/LM Studio runtime start
+- no model/provider output authority
+```
+
 ## Required Contracts Before Runtime Work
 
 - backend-owned installed GGUF status contract

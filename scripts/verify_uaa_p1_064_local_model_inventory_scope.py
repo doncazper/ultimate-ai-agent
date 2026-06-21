@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the UAA-P1-062 Local Model Manager docs-only scope.
+"""Validate the UAA-P1-064 read-only local model inventory scope.
 
-This verifier is inspection-only. It checks that the UAA-P1-062 lane shape
-remains documented as docs-only and that runtime model-manager authority stays
-blocked until later exact scoped milestones grant them.
+This verifier is inspection-only. It checks that UAA-P1-064 is promoted as the
+Ready Next milestone for read-only Python Agent Core inventory and CLI
+inspection, while lifecycle, switching, downloads, route authority, Control
+Center activation, and runtime adapters remain blocked.
 """
 from __future__ import annotations
 
@@ -15,8 +16,8 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TASK_REF = "UAA-P1-062"
-SCOPE_DOC = ROOT / "docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md"
+TASK_REF = "UAA-P1-064"
+SCOPE_DOC = ROOT / "docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md"
 CURRENT_BOARD = ROOT / "docs/kanban/current_board.md"
 ROADMAP = ROOT / "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
 PRODUCT_TRUTH = ROOT / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
@@ -27,9 +28,9 @@ CANONICAL_MAP = ROOT / "docs/canonical/CANONICAL_DOC_MAP.md"
 RECOMMENDATION_LOG = ROOT / "docs/backlog/codex_recommendation_log.md"
 RECONCILIATION_ARTIFACT = (
     ROOT
-    / "docs/backlog/reconciliation/2026-06-21-uaa-p1-062-local-model-manager-shape.json"
+    / "docs/backlog/reconciliation/2026-06-21-uaa-p1-064-ready-next-promotion.json"
 )
-SCOPE_REF = "docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md"
+SCOPE_REF = "docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md"
 
 REQUIRED_SAFETY_FLAGS = {
     "raw_prompt_included",
@@ -115,7 +116,7 @@ def _require_fragments(
     for fragment in fragments:
         needle = fragment.lower()
         if needle not in lowered and needle not in compact:
-            failures.append(f"{rel_path} missing UAA-P1-062 fragment: {fragment}")
+            failures.append(f"{rel_path} missing UAA-P1-064 fragment: {fragment}")
 
 
 def _validate_scope_doc(root: Path, failures: list[str]) -> None:
@@ -126,22 +127,29 @@ def _validate_scope_doc(root: Path, failures: list[str]) -> None:
         _rel(SCOPE_DOC),
         text,
         [
-            "Status: docs-only lane shape",
-            "does not implement routes",
-            "Python Agent Core owns local model truth",
-            "No routes or OpenAPI changes",
-            "No CLI commands",
-            "No OpenWebUI config or runtime changes",
-            "no process control",
-            "no provider/model calls",
-            "Candidate Implementation Roadmap",
-            "Read-only inventory",
+            "Status: Ready Next",
+            "UAA-P1-064 is the first implementation milestone",
+            "Python Agent Core as the authority",
+            "read-only Python Agent Core inventory",
+            "Detect local model candidates from GGUF",
+            "Hugging Face/MLX-style directories",
+            "Ollama manifests or blobs",
+            "LM Studio-style directories",
             "uaa local-model status",
-            "llama-server --models-dir <approved-gguf-cache-ref> --models-max 1",
-            "uaa local-model switch --to <model-ref> --dry-run",
-            "Implementation Prompt For Later Scoped Milestone",
-            "Implement UAA-P1-064 Local Model Inventory Read-Only Backend + CLI",
-            "Future implementation stages need later documented scope",
+            "uaa local-model list",
+            "uaa local-model inspect <model-ref>",
+            "runnable_now",
+            "needs_adapter",
+            "blocked",
+            "No start, stop, activate, switch, or unload behavior",
+            "No process control and no llama.cpp lifecycle management",
+            "No OpenAPI or route authority",
+            "No model downloads or model movement",
+            "No provider SDK calls, model calls, web fetching",
+            "No Control Center activation control",
+            "Verification Commands",
+            "scripts/verify_uaa_p1_064_local_model_inventory_scope.py",
+            "Stop And Ask Conditions",
         ],
         failures,
     )
@@ -153,33 +161,30 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
         CURRENT_BOARD: [
             "UAA-P1-064 Local Model Inventory Read-Only Backend + CLI",
             "UAA-P1-064 is Ready Next only",
-            "backend routes, CLI commands, lifecycle authority",
-            "Later Local Model Manager lifecycle",
-            "This milestone adds no backend routes",
+            "CLI parity first: uaa local-model status",
+            "No start, stop, activate, switch",
+            "scripts/verify_uaa_p1_064_local_model_inventory_scope.py",
         ],
         ROADMAP: [
-            "`UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape",
-            "Runtime stages remain blocked until later exact scoped milestones",
-            "read-only inventory over consolidated `$HOME/Models` roots",
-            "uaa local-model status/list/inspect",
+            "`UAA-P1-064` Ready Next: read-only local model inventory backend + CLI",
+            "`UAA-P1-064` Ready Next: implement only the read-only Python Agent Core",
             SCOPE_REF,
         ],
         PRODUCT_TRUTH: [
-            "UAA-P1-062 documents the Local Model Manager / Memory-Aware Runtime Control lane shape",
-            "planned/blocked for lifecycle",
+            "UAA-P1-064 is Ready Next for read-only Python Agent Core inventory and CLI inspection only",
+            "Ready Next for UAA-P1-064 read-only inventory and CLI inspection",
             SCOPE_REF,
         ],
         GAP_MAP: [
-            "UAA-P1-062 scope doc",
-            "Blocked.",
-            "later backend contracts",
+            "UAA-P1-064 may add read-only inventory and CLI inspection only",
+            "UAA-P1-064 read-only inventory scope doc",
         ],
         DOCS_README: [SCOPE_REF],
         DOCS_INDEX: [SCOPE_REF],
         CANONICAL_MAP: [SCOPE_REF],
         RECOMMENDATION_LOG: [
-            "UAA-P1-062 Local Model Manager Lane Shape",
-            "No backend route, CLI command, process control",
+            "UAA-P1-064 Local Model Inventory Ready Next",
+            "implementation-ready for read-only inventory and CLI inspection only",
             SCOPE_REF,
         ],
     }
@@ -196,31 +201,33 @@ def _validate_reconciliation_artifact(root: Path, failures: list[str]) -> None:
     if not artifact:
         return
     if artifact.get("reconciliation_id") != (
-        "reconciliation:2026-06-21-uaa-p1-062-local-model-manager-shape"
+        "reconciliation:2026-06-21-uaa-p1-064-ready-next-promotion"
     ):
-        failures.append("UAA-P1-062 reconciliation artifact id drifted")
-    if artifact.get("next_prompt_ref") != "prompt-ref:no-documented-ready-next":
-        failures.append("UAA-P1-062 reconciliation artifact must stop the conveyor")
+        failures.append("UAA-P1-064 reconciliation artifact id drifted")
+    if artifact.get("next_prompt_ref") != "prompt-ref:uaa-p1-064-conveyor-restart":
+        failures.append("UAA-P1-064 reconciliation artifact must point to restart prompt")
 
     safety = artifact.get("reconciliation_safety")
     if not isinstance(safety, dict) or set(safety) != REQUIRED_SAFETY_FLAGS:
-        failures.append("UAA-P1-062 reconciliation safety flags are incomplete")
+        failures.append("UAA-P1-064 reconciliation safety flags are incomplete")
     elif any(safety.get(flag) is not False for flag in REQUIRED_SAFETY_FLAGS):
-        failures.append("UAA-P1-062 reconciliation safety flags must all be false")
+        failures.append("UAA-P1-064 reconciliation safety flags must all be false")
 
     serialized = json.dumps(artifact, sort_keys=True)
     for fragment in [
-        "recommendation:uaa-p1-062-docs-only-shape",
-        "recommendation:uaa-p1-062-runtime-authority",
+        "recommendation:uaa-p1-064-ready-next-scope",
+        "recommendation:uaa-p1-064-implementation",
+        "recommendation:uaa-p1-064-runtime-authority",
+        "READY_NEXT_NOT_STARTED",
         "MISSING_SCOPED_AUTHORITY",
         SCOPE_REF,
     ]:
         if fragment not in serialized:
-            failures.append(f"UAA-P1-062 reconciliation artifact missing: {fragment}")
+            failures.append(f"UAA-P1-064 reconciliation artifact missing: {fragment}")
     failures.extend(_scan_text(_rel(RECONCILIATION_ARTIFACT), serialized))
 
 
-def validate_uaa_p1_062_local_model_manager_scope(root: Path = ROOT) -> list[str]:
+def validate_uaa_p1_064_local_model_inventory_scope(root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     _validate_scope_doc(root, failures)
     _validate_active_docs(root, failures)
@@ -230,17 +237,17 @@ def validate_uaa_p1_062_local_model_manager_scope(root: Path = ROOT) -> list[str
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Validate UAA-P1-062 local model manager docs-only scope."
+        description="Validate UAA-P1-064 local model inventory scope."
     )
     parser.add_argument("--root", default=str(ROOT), help="Repository root to validate.")
     args = parser.parse_args(argv)
-    failures = validate_uaa_p1_062_local_model_manager_scope(Path(args.root).resolve())
+    failures = validate_uaa_p1_064_local_model_inventory_scope(Path(args.root).resolve())
     if failures:
-        print("UAA-P1-062 local model manager scope verification FAILED")
+        print("UAA-P1-064 local model inventory scope verification FAILED")
         for failure in failures:
             print(f"- {failure}")
         return 1
-    print("UAA-P1-062 local model manager scope verification PASSED")
+    print("UAA-P1-064 local model inventory scope verification PASSED")
     return 0
 
 

@@ -45,6 +45,14 @@ def test_setup_writes_local_llama_env_template(tmp_path: Path) -> None:
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
     assert "UAA_LLAMA_CPP_GATEWAY_ENABLED=1" in content
     assert "UAA_LLAMA_CPP_MODEL_ID=uaa-llama-cpp-local" in content
+    assert 'HF_HOME="${HF_HOME:-$HOME/Models/huggingface}"' in content
+    assert 'HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"' in content
+    assert 'OLLAMA_MODELS="${OLLAMA_MODELS:-$HOME/Models/ollama/models}"' in content
+    assert (
+        'UAA_LLAMA_CPP_MODEL_CACHE_ROOT="${UAA_LLAMA_CPP_MODEL_CACHE_ROOT:-$HOME/Models/llama.cpp/model-cache}"'
+        in content
+    )
+    assert 'UAA_LLAMA_CPP_MODEL_PATH="$UAA_LLAMA_CPP_MODEL_CACHE_ROOT/path/to/model.gguf"' in content
     assert "sk-" not in content
     assert "ANTHROPIC" not in content
     assert "GEMINI" not in content

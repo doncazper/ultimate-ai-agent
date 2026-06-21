@@ -137,16 +137,21 @@ network, raw prompt logging, or production authority.
 Optional M164 llama.cpp-backed OpenWebUI shell commands:
 
 ```bash
+source .uaa/dev/local-llama.env
+
 llama-server \
   --host 127.0.0.1 \
   --port 8080 \
   --hf-repo ggml-org/gemma-3-1b-it-GGUF \
   --hf-file gemma-3-1b-it-Q4_K_M.gguf \
-  --alias uaa-llama-cpp-local \
-  --api-key uaa-llama-backend-dev
+  --alias "${UAA_LLAMA_CPP_MODEL_ID:-uaa-llama-cpp-local}" \
+  --api-key "${UAA_LLAMA_CPP_API_KEY:-uaa-llama-backend-dev}"
 ```
 
-Leave that `llama-server` terminal open. In a second terminal:
+Direct GGUF launchers can set `UAA_LLAMA_CPP_MODEL_PATH` under
+`$HOME/Models/llama.cpp/model-cache`; `.uaa/model-cache` remains a compatibility
+link for existing local-dev tooling. Leave that `llama-server` terminal open.
+In a second terminal:
 
 ```bash
 UAA_LLAMA_CPP_GATEWAY_ENABLED=1 \

@@ -43,6 +43,10 @@ DEFAULT_HF_FILE = "gemma-3-1b-it-Q4_K_M.gguf"
 DEFAULT_LLAMA_BASE_URL = "http://127.0.0.1:8080"
 DEFAULT_UAA_GATEWAY_KEY = "uaa-local-llama-cpp-dev"
 DEFAULT_LLAMA_BACKEND_KEY = "uaa-llama-backend-dev"
+DEFAULT_HF_HOME = "$HOME/Models/huggingface"
+DEFAULT_HF_HUB_CACHE = "$HF_HOME/hub"
+DEFAULT_OLLAMA_MODELS = "$HOME/Models/ollama/models"
+DEFAULT_LLAMA_CPP_MODEL_CACHE_ROOT = "$HOME/Models/llama.cpp/model-cache"
 LOCAL_ENV_PATH = Path(".uaa") / "dev" / "local-llama.env"
 DEFAULT_REPORT_PATH = Path(".uaa") / "dev" / "setup-report.json"
 SETUP_INSTALL_RECEIPT_DIR = Path(".uaa") / "dev" / "setup-install-receipts"
@@ -1743,6 +1747,15 @@ def write_local_llama_env(root: Path, *, model_id: str, overwrite: bool = False)
             f"export UAA_LLAMA_CPP_MODEL_ID={model_id}",
             f"export UAA_LLAMA_CPP_API_KEY={DEFAULT_LLAMA_BACKEND_KEY}",
             "",
+            "# Consolidated local model storage.",
+            f'export HF_HOME="${{HF_HOME:-{DEFAULT_HF_HOME}}}"',
+            f'export HF_HUB_CACHE="${{HF_HUB_CACHE:-{DEFAULT_HF_HUB_CACHE}}}"',
+            f'export OLLAMA_MODELS="${{OLLAMA_MODELS:-{DEFAULT_OLLAMA_MODELS}}}"',
+            f'export UAA_LLAMA_CPP_MODEL_CACHE_ROOT="${{UAA_LLAMA_CPP_MODEL_CACHE_ROOT:-{DEFAULT_LLAMA_CPP_MODEL_CACHE_ROOT}}}"',
+            "",
+            "# Optional active GGUF path for direct llama-server --model launchers.",
+            '# export UAA_LLAMA_CPP_MODEL_PATH="$UAA_LLAMA_CPP_MODEL_CACHE_ROOT/path/to/model.gguf"',
+            "",
         ]
     )
     target.write_text(content, encoding="utf-8")
@@ -1924,13 +1937,14 @@ def render_report(report: SetupReport, *, hf_repo: str, hf_file: str, explain: b
         lines.extend(["", "Recommended local llama.cpp command:"])
         lines.extend(
             [
+                f"source {LOCAL_ENV_PATH}",
                 "llama-server -lv 1 \\",
                 "  --host 127.0.0.1 \\",
                 "  --port 8080 \\",
                 f"  --hf-repo {hf_repo} \\",
                 f"  --hf-file {hf_file} \\",
-                f"  --alias {_report_model_alias(report)} \\",
-                f"  --api-key {DEFAULT_LLAMA_BACKEND_KEY}",
+                f'  --alias "${{UAA_LLAMA_CPP_MODEL_ID:-{_report_model_alias(report)}}}" \\',
+                f'  --api-key "${{UAA_LLAMA_CPP_API_KEY:-{DEFAULT_LLAMA_BACKEND_KEY}}}"',
             ]
         )
     lines.extend(["", "Suggested run order:"])
@@ -2113,8 +2127,8 @@ def _plan_commands(*, profile: str, mode: str, model_id: str, hf_repo: str, hf_f
     return [
         'python3 -m venv .venv && .venv/bin/python -m pip install -e ".[dev]"',
         "cd apps/control-center && npm install",
-        f"llama-server -lv 1 --host 127.0.0.1 --port 8080 --hf-repo {hf_repo} --hf-file {hf_file} --alias {model_id} --api-key {DEFAULT_LLAMA_BACKEND_KEY}",
         f"source {LOCAL_ENV_PATH}",
+        f'llama-server -lv 1 --host 127.0.0.1 --port 8080 --hf-repo {hf_repo} --hf-file {hf_file} --alias "${{UAA_LLAMA_CPP_MODEL_ID:-{model_id}}}" --api-key "${{UAA_LLAMA_CPP_API_KEY:-{DEFAULT_LLAMA_BACKEND_KEY}}}"',
         "./scripts/dev/uaa start",
         "./scripts/dev/uaa openwebui doctor",
         "./scripts/dev/uaa openwebui start",
@@ -2636,8 +2650,8 @@ def _next_steps(*, profile: str, mode: str, model_id: str, hf_repo: str, hf_file
             "Create a scoped milestone before adding governed provider setup to UAA.",
         ]
     return [
+        f"Source {LOCAL_ENV_PATH} so consolidated model cache paths are active.",
         f"Start llama-server with --hf-repo {hf_repo}, --hf-file {hf_file}, and --alias {model_id}.",
-        f"Optionally run: source {LOCAL_ENV_PATH}",
         "Run: uaa start",
         "Run: uaa openwebui doctor",
         "Run: uaa openwebui start",

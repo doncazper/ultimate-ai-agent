@@ -44,10 +44,10 @@ for completed, deferred, rejected, and blocked recommendation refs. UAA-P1-062
 adds the docs-only Local Model Manager / Memory-Aware Runtime Control lane
 shape; backend routes, CLI commands, lifecycle authority, switch execution,
 identity updates, downloads, process control, and runtime behavior remain
-blocked. Next-lane order:
+blocked. UAA-P1-064 is promoted as the next read-only implementation slice for
+Python-core inventory and CLI inspection only. Next-lane order:
 
-1. No documented Ready Next milestone remains after UAA-P1-062. Future Local
-   Model Manager implementation stages require later exact scoped milestones.
+1. UAA-P1-064 Local Model Inventory Read-Only Backend + CLI
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -76,23 +76,47 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active foundation build item. Do not pull future Local Model Manager
-implementation stages without later exact scoped milestones for backend
-contracts, approvals, receipts, rollback, CLI parity, route side-effect
-classes, verifier coverage, and safe-disable behavior.
+No active foundation build item. UAA-P1-064 is Ready Next only and is not in
+Now/Building until the conveyor starts it from the documented scope.
 ```
 
 ## Ready Next
 
 ```text
-No documented Ready Next milestone remains after UAA-P1-062.
+UAA-P1-064 Local Model Inventory Read-Only Backend + CLI
+Goal: implement read-only Python Agent Core local model inventory and CLI
+inspection over consolidated model roots without lifecycle, switching,
+downloads, model calls, route authority, or Control Center activation controls.
+
+Scope:
+- Core inventory detects GGUF, Hugging Face/MLX-style directories, Ollama
+  manifests or blobs, LM Studio-style directories, and MLX directories.
+- CLI parity first: uaa local-model status, uaa local-model list, and
+  uaa local-model inspect <model-ref>.
+- Output is safe-ref only: model ref, runtime family, artifact kind, source
+  class, role hints, size bucket, runnable status, blocked reason code, memory
+  posture bucket, and adapter requirement.
+
+Non-goals:
+- No start, stop, activate, switch, unload, downloads, process control,
+  llama.cpp lifecycle management, dry-run switching, approval-bound switching,
+  OpenAPI/route changes, Control Center controls, model/provider calls, web
+  fetching, connector writes, plugin runtime import, or production authority.
+
+Verification:
+- .venv/bin/python scripts/verify_uaa_p1_064_local_model_inventory_scope.py
+- PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_uaa_p1_064_local_model_inventory_scope.py
+- .venv/bin/python scripts/verify_documentation_integrity.py
+- git diff --check
 ```
 
 ## Shaping
 
 ```text
-No active shaping item after UAA-P1-062 completion. Use Spec Draft for the next
-candidate unless the roadmap promotes a new scoped lane.
+No active shaping item beyond UAA-P1-064. Later Local Model Manager lifecycle,
+switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
+downloads still require separate exact scoped milestones.
 ```
 
 ## Spec Draft
