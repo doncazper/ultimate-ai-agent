@@ -66,7 +66,7 @@ class AutonomyV1SafetyFreezePolicy(_AutonomyV1SafetyFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -111,7 +111,7 @@ class AutonomyV1SafetyFreezeRequest(_AutonomyV1SafetyFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.freeze_ref, "freeze_ref"),
@@ -166,7 +166,7 @@ class AutonomyV1SafetyFreezeReport(_AutonomyV1SafetyFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.freeze_ref, "freeze_ref"),

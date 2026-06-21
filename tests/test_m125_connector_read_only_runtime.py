@@ -1,3 +1,4 @@
+from typing import Any
 from functools import lru_cache
 from importlib import import_module
 
@@ -23,7 +24,7 @@ from ultimate_ai_agent.core.production_readiness import (
 )
 
 
-def _connectors():
+def _connectors() -> Any:
     try:
         return import_module("ultimate_ai_agent.core.connectors")
     except ModuleNotFoundError as exc:
@@ -31,7 +32,7 @@ def _connectors():
 
 
 @lru_cache(maxsize=1)
-def _m120_source_record():
+def _m120_source_record() -> Any:
     return build_production_authority_readiness_review_record(
         source_record=build_production_red_team_harness_record(
             source_record=build_deployment_mode_matrix_record(
@@ -62,7 +63,7 @@ def _m120_source_record():
 
 
 @lru_cache(maxsize=1)
-def _m124_source_record():
+def _m124_source_record() -> Any:
     connectors = _connectors()
     return connectors.build_messages_connector_contract_review_record(
         source_record=connectors.build_contacts_connector_contract_refresh_record(

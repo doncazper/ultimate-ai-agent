@@ -77,7 +77,7 @@ class ProductionAuthorityReadinessReviewPolicy(_ProductionAuthorityReadinessRevi
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -146,7 +146,7 @@ class ProductionAuthorityReadinessReviewRecord(_ProductionAuthorityReadinessRevi
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (
                 self.production_authority_readiness_review_ref,

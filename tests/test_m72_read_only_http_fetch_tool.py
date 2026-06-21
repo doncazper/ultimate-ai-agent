@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.tools.runtime import (
@@ -16,13 +17,13 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _policy(**overrides):
+def _policy(**overrides: Any) -> Any:
     data = {"allowed_hosts": ("docs.example.test",)}
     data.update(overrides)
     return ReadOnlyHttpFetchPolicy(**data)
 
 
-def _fetch_request(**overrides):
+def _fetch_request(**overrides: Any) -> Any:
     data = {
         "request_ref": "http-fetch-request:m72-safe",
         "url": "https://docs.example.test/status",
@@ -33,7 +34,7 @@ def _fetch_request(**overrides):
     return ReadOnlyHttpFetchRequest(**data)
 
 
-def _tool_request(**metadata_overrides):
+def _tool_request(**metadata_overrides: Any) -> Any:
     metadata = {
         "request_ref": "http-fetch-request:m72-runtime",
         "url": "https://docs.example.test/status",
@@ -53,7 +54,7 @@ def _tool_request(**metadata_overrides):
     )
 
 
-def _fake_transport(_request, _policy):
+def _fake_transport(_request: Any, _policy: Any) -> Any:
     return ReadOnlyHttpFetchTransportResponse(
         status_code=200,
         content_type="text/plain",

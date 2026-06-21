@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.mattermost import (
@@ -16,7 +18,7 @@ from ultimate_ai_agent.core.mattermost.roles import build_custom_role_from_promp
 from ultimate_ai_agent.core.mattermost.storage import MattermostBridgeStore
 
 
-def _service(tmp_path, *, reply_enabled=True, auto_create=False):
+def _service(tmp_path: Path, *, reply_enabled: bool = True, auto_create: bool = False) -> Any:
     return MattermostBridgeService(
         config=MattermostBridgeConfig(
             enabled=True,
@@ -28,7 +30,7 @@ def _service(tmp_path, *, reply_enabled=True, auto_create=False):
     )
 
 
-def _bind(service, *, mode=MattermostTriggerMode.mention_command, roles=None):
+def _bind(service: Any, *, mode: str = MattermostTriggerMode.mention_command, roles: Any | None = None) -> Any:
     return service.bind_roles(
         MattermostRoleBindRequest(
             workspace_ref="mattermost-workspace:local",
@@ -41,7 +43,7 @@ def _bind(service, *, mode=MattermostTriggerMode.mention_command, roles=None):
     )
 
 
-def _event(**updates):
+def _event(**updates: Any) -> Any:
     payload = {
         "event_ref": "mattermost-event:post1",
         "workspace_ref": "mattermost-workspace:local",
@@ -59,7 +61,7 @@ def _event(**updates):
     return MattermostMessageEvent(**payload)
 
 
-def test_predefined_role_catalog_is_stable_and_speak_only():
+def test_predefined_role_catalog_is_stable_and_speak_only() -> None:
     roles = list_predefined_roles()
     role_ids = [role.role_id for role in roles]
 
@@ -76,12 +78,12 @@ def test_predefined_role_catalog_is_stable_and_speak_only():
     assert all(role.model_output_authoritative is False for role in roles)
 
 
-def test_mattermost_event_rejects_secret_like_preview():
+def test_mattermost_event_rejects_secret_like_preview() -> None:
     with pytest.raises(ValueError, match="MESSAGE_PREVIEW_SECRET_LIKE"):
         _event(message_preview="Authorization: Bearer abcdefghijklmnop")
 
 
-def test_role_suggestion_modes_include_predefined_proposal_and_auto_create(tmp_path):
+def test_role_suggestion_modes_include_predefined_proposal_and_auto_create(tmp_path: Path) -> None:
     service = _service(tmp_path, auto_create=False)
 
     predefined = service.suggest_roles(
@@ -126,7 +128,7 @@ def test_role_suggestion_modes_include_predefined_proposal_and_auto_create(tmp_p
     assert auto_created[0].role.speak_only_by_default is True
 
 
-def test_mention_trigger_proposes_role_reply_and_records_receipt(tmp_path):
+def test_mention_trigger_proposes_role_reply_and_records_receipt(tmp_path: Path) -> None:
     service = _service(tmp_path)
     _bind(service)
 
@@ -143,7 +145,7 @@ def test_mention_trigger_proposes_role_reply_and_records_receipt(tmp_path):
     assert "@uaa-planner help us plan this" not in stored
 
 
-def test_enabled_room_allows_unmentioned_message(tmp_path):
+def test_enabled_room_allows_unmentioned_message(tmp_path: Path) -> None:
     service = _service(tmp_path)
     _bind(service, mode=MattermostTriggerMode.enabled_room, roles=["summarizer"])
 
@@ -162,7 +164,7 @@ def test_enabled_room_allows_unmentioned_message(tmp_path):
     assert decision.reply_commands[0].role_id == "summarizer"
 
 
-def test_cooldown_suppresses_second_reply_in_same_thread(tmp_path):
+def test_cooldown_suppresses_second_reply_in_same_thread(tmp_path: Path) -> None:
     service = _service(tmp_path)
     _bind(service)
 
@@ -180,7 +182,7 @@ def test_cooldown_suppresses_second_reply_in_same_thread(tmp_path):
     assert "MATTERMOST_COOLDOWN_ACTIVE" in second.reason_codes
 
 
-def test_bot_message_and_duplicate_events_are_suppressed(tmp_path):
+def test_bot_message_and_duplicate_events_are_suppressed(tmp_path: Path) -> None:
     service = _service(tmp_path)
     _bind(service)
 
@@ -206,7 +208,7 @@ def test_bot_message_and_duplicate_events_are_suppressed(tmp_path):
     assert duplicate.status.value == "duplicate"
 
 
-def test_tool_like_action_requires_approval_instead_of_reply(tmp_path):
+def test_tool_like_action_requires_approval_instead_of_reply(tmp_path: Path) -> None:
     service = _service(tmp_path)
     _bind(service, mode=MattermostTriggerMode.enabled_room)
 
@@ -226,7 +228,7 @@ def test_tool_like_action_requires_approval_instead_of_reply(tmp_path):
     assert decision.approval_ref == "approval:mattermost:post4"
 
 
-def test_auto_created_custom_role_can_be_bound_and_reply_safely(tmp_path):
+def test_auto_created_custom_role_can_be_bound_and_reply_safely(tmp_path: Path) -> None:
     service = _service(tmp_path, auto_create=True)
     custom = build_custom_role_from_prompt("incident commander", 1)
     assert "incident" not in custom.role_id

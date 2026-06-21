@@ -1,3 +1,4 @@
+import pytest
 import json
 
 from tests.m10_helpers import approval_for_smoke, smoke_request
@@ -5,7 +6,7 @@ from ultimate_ai_agent.core.model_runtime import FakeManualLoopbackSmokeTranspor
 from scripts import local_loopback_smoke
 
 
-def test_script_requires_explicit_enable_flag(capsys):
+def test_script_requires_explicit_enable_flag(capsys: pytest.CaptureFixture[str]) -> None:
     code = local_loopback_smoke.main(
         [
             "--endpoint",
@@ -23,7 +24,7 @@ def test_script_requires_explicit_enable_flag(capsys):
     assert "ENABLE_MANUAL_LOCAL_SMOKE_REQUIRED" in output
 
 
-def test_script_rejects_remote_endpoint(capsys):
+def test_script_rejects_remote_endpoint(capsys: pytest.CaptureFixture[str]) -> None:
     code = local_loopback_smoke.main(
         [
             "--endpoint",
@@ -42,7 +43,7 @@ def test_script_rejects_remote_endpoint(capsys):
     assert "MODEL_RUNTIME_VALIDATION_FAILED" in output or "NON_LOOPBACK_HOST_DENIED" in output
 
 
-def test_script_uses_fixed_prompt_and_fake_transport_with_valid_grant(capsys):
+def test_script_uses_fixed_prompt_and_fake_transport_with_valid_grant(capsys: pytest.CaptureFixture[str]) -> None:
     request = smoke_request()
     _, _, grant, _ = approval_for_smoke(request)
     code = local_loopback_smoke.main(

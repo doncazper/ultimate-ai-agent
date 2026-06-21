@@ -3,7 +3,7 @@ from pathlib import Path
 from ultimate_ai_agent.core.recall import GroundedRecallDecision
 
 
-def test_grounded_recall_decision_records_no_memory_write():
+def test_grounded_recall_decision_records_no_memory_write() -> None:
     decision = GroundedRecallDecision(
         decision_id="recall:decision:no-write",
         request_id="recall:req:no-write",
@@ -16,7 +16,7 @@ def test_grounded_recall_decision_records_no_memory_write():
     assert decision.no_memory_write_performed is True
 
 
-def test_recall_module_does_not_import_memory_store_or_write_requests():
+def test_recall_module_does_not_import_memory_store_or_write_requests() -> None:
     recall_root = Path("src/ultimate_ai_agent/core/recall")
     source = "\n".join(path.read_text(encoding="utf-8").lower() for path in recall_root.glob("*.py"))
 

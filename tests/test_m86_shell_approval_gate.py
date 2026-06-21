@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.test_m66_scoped_approval_bundles import _bundle as _scoped_bundle
@@ -120,7 +121,7 @@ def _allowlist_decision(command_ref: str = "command-ref:m86-safe-noop") -> ReadO
     return build_read_only_command_allowlist_decision(request)
 
 
-def _approval_bundle(allowlist_decision: ReadOnlyCommandAllowlistDecision | None = None, **overrides):
+def _approval_bundle(allowlist_decision: ReadOnlyCommandAllowlistDecision | None = None, **overrides: Any) -> Any:
     decision = allowlist_decision or _allowlist_decision()
     scope = overrides.pop(
         "source_scope",
@@ -153,7 +154,7 @@ def _approval_bundle(allowlist_decision: ReadOnlyCommandAllowlistDecision | None
     return _scoped_bundle(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     allowlist_decision = overrides.pop("read_only_command_allowlist_decision", _allowlist_decision())
     approval_bundle = overrides.pop("approval_bundle", _approval_bundle(allowlist_decision))
     data = {

@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
 from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 
 
-def test_m25_foundation_gate_criteria_are_registered():
+def test_m25_foundation_gate_criteria_are_registered() -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
 
@@ -32,7 +32,7 @@ def test_m25_foundation_gate_criteria_are_registered():
     assert "raw exception-message echo" in v0292_criterion.pass_condition
 
 
-def test_m25_openapi_route_guard_rejects_truth_execution_routes():
+def test_m25_openapi_route_guard_rejects_truth_execution_routes() -> None:
     failures = m25_openapi_route_failures(
         {
             "/truth/verify": {},
@@ -48,7 +48,7 @@ def test_m25_openapi_route_guard_rejects_truth_execution_routes():
     assert m25_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
-def test_m25_foundation_gate_evaluator_passes_current_contracts():
+def test_m25_foundation_gate_evaluator_passes_current_contracts() -> None:
     evaluator = FoundationGateEvaluator()
     criteria = [
         criterion

@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "human-checkpoint-scheduling-request:m134:review",
         "checkpoint_schedule_ref": "human-checkpoint-scheduling:m134:review",
@@ -63,7 +64,7 @@ def _request(**overrides):
     return HumanCheckpointSchedulingRequest(**data)
 
 
-def test_m134_human_checkpoint_scheduling_is_review_only_and_route_free():
+def test_m134_human_checkpoint_scheduling_is_review_only_and_route_free() -> None:
     decision = build_human_checkpoint_scheduling_decision(_request())
 
     assert decision.status == HumanCheckpointSchedulingStatus.ready_for_review
@@ -165,7 +166,7 @@ def test_m134_human_checkpoint_scheduling_is_review_only_and_route_free():
         ("production_authority_granted", "M134_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m134_policy_denies_checkpoint_runtime_and_future_authority(field, reason):
+def test_m134_policy_denies_checkpoint_runtime_and_future_authority(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_human_checkpoint_scheduling_policy(
             HumanCheckpointSchedulingPolicy(**{field: True})
@@ -227,12 +228,12 @@ def test_m134_policy_denies_checkpoint_runtime_and_future_authority(field, reaso
         ({"contains_secret": True}, "M134_SECRET_LIKE_CHECKPOINT_CONTENT_DENIED"),
     ],
 )
-def test_m134_request_denies_unsafe_or_unbounded_scope(override, reason):
+def test_m134_request_denies_unsafe_or_unbounded_scope(override: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         build_human_checkpoint_scheduling_decision(_request(**override))
 
 
-def test_m134_revalidates_model_copy_mutations_and_receipt_binding():
+def test_m134_revalidates_model_copy_mutations_and_receipt_binding() -> None:
     decision = build_human_checkpoint_scheduling_decision(_request())
 
     for update, reason in [
@@ -290,7 +291,7 @@ def test_m134_revalidates_model_copy_mutations_and_receipt_binding():
         )
 
 
-def test_m134_denies_secret_like_metadata_on_request_policy_and_decision():
+def test_m134_denies_secret_like_metadata_on_request_policy_and_decision() -> None:
     with pytest.raises(ValueError, match="M134_SECRET_LIKE_CHECKPOINT_CONTENT_DENIED"):
         validate_human_checkpoint_scheduling_request(
             _request(metadata={"connector_token": "abc123supersecret"})

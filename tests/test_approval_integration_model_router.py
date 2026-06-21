@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.hygiene.policies import ClassificationValue
 from ultimate_ai_agent.core.model_router import ModelRouteStatus, ModelRouter
 
 
-def test_router_uses_local_approval_authority_for_sensitive_cloud_route():
+def test_router_uses_local_approval_authority_for_sensitive_cloud_route() -> None:
     route = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -29,7 +29,7 @@ def test_router_uses_local_approval_authority_for_sensitive_cloud_route():
     assert "APPROVAL_VALIDATED" in decision.reason_codes
 
 
-def test_router_rejects_expired_authority_grant():
+def test_router_rejects_expired_authority_grant() -> None:
     route = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -46,7 +46,7 @@ def test_router_rejects_expired_authority_grant():
     assert "APPROVAL_REVOKED" in decision.reason_codes
 
 
-def test_router_keeps_test_approval_compatibility_without_authority():
+def test_router_keeps_test_approval_compatibility_without_authority() -> None:
     route = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),

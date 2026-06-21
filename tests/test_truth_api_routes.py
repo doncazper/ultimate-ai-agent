@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
@@ -5,7 +6,7 @@ from ultimate_ai_agent.api.app import app
 client = TestClient(app)
 
 
-def actor_payload():
+def actor_payload() -> dict[str, Any]:
     return {
         "actor_type": "human_user",
         "actor_id": "user_123",
@@ -13,7 +14,7 @@ def actor_payload():
     }
 
 
-def canonical_source():
+def canonical_source() -> dict[str, Any]:
     return {
         "source_id": "src_canonical",
         "source_type": "canonical_file",
@@ -27,7 +28,7 @@ def canonical_source():
     }
 
 
-def test_truth_source_validate_endpoint_blocks_secret_metadata():
+def test_truth_source_validate_endpoint_blocks_secret_metadata() -> None:
     payload = canonical_source()
     payload["metadata"] = {"note": "api_key='abcdefghijklmnop'"}
 
@@ -39,7 +40,7 @@ def test_truth_source_validate_endpoint_blocks_secret_metadata():
     assert "abcdefghijklmnop" not in response.text
 
 
-def test_grounding_policy_validate_endpoint():
+def test_grounding_policy_validate_endpoint() -> None:
     response = client.post(
         "/truth/grounding-policy/validate",
         json={
@@ -54,7 +55,7 @@ def test_grounding_policy_validate_endpoint():
     assert response.json()["success"] is True
 
 
-def test_evidence_validate_endpoint():
+def test_evidence_validate_endpoint() -> None:
     response = client.post(
         "/truth/evidence/validate",
         json={
@@ -86,7 +87,7 @@ def test_evidence_validate_endpoint():
     assert response.json()["success"] is True
 
 
-def test_truth_route_endpoint_is_non_executing():
+def test_truth_route_endpoint_is_non_executing() -> None:
     response = client.post(
         "/truth/route",
         json={
@@ -110,7 +111,7 @@ def test_truth_route_endpoint_is_non_executing():
     assert response.json()["data"]["selected_source_ids"] == ["src_canonical"]
 
 
-def test_truth_freshness_check_endpoint():
+def test_truth_freshness_check_endpoint() -> None:
     response = client.post(
         "/truth/freshness/check",
         json={
@@ -138,7 +139,7 @@ def test_truth_freshness_check_endpoint():
     assert response.json()["data"]["freshness_status"] == "current"
 
 
-def test_truth_conflicts_validate_endpoint():
+def test_truth_conflicts_validate_endpoint() -> None:
     response = client.post(
         "/truth/conflicts/validate",
         json={

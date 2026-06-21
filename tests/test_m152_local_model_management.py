@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.local_model_management import (
@@ -25,7 +26,7 @@ from ultimate_ai_agent.core.local_model_management import (
 )
 
 
-def _hardware_summary(**overrides):
+def _hardware_summary(**overrides: Any) -> Any:
     data = {
         "summary_ref": "hardware-summary:m152-test",
         "source_ref": "source:m152-injected",
@@ -41,7 +42,7 @@ def _hardware_summary(**overrides):
     return HardwareCapabilitySummary(**data)
 
 
-def _artifact(**overrides):
+def _artifact(**overrides: Any) -> Any:
     data = {
         "artifact_ref": "gguf-artifact:m152-qwopus-q4",
         "repo_ref": "hf-repo:m152-qwopus",
@@ -56,7 +57,7 @@ def _artifact(**overrides):
     return GgufArtifactRef(**data)
 
 
-def _search_request(**overrides):
+def _search_request(**overrides: Any) -> Any:
     data = {
         "request_ref": "hf-search-preview:m152-qwopus",
         "query": "qwopus",
@@ -70,7 +71,7 @@ def _search_request(**overrides):
     return HuggingFaceSearchPreviewRequest(**data)
 
 
-def _settings_plan(**overrides):
+def _settings_plan(**overrides: Any) -> Any:
     data = {
         "plan_ref": "llama-cpp-settings-plan:m152-test",
         "settings_ref": "settings:m152-qwopus",
@@ -83,7 +84,7 @@ def _settings_plan(**overrides):
     return LlamaCppSettingsPlan(**data)
 
 
-def _freeze_request(**overrides):
+def _freeze_request(**overrides: Any) -> Any:
     data = {
         "request_ref": "local-model-freeze-request:m152-test",
         "freeze_ref": "local-model-freeze:m159-planned",
@@ -120,12 +121,12 @@ def _freeze_request(**overrides):
         ("production_authority_granted", "M152_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m152_policy_denies_live_local_model_authority(field, reason):
+def test_m152_policy_denies_live_local_model_authority(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_local_model_management_policy(LocalModelManagementPolicy(**{field: True}))
 
 
-def test_m152_hardware_summary_is_injected_and_redacted():
+def test_m152_hardware_summary_is_injected_and_redacted() -> None:
     summary = validate_hardware_capability_summary(_hardware_summary())
 
     assert summary.injected_summary_only is True
@@ -138,7 +139,7 @@ def test_m152_hardware_summary_is_injected_and_redacted():
         _hardware_summary(os_arch_bucket="/Users/sam/private")
 
 
-def test_m152_gguf_artifact_ref_never_reads_or_downloads_model_file():
+def test_m152_gguf_artifact_ref_never_reads_or_downloads_model_file() -> None:
     artifact = validate_gguf_artifact_ref(_artifact())
 
     assert artifact.gguf_declared is True
@@ -151,7 +152,7 @@ def test_m152_gguf_artifact_ref_never_reads_or_downloads_model_file():
         _artifact(filename_ref="model-file:qwopus.bin")
 
 
-def test_m152_hf_qwopus_search_preview_is_inert():
+def test_m152_hf_qwopus_search_preview_is_inert() -> None:
     request = validate_hugging_face_search_preview_request(_search_request())
     payload = request.model_dump_json()
 
@@ -169,7 +170,7 @@ def test_m152_hf_qwopus_search_preview_is_inert():
         _search_request(query="https://example.invalid/qwopus")
 
 
-def test_m152_llama_cpp_settings_plan_never_executes_or_applies():
+def test_m152_llama_cpp_settings_plan_never_executes_or_applies() -> None:
     plan = validate_llama_cpp_settings_plan(_settings_plan())
 
     assert plan.fit_enabled is True
@@ -186,7 +187,7 @@ def test_m152_llama_cpp_settings_plan_never_executes_or_applies():
         validate_llama_cpp_settings_plan(_settings_plan(settings_applied=True))
 
 
-def test_m152_candidate_ranking_uses_injected_candidates_only():
+def test_m152_candidate_ranking_uses_injected_candidates_only() -> None:
     selection = build_model_selection_preview(
         _search_request(),
         [
@@ -245,7 +246,7 @@ def test_m152_candidate_ranking_uses_injected_candidates_only():
     assert selection.rejected_candidate_refs == ["candidate:m152-too-large"]
 
 
-def test_m152_observability_is_redacted_and_advisory_only():
+def test_m152_observability_is_redacted_and_advisory_only() -> None:
     signal = LocalModelObservabilitySignal(
         signal_ref="observability-signal:m152-lag",
         kind=LocalModelObservabilitySignalKind.lag_summary,
@@ -275,7 +276,7 @@ def test_m152_observability_is_redacted_and_advisory_only():
         validate_local_model_observability_signal(signal.model_copy(update={"raw_prompt_included": True}))
 
 
-def test_m152_freeze_record_requires_exact_m152_to_m158_refs():
+def test_m152_freeze_record_requires_exact_m152_to_m158_refs() -> None:
     record = build_local_model_management_freeze_record(_freeze_request())
 
     assert record.accepted_checkpoint_refs == list(REQUIRED_LOCAL_MODEL_MANAGEMENT_CHECKPOINT_REFS)

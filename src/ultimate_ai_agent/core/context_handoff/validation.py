@@ -164,7 +164,7 @@ def _validate_payload_reason(value: Any, field_name: str, fallback_reason: str) 
     return []
 
 
-def _extra_value(model: Any, field_name: str, default=None):
+def _extra_value(model: Any, field_name: str, default: Any | None = None) -> Any:
     return getattr(model, field_name, default)
 
 

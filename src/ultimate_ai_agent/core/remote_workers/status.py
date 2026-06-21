@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import uuid
 from datetime import datetime
 
@@ -20,14 +20,14 @@ class RemotePolicyDecision(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def decision_must_be_safe(self):
+    def decision_must_be_safe(self) -> Any:
         from ultimate_ai_agent.core.remote_workers.validation import assert_remote_secret_clean
 
         assert_remote_secret_clean(self.model_dump(mode="json"), "Remote policy decision")
         return self
 
 
-def allowed_decision(reason_codes: list[str], safe_message: str, **metadata) -> RemotePolicyDecision:
+def allowed_decision(reason_codes: list[str], safe_message: str, **metadata: Any) -> RemotePolicyDecision:
     return RemotePolicyDecision(
         allowed=True,
         status="allowed",
@@ -37,7 +37,7 @@ def allowed_decision(reason_codes: list[str], safe_message: str, **metadata) -> 
     )
 
 
-def denied_decision(reason_codes: list[str], safe_message: str, **metadata) -> RemotePolicyDecision:
+def denied_decision(reason_codes: list[str], safe_message: str, **metadata: Any) -> RemotePolicyDecision:
     return RemotePolicyDecision(
         allowed=False,
         status="denied",

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,7 +19,7 @@ class FreshnessPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-def classify_freshness(evidence_item, policy: FreshnessPolicy, now: datetime) -> SourceFreshnessStatus:
+def classify_freshness(evidence_item: Any, policy: FreshnessPolicy, now: datetime) -> SourceFreshnessStatus:
     if evidence_item.expires_at and evidence_item.expires_at <= now:
         return SourceFreshnessStatus.expired
     timestamp = evidence_item.observed_at or evidence_item.published_at or evidence_item.effective_at
@@ -39,11 +39,11 @@ def classify_freshness(evidence_item, policy: FreshnessPolicy, now: datetime) ->
     return SourceFreshnessStatus.stale
 
 
-def is_source_stale(evidence_item, policy: FreshnessPolicy, now: datetime) -> bool:
+def is_source_stale(evidence_item: Any, policy: FreshnessPolicy, now: datetime) -> bool:
     return classify_freshness(evidence_item, policy, now) in [SourceFreshnessStatus.stale, SourceFreshnessStatus.expired]
 
 
-def enforce_freshness_policy(evidence_item, policy: FreshnessPolicy, now: datetime) -> Tuple[bool, str]:
+def enforce_freshness_policy(evidence_item: Any, policy: FreshnessPolicy, now: datetime) -> Tuple[bool, str]:
     status = classify_freshness(evidence_item, policy, now)
     evidence_item.freshness_status = status
     if status == SourceFreshnessStatus.current:

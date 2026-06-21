@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 
 import pytest
@@ -32,7 +33,7 @@ from ultimate_ai_agent.core.local_model_management import (
 
 
 def test_m153_m165_progression_gate_criterion_is_registered_and_passes(
-    foundation_gate_results,
+    foundation_gate_results: Any,
 ) -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
@@ -170,7 +171,7 @@ def test_m160_m165_disabled_contract_builder_remains_m163_m165_compat_alias() ->
         ({"openwebui_is_agent_brain": True}, "M164_OPENWEBUI_AUTHORITY_DENIED"),
     ],
 )
-def test_m160_m165_future_live_contracts_deny_live_mutations(update, reason) -> None:
+def test_m160_m165_future_live_contracts_deny_live_mutations(update: Any, reason: str) -> None:
     contract = build_future_live_local_model_contract(
         contract_ref="future-live-contract:m164-openai-gateway",
         capability_kind=FutureLiveLocalModelCapabilityKind.openai_gateway,

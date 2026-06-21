@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.sandbox import (
@@ -17,7 +18,7 @@ from ultimate_ai_agent.core.sandbox import (
 )
 
 
-def _command_proposal(command_ref: str = "command-ref:review-noop"):
+def _command_proposal(command_ref: str = "command-ref:review-noop") -> Any:
     return build_command_proposal(
         CommandProposalRequest(
             request_ref="command-proposal-request:m84-base",
@@ -39,7 +40,7 @@ def _command_proposal(command_ref: str = "command-ref:review-noop"):
     )
 
 
-def _classification(command_ref: str = "command-ref:review-noop"):
+def _classification(command_ref: str = "command-ref:review-noop") -> Any:
     proposal = _command_proposal(command_ref=command_ref)
     return build_shell_dry_run_classification(
         ShellDryRunClassifierRequest(
@@ -61,7 +62,7 @@ def _classification(command_ref: str = "command-ref:review-noop"):
     )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     classification = overrides.pop("shell_dry_run_classification", _classification())
     data = {
         "request_ref": "sandboxed-echo-noop-command-request:m84",

@@ -1,3 +1,4 @@
+from typing import Any
 import importlib.util
 from pathlib import Path
 
@@ -6,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/verify_control_center_browser_smoke_readiness.py"
 
 
-def load_verifier():
+def load_verifier() -> Any:
     spec = importlib.util.spec_from_file_location("verify_control_center_browser_smoke_readiness", SCRIPT)
     assert spec is not None
     module = importlib.util.module_from_spec(spec)
@@ -15,13 +16,13 @@ def load_verifier():
     return module
 
 
-def test_control_center_browser_smoke_readiness_verifier_passes_current_repo():
+def test_control_center_browser_smoke_readiness_verifier_passes_current_repo() -> None:
     verifier = load_verifier()
 
     assert verifier.verify(ROOT) == []
 
 
-def test_control_center_browser_smoke_readiness_verifier_blocks_unsafe_ci_and_docs(tmp_path):
+def test_control_center_browser_smoke_readiness_verifier_blocks_unsafe_ci_and_docs(tmp_path: Path) -> None:
     (tmp_path / ".github/workflows").mkdir(parents=True)
     (tmp_path / "apps/control-center").mkdir(parents=True)
     (tmp_path / "docs/control_center").mkdir(parents=True)

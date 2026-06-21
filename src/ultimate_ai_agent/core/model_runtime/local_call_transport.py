@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Protocol
+from typing import Any, Protocol
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
@@ -17,7 +17,7 @@ class LocalModelCallTransport(Protocol):
 
 
 class FakeLocalModelCallTransport:
-    def __init__(self, response_text: str = "UAA_M23_LOCAL_MODEL_CALL_OK", status_code: int = 200):
+    def __init__(self, response_text: str = "UAA_M23_LOCAL_MODEL_CALL_OK", status_code: int = 200) -> None:
         self.response_text = response_text
         self.status_code = status_code
         self.calls = 0
@@ -65,7 +65,7 @@ class FakeLocalModelCallTransport:
 class ManualStdlibLoopbackLocalModelCallTransport:
     """Manual M23 CLI-only fixed-prompt local loopback transport."""
 
-    def __init__(self, opener=None):
+    def __init__(self, opener: Any | None = None) -> None:
         self._opener = opener or urllib_request.urlopen
 
     def send(self, request: LocalModelCallRequest) -> LocalModelCallTransportResult:
@@ -131,7 +131,7 @@ class ManualStdlibLoopbackLocalModelCallTransport:
 class ManualStdlibOpenAICompletionsLocalModelCallTransport:
     """Manual M23 CLI-only OpenAI-compatible loopback completions transport."""
 
-    def __init__(self, opener=None):
+    def __init__(self, opener: Any | None = None) -> None:
         self._opener = opener or urllib_request.urlopen
 
     def send(self, request: LocalModelCallRequest) -> LocalModelCallTransportResult:

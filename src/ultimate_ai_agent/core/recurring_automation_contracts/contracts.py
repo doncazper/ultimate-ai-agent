@@ -36,7 +36,7 @@ class RecurringAutomationCadence(_RecurringAutomationModel):
     time_window_ref: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.cadence_ref, "cadence_ref"),
             (self.jitter_policy_ref, "jitter_policy_ref"),
@@ -77,7 +77,7 @@ class RecurringAutomationPolicy(_RecurringAutomationModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -120,7 +120,7 @@ class RecurringAutomationContractRequest(_RecurringAutomationModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.actor_ref, "actor_ref"),
@@ -173,7 +173,7 @@ class RecurringAutomationContractReceiptPlan(_RecurringAutomationModel):
     safe_summary: str = "M97 recurring automation contract receipt stores safe refs only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.request_ref, "request_ref"),
@@ -239,7 +239,7 @@ class RecurringAutomationContractDecision(_RecurringAutomationModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.request_ref, "request_ref"),

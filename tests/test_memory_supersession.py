@@ -22,7 +22,7 @@ def record(memory_id: str, content: str) -> MemoryRecord:
     )
 
 
-def test_correction_links_old_and_new_records():
+def test_correction_links_old_and_new_records() -> None:
     store = MemoryStore()
     store.add_memory(record("mem_old", "Old decision."))
     corrected = record("mem_new", "Corrected decision.")

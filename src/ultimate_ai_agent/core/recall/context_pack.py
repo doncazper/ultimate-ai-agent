@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -22,7 +22,7 @@ class ContextPackBuildRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m26_pack_request(self):
+    def validate_m26_pack_request(self) -> Any:
         if self.context_injection_enabled:
             raise ValueError("context_injection_enabled must be False in M26")
         if self.include_raw_content:
@@ -61,7 +61,7 @@ class EvidenceLinkedContextPack(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m26_pack(self):
+    def validate_m26_pack(self) -> Any:
         if self.context_injection_performed:
             raise ValueError("M26 context packs must not inject context")
         if self.raw_content_included:
@@ -103,5 +103,5 @@ def build_evidence_linked_context_pack(request: ContextPackBuildRequest) -> Evid
     )
 
 
-def _unique_ref_list(refs) -> List[str]:
+def _unique_ref_list(refs: Any) -> List[str]:
     return list(dict.fromkeys(ref for ref in refs if ref))

@@ -4,7 +4,7 @@ from tests.m85_helpers import approval_request
 from ultimate_ai_agent.core.approvals import ApprovalDecisionStatus, LocalApprovalAuthority
 
 
-def test_expired_approval_grant_is_denied():
+def test_expired_approval_grant_is_denied() -> None:
     authority = LocalApprovalAuthority()
     request = authority.create_request(approval_request())
     grant = authority.grant(
@@ -20,7 +20,7 @@ def test_expired_approval_grant_is_denied():
     assert "APPROVAL_EXPIRED" in decision.reason_codes
 
 
-def test_revoked_approval_grant_is_denied():
+def test_revoked_approval_grant_is_denied() -> None:
     authority = LocalApprovalAuthority()
     request = authority.create_request(approval_request())
     grant = authority.grant(request.approval_request_id, approved_by_actor_id="human_reviewer")

@@ -34,7 +34,7 @@ class SafeContextProposalPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         if not self.context_proposal_enabled:
             raise ValueError("SAFE_CONTEXT_PROPOSAL_DISABLED")
         if not self.proposal_only_enabled:
@@ -59,7 +59,7 @@ class SafeContextProposalSource(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_source(self):
+    def validate_source(self) -> Any:
         for value, field_name in [
             (self.approval_ref, "approval_ref"),
             (self.approval_record_ref, "approval_record_ref"),
@@ -88,7 +88,7 @@ class SafeContextProposalBinding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_binding(self):
+    def validate_binding(self) -> Any:
         for value, field_name in [
             (self.approval_ref, "approval_ref"),
             (self.review_packet_ref, "review_packet_ref"),
@@ -115,7 +115,7 @@ class SafeContextProposalRedactionVerification(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_redaction_verification(self):
+    def validate_redaction_verification(self) -> Any:
         validate_action_ref(self.verification_ref, "verification_ref")
         validate_action_ref(self.redaction_summary_ref, "redaction_summary_ref")
         for field_name in [
@@ -143,7 +143,7 @@ class SafeContextProposalSection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_section(self):
+    def validate_section(self) -> Any:
         validate_action_ref(self.section_ref, "section_ref")
         validate_action_ref(self.source_ref, "source_ref")
         validate_safe_action_text(self.title, "title")
@@ -187,7 +187,7 @@ class SafeContextProposal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_proposal(self):
+    def validate_proposal(self) -> Any:
         validate_action_ref(self.proposal_ref, "proposal_ref")
         validate_safe_action_text(self.safe_summary, "safe_summary")
         for ref in self.metadata_refs:
@@ -219,7 +219,7 @@ class SafeContextProposalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.actor_ref, "actor_ref"),
@@ -261,7 +261,7 @@ class SafeContextProposalReceiptPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_receipt(self):
+    def validate_receipt(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.proposal_ref, "proposal_ref"),
@@ -315,7 +315,7 @@ class SafeContextProposalDecision(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         validate_action_ref(self.decision_ref, "decision_ref")
         validate_safe_action_text(self.safe_message, "safe_message")
         if not self.proposal_only:

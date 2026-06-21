@@ -7,7 +7,7 @@ from ultimate_ai_agent.core.recall import (
 )
 
 
-def test_recall_selection_rejects_secret_like_metadata_refs():
+def test_recall_selection_rejects_secret_like_metadata_refs() -> None:
     with pytest.raises(ValueError, match="secret"):
         RecallSelection(
             candidate_ref="recall:candidate:secret-ref",
@@ -20,7 +20,7 @@ def test_recall_selection_rejects_secret_like_metadata_refs():
         )
 
 
-def test_context_pack_build_request_rejects_raw_content_in_decision():
+def test_context_pack_build_request_rejects_raw_content_in_decision() -> None:
     with pytest.raises(ValueError, match="raw"):
         RecallSelection(
             candidate_ref="recall:candidate:raw",
@@ -33,7 +33,7 @@ def test_context_pack_build_request_rejects_raw_content_in_decision():
         )
 
 
-def test_recall_candidate_rejects_private_local_path_metadata():
+def test_recall_candidate_rejects_private_local_path_metadata() -> None:
     with pytest.raises(ValueError, match="private"):
         RecallCandidate(
             candidate_ref="recall:candidate:path",

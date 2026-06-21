@@ -32,7 +32,7 @@ class AutonomyReplayStepView(_AutonomyAuditReplayModel):
     safe_summary: str = "Replay step view is deterministic, redacted, review-only, and non-authoritative."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.step_ref, "step_ref")
         _validate_m61_ref(self.replay_outcome_ref, "replay_outcome_ref")
         _validate_safe_payload(self.safe_summary)
@@ -83,7 +83,7 @@ class AutonomyAuditReplayView(_AutonomyAuditReplayModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.audit_view_ref, "audit_view_ref"),
             (self.simulation_result_ref, "simulation_result_ref"),

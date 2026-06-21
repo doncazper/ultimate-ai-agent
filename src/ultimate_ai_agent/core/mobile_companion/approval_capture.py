@@ -63,7 +63,7 @@ class MobileReviewApprovalCaptureRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_capture_request(self):
+    def validate_capture_request(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             if value is not None:
                 validate_action_ref(value, field_name)
@@ -101,7 +101,7 @@ class MobileReviewApprovalRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_record(self):
+    def validate_record(self) -> Any:
         for value, field_name in [
             (self.approval_ref, "approval_ref"),
             (self.actor_ref, "actor_ref"),
@@ -167,7 +167,7 @@ class MobileReviewApprovalCaptureDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         validate_action_ref(self.decision_ref, "decision_ref")
         validate_action_ref(self.review_packet_ref, "review_packet_ref")
         if self.approval_ref:
@@ -208,7 +208,7 @@ class MobileApprovalAuditEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_audit_entry(self):
+    def validate_audit_entry(self) -> Any:
         for value, field_name in [
             (self.audit_entry_ref, "audit_entry_ref"),
             (self.approval_ref, "approval_ref"),
@@ -244,7 +244,7 @@ class MobileApprovalAuditReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_audit_report(self):
+    def validate_audit_report(self) -> Any:
         validate_action_ref(self.audit_ref, "audit_ref")
         validate_safe_action_text(self.safe_message, "safe_message")
         if not self.review_only:
@@ -256,7 +256,7 @@ class MobileApprovalAuditReport(BaseModel):
 
 
 class MobileReviewApprovalStore:
-    def __init__(self, path: Path | str | None = None):
+    def __init__(self, path: Path | str | None = None) -> None:
         self.path = Path(path) if path is not None else None
         self._records: dict[str, MobileReviewApprovalRecord] = {}
 
@@ -559,7 +559,7 @@ def _binding_reasons(request: MobileReviewApprovalCaptureRequest) -> list[str]:
     return [reason for actual, expected, reason in checks if actual != expected]
 
 
-def _request_ref_pairs(request: MobileReviewApprovalCaptureRequest):
+def _request_ref_pairs(request: MobileReviewApprovalCaptureRequest) -> list[Any]:
     return [
         (getattr(request, "approval_ref", None), "approval_ref"),
         (getattr(request, "actor_ref", None), "actor_ref"),
@@ -612,7 +612,7 @@ def _validate_safe_text_reason(value: str, field_name: str) -> list[str]:
     return []
 
 
-def _validate_payload_reason(value, field_name: str) -> list[str]:
+def _validate_payload_reason(value: str, field_name: str) -> list[str]:
     try:
         validate_safe_action_payload(value, field_name)
     except ValueError:
@@ -620,7 +620,7 @@ def _validate_payload_reason(value, field_name: str) -> list[str]:
     return []
 
 
-def _validate_audit_payload_reason(value, field_name: str) -> list[str]:
+def _validate_audit_payload_reason(value: str, field_name: str) -> list[str]:
     try:
         validate_safe_action_payload(value, field_name)
     except ValueError:

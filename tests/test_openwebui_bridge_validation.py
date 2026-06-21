@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from pydantic import ValidationError
 
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.openwebui_bridge import (
 )
 
 
-def _ingress(**overrides):
+def _ingress(**overrides: Any) -> Any:
     values = {
         "envelope_id": "owui_ingress_001",
         "session_ref": "owui_session_demo",
@@ -25,7 +26,7 @@ def _ingress(**overrides):
     return OpenWebUIChatIngressEnvelope(**values)
 
 
-def _egress(**overrides):
+def _egress(**overrides: Any) -> Any:
     values = {
         "envelope_id": "owui_egress_001",
         "session_ref": "owui_session_demo",
@@ -49,7 +50,7 @@ def _egress(**overrides):
         ("provider_call_requested", "provider call"),
     ],
 )
-def test_ingress_envelope_rejects_m21_forbidden_runtime_flags(field, message):
+def test_ingress_envelope_rejects_m21_forbidden_runtime_flags(field: str, message: str) -> None:
     envelope = _ingress(**{field: True})
 
     with pytest.raises(ValueError, match=message):
@@ -67,14 +68,14 @@ def test_ingress_envelope_rejects_m21_forbidden_runtime_flags(field, message):
         ("approval_granted", "approval grant"),
     ],
 )
-def test_egress_envelope_rejects_m21_authority_or_execution_claims(field, message):
+def test_egress_envelope_rejects_m21_authority_or_execution_claims(field: str, message: str) -> None:
     envelope = _egress(**{field: True})
 
     with pytest.raises(ValueError, match=message):
         validate_openwebui_chat_egress_envelope(envelope)
 
 
-def test_arbitrary_approval_ref_does_not_authorize_ingress():
+def test_arbitrary_approval_ref_does_not_authorize_ingress() -> None:
     envelope = _ingress(
         approval_ref="approval_made_up",
         tool_execution_requested=True,
@@ -84,7 +85,7 @@ def test_arbitrary_approval_ref_does_not_authorize_ingress():
         validate_openwebui_chat_ingress_envelope(envelope)
 
 
-def test_secret_like_summary_and_metadata_are_rejected():
+def test_secret_like_summary_and_metadata_are_rejected() -> None:
     envelope = _ingress(
         user_visible_summary="user pasted api_key=abc123456789",
         metadata_refs=["openwebui_session_token_abc123"],
@@ -95,7 +96,7 @@ def test_secret_like_summary_and_metadata_are_rejected():
         validate_openwebui_chat_ingress_envelope(envelope)
 
 
-def test_raw_prompt_or_transcript_fields_are_forbidden_by_model_contract():
+def test_raw_prompt_or_transcript_fields_are_forbidden_by_model_contract() -> None:
     with pytest.raises(ValidationError):
         OpenWebUIChatIngressEnvelope(
             envelope_id="owui_raw_001",
@@ -107,7 +108,7 @@ def test_raw_prompt_or_transcript_fields_are_forbidden_by_model_contract():
         )
 
 
-def test_validation_decision_cannot_be_runtime_allow_authority():
+def test_validation_decision_cannot_be_runtime_allow_authority() -> None:
     envelope = _ingress(validation_status=OpenWebUIBridgeDecisionStatus.contract_valid)
 
     assert validate_openwebui_chat_ingress_envelope(envelope).validation_status == (

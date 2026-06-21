@@ -75,7 +75,7 @@ class MutatingCommandProposalPolicy(_MutatingCommandProposalModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -135,7 +135,7 @@ class MutatingCommandProposalRequest(_MutatingCommandProposalModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.mutating_proposal_ref, "mutating_proposal_ref"),
@@ -190,7 +190,7 @@ class MutatingCommandProposalReceiptPlan(_MutatingCommandProposalModel):
     safe_summary: str = "M88 mutating command proposal receipt stores safe refs only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.mutating_proposal_ref, "mutating_proposal_ref"),
@@ -268,7 +268,7 @@ class MutatingCommandProposalDecision(_MutatingCommandProposalModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.mutating_proposal_ref, "mutating_proposal_ref"),

@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
@@ -18,7 +19,7 @@ from ultimate_ai_agent.api.openapi import forbidden_raw_provider_schema_fields, 
 client = TestClient(app)
 
 
-def test_api_manifest_endpoint_is_metadata_only_and_versioned():
+def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     response = client.get("/api/manifest")
 
     assert response.status_code == 200
@@ -54,7 +55,7 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned():
     assert any(route["path"] == "/observability/session-events" and route["method"] == "GET" for route in manifest["routes"])
 
 
-def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_classes():
+def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_classes() -> None:
     manifest = client.get("/api/manifest").json()
     operation_ids = [route["operation_id"] for route in manifest["routes"]]
 
@@ -124,7 +125,7 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     )
 
 
-def test_api_manifest_static_cache_policy_excludes_authority_and_private_state():
+def test_api_manifest_static_cache_policy_excludes_authority_and_private_state() -> None:
     policy = api_manifest_cache_policy()
 
     assert "routes" in API_MANIFEST_CACHEABLE_FIELDS
@@ -147,7 +148,7 @@ def test_api_manifest_static_cache_policy_excludes_authority_and_private_state()
     assert policy["durable_cache"] is False
 
 
-def test_api_manifest_static_cache_keeps_dynamic_status_live():
+def test_api_manifest_static_cache_keeps_dynamic_status_live() -> None:
     clear_api_manifest_static_cache(app)
 
     passed = build_api_manifest(app, foundation_gate_status="passed")
@@ -160,11 +161,11 @@ def test_api_manifest_static_cache_keeps_dynamic_status_live():
     assert passed.routes[0] is not failed.routes[0]
 
 
-def test_api_manifest_static_cache_is_copy_isolated():
+def test_api_manifest_static_cache_is_copy_isolated() -> None:
     local_app = FastAPI(title="Cache Isolation")
 
     @local_app.get("/health")
-    def local_health():
+    def local_health() -> Any:
         return {"status": "ok"}
 
     clear_api_manifest_static_cache(local_app)
@@ -178,18 +179,18 @@ def test_api_manifest_static_cache_is_copy_isolated():
     assert rebuilt.routes[0].path == "/health"
 
 
-def test_api_manifest_static_cache_invalidates_when_route_risk_changes():
+def test_api_manifest_static_cache_invalidates_when_route_risk_changes() -> None:
     local_app = FastAPI(title="Cache Invalidation")
 
     @local_app.get("/api/status")
-    def local_status():
+    def local_status() -> Any:
         return {"status": "ok"}
 
     clear_api_manifest_static_cache(local_app)
     first = build_api_manifest(local_app)
 
     @local_app.post("/files/cache-test")
-    def local_file_preview():
+    def local_file_preview() -> Any:
         return {"status": "ok"}
 
     second = build_api_manifest(local_app)
@@ -202,7 +203,7 @@ def test_api_manifest_static_cache_invalidates_when_route_risk_changes():
     assert routes_by_path["/files/cache-test"].validation_only is False
 
 
-def test_validation_error_response_does_not_echo_secret_like_payload():
+def test_validation_error_response_does_not_echo_secret_like_payload() -> None:
     secret_value = "ABCDEFGHIJKLMNOP"
     payload = {
         "event_id": "evt_api_secret",
@@ -244,13 +245,13 @@ def test_validation_error_response_does_not_echo_secret_like_payload():
     assert secret_value not in body_text
 
 
-def test_openapi_schema_has_no_raw_secret_request_fields():
+def test_openapi_schema_has_no_raw_secret_request_fields() -> None:
     findings = forbidden_raw_secret_schema_fields(app.openapi())
 
     assert findings == []
 
 
-def test_openapi_schema_has_no_raw_provider_payload_fields():
+def test_openapi_schema_has_no_raw_provider_payload_fields() -> None:
     schema = app.openapi()
     findings = forbidden_raw_provider_schema_fields(schema)
     chat_schema = schema["components"]["schemas"]["V1ChatCompletionAPIRequest"]

@@ -41,7 +41,7 @@ class ExecutionTransitionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         validate_execution_ref(self.run_id, "run_id")
         if self.target_step_id:
             validate_execution_ref(self.target_step_id, "target_step_id")
@@ -88,7 +88,7 @@ class ExecutionTransitionDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         if self.execution_authorized:
             raise ValueError("M30 transition decisions must not authorize real execution")
         if self.execution_performed:

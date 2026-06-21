@@ -39,7 +39,7 @@ class ControlCenterSurfaceManifest(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def no_execution_surface(self):
+    def no_execution_surface(self) -> Any:
         if self.execution_allowed:
             raise ValueError("CONTROL_CENTER_SURFACE_EXECUTION_NOT_ALLOWED")
         if contains_secret_like(self.model_dump(mode="json")):
@@ -68,7 +68,7 @@ class ControlCenterManifest(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def no_execution_capability(self):
+    def no_execution_capability(self) -> Any:
         dump = self.model_dump(mode="json")
         if contains_secret_like(dump):
             raise ValueError("CONTROL_CENTER_MANIFEST_SECRET_LIKE_VALUE_REJECTED")

@@ -30,7 +30,7 @@ class ToolTargetRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_target(self):
+    def validate_target(self) -> Any:
         validate_tool_ref(self.target_ref, "target_ref")
         if self.safe_label:
             validate_safe_tool_text(self.safe_label, "safe_label")
@@ -51,7 +51,7 @@ class ToolInputBoundary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_boundary(self):
+    def validate_boundary(self) -> Any:
         for ref in [*self.input_refs, *self.metadata_refs]:
             validate_tool_ref(ref, "input_ref")
         validate_safe_tool_payload(self.metadata, "metadata")
@@ -88,7 +88,7 @@ class ToolIntent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_intent(self):
+    def validate_intent(self) -> Any:
         validate_tool_ref(self.intent_id, "intent_id")
         validate_safe_tool_text(self.tool_id, "tool_id")
         validate_safe_tool_text(self.intent_summary, "intent_summary")
@@ -114,7 +114,7 @@ class ToolCatalogEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_catalog_entry(self):
+    def validate_catalog_entry(self) -> Any:
         validate_safe_tool_text(self.tool_id, "tool_id")
         validate_safe_tool_text(self.display_name, "display_name")
         if self.safe_description:
@@ -139,7 +139,7 @@ class ToolReceiptPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_receipt_plan(self):
+    def validate_receipt_plan(self) -> Any:
         assert_no_tool_execution(self.execution_performed)
         if self.side_effects_performed:
             raise ValueError("M27 receipt plans must not record performed side effects")
@@ -177,7 +177,7 @@ class ToolIntentDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         assert_no_tool_execution(self.execution_allowed)
         assert_no_tool_side_effects(not self.no_side_effects_performed)
         if not self.no_memory_write_performed:
@@ -214,7 +214,7 @@ class ToolBrokerV2Manifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_manifest(self):
+    def validate_manifest(self) -> Any:
         blocked_true_fields = [
             "tool_execution_enabled",
             "backend_execution_routes_added",

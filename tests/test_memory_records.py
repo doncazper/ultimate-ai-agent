@@ -11,7 +11,7 @@ from ultimate_ai_agent.core.memory import (
 )
 
 
-def test_user_provided_memory_can_be_source_free():
+def test_user_provided_memory_can_be_source_free() -> None:
     record = MemoryRecord(
         memory_id="mem_user_pref",
         memory_type=MemoryType.preference,
@@ -26,7 +26,7 @@ def test_user_provided_memory_can_be_source_free():
     assert record.status == MemoryStatus.active
 
 
-def test_non_user_memory_requires_source_ref():
+def test_non_user_memory_requires_source_ref() -> None:
     try:
         MemoryRecord(
             memory_id="mem_project_decision",
@@ -43,7 +43,7 @@ def test_non_user_memory_requires_source_ref():
         raise AssertionError("Expected source_refs validation failure")
 
 
-def test_memory_record_can_reference_file_source():
+def test_memory_record_can_reference_file_source() -> None:
     record = MemoryRecord(
         memory_id="mem_file_source",
         memory_type=MemoryType.artifact_summary,

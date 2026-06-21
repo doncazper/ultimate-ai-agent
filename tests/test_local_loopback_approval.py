@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 
 from tests.m9_helpers import approval_for_runtime, local_manifest, local_runtime_request, loopback_endpoint, loopback_policy
@@ -6,7 +7,7 @@ from ultimate_ai_agent.core.model_runtime import LocalLoopbackModelRuntimeAdapte
 from ultimate_ai_agent.core.time import utc_now
 
 
-def validate(request, approval_decision):
+def validate(request: Any, approval_decision: Any) -> Any:
     return LocalLoopbackModelRuntimeAdapter().validate_execution(
         request,
         local_manifest(),
@@ -16,7 +17,7 @@ def validate(request, approval_decision):
     )
 
 
-def test_missing_arbitrary_and_expired_approval_refs_are_denied():
+def test_missing_arbitrary_and_expired_approval_refs_are_denied() -> None:
     request = local_runtime_request(approval_ref="human_approved_ref_123")
     missing = validate(local_runtime_request(approval_ref=None), None)
     arbitrary = validate(request, None)
@@ -35,7 +36,7 @@ def test_missing_arbitrary_and_expired_approval_refs_are_denied():
     assert "APPROVAL_EXPIRED" in expired_result.reason_codes
 
 
-def test_wrong_subject_action_resource_and_risk_are_denied():
+def test_wrong_subject_action_resource_and_risk_are_denied() -> None:
     request = local_runtime_request()
     authority, approval_request, grant, _ = approval_for_runtime(request)
 
@@ -54,7 +55,7 @@ def test_wrong_subject_action_resource_and_risk_are_denied():
     assert all(validate(request.model_copy(update={"approval_ref": grant.approval_ref}), decision).allowed is False for decision in decisions)
 
 
-def test_valid_local_authority_grant_allows_execution_decision():
+def test_valid_local_authority_grant_allows_execution_decision() -> None:
     request = local_runtime_request()
     _, _, grant, approval_decision = approval_for_runtime(request)
     result = validate(request.model_copy(update={"approval_ref": grant.approval_ref}), approval_decision)
@@ -63,7 +64,7 @@ def test_valid_local_authority_grant_allows_execution_decision():
     assert result.status == "allowed"
 
 
-def test_unknown_approval_ref_does_not_authorize_authority_validation():
+def test_unknown_approval_ref_does_not_authorize_authority_validation() -> None:
     request = local_runtime_request(approval_ref="human_approved_ref_123")
     approval_request = approval_for_runtime(request)[1]
     decision = LocalApprovalAuthority().validate_for_request(approval_request, request.approval_ref)

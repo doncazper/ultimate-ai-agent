@@ -102,7 +102,7 @@ class LongRunningTaskSupervisorPolicy(_LongRunningTaskSupervisorModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -197,7 +197,7 @@ class LongRunningTaskSupervisorRequest(_LongRunningTaskSupervisorModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M133_RESOURCE_REF_REQUIRED")
@@ -269,7 +269,7 @@ class LongRunningTaskSupervisorReceiptPlan(_LongRunningTaskSupervisorModel):
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _receipt_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         try:
@@ -383,7 +383,7 @@ class LongRunningTaskSupervisorDecision(_LongRunningTaskSupervisorModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _decision_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M133_RESOURCE_REF_REQUIRED")
@@ -663,7 +663,7 @@ def _validate_risk_ceiling(risk: AutonomyRiskClass) -> None:
         raise ValueError("M133_RISK_CEILING_DENIED")
 
 
-def _request_ref_pairs(request: LongRunningTaskSupervisorRequest):
+def _request_ref_pairs(request: LongRunningTaskSupervisorRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.supervisor_ref, "supervisor_ref"),
@@ -693,7 +693,7 @@ def _request_ref_pairs(request: LongRunningTaskSupervisorRequest):
     ]
 
 
-def _receipt_ref_pairs(receipt: LongRunningTaskSupervisorReceiptPlan):
+def _receipt_ref_pairs(receipt: LongRunningTaskSupervisorReceiptPlan) -> list[Any]:
     return [
         (receipt.receipt_plan_ref, "receipt_plan_ref"),
         (receipt.supervisor_ref, "supervisor_ref"),
@@ -716,7 +716,7 @@ def _receipt_ref_pairs(receipt: LongRunningTaskSupervisorReceiptPlan):
     ]
 
 
-def _decision_ref_pairs(decision: LongRunningTaskSupervisorDecision):
+def _decision_ref_pairs(decision: LongRunningTaskSupervisorDecision) -> list[Any]:
     return [
         (decision.decision_ref, "decision_ref"),
         (decision.request_ref, "request_ref"),

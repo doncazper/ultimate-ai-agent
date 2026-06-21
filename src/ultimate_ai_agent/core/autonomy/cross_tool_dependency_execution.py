@@ -48,7 +48,7 @@ class CrossToolDependencyEdge(_CrossToolDependencyExecutionModel):
     safe_dependency_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.edge_ref, "edge_ref"),
             (self.upstream_step_ref, "upstream_step_ref"),
@@ -133,7 +133,7 @@ class CrossToolDependencyExecutionPolicy(_CrossToolDependencyExecutionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -236,7 +236,7 @@ class CrossToolDependencyExecutionRequest(_CrossToolDependencyExecutionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M136_RESOURCE_REF_REQUIRED")
@@ -314,7 +314,7 @@ class CrossToolDependencyExecutionReceiptPlan(_CrossToolDependencyExecutionModel
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _receipt_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(
@@ -452,7 +452,7 @@ class CrossToolDependencyExecutionDecision(_CrossToolDependencyExecutionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _decision_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M136_RESOURCE_REF_REQUIRED")
@@ -837,7 +837,7 @@ def _validate_risk_ceiling(risk: AutonomyRiskClass) -> None:
         raise ValueError("M136_RISK_CEILING_DENIED")
 
 
-def _request_ref_pairs(request: CrossToolDependencyExecutionRequest):
+def _request_ref_pairs(request: CrossToolDependencyExecutionRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.dependency_execution_plan_ref, "dependency_execution_plan_ref"),
@@ -878,7 +878,7 @@ def _request_ref_pairs(request: CrossToolDependencyExecutionRequest):
     ]
 
 
-def _receipt_ref_pairs(receipt: CrossToolDependencyExecutionReceiptPlan):
+def _receipt_ref_pairs(receipt: CrossToolDependencyExecutionReceiptPlan) -> list[Any]:
     return [
         (receipt.receipt_plan_ref, "receipt_plan_ref"),
         (receipt.dependency_execution_plan_ref, "dependency_execution_plan_ref"),
@@ -912,7 +912,7 @@ def _receipt_ref_pairs(receipt: CrossToolDependencyExecutionReceiptPlan):
     ]
 
 
-def _decision_ref_pairs(decision: CrossToolDependencyExecutionDecision):
+def _decision_ref_pairs(decision: CrossToolDependencyExecutionDecision) -> list[Any]:
     return [
         (decision.decision_ref, "decision_ref"),
         (decision.request_ref, "request_ref"),

@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.context_handoff import (
     ContextHandoffApprovalDecisionStatus,
     ContextHandoffApprovalKind,
@@ -13,7 +14,7 @@ from tests.context_proposal_fixtures import (
 )
 
 
-def _proposal():
+def _proposal() -> Any:
     from ultimate_ai_agent.core.context_proposal import build_safe_context_proposal
 
     packet = context_proposal_packet()
@@ -21,7 +22,7 @@ def _proposal():
     return build_safe_context_proposal(packet=packet, approval_record=approval_record)
 
 
-def _request(proposal=None, **overrides):
+def _request(proposal: Any | None = None, **overrides: Any) -> Any:
     active = proposal or _proposal()
     data = {
         "approval_ref": "context-handoff-approval:m40",
@@ -41,7 +42,7 @@ def _request(proposal=None, **overrides):
     return ContextHandoffApprovalRequest(**data)
 
 
-def test_default_handoff_policy_is_contract_only_and_no_injection():
+def test_default_handoff_policy_is_contract_only_and_no_injection() -> None:
     policy = build_context_handoff_approval_policy()
 
     assert isinstance(policy, ContextHandoffApprovalPolicy)
@@ -58,7 +59,7 @@ def test_default_handoff_policy_is_contract_only_and_no_injection():
     assert policy.production_authority_enabled is False
 
 
-def test_valid_handoff_approval_is_review_only_and_performs_no_handoff_or_injection():
+def test_valid_handoff_approval_is_review_only_and_performs_no_handoff_or_injection() -> None:
     proposal = _proposal()
     decision = evaluate_context_handoff_approval(proposal=proposal, request=_request(proposal))
 
@@ -80,7 +81,7 @@ def test_valid_handoff_approval_is_review_only_and_performs_no_handoff_or_inject
     assert decision.receipt_plan.openwebui_handoff_performed is False
 
 
-def test_approval_ref_alone_cannot_authorize_handoff():
+def test_approval_ref_alone_cannot_authorize_handoff() -> None:
     decision = evaluate_context_handoff_approval(
         proposal=None,
         request_ref="context-handoff-approval:m40",

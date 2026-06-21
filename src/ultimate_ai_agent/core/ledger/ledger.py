@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.ledger.replay import replay_run_events
 from ultimate_ai_agent.core.ledger.receipts import RunReceipt, generate_receipt_from_events
 
 class EventLedger:
-    def __init__(self, filepath: Optional[str] = None):
+    def __init__(self, filepath: Optional[str] = None) -> None:
         self.filepath = Path(filepath) if filepath else None
         self._events: List[EventLedgerEvent] = []
         self._event_ids: Set[str] = set()

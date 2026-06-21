@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.openwebui_bridge import (
@@ -22,7 +23,7 @@ from ultimate_ai_agent.core.openwebui_bridge.validation import (
         ("provider_call_enabled", assert_no_provider_call, "provider call"),
     ],
 )
-def test_manifest_rejects_execution_capability_flags(field, helper, message):
+def test_manifest_rejects_execution_capability_flags(field: str, helper: Any, message: str) -> None:
     manifest = build_default_openwebui_bridge_manifest()
     setattr(manifest, field, True)
 
@@ -30,7 +31,7 @@ def test_manifest_rejects_execution_capability_flags(field, helper, message):
         helper(manifest)
 
 
-def test_openwebui_dependencies_or_config_are_not_required():
+def test_openwebui_dependencies_or_config_are_not_required() -> None:
     manifest = OpenWebUIBridgeManifest(
         manifest_id="owui_manifest_no_deps",
         baseline_version="0.25.1",

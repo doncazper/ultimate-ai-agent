@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.planning import (
     PlanInputTrustLevel,
     TaskGoal,
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.planning import (
 )
 
 
-def _safe_step(**overrides):
+def _safe_step(**overrides: Any) -> Any:
     data = {
         "step_id": "step:m29-review",
         "step_kind": TaskStepKind.review_metadata,
@@ -24,7 +25,7 @@ def _safe_step(**overrides):
     return TaskStep(**data)
 
 
-def _safe_plan(**overrides):
+def _safe_plan(**overrides: Any) -> Any:
     data = {
         "plan_id": "plan:m29-safe",
         "goal": TaskGoal(goal_id="goal:m29-safe", safe_summary="Plan a safe review workflow."),
@@ -35,7 +36,7 @@ def _safe_plan(**overrides):
     return TaskPlan(**data)
 
 
-def test_default_manifest_is_non_executing_contract_only():
+def test_default_manifest_is_non_executing_contract_only() -> None:
     manifest = build_task_planning_manifest(baseline_version="0.33.0")
 
     assert manifest.planning_enabled is True
@@ -52,7 +53,7 @@ def test_default_manifest_is_non_executing_contract_only():
     assert manifest.production_authority_enabled is False
 
 
-def test_safe_task_plan_is_valid_for_review_only_without_execution():
+def test_safe_task_plan_is_valid_for_review_only_without_execution() -> None:
     decision = evaluate_task_plan(_safe_plan())
 
     assert decision.status == TaskPlanDecisionStatus.valid_for_review
@@ -66,7 +67,7 @@ def test_safe_task_plan_is_valid_for_review_only_without_execution():
     assert "TASK_PLAN_VALID_FOR_REVIEW" in decision.reason_codes
 
 
-def test_safe_plan_revalidates_model_copy_before_allowing_review():
+def test_safe_plan_revalidates_model_copy_before_allowing_review() -> None:
     plan = _safe_plan()
     mutated = plan.model_copy(update={"safe_summary": "contains token=abc123"})
 
@@ -77,7 +78,7 @@ def test_safe_plan_revalidates_model_copy_before_allowing_review():
     assert "TASK_PLAN_REVALIDATION_FAILED" in decision.reason_codes
 
 
-def test_model_output_source_cannot_be_task_input_authority():
+def test_model_output_source_cannot_be_task_input_authority() -> None:
     boundary = TaskStepInputBoundary(
         input_refs=["model:m29"],
         input_trust_level=PlanInputTrustLevel.model_output_blocked,

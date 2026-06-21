@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import os
 
 import pytest
@@ -18,13 +20,13 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _safe_root(tmp_path):
+def _safe_root(tmp_path: Path) -> Any:
     root = tmp_path / "safe-root"
     root.mkdir()
     return FilesystemSafeRoot(root_ref="safe-root:test", root_path=root, safe_label="Test safe root")
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "invocation_id": "tool-runtime-invocation:m32-filesystem-metadata",
         "tool_ref": FILESYSTEM_METADATA_TOOL_REF,
@@ -39,7 +41,7 @@ def _request(**overrides):
     return ToolInvocationRequest(**data)
 
 
-def test_manifest_allowlists_noop_metadata_and_redacted_preview():
+def test_manifest_allowlists_noop_metadata_and_redacted_preview() -> None:
     manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
 
     assert manifest.baseline_version == "0.37.0"
@@ -65,7 +67,7 @@ def test_manifest_allowlists_noop_metadata_and_redacted_preview():
     assert manifest.policy.file_delete_enabled is False
 
 
-def test_safe_file_metadata_invocation_returns_metadata_only(tmp_path):
+def test_safe_file_metadata_invocation_returns_metadata_only(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "notes" / "report.md"
     target.parent.mkdir()
@@ -97,7 +99,7 @@ def test_safe_file_metadata_invocation_returns_metadata_only(tmp_path):
     assert "content_hash" not in dumped["result"]["output"]
 
 
-def test_safe_directory_metadata_does_not_list_children(tmp_path):
+def test_safe_directory_metadata_does_not_list_children(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     directory = safe_root.root_path / "docs"
     directory.mkdir()
@@ -116,7 +118,7 @@ def test_safe_directory_metadata_does_not_list_children(tmp_path):
     assert "child.md" not in str(decision.model_dump())
 
 
-def test_adapter_invokes_filesystem_metadata_through_same_policy(tmp_path):
+def test_adapter_invokes_filesystem_metadata_through_same_policy(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     (safe_root.root_path / "notes").mkdir()
     (safe_root.root_path / "notes" / "report.md").write_text("metadata only", encoding="utf-8")
@@ -128,7 +130,7 @@ def test_adapter_invokes_filesystem_metadata_through_same_policy(tmp_path):
     assert decision.result.output.safe_message == "FILESYSTEM_METADATA_RETURNED"
 
 
-def test_filesystem_metadata_contract_rejects_caller_selected_root(tmp_path):
+def test_filesystem_metadata_contract_rejects_caller_selected_root(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     request = FilesystemMetadataRequest(
         request_ref="filesystem-metadata-request:m32",
@@ -146,7 +148,7 @@ def test_filesystem_metadata_contract_rejects_caller_selected_root(tmp_path):
     assert "CALLER_SELECTED_ROOT_DENIED" in decision.reason_codes
 
 
-def test_filesystem_metadata_request_revalidation_denies_model_copy_raw_file(tmp_path):
+def test_filesystem_metadata_request_revalidation_denies_model_copy_raw_file(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     request = _request().model_copy(update={"contains_raw_file_content": True})
 
@@ -156,7 +158,7 @@ def test_filesystem_metadata_request_revalidation_denies_model_copy_raw_file(tmp
     assert "RAW_FILE_CONTENT_DENIED" in decision.reason_codes
 
 
-def test_filesystem_metadata_denies_model_copy_mutated_path_and_root(tmp_path):
+def test_filesystem_metadata_denies_model_copy_mutated_path_and_root(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     request = _request().model_copy(
         update={
@@ -174,7 +176,7 @@ def test_filesystem_metadata_denies_model_copy_mutated_path_and_root(tmp_path):
     assert "PATH_TRAVERSAL_DENIED" in decision.reason_codes
 
 
-def test_filesystem_metadata_denies_model_copy_mutated_tool_ref_to_content_read(tmp_path):
+def test_filesystem_metadata_denies_model_copy_mutated_tool_ref_to_content_read(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     request = _request().model_copy(
         update={
@@ -204,7 +206,7 @@ def test_filesystem_metadata_denies_model_copy_mutated_tool_ref_to_content_read(
         ("caller_selected_root_enabled", "CALLER_SELECTED_ROOT_DENIED"),
     ],
 )
-def test_filesystem_metadata_denies_model_copy_mutated_metadata_alias_flags(tmp_path, flag_name, reason_code):
+def test_filesystem_metadata_denies_model_copy_mutated_metadata_alias_flags(tmp_path: Path, flag_name: str, reason_code: Any) -> None:
     safe_root = _safe_root(tmp_path)
     request = _request().model_copy(
         update={
@@ -222,7 +224,7 @@ def test_filesystem_metadata_denies_model_copy_mutated_metadata_alias_flags(tmp_
     assert reason_code in decision.reason_codes
 
 
-def test_symlink_path_is_denied(tmp_path):
+def test_symlink_path_is_denied(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "target.md"
     target.write_text("metadata only", encoding="utf-8")
@@ -241,7 +243,7 @@ def test_symlink_path_is_denied(tmp_path):
     assert "SYMLINK_DENIED" in decision.reason_codes
 
 
-def test_no_filesystem_mutation_occurs(tmp_path):
+def test_no_filesystem_mutation_occurs(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "notes" / "report.md"
     target.parent.mkdir()

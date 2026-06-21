@@ -1,3 +1,4 @@
+from pathlib import Path
 from tests.test_kernel_minimum_lovable_happy_path import (
     actor,
     consent,
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.consent.enums import DataBoundary
 from ultimate_ai_agent.core.kernel import KernelTaskRequest, KernelTaskStatus, KernelTaskType, MinimumKernelRunner
 
 
-def test_kernel_rollback_restores_previous_content(tmp_path):
+def test_kernel_rollback_restores_previous_content(tmp_path: Path) -> None:
     target = tmp_path / "notes/m5.md"
     target.parent.mkdir(parents=True)
     target.write_text("before\n", encoding="utf-8")

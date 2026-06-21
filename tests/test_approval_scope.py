@@ -2,7 +2,7 @@ from tests.m85_helpers import approval_request
 from ultimate_ai_agent.core.approvals import ApprovalDecisionStatus, LocalApprovalAuthority
 
 
-def test_grant_cannot_approve_broader_scope_than_request():
+def test_grant_cannot_approve_broader_scope_than_request() -> None:
     authority = LocalApprovalAuthority()
     request = authority.create_request(approval_request(resource_refs=["cloud_reasoner"]))
 
@@ -17,7 +17,7 @@ def test_grant_cannot_approve_broader_scope_than_request():
     assert grant.approved_resource_refs == ["cloud_reasoner"]
 
 
-def test_validation_rejects_ungranted_extra_resource():
+def test_validation_rejects_ungranted_extra_resource() -> None:
     authority = LocalApprovalAuthority()
     request = authority.create_request(approval_request(resource_refs=["cloud_reasoner"]))
     grant = authority.grant(request.approval_request_id, approved_by_actor_id="human_reviewer")

@@ -4,7 +4,7 @@ from tests.m9_helpers import approval_for_runtime, local_manifest, local_runtime
 from ultimate_ai_agent.core.model_runtime import FakeModelRuntimeTransport, LocalLoopbackModelRuntimeAdapter, ModelRuntimeRequestFactory
 
 
-def test_denied_or_approval_required_routes_cannot_create_runtime_requests():
+def test_denied_or_approval_required_routes_cannot_create_runtime_requests() -> None:
     route, decision = selected_route_pair()
     denied = decision.model_copy(update={"status": "denied", "selected_profile_id": None, "selected_model_id": None})
     approval_required = decision.model_copy(update={"status": "approval_required", "required_approval": True})
@@ -18,7 +18,7 @@ def test_denied_or_approval_required_routes_cannot_create_runtime_requests():
         assert created is False
 
 
-def test_credentialed_or_cloud_runtime_requests_are_denied_for_loopback_execution():
+def test_credentialed_or_cloud_runtime_requests_are_denied_for_loopback_execution() -> None:
     adapter = LocalLoopbackModelRuntimeAdapter()
     credentialed = local_runtime_request(secret_handle_refs=["cred_ref"])
     cloud = local_runtime_request(model_profile_id="cloud_reasoner")
@@ -32,7 +32,7 @@ def test_credentialed_or_cloud_runtime_requests_are_denied_for_loopback_executio
     assert "MODEL_PROFILE_NOT_ACCEPTED_BY_ADAPTER" in cloud_result.reason_codes
 
 
-def test_public_ip_endpoint_is_denied_for_loopback_execution():
+def test_public_ip_endpoint_is_denied_for_loopback_execution() -> None:
     adapter = LocalLoopbackModelRuntimeAdapter()
     policy = loopback_policy()
     endpoint = loopback_endpoint(base_url="http://8.8.8.8/api/generate", allowed_hosts=["8.8.8.8"])
@@ -49,7 +49,7 @@ def test_public_ip_endpoint_is_denied_for_loopback_execution():
     assert "NON_LOOPBACK_HOST_DENIED" in decision.reason_codes
 
 
-def test_soft_budget_warning_metadata_is_preserved_for_local_dev_execution():
+def test_soft_budget_warning_metadata_is_preserved_for_local_dev_execution() -> None:
     request = local_runtime_request(metadata={"route_reason_codes": ["SELECTED_PROFILE", "SOFT_BUDGET_EXCEEDED"]})
     _, _, grant, approval_decision = approval_for_runtime(request)
     response = LocalLoopbackModelRuntimeAdapter().execute_dev(
@@ -64,5 +64,5 @@ def test_soft_budget_warning_metadata_is_preserved_for_local_dev_execution():
     assert "SOFT_BUDGET_EXCEEDED" in response.warnings
 
 
-def test_cloud_profile_fixture_is_not_accidentally_loopback_local():
+def test_cloud_profile_fixture_is_not_accidentally_loopback_local() -> None:
     assert cloud_profile().provider_kind == "cloud_provider"

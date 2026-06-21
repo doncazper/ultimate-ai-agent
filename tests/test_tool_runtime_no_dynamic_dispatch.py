@@ -1,9 +1,10 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.tools.runtime import NOOP_TOOL_NAME, NOOP_TOOL_REF, ToolInvocationRequest, ToolInvocationStatus, evaluate_tool_invocation
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "invocation_id": "tool-runtime-invocation:m31-revalidation",
         "tool_ref": NOOP_TOOL_REF,
@@ -27,7 +28,7 @@ def _request(**overrides):
         ({"safe_summary": "contains token=abc123"}, "SECRET_CONTENT_DENIED"),
     ],
 )
-def test_model_copy_mutated_raw_or_secret_fields_are_revalidated(update, reason):
+def test_model_copy_mutated_raw_or_secret_fields_are_revalidated(update: Any, reason: str) -> None:
     request = _request().model_copy(update=update)
 
     decision = evaluate_tool_invocation(request)
@@ -48,7 +49,7 @@ def test_model_copy_mutated_raw_or_secret_fields_are_revalidated(update, reason)
         {"metadata": {"tool_ref": "tool:file_write.v1"}},
     ],
 )
-def test_model_copy_mutated_dynamic_dispatch_fields_are_revalidated(update):
+def test_model_copy_mutated_dynamic_dispatch_fields_are_revalidated(update: Any) -> None:
     request = _request().model_copy(update=update)
 
     decision = evaluate_tool_invocation(request)
@@ -73,7 +74,7 @@ def test_model_copy_mutated_dynamic_dispatch_fields_are_revalidated(update):
         {"metadata": {"file_write_requested": True}},
     ],
 )
-def test_model_copy_mutated_side_effect_fields_are_revalidated(update):
+def test_model_copy_mutated_side_effect_fields_are_revalidated(update: Any) -> None:
     request = _request().model_copy(update=update)
 
     decision = evaluate_tool_invocation(request)
@@ -83,7 +84,7 @@ def test_model_copy_mutated_side_effect_fields_are_revalidated(update):
     assert "SIDE_EFFECT_ATTEMPT_DENIED" in decision.reason_codes
 
 
-def test_model_copy_mutated_tool_ref_to_effectful_tool_is_denied():
+def test_model_copy_mutated_tool_ref_to_effectful_tool_is_denied() -> None:
     request = _request().model_copy(update={"tool_ref": "tool:file_write.v1"})
 
     decision = evaluate_tool_invocation(request)
@@ -94,7 +95,7 @@ def test_model_copy_mutated_tool_ref_to_effectful_tool_is_denied():
     assert "EFFECTFUL_TOOL_BLOCKED" in decision.reason_codes
 
 
-def test_model_copy_mutated_tool_name_mismatch_is_revalidated():
+def test_model_copy_mutated_tool_name_mismatch_is_revalidated() -> None:
     request = _request().model_copy(update={"tool_name": "not_noop"})
 
     decision = evaluate_tool_invocation(request)

@@ -1,3 +1,4 @@
+from pathlib import Path
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.gate import default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluators import (
@@ -70,7 +71,7 @@ def test_m77_route_guard_denies_openwebui_runtime_handoff_routes() -> None:
     assert not m77_openapi_route_failures(app.openapi().get("paths", {}))
 
 
-def test_m77_static_gate_scans_unsafe_openwebui_handoff_fragments(tmp_path) -> None:
+def test_m77_static_gate_scans_unsafe_openwebui_handoff_fragments(tmp_path: Path) -> None:
     src_file = tmp_path / "src/ultimate_ai_agent/openwebui_handoff_escape.py"
     src_file.parent.mkdir(parents=True)
     src_file.write_text("openwebui_runtime_call_performed=True\n", encoding="utf-8")

@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def test_default_manifest_enables_allowlisted_safe_runtime():
+def test_default_manifest_enables_allowlisted_safe_runtime() -> None:
     manifest = build_tool_runtime_manifest()
 
     assert manifest.policy.tool_runtime_enabled is True
@@ -55,12 +55,12 @@ def test_default_manifest_enables_allowlisted_safe_runtime():
         "dynamic_tool_registration_enabled",
     ],
 )
-def test_policy_rejects_runtime_expansion_flags(field_name):
+def test_policy_rejects_runtime_expansion_flags(field_name: str) -> None:
     with pytest.raises(ValidationError):
         ToolRuntimePolicy(**{field_name: True})
 
 
-def test_invocation_kind_exposes_noop_and_blocked_kinds():
+def test_invocation_kind_exposes_noop_and_blocked_kinds() -> None:
     assert ToolInvocationKind.noop.value == "noop"
     assert ToolInvocationKind.blocked_file.value == "blocked_file"
     assert ToolInvocationKind.blocked_network.value == "blocked_network"

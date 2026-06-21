@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.productization import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.productization import (
 )
 
 
-def _request(**overrides) -> BillingPlanBoundaryRequest:
+def _request(**overrides: Any) -> BillingPlanBoundaryRequest:
     data = {
         "request_ref": "billing-plan-boundary-request:m146",
         "billing_boundary_ref": "billing-plan-boundary:m146",
@@ -197,7 +198,7 @@ def test_m146_record_uses_safe_refs_only() -> None:
         ("production_authority_granted", "M146_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m146_policy_denies_authority_expansion(field, reason) -> None:
+def test_m146_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_billing_plan_boundary_policy(
             BillingPlanBoundaryPolicy(**{field: True})
@@ -231,7 +232,7 @@ def test_m146_policy_denies_authority_expansion(field, reason) -> None:
         ("production_authority_requested", "M146_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m146_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m146_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_billing_plan_boundary_request(
             _request().model_copy(update={field: True})
@@ -295,7 +296,7 @@ def test_m146_requires_exact_checkpoint_and_safety_refs() -> None:
         ({"production_authority_granted": True}, "M146_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m146_record_denies_unsafe_mutations(update, reason) -> None:
+def test_m146_record_denies_unsafe_mutations(update: Any, reason: str) -> None:
     record = build_billing_plan_boundary_record(_request())
 
     with pytest.raises(ValueError, match=reason):

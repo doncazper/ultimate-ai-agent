@@ -91,7 +91,7 @@ class LocalModelCallTransportResult(_M23LocalModelCallModel):
     created_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
-    def contact_scope_must_match_call(self):
+    def contact_scope_must_match_call(self) -> Any:
         if self.call_performed and not self.endpoint_contacted:
             raise ValueError("M23 call_performed requires endpoint_contacted.")
         if self.endpoint_contacted and self.network_scope != "loopback":

@@ -5,8 +5,8 @@ This verifier uses a deterministic synthetic fixture in a temporary workspace.
 It does not inspect real local state, print filesystem paths, perform live
 restore, or execute external commands.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import hashlib

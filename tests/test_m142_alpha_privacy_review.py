@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.productization import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.productization import (
 )
 
 
-def _request(**overrides) -> AlphaPrivacyReviewRequest:
+def _request(**overrides: Any) -> AlphaPrivacyReviewRequest:
     data = {
         "request_ref": "alpha-privacy-review-request:m142",
         "privacy_review_ref": "alpha-privacy-review:m142",
@@ -169,7 +170,7 @@ def test_m142_record_uses_safe_refs_only() -> None:
         ("dependency_added", "M142_DEPENDENCY_DENIED"),
     ],
 )
-def test_m142_policy_denies_authority_expansion(field, reason) -> None:
+def test_m142_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_alpha_privacy_review_policy(AlphaPrivacyReviewPolicy(**{field: True}))
 
@@ -198,7 +199,7 @@ def test_m142_policy_denies_authority_expansion(field, reason) -> None:
         ("dependency_requested", "M142_DEPENDENCY_DENIED"),
     ],
 )
-def test_m142_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m142_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_alpha_privacy_review_request(_request().model_copy(update={field: True}))
 
@@ -248,7 +249,7 @@ def test_m142_requires_exact_checkpoint_and_review_refs() -> None:
         ({"production_authority_granted": True}, "M142_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m142_record_denies_unsafe_mutations(update, reason) -> None:
+def test_m142_record_denies_unsafe_mutations(update: Any, reason: str) -> None:
     record = build_alpha_privacy_review_record(_request())
 
     with pytest.raises(ValueError, match=reason):

@@ -40,7 +40,7 @@ class EvidenceItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_locator_or_summary(self):
+    def validate_locator_or_summary(self) -> Any:
         if not self.locator and not self.summary:
             raise ValueError("Evidence item requires locator or summary.")
         return self
@@ -80,7 +80,7 @@ class EvidenceRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m25_evidence_ref(self):
+    def validate_m25_evidence_ref(self) -> Any:
         from ultimate_ai_agent.core.truth.validation import (
             assert_no_raw_truth_content,
             validate_structured_truth_ref,
@@ -115,7 +115,7 @@ class EvidenceChain(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m25_evidence_chain(self):
+    def validate_m25_evidence_chain(self) -> Any:
         from ultimate_ai_agent.core.truth.validation import assert_claim_not_self_verified, assert_no_raw_truth_content
 
         assert_claim_not_self_verified(self)

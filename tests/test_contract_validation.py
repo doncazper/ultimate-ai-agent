@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.contracts import (
 )
 from ultimate_ai_agent.core.hygiene.policies import DataClassification, ClassificationValue
 
-def test_validation_low_risk_success():
+def test_validation_low_risk_success() -> None:
     contract = ExecutionContract(
         contract_id="ec_test_001",
         run_id="run_123",
@@ -29,7 +29,7 @@ def test_validation_low_risk_success():
     result = validate_execution_contract(contract)
     assert result.success is True
 
-def test_validation_high_risk_missing_approval_policy():
+def test_validation_high_risk_missing_approval_policy() -> None:
     contract = ExecutionContract(
         contract_id="ec_test_002",
         run_id="run_123",
@@ -48,7 +48,7 @@ def test_validation_high_risk_missing_approval_policy():
     assert result.success is False
     assert result.error.code == "MISSING_APPROVAL_POLICY"
 
-def test_validation_high_risk_standing_approval_blocked():
+def test_validation_high_risk_standing_approval_blocked() -> None:
     contract = ExecutionContract(
         contract_id="ec_test_003",
         run_id="run_123",
@@ -67,7 +67,7 @@ def test_validation_high_risk_standing_approval_blocked():
     assert result.success is False
     assert result.error.code == "STANDING_APPROVAL_NOT_ALLOWED"
 
-def test_validation_grounding_required_for_research():
+def test_validation_grounding_required_for_research() -> None:
     contract = ExecutionContract(
         contract_id="ec_test_004",
         run_id="run_123",
@@ -87,7 +87,7 @@ def test_validation_grounding_required_for_research():
     assert result.success is False
     assert result.error.code == "GROUNDING_REQUIRED"
 
-def test_validation_grounding_evidence_missing():
+def test_validation_grounding_evidence_missing() -> None:
     contract = ExecutionContract(
         contract_id="ec_test_005",
         run_id="run_123",
@@ -107,7 +107,7 @@ def test_validation_grounding_evidence_missing():
     assert result.success is False
     assert result.error.code == "REQUIRED_EVIDENCE_EMPTY"
 
-def test_validation_blocked_advanced_capability_tool():
+def test_validation_blocked_advanced_capability_tool() -> None:
     contract = ExecutionContract(
         contract_id="ec_test_006",
         run_id="run_123",
@@ -125,7 +125,7 @@ def test_validation_blocked_advanced_capability_tool():
     assert result.success is False
     assert result.error.code == "BLOCKED_CAPABILITY"
 
-def test_validation_blocked_advanced_capability_flag():
+def test_validation_blocked_advanced_capability_flag() -> None:
     contract = ExecutionContract(
         contract_id="ec_test_007",
         run_id="run_123",
@@ -143,7 +143,7 @@ def test_validation_blocked_advanced_capability_flag():
     assert result.success is False
     assert result.error.code == "BLOCKED_CAPABILITY"
 
-def test_validation_redaction_policy_required_for_sensitive():
+def test_validation_redaction_policy_required_for_sensitive() -> None:
     classification = DataClassification(
         classification=ClassificationValue.sensitive_personal,
         source="profile"
@@ -166,7 +166,7 @@ def test_validation_redaction_policy_required_for_sensitive():
     assert result.success is False
     assert result.error.code == "REDACTION_POLICY_REQUIRED"
 
-def test_context_pack_secret_scan():
+def test_context_pack_secret_scan() -> None:
     src = ContextSource(
         source_id="src_1",
         source_type="memory",

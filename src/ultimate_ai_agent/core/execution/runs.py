@@ -26,7 +26,7 @@ class ExecutionRun(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_run(self):
+    def validate_run(self) -> Any:
         validate_execution_ref(self.run_id, "run_id")
         validate_execution_ref(self.source_task_plan_ref, "source_task_plan_ref")
         validate_safe_execution_text(self.safe_summary, "safe_summary")

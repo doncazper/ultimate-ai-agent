@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.scoped_recurring_low_risk_automation import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.scoped_recurring_low_risk_automation import (
 )
 
 
-def _cadence(**overrides):
+def _cadence(**overrides: Any) -> Any:
     data = {
         "cadence_ref": "scoped-recurring-cadence:m98-daily-review",
         "cadence_label": "daily-review",
@@ -25,7 +26,7 @@ def _cadence(**overrides):
     return ScopedRecurringLowRiskAutomationCadence(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "scoped-recurring-low-risk-request:m98-safe",
         "actor_ref": "actor:m98-reviewer",

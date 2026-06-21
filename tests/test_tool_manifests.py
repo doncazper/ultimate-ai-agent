@@ -9,7 +9,7 @@ from ultimate_ai_agent.core.tools import (
     validate_tool_manifest,
 )
 
-def test_valid_tool_manifest():
+def test_valid_tool_manifest() -> None:
     perm = ToolPermissionManifest(
         required_permissions=[ToolPermissionKind.filesystem_read],
         filesystem_roots=["/Users/sambehdjou/Documents"]
@@ -30,7 +30,7 @@ def test_valid_tool_manifest():
     )
     assert validate_tool_manifest(manifest) is True
 
-def test_invalid_tool_manifest_missing_perm_details():
+def test_invalid_tool_manifest_missing_perm_details() -> None:
     manifest = ToolManifest(
         tool_id="read_file_tool",
         display_name="Read File Tool",

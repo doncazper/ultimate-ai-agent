@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.memory import (
 )
 
 
-def test_credential_secret_memory_is_rejected():
+def test_credential_secret_memory_is_rejected() -> None:
     record = MemoryRecord(
         memory_id="mem_secret",
         memory_type=MemoryType.semantic,
@@ -24,7 +24,7 @@ def test_credential_secret_memory_is_rejected():
         validate_memory_record(record)
 
 
-def test_raw_secret_content_is_rejected():
+def test_raw_secret_content_is_rejected() -> None:
     record = MemoryRecord(
         memory_id="mem_raw_secret",
         memory_type=MemoryType.semantic,

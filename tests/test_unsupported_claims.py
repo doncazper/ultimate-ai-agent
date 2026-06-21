@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.truth import (
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 
 
-def test_no_required_source_returns_safe_unsupported_decision():
+def test_no_required_source_returns_safe_unsupported_decision() -> None:
     request = TruthRouteRequest(
         request_id="trr_none",
         run_id="run_123",

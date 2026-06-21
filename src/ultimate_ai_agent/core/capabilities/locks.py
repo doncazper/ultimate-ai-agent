@@ -8,7 +8,7 @@ from typing import Iterator
 
 
 class SingleWriterLockManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._guard = threading.RLock()
         self._locks: dict[str, threading.RLock] = {}
 
@@ -22,7 +22,7 @@ class SingleWriterLockManager:
 
 
 class FileSingleWriterLockManager:
-    def __init__(self, lock_dir: str | Path):
+    def __init__(self, lock_dir: str | Path) -> None:
         self.lock_dir = Path(lock_dir)
         self._local = SingleWriterLockManager()
 

@@ -29,7 +29,7 @@ class ExecutionStepInputBoundary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_input_boundary(self):
+    def validate_input_boundary(self) -> Any:
         for ref in [*self.input_refs, *self.metadata_refs]:
             validate_execution_ref(ref, "input_ref")
         for reason in raw_input_reasons(self):
@@ -51,7 +51,7 @@ class ExecutionStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_step(self):
+    def validate_step(self) -> Any:
         validate_execution_ref(self.step_id, "step_id")
         validate_safe_execution_text(self.safe_summary, "safe_summary")
         for ref in [*self.depends_on, *self.metadata_refs]:

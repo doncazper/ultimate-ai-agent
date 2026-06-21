@@ -25,7 +25,7 @@ def evidence_item(evidence_id: str = "ev_1", *, summary: str = "Source supports 
     )
 
 
-def test_supported_claim_without_evidence_is_rejected():
+def test_supported_claim_without_evidence_is_rejected() -> None:
     with pytest.raises(ValidationError, match="evidence"):
         ClaimEvidence(
             claim_id="claim_1",
@@ -35,7 +35,7 @@ def test_supported_claim_without_evidence_is_rejected():
         )
 
 
-def test_unsupported_claim_is_accepted_with_reason():
+def test_unsupported_claim_is_accepted_with_reason() -> None:
     claim = ClaimEvidence(
         claim_id="claim_unsupported",
         claim_text="Unsupported claim.",
@@ -47,7 +47,7 @@ def test_unsupported_claim_is_accepted_with_reason():
     assert claim.unsupported_reason == "No approved source supplied."
 
 
-def test_evidence_manifest_lists_unsupported_claims():
+def test_evidence_manifest_lists_unsupported_claims() -> None:
     unsupported = ClaimEvidence(
         claim_id="claim_unsupported",
         claim_text="Unsupported claim.",
@@ -66,7 +66,7 @@ def test_evidence_manifest_lists_unsupported_claims():
     assert validate_evidence_manifest(manifest) is True
 
 
-def test_raw_secret_evidence_rejected():
+def test_raw_secret_evidence_rejected() -> None:
     manifest = EvidenceManifest(
         manifest_id="em_secret",
         run_id="run_123",
@@ -78,7 +78,7 @@ def test_raw_secret_evidence_rejected():
         validate_evidence_manifest(manifest)
 
 
-def test_private_evidence_citation_can_be_redacted():
+def test_private_evidence_citation_can_be_redacted() -> None:
     item = evidence_item()
     item.permission_ref = "consent_private"
     item.metadata["citation_display"] = "Private source available to this user"

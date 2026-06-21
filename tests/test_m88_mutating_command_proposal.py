@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.test_m87_sandboxed_command_audit_replay import _request as _m87_request
@@ -13,11 +14,11 @@ from ultimate_ai_agent.core.sandbox import (
 )
 
 
-def _m87_decision():
+def _m87_decision() -> Any:
     return build_sandboxed_command_audit_replay(_m87_request())
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     replay = overrides.pop("sandboxed_command_audit_replay_decision", _m87_decision())
     data = {
         "request_ref": "mutating-command-proposal-request:m88",

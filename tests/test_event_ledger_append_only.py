@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import UTC, datetime
 import pytest
 import tempfile
@@ -9,7 +10,7 @@ from ultimate_ai_agent.core.hygiene.temporal_context import TemporalContext, Fre
 from ultimate_ai_agent.core.hygiene.policies import DataClassification, ClassificationValue
 
 @pytest.fixture
-def dummy_event_factory():
+def dummy_event_factory() -> Any:
     actor = ActorContext(
         actor_type=ActorType.orchestrator,
         actor_id="test_orchestrator",
@@ -26,7 +27,7 @@ def dummy_event_factory():
         source="test"
     )
 
-    def _make(event_id="evt_123", run_id="run_abc", idempotency_key=None, metadata=None):
+    def _make(event_id: str = "evt_123", run_id: str = "run_abc", idempotency_key: Any | None = None, metadata: Any | None = None) -> Any:
         return EventLedgerEvent(
             event_id=event_id,
             event_type="run",
@@ -49,7 +50,7 @@ def dummy_event_factory():
         )
     return _make
 
-def test_ledger_append_success(dummy_event_factory):
+def test_ledger_append_success(dummy_event_factory: Any) -> None:
     ledger = EventLedger()
     evt = dummy_event_factory(event_id="evt_1")
     ledger.append_event(evt)
@@ -57,7 +58,7 @@ def test_ledger_append_success(dummy_event_factory):
     assert len(ledger.list_events()) == 1
     assert ledger.get_event("evt_1") is not None
 
-def test_ledger_rejects_duplicate_event_id(dummy_event_factory):
+def test_ledger_rejects_duplicate_event_id(dummy_event_factory: Any) -> None:
     ledger = EventLedger()
     evt1 = dummy_event_factory(event_id="evt_dup")
     evt2 = dummy_event_factory(event_id="evt_dup")
@@ -66,7 +67,7 @@ def test_ledger_rejects_duplicate_event_id(dummy_event_factory):
     with pytest.raises(ValueError, match="Duplicate event_id detected"):
         ledger.append_event(evt2)
 
-def test_ledger_rejects_duplicate_idempotency_key(dummy_event_factory):
+def test_ledger_rejects_duplicate_idempotency_key(dummy_event_factory: Any) -> None:
     ledger = EventLedger()
     evt1 = dummy_event_factory(event_id="evt_1", idempotency_key="key_123")
     evt2 = dummy_event_factory(event_id="evt_2", idempotency_key="key_123")
@@ -75,7 +76,7 @@ def test_ledger_rejects_duplicate_idempotency_key(dummy_event_factory):
     with pytest.raises(ValueError, match="Duplicate idempotency_key detected"):
         ledger.append_event(evt2)
 
-def test_ledger_allows_same_idempotency_key_on_different_runs(dummy_event_factory):
+def test_ledger_allows_same_idempotency_key_on_different_runs(dummy_event_factory: Any) -> None:
     ledger = EventLedger()
     evt1 = dummy_event_factory(event_id="evt_1", run_id="run_1", idempotency_key="key_123")
     evt2 = dummy_event_factory(event_id="evt_2", run_id="run_2", idempotency_key="key_123")
@@ -86,7 +87,7 @@ def test_ledger_allows_same_idempotency_key_on_different_runs(dummy_event_factor
     assert [event.event_id for event in ledger.list_events("run_1")] == ["evt_1"]
     assert [event.event_id for event in ledger.list_events("run_2")] == ["evt_2"]
 
-def test_ledger_rejects_raw_secrets(dummy_event_factory):
+def test_ledger_rejects_raw_secrets(dummy_event_factory: Any) -> None:
     ledger = EventLedger()
     evt = dummy_event_factory(
         event_id="evt_secret",
@@ -95,7 +96,7 @@ def test_ledger_rejects_raw_secrets(dummy_event_factory):
     with pytest.raises(ValueError, match="Event append blocked: raw secrets"):
         ledger.append_event(evt)
 
-def test_persistent_jsonl_ledger(dummy_event_factory):
+def test_persistent_jsonl_ledger(dummy_event_factory: Any) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = Path(tmpdir) / "ledger.jsonl"
         ledger1 = EventLedger(filepath=str(filepath))
@@ -110,7 +111,7 @@ def test_persistent_jsonl_ledger(dummy_event_factory):
         with pytest.raises(ValueError, match="Duplicate idempotency_key detected"):
             ledger2.append_event(dummy_event_factory(event_id="evt_duplicate_key", idempotency_key="persisted_key"))
 
-def test_persistent_jsonl_ledger_rejects_duplicate_event_id_on_load(dummy_event_factory):
+def test_persistent_jsonl_ledger_rejects_duplicate_event_id_on_load(dummy_event_factory: Any) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = Path(tmpdir) / "ledger.jsonl"
         evt1 = dummy_event_factory(event_id="evt_reload_dup", idempotency_key="reload_key_1")
@@ -120,7 +121,7 @@ def test_persistent_jsonl_ledger_rejects_duplicate_event_id_on_load(dummy_event_
         with pytest.raises(ValueError, match="Duplicate event_id detected"):
             EventLedger(filepath=str(filepath))
 
-def test_persistent_jsonl_ledger_rejects_duplicate_idempotency_key_on_load(dummy_event_factory):
+def test_persistent_jsonl_ledger_rejects_duplicate_idempotency_key_on_load(dummy_event_factory: Any) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = Path(tmpdir) / "ledger.jsonl"
         evt1 = dummy_event_factory(event_id="evt_reload_1", idempotency_key="reload_key")
@@ -130,7 +131,7 @@ def test_persistent_jsonl_ledger_rejects_duplicate_idempotency_key_on_load(dummy
         with pytest.raises(ValueError, match="Duplicate idempotency_key detected"):
             EventLedger(filepath=str(filepath))
 
-def test_trace_integrity_parent_spans(dummy_event_factory):
+def test_trace_integrity_parent_spans(dummy_event_factory: Any) -> None:
     ledger = EventLedger()
     
     # Event 1 (root span)

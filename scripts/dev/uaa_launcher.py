@@ -6,8 +6,8 @@ the existing Control Center Vite dev server; it does not add any agent, action,
 or tool authority. When the local package is importable, it also records
 redacted launcher lifecycle summaries under `.uaa/`.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import importlib.util
@@ -323,7 +323,7 @@ def record_launcher_event(
     )
 
 
-def _observability_helpers(root: Path):
+def _observability_helpers(root: Path) -> tuple[Any, ...] | None:
     src_path = str(root / "src")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
@@ -1195,7 +1195,7 @@ def main(argv: list[str] | None = None) -> int:
     return 2
 
 
-def _load_setup_module():
+def _load_setup_module() -> Any:
     module_name = "uaa_setup"
     if module_name in sys.modules:
         return sys.modules[module_name]

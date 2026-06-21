@@ -36,7 +36,7 @@ def provider(
     )
 
 
-def test_provider_resolver_prefers_free_no_key_and_skips_disabled():
+def test_provider_resolver_prefers_free_no_key_and_skips_disabled() -> None:
     registry = ProviderRegistry()
     registry.register_provider(provider("paid", ProviderCostClass.paid, ProviderAuthRequirement.required_key, priority=1, credential_ref="cred_paid"))
     registry.register_provider(provider("free_disabled", ProviderCostClass.free_no_key, ProviderAuthRequirement.none, priority=0, status=ProviderStatus.disabled))
@@ -52,7 +52,7 @@ def test_provider_resolver_prefers_free_no_key_and_skips_disabled():
     assert "SELECTED_FREE_NO_KEY" in decision.reason_codes
 
 
-def test_provider_resolver_skips_keyed_provider_without_available_credential():
+def test_provider_resolver_skips_keyed_provider_without_available_credential() -> None:
     registry = ProviderRegistry()
     registry.register_provider(provider("free_keyed", ProviderCostClass.free_with_key, ProviderAuthRequirement.required_key, priority=0, credential_ref="cred_keyed"))
 
@@ -67,7 +67,7 @@ def test_provider_resolver_skips_keyed_provider_without_available_credential():
     assert "CREDENTIAL_NOT_AVAILABLE" in decision.reason_codes
 
 
-def test_provider_resolver_deterministic_priority_ordering():
+def test_provider_resolver_deterministic_priority_ordering() -> None:
     registry = ProviderRegistry()
     registry.register_provider(provider("provider_b", ProviderCostClass.free_no_key, ProviderAuthRequirement.none, priority=1))
     registry.register_provider(provider("provider_a", ProviderCostClass.free_no_key, ProviderAuthRequirement.none, priority=1))

@@ -1,3 +1,4 @@
+from typing import Any
 from importlib import import_module
 
 import pytest
@@ -22,14 +23,14 @@ from ultimate_ai_agent.core.production_readiness import (
 )
 
 
-def _connectors():
+def _connectors() -> Any:
     try:
         return import_module("ultimate_ai_agent.core.connectors")
     except ModuleNotFoundError as exc:
         pytest.fail(f"M121 connectors package missing: {exc}")
 
 
-def _source_record():
+def _source_record() -> Any:
     return build_production_authority_readiness_review_record(
         source_record=build_production_red_team_harness_record(
             source_record=build_deployment_mode_matrix_record(

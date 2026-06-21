@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.context_budget import (
     validate_context_budget,
 )
 
-def test_context_budget_subtraction():
+def test_context_budget_subtraction() -> None:
     budget = ContextBudget(
         model_context_limit=8000,
         system_prompt_tokens=1000,
@@ -18,7 +18,7 @@ def test_context_budget_subtraction():
     assert budget.available_history_tokens == 3000
     assert validate_context_budget(budget) is True
 
-def test_unknown_context_limit_fails_closed():
+def test_unknown_context_limit_fails_closed() -> None:
     budget = ContextBudget(
         model_context_limit=0,
         unknown_limit_fails_closed=True

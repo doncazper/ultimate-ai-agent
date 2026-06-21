@@ -1,3 +1,4 @@
+from typing import Any
 import importlib.util
 import io
 import json
@@ -14,7 +15,7 @@ SETUP_PATH = ROOT / "scripts" / "dev" / "uaa_setup.py"
 LAUNCHER_PATH = ROOT / "scripts" / "dev" / "uaa_launcher.py"
 
 
-def load_setup():
+def load_setup() -> Any:
     spec = importlib.util.spec_from_file_location("uaa_setup_test", SETUP_PATH)
     assert spec is not None
     module = importlib.util.module_from_spec(spec)
@@ -24,7 +25,7 @@ def load_setup():
     return module
 
 
-def load_launcher():
+def load_launcher() -> Any:
     spec = importlib.util.spec_from_file_location("uaa_launcher_setup_test", LAUNCHER_PATH)
     assert spec is not None
     module = importlib.util.module_from_spec(spec)
@@ -34,7 +35,7 @@ def load_launcher():
     return module
 
 
-def test_setup_writes_local_llama_env_template(tmp_path):
+def test_setup_writes_local_llama_env_template(tmp_path: Path) -> None:
     setup = load_setup()
 
     target = setup.write_local_llama_env(tmp_path, model_id="uaa-llama-cpp-local")
@@ -49,7 +50,7 @@ def test_setup_writes_local_llama_env_template(tmp_path):
     assert "GEMINI" not in content
 
 
-def test_frontier_setup_is_reported_as_not_scoped(monkeypatch):
+def test_frontier_setup_is_reported_as_not_scoped(monkeypatch: pytest.MonkeyPatch) -> None:
     setup = load_setup()
     safe_finding = setup.SetupFinding("safe prerequisite", "pass", "present", "No action needed.")
     monkeypatch.setattr(setup, "_probe_python", lambda root: safe_finding)
@@ -78,7 +79,7 @@ def test_frontier_setup_is_reported_as_not_scoped(monkeypatch):
     assert "multi-provider UAA routing needs a later scoped milestone" in rendered
 
 
-def test_minimal_profile_skips_docker_and_frontend(monkeypatch):
+def test_minimal_profile_skips_docker_and_frontend(monkeypatch: pytest.MonkeyPatch) -> None:
     setup = load_setup()
     safe_finding = setup.SetupFinding("safe prerequisite", "pass", "present", "No action needed.")
     called = {"docker": False, "frontend": False}
@@ -86,11 +87,11 @@ def test_minimal_profile_skips_docker_and_frontend(monkeypatch):
     monkeypatch.setattr(setup, "_probe_uaa_shell_command", lambda root: safe_finding)
     monkeypatch.setattr(setup, "_probe_backend_port", lambda: setup.SetupFinding("backend port", "pass", "free", "No action needed."))
 
-    def fail_docker():
+    def fail_docker() -> None:
         called["docker"] = True
         raise AssertionError("Docker should not be probed for minimal profile")
 
-    def fail_frontend(root):
+    def fail_frontend(root: Any) -> None:
         called["frontend"] = True
         raise AssertionError("Frontend should not be probed for minimal profile")
 
@@ -118,12 +119,12 @@ def test_minimal_profile_skips_docker_and_frontend(monkeypatch):
     ]
 
 
-def test_profiles_run_only_their_scoped_probes(monkeypatch):
+def test_profiles_run_only_their_scoped_probes(monkeypatch: pytest.MonkeyPatch) -> None:
     setup = load_setup()
     calls = []
 
-    def finding(name):
-        def _inner(*args, **kwargs):
+    def finding(name: str) -> Any:
+        def _inner(*args: Any, **kwargs: Any) -> Any:
             calls.append(name)
             return setup.SetupFinding(name, "pass", "safe", "No action needed.")
 
@@ -203,7 +204,7 @@ def test_profiles_run_only_their_scoped_probes(monkeypatch):
         assert calls == expected_calls
 
 
-def test_command_setup_writes_redacted_report_path(tmp_path, monkeypatch, capsys):
+def test_command_setup_writes_redacted_report_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     monkeypatch.setattr(setup, "build_setup_report", lambda root, **kwargs: _stable_report(setup))
 
@@ -224,7 +225,7 @@ def test_command_setup_writes_redacted_report_path(tmp_path, monkeypatch, capsys
     assert "secret" not in report_path.read_text(encoding="utf-8").lower()
 
 
-def test_command_setup_write_env_existing_file_keeps_template(tmp_path, monkeypatch, capsys):
+def test_command_setup_write_env_existing_file_keeps_template(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     target = tmp_path / setup.LOCAL_ENV_PATH
     target.parent.mkdir(parents=True)
@@ -251,12 +252,12 @@ def test_command_setup_write_env_existing_file_keeps_template(tmp_path, monkeypa
     assert "secret-backend" not in captured.out
 
 
-def test_setup_install_refusal_writes_redacted_receipt(tmp_path, monkeypatch, capsys):
+def test_setup_install_refusal_writes_redacted_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
     monkeypatch.setattr(sys, "stdin", io.StringIO("no\n"))
 
-    def fail_resolve(command):
+    def fail_resolve(command: str) -> None:
         raise AssertionError("Docker should not be resolved when install approval is refused")
 
     monkeypatch.setattr(setup, "_resolve_command", fail_resolve)
@@ -282,11 +283,11 @@ def test_setup_install_refusal_writes_redacted_receipt(tmp_path, monkeypatch, ca
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
 
 
-def test_setup_install_yes_without_preview_token_fails_closed(tmp_path, monkeypatch, capsys):
+def test_setup_install_yes_without_preview_token_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
 
-    def fail_resolve(command):
+    def fail_resolve(command: str) -> None:
         raise AssertionError("Docker should not be resolved without a preview-bound approval token")
 
     monkeypatch.setattr(setup, "_resolve_command", fail_resolve)
@@ -306,7 +307,7 @@ def test_setup_install_yes_without_preview_token_fails_closed(tmp_path, monkeypa
     assert "docker pull" in captured.out
 
 
-def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_path, monkeypatch, capsys):
+def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     calls = []
     home = tmp_path / "home"
@@ -320,7 +321,7 @@ def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_pat
     monkeypatch.setattr(setup, "_run_probe", lambda command, **kwargs: {"returncode": 0, "stdout": "27.0.0\n", "stderr": ""})
     setup.write_setup_install_approval_token(tmp_path, setup._openwebui_install_plan(tmp_path), token_path)
 
-    def fake_install(command):
+    def fake_install(command: str) -> dict[str, Any]:
         calls.append(command)
         return {"returncode": 0, "summary": "completed"}
 
@@ -363,7 +364,7 @@ def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_pat
     assert "secret-value" not in approval_receipt.read_text(encoding="utf-8")
 
 
-def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_path, monkeypatch, capsys):
+def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -411,7 +412,7 @@ def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_p
     assert "already used" in replay.out.lower()
 
 
-def test_setup_install_docker_not_ready_does_not_pull(tmp_path, monkeypatch, capsys):
+def test_setup_install_docker_not_ready_does_not_pull(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     calls = []
     home = tmp_path / "home"
@@ -439,11 +440,11 @@ def test_setup_install_docker_not_ready_does_not_pull(tmp_path, monkeypatch, cap
     assert "Docker engine is not ready" in captured.out
 
 
-def test_plain_setup_does_not_run_install_path(tmp_path, monkeypatch):
+def test_plain_setup_does_not_run_install_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     setup = load_setup()
     monkeypatch.setattr(setup, "build_setup_report", lambda root, **kwargs: _stable_report(setup))
 
-    def fail_install(root, args):
+    def fail_install(root: Any, args: Any) -> None:
         raise AssertionError("plain uaa setup must not run the install command")
 
     monkeypatch.setattr(setup, "command_setup_install", fail_install)
@@ -453,7 +454,7 @@ def test_plain_setup_does_not_run_install_path(tmp_path, monkeypatch):
     assert exit_code == 0
 
 
-def test_setup_report_groups_blocked_and_manual_next_steps():
+def test_setup_report_groups_blocked_and_manual_next_steps() -> None:
     setup = load_setup()
     report = setup.SetupReport(
         mode="local-llama",
@@ -485,7 +486,7 @@ def test_setup_report_groups_blocked_and_manual_next_steps():
     ]
 
 
-def test_serialized_report_matches_safe_json_contract():
+def test_serialized_report_matches_safe_json_contract() -> None:
     setup = load_setup()
     report = setup.SetupReport(
         mode="local-llama",
@@ -543,7 +544,7 @@ def test_serialized_report_matches_safe_json_contract():
     assert "sk-" not in serialized
 
 
-def test_ordered_repair_plan_respects_dependencies():
+def test_ordered_repair_plan_respects_dependencies() -> None:
     setup = load_setup()
     findings = [
         setup.SetupFinding("UAA local gateway", "manual", "disabled", "Restart backend."),
@@ -564,7 +565,7 @@ def test_ordered_repair_plan_respects_dependencies():
     ]
 
 
-def test_explain_mode_renders_check_boundaries():
+def test_explain_mode_renders_check_boundaries() -> None:
     setup = load_setup()
     report = setup.SetupReport(
         mode="local-llama",
@@ -589,7 +590,7 @@ def test_explain_mode_renders_check_boundaries():
     assert "Authority boundary: Docker/OpenWebUI checks do not pull images" in rendered
 
 
-def test_local_llama_gateway_env_reports_missing_values_without_secrets(monkeypatch):
+def test_local_llama_gateway_env_reports_missing_values_without_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     setup = load_setup()
     for key in [
         setup.UAA_LLAMA_CPP_GATEWAY_ENV,
@@ -609,7 +610,7 @@ def test_local_llama_gateway_env_reports_missing_values_without_secrets(monkeypa
     assert "uaa-llama-backend-dev" not in finding.summary
 
 
-def test_local_llama_gateway_env_rejects_non_loopback_base_url(monkeypatch):
+def test_local_llama_gateway_env_rejects_non_loopback_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
     setup = load_setup()
     monkeypatch.setenv(setup.UAA_LLAMA_CPP_GATEWAY_ENV, "1")
     monkeypatch.setenv(setup.UAA_LLAMA_CPP_GATEWAY_KEY_ENV, "secret-value")
@@ -625,7 +626,7 @@ def test_local_llama_gateway_env_rejects_non_loopback_base_url(monkeypatch):
     assert "backend-secret" not in finding.summary
 
 
-def test_check_env_reports_safe_diff_without_secret_values(tmp_path):
+def test_check_env_reports_safe_diff_without_secret_values(tmp_path: Path) -> None:
     setup = load_setup()
     env_file = tmp_path / "local-llama.env"
     env_file.write_text(
@@ -652,7 +653,7 @@ def test_check_env_reports_safe_diff_without_secret_values(tmp_path):
     assert "secret-backend" not in summaries
 
 
-def test_existing_env_template_is_summarized_without_overwrite(tmp_path):
+def test_existing_env_template_is_summarized_without_overwrite(tmp_path: Path) -> None:
     setup = load_setup()
     target = tmp_path / setup.LOCAL_ENV_PATH
     target.parent.mkdir(parents=True)
@@ -675,7 +676,7 @@ def test_existing_env_template_is_summarized_without_overwrite(tmp_path):
     )
 
 
-def test_write_report_creates_redacted_json_bundle(tmp_path):
+def test_write_report_creates_redacted_json_bundle(tmp_path: Path) -> None:
     setup = load_setup()
     report = setup.SetupReport(
         mode="local-llama",
@@ -695,7 +696,7 @@ def test_write_report_creates_redacted_json_bundle(tmp_path):
     assert "secret" not in payload.lower()
 
 
-def test_backend_port_distinguishes_uaa_health_from_generic_http(monkeypatch):
+def test_backend_port_distinguishes_uaa_health_from_generic_http(monkeypatch: pytest.MonkeyPatch) -> None:
     setup = load_setup()
     monkeypatch.setattr(setup, "_is_port_open", lambda host, port: True)
     monkeypatch.setattr(setup, "_url_status", lambda url, **kwargs: 200 if url.endswith("/health") else None)
@@ -713,7 +714,7 @@ def test_backend_port_distinguishes_uaa_health_from_generic_http(monkeypatch):
     assert "HTTP server answered on backend port" in finding.summary
 
 
-def test_openwebui_data_dir_reports_prior_state_without_creating(tmp_path):
+def test_openwebui_data_dir_reports_prior_state_without_creating(tmp_path: Path) -> None:
     setup = load_setup()
 
     finding = setup._probe_openwebui_data_dir(tmp_path)
@@ -723,7 +724,7 @@ def test_openwebui_data_dir_reports_prior_state_without_creating(tmp_path):
     assert not (tmp_path / ".uaa" / "dev" / "openwebui-data").exists()
 
 
-def test_plan_preview_is_honest_and_non_executing():
+def test_plan_preview_is_honest_and_non_executing() -> None:
     setup = load_setup()
     report = setup.SetupReport(
         mode="local-llama",
@@ -742,13 +743,13 @@ def test_plan_preview_is_honest_and_non_executing():
     assert "did not run commands" in rendered
 
 
-def test_openwebui_image_probe_is_local_inspect_only(monkeypatch):
+def test_openwebui_image_probe_is_local_inspect_only(monkeypatch: pytest.MonkeyPatch) -> None:
     setup = load_setup()
     docker_path = Path("/tmp/docker")
     commands = []
     monkeypatch.setattr(setup, "_resolve_command", lambda command: docker_path if command == "docker" else None)
 
-    def fake_run_probe(command, *, timeout_seconds):
+    def fake_run_probe(command: str, *, timeout_seconds: Any) -> dict[str, Any]:
         commands.append(command)
         assert timeout_seconds == 3.0
         return {"returncode": 1, "stdout": "", "stderr": "No such image"}
@@ -764,7 +765,7 @@ def test_openwebui_image_probe_is_local_inspect_only(monkeypatch):
     ]
 
 
-def test_launcher_parser_exposes_setup_command():
+def test_launcher_parser_exposes_setup_command() -> None:
     launcher = load_launcher()
 
     args = launcher.parse_args(["setup", "--profile", "openwebui-smoke", "--json", "--explain", "--plan"])
@@ -776,7 +777,7 @@ def test_launcher_parser_exposes_setup_command():
     assert args.plan is True
 
 
-def test_launcher_parser_exposes_setup_install_command():
+def test_launcher_parser_exposes_setup_install_command() -> None:
     launcher = load_launcher()
 
     args = launcher.parse_args(
@@ -790,7 +791,7 @@ def test_launcher_parser_exposes_setup_install_command():
     assert args.approval_token == "~/.local/state/uaa/install-approval.json"
 
 
-def _stable_report(setup):
+def _stable_report(setup: Any) -> Any:
     return setup.SetupReport(
         mode="local-llama",
         system_summary={"os": "test", "architecture": "test", "python": "3.11.0"},
@@ -812,7 +813,7 @@ def _stable_report(setup):
     )
 
 
-def _setup_args(**overrides):
+def _setup_args(**overrides: Any) -> Any:
     values = {
         "mode": "local-llama",
         "profile": None,

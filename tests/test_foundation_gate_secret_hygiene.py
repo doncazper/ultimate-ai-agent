@@ -1,3 +1,4 @@
+from typing import Any
 import json
 import subprocess
 from pathlib import Path
@@ -10,21 +11,21 @@ from ultimate_ai_agent.core.gate import (
 )
 
 
-def test_gate_evaluator_report_contains_no_raw_secret_like_values(foundation_gate_report):
+def test_gate_evaluator_report_contains_no_raw_secret_like_values(foundation_gate_report: Any) -> None:
     payload = foundation_gate_report.model_dump(mode="json")
 
     assert scan_public_gate_payload_for_secrets(payload) == []
     assert foundation_gate_report.overall_status in {FoundationGateStatus.passed, FoundationGateStatus.warning}
 
 
-def test_sample_gate_report_is_secret_clean():
+def test_sample_gate_report_is_secret_clean() -> None:
     with open("reports/foundation_gate/sample_foundation_gate_report.json", encoding="utf-8") as handle:
         payload = json.load(handle)
 
     assert scan_public_gate_payload_for_secrets(payload) == []
 
 
-def test_verify_all_detects_actual_private_key_header_in_tracked_file(monkeypatch, tmp_path):
+def test_verify_all_detects_actual_private_key_header_in_tracked_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import scripts.verify_all as verify_all
 
     unsafe = tmp_path / "src/unsafe.py"
@@ -39,7 +40,7 @@ def test_verify_all_detects_actual_private_key_header_in_tracked_file(monkeypatc
     assert exc.value.code == 1
 
 
-def test_verify_all_detects_tracked_generated_artifact(monkeypatch):
+def test_verify_all_detects_tracked_generated_artifact(monkeypatch: pytest.MonkeyPatch) -> None:
     import scripts.verify_all as verify_all
 
     monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "src/ultimate_ai_agent.egg-info/PKG-INFO\n")
@@ -50,7 +51,7 @@ def test_verify_all_detects_tracked_generated_artifact(monkeypatch):
     assert exc.value.code == 1
 
 
-def test_verify_all_does_not_flag_foundation_gate_evaluator_false_positive(monkeypatch):
+def test_verify_all_does_not_flag_foundation_gate_evaluator_false_positive(monkeypatch: pytest.MonkeyPatch) -> None:
     import scripts.verify_all as verify_all
 
     monkeypatch.setattr(
@@ -62,7 +63,7 @@ def test_verify_all_does_not_flag_foundation_gate_evaluator_false_positive(monke
     verify_all.verify_no_obvious_secrets()
 
 
-def test_core_runtime_avoids_deprecated_datetime_utcnow():
+def test_core_runtime_avoids_deprecated_datetime_utcnow() -> None:
     source_files = (Path("src") / "ultimate_ai_agent").rglob("*.py")
     offenders = [
         str(path)

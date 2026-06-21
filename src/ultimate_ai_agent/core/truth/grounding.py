@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -51,7 +51,7 @@ class GroundingPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_grounding_requirements(self):
+    def validate_grounding_requirements(self) -> Any:
         if self.task_class in FACTUAL_TASKS and self.grounding_mode == GroundingMode.none:
             raise ValueError("grounding is required for factual and truth-sensitive tasks.")
         if self.task_class in HIGH_STAKES_TASKS and not self.require_human_review:

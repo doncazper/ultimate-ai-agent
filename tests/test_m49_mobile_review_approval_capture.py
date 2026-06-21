@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 from datetime import timedelta
 import json
 
@@ -15,7 +17,7 @@ from ultimate_ai_agent.core.mobile_companion.approval_capture import (
 from ultimate_ai_agent.core.time import utc_now
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "approval_ref": "mobile-review-approval-capture:approval",
         "actor_ref": "user:mobile-reviewer",
@@ -122,7 +124,7 @@ def test_mobile_review_denial_capture_persists_safe_denial_record() -> None:
         ),
     ],
 )
-def test_mobile_review_capture_denies_binding_lifecycle_and_test_refs(override, reason) -> None:
+def test_mobile_review_capture_denies_binding_lifecycle_and_test_refs(override: Any, reason: str) -> None:
     request = _request()
     if "approval_ref" in override and str(override["approval_ref"]).startswith("approval_test_"):
         request = request.model_copy(update=override)
@@ -155,7 +157,7 @@ def test_mobile_review_capture_denies_binding_lifecycle_and_test_refs(override, 
         ("background_collection_enabled", "MOBILE_REVIEW_APPROVAL_CAPTURE_BACKGROUND_DENIED"),
     ],
 )
-def test_mobile_review_model_copy_mutated_flags_are_revalidated(flag, reason) -> None:
+def test_mobile_review_model_copy_mutated_flags_are_revalidated(flag: Any, reason: str) -> None:
     request = _request().model_copy(update={flag: True})
 
     decision = capture_mobile_review_approval(request, current_time=utc_now())
@@ -176,7 +178,7 @@ def test_mobile_review_secret_metadata_is_denied_without_echoing_secret() -> Non
     assert "abc123supersecret" not in str(decision.model_dump(mode="json"))
 
 
-def test_mobile_review_approval_store_writes_safe_jsonl_only(tmp_path) -> None:
+def test_mobile_review_approval_store_writes_safe_jsonl_only(tmp_path: Path) -> None:
     store_path = tmp_path / "mobile_review_approvals.jsonl"
     store = MobileReviewApprovalStore(store_path)
     request = _request()
@@ -193,7 +195,7 @@ def test_mobile_review_approval_store_writes_safe_jsonl_only(tmp_path) -> None:
     assert "/Users/" not in store_path.read_text(encoding="utf-8")
 
 
-def test_mobile_review_store_rejects_conflicting_replay(tmp_path) -> None:
+def test_mobile_review_store_rejects_conflicting_replay(tmp_path: Path) -> None:
     store = MobileReviewApprovalStore(tmp_path / "mobile_review_approvals.jsonl")
     first = _request()
     changed = _request(file_ref="file-ref:changed", expected_file_ref="file-ref:changed")
@@ -206,7 +208,7 @@ def test_mobile_review_store_rejects_conflicting_replay(tmp_path) -> None:
     assert "MOBILE_REVIEW_APPROVAL_CAPTURE_REPLAY_MISMATCH" in decision.reason_codes
 
 
-def test_mobile_review_record_model_copy_raw_extra_is_denied(tmp_path) -> None:
+def test_mobile_review_record_model_copy_raw_extra_is_denied(tmp_path: Path) -> None:
     store = MobileReviewApprovalStore(tmp_path / "mobile_review_approvals.jsonl")
     request = _request()
     decision = capture_mobile_review_approval(request, current_time=utc_now())

@@ -29,7 +29,7 @@ class RemoteJobResult(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def result_must_be_safe_and_inert(self):
+    def result_must_be_safe_and_inert(self) -> Any:
         if self.dispatch_performed is True:
             raise ValueError("REMOTE_DISPATCH_MUST_REMAIN_FALSE")
         if self.remote_execution_performed is True:

@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.time import utc_now
 client = TestClient(app)
 
 
-def test_approval_api_validates_request_grant_and_receipt():
+def test_approval_api_validates_request_grant_and_receipt() -> None:
     request = approval_request()
     authority = LocalApprovalAuthority()
     authority.create_request(request)
@@ -24,7 +24,7 @@ def test_approval_api_validates_request_grant_and_receipt():
     assert client.post("/approvals/receipts/validate", json=receipt.model_dump(mode="json")).json()["success"] is True
 
 
-def test_approval_api_arbitrary_ref_validation_denies():
+def test_approval_api_arbitrary_ref_validation_denies() -> None:
     payload = {
         "validation_request": approval_request().to_validation_request("human_approved_ref_123").model_dump(mode="json"),
         "grants": [],
@@ -37,14 +37,14 @@ def test_approval_api_arbitrary_ref_validation_denies():
     assert "APPROVAL_REF_UNKNOWN" in body["data"]["reason_codes"]
 
 
-def test_approval_api_uses_public_authority_helper():
+def test_approval_api_uses_public_authority_helper() -> None:
     app_source = Path("src/ultimate_ai_agent/api/app.py").read_text(encoding="utf-8")
 
     assert "authority.load_grant_for_validation(" in app_source
     assert "authority._grants" not in app_source
 
 
-def test_approval_api_validation_denies_wrong_subject_action_resource_expired_and_revoked():
+def test_approval_api_validation_denies_wrong_subject_action_resource_expired_and_revoked() -> None:
     request = approval_request()
     authority = LocalApprovalAuthority()
     authority.create_request(request)
@@ -83,7 +83,7 @@ def test_approval_api_validation_denies_wrong_subject_action_resource_expired_an
     assert "APPROVAL_REVOKED" in revoked_body["data"]["reason_codes"]
 
 
-def test_approval_api_validation_error_does_not_echo_secret():
+def test_approval_api_validation_error_does_not_echo_secret() -> None:
     secret = "sk_test_secret_value_12345"
     payload = approval_request().model_dump(mode="json")
     payload["metadata"] = {"note": f"api_key={secret}"}

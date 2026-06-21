@@ -63,7 +63,7 @@ class CommandProposalPolicy(_CommandProposalModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -112,7 +112,7 @@ class CommandProposalRequest(_CommandProposalModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.proposal_ref, "proposal_ref"),
@@ -139,7 +139,7 @@ class CommandProposalReceiptPlan(_CommandProposalModel):
     safe_summary: str = "M82 command proposal receipt stores safe metadata only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m61_ref(self.proposal_ref, "proposal_ref")
         _validate_safe_payload(self.safe_summary)
@@ -187,7 +187,7 @@ class CommandProposalDecision(_CommandProposalModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.proposal_ref, "proposal_ref"),

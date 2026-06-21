@@ -5,21 +5,21 @@ from ultimate_ai_agent.api.app import app
 
 client = TestClient(app)
 
-def test_health_endpoint():
+def test_health_endpoint() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
     assert data["version"] == __version__
 
-def test_version_endpoint():
+def test_version_endpoint() -> None:
     response = client.get("/version")
     assert response.status_code == 200
     data = response.json()
     assert data["version"] == __version__
 
 
-def test_openapi_schema_generation_reports_current_version():
+def test_openapi_schema_generation_reports_current_version() -> None:
     schema = app.openapi()
 
     assert schema["info"]["version"] == __version__
@@ -28,7 +28,7 @@ def test_openapi_schema_generation_reports_current_version():
     assert "/gate/reports/validate" in schema["paths"]
 
 
-def test_validate_contract_endpoint():
+def test_validate_contract_endpoint() -> None:
     contract_data = {
         "contract_id": "ec_test_api",
         "run_id": "run_api_123",
@@ -46,7 +46,7 @@ def test_validate_contract_endpoint():
     assert res_json["success"] is True
 
 
-def test_global_validation_error_handler_does_not_echo_secret_input():
+def test_global_validation_error_handler_does_not_echo_secret_input() -> None:
     payload = {
         "contract_id": "not_a_valid_contract_id",
         "request_summary": "safe summary",
@@ -64,7 +64,7 @@ def test_global_validation_error_handler_does_not_echo_secret_input():
     assert "sk_test_secret_value" not in response.text
     assert "api_key" not in response.text
 
-def test_validate_context_pack_endpoint():
+def test_validate_context_pack_endpoint() -> None:
     context_pack_data = {
         "context_pack_id": "cp_test_api",
         "contract_id": "ec_test_api",
@@ -79,7 +79,7 @@ def test_validate_context_pack_endpoint():
     res_json = response.json()
     assert res_json["success"] is True
 
-def test_validate_event_endpoint():
+def test_validate_event_endpoint() -> None:
     event_data = {
         "event_id": "evt_api_test",
         "event_type": "run",
@@ -114,7 +114,7 @@ def test_validate_event_endpoint():
     res_json = response.json()
     assert res_json["success"] is True
 
-def test_validate_transition_endpoint():
+def test_validate_transition_endpoint() -> None:
     payload = {
         "run_id": "run_api_123",
         "current_state": "created",
@@ -125,7 +125,7 @@ def test_validate_transition_endpoint():
     res_json = response.json()
     assert res_json["success"] is True
 
-def test_validate_transition_endpoint_invalid():
+def test_validate_transition_endpoint_invalid() -> None:
     payload = {
         "run_id": "run_api_123",
         "current_state": "created",
@@ -137,7 +137,7 @@ def test_validate_transition_endpoint_invalid():
     assert res_json["success"] is False
     assert res_json["error"]["code"] == "INVALID_STATE_TRANSITION"
 
-def test_preview_receipt_endpoint():
+def test_preview_receipt_endpoint() -> None:
     payload = {
         "run_id": "run_api_123",
         "events": [
@@ -179,7 +179,7 @@ def test_preview_receipt_endpoint():
     assert res_json["data"]["run_id"] == "run_api_123"
     assert res_json["data"]["event_count"] == 1
 
-def test_validate_world_state_endpoint():
+def test_validate_world_state_endpoint() -> None:
     payload = {
         "world_state_id": "ws_api_test",
         "run_id": "run_api_123",
@@ -196,7 +196,7 @@ def test_validate_world_state_endpoint():
     assert res_json["success"] is True
     assert res_json["data"]["world_state_id"] == "ws_api_test"
 
-def test_validate_context_budget_endpoint():
+def test_validate_context_budget_endpoint() -> None:
     payload = {
         "model_context_limit": 8000,
         "system_prompt_tokens": 1000,
@@ -214,7 +214,7 @@ def test_validate_context_budget_endpoint():
     assert res_json["success"] is True
     assert res_json["data"]["available_history_tokens"] == 3000
 
-def test_validate_local_runtime_endpoint():
+def test_validate_local_runtime_endpoint() -> None:
     payload = {
         "manifest": {
             "runtime_id": "rt_ollama",
@@ -231,7 +231,7 @@ def test_validate_local_runtime_endpoint():
     res_json = response.json()
     assert res_json["success"] is True
 
-def test_validate_adapter_manifest_endpoint():
+def test_validate_adapter_manifest_endpoint() -> None:
     payload = {
         "manifest": {
             "adapter_id": "aider",

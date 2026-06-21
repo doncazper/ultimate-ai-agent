@@ -43,7 +43,7 @@ class LowRiskAutonomousDryRunStep(_LowRiskAutonomousDryRunModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.step_ref, "step_ref"),
             (self.intent_ref, "intent_ref"),
@@ -99,7 +99,7 @@ class LowRiskAutonomousDryRunRequest(_LowRiskAutonomousDryRunModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_common_refs(
             self.dry_run_request_ref,
             self.risk_decision_ref,
@@ -169,7 +169,7 @@ class LowRiskAutonomousDryRunRecord(_LowRiskAutonomousDryRunModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_common_refs(
             self.record_ref,
             self.risk_decision_ref,

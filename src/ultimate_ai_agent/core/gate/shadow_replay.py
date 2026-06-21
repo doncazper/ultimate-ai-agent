@@ -1,7 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -127,7 +127,7 @@ def _rollback_request(workspace_root: Path, rollback_ref: str) -> KernelTaskRequ
     )
 
 
-def _grant_for_request(authority: LocalApprovalAuthority, request: KernelTaskRequest):
+def _grant_for_request(authority: LocalApprovalAuthority, request: KernelTaskRequest) -> Any:
     approval_request = authority.create_request(
         LocalApprovalAuthority.request_for_tool_request(
             SimpleNamespace(
@@ -149,7 +149,7 @@ def _grant_for_request(authority: LocalApprovalAuthority, request: KernelTaskReq
     return authority.grant(approval_request.approval_request_id, approved_by_actor_id="foundation_gate")
 
 
-def _grant_workspace_patch_for_request(authority: LocalApprovalAuthority, request: KernelTaskRequest):
+def _grant_workspace_patch_for_request(authority: LocalApprovalAuthority, request: KernelTaskRequest) -> Any:
     manager = LocalFileManager(request.workspace_root)
     current_ref = manager.build_file_ref(request.target_path)
     patch = FilePatchProposal(
@@ -181,7 +181,7 @@ def _grant_workspace_rollback_for_request(
     authority: LocalApprovalAuthority,
     runner: MinimumKernelRunner,
     request: KernelTaskRequest,
-):
+) -> Any:
     manager = runner._file_manager(request.workspace_root)
     approval_request = manager.approval_request_for_rollback(
         manager.get_rollback_plan(request.rollback_ref),

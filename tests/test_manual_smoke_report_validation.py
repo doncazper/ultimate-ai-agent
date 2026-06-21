@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from pydantic import ValidationError
 
@@ -8,7 +9,7 @@ from ultimate_ai_agent.core.runtime_readiness import (
 )
 
 
-def safe_report_payload(**overrides):
+def safe_report_payload(**overrides: Any) -> Any:
     payload = {
         "report_id": "manual_smoke_report_001",
         "run_id": "run_001",
@@ -32,7 +33,7 @@ def safe_report_payload(**overrides):
     return payload
 
 
-def test_safe_manual_smoke_report_is_accepted():
+def test_safe_manual_smoke_report_is_accepted() -> None:
     validation = validate_manual_smoke_report(safe_report_payload())
 
     assert validation.allowed is True
@@ -56,7 +57,7 @@ def test_safe_manual_smoke_report_is_accepted():
         ({"model_output_authoritative": True}, "MODEL_OUTPUT_AUTHORITY_REJECTED"),
     ],
 )
-def test_manual_smoke_report_rejects_unsafe_claims(overrides, reason):
+def test_manual_smoke_report_rejects_unsafe_claims(overrides: Any, reason: str) -> None:
     validation = validate_manual_smoke_report(safe_report_payload(**overrides))
 
     assert validation.allowed is False
@@ -64,7 +65,7 @@ def test_manual_smoke_report_rejects_unsafe_claims(overrides, reason):
     assert "abcdefghijklmnop" not in validation.safe_message
 
 
-def test_manual_smoke_report_forbids_raw_prompt_and_full_body_fields():
+def test_manual_smoke_report_forbids_raw_prompt_and_full_body_fields() -> None:
     with pytest.raises(ValidationError):
         ManualSmokeReport(**safe_report_payload(raw_prompt="summarize my private file"))
 
@@ -75,7 +76,7 @@ def test_manual_smoke_report_forbids_raw_prompt_and_full_body_fields():
     assert "REPORT_SCHEMA_INVALID" in validation.reason_codes
 
 
-def test_manual_smoke_report_rejects_unknown_response_origin():
+def test_manual_smoke_report_rejects_unknown_response_origin() -> None:
     validation = validate_manual_smoke_report(safe_report_payload(response_origin="production_model_runtime"))
 
     assert validation.allowed is False

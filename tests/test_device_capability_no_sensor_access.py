@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.device_capabilities import (
@@ -39,7 +40,7 @@ MAJOR_DEVICE_CAPABILITY_KINDS = [
 ]
 
 
-def _descriptor_for_kind(capability_kind, **overrides):
+def _descriptor_for_kind(capability_kind: Any, **overrides: Any) -> Any:
     values = {
         "capability_id": f"{capability_kind.value}_contract",
         "platform": DevicePlatform.android_planned,
@@ -66,7 +67,7 @@ def _descriptor_for_kind(capability_kind, **overrides):
     "capability_kind",
     MAJOR_DEVICE_CAPABILITY_KINDS,
 )
-def test_future_device_capabilities_cannot_be_enabled_now(capability_kind):
+def test_future_device_capabilities_cannot_be_enabled_now(capability_kind: Any) -> None:
     descriptor = _descriptor_for_kind(capability_kind, allowed_now=True)
 
     with pytest.raises(ValueError, match="allowed_now"):
@@ -74,14 +75,14 @@ def test_future_device_capabilities_cannot_be_enabled_now(capability_kind):
 
 
 @pytest.mark.parametrize("capability_kind", MAJOR_DEVICE_CAPABILITY_KINDS)
-def test_future_device_capabilities_cannot_be_implemented_now(capability_kind):
+def test_future_device_capabilities_cannot_be_implemented_now(capability_kind: Any) -> None:
     descriptor = _descriptor_for_kind(capability_kind, implemented_now=True)
 
     with pytest.raises(ValueError, match="implemented_now"):
         validate_device_capability_descriptor(descriptor)
 
 
-def test_permission_request_rejects_user_gesture_present_as_runtime_claim():
+def test_permission_request_rejects_user_gesture_present_as_runtime_claim() -> None:
     request = DevicePermissionRequestContract(
         request_id="permission_camera_001",
         platform=DevicePlatform.ios_planned,
@@ -99,7 +100,7 @@ def test_permission_request_rejects_user_gesture_present_as_runtime_claim():
         validate_device_permission_request(request)
 
 
-def test_background_permission_scope_is_blocked_for_sensitive_capabilities():
+def test_background_permission_scope_is_blocked_for_sensitive_capabilities() -> None:
     request = DevicePermissionRequestContract(
         request_id="permission_location_001",
         platform=DevicePlatform.android_planned,

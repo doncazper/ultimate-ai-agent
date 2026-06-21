@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.public_readiness import (
@@ -10,7 +11,7 @@ from ultimate_ai_agent.core.public_readiness import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "public-readiness-request:m59",
         "readiness_ref": "public-readiness:m59",

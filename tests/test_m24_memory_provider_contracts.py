@@ -28,7 +28,7 @@ from ultimate_ai_agent.core.memory.validation import (
 )
 
 
-def test_m24_memory_taxonomy_contains_reviewed_recall_metadata():
+def test_m24_memory_taxonomy_contains_reviewed_recall_metadata() -> None:
     assert MemoryProviderKind.local_in_memory.value == "local_in_memory"
     assert MemoryProviderKind.local_sqlite.value == "local_sqlite"
     assert MemoryProviderKind.blocked_cloud.value == "blocked_cloud"
@@ -52,7 +52,7 @@ def test_m24_memory_taxonomy_contains_reviewed_recall_metadata():
     assert MemoryRecallEligibility.context_pack_candidate.value == "context_pack_candidate"
 
 
-def test_m24_memory_record_is_recall_only_and_forbids_extra_fields():
+def test_m24_memory_record_is_recall_only_and_forbids_extra_fields() -> None:
     record = MemoryRecord(
         memory_id="mem_m24_001",
         memory_kind=MemoryRecordKind.structured_fact,
@@ -118,7 +118,7 @@ def test_m24_memory_record_is_recall_only_and_forbids_extra_fields():
         )
 
 
-def test_m24_authoritative_or_secret_memory_is_rejected():
+def test_m24_authoritative_or_secret_memory_is_rejected() -> None:
     base = {
         "memory_id": "mem_m24_blocked",
         "memory_kind": MemoryRecordKind.structured_fact,

@@ -66,7 +66,7 @@ class NetworkToolContractReviewPolicy(_NetworkToolContractReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -113,7 +113,7 @@ class NetworkToolContractReviewRequest(_NetworkToolContractReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.review_ref, "review_ref"),
             (self.candidate_ref, "candidate_ref"),
@@ -152,7 +152,7 @@ class NetworkToolContractReviewReceiptPlan(_NetworkToolContractReviewModel):
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_ref, "receipt_ref"),
             (self.candidate_ref, "candidate_ref"),
@@ -198,7 +198,7 @@ class NetworkToolContractReviewDecision(_NetworkToolContractReviewModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.review_ref, "review_ref"),

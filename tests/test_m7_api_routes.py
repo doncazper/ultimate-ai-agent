@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.costs import BudgetScope, CostBudget
 client = TestClient(app)
 
 
-def test_model_profile_validate_endpoint_accepts_safe_metadata():
+def test_model_profile_validate_endpoint_accepts_safe_metadata() -> None:
     response = client.post("/models/profiles/validate", json=local_profile().model_dump(mode="json"))
 
     assert response.status_code == 200
@@ -17,7 +17,7 @@ def test_model_profile_validate_endpoint_accepts_safe_metadata():
     assert body["data"]["status"] == "validated"
 
 
-def test_model_route_preview_endpoint_returns_decision_without_execution():
+def test_model_route_preview_endpoint_returns_decision_without_execution() -> None:
     request = route_request(profiles=[local_profile()], routing_policy=policy(prefer_local=True))
 
     response = client.post("/models/route/preview", json=request.model_dump(mode="json"))
@@ -29,7 +29,7 @@ def test_model_route_preview_endpoint_returns_decision_without_execution():
     assert body["data"]["selected_profile_id"] == "local_coder"
 
 
-def test_cost_budget_validate_and_estimate_endpoints():
+def test_cost_budget_validate_and_estimate_endpoints() -> None:
     budget = CostBudget(budget_id="budget_api", scope=BudgetScope.run, max_cost_usd=1)
 
     validate_response = client.post("/costs/budgets/validate", json=budget.model_dump(mode="json"))
@@ -45,7 +45,7 @@ def test_cost_budget_validate_and_estimate_endpoints():
     assert estimate_response.json()["data"]["estimated_cost_usd"] == 0.025
 
 
-def test_cost_evaluate_endpoint_does_not_call_billing_provider():
+def test_cost_evaluate_endpoint_does_not_call_billing_provider() -> None:
     payload = {
         "estimate": {
             "estimate_id": "estimate_api",

@@ -1,3 +1,4 @@
+from typing import Any
 import hashlib
 from pathlib import Path
 
@@ -6,7 +7,7 @@ from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType
 from ultimate_ai_agent.core.memory import MemorySourceRef
 
 
-def actor():
+def actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -14,7 +15,7 @@ def actor():
     )
 
 
-def test_read_preview_truncates_and_redacts_secret_like_content(tmp_path: Path):
+def test_read_preview_truncates_and_redacts_secret_like_content(tmp_path: Path) -> None:
     (tmp_path / "notes.txt").write_text("prefix api_key='abcdefghijklmnop' suffix", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
 
@@ -34,7 +35,7 @@ def test_read_preview_truncates_and_redacts_secret_like_content(tmp_path: Path):
     assert "secret_value" in preview.redactions_applied
 
 
-def test_read_preview_path_can_be_used_as_memory_source_locator(tmp_path: Path):
+def test_read_preview_path_can_be_used_as_memory_source_locator(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "note.md").write_text("hello", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -60,7 +61,7 @@ def test_read_preview_path_can_be_used_as_memory_source_locator(tmp_path: Path):
     assert source.locator == "path:docs/note.md"
 
 
-def test_read_preview_reports_full_metadata_with_bounded_preview(tmp_path: Path):
+def test_read_preview_reports_full_metadata_with_bounded_preview(tmp_path: Path) -> None:
     content = "first line\n" + ("x" * 9000)
     (tmp_path / "large.txt").write_text(content, encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)

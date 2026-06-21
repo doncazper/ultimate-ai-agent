@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import secrets
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -37,7 +37,7 @@ class M163LlamaCppServerPreset(_M163Model):
     loopback_only: bool = True
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.preset_ref, "preset_ref")
         _validate_local_executable_hint(self.llama_server_path, "llama_server_path")
         _validate_local_model_path_hint(self.model_path, "model_path")
@@ -74,7 +74,7 @@ class M163LlamaCppSupervisorResult(_M163Model):
     safe_summary: str = "M163 llama.cpp server started on loopback with structured argv."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.result_ref, "result_ref")
         _validate_m61_ref(self.preset_ref, "preset_ref")
         _validate_m61_ref(self.api_key_handle, "api_key_handle")
@@ -96,7 +96,7 @@ class M163ProcessFactory(Protocol):
 
 
 class FakeM163ManagedProcess:
-    def __init__(self, pid: int = 4242):
+    def __init__(self, pid: int = 4242) -> None:
         self.pid = pid
         self.terminated = False
 
@@ -105,7 +105,7 @@ class FakeM163ManagedProcess:
 
 
 class FakeM163ProcessFactory:
-    def __init__(self):
+    def __init__(self) -> None:
         self.argv: list[str] | None = None
         self.env: dict[str, str] | None = None
         self.process = FakeM163ManagedProcess()
@@ -131,7 +131,7 @@ class SubprocessM163ProcessFactory:
 
 
 class M163LlamaCppSupervisor:
-    def __init__(self, *, process_factory: M163ProcessFactory | None = None):
+    def __init__(self, *, process_factory: M163ProcessFactory | None = None) -> None:
         self.process_factory = process_factory or SubprocessM163ProcessFactory()
         self.process: M163ManagedProcess | None = None
         self.api_key_handle: str | None = None

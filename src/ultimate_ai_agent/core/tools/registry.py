@@ -3,7 +3,7 @@ from ultimate_ai_agent.core.tools.manifests import ToolManifest
 from ultimate_ai_agent.core.tools.validation import validate_tool_manifest
 
 class ToolRegistry:
-    def __init__(self):
+    def __init__(self) -> None:
         self._tools: Dict[str, ToolManifest] = {}
 
     def register_tool(self, manifest: ToolManifest) -> None:

@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
 
 
-def test_m15_approval_receipt_event_ui_criterion_exists_and_passes():
+def test_m15_approval_receipt_event_ui_criterion_exists_and_passes() -> None:
     criteria = default_foundation_gate_criteria()
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
 

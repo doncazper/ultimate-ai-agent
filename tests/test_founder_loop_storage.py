@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 
 import pytest
@@ -16,7 +17,7 @@ from ultimate_ai_agent.core.storage.founder_loop import (
 )
 
 
-def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path):
+def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop")
 
     status = repo.storage_status()
@@ -246,7 +247,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path):
         assert forbidden not in serialized
 
 
-def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path):
+def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path: Path) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
 
     repo.upsert_action(
@@ -283,7 +284,7 @@ def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path):
         )
 
 
-def test_founder_loop_briefing_defaults_are_blocked_and_read_only(tmp_path):
+def test_founder_loop_briefing_defaults_are_blocked_and_read_only(tmp_path: Path) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
 
     repo.upsert_briefing_item(
@@ -310,7 +311,7 @@ def test_founder_loop_briefing_defaults_are_blocked_and_read_only(tmp_path):
     assert "read-only source contracts" in item["next_safe_action"]
 
 
-def test_founder_loop_memory_review_defaults_are_review_only(tmp_path):
+def test_founder_loop_memory_review_defaults_are_review_only(tmp_path: Path) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
 
     repo.upsert_memory_review(
@@ -354,7 +355,7 @@ def test_founder_loop_memory_review_defaults_are_review_only(tmp_path):
     assert "scoped memory policy milestone" in item["next_safe_action"]
 
 
-def test_founder_loop_jsonl_logs_are_append_only_and_redacted(tmp_path):
+def test_founder_loop_jsonl_logs_are_append_only_and_redacted(tmp_path: Path) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
 
     result = repo.append_log(
@@ -389,7 +390,7 @@ def test_founder_loop_jsonl_logs_are_append_only_and_redacted(tmp_path):
     assert "provider_payload" not in second
 
 
-def test_founder_loop_storage_rejects_unsafe_payload_language(tmp_path):
+def test_founder_loop_storage_rejects_unsafe_payload_language(tmp_path: Path) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
 
     with pytest.raises(ValueError):
@@ -404,7 +405,7 @@ def test_founder_loop_storage_rejects_unsafe_payload_language(tmp_path):
         )
 
 
-def test_founder_loop_evidence_timeline_rejects_unsafe_content():
+def test_founder_loop_evidence_timeline_rejects_unsafe_content() -> None:
     with pytest.raises(ValueError):
         FounderLoopEvidenceTimelineItem(
             timeline_item_ref="evidence-timeline:unsafe/test",

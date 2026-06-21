@@ -169,12 +169,12 @@ def build_foundation_gate_report(
     )
 
 
-def scan_public_gate_payload_for_secrets(payload) -> List[str]:
+def scan_public_gate_payload_for_secrets(payload: Any) -> List[str]:
     loose_assignment = re.compile(
         r"(?i)(api[_-]?key|client[_-]?secret|private[_-]?key|auth[_-]?token|password)\s*=\s*[A-Za-z0-9_\-.:/]{12,}"
     )
 
-    def walk(value, path: str) -> List[str]:
+    def walk(value: str, path: str) -> List[str]:
         findings: List[str] = []
         if isinstance(value, str):
             if loose_assignment.search(value) or scan_payload_for_secrets(value):

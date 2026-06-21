@@ -6,7 +6,7 @@ from ultimate_ai_agent import __version__
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_agents_md_declares_workspace_and_api_boundary_standards():
+def test_agents_md_declares_workspace_and_api_boundary_standards() -> None:
     content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 
     assert "Ultimate AI Agent" in content
@@ -17,7 +17,7 @@ def test_agents_md_declares_workspace_and_api_boundary_standards():
     assert f"v{__version__}" in content
 
 
-def test_api_boundary_docs_exist_for_openapi_and_route_inventory():
+def test_api_boundary_docs_exist_for_openapi_and_route_inventory() -> None:
     required = [
         "docs/api/README.md",
         "docs/api/openapi_contract.md",

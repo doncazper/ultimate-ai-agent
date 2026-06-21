@@ -1,3 +1,5 @@
+from typing import Any
+import pytest
 import json
 import importlib.util
 from pathlib import Path
@@ -16,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/verify_control_center_frontend.py"
 
 
-def load_verifier():
+def load_verifier() -> Any:
     spec = importlib.util.spec_from_file_location("verify_control_center_frontend", SCRIPT)
     assert spec is not None
     module = importlib.util.module_from_spec(spec)
@@ -25,13 +27,13 @@ def load_verifier():
     return module
 
 
-def test_control_center_frontend_verifier_passes_current_repo():
+def test_control_center_frontend_verifier_passes_current_repo() -> None:
     verifier = load_verifier()
 
     assert verifier.verify(ROOT) == []
 
 
-def test_control_center_frontend_verifier_tracks_m20_device_drift_strings():
+def test_control_center_frontend_verifier_tracks_m20_device_drift_strings() -> None:
     verifier = load_verifier()
 
     for endpoint in [
@@ -65,7 +67,7 @@ def test_control_center_frontend_verifier_tracks_m20_device_drift_strings():
         assert dependency in verifier.FORBIDDEN_FRONTEND_DEPENDENCIES
 
 
-def test_control_center_frontend_verifier_tracks_m21_openwebui_drift_strings():
+def test_control_center_frontend_verifier_tracks_m21_openwebui_drift_strings() -> None:
     verifier = load_verifier()
 
     for endpoint in [
@@ -84,13 +86,13 @@ def test_control_center_frontend_verifier_tracks_m21_openwebui_drift_strings():
         assert dependency in verifier.FORBIDDEN_FRONTEND_DEPENDENCIES
 
 
-def test_control_center_frontend_verifier_compares_reset_semver_numerically():
+def test_control_center_frontend_verifier_compares_reset_semver_numerically() -> None:
     verifier = load_verifier()
 
     assert verifier._version_tuple("v0.100.0") > verifier._version_tuple("v0.41.0")
 
 
-def test_control_center_frontend_verifier_blocks_unsafe_m36_file_review_refs_and_mutations():
+def test_control_center_frontend_verifier_blocks_unsafe_m36_file_review_refs_and_mutations() -> None:
     verifier = load_verifier()
     rel = Path("apps/control-center/src/mocks/controlCenterData.ts")
     unsafe_mock = """
@@ -129,7 +131,7 @@ def test_control_center_frontend_verifier_blocks_unsafe_m36_file_review_refs_and
     assert any("mutating M36 file review request" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_tracked_build_and_log_artifacts(tmp_path, monkeypatch):
+def test_control_center_frontend_verifier_blocks_tracked_build_and_log_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     verifier = load_verifier()
 
     monkeypatch.setattr(
@@ -149,7 +151,7 @@ def test_control_center_frontend_verifier_blocks_tracked_build_and_log_artifacts
     assert any("apps/control-center/logs/frontend-smoke.log" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_forbidden_frontend_strings(tmp_path):
+def test_control_center_frontend_verifier_blocks_forbidden_frontend_strings(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         vite_config=None,
@@ -169,7 +171,7 @@ def test_control_center_frontend_verifier_blocks_forbidden_frontend_strings(tmp_
     assert any("dangerous action control label" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_m15_mutation_routes_and_labels(tmp_path):
+def test_control_center_frontend_verifier_blocks_m15_mutation_routes_and_labels(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         components={
@@ -191,7 +193,7 @@ def test_control_center_frontend_verifier_blocks_m15_mutation_routes_and_labels(
     assert any("dangerous action control label" in failure and "Deny" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_raw_m15_review_fields(tmp_path):
+def test_control_center_frontend_verifier_blocks_raw_m15_review_fields(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         mock_data_ts=control_center_mock_data(
@@ -216,7 +218,7 @@ def test_control_center_frontend_verifier_blocks_raw_m15_review_fields(tmp_path)
     assert any("credential-like M15 review field" in failure and "credentialRef" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_requires_approval_authority_boundary_copy(tmp_path):
+def test_control_center_frontend_verifier_requires_approval_authority_boundary_copy(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         mock_data_ts=control_center_mock_data(SAFE_M15_REVIEW_SECTION),
@@ -236,7 +238,7 @@ def test_control_center_frontend_verifier_requires_approval_authority_boundary_c
     assert any("approval authority boundary copy" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_raw_m16_trace_fields(tmp_path):
+def test_control_center_frontend_verifier_blocks_raw_m16_trace_fields(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         mock_data_ts=control_center_mock_data(
@@ -264,7 +266,7 @@ def test_control_center_frontend_verifier_blocks_raw_m16_trace_fields(tmp_path):
     assert any("credential-like M16 trace field" in failure and "credentialRef" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_requires_m16_trace_boundary_copy(tmp_path):
+def test_control_center_frontend_verifier_requires_m16_trace_boundary_copy(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         mock_data_ts=control_center_mock_data(SAFE_M15_REVIEW_SECTION, SAFE_M16_TRACE_SECTION),
@@ -285,7 +287,7 @@ def test_control_center_frontend_verifier_requires_m16_trace_boundary_copy(tmp_p
     assert any("M16 trace boundary copy" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_raw_m17_knowledge_fields_and_paths(tmp_path):
+def test_control_center_frontend_verifier_blocks_raw_m17_knowledge_fields_and_paths(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         mock_data_ts=control_center_mock_data(
@@ -318,7 +320,7 @@ def test_control_center_frontend_verifier_blocks_raw_m17_knowledge_fields_and_pa
     assert any("private path fragment in M17 knowledge fixture" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_requires_m17_knowledge_boundary_copy(tmp_path):
+def test_control_center_frontend_verifier_requires_m17_knowledge_boundary_copy(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         mock_data_ts=control_center_mock_data(
@@ -344,7 +346,7 @@ def test_control_center_frontend_verifier_requires_m17_knowledge_boundary_copy(t
     assert any("M17 knowledge boundary copy" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_requires_m17_hardening_markers(tmp_path):
+def test_control_center_frontend_verifier_requires_m17_hardening_markers(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         mock_data_ts=control_center_mock_data(
@@ -375,7 +377,7 @@ def test_control_center_frontend_verifier_requires_m17_hardening_markers(tmp_pat
     assert any("M17 hardening selected-state marker missing" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_m18_runtime_execution_and_raw_smoke_fields(tmp_path):
+def test_control_center_frontend_verifier_blocks_m18_runtime_execution_and_raw_smoke_fields(tmp_path: Path) -> None:
     write_control_center_app_fixture(
         tmp_path,
         client_ts=DEFAULT_CLIENT_TS + 'fetch("/runtime/smoke-reports/execute", { method: "POST" });\n',
@@ -418,7 +420,7 @@ def test_control_center_frontend_verifier_blocks_m18_runtime_execution_and_raw_s
     assert any("credential-like M18 runtime field" in failure and "apiKey" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_sensitive_browser_and_sdk_markers(tmp_path):
+def test_control_center_frontend_verifier_blocks_sensitive_browser_and_sdk_markers(tmp_path: Path) -> None:
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)
     (app_root / "src/mocks").mkdir(parents=True)
@@ -459,7 +461,7 @@ def test_control_center_frontend_verifier_blocks_sensitive_browser_and_sdk_marke
     assert any("secret-like fixture value" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_requires_local_backend_policy(tmp_path):
+def test_control_center_frontend_verifier_requires_local_backend_policy(tmp_path: Path) -> None:
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)
     (app_root / "src/mocks").mkdir(parents=True)
@@ -499,7 +501,7 @@ def test_control_center_frontend_verifier_requires_local_backend_policy(tmp_path
     assert any("local backend API base policy is missing" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_external_proxy_targets_and_url_credentials(tmp_path):
+def test_control_center_frontend_verifier_blocks_external_proxy_targets_and_url_credentials(tmp_path: Path) -> None:
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)
     (app_root / "src/mocks").mkdir(parents=True)
@@ -549,7 +551,7 @@ def test_control_center_frontend_verifier_blocks_external_proxy_targets_and_url_
     assert any("forbidden URL credentials" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_broad_runtime_proxy(tmp_path):
+def test_control_center_frontend_verifier_blocks_broad_runtime_proxy(tmp_path: Path) -> None:
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)
     (app_root / "src/mocks").mkdir(parents=True)
@@ -606,7 +608,7 @@ def test_control_center_frontend_verifier_blocks_broad_runtime_proxy(tmp_path):
     assert any("Vite dev proxy must not proxy broad /runtime frontend route space" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_blocks_secret_like_env_examples(tmp_path):
+def test_control_center_frontend_verifier_blocks_secret_like_env_examples(tmp_path: Path) -> None:
     app_root = tmp_path / "apps/control-center"
     (app_root / "src/api").mkdir(parents=True)
     (app_root / "src/mocks").mkdir(parents=True)
@@ -659,7 +661,7 @@ def test_control_center_frontend_verifier_blocks_secret_like_env_examples(tmp_pa
     assert any("secret-like API base env example" in failure for failure in failures)
 
 
-def test_control_center_frontend_verifier_handles_partial_product_language_docs(tmp_path):
+def test_control_center_frontend_verifier_handles_partial_product_language_docs(tmp_path: Path) -> None:
     verifier = load_verifier()
     doc_dir = tmp_path / "docs/control_center"
     doc_dir.mkdir(parents=True)
@@ -681,7 +683,7 @@ def test_control_center_frontend_verifier_handles_partial_product_language_docs(
     )
 
 
-def test_control_center_frontend_verifier_reports_non_object_route_manifest(tmp_path):
+def test_control_center_frontend_verifier_reports_non_object_route_manifest(tmp_path: Path) -> None:
     verifier = load_verifier()
     doc_dir = tmp_path / "docs/control_center"
     doc_dir.mkdir(parents=True)
@@ -692,7 +694,7 @@ def test_control_center_frontend_verifier_reports_non_object_route_manifest(tmp_
     assert "route status manifest must be a JSON object" in failures
 
 
-def test_control_center_frontend_verifier_reports_malformed_route_manifest_entries(tmp_path):
+def test_control_center_frontend_verifier_reports_malformed_route_manifest_entries(tmp_path: Path) -> None:
     verifier = load_verifier()
     doc_dir = tmp_path / "docs/control_center"
     doc_dir.mkdir(parents=True)

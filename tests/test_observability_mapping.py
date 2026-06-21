@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import UTC, datetime
 import pytest
 
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.hygiene.temporal_context import TemporalContext, Fre
 from ultimate_ai_agent.core.hygiene.policies import DataClassification, ClassificationValue
 
 @pytest.fixture
-def sample_event():
+def sample_event() -> Any:
     actor = ActorContext(
         actor_type=ActorType.orchestrator,
         actor_id="test_orchestrator",
@@ -52,7 +53,7 @@ def sample_event():
         token_accounting={"input_tokens": 100, "output_tokens": 50}
     )
 
-def test_traceparent_validation():
+def test_traceparent_validation() -> None:
     # Valid W3C traceparent
     assert validate_traceparent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01") is True
     
@@ -61,7 +62,7 @@ def test_traceparent_validation():
     assert validate_traceparent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7") is False
     assert validate_traceparent("") is False
 
-def test_otel_mapping(sample_event):
+def test_otel_mapping(sample_event: Any) -> None:
     otel = map_event_to_otel(sample_event)
     
     assert otel["name"] == "model.route.selected"
@@ -69,7 +70,7 @@ def test_otel_mapping(sample_event):
     assert otel["attributes"]["gen_ai.request.model"] == "gpt-4o"
     assert otel["attributes"]["gen_ai.usage.cost"] == 0.0005
 
-def test_cloudevent_mapping(sample_event):
+def test_cloudevent_mapping(sample_event: Any) -> None:
     ce = map_event_to_cloudevent(sample_event)
     
     assert ce["specversion"] == "1.0"

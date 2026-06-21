@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
 
 
-def test_m12_foundation_gate_criteria_exist_and_pass():
+def test_m12_foundation_gate_criteria_exist_and_pass() -> None:
     criteria = default_foundation_gate_criteria()
     m12_ids = {
         "m12_control_center_files_present",

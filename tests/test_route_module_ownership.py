@@ -47,7 +47,7 @@ EVIDENCE_BEHAVIOR_BY_ROUTE_GROUP = {
 }
 
 
-def test_route_module_ownership_map_covers_current_api_manifest():
+def test_route_module_ownership_map_covers_current_api_manifest() -> None:
     manifest = build_api_manifest(app)
     group_summary = _parse_route_group_summary()
     documented_routes = _parse_documented_routes()
@@ -100,7 +100,7 @@ def test_route_module_ownership_map_covers_current_api_manifest():
         assert actual_side_effects_by_group[route_group] == summary["side_effect_class_mix"]
 
 
-def test_uaa_p1_058_system_service_extraction_ownership_is_frozen():
+def test_uaa_p1_058_system_service_extraction_ownership_is_frozen() -> None:
     manifest_routes = {(route.method, route.path): route for route in build_api_manifest(app).routes}
     app_routes = {
         (method, route.path): route
@@ -134,7 +134,7 @@ def test_uaa_p1_058_system_service_extraction_ownership_is_frozen():
     )
 
 
-def test_route_status_manifest_remains_visible_action_subset_with_evidence():
+def test_route_status_manifest_remains_visible_action_subset_with_evidence() -> None:
     api_routes = {(route.method, route.path): route for route in build_api_manifest(app).routes}
     route_status = json.loads(ROUTE_STATUS_MANIFEST.read_text(encoding="utf-8"))
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from ultimate_ai_agent.core.time import utc_now
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -44,7 +44,7 @@ class KernelTaskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_kernel_boundary(self):
+    def validate_kernel_boundary(self) -> Any:
         if not self.workspace_root.strip():
             raise ValueError("workspace_root must be explicit.")
         workspace = Path(self.workspace_root).expanduser()

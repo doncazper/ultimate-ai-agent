@@ -61,7 +61,7 @@ class MobileBackgroundTaskContractPolicy(_MobileBackgroundTaskContractModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -97,7 +97,7 @@ class MobileBackgroundTaskPlan(_MobileBackgroundTaskContractModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.background_task_plan_ref, "background_task_plan_ref"),
             (self.actor_ref, "actor_ref"),
@@ -149,7 +149,7 @@ class MobileBackgroundTaskContractReport(_MobileBackgroundTaskContractModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.baseline_ref, "baseline_ref"),

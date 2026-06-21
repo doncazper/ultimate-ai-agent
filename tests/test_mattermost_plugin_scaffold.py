@@ -4,7 +4,7 @@ from pathlib import Path
 PLUGIN_ROOT = Path("integrations/mattermost-plugin")
 
 
-def test_mattermost_plugin_manifest_declares_server_component_and_safe_settings():
+def test_mattermost_plugin_manifest_declares_server_component_and_safe_settings() -> None:
     manifest = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8"))
 
     assert manifest["id"] == "com.ultimateaiagent.mattermost-agent-rooms"
@@ -18,7 +18,7 @@ def test_mattermost_plugin_manifest_declares_server_component_and_safe_settings(
     assert settings["SafetyReviewerBotUserID"]["default"] == ""
 
 
-def test_mattermost_plugin_scaffold_contains_server_hooks_and_commands():
+def test_mattermost_plugin_scaffold_contains_server_hooks_and_commands() -> None:
     plugin_go = (PLUGIN_ROOT / "server/plugin.go").read_text(encoding="utf-8")
     commands_go = (PLUGIN_ROOT / "server/commands.go").read_text(encoding="utf-8")
 
@@ -32,7 +32,7 @@ def test_mattermost_plugin_scaffold_contains_server_hooks_and_commands():
     assert "trigger" in commands_go
 
 
-def test_mattermost_plugin_redacts_secrets_and_bounds_message_preview():
+def test_mattermost_plugin_redacts_secrets_and_bounds_message_preview() -> None:
     redaction_go = (PLUGIN_ROOT / "server/redaction.go").read_text(encoding="utf-8")
     client_go = (PLUGIN_ROOT / "server/uaa_client.go").read_text(encoding="utf-8")
 

@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -54,7 +55,7 @@ def request(tmp_path: Path) -> KernelTaskRequest:
     )
 
 
-def grant_for_kernel_request(authority: LocalApprovalAuthority, kernel_request: KernelTaskRequest):
+def grant_for_kernel_request(authority: LocalApprovalAuthority, kernel_request: KernelTaskRequest) -> Any:
     approval_request = authority.create_request(
         LocalApprovalAuthority.request_for_tool_request(
             SimpleNamespace(
@@ -76,7 +77,7 @@ def grant_for_kernel_request(authority: LocalApprovalAuthority, kernel_request: 
     return authority.grant(approval_request.approval_request_id, approved_by_actor_id="human_reviewer")
 
 
-def grant_workspace_patch_for_kernel_request(authority: LocalApprovalAuthority, kernel_request: KernelTaskRequest):
+def grant_workspace_patch_for_kernel_request(authority: LocalApprovalAuthority, kernel_request: KernelTaskRequest) -> Any:
     manager = LocalFileManager(kernel_request.workspace_root)
     current_ref = manager.build_file_ref(kernel_request.target_path)
     patch = FilePatchProposal(
@@ -104,7 +105,7 @@ def grant_workspace_patch_for_kernel_request(authority: LocalApprovalAuthority, 
     )
 
 
-def test_minimum_lovable_kernel_happy_path_writes_receipts_and_memory(tmp_path):
+def test_minimum_lovable_kernel_happy_path_writes_receipts_and_memory(tmp_path: Path) -> None:
     memory_store = MemoryStore()
     kernel_request = request(tmp_path).model_copy(update={"run_id": "run_kernel_happy", "approval_ref": None})
     authority = LocalApprovalAuthority()

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -21,7 +21,7 @@ class RemoteAuditContext(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def audit_context_must_be_safe(self):
+    def audit_context_must_be_safe(self) -> Any:
         assert_remote_secret_clean(self.model_dump(mode="json"), "Remote audit context")
         return self
 

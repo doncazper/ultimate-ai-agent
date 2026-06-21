@@ -127,12 +127,12 @@ class ProviderCredentialReadinessItem(BaseModel):
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    def model_copy(self, *, update=None, deep: bool = False):
+    def model_copy(self, *, update: Any | None = None, deep: bool = False) -> Any:
         copied = super().model_copy(update=update, deep=deep)
         return self.__class__.model_validate(copied.model_dump(mode="python"))
 
     @model_validator(mode="after")
-    def provider_credential_item_must_remain_reference_only(self):
+    def provider_credential_item_must_remain_reference_only(self) -> Any:
         dump = self.model_dump(mode="json")
         if contains_secret_like(dump) or contains_obvious_secret(dump):
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_SECRET_LIKE_VALUE_REJECTED")
@@ -168,12 +168,12 @@ class ProviderCredentialReadinessSummary(BaseModel):
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    def model_copy(self, *, update=None, deep: bool = False):
+    def model_copy(self, *, update: Any | None = None, deep: bool = False) -> Any:
         copied = super().model_copy(update=update, deep=deep)
         return self.__class__.model_validate(copied.model_dump(mode="python"))
 
     @model_validator(mode="after")
-    def provider_credential_summary_must_remain_reference_only(self):
+    def provider_credential_summary_must_remain_reference_only(self) -> Any:
         dump = self.model_dump(mode="json")
         if contains_secret_like(dump) or contains_obvious_secret(dump):
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_SECRET_LIKE_VALUE_REJECTED")
@@ -240,7 +240,7 @@ class OperatorLoopSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def operator_loop_must_remain_backend_authority_only(self):
+    def operator_loop_must_remain_backend_authority_only(self) -> Any:
         dump = self.model_dump(mode="json")
         if contains_secret_like(dump):
             raise ValueError("OPERATOR_LOOP_SECRET_LIKE_VALUE_REJECTED")
@@ -279,7 +279,7 @@ class ControlCenterDashboardSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def dashboard_snapshot_must_be_safe(self):
+    def dashboard_snapshot_must_be_safe(self) -> Any:
         if contains_secret_like(self.model_dump(mode="json")):
             raise ValueError("CONTROL_CENTER_DASHBOARD_SECRET_LIKE_VALUE_REJECTED")
         return self

@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.core.files import FileKind, FileRef, FileSensitivity
 
 
-def test_file_ref_rejects_absolute_path():
+def test_file_ref_rejects_absolute_path() -> None:
     try:
         FileRef(
             file_ref="file_abs",
@@ -17,7 +17,7 @@ def test_file_ref_rejects_absolute_path():
         raise AssertionError("Expected absolute path validation failure")
 
 
-def test_file_ref_rejects_traversal_path():
+def test_file_ref_rejects_traversal_path() -> None:
     try:
         FileRef(
             file_ref="file_traversal",
@@ -31,7 +31,7 @@ def test_file_ref_rejects_traversal_path():
         raise AssertionError("Expected traversal validation failure")
 
 
-def test_file_ref_rejects_secret_like_path():
+def test_file_ref_rejects_secret_like_path() -> None:
     try:
         FileRef(
             file_ref="file_env",

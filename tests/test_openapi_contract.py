@@ -7,7 +7,7 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.openapi import verify_openapi_contract
 
 
-def test_openapi_schema_has_unique_stable_operation_ids_and_manifest_path():
+def test_openapi_schema_has_unique_stable_operation_ids_and_manifest_path() -> None:
     schema = app.openapi()
     operation_ids = [
         operation["operationId"]
@@ -23,7 +23,7 @@ def test_openapi_schema_has_unique_stable_operation_ids_and_manifest_path():
     assert all("_" in operation_id for operation_id in operation_ids)
 
 
-def test_openapi_contract_verifier_accepts_current_app():
+def test_openapi_contract_verifier_accepts_current_app() -> None:
     status = verify_openapi_contract(app)
 
     assert status.version_consistent is True
@@ -33,7 +33,7 @@ def test_openapi_contract_verifier_accepts_current_app():
     assert status.errors == []
 
 
-def test_export_openapi_script_writes_valid_json_to_stdout():
+def test_export_openapi_script_writes_valid_json_to_stdout() -> None:
     result = subprocess.run(
         [sys.executable, "scripts/export_openapi.py"],
         check=True,
@@ -46,7 +46,7 @@ def test_export_openapi_script_writes_valid_json_to_stdout():
     assert "/api/manifest" in schema["paths"]
 
 
-def test_verify_all_runs_openapi_contract_verifier():
+def test_verify_all_runs_openapi_contract_verifier() -> None:
     verify_all = open("scripts/verify_all.py", encoding="utf-8").read()
 
     assert "scripts/verify_openapi_contract.py" in verify_all

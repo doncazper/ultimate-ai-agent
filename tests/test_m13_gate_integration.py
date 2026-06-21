@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundat
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_m13_foundation_gate_criteria_exist_and_pass():
+def test_m13_foundation_gate_criteria_exist_and_pass() -> None:
     criteria = default_foundation_gate_criteria()
     m13_ids = {
         "m13_web_control_center_files_present",
@@ -33,7 +33,7 @@ def test_m13_foundation_gate_criteria_exist_and_pass():
     assert report.failed_count == 0
 
 
-def test_frontend_source_declares_only_scoped_post_routes():
+def test_frontend_source_declares_only_scoped_post_routes() -> None:
     endpoints = (ROOT / "apps/control-center/src/api/endpoints.ts").read_text(encoding="utf-8")
     client = (ROOT / "apps/control-center/src/api/client.ts").read_text(encoding="utf-8")
 
@@ -50,7 +50,7 @@ def test_frontend_source_declares_only_scoped_post_routes():
     assert "stream: false" in client
 
 
-def test_frontend_package_has_only_local_shell_dependencies():
+def test_frontend_package_has_only_local_shell_dependencies() -> None:
     package = (ROOT / "apps/control-center/package.json").read_text(encoding="utf-8").lower()
     forbidden = [
         '"next"',
@@ -70,7 +70,7 @@ def test_frontend_package_has_only_local_shell_dependencies():
     assert '"visual:check": "playwright test --config=playwright.visual.config.ts"' in package
 
 
-def test_frontend_mocks_remain_non_authoritative():
+def test_frontend_mocks_remain_non_authoritative() -> None:
     mock = (ROOT / "apps/control-center/src/mocks/controlCenterData.ts").read_text(encoding="utf-8").lower()
     required = [
         "mock: true",

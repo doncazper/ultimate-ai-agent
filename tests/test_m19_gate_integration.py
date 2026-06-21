@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
 )
 
 
-def test_m19_mobile_companion_contract_criterion_exists_and_passes():
+def test_m19_mobile_companion_contract_criterion_exists_and_passes() -> None:
     criteria = default_foundation_gate_criteria()
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
@@ -28,7 +28,7 @@ def test_m19_mobile_companion_contract_criterion_exists_and_passes():
     assert report.passed_count == 1
 
 
-def test_m19_openapi_route_guard_rejects_mobile_runtime_expansion():
+def test_m19_openapi_route_guard_rejects_mobile_runtime_expansion() -> None:
     failures = m19_openapi_route_failures(
         {
             "/health",

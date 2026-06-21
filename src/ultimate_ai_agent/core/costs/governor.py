@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import Any, List
 
 from ultimate_ai_agent.core.costs.budgets import CostBudget
 from ultimate_ai_agent.core.costs.decisions import CostDecision
@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.costs.estimates import CostEstimate
 
 
 class CostGovernor:
-    def estimate_route_cost(self, route_request, profile) -> CostEstimate:
+    def estimate_route_cost(self, route_request: Any, profile: str) -> CostEstimate:
         input_tokens = route_request.estimated_input_tokens
         output_tokens = route_request.estimated_output_tokens
         input_rate = profile.cost_per_1k_input_tokens

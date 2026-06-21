@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.mobile_companion.contracts import MobileCapabilityPl
 from ultimate_ai_agent.core.mobile_companion.planning import assert_mobile_contract_only
 
 
-def test_default_mobile_companion_manifest_is_contract_only_and_not_authority():
+def test_default_mobile_companion_manifest_is_contract_only_and_not_authority() -> None:
     manifest = build_default_mobile_companion_manifest()
 
     assert manifest.milestone == "M19"
@@ -43,7 +43,7 @@ def test_default_mobile_companion_manifest_is_contract_only_and_not_authority():
     assert_mobile_contract_only(manifest)
 
 
-def test_mobile_client_plan_forbids_extra_fields_and_authority_claims():
+def test_mobile_client_plan_forbids_extra_fields_and_authority_claims() -> None:
     with pytest.raises(ValidationError):
         MobileClientPlan(
             platform=MobileClientPlatform.ios_planned,
@@ -55,7 +55,7 @@ def test_mobile_client_plan_forbids_extra_fields_and_authority_claims():
         )
 
 
-def test_mobile_capability_plan_defaults_to_disabled_contract_only():
+def test_mobile_capability_plan_defaults_to_disabled_contract_only() -> None:
     capability = MobileCapabilityPlan(
         capability=MobileCapabilityKind.notifications_planned,
         status=MobileCapabilityStatus.contract_only,

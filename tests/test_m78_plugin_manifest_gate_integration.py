@@ -1,3 +1,4 @@
+from pathlib import Path
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.gate import default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluators import (
@@ -62,7 +63,7 @@ def test_m78_route_guard_denies_plugin_install_enable_execute_routes() -> None:
     assert not m78_openapi_route_failures(app.openapi().get("paths", {}))
 
 
-def test_m78_static_gate_scans_unsafe_plugin_runtime_fragments(tmp_path) -> None:
+def test_m78_static_gate_scans_unsafe_plugin_runtime_fragments(tmp_path: Path) -> None:
     src_file = tmp_path / "src/ultimate_ai_agent/plugin_escape.py"
     src_file.parent.mkdir(parents=True)
     src_file.write_text("plugin_execution_enabled=True\n", encoding="utf-8")

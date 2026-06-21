@@ -76,7 +76,7 @@ class ShellApprovalGatePolicy(_ShellApprovalGateModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -138,7 +138,7 @@ class ShellApprovalGateRequest(_ShellApprovalGateModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.gate_ref, "gate_ref"),
@@ -191,7 +191,7 @@ class ShellApprovalGateReceiptPlan(_ShellApprovalGateModel):
     safe_summary: str = "M86 shell approval gate receipt stores safe refs only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.gate_ref, "gate_ref"),
@@ -267,7 +267,7 @@ class ShellApprovalGateDecision(_ShellApprovalGateModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.gate_ref, "gate_ref"),

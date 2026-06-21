@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -28,12 +28,12 @@ class ApprovalValidationRequest(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def validation_request_must_be_secret_clean(self):
+    def validation_request_must_be_secret_clean(self) -> Any:
         assert_approval_secret_clean(self.model_dump(mode="json"), "Approval validation request")
         return self
 
     @classmethod
-    def from_approval_request(cls, request, approval_ref: str) -> "ApprovalValidationRequest":
+    def from_approval_request(cls, request: Any, approval_ref: str) -> "ApprovalValidationRequest":
         return request.to_validation_request(approval_ref)
 
 
@@ -52,6 +52,6 @@ class ApprovalValidationDecision(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def decision_must_be_secret_clean(self):
+    def decision_must_be_secret_clean(self) -> Any:
         assert_approval_secret_clean(self.model_dump(mode="json"), "Approval validation decision")
         return self

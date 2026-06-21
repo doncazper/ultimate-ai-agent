@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.openwebui_bridge import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.openwebui_bridge import (
 )
 
 
-def _bridge_envelope():
+def _bridge_envelope() -> Any:
     return build_openwebui_runtime_bridge_envelope(
         OpenWebUIRuntimeBridgeRequest(
             bridge_request_ref="openwebui-runtime-bridge-request:m77-safe",
@@ -23,7 +24,7 @@ def _bridge_envelope():
     )
 
 
-def _handoff_request(**overrides):
+def _handoff_request(**overrides: Any) -> Any:
     envelope = _bridge_envelope()
     data = {
         "handoff_request_ref": "openwebui-safe-handoff-request:m77-safe",

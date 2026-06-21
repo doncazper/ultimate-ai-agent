@@ -68,7 +68,7 @@ class MobileSensorAuditLedgerPolicy(_MobileSensorAuditLedgerModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -126,7 +126,7 @@ class MobileSensorAuditLedgerRecord(_MobileSensorAuditLedgerModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.ledger_ref, "ledger_ref"),
             (self.source_record_ref, "source_record_ref"),

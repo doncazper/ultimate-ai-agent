@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.test_m88_mutating_command_proposal import _request as _m88_request
@@ -13,11 +14,11 @@ from ultimate_ai_agent.core.sandbox import (
 )
 
 
-def _m88_decision():
+def _m88_decision() -> Any:
     return build_mutating_command_proposal(_m88_request())
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     proposal = overrides.pop("mutating_command_proposal_decision", _m88_decision())
     data = {
         "request_ref": "emergency-stop-process-kill-safety-request:m89",

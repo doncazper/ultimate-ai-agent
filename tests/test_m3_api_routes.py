@@ -3,7 +3,7 @@ from ultimate_ai_agent.api.app import app
 
 client = TestClient(app)
 
-def test_validate_consent_grant_endpoint():
+def test_validate_consent_grant_endpoint() -> None:
     payload = {
         "consent_id": "grant_api_test",
         "subject_type": "tool",
@@ -20,7 +20,7 @@ def test_validate_consent_grant_endpoint():
     assert res_json["success"] is True
     assert res_json["data"]["consent_id"] == "grant_api_test"
 
-def test_evaluate_consent_endpoint():
+def test_evaluate_consent_endpoint() -> None:
     payload = {
         "query": {
             "actor_id": "orchestrator",
@@ -47,7 +47,7 @@ def test_evaluate_consent_endpoint():
     assert res_json["success"] is True
     assert res_json["data"]["allowed"] is True
 
-def test_validate_tool_manifest_endpoint():
+def test_validate_tool_manifest_endpoint() -> None:
     payload = {
         "tool_id": "mock_validator",
         "display_name": "Mock Validator",
@@ -67,7 +67,7 @@ def test_validate_tool_manifest_endpoint():
     assert res_json["data"]["tool_id"] == "mock_validator"
 
 
-def test_tool_evaluate_endpoint_enforces_execution_contract_allowed_tools():
+def test_tool_evaluate_endpoint_enforces_execution_contract_allowed_tools() -> None:
     payload = {
         "request": {
             "request_id": "req_contract_api",

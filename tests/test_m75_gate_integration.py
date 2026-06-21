@@ -1,7 +1,8 @@
+from typing import Any
 from ultimate_ai_agent.core.gate import FoundationGateStatus, default_foundation_gate_criteria
 
 
-def test_foundation_gate_criteria_include_m75_api_boundary_surface():
+def test_foundation_gate_criteria_include_m75_api_boundary_surface() -> None:
     criteria = default_foundation_gate_criteria()
     by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
@@ -15,7 +16,7 @@ def test_foundation_gate_criteria_include_m75_api_boundary_surface():
     }.issubset(by_id)
 
 
-def test_foundation_gate_evaluator_passes_m75_api_boundary_checks(foundation_gate_results):
+def test_foundation_gate_evaluator_passes_m75_api_boundary_checks(foundation_gate_results: Any) -> None:
     assert foundation_gate_results["api_manifest_endpoint_present"].status == FoundationGateStatus.passed
     assert foundation_gate_results["openapi_contract_valid"].status == FoundationGateStatus.passed
     assert foundation_gate_results["api_operation_ids_unique"].status == FoundationGateStatus.passed

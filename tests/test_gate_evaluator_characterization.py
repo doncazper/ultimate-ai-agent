@@ -36,13 +36,13 @@ from scripts.classify_foundation_gate_failures import classify_failures
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_foundation_gate_legacy_imports_remain_compatible():
+def test_foundation_gate_legacy_imports_remain_compatible() -> None:
     assert PackageFoundationGateEvaluator is FoundationGateEvaluator
     assert callable(m36_openapi_route_failures)
     assert callable(m167_openapi_route_failures)
 
 
-def test_route_contract_module_delegates_to_legacy_facade_without_output_drift():
+def test_route_contract_module_delegates_to_legacy_facade_without_output_drift() -> None:
     paths = app.openapi()["paths"].keys()
 
     assert evaluate_route_contract(36, paths) == m36_openapi_route_failures(paths)
@@ -51,7 +51,7 @@ def test_route_contract_module_delegates_to_legacy_facade_without_output_drift()
     assert evaluate_route_contract(167, paths) == []
 
 
-def test_post_milestone_safe_route_families_are_explicitly_normalized():
+def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     paths = set(app.openapi()["paths"].keys())
 
     assert FOUNDER_LOOP_CONTROL_CENTER_ROUTES == {
@@ -74,7 +74,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized():
     assert len(_historical_openapi_path_set(paths)) == EXPECTED_M36_OPENAPI_PATH_COUNT
 
 
-def test_route_side_effect_helpers_match_current_manifest_contract():
+def test_route_side_effect_helpers_match_current_manifest_contract() -> None:
     from ultimate_ai_agent.api.manifest import iter_api_route_items
     from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENTS
 
@@ -85,7 +85,7 @@ def test_route_side_effect_helpers_match_current_manifest_contract():
     assert unsafe_side_effect_class_failures(routes) == []
 
 
-def test_foundation_gate_failure_classification_fixture_is_safe_and_bounded():
+def test_foundation_gate_failure_classification_fixture_is_safe_and_bounded() -> None:
     fixture_path = ROOT / "tests/fixtures/foundation_gate_failure_classification.json"
     summary = json.loads(fixture_path.read_text(encoding="utf-8"))
 
@@ -104,7 +104,7 @@ def test_foundation_gate_failure_classification_fixture_is_safe_and_bounded():
     assert "/Users/" not in json.dumps(summary)
 
 
-def test_static_safety_evaluator_data_file_exemption_is_exact():
+def test_static_safety_evaluator_data_file_exemption_is_exact() -> None:
     route_boundary_data_file = "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
 
     assert STATIC_SAFETY_EVALUATOR_DATA_FILES == frozenset({route_boundary_data_file})
@@ -116,7 +116,7 @@ def test_static_safety_evaluator_data_file_exemption_is_exact():
     )
 
 
-def test_route_boundary_data_only_static_scan_failures_classify_as_stale():
+def test_route_boundary_data_only_static_scan_failures_classify_as_stale() -> None:
     summary = classify_failures(
         {
             "overall_status": "failed",
@@ -140,7 +140,7 @@ def test_route_boundary_data_only_static_scan_failures_classify_as_stale():
     )
 
 
-def test_route_contract_registry_maps_existing_openapi_milestones():
+def test_route_contract_registry_maps_existing_openapi_milestones() -> None:
     registry = route_contract_registry()
     milestones = {entry.milestone for entry in registry}
 
@@ -152,7 +152,7 @@ def test_route_contract_registry_maps_existing_openapi_milestones():
     )
 
 
-def test_evaluator_registry_marks_route_contracts_as_extracted():
+def test_evaluator_registry_marks_route_contracts_as_extracted() -> None:
     entries = {entry.name: entry for entry in evaluator_registry()}
 
     route_entry = entries["route_contract_evaluators"]
@@ -160,7 +160,7 @@ def test_evaluator_registry_marks_route_contracts_as_extracted():
     assert route_entry.module == "ultimate_ai_agent.core.gate.evaluator_modules.route_contracts"
 
 
-def test_foundation_gate_openapi_characterization_report_shape():
+def test_foundation_gate_openapi_characterization_report_shape() -> None:
     criteria_by_id = {
         criterion.criterion_id: criterion
         for criterion in default_foundation_gate_criteria()
@@ -185,7 +185,7 @@ def test_foundation_gate_openapi_characterization_report_shape():
     assert report.summary == "3 passed, 0 failed, 0 warnings, 0 blocked."
 
 
-def test_m12_accepts_exact_founder_loop_local_dev_summary_routes():
+def test_m12_accepts_exact_founder_loop_local_dev_summary_routes() -> None:
     criteria_by_id = {
         criterion.criterion_id: criterion
         for criterion in default_foundation_gate_criteria()
@@ -199,7 +199,7 @@ def test_m12_accepts_exact_founder_loop_local_dev_summary_routes():
     assert report.failed_count == 0
 
 
-def test_proof_lane_normalizations_do_not_create_legacy_gate_false_positives():
+def test_proof_lane_normalizations_do_not_create_legacy_gate_false_positives() -> None:
     criteria_by_id = {
         criterion.criterion_id: criterion
         for criterion in default_foundation_gate_criteria()
@@ -217,7 +217,7 @@ def test_proof_lane_normalizations_do_not_create_legacy_gate_false_positives():
     assert report.failed_count == 0
 
 
-def test_m13_playwright_ci_exception_rejects_chained_execution(tmp_path):
+def test_m13_playwright_ci_exception_rejects_chained_execution(tmp_path: Path) -> None:
     workflow = tmp_path / ".github/workflows/ci.yml"
     workflow.parent.mkdir(parents=True)
     workflow.write_text(
@@ -262,7 +262,7 @@ def test_m13_playwright_ci_exception_rejects_chained_execution(tmp_path):
     )
 
 
-def test_m21_packaging_proof_exception_only_allows_compose_fragment(tmp_path):
+def test_m21_packaging_proof_exception_only_allows_compose_fragment(tmp_path: Path) -> None:
     script = tmp_path / "scripts/run_local_runtime_packaging_proof.py"
     script.parent.mkdir(parents=True)
     script.write_text('PROOF_SCOPE = "local docker-compose only"\n', encoding="utf-8")
@@ -284,7 +284,7 @@ def test_m21_packaging_proof_exception_only_allows_compose_fragment(tmp_path):
     assert any("/openwebui/execute" in failure for failure in failures)
 
 
-def test_representative_static_safety_criteria_ignore_extracted_route_boundary_data():
+def test_representative_static_safety_criteria_ignore_extracted_route_boundary_data() -> None:
     criteria_by_id = {
         criterion.criterion_id: criterion
         for criterion in default_foundation_gate_criteria()
@@ -312,7 +312,7 @@ def test_representative_static_safety_criteria_ignore_extracted_route_boundary_d
     }
 
 
-def test_static_safety_scans_still_fail_non_exempt_source_files(tmp_path):
+def test_static_safety_scans_still_fail_non_exempt_source_files(tmp_path: Path) -> None:
     source_file = tmp_path / "src/ultimate_ai_agent/core/not_allowed.py"
     source_file.parent.mkdir(parents=True)
     source_file.write_text("backend_route_added=True\n", encoding="utf-8")

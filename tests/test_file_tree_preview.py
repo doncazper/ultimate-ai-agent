@@ -1,10 +1,11 @@
+from typing import Any
 from pathlib import Path
 
 from ultimate_ai_agent.core.files import FileTreePreviewRequest, LocalFileManager
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 
 
-def actor():
+def actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -12,7 +13,7 @@ def actor():
     )
 
 
-def tree_request(**kwargs) -> FileTreePreviewRequest:
+def tree_request(**kwargs: Any) -> FileTreePreviewRequest:
     return FileTreePreviewRequest(
         request_id="ftp_req",
         run_id="run_123",
@@ -22,7 +23,7 @@ def tree_request(**kwargs) -> FileTreePreviewRequest:
     )
 
 
-def test_file_tree_preview_returns_safe_refs_without_raw_paths(tmp_path: Path):
+def test_file_tree_preview_returns_safe_refs_without_raw_paths(tmp_path: Path) -> None:
     (tmp_path / "docs" / "nested").mkdir(parents=True)
     (tmp_path / "docs" / "visible.txt").write_text("hello", encoding="utf-8")
     (tmp_path / "docs" / "nested" / "child.md").write_text("child", encoding="utf-8")
@@ -42,7 +43,7 @@ def test_file_tree_preview_returns_safe_refs_without_raw_paths(tmp_path: Path):
         assert raw_fragment not in payload
 
 
-def test_file_tree_preview_bounds_entries_and_marks_truncated(tmp_path: Path):
+def test_file_tree_preview_bounds_entries_and_marks_truncated(tmp_path: Path) -> None:
     for index in range(5):
         (tmp_path / f"file_{index}.txt").write_text("hello", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -53,7 +54,7 @@ def test_file_tree_preview_bounds_entries_and_marks_truncated(tmp_path: Path):
     assert preview.truncated is True
 
 
-def test_file_tree_preview_blocks_unsafe_entries_without_disclosing_names(tmp_path: Path):
+def test_file_tree_preview_blocks_unsafe_entries_without_disclosing_names(tmp_path: Path) -> None:
     (tmp_path / "safe.txt").write_text("safe", encoding="utf-8")
     (tmp_path / ".env").write_text("SAFE_PLACEHOLDER=1", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -68,7 +69,7 @@ def test_file_tree_preview_blocks_unsafe_entries_without_disclosing_names(tmp_pa
     assert "safe.txt" not in payload
 
 
-def test_file_tree_preview_denies_unsafe_root(tmp_path: Path):
+def test_file_tree_preview_denies_unsafe_root(tmp_path: Path) -> None:
     manager = LocalFileManager(workspace_root=tmp_path)
 
     try:

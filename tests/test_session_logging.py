@@ -1,4 +1,6 @@
 from __future__ import annotations
+from typing import Any
+from pathlib import Path
 
 import asyncio
 import json
@@ -21,7 +23,7 @@ from ultimate_ai_agent.core.task_decomposition.runtime import TaskDecompositionR
 from ultimate_ai_agent.core.time import utc_now
 
 
-def _session_event(**overrides):
+def _session_event(**overrides: Any) -> Any:
     data = {
         "event_id": "session-event:test",
         "session_id": "session:test",
@@ -44,7 +46,7 @@ def _session_event(**overrides):
     return data
 
 
-def test_session_log_append_list_and_filters_are_bounded(tmp_path):
+def test_session_log_append_list_and_filters_are_bounded(tmp_path: Path) -> None:
     store = SessionLogStore(root=tmp_path / ".uaa")
     now = utc_now()
     first = store.append(
@@ -81,7 +83,7 @@ def test_session_log_append_list_and_filters_are_bounded(tmp_path):
     assert store.list_events(observed_after=now + timedelta(milliseconds=1)).events[0].event_id == "session-event:second"
 
 
-def test_session_log_duplicate_event_id_is_rejected(tmp_path):
+def test_session_log_duplicate_event_id_is_rejected(tmp_path: Path) -> None:
     store = SessionLogStore(root=tmp_path / ".uaa")
     event = _session_event(event_id="session-event:duplicate")
 
@@ -90,7 +92,7 @@ def test_session_log_duplicate_event_id_is_rejected(tmp_path):
         store.append(event)
 
 
-def test_session_log_malformed_historical_lines_do_not_crash_listing(tmp_path):
+def test_session_log_malformed_historical_lines_do_not_crash_listing(tmp_path: Path) -> None:
     log_path = tmp_path / ".uaa" / "observability" / "session_events.jsonl"
     log_path.parent.mkdir(parents=True)
     valid = _session_event(event_id="session-event:valid")
@@ -120,7 +122,7 @@ def test_session_log_malformed_historical_lines_do_not_crash_listing(tmp_path):
         "api_key",
     ],
 )
-def test_session_log_rejects_raw_or_credential_metadata_keys(tmp_path, unsafe_key):
+def test_session_log_rejects_raw_or_credential_metadata_keys(tmp_path: Path, unsafe_key: Any) -> None:
     store = SessionLogStore(root=tmp_path / ".uaa")
 
     with pytest.raises(SessionLogValidationError) as error:
@@ -130,7 +132,7 @@ def test_session_log_rejects_raw_or_credential_metadata_keys(tmp_path, unsafe_ke
     assert not store.filepath.exists()
 
 
-def test_session_log_rejects_secret_like_values_without_echoing_them(tmp_path):
+def test_session_log_rejects_secret_like_values_without_echoing_them(tmp_path: Path) -> None:
     store = SessionLogStore(root=tmp_path / ".uaa")
     secret_value = "abcdefghijklmnop"
 
@@ -141,7 +143,7 @@ def test_session_log_rejects_secret_like_values_without_echoing_them(tmp_path):
     assert not store.filepath.exists()
 
 
-def test_api_middleware_records_safe_route_metadata_without_http_content(tmp_path, monkeypatch):
+def test_api_middleware_records_safe_route_metadata_without_http_content(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
     clear_default_session_log_store_cache()
     client = TestClient(api_app.app)
@@ -170,7 +172,7 @@ def test_api_middleware_records_safe_route_metadata_without_http_content(tmp_pat
     assert "token=" not in payload
 
 
-def test_client_error_route_stores_safe_hash_only(tmp_path, monkeypatch):
+def test_client_error_route_stores_safe_hash_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
     clear_default_session_log_store_cache()
     client = TestClient(api_app.app)
@@ -200,7 +202,7 @@ def test_client_error_route_stores_safe_hash_only(tmp_path, monkeypatch):
     assert "Cookie" not in payload
 
 
-def test_client_error_route_reports_skipped_when_session_logging_disabled(tmp_path, monkeypatch):
+def test_client_error_route_reports_skipped_when_session_logging_disabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
     monkeypatch.setenv("UAA_SESSION_LOG_ENABLED", "0")
     clear_default_session_log_store_cache()
@@ -250,7 +252,7 @@ def _capability_spec() -> CapabilitySpec:
     )
 
 
-def test_capability_execution_records_safe_lifecycle_refs(tmp_path, monkeypatch):
+def test_capability_execution_records_safe_lifecycle_refs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
     clear_default_session_log_store_cache()
     registry = CapabilityRegistry()
@@ -277,7 +279,7 @@ def test_capability_execution_records_safe_lifecycle_refs(tmp_path, monkeypatch)
     assert "read:safe-ref-only" not in payload
 
 
-def test_capability_execution_records_denied_failed_and_timeout_safely(tmp_path, monkeypatch):
+def test_capability_execution_records_denied_failed_and_timeout_safely(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
     clear_default_session_log_store_cache()
     registry = CapabilityRegistry()
@@ -300,7 +302,7 @@ def test_capability_execution_records_denied_failed_and_timeout_safely(tmp_path,
         output_model=_ReadOutput,
     )
 
-    async def slow(_ctx, _args):
+    async def slow(_ctx: Any, _args: Any) -> Any:
         await asyncio.sleep(0.05)
         return _ReadOutput(text="late")
 
@@ -333,7 +335,7 @@ def test_capability_execution_records_denied_failed_and_timeout_safely(tmp_path,
     assert '"text":"late"' not in payload
 
 
-def test_task_decomposition_records_safe_run_and_node_correlation(tmp_path, monkeypatch):
+def test_task_decomposition_records_safe_run_and_node_correlation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
     clear_default_session_log_store_cache()
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))

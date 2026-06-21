@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.model_router import ModelRouteStatus, ModelRouter
 from ultimate_ai_agent.core.model_runtime import ModelRuntimeRequestFactory
 
 
-def test_runtime_factory_accepts_selected_route_with_valid_approval_decision():
+def test_runtime_factory_accepts_selected_route_with_valid_approval_decision() -> None:
     route = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -33,7 +33,7 @@ def test_runtime_factory_accepts_selected_route_with_valid_approval_decision():
     assert runtime_request.safety_mode == "simulated"
 
 
-def test_runtime_factory_rejects_arbitrary_approval_ref():
+def test_runtime_factory_rejects_arbitrary_approval_ref() -> None:
     route = route_request(profiles=[cloud_profile()], approval_ref="human_approved_ref_123")
     decision = ModelRouter().route(route.model_copy(update={"approval_ref": None}))
 

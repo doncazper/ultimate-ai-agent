@@ -20,7 +20,7 @@ class NodeIdentity(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def identity_must_be_safe(self):
+    def identity_must_be_safe(self) -> Any:
         assert_remote_secret_clean(self.model_dump(mode="json"), "Remote node identity")
         return self
 
@@ -41,7 +41,7 @@ class NodeCapabilitySet(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def capability_set_must_not_enable_blocked_authority(self):
+    def capability_set_must_not_enable_blocked_authority(self) -> Any:
         if self.can_approve_actions is True:
             raise ValueError("REMOTE_APPROVAL_CAPABILITY_DENIED")
         if self.can_run_critical is True:
@@ -63,7 +63,7 @@ class RemoteNode(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def node_must_be_safe(self):
+    def node_must_be_safe(self) -> Any:
         if self.node_id != self.identity.node_id:
             raise ValueError("REMOTE_NODE_IDENTITY_MISMATCH")
         assert_remote_secret_clean(self.model_dump(mode="json"), "Remote node")

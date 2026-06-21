@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.providers import (
     ProviderAuthRequirement,
     ProviderCapability,
@@ -9,7 +10,7 @@ from ultimate_ai_agent.core.providers import (
 )
 
 
-def make_provider(provider_id: str, capability: ProviderCapability = ProviderCapability.current_weather):
+def make_provider(provider_id: str, capability: ProviderCapability = ProviderCapability.current_weather) -> Any:
     return ProviderManifest(
         provider_id=provider_id,
         display_name=provider_id,
@@ -24,7 +25,7 @@ def make_provider(provider_id: str, capability: ProviderCapability = ProviderCap
     )
 
 
-def test_provider_registry_registers_and_filters_providers():
+def test_provider_registry_registers_and_filters_providers() -> None:
     registry = ProviderRegistry()
     registry.register_provider(make_provider("weather_current", ProviderCapability.current_weather))
     registry.register_provider(make_provider("weather_forecast", ProviderCapability.weather_forecast))

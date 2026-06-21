@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.core.truth import GroundingMode, GroundingPolicy, TruthTaskClass
 
 
-def test_factual_task_with_no_grounding_is_rejected():
+def test_factual_task_with_no_grounding_is_rejected() -> None:
     with pytest.raises(ValidationError, match="grounding"):
         GroundingPolicy(
             policy_id="gp_fact",
@@ -13,7 +13,7 @@ def test_factual_task_with_no_grounding_is_rejected():
         )
 
 
-def test_creative_task_may_have_no_grounding():
+def test_creative_task_may_have_no_grounding() -> None:
     policy = GroundingPolicy(
         policy_id="gp_creative",
         task_class=TruthTaskClass.creative,
@@ -23,7 +23,7 @@ def test_creative_task_may_have_no_grounding():
     assert policy.grounding_mode == GroundingMode.none
 
 
-def test_live_status_requires_freshness():
+def test_live_status_requires_freshness() -> None:
     with pytest.raises(ValidationError, match="freshness"):
         GroundingPolicy(
             policy_id="gp_live",
@@ -33,7 +33,7 @@ def test_live_status_requires_freshness():
         )
 
 
-def test_high_stakes_requires_human_review_flag():
+def test_high_stakes_requires_human_review_flag() -> None:
     with pytest.raises(ValidationError, match="human_review"):
         GroundingPolicy(
             policy_id="gp_legal",

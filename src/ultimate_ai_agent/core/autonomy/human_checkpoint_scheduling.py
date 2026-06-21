@@ -103,7 +103,7 @@ class HumanCheckpointSchedulingPolicy(_HumanCheckpointSchedulingModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -201,7 +201,7 @@ class HumanCheckpointSchedulingRequest(_HumanCheckpointSchedulingModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M134_RESOURCE_REF_REQUIRED")
@@ -270,7 +270,7 @@ class HumanCheckpointSchedulingReceiptPlan(_HumanCheckpointSchedulingModel):
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _receipt_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         try:
@@ -388,7 +388,7 @@ class HumanCheckpointSchedulingDecision(_HumanCheckpointSchedulingModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _decision_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M134_RESOURCE_REF_REQUIRED")
@@ -672,7 +672,7 @@ def _validate_risk_ceiling(risk: AutonomyRiskClass) -> None:
         raise ValueError("M134_RISK_CEILING_DENIED")
 
 
-def _request_ref_pairs(request: HumanCheckpointSchedulingRequest):
+def _request_ref_pairs(request: HumanCheckpointSchedulingRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.checkpoint_schedule_ref, "checkpoint_schedule_ref"),
@@ -703,7 +703,7 @@ def _request_ref_pairs(request: HumanCheckpointSchedulingRequest):
     ]
 
 
-def _receipt_ref_pairs(receipt: HumanCheckpointSchedulingReceiptPlan):
+def _receipt_ref_pairs(receipt: HumanCheckpointSchedulingReceiptPlan) -> list[Any]:
     return [
         (receipt.receipt_plan_ref, "receipt_plan_ref"),
         (receipt.checkpoint_schedule_ref, "checkpoint_schedule_ref"),
@@ -727,7 +727,7 @@ def _receipt_ref_pairs(receipt: HumanCheckpointSchedulingReceiptPlan):
     ]
 
 
-def _decision_ref_pairs(decision: HumanCheckpointSchedulingDecision):
+def _decision_ref_pairs(decision: HumanCheckpointSchedulingDecision) -> list[Any]:
     return [
         (decision.decision_ref, "decision_ref"),
         (decision.request_ref, "request_ref"),

@@ -133,7 +133,7 @@ class GovernedWebEvidenceSourceMetadata(_GovernedWebEvidenceModel):
         return _validate_https_url(value, "canonical_url")
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_web_evidence_ref(self.source_metadata_ref, "source_metadata_ref")
         _validate_web_evidence_ref(self.operator_source_ref, "operator_source_ref")
         if not self.operator_supplied:
@@ -164,7 +164,7 @@ class GovernedWebEvidenceFreshness(_GovernedWebEvidenceModel):
     freshness_window_seconds: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_web_evidence_ref(self.freshness_ref, "freshness_ref")
         if self.freshness_status in {
             SourceFreshnessStatus.unknown,
@@ -185,7 +185,7 @@ class GovernedWebEvidenceReceiptRefs(_GovernedWebEvidenceModel):
     policy_receipt_ref: str | None = None
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.source_receipt_ref, "source_receipt_ref"),
             (self.evidence_receipt_ref, "evidence_receipt_ref"),
@@ -220,7 +220,7 @@ class GovernedWebEvidenceIntakePolicy(_GovernedWebEvidenceModel):
     non_goal_docs_required: bool = True
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_web_evidence_ref(self.policy_ref, "policy_ref")
         if self.phase_label != WEB_EVIDENCE_PHASE_LABEL:
             raise ValueError("WEB_EVIDENCE_PHASE_LABEL_REQUIRED")
@@ -287,7 +287,7 @@ class GovernedWebEvidenceIntakeRecord(_GovernedWebEvidenceModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.evidence_ref, "evidence_ref"),
             (self.source_ref, "source_ref"),
@@ -338,7 +338,7 @@ class GovernedWebEvidenceIntakeBundle(_GovernedWebEvidenceModel):
     created_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_web_evidence_ref(self.bundle_ref, "bundle_ref")
         for ref in self.receipt_refs:
             _validate_web_evidence_ref(ref, "receipt_ref")
@@ -376,7 +376,7 @@ class FutureAllowlistedHttpsGetLanePlan(_GovernedWebEvidenceModel):
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.plan_ref, "plan_ref"),
             (self.rollback_plan_ref, "rollback_plan_ref"),

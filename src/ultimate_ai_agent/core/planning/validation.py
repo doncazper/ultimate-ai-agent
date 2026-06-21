@@ -164,7 +164,7 @@ def input_trust_reasons(source_ref: str, declared: PlanInputTrustLevel) -> list[
     return list(dict.fromkeys(reasons))
 
 
-def raw_input_reasons(boundary) -> list[str]:
+def raw_input_reasons(boundary: Any) -> list[str]:
     reasons: list[str] = []
     if bool(getattr(boundary, "contains_raw_prompt", False)):
         reasons.append("RAW_PROMPT_DENIED")
@@ -195,7 +195,7 @@ def derived_step_risk_level(step_kind: TaskStepKind, declared_risk_level: TaskRi
     return derived
 
 
-def hidden_side_effect_reasons(step) -> list[str]:
+def hidden_side_effect_reasons(step: Any) -> list[str]:
     reasons: list[str] = []
     if _payload_contains_hidden_side_effect(getattr(step, "metadata", {})):
         reasons.append("TASK_HIDDEN_SIDE_EFFECT_DENIED")

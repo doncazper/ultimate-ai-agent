@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -16,7 +17,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _edge(edge_ref, upstream, downstream):
+def _edge(edge_ref: Any, upstream: Any, downstream: Any) -> Any:
     return CrossToolDependencyEdge(
         edge_ref=edge_ref,
         upstream_step_ref=upstream,
@@ -26,7 +27,7 @@ def _edge(edge_ref, upstream, downstream):
     )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     steps = [
         "dependency-step:m136:collect-safe-ref",
         "dependency-step:m136:review-safe-ref",
@@ -90,7 +91,7 @@ def _request(**overrides):
     return CrossToolDependencyExecutionRequest(**data)
 
 
-def test_m136_cross_tool_dependency_execution_is_review_only_and_route_free():
+def test_m136_cross_tool_dependency_execution_is_review_only_and_route_free() -> None:
     decision = build_cross_tool_dependency_execution_decision(_request())
 
     assert decision.status == CrossToolDependencyExecutionStatus.ready_for_review
@@ -198,7 +199,7 @@ def test_m136_cross_tool_dependency_execution_is_review_only_and_route_free():
         ("production_authority_granted", "M136_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m136_policy_denies_dependency_runtime_and_future_authority(field, reason):
+def test_m136_policy_denies_dependency_runtime_and_future_authority(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_cross_tool_dependency_execution_policy(
             CrossToolDependencyExecutionPolicy(**{field: True})
@@ -277,13 +278,13 @@ def test_m136_policy_denies_dependency_runtime_and_future_authority(field, reaso
     ],
 )
 def test_m136_request_rejects_unbounded_or_executing_dependency_work(
-    overrides, reason
-):
+    overrides: Any, reason: str
+) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_cross_tool_dependency_execution_request(_request(**overrides))
 
 
-def test_m136_dependency_graph_requires_known_acyclic_edges():
+def test_m136_dependency_graph_requires_known_acyclic_edges() -> None:
     steps = [
         "dependency-step:m136:a",
         "dependency-step:m136:b",
@@ -368,7 +369,7 @@ def test_m136_dependency_graph_requires_known_acyclic_edges():
         ({"max_risk_class": AutonomyRiskClass.high}, "M136_RISK_CEILING_DENIED"),
     ],
 )
-def test_m136_decision_rejects_runtime_or_unsafe_mutations(update, reason):
+def test_m136_decision_rejects_runtime_or_unsafe_mutations(update: Any, reason: str) -> None:
     decision = build_cross_tool_dependency_execution_decision(_request())
 
     with pytest.raises(ValueError, match=reason):
@@ -392,7 +393,7 @@ def test_m136_decision_rejects_runtime_or_unsafe_mutations(update, reason):
         ("execution_performed", "M136_EXECUTION_DENIED"),
     ],
 )
-def test_m136_receipt_plan_rejects_raw_storage_and_effects(field, reason):
+def test_m136_receipt_plan_rejects_raw_storage_and_effects(field: str, reason: str) -> None:
     decision = build_cross_tool_dependency_execution_decision(_request())
     receipt = decision.receipt_plan.model_copy(update={field: True})
 
@@ -402,7 +403,7 @@ def test_m136_receipt_plan_rejects_raw_storage_and_effects(field, reason):
         )
 
 
-def test_m136_receipt_plan_must_match_decision_scope():
+def test_m136_receipt_plan_must_match_decision_scope() -> None:
     decision = build_cross_tool_dependency_execution_decision(_request())
 
     with pytest.raises(ValueError, match="M136_RECEIPT_BINDING_MISMATCH"):
@@ -417,7 +418,7 @@ def test_m136_receipt_plan_must_match_decision_scope():
         )
 
 
-def test_m136_rejects_secret_like_safe_summary_and_metadata():
+def test_m136_rejects_secret_like_safe_summary_and_metadata() -> None:
     with pytest.raises(ValueError, match="M136_SECRET_LIKE_DEPENDENCY_CONTENT_DENIED"):
         _request(safe_dependency_summary="token=secret")
 

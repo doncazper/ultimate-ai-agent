@@ -4,7 +4,7 @@ from enum import Enum
 import re
 import stat
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -44,7 +44,7 @@ class FilePreviewRedactionSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_summary(self):
+    def validate_summary(self) -> Any:
         allowed_categories = {"secret_assignment", "bearer_token", "private_key_marker", "high_entropy_token"}
         if self.redaction_count < 0:
             raise ValueError("REDACTION_COUNT_INVALID")
@@ -74,7 +74,7 @@ class RedactedFilePreviewPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         if not self.redacted_preview_enabled:
             raise ValueError("REDACTED_PREVIEW_TOOL_DISABLED")
         blocked_fields = [
@@ -127,7 +127,7 @@ class RedactedFilePreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         validate_tool_runtime_ref(self.request_ref, "request_ref")
         validate_tool_runtime_ref(self.root_ref, "root_ref")
         return self
@@ -159,7 +159,7 @@ class RedactedFilePreviewOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_output(self):
+    def validate_output(self) -> Any:
         for ref in [self.output_ref, self.root_ref, self.safe_path_ref]:
             validate_tool_runtime_ref(ref, "preview_ref")
         validate_safe_tool_runtime_text(self.safe_message, "safe_message")

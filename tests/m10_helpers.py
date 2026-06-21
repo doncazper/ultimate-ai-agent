@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 
 from tests.m7_helpers import actor, classification
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.approvals import (
 from ultimate_ai_agent.core.time import utc_now
 
 
-def smoke_policy(**overrides):
+def smoke_policy(**overrides: Any) -> Any:
     from ultimate_ai_agent.core.model_runtime import ManualLoopbackSmokePolicy
 
     payload = {
@@ -22,7 +23,7 @@ def smoke_policy(**overrides):
     return ManualLoopbackSmokePolicy(**payload)
 
 
-def smoke_request(**overrides):
+def smoke_request(**overrides: Any) -> Any:
     from ultimate_ai_agent.core.model_runtime import DEFAULT_MANUAL_LOOPBACK_SMOKE_PROMPT, ManualLoopbackSmokeRequest
 
     payload = {
@@ -41,7 +42,7 @@ def smoke_request(**overrides):
     return ManualLoopbackSmokeRequest(**payload)
 
 
-def approval_for_smoke(request=None, **approval_overrides):
+def approval_for_smoke(request: Any | None = None, **approval_overrides: Any) -> tuple[Any, ...]:
     from ultimate_ai_agent.core.model_runtime import smoke_approval_request
 
     smoke = request or smoke_request()
@@ -53,7 +54,7 @@ def approval_for_smoke(request=None, **approval_overrides):
     return authority, approval, grant, decision
 
 
-def expired_approval_for_smoke(request=None):
+def expired_approval_for_smoke(request: Any | None = None) -> tuple[Any, ...]:
     smoke = request or smoke_request()
     authority, approval, _, _ = approval_for_smoke(smoke)
     grant = authority.grant(
@@ -64,7 +65,7 @@ def expired_approval_for_smoke(request=None):
     return authority, approval, grant, authority.validate_for_request(approval, grant.approval_ref)
 
 
-def wrong_scope_decision(request=None):
+def wrong_scope_decision(request: Any | None = None) -> Any:
     from ultimate_ai_agent.core.model_runtime import smoke_approval_request
 
     smoke = request or smoke_request()

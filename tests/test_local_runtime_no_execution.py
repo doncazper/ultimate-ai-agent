@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODEL_RUNTIME_ROOT = ROOT / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
 
 
-def test_m22_model_runtime_contract_sources_do_not_import_runtime_packages_or_call_networks():
+def test_m22_model_runtime_contract_sources_do_not_import_runtime_packages_or_call_networks() -> None:
     forbidden_fragments = [
         "import ollama",
         "from ollama import",
@@ -54,7 +54,7 @@ def test_m22_model_runtime_contract_sources_do_not_import_runtime_packages_or_ca
     assert failures == []
 
 
-def test_m22_adds_no_backend_runtime_activation_routes():
+def test_m22_adds_no_backend_runtime_activation_routes() -> None:
     paths = set(app.openapi()["paths"])
 
     forbidden_routes = {

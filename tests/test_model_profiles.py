@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.model_router import (
 )
 
 
-def test_model_capability_profile_is_metadata_only_and_secret_clean():
+def test_model_capability_profile_is_metadata_only_and_secret_clean() -> None:
     profile = cloud_profile(credential_ref="cred_model_router")
 
     assert profile.provider_kind == ModelProviderKind.cloud_provider
@@ -16,7 +16,7 @@ def test_model_capability_profile_is_metadata_only_and_secret_clean():
     assert validate_model_capability_profile(profile) is True
 
 
-def test_openai_compatible_profile_does_not_imply_tool_support():
+def test_openai_compatible_profile_does_not_imply_tool_support() -> None:
     profile = cloud_profile(
         profile_id="openai_compatible_fixture",
         capabilities=[ModelTaskCapability.chat],
@@ -27,7 +27,7 @@ def test_openai_compatible_profile_does_not_imply_tool_support():
     assert ModelTaskCapability.tool_calling not in profile.capabilities
 
 
-def test_model_profile_rejects_unknown_fields():
+def test_model_profile_rejects_unknown_fields() -> None:
     payload = local_profile().model_dump()
     payload["unexpected"] = True
 

@@ -5,7 +5,7 @@ from ultimate_ai_agent.core.control_center import (
 )
 
 
-def test_control_center_manifest_is_read_only_preview_only_and_deterministic():
+def test_control_center_manifest_is_read_only_preview_only_and_deterministic() -> None:
     manifest = build_control_center_manifest(baseline_version="0.16.0")
 
     surfaces = [surface.surface for surface in manifest.surfaces]
@@ -27,7 +27,7 @@ def test_control_center_manifest_is_read_only_preview_only_and_deterministic():
     assert statuses[ControlCenterSurface.plugin_governance] == ControlCenterCapabilityStatus.planned_disabled
 
 
-def test_control_center_manifest_blocks_execution_capabilities():
+def test_control_center_manifest_blocks_execution_capabilities() -> None:
     manifest = build_control_center_manifest(baseline_version="0.16.0")
     dump = manifest.model_dump_json().lower()
 

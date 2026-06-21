@@ -7,7 +7,7 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def test_health_probe_plan_is_plan_only_by_default():
+def test_health_probe_plan_is_plan_only_by_default() -> None:
     plan = LocalRuntimeHealthProbePlan(
         plan_ref="local_runtime_health_plan_demo",
         safe_summary="future metadata-only health plan",
@@ -31,7 +31,7 @@ def test_health_probe_plan_is_plan_only_by_default():
         ("user_content_sent", "user content"),
     ],
 )
-def test_health_probe_plan_rejects_probe_or_execution_flags(field, message):
+def test_health_probe_plan_rejects_probe_or_execution_flags(field: str, message: str) -> None:
     plan = LocalRuntimeHealthProbePlan(
         plan_ref="local_runtime_health_plan_demo",
         safe_summary="future metadata-only health plan",
@@ -42,7 +42,7 @@ def test_health_probe_plan_rejects_probe_or_execution_flags(field, message):
         validate_local_runtime_health_probe_plan(plan)
 
 
-def test_health_probe_plan_forbids_raw_output_field():
+def test_health_probe_plan_forbids_raw_output_field() -> None:
     with pytest.raises(ValidationError):
         LocalRuntimeHealthProbePlan(
             plan_ref="local_runtime_health_plan_demo",

@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from pydantic import ValidationError
 
@@ -27,7 +28,7 @@ def _target(
     return ToolTargetRef(target_ref=target_ref, target_kind=target_kind)
 
 
-def _input_boundary(**overrides) -> ToolInputBoundary:
+def _input_boundary(**overrides: Any) -> ToolInputBoundary:
     data = {
         "input_refs": ["file:workspace-readme"],
         "input_trust_level": ToolInputTrustLevel.user_provided_refs,
@@ -41,7 +42,7 @@ def _input_boundary(**overrides) -> ToolInputBoundary:
     return ToolInputBoundary(**data)
 
 
-def _intent(**overrides) -> ToolIntent:
+def _intent(**overrides: Any) -> ToolIntent:
     data = {
         "intent_id": "tool-intent:m27-safe-preview",
         "tool_id": "file.metadata_preview",
@@ -60,7 +61,7 @@ def _intent(**overrides) -> ToolIntent:
     return ToolIntent(**data)
 
 
-def test_m27_manifest_is_preview_only_and_execution_disabled():
+def test_m27_manifest_is_preview_only_and_execution_disabled() -> None:
     manifest = ToolBrokerV2Manifest(baseline_version="0.31.0")
 
     assert manifest.tool_execution_enabled is False
@@ -72,7 +73,7 @@ def test_m27_manifest_is_preview_only_and_execution_disabled():
     assert manifest.context_pack_authority_enabled is False
 
 
-def test_safe_metadata_preview_intent_is_preview_allowed_without_execution():
+def test_safe_metadata_preview_intent_is_preview_allowed_without_execution() -> None:
     decision = evaluate_tool_intent(_intent(), catalog=build_default_tool_catalog())
 
     assert decision.status == ToolIntentDecisionStatus.preview_allowed
@@ -85,7 +86,7 @@ def test_safe_metadata_preview_intent_is_preview_allowed_without_execution():
     assert "SAFE_PREVIEW_INTENT_ACCEPTED" in decision.reason_codes
 
 
-def test_unknown_tool_is_denied():
+def test_unknown_tool_is_denied() -> None:
     decision = evaluate_tool_intent(
         _intent(tool_id="tool:unknown"),
         catalog=build_default_tool_catalog(),
@@ -107,7 +108,7 @@ def test_unknown_tool_is_denied():
         ("shell.run_preview", ToolSideEffectKind.shell_execution),
     ],
 )
-def test_side_effecting_intents_are_denied_even_with_approval_ref(tool_id, side_effect):
+def test_side_effecting_intents_are_denied_even_with_approval_ref(tool_id: str, side_effect: Any) -> None:
     catalog = {
         tool_id: ToolCatalogEntry(
             tool_id=tool_id,
@@ -136,7 +137,7 @@ def test_side_effecting_intents_are_denied_even_with_approval_ref(tool_id, side_
     assert "APPROVAL_REF_NOT_AUTHORITY" in decision.reason_codes
 
 
-def test_context_pack_ref_cannot_authorize_tool_execution():
+def test_context_pack_ref_cannot_authorize_tool_execution() -> None:
     decision = evaluate_tool_intent(
         _intent(
             tool_id="file.write_preview",
@@ -173,12 +174,12 @@ def test_context_pack_ref_cannot_authorize_tool_execution():
         "contains_openwebui_output",
     ],
 )
-def test_unsafe_input_boundary_flags_are_rejected(boundary_flag):
+def test_unsafe_input_boundary_flags_are_rejected(boundary_flag: Any) -> None:
     with pytest.raises(ValidationError):
         _input_boundary(**{boundary_flag: True})
 
 
-def test_target_ref_kind_mismatch_is_denied():
+def test_target_ref_kind_mismatch_is_denied() -> None:
     decision = evaluate_tool_intent(
         _intent(target=_target(target_ref="memory:m27", target_kind=ToolTargetKind.file_ref)),
         catalog=build_default_tool_catalog(),
@@ -188,7 +189,7 @@ def test_target_ref_kind_mismatch_is_denied():
     assert "TOOL_TARGET_KIND_MISMATCH_DENIED" in decision.reason_codes
 
 
-def test_unknown_target_kind_is_denied():
+def test_unknown_target_kind_is_denied() -> None:
     decision = evaluate_tool_intent(
         _intent(target=_target(target_ref="random:m27", target_kind=ToolTargetKind.unknown)),
         catalog=build_default_tool_catalog(),
@@ -198,7 +199,7 @@ def test_unknown_target_kind_is_denied():
     assert "UNKNOWN_TOOL_TARGET_DENIED" in decision.reason_codes
 
 
-def test_declared_risk_cannot_downgrade_catalog_risk():
+def test_declared_risk_cannot_downgrade_catalog_risk() -> None:
     catalog = {
         "file.write_preview": ToolCatalogEntry(
             tool_id="file.write_preview",
@@ -224,7 +225,7 @@ def test_declared_risk_cannot_downgrade_catalog_risk():
     assert "TOOL_SIDE_EFFECTS_HIDDEN_DENIED" in decision.reason_codes
 
 
-def test_extra_execution_fields_are_forbidden():
+def test_extra_execution_fields_are_forbidden() -> None:
     with pytest.raises(ValidationError):
         ToolIntent.model_validate(
             {

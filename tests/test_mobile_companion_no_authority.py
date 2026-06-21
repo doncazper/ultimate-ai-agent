@@ -5,7 +5,7 @@ from ultimate_ai_agent.core.mobile_companion.contracts import MobileClientPlan, 
 from ultimate_ai_agent.core.mobile_companion.planning import assert_mobile_contract_only
 
 
-def test_mobile_client_authority_claim_is_rejected():
+def test_mobile_client_authority_claim_is_rejected() -> None:
     client = MobileClientPlan(
         platform=MobileClientPlatform.android_planned,
         surfaces=[MobileCompanionSurface.approval_status_planned],
@@ -22,7 +22,7 @@ def test_mobile_client_authority_claim_is_rejected():
         assert_mobile_contract_only(manifest)
 
 
-def test_mobile_approval_execution_claim_is_rejected():
+def test_mobile_approval_execution_claim_is_rejected() -> None:
     manifest = MobileCompanionManifest(
         clients=[],
         capabilities=[],
@@ -34,7 +34,7 @@ def test_mobile_approval_execution_claim_is_rejected():
         assert_mobile_contract_only(manifest)
 
 
-def test_secret_like_safe_summary_is_rejected():
+def test_secret_like_safe_summary_is_rejected() -> None:
     manifest = MobileCompanionManifest(
         clients=[],
         capabilities=[],

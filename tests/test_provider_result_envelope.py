@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.providers import (
 )
 
 
-def test_provider_result_envelope_uses_raw_ref_and_normalized_contract():
+def test_provider_result_envelope_uses_raw_ref_and_normalized_contract() -> None:
     envelope = ProviderResultEnvelope(
         result_id="res_weather_1",
         provider_id="weather_no_key",
@@ -32,7 +32,7 @@ def test_provider_result_envelope_uses_raw_ref_and_normalized_contract():
     assert envelope.raw_ref == "ledger://provider/raw/res_weather_1"
 
 
-def test_provider_result_envelope_rejects_obvious_secret_leakage():
+def test_provider_result_envelope_rejects_obvious_secret_leakage() -> None:
     envelope = ProviderResultEnvelope(
         result_id="res_secret",
         provider_id="weather_no_key",

@@ -1,6 +1,6 @@
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationDecision, ApprovalValidationRequest
 from ultimate_ai_agent.core.approvals.enums import (
@@ -18,7 +18,7 @@ from ultimate_ai_agent.core.time import utc_now
 
 
 class LocalApprovalAuthority:
-    def __init__(self, mode: ApprovalMode = ApprovalMode.local_dev):
+    def __init__(self, mode: ApprovalMode = ApprovalMode.local_dev) -> None:
         self.mode = mode
         self._requests: dict[str, ApprovalRequest] = {}
         self._grants: dict[str, ApprovalGrant] = {}
@@ -163,7 +163,7 @@ class LocalApprovalAuthority:
 
     @staticmethod
     def request_for_model_route(
-        route_request,
+        route_request: Any,
         *,
         subject_type: ApprovalSubjectType = ApprovalSubjectType.model_route,
         subject_id: str | None = None,
@@ -190,7 +190,7 @@ class LocalApprovalAuthority:
 
     @staticmethod
     def request_for_tool_request(
-        tool_request,
+        tool_request: Any,
         *,
         subject_type: ApprovalSubjectType = ApprovalSubjectType.tool_request,
         subject_id: str | None = None,

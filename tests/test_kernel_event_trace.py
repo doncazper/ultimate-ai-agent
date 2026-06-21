@@ -1,3 +1,4 @@
+from pathlib import Path
 from tests.test_kernel_minimum_lovable_happy_path import (
     grant_for_kernel_request,
     grant_workspace_patch_for_kernel_request,
@@ -9,7 +10,7 @@ from ultimate_ai_agent.core.kernel import MinimumKernelRunner
 from ultimate_ai_agent.core.ledger.enums import EventName
 
 
-def test_kernel_event_trace_contains_expected_ordered_events(tmp_path):
+def test_kernel_event_trace_contains_expected_ordered_events(tmp_path: Path) -> None:
     authority = LocalApprovalAuthority()
     kernel_request = request(tmp_path).model_copy(update={"run_id": "run_kernel_trace", "approval_ref": None})
     grant = grant_for_kernel_request(authority, kernel_request)

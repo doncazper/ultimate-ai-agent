@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "browser-connector-combined-workflow-request:m137:review",
         "combined_workflow_plan_ref": "combined-workflow-plan:m137:review",
@@ -83,7 +84,7 @@ def _request(**overrides):
     return BrowserConnectorCombinedWorkflowRequest(**data)
 
 
-def test_m137_browser_connector_combined_workflow_is_review_only_and_route_free():
+def test_m137_browser_connector_combined_workflow_is_review_only_and_route_free() -> None:
     decision = build_browser_connector_combined_workflow_decision(_request())
 
     assert decision.status == BrowserConnectorCombinedWorkflowStatus.ready_for_review
@@ -191,8 +192,8 @@ def test_m137_browser_connector_combined_workflow_is_review_only_and_route_free(
     ],
 )
 def test_m137_policy_denies_browser_connector_runtime_and_future_authority(
-    field, reason
-):
+    field: str, reason: str
+) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_browser_connector_combined_workflow_policy(
             BrowserConnectorCombinedWorkflowPolicy(**{field: True})
@@ -266,8 +267,8 @@ def test_m137_policy_denies_browser_connector_runtime_and_future_authority(
     ],
 )
 def test_m137_request_rejects_unbounded_or_executing_combined_workflows(
-    overrides, reason
-):
+    overrides: Any, reason: str
+) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_browser_connector_combined_workflow_request(_request(**overrides))
 
@@ -306,7 +307,7 @@ def test_m137_request_rejects_unbounded_or_executing_combined_workflows(
         ({"production_authority_granted": True}, "M137_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m137_decision_rejects_runtime_or_authority_mutations(update, reason):
+def test_m137_decision_rejects_runtime_or_authority_mutations(update: Any, reason: str) -> None:
     decision = build_browser_connector_combined_workflow_decision(_request())
 
     with pytest.raises(ValueError, match=reason):
@@ -315,7 +316,7 @@ def test_m137_decision_rejects_runtime_or_authority_mutations(update, reason):
         )
 
 
-def test_m137_receipt_plan_rejects_raw_browser_connector_payloads():
+def test_m137_receipt_plan_rejects_raw_browser_connector_payloads() -> None:
     decision = build_browser_connector_combined_workflow_decision(_request())
 
     with pytest.raises(ValueError, match="M137_RAW_BROWSER_DOM_DENIED"):

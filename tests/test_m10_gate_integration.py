@@ -1,7 +1,8 @@
+from typing import Any
 from ultimate_ai_agent.core.gate import FoundationGateStatus
 
 
-def test_m10_gate_criteria_pass_on_current_repo(foundation_gate_results):
+def test_m10_gate_criteria_pass_on_current_repo(foundation_gate_results: Any) -> None:
     for criterion_id in [
         "m10_manual_smoke_files_present",
         "m10_stdlib_network_isolated",

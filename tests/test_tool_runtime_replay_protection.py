@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.tools.runtime import NOOP_TOOL_NAME, NOOP_TOOL_REF, ToolInvocationRequest, ToolInvocationStatus, evaluate_tool_invocation
 
 
-def test_replay_key_reuse_is_denied():
+def test_replay_key_reuse_is_denied() -> None:
     request = ToolInvocationRequest(
         invocation_id="tool-runtime-invocation:m31-replay",
         tool_ref=NOOP_TOOL_REF,

@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.evals import (
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.evals import (
 )
 
 
-def _case(**overrides):
+def _case(**overrides: Any) -> Any:
     data = {
         "case_ref": "eval-case:m56-safe-context",
         "suite_ref": "eval-suite:m56-regression",
@@ -31,7 +32,7 @@ def _case(**overrides):
     return AgentEvalCase(**data)
 
 
-def _suite(*cases: AgentEvalCase, **overrides):
+def _suite(*cases: AgentEvalCase, **overrides: Any) -> Any:
     data = {
         "suite_ref": "eval-suite:m56-regression",
         "baseline_ref": "baseline:v0.59.0",
@@ -43,7 +44,7 @@ def _suite(*cases: AgentEvalCase, **overrides):
     return AgentEvalSuite(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "eval-request:m56-regression",
         "run_ref": "eval-run:m56-regression",
@@ -55,7 +56,7 @@ def _request(**overrides):
     return AgentEvalRegressionRunRequest(**data)
 
 
-def _observation(**overrides):
+def _observation(**overrides: Any) -> Any:
     data = {
         "case_ref": "eval-case:m56-safe-context",
         "observed_outcome_ref": "outcome:review-only-context-proposal",

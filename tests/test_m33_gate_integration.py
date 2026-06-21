@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 
 
-def test_m33_foundation_gate_criteria_are_registered():
+def test_m33_foundation_gate_criteria_are_registered() -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
 
@@ -13,7 +13,7 @@ def test_m33_foundation_gate_criteria_are_registered():
     assert "m33_m34_remains_future" in criterion_ids
 
 
-def test_m33_openapi_route_guard_rejects_raw_file_and_execution_routes():
+def test_m33_openapi_route_guard_rejects_raw_file_and_execution_routes() -> None:
     from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M33_OPENAPI_PATH_COUNT, m33_openapi_route_failures
 
     failures = m33_openapi_route_failures(
@@ -34,7 +34,7 @@ def test_m33_openapi_route_guard_rejects_raw_file_and_execution_routes():
     assert m33_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
-def test_m33_foundation_gate_evaluator_passes_current_contracts():
+def test_m33_foundation_gate_evaluator_passes_current_contracts() -> None:
     evaluator = FoundationGateEvaluator()
     criteria = [
         criterion

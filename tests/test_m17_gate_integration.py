@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
 )
 
 
-def test_m17_evidence_file_memory_viewer_criterion_exists_and_passes():
+def test_m17_evidence_file_memory_viewer_criterion_exists_and_passes() -> None:
     criteria = default_foundation_gate_criteria()
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
@@ -21,7 +21,7 @@ def test_m17_evidence_file_memory_viewer_criterion_exists_and_passes():
     assert report.passed_count == 1
 
 
-def test_m17_evidence_file_memory_viewer_hardening_criterion_exists_and_passes():
+def test_m17_evidence_file_memory_viewer_hardening_criterion_exists_and_passes() -> None:
     criteria = default_foundation_gate_criteria()
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
@@ -37,7 +37,7 @@ def test_m17_evidence_file_memory_viewer_hardening_criterion_exists_and_passes()
     assert report.passed_count == 1
 
 
-def test_m17_openapi_route_guard_rejects_backend_knowledge_viewer_expansion():
+def test_m17_openapi_route_guard_rejects_backend_knowledge_viewer_expansion() -> None:
     failures = m17_openapi_route_failures(
         {
             "/health",

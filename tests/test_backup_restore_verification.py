@@ -4,11 +4,11 @@ from pathlib import Path
 import scripts.verify_backup_restore as backup_restore
 
 
-def test_backup_restore_verifier_passes():
+def test_backup_restore_verifier_passes() -> None:
     assert backup_restore.validate_backup_restore_verification() == []
 
 
-def test_backup_restore_report_covers_minimum_set_and_offline_restore():
+def test_backup_restore_report_covers_minimum_set_and_offline_restore() -> None:
     report = backup_restore.build_backup_restore_report()
 
     assert report["schema_version"] == "uaa_backup_restore_verification.v1"
@@ -30,7 +30,7 @@ def test_backup_restore_report_covers_minimum_set_and_offline_restore():
     assert report["live_restore_status"] == "not_scoped"
 
 
-def test_backup_restore_report_is_safe_ref_only():
+def test_backup_restore_report_is_safe_ref_only() -> None:
     report = backup_restore.build_backup_restore_report()
     text = json.dumps(report, sort_keys=True).lower()
 
@@ -48,7 +48,7 @@ def test_backup_restore_report_is_safe_ref_only():
     assert all(value is False for value in report["report_safety"].values())
 
 
-def test_backup_restore_corruption_detection_reports_mismatch(tmp_path):
+def test_backup_restore_corruption_detection_reports_mismatch(tmp_path: Path) -> None:
     source_dir = tmp_path / "source"
     restore_dir = tmp_path / "restore"
     backup_restore._write_fixture_state(source_dir)
@@ -65,7 +65,7 @@ def test_backup_restore_corruption_detection_reports_mismatch(tmp_path):
     assert failures == ["integrity mismatch for category:runs"]
 
 
-def test_backup_restore_script_does_not_execute_commands():
+def test_backup_restore_script_does_not_execute_commands() -> None:
     script = backup_restore.__file__
     assert script is not None
     text = Path(script).read_text(encoding="utf-8")

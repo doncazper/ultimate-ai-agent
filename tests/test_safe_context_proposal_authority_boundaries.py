@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.context_proposal import SafeContextProposalDecisionStatus, evaluate_safe_context_proposal_request
@@ -16,7 +17,7 @@ from tests.context_proposal_fixtures import approved_context_proposal_record, co
         ("execution_enabled", "execution_denied"),
     ],
 )
-def test_model_copy_mutated_policy_authority_flags_are_denied(flag, reason):
+def test_model_copy_mutated_policy_authority_flags_are_denied(flag: Any, reason: str) -> None:
     packet = context_proposal_packet()
     approval_record = approved_context_proposal_record(packet)
 
@@ -47,7 +48,7 @@ def test_model_copy_mutated_policy_authority_flags_are_denied(flag, reason):
         "openwebui-output:chat",
     ],
 )
-def test_external_authority_refs_cannot_authorize_context_proposal(authority_ref):
+def test_external_authority_refs_cannot_authorize_context_proposal(authority_ref: Any) -> None:
     packet = context_proposal_packet().model_copy(update={"authority_refs": [authority_ref]})
     approval_record = approved_context_proposal_record(context_proposal_packet())
 

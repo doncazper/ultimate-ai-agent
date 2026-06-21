@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.execution import (
     ExecutionRun,
     ExecutionStep,
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.execution import (
 )
 
 
-def _step(step_id, depends_on=None, **overrides):
+def _step(step_id: str, depends_on: Any | None = None, **overrides: Any) -> Any:
     data = {
         "step_id": step_id,
         "safe_summary": f"Validate {step_id}.",
@@ -26,7 +27,7 @@ def _step(step_id, depends_on=None, **overrides):
     )
 
 
-def _run(steps):
+def _run(steps: Any) -> Any:
     return ExecutionRun(
         run_id="execution-run:m30-deps",
         source_task_plan_ref="plan:m30-deps",
@@ -35,7 +36,7 @@ def _run(steps):
     )
 
 
-def _request(target_step_id="execution-step:m30-a"):
+def _request(target_step_id: str = "execution-step:m30-a") -> Any:
     return ExecutionTransitionRequest(
         run_id="execution-run:m30-deps",
         target_step_id=target_step_id,
@@ -46,7 +47,7 @@ def _request(target_step_id="execution-step:m30-a"):
     )
 
 
-def test_duplicate_step_ids_are_denied():
+def test_duplicate_step_ids_are_denied() -> None:
     decision = evaluate_execution_transition(
         _run([_step("execution-step:m30-a"), _step("execution-step:m30-a")]),
         _request("execution-step:m30-a"),
@@ -56,7 +57,7 @@ def test_duplicate_step_ids_are_denied():
     assert "DUPLICATE_EXECUTION_STEP_ID_DENIED" in decision.reason_codes
 
 
-def test_missing_dependency_is_denied():
+def test_missing_dependency_is_denied() -> None:
     decision = evaluate_execution_transition(
         _run([_step("execution-step:m30-a", depends_on=["execution-step:m30-missing"])]),
         _request("execution-step:m30-a"),
@@ -66,7 +67,7 @@ def test_missing_dependency_is_denied():
     assert "MISSING_EXECUTION_DEPENDENCY_DENIED" in decision.reason_codes
 
 
-def test_self_dependency_is_denied():
+def test_self_dependency_is_denied() -> None:
     decision = evaluate_execution_transition(
         _run([_step("execution-step:m30-a", depends_on=["execution-step:m30-a"])]),
         _request("execution-step:m30-a"),
@@ -76,7 +77,7 @@ def test_self_dependency_is_denied():
     assert "EXECUTION_DEPENDENCY_CYCLE_DENIED" in decision.reason_codes
 
 
-def test_indirect_cycle_is_denied():
+def test_indirect_cycle_is_denied() -> None:
     decision = evaluate_execution_transition(
         _run(
             [
@@ -92,7 +93,7 @@ def test_indirect_cycle_is_denied():
     assert "EXECUTION_DEPENDENCY_CYCLE_DENIED" in decision.reason_codes
 
 
-def test_deterministic_next_step_order_uses_dependency_and_step_id():
+def test_deterministic_next_step_order_uses_dependency_and_step_id() -> None:
     steps = [
         _step("execution-step:m30-c", depends_on=["execution-step:m30-a"]),
         _step("execution-step:m30-b"),

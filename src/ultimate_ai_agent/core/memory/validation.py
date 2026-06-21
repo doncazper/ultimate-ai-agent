@@ -89,7 +89,7 @@ def validate_memory_lifecycle_metadata(lifecycle: MemoryLifecycleMetadata) -> bo
     return True
 
 
-def _deny_write(request: MemoryWriteRequest, status: MemoryWriteDecisionStatus, reason: str, message: str):
+def _deny_write(request: MemoryWriteRequest, status: MemoryWriteDecisionStatus, reason: str, message: str) -> Any:
     return build_memory_write_decision(
         request_id=request.request_id,
         allowed=False,
@@ -99,7 +99,7 @@ def _deny_write(request: MemoryWriteRequest, status: MemoryWriteDecisionStatus, 
     )
 
 
-def validate_memory_write_request(request: MemoryWriteRequest):
+def validate_memory_write_request(request: MemoryWriteRequest) -> Any:
     if request.automatic_write:
         return _deny_write(request, MemoryWriteDecisionStatus.denied, "AUTOMATIC_MEMORY_WRITE_BLOCKED", "Automatic memory writes are blocked.")
     if request.model_output_source:
@@ -158,7 +158,7 @@ def validate_memory_delete_request(request: BaseModel | dict) -> bool:
     return True
 
 
-def validate_memory_export_request(request: MemoryExportRequest | dict):
+def validate_memory_export_request(request: MemoryExportRequest | dict) -> Any:
     export_request = request if isinstance(request, MemoryExportRequest) else MemoryExportRequest(**request)
     if export_request.include_raw_content or not export_request.redacted_only:
         return build_memory_export_decision(

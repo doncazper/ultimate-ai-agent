@@ -5,8 +5,8 @@ This verifier is repo-local and deterministic. It scans scoped docs, generated
 reports, and optional frontend build output for raw/private material and unsafe
 release claims without echoing the offending content.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import hashlib

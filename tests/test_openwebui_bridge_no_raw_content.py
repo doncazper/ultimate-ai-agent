@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.openwebui_bridge import (
@@ -14,7 +15,7 @@ from ultimate_ai_agent.core.openwebui_bridge import (
 )
 
 
-def test_transcript_ref_rejects_raw_content_mode_and_raw_storage():
+def test_transcript_ref_rejects_raw_content_mode_and_raw_storage() -> None:
     transcript = OpenWebUITranscriptRef(
         transcript_ref="owui_transcript_demo",
         session_ref="owui_session_demo",
@@ -36,7 +37,7 @@ def test_transcript_ref_rejects_raw_content_mode_and_raw_storage():
         OpenWebUIContentMode.redacted_preview,
     ],
 )
-def test_safe_content_modes_are_allowed_for_transcript_and_message_refs(content_mode):
+def test_safe_content_modes_are_allowed_for_transcript_and_message_refs(content_mode: Any) -> None:
     transcript = OpenWebUITranscriptRef(
         transcript_ref=f"owui_transcript_{content_mode.value}",
         session_ref="owui_session_demo",
@@ -63,7 +64,7 @@ def test_safe_content_modes_are_allowed_for_transcript_and_message_refs(content_
         OpenWebUIContentMode.future_requires_contract,
     ],
 )
-def test_blocked_content_modes_are_not_valid_ref_or_envelope_modes(content_mode):
+def test_blocked_content_modes_are_not_valid_ref_or_envelope_modes(content_mode: Any) -> None:
     transcript = OpenWebUITranscriptRef(
         transcript_ref=f"owui_transcript_blocked_{content_mode.value}",
         session_ref="owui_session_demo",
@@ -104,7 +105,7 @@ def test_blocked_content_modes_are_not_valid_ref_or_envelope_modes(content_mode)
             validator(value)
 
 
-def test_message_ref_rejects_secret_like_safe_summary():
+def test_message_ref_rejects_secret_like_safe_summary() -> None:
     message = OpenWebUIMessageRef(
         message_ref="owui_msg_secret",
         session_ref="owui_session_demo",

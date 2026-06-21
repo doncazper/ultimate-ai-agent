@@ -105,7 +105,7 @@ class BrowserConnectorCombinedWorkflowPolicy(_BrowserConnectorCombinedWorkflowMo
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -209,7 +209,7 @@ class BrowserConnectorCombinedWorkflowRequest(_BrowserConnectorCombinedWorkflowM
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M137_RESOURCE_REF_REQUIRED")
@@ -293,7 +293,7 @@ class BrowserConnectorCombinedWorkflowReceiptPlan(
     safe_receipt_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m61_ref(self.dependency_order_ref, "dependency_order_ref")
         _validate_ref_list(
@@ -409,7 +409,7 @@ class BrowserConnectorCombinedWorkflowDecision(
     reason_codes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.decision_ref, "decision_ref")
         _validate_m61_ref(self.dependency_order_ref, "dependency_order_ref")
         _validate_ref_list(
@@ -566,7 +566,7 @@ def _validate_m137_receipt_plan(
     return BrowserConnectorCombinedWorkflowReceiptPlan.model_validate(payload)
 
 
-def _request_ref_pairs(request: BrowserConnectorCombinedWorkflowRequest):
+def _request_ref_pairs(request: BrowserConnectorCombinedWorkflowRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.combined_workflow_plan_ref, "combined_workflow_plan_ref"),

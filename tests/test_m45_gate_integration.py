@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.gate.evaluators import (
     FoundationGateEvaluator,
     m45_openapi_route_failures,
@@ -5,7 +6,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
 from ultimate_ai_agent.core.gate import default_foundation_gate_criteria
 
 
-def _gate_result(criteria_id: str):
+def _gate_result(criteria_id: str) -> Any:
     criteria_by_id = {
         criterion.criterion_id: criterion for criterion in default_foundation_gate_criteria()
     }

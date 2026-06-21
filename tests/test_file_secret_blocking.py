@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 
 import pytest
@@ -16,7 +17,7 @@ from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType
 from ultimate_ai_agent.core.secrets import SecretBroker
 
 
-def _actor():
+def _actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -36,7 +37,7 @@ def _private_key_header() -> str:
     return "-----BEGIN " + "OPENSSH " + "PRIVATE KEY-----"
 
 
-def _write_proposal(path: str, content: str, **kwargs) -> FileWriteProposal:
+def _write_proposal(path: str, content: str, **kwargs: Any) -> FileWriteProposal:
     return FileWriteProposal(
         proposal_id=kwargs.pop("proposal_id", "fwp_secret_blocking"),
         run_id="run_123",
@@ -51,7 +52,7 @@ def _write_proposal(path: str, content: str, **kwargs) -> FileWriteProposal:
     )
 
 
-def _patch_proposal(manager: LocalFileManager, path: str, content: str, **kwargs) -> FilePatchProposal:
+def _patch_proposal(manager: LocalFileManager, path: str, content: str, **kwargs: Any) -> FilePatchProposal:
     return FilePatchProposal(
         proposal_id=kwargs.pop("proposal_id", "file-patch-proposal:secret-blocking"),
         run_id="run_123",
@@ -80,7 +81,7 @@ def _read_request(path: str) -> FileReadRequest:
     )
 
 
-def test_private_key_write_is_blocked(tmp_path: Path):
+def test_private_key_write_is_blocked(tmp_path: Path) -> None:
     manager = LocalFileManager(workspace_root=tmp_path)
     proposal = _write_proposal(
         "id_rsa",
@@ -105,7 +106,7 @@ def test_private_key_write_is_blocked(tmp_path: Path):
         lambda: _private_key_header(),
     ],
 )
-def test_patch_proposal_blocks_common_secret_like_patterns(tmp_path: Path, content):
+def test_patch_proposal_blocks_common_secret_like_patterns(tmp_path: Path, content: str) -> None:
     secret_like_content = content()
     target = tmp_path / "note.txt"
     target.write_text("safe text", encoding="utf-8")
@@ -124,7 +125,7 @@ def test_patch_proposal_blocks_common_secret_like_patterns(tmp_path: Path, conte
     assert SecretBroker().validate_no_secret_leak(decision.model_dump()) is True
 
 
-def test_redacted_preview_masks_secret_like_content(tmp_path: Path):
+def test_redacted_preview_masks_secret_like_content(tmp_path: Path) -> None:
     secret_value = _synthetic_secret_value("preview")
     target = tmp_path / "note.txt"
     target.write_text("auth_token: '" + secret_value + "'\npublic summary\n", encoding="utf-8")
@@ -137,7 +138,7 @@ def test_redacted_preview_masks_secret_like_content(tmp_path: Path):
     assert secret_value not in preview.model_dump_json()
 
 
-def test_secret_like_patch_cannot_be_submitted_for_approval_or_applied(tmp_path: Path):
+def test_secret_like_patch_cannot_be_submitted_for_approval_or_applied(tmp_path: Path) -> None:
     secret_value = _synthetic_secret_value("blocked")
     target = tmp_path / "note.txt"
     target.write_text("safe text", encoding="utf-8")
@@ -159,7 +160,7 @@ def test_secret_like_patch_cannot_be_submitted_for_approval_or_applied(tmp_path:
     assert secret_value not in blocked_apply.model_dump_json()
 
 
-def test_safe_placeholder_and_planning_text_do_not_trigger_secret_block(tmp_path: Path):
+def test_safe_placeholder_and_planning_text_do_not_trigger_secret_block(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("safe text", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -174,7 +175,7 @@ def test_safe_placeholder_and_planning_text_do_not_trigger_secret_block(tmp_path
     assert content not in decision.model_dump_json()
 
 
-def test_existing_secret_like_diff_is_blocked_without_echoing_value(tmp_path: Path):
+def test_existing_secret_like_diff_is_blocked_without_echoing_value(tmp_path: Path) -> None:
     secret_value = _synthetic_secret_value("existing")
     target = tmp_path / "note.txt"
     target.write_text("password: '" + secret_value + "'\n", encoding="utf-8")

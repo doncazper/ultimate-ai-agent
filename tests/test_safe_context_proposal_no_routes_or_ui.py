@@ -4,7 +4,7 @@ from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.app import app
 
 
-def test_m38_adds_no_backend_context_or_openwebui_routes():
+def test_m38_adds_no_backend_context_or_openwebui_routes() -> None:
     paths = app.openapi().get("paths", {})
 
     assert "/files/review/approvals/capture" in paths
@@ -23,7 +23,7 @@ def test_m38_adds_no_backend_context_or_openwebui_routes():
         assert forbidden not in paths
 
 
-def test_openapi_path_count_remains_at_current_boundary():
+def test_openapi_path_count_remains_at_current_boundary() -> None:
     client = TestClient(app)
     data = client.get("/openapi.json").json()
 
@@ -37,7 +37,7 @@ def test_openapi_path_count_remains_at_current_boundary():
     assert "/observability/client-errors" in data.get("paths", {})
 
 
-def test_control_center_context_proposal_surface_has_no_handoff_or_injection_controls():
+def test_control_center_context_proposal_surface_has_no_handoff_or_injection_controls() -> None:
     from pathlib import Path
 
     src_root = Path("apps/control-center/src")

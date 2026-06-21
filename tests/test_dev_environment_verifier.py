@@ -1,3 +1,5 @@
+from typing import Any
+import pytest
 import importlib.util
 from pathlib import Path
 
@@ -7,7 +9,7 @@ SCRIPT = ROOT / "scripts/verify_dev_environment.py"
 MAKEFILE = ROOT / "Makefile"
 
 
-def load_verifier():
+def load_verifier() -> Any:
     spec = importlib.util.spec_from_file_location("verify_dev_environment", SCRIPT)
     assert spec is not None
     module = importlib.util.module_from_spec(spec)
@@ -16,7 +18,7 @@ def load_verifier():
     return module
 
 
-def test_dev_environment_verifier_passes_current_repo(capsys):
+def test_dev_environment_verifier_passes_current_repo(capsys: pytest.CaptureFixture[str]) -> None:
     verifier = load_verifier()
 
     assert verifier.verify(ROOT) == []
@@ -28,7 +30,7 @@ def test_dev_environment_verifier_passes_current_repo(capsys):
     assert "ruff: OK" in output
 
 
-def test_dev_environment_verifier_reports_clear_remediation_for_missing_venv(tmp_path):
+def test_dev_environment_verifier_reports_clear_remediation_for_missing_venv(tmp_path: Path) -> None:
     verifier = load_verifier()
 
     failures = verifier.verify(tmp_path)
@@ -38,7 +40,7 @@ def test_dev_environment_verifier_reports_clear_remediation_for_missing_venv(tmp
     assert any('.venv/bin/python -m pip install -e ".[dev]"' in failure for failure in failures)
 
 
-def test_dev_environment_verifier_warns_without_failing_when_npm_is_missing(tmp_path, monkeypatch, capsys):
+def test_dev_environment_verifier_warns_without_failing_when_npm_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     verifier = load_verifier()
     app_root = tmp_path / "apps/control-center"
     app_root.mkdir(parents=True)
@@ -57,7 +59,7 @@ def test_dev_environment_verifier_warns_without_failing_when_npm_is_missing(tmp_
     assert "npm: WARN" in output
 
 
-def test_makefile_uses_project_venv_python_for_verification_commands():
+def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     text = MAKEFILE.read_text(encoding="utf-8")
 
     for target in ["doctor:", "test:", "verify:", "frontend-check:", "openapi:", "ruff:"]:

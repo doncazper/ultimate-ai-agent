@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 
 from ultimate_ai_agent.api.app import app
@@ -15,7 +16,7 @@ def test_m135_foundation_gate_criteria_registered() -> None:
 
 
 def test_m135_foundation_gate_evaluator_accepts_current_repo(
-    foundation_gate_results,
+    foundation_gate_results: Any,
 ) -> None:
     for criterion_id in [
         "m135_autonomous_recovery_planner_contracts",

@@ -28,7 +28,7 @@ class ManualLoopbackSmokeTransport(Protocol):
 
 
 class FakeManualLoopbackSmokeTransport:
-    def __init__(self, response_text: str = "UAA_LOCAL_SMOKE_OK", elapsed_ms: int = 3):
+    def __init__(self, response_text: str = "UAA_LOCAL_SMOKE_OK", elapsed_ms: int = 3) -> None:
         self.response_text = response_text
         self.elapsed_ms = elapsed_ms
 

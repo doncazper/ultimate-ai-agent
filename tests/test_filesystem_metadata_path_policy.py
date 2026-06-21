@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.tools.runtime import (
@@ -11,13 +13,13 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _safe_root(tmp_path):
+def _safe_root(tmp_path: Path) -> Any:
     root = tmp_path / "safe-root"
     root.mkdir()
     return FilesystemSafeRoot(root_ref="safe-root:test", root_path=root, safe_label="Test safe root")
 
 
-def _request(relative_path):
+def _request(relative_path: Any) -> Any:
     suffix = str(abs(hash(relative_path)))
     return ToolInvocationRequest(
         invocation_id=f"tool-runtime-invocation:m32-path-{suffix}",
@@ -52,7 +54,7 @@ def _request(relative_path):
         ("notes/%2A.md", "GLOB_PATH_DENIED"),
     ],
 )
-def test_unsafe_metadata_paths_are_denied(tmp_path, relative_path, reason_code):
+def test_unsafe_metadata_paths_are_denied(tmp_path: Path, relative_path: Any, reason_code: Any) -> None:
     decision = evaluate_tool_invocation(_request(relative_path), safe_roots=[_safe_root(tmp_path)])
 
     assert decision.status == ToolInvocationStatus.denied
@@ -62,7 +64,7 @@ def test_unsafe_metadata_paths_are_denied(tmp_path, relative_path, reason_code):
     assert decision.side_effects_performed == []
 
 
-def test_unknown_safe_root_ref_is_denied(tmp_path):
+def test_unknown_safe_root_ref_is_denied(tmp_path: Path) -> None:
     decision = evaluate_tool_invocation(
         _request("notes/report.md").model_copy(update={"metadata": {"root_ref": "safe-root:missing", "relative_path": "notes/report.md"}}),
         safe_roots=[_safe_root(tmp_path)],
@@ -72,7 +74,7 @@ def test_unknown_safe_root_ref_is_denied(tmp_path):
     assert "UNKNOWN_SAFE_ROOT_DENIED" in decision.reason_codes
 
 
-def test_arbitrary_root_path_in_metadata_is_denied(tmp_path):
+def test_arbitrary_root_path_in_metadata_is_denied(tmp_path: Path) -> None:
     decision = evaluate_tool_invocation(
         _request("notes/report.md").model_copy(
             update={

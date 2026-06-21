@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
 
 
-def test_m14_foundation_gate_criteria_exist_and_pass():
+def test_m14_foundation_gate_criteria_exist_and_pass() -> None:
     criteria = default_foundation_gate_criteria()
     m14_ids = {
         "m14_local_backend_api_base_policy",

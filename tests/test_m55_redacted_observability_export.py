@@ -1,3 +1,4 @@
+from typing import Any, Iterator
 from datetime import UTC, datetime
 
 import pytest
@@ -17,7 +18,7 @@ from ultimate_ai_agent.core.observability import (
 )
 
 
-def _contexts():
+def _contexts() -> tuple[Any, ...]:
     return (
         ActorContext(
             actor_type=ActorType.orchestrator,
@@ -34,7 +35,7 @@ def _contexts():
     )
 
 
-def _event(**overrides):
+def _event(**overrides: Any) -> Any:
     actor, temporal, classification = _contexts()
     data = {
         "event_id": "evt_m55_001",
@@ -61,7 +62,7 @@ def _event(**overrides):
     return EventLedgerEvent(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "observability-export-request:m55",
         "run_ref": "run:run_m55",
@@ -146,7 +147,7 @@ def test_redacted_observability_export_rejects_run_ref_mismatch() -> None:
 
 
 def test_redacted_observability_export_stops_after_requested_events() -> None:
-    def event_stream():
+    def event_stream() -> Iterator[Any]:
         yield _event()
         raise AssertionError("unrequested events should not be consumed")
 

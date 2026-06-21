@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.runtime_readiness import (
     RuntimeCapabilityStatus,
     RuntimeSurface,
@@ -5,12 +6,12 @@ from ultimate_ai_agent.core.runtime_readiness import (
 )
 
 
-def _entries_by_surface():
+def _entries_by_surface() -> Any:
     matrix = build_matrix(baseline_version="0.15.0")
     return {entry.surface: entry for entry in matrix.entries}
 
 
-def test_runtime_capability_matrix_has_static_safe_statuses():
+def test_runtime_capability_matrix_has_static_safe_statuses() -> None:
     entries = _entries_by_surface()
 
     local_loopback_policy = entries[RuntimeSurface.local_loopback_policy]
@@ -34,7 +35,7 @@ def test_runtime_capability_matrix_has_static_safe_statuses():
     assert entries[RuntimeSurface.codex_plugin_governance].metadata["documentation_only"] is True
 
 
-def test_runtime_capability_matrix_blocks_runtime_expansion():
+def test_runtime_capability_matrix_blocks_runtime_expansion() -> None:
     matrix = build_matrix(baseline_version="0.15.0")
 
     assert matrix.assert_no_runtime_expansion() is True

@@ -1,9 +1,10 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.tools.runtime import NOOP_TOOL_NAME, NOOP_TOOL_REF, ToolInvocationRequest, ToolInvocationStatus, evaluate_tool_invocation
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "invocation_id": "tool-runtime-invocation:m31-authority",
         "tool_ref": NOOP_TOOL_REF,
@@ -15,25 +16,25 @@ def _request(**overrides):
     return ToolInvocationRequest(**data)
 
 
-def _assert_denied(decision, reason):
+def _assert_denied(decision: Any, reason: str) -> None:
     assert decision.status == ToolInvocationStatus.denied
     assert decision.execution_performed is False
     assert reason in decision.reason_codes
 
 
-def test_approval_ref_alone_cannot_authorize_noop_runtime():
+def test_approval_ref_alone_cannot_authorize_noop_runtime() -> None:
     decision = evaluate_tool_invocation(_request(approval_ref="approval:m31"))
 
     _assert_denied(decision, "APPROVAL_REF_NOT_AUTHORITY")
 
 
-def test_approval_test_ref_is_denied():
+def test_approval_test_ref_is_denied() -> None:
     decision = evaluate_tool_invocation(_request(approval_ref="approval_test_m31"))
 
     _assert_denied(decision, "APPROVAL_TEST_REF_DENIED")
 
 
-def test_model_copy_mutated_secret_invocation_id_is_denied_safely():
+def test_model_copy_mutated_secret_invocation_id_is_denied_safely() -> None:
     request = _request().model_copy(update={"invocation_id": "secret:m31-token"})
 
     decision = evaluate_tool_invocation(request)
@@ -56,7 +57,7 @@ def test_model_copy_mutated_secret_invocation_id_is_denied_safely():
         "openwebui:m31",
     ],
 )
-def test_refs_cannot_authorize_arbitrary_tool_runtime(authority_ref):
+def test_refs_cannot_authorize_arbitrary_tool_runtime(authority_ref: Any) -> None:
     decision = evaluate_tool_invocation(_request(authority_refs=[authority_ref]))
 
     _assert_denied(decision, "AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY")

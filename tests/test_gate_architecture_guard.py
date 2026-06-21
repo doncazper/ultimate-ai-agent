@@ -11,7 +11,7 @@ from ultimate_ai_agent.core.gate.evaluator_registry import evaluator_registry
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_gate_architecture_guard_accepts_current_legacy_evaluator_ceiling():
+def test_gate_architecture_guard_accepts_current_legacy_evaluator_ceiling() -> None:
     report = evaluate_gate_architecture(ROOT)
 
     assert report.passed is True
@@ -32,7 +32,7 @@ def test_gate_architecture_guard_accepts_current_legacy_evaluator_ceiling():
     assert not report.failures
 
 
-def test_evaluator_registry_names_planned_split_boundaries():
+def test_evaluator_registry_names_planned_split_boundaries() -> None:
     entries = evaluator_registry()
     names = {entry.name for entry in entries}
 

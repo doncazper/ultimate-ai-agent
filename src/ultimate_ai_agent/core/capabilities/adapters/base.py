@@ -29,7 +29,7 @@ class CallableCapabilityAdapter:
         callable_obj: Callable[..., Any],
         *,
         artifact_kind: str,
-    ):
+    ) -> None:
         self.capability_id = capability_id
         self.callable_obj = callable_obj
         self.artifact_kind = artifact_kind
@@ -54,32 +54,32 @@ class CallableCapabilityAdapter:
 
 
 class ToolAdapter(CallableCapabilityAdapter):
-    def __init__(self, capability_id: str, tool_callable: Callable[..., Any]):
+    def __init__(self, capability_id: str, tool_callable: Callable[..., Any]) -> None:
         super().__init__(capability_id, tool_callable, artifact_kind="tool.result")
 
 
 class AgentAdapter(CallableCapabilityAdapter):
-    def __init__(self, capability_id: str, agent_callable: Callable[..., Any]):
+    def __init__(self, capability_id: str, agent_callable: Callable[..., Any]) -> None:
         super().__init__(capability_id, agent_callable, artifact_kind="agent.result")
 
 
 class WorkflowAdapter(CallableCapabilityAdapter):
-    def __init__(self, capability_id: str, workflow_callable: Callable[..., Any]):
+    def __init__(self, capability_id: str, workflow_callable: Callable[..., Any]) -> None:
         super().__init__(capability_id, workflow_callable, artifact_kind="workflow.result")
 
 
 class HandoffAdapter(CallableCapabilityAdapter):
-    def __init__(self, capability_id: str, handoff_callable: Callable[..., Any]):
+    def __init__(self, capability_id: str, handoff_callable: Callable[..., Any]) -> None:
         super().__init__(capability_id, handoff_callable, artifact_kind="handoff.next_turn")
 
 
 class ReviewerAdapter(CallableCapabilityAdapter):
-    def __init__(self, capability_id: str, reviewer_callable: Callable[..., Any]):
+    def __init__(self, capability_id: str, reviewer_callable: Callable[..., Any]) -> None:
         super().__init__(capability_id, reviewer_callable, artifact_kind="review.result")
 
 
 class HumanGateAdapter:
-    def __init__(self, capability_id: str):
+    def __init__(self, capability_id: str) -> None:
         self.capability_id = capability_id
 
     async def invoke(self, envelope: TaskEnvelope, context: dict[str, Any]) -> Artifact:

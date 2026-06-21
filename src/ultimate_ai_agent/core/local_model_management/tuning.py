@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -44,7 +44,7 @@ class M165RuntimeObservation(_M165Model):
     secret_included: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.observation_ref, "observation_ref")
         if self.signal_kind not in M165_TUNING_SIGNAL_KINDS:
             raise ValueError("M165_SIGNAL_KIND_INVALID")
@@ -85,7 +85,7 @@ class M165TuningRecommendation(_M165Model):
     restart_performed: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.recommendation_ref, "recommendation_ref")
         _validate_m61_ref(self.evidence_ref, "evidence_ref")
         _validate_m61_ref(self.rollback_plan_ref, "rollback_plan_ref")
@@ -113,7 +113,7 @@ class M165SettingsApplyRequest(_M165Model):
     secret_included: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.approval_ref, "approval_ref"),
@@ -151,7 +151,7 @@ class M165SettingsApplyResult(_M165Model):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.result_ref, "result_ref"),
             (self.request_ref, "request_ref"),
@@ -172,7 +172,7 @@ class M165SettingsApplier(Protocol):
 
 
 class FakeM165SettingsApplier:
-    def __init__(self, *, apply_ok: bool = True, rollback_ok: bool = True):
+    def __init__(self, *, apply_ok: bool = True, rollback_ok: bool = True) -> None:
         self.apply_ok = apply_ok
         self.rollback_ok = rollback_ok
         self.applied_settings: list[dict[str, str]] = []

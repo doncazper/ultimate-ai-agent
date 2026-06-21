@@ -1,3 +1,5 @@
+from pathlib import Path
+import pytest
 from fastapi.testclient import TestClient
 
 import ultimate_ai_agent.api.app as api_app
@@ -24,7 +26,7 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
 TASK_BEARER = "uaa-p1-011-local-placeholder"
 
 
-def test_uaa_p1_011_first_product_loop_is_locally_inspectable(monkeypatch, tmp_path):
+def test_uaa_p1_011_first_product_loop_is_locally_inspectable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(UAA_LLAMA_CPP_GATEWAY_ENV, raising=False)
     monkeypatch.setenv(UAA_OPENWEBUI_TEST_GATEWAY_ENV, "1")
     monkeypatch.setenv(UAA_OPENWEBUI_TEST_GATEWAY_KEY_ENV, DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY)

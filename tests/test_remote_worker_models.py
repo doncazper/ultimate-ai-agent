@@ -18,7 +18,7 @@ from ultimate_ai_agent.core.remote_workers import (
 )
 
 
-def test_remote_node_risky_capabilities_default_false_and_secret_metadata_rejected():
+def test_remote_node_risky_capabilities_default_false_and_secret_metadata_rejected() -> None:
     capabilities = NodeCapabilitySet()
     node = RemoteNode(
         node_id="node_local_mock",
@@ -45,7 +45,7 @@ def test_remote_node_risky_capabilities_default_false_and_secret_metadata_reject
         )
 
 
-def test_transport_descriptor_defaults_are_disabled_and_planned_only():
+def test_transport_descriptor_defaults_are_disabled_and_planned_only() -> None:
     descriptor = RemoteTransportDescriptor(
         transport_id="tailnet_planned",
         kind=RemoteTransportKind.tailnet_planned,
@@ -65,7 +65,7 @@ def test_transport_descriptor_defaults_are_disabled_and_planned_only():
     assert descriptor.supports_subagents is False
 
 
-def test_remote_job_envelope_and_result_are_dry_run_only_and_untrusted():
+def test_remote_job_envelope_and_result_are_dry_run_only_and_untrusted() -> None:
     audit = RemoteAuditContext(run_id="run_remote", correlation_id="corr_remote", actor_context=actor())
     envelope = RemoteJobEnvelope(
         job_id="job_remote",

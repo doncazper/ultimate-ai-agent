@@ -1,3 +1,4 @@
+from typing import Any
 from functools import lru_cache
 
 import pytest
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.time import utc_now
 
 
 @lru_cache(maxsize=1)
-def _m127_decision():
+def _m127_decision() -> Any:
     connectors = _connectors()
     runtime_record = _runtime_record()
     approval_decision = _approval_decision(runtime_record)
@@ -21,13 +22,13 @@ def _m127_decision():
     )
 
 
-def _connectors():
+def _connectors() -> Any:
     import ultimate_ai_agent.core.connectors as connectors
 
     return connectors
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     connectors = _connectors()
     m127_decision = overrides.pop("m127_decision") if "m127_decision" in overrides else _m127_decision()
     assert m127_decision.plan is not None
@@ -68,7 +69,7 @@ def _request(**overrides):
     return connectors.ConnectorWriteExecutionLowRiskRequest(**data)
 
 
-def _transport(_decision):
+def _transport(_decision: Any) -> Any:
     connectors = _connectors()
     return connectors.ConnectorWriteExecutionTransportResponse(
         write_completed=True,
@@ -77,7 +78,7 @@ def _transport(_decision):
     )
 
 
-def test_m128_low_risk_connector_write_decision_is_exact_bound_and_safe():
+def test_m128_low_risk_connector_write_decision_is_exact_bound_and_safe() -> None:
     connectors = _connectors()
     decision = connectors.build_connector_write_execution_decision(_request())
 
@@ -123,7 +124,7 @@ def test_m128_low_risk_connector_write_decision_is_exact_bound_and_safe():
     ]
 
 
-def test_m128_performs_low_risk_write_only_through_injected_safe_transport():
+def test_m128_performs_low_risk_write_only_through_injected_safe_transport() -> None:
     connectors = _connectors()
     decision = connectors.build_connector_write_execution_decision(_request())
 
@@ -184,7 +185,7 @@ def test_m128_performs_low_risk_write_only_through_injected_safe_transport():
         ("high_risk_write_requested", "M128_HIGH_RISK_CONNECTOR_WRITE_DENIED"),
     ],
 )
-def test_m128_request_denies_unsafe_connector_write_authority(field, reason):
+def test_m128_request_denies_unsafe_connector_write_authority(field: str, reason: str) -> None:
     connectors = _connectors()
 
     with pytest.raises(ValueError, match=reason):
@@ -193,7 +194,7 @@ def test_m128_request_denies_unsafe_connector_write_authority(field, reason):
         )
 
 
-def test_m128_requires_exact_m127_binding_and_write_approval():
+def test_m128_requires_exact_m127_binding_and_write_approval() -> None:
     connectors = _connectors()
 
     for update, reason in [
@@ -229,7 +230,7 @@ def test_m128_requires_exact_m127_binding_and_write_approval():
             connectors.build_connector_write_execution_decision(_request(**update))
 
 
-def test_m128_revalidates_model_copy_mutated_m127_decision_and_outputs():
+def test_m128_revalidates_model_copy_mutated_m127_decision_and_outputs() -> None:
     connectors = _connectors()
     m127_decision = _m127_decision().model_copy(update={"connector_write_authorized": True})
     with pytest.raises(ValueError, match="M128_M127_DRY_RUN_AUTHORITY_MISMATCH"):
@@ -250,11 +251,11 @@ def test_m128_revalidates_model_copy_mutated_m127_decision_and_outputs():
         )
 
 
-def test_m128_transport_denies_hidden_unsafe_side_effects():
+def test_m128_transport_denies_hidden_unsafe_side_effects() -> None:
     connectors = _connectors()
     decision = connectors.build_connector_write_execution_decision(_request())
 
-    def unsafe_transport(_decision):
+    def unsafe_transport(_decision: Any) -> Any:
         return connectors.ConnectorWriteExecutionTransportResponse(
             write_completed=True,
             safe_result_ref=decision.safe_result_ref,
@@ -266,11 +267,11 @@ def test_m128_transport_denies_hidden_unsafe_side_effects():
         connectors.perform_low_risk_connector_write(decision, transport=unsafe_transport)
 
 
-def test_m128_transport_result_ref_must_match_decision():
+def test_m128_transport_result_ref_must_match_decision() -> None:
     connectors = _connectors()
     decision = connectors.build_connector_write_execution_decision(_request())
 
-    def mismatched_transport(_decision):
+    def mismatched_transport(_decision: Any) -> Any:
         return connectors.ConnectorWriteExecutionTransportResponse(
             write_completed=True,
             safe_result_ref="connector-write-result-ref:m128:other",
@@ -281,7 +282,7 @@ def test_m128_transport_result_ref_must_match_decision():
         connectors.perform_low_risk_connector_write(decision, transport=mismatched_transport)
 
 
-def test_m128_policy_denies_unsafe_enablement_flags():
+def test_m128_policy_denies_unsafe_enablement_flags() -> None:
     connectors = _connectors()
 
     for field, reason in [

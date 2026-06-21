@@ -1,3 +1,4 @@
+from typing import Any
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from ultimate_ai_agent.core.execution.enums import ExecutionFrameworkStatus
@@ -31,7 +32,7 @@ class ExecutionFrameworkManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_manifest(self):
+    def validate_manifest(self) -> Any:
         blocked_true_fields = [
             "real_task_execution_enabled",
             "action_execution_enabled",

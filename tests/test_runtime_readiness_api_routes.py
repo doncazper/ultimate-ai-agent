@@ -6,7 +6,7 @@ from ultimate_ai_agent.api.app import app
 client = TestClient(app)
 
 
-def test_runtime_readiness_api_routes_are_status_and_validation_only():
+def test_runtime_readiness_api_routes_are_status_and_validation_only() -> None:
     readiness = client.get("/runtime/readiness")
     matrix = client.get("/runtime/capability-matrix")
 
@@ -18,7 +18,7 @@ def test_runtime_readiness_api_routes_are_status_and_validation_only():
     assert matrix.json()["data"]["summary"]["production_runtime_ready"] is False
 
 
-def test_runtime_smoke_report_validation_rejects_secret_without_echo():
+def test_runtime_smoke_report_validation_rejects_secret_without_echo() -> None:
     secret = "api_key='abcdefghijklmnop'"
     response = client.post(
         "/runtime/smoke-reports/validate",
@@ -46,7 +46,7 @@ def test_runtime_smoke_report_validation_rejects_secret_without_echo():
     assert secret not in body
 
 
-def test_runtime_openapi_has_three_m11_routes_and_unique_operation_ids():
+def test_runtime_openapi_has_three_m11_routes_and_unique_operation_ids() -> None:
     schema = app.openapi()
     paths = schema["paths"]
 

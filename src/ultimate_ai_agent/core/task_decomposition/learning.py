@@ -18,7 +18,7 @@ PromotionHook = Callable[[PromotionCandidate], None]
 
 
 class ReflectionStore:
-    def __init__(self, promotion_hook: PromotionHook | None = None, promotion_threshold: int = 3):
+    def __init__(self, promotion_hook: PromotionHook | None = None, promotion_threshold: int = 3) -> None:
         self._reflections: list[ReflectionRecord] = []
         self._promotion_candidates: dict[str, PromotionCandidate] = {}
         self.promotion_hook = promotion_hook

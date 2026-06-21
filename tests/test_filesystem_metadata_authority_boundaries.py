@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.tools.runtime import (
@@ -11,13 +13,13 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _safe_root(tmp_path):
+def _safe_root(tmp_path: Path) -> Any:
     root = tmp_path / "safe-root"
     root.mkdir()
     return FilesystemSafeRoot(root_ref="safe-root:test", root_path=root, safe_label="Test safe root")
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "invocation_id": "tool-runtime-invocation:m32-authority",
         "tool_ref": FILESYSTEM_METADATA_TOOL_REF,
@@ -45,7 +47,7 @@ def _request(**overrides):
         "control-center:m32",
     ],
 )
-def test_authority_refs_cannot_authorize_filesystem_metadata(tmp_path, authority_ref):
+def test_authority_refs_cannot_authorize_filesystem_metadata(tmp_path: Path, authority_ref: Any) -> None:
     safe_root = _safe_root(tmp_path)
     (safe_root.root_path / "notes").mkdir()
     (safe_root.root_path / "notes" / "report.md").write_text("metadata only", encoding="utf-8")
@@ -56,7 +58,7 @@ def test_authority_refs_cannot_authorize_filesystem_metadata(tmp_path, authority
     assert "AUTHORITY_REF_NOT_TOOL_RUNTIME_AUTHORITY" in decision.reason_codes
 
 
-def test_approval_ref_alone_cannot_authorize_filesystem_metadata(tmp_path):
+def test_approval_ref_alone_cannot_authorize_filesystem_metadata(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
 
     decision = evaluate_tool_invocation(_request(approval_ref="approval:m32"), safe_roots=[safe_root])
@@ -65,7 +67,7 @@ def test_approval_ref_alone_cannot_authorize_filesystem_metadata(tmp_path):
     assert "APPROVAL_REF_NOT_AUTHORITY" in decision.reason_codes
 
 
-def test_approval_test_ref_is_denied_for_filesystem_metadata(tmp_path):
+def test_approval_test_ref_is_denied_for_filesystem_metadata(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
 
     decision = evaluate_tool_invocation(_request(approval_ref="approval_test_m32"), safe_roots=[safe_root])

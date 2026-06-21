@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.production_readiness import (
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.production_readiness import (
 )
 
 
-def _reviewed(evidence):
+def _reviewed(evidence: Any) -> Any:
     return [
         item.model_copy(
             update={
@@ -27,7 +28,7 @@ def _reviewed(evidence):
     ]
 
 
-def test_m167_fixture_evidence_covers_required_live_hardening_lanes():
+def test_m167_fixture_evidence_covers_required_live_hardening_lanes() -> None:
     evidence = build_m167_fixture_live_model_hardening_evidence()
 
     matrix_profiles = [
@@ -64,14 +65,14 @@ def test_m167_fixture_evidence_covers_required_live_hardening_lanes():
         assert item.reviewed_by_ref is None
 
 
-def test_m167_fixture_evidence_cannot_pass_live_hardening_report():
+def test_m167_fixture_evidence_cannot_pass_live_hardening_report() -> None:
     evidence = build_m167_fixture_live_model_hardening_evidence()
 
     with pytest.raises(ValueError, match="M167_REVIEWED_LIVE_EVIDENCE_REQUIRED"):
         build_m167_live_model_production_hardening_report(evidence_records=evidence)
 
 
-def test_m167_report_passes_when_all_live_evidence_is_reviewed():
+def test_m167_report_passes_when_all_live_evidence_is_reviewed() -> None:
     evidence = _reviewed(build_m167_fixture_live_model_hardening_evidence())
     report = build_m167_live_model_production_hardening_report(evidence_records=evidence)
 
@@ -99,7 +100,7 @@ def test_m167_report_passes_when_all_live_evidence_is_reviewed():
     assert validate_m167_live_model_production_hardening_report(report) == report
 
 
-def test_m167_report_requires_all_hardware_profiles():
+def test_m167_report_requires_all_hardware_profiles() -> None:
     evidence = [
         item
         for item in _reviewed(build_m167_fixture_live_model_hardening_evidence())
@@ -130,14 +131,14 @@ def test_m167_report_requires_all_hardware_profiles():
         ),
     ],
 )
-def test_m167_evidence_rejects_unsafe_mutations(update, reason):
+def test_m167_evidence_rejects_unsafe_mutations(update: Any, reason: str) -> None:
     evidence = _reviewed(build_m167_fixture_live_model_hardening_evidence())[0]
 
     with pytest.raises(ValueError, match=reason):
         validate_m167_live_model_hardening_evidence_record(evidence.model_copy(update=update))
 
 
-def test_m167_evidence_requires_each_lane_coverage_flag():
+def test_m167_evidence_requires_each_lane_coverage_flag() -> None:
     evidence = _reviewed(build_m167_fixture_live_model_hardening_evidence())[0]
     flags = dict(evidence.coverage_flags)
     flags["hf_search_verified"] = False
@@ -169,7 +170,7 @@ def test_m167_evidence_requires_each_lane_coverage_flag():
         ({"side_effects_performed": ["deploy"]}, "M167_REPORT_SIDE_EFFECTS_DENIED"),
     ],
 )
-def test_m167_report_rejects_unsafe_mutations(update, reason):
+def test_m167_report_rejects_unsafe_mutations(update: Any, reason: str) -> None:
     report = build_m167_live_model_production_hardening_report(
         evidence_records=_reviewed(build_m167_fixture_live_model_hardening_evidence())
     )
@@ -178,7 +179,7 @@ def test_m167_report_rejects_unsafe_mutations(update, reason):
         validate_m167_live_model_production_hardening_report(report.model_copy(update=update))
 
 
-def test_m167_policy_requires_exact_evidence_profiles_and_no_new_authority():
+def test_m167_policy_requires_exact_evidence_profiles_and_no_new_authority() -> None:
     policy = validate_m167_live_model_production_hardening_policy(
         {
             "actual_live_evidence_required": True,

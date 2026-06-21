@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def test_response_rejects_secret_like_output_and_metadata():
+def test_response_rejects_secret_like_output_and_metadata() -> None:
     payload = {
         "runtime_response_id": "mrt_resp_secret",
         "runtime_request_id": "mrt_req_1",
@@ -31,7 +31,7 @@ def test_response_rejects_secret_like_output_and_metadata():
         ModelRuntimeResponse(**payload)
 
 
-def test_runtime_response_is_not_truth_authority():
+def test_runtime_response_is_not_truth_authority() -> None:
     response = ModelRuntimeResponse(
         runtime_response_id="mrt_resp_1",
         runtime_request_id="mrt_req_1",
@@ -47,6 +47,6 @@ def test_runtime_response_is_not_truth_authority():
     assert response_is_truth_authority(response) is False
 
 
-def test_request_secret_like_metadata_rejected():
+def test_request_secret_like_metadata_rejected() -> None:
     with pytest.raises(ValueError, match="secret-like"):
         runtime_request(metadata={"note": "auth_token='ABCDEFGHIJKLMNOP'"})

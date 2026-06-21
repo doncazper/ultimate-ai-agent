@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.productization import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.productization import (
 )
 
 
-def _request(**overrides) -> PluginMarketplacePolicyDraftRequest:
+def _request(**overrides: Any) -> PluginMarketplacePolicyDraftRequest:
     data = {
         "request_ref": "plugin-marketplace-policy-draft-request:m144",
         "policy_draft_ref": "plugin-marketplace-policy-draft:m144",
@@ -216,7 +217,7 @@ def test_m144_record_uses_safe_refs_only() -> None:
         ("production_authority_granted", "M144_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m144_policy_denies_authority_expansion(field, reason) -> None:
+def test_m144_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_plugin_marketplace_policy_draft_policy(
             PluginMarketplacePolicyDraftPolicy(**{field: True})
@@ -257,7 +258,7 @@ def test_m144_policy_denies_authority_expansion(field, reason) -> None:
         ("production_authority_requested", "M144_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m144_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m144_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_plugin_marketplace_policy_draft_request(
             _request().model_copy(update={field: True})
@@ -324,7 +325,7 @@ def test_m144_requires_exact_checkpoint_and_policy_refs() -> None:
         ({"production_authority_granted": True}, "M144_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m144_record_denies_unsafe_mutations(update, reason) -> None:
+def test_m144_record_denies_unsafe_mutations(update: Any, reason: str) -> None:
     record = build_plugin_marketplace_policy_draft_record(_request())
 
     with pytest.raises(ValueError, match=reason):

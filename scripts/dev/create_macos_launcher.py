@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Create a clickable macOS .command launcher for local development."""
-
 from __future__ import annotations
+from typing import Any
+
 
 import argparse
 import importlib.util
@@ -9,7 +10,7 @@ import sys
 from pathlib import Path
 
 
-def _load_launcher():
+def _load_launcher() -> Any:
     launcher_path = Path(__file__).resolve().parent / "uaa_launcher.py"
     spec = importlib.util.spec_from_file_location("uaa_launcher", launcher_path)
     if spec is None or spec.loader is None:

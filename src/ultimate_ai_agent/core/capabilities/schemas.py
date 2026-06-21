@@ -7,7 +7,7 @@ from pydantic import BaseModel, ValidationError
 
 
 class CapabilitySchemaError(ValueError):
-    def __init__(self, message: str, errors: list[str] | None = None):
+    def __init__(self, message: str, errors: list[str] | None = None) -> None:
         super().__init__(message)
         self.errors = errors or [message]
 

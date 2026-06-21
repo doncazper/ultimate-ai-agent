@@ -76,7 +76,7 @@ class MobileSensorContractReviewPolicy(_MobileSensorContractReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -99,7 +99,7 @@ class MobileSensorCapabilityContract(_MobileSensorContractReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.sensor_ref, "sensor_ref")
         _validate_safe_payload(self.safe_label)
         _validate_safe_payload(self.safe_purpose_summary)
@@ -125,7 +125,7 @@ class MobileSensorPermissionStateContract(_MobileSensorContractReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.state_ref, "state_ref"),
             (self.sensor_ref, "sensor_ref"),
@@ -173,7 +173,7 @@ class MobileSensorContractReviewReport(_MobileSensorContractReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.baseline_ref, "baseline_ref"),

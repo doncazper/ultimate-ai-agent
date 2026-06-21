@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _request(**overrides) -> HigherAutonomyRedTeamFreezeRequest:
+def _request(**overrides: Any) -> HigherAutonomyRedTeamFreezeRequest:
     data = {
         "request_ref": "higher-autonomy-red-team-freeze-request:m140",
         "freeze_ref": "higher-autonomy-red-team-freeze:m140",
@@ -157,7 +158,7 @@ def test_m140_report_uses_safe_refs_only() -> None:
         ("production_authority_granted", "M140_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m140_policy_denies_authority_expansion(field, reason) -> None:
+def test_m140_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_higher_autonomy_red_team_freeze_policy(
             HigherAutonomyRedTeamFreezePolicy(**{field: True})
@@ -200,7 +201,7 @@ def test_m140_policy_denies_authority_expansion(field, reason) -> None:
         ("contains_secret", "M140_SECRET_DENIED"),
     ],
 )
-def test_m140_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m140_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_higher_autonomy_red_team_freeze_request(
             _request().model_copy(update={field: True})

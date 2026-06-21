@@ -26,7 +26,7 @@ def synthetic_secret_value(prefix: str = "synthetic") -> str:
     return prefix + "_" + "".join(["A"] * 18)
 
 
-def test_secret_access_requires_consent_and_matching_purpose():
+def test_secret_access_requires_consent_and_matching_purpose() -> None:
     broker = SecretBroker()
     broker.register_credential(active_reference(), secret_value="super-secret-token")
 
@@ -54,7 +54,7 @@ def test_secret_access_requires_consent_and_matching_purpose():
     assert "PURPOSE_NOT_ALLOWED" in wrong_purpose.reason_codes
 
 
-def test_secret_access_returns_handle_not_raw_secret_and_redacts_views():
+def test_secret_access_returns_handle_not_raw_secret_and_redacts_views() -> None:
     broker = SecretBroker()
     broker.register_credential(active_reference(), secret_value="super-secret-token")
 
@@ -74,7 +74,7 @@ def test_secret_access_returns_handle_not_raw_secret_and_redacts_views():
     assert broker.validate_no_secret_leak(redacted.model_dump()) is True
 
 
-def test_secret_access_rejects_secret_like_credential_ref_without_echoing_secret():
+def test_secret_access_rejects_secret_like_credential_ref_without_echoing_secret() -> None:
     broker = SecretBroker()
     secret_like_ref = "token='abcdefghijklmnop'"
 
@@ -94,7 +94,7 @@ def test_secret_access_rejects_secret_like_credential_ref_without_echoing_secret
     assert decision.credential_ref == "[redacted]"
 
 
-def test_secret_redaction_masks_key_token_password_values():
+def test_secret_redaction_masks_key_token_password_values() -> None:
     broker = SecretBroker()
     redacted = broker.redact_value("api_key='abcdefghijklmnop' token='qrstuvwxyz123456'")
 
@@ -103,7 +103,7 @@ def test_secret_redaction_masks_key_token_password_values():
     assert "[REDACTED_SECRET]" in redacted
 
 
-def test_secret_redaction_masks_colon_bearer_and_private_key_patterns():
+def test_secret_redaction_masks_colon_bearer_and_private_key_patterns() -> None:
     broker = SecretBroker()
     colon_value = synthetic_secret_value("colon")
     bearer_value = synthetic_secret_value("bearer")
@@ -124,14 +124,14 @@ def test_secret_redaction_masks_colon_bearer_and_private_key_patterns():
     assert redacted.count("[REDACTED_SECRET]") >= 3
 
 
-def test_secret_detection_allows_safe_placeholder_values():
+def test_secret_detection_allows_safe_placeholder_values() -> None:
     broker = SecretBroker()
     payload = {"summary": "token budget remains bounded", "example": "api_key: example-placeholder-value"}
 
     assert broker.validate_no_secret_leak(payload) is True
 
 
-def test_secret_denial_output_is_secret_clean():
+def test_secret_denial_output_is_secret_clean() -> None:
     broker = SecretBroker()
     broker.register_credential(active_reference(), secret_value="super-secret-token")
 
@@ -149,7 +149,7 @@ def test_secret_denial_output_is_secret_clean():
     assert broker.validate_no_secret_leak(decision.model_dump()) is True
 
 
-def test_validate_no_secret_leak_rejects_nested_secret_like_output():
+def test_validate_no_secret_leak_rejects_nested_secret_like_output() -> None:
     broker = SecretBroker()
 
     payload = {
@@ -160,7 +160,7 @@ def test_validate_no_secret_leak_rejects_nested_secret_like_output():
     assert broker.validate_no_secret_leak(payload) is False
 
 
-def test_provider_credential_readiness_summary_has_no_secret_leak():
+def test_provider_credential_readiness_summary_has_no_secret_leak() -> None:
     broker = SecretBroker()
     summary = build_provider_credential_readiness_summary()
 

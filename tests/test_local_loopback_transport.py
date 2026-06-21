@@ -4,7 +4,7 @@ from tests.m9_helpers import loopback_endpoint
 from ultimate_ai_agent.core.model_runtime import DisabledNetworkTransport, FakeModelRuntimeTransport
 
 
-def test_fake_transport_is_deterministic_and_marks_simulated_false():
+def test_fake_transport_is_deterministic_and_marks_simulated_false() -> None:
     endpoint = loopback_endpoint()
     payload = {"runtime_request_id": "mrt_req_1", "output_format": "text"}
     first = FakeModelRuntimeTransport().send(payload, endpoint, timeout_seconds=2)
@@ -17,7 +17,7 @@ def test_fake_transport_is_deterministic_and_marks_simulated_false():
     assert "Cookie" not in first.headers_summary
 
 
-def test_disabled_network_transport_never_sends():
+def test_disabled_network_transport_never_sends() -> None:
     response = DisabledNetworkTransport().send({"runtime_request_id": "mrt_req_1"}, loopback_endpoint(), timeout_seconds=2)
 
     assert response.status_code == 403
@@ -25,7 +25,7 @@ def test_disabled_network_transport_never_sends():
     assert "NETWORK_TRANSPORT_DISABLED" in response.body["reason_codes"]
 
 
-def test_transport_response_rejects_secret_body_and_headers():
+def test_transport_response_rejects_secret_body_and_headers() -> None:
     from ultimate_ai_agent.core.model_runtime import TransportResponse
 
     with pytest.raises(ValueError):

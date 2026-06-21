@@ -75,7 +75,7 @@ class AuthlessNetworkExpansionPolicy(_AuthlessNetworkExpansionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -127,7 +127,7 @@ class AuthlessNetworkExpansionRequest(_AuthlessNetworkExpansionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.actor_ref, "actor_ref"),
@@ -171,7 +171,7 @@ class AuthlessNetworkExpansionReceiptPlan(_AuthlessNetworkExpansionModel):
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_ref, "receipt_ref"),
             (self.request_ref, "request_ref"),
@@ -233,7 +233,7 @@ class AuthlessNetworkExpansionDecision(_AuthlessNetworkExpansionModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.request_ref, "request_ref"),

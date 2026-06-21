@@ -61,7 +61,7 @@ class RedactedObservabilityExportPolicy(_M55ObservabilityModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_policy_shape(self):
+    def validate_policy_shape(self) -> Any:
         _validate_m55_ref(self.policy_ref, "policy_ref")
         for ref in self.docs_refs:
             _require_nonempty(ref, "docs_ref")
@@ -91,7 +91,7 @@ class RedactedObservabilityExportRequest(_M55ObservabilityModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_request_shape(self):
+    def validate_request_shape(self) -> Any:
         _validate_m55_ref(self.request_ref, "request_ref")
         _validate_m55_ref(self.run_ref, "run_ref")
         _validate_m55_ref(self.export_ref, "export_ref")
@@ -122,7 +122,7 @@ class RedactedObservabilityExportItem(_M55ObservabilityModel):
     evidence_refs: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_item_shape(self):
+    def validate_item_shape(self) -> Any:
         for value, field_name in [
             (self.event_ref, "event_ref"),
             (self.run_ref, "run_ref"),
@@ -163,7 +163,7 @@ class RedactedObservabilityExportReceiptPlan(_M55ObservabilityModel):
     safe_summary: str = "M55 redacted observability export receipt plan."
 
     @model_validator(mode="after")
-    def validate_receipt_plan(self):
+    def validate_receipt_plan(self) -> Any:
         _validate_m55_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m55_ref(self.export_ref, "export_ref")
         if not self.redacted_only:
@@ -213,7 +213,7 @@ class RedactedObservabilityExportBundle(_M55ObservabilityModel):
     metadata_refs: list[str] = Field(default_factory=lambda: ["milestone:M55", "version:v0.59.0"])
 
     @model_validator(mode="after")
-    def validate_bundle(self):
+    def validate_bundle(self) -> Any:
         _validate_m55_ref(self.bundle_ref, "bundle_ref")
         _validate_m55_ref(self.request_ref, "request_ref")
         _validate_m55_ref(self.export_ref, "export_ref")

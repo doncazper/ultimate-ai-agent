@@ -57,7 +57,7 @@ class ManualSmokeReport(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def report_values_must_be_safe(self):
+    def report_values_must_be_safe(self) -> Any:
         if self.model_output_authoritative:
             raise ValueError("MODEL_OUTPUT_AUTHORITY_REJECTED")
         return self

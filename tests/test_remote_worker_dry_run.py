@@ -9,7 +9,7 @@ from ultimate_ai_agent.core.remote_workers import (
 )
 
 
-def test_dry_run_builds_envelope_and_dispatches_nothing():
+def test_dry_run_builds_envelope_and_dispatches_nothing() -> None:
     builder = RemoteDryRunBuilder()
     policy = RemoteExecutionPolicy(
         policy_id="policy_remote",
@@ -36,7 +36,7 @@ def test_dry_run_builds_envelope_and_dispatches_nothing():
     assert result.output_trust_level == RemoteOutputTrustLevel.untrusted_remote_output
 
 
-def test_dry_run_with_tailnet_planned_transport_is_blocked():
+def test_dry_run_with_tailnet_planned_transport_is_blocked() -> None:
     builder = RemoteDryRunBuilder()
     policy = RemoteExecutionPolicy(
         policy_id="policy_remote",

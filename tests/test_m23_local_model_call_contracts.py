@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.model_runtime import (
@@ -16,7 +17,7 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def valid_request(**overrides):
+def valid_request(**overrides: Any) -> Any:
     prompt = build_m23_fixed_prompt()
     payload = {
         "request_id": "m23_req_1",
@@ -33,7 +34,7 @@ def valid_request(**overrides):
     return LocalModelCallRequest(**payload)
 
 
-def test_m23_fixed_prompt_is_allowlisted_and_secret_clean():
+def test_m23_fixed_prompt_is_allowlisted_and_secret_clean() -> None:
     prompt = build_m23_fixed_prompt()
 
     assert prompt.prompt_id == M23_FIXED_LOCAL_MODEL_PROMPT_ID
@@ -44,7 +45,7 @@ def test_m23_fixed_prompt_is_allowlisted_and_secret_clean():
     assert validate_fixed_prompt(prompt) is prompt
 
 
-def test_m23_unknown_prompt_id_or_changed_prompt_text_is_rejected():
+def test_m23_unknown_prompt_id_or_changed_prompt_text_is_rejected() -> None:
     prompt = build_m23_fixed_prompt()
 
     with pytest.raises(ValueError, match="fixed prompt"):
@@ -65,12 +66,12 @@ def test_m23_unknown_prompt_id_or_changed_prompt_text_is_rejected():
         "openwebui_context_requested",
     ],
 )
-def test_m23_request_rejects_user_content_secrets_tools_memory_files_and_openwebui(field):
+def test_m23_request_rejects_user_content_secrets_tools_memory_files_and_openwebui(field: str) -> None:
     with pytest.raises(ValueError):
         validate_local_model_call_request(valid_request(**{field: True}))
 
 
-def test_m23_request_rejects_unsafe_limits_and_arbitrary_approval_ref_execution():
+def test_m23_request_rejects_unsafe_limits_and_arbitrary_approval_ref_execution() -> None:
     with pytest.raises(ValueError, match="timeout"):
         validate_local_model_call_request(valid_request(timeout_seconds=11))
 
@@ -87,7 +88,7 @@ def test_m23_request_rejects_unsafe_limits_and_arbitrary_approval_ref_execution(
         )
 
 
-def test_m23_transport_result_receipt_and_decision_remain_non_authoritative():
+def test_m23_transport_result_receipt_and_decision_remain_non_authoritative() -> None:
     decision = LocalModelCallDecision(
         decision_id="m23_decision_1",
         request_id="m23_req_1",
@@ -126,7 +127,7 @@ def test_m23_transport_result_receipt_and_decision_remain_non_authoritative():
     assert receipt.files_written is False
 
 
-def test_m23_transport_result_rejects_secret_like_summary_and_raw_storage():
+def test_m23_transport_result_rejects_secret_like_summary_and_raw_storage() -> None:
     with pytest.raises(ValueError, match="raw responses"):
         validate_local_model_transport_result(
             LocalModelCallTransportResult(
@@ -148,7 +149,7 @@ def test_m23_transport_result_rejects_secret_like_summary_and_raw_storage():
         )
 
 
-def test_m23_receipt_rejects_authoritative_or_mutating_claims():
+def test_m23_receipt_rejects_authoritative_or_mutating_claims() -> None:
     with pytest.raises(ValueError, match="non-authoritative"):
         validate_local_model_call_receipt(
             LocalModelCallReceipt(

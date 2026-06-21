@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -53,6 +53,6 @@ class ApprovalReceipt(BaseModel):
         )
 
     @model_validator(mode="after")
-    def receipt_must_be_secret_clean(self):
+    def receipt_must_be_secret_clean(self) -> Any:
         assert_approval_secret_clean(self.model_dump(mode="json"), "Approval receipt")
         return self

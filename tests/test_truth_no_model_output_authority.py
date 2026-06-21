@@ -14,7 +14,7 @@ from ultimate_ai_agent.core.truth import (
 )
 
 
-def test_model_runtime_and_openwebui_output_cannot_verify_truth():
+def test_model_runtime_and_openwebui_output_cannot_verify_truth() -> None:
     for kind in [
         TruthSourceKind.model_output,
         TruthSourceKind.runtime_output,

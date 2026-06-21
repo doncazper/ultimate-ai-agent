@@ -34,7 +34,7 @@ class ModelRuntimeAdapterManifest(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def manifest_must_be_simulated_and_secret_clean(self):
+    def manifest_must_be_simulated_and_secret_clean(self) -> Any:
         assert_secret_clean(self.model_dump(mode="json"), "Model runtime adapter manifest")
         if self.safety_mode == ModelRuntimeSafetyMode.disabled:
             raise ValueError("Model runtime adapter manifest cannot use disabled safety mode.")

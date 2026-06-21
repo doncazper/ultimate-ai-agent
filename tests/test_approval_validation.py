@@ -2,7 +2,7 @@ from tests.m85_helpers import approval_request, granted_authority
 from ultimate_ai_agent.core.approvals import ApprovalDecisionStatus, ApprovalRiskLevel, ApprovalValidationRequest
 
 
-def test_validation_denies_wrong_actor():
+def test_validation_denies_wrong_actor() -> None:
     authority, approval_ref = granted_authority()
     request = approval_request()
     validation = ApprovalValidationRequest.from_approval_request(request, approval_ref).model_copy(
@@ -16,7 +16,7 @@ def test_validation_denies_wrong_actor():
     assert "APPROVAL_ACTOR_MISMATCH" in decision.reason_codes
 
 
-def test_validation_denies_wrong_subject_action_resource_and_risk():
+def test_validation_denies_wrong_subject_action_resource_and_risk() -> None:
     authority, approval_ref = granted_authority()
     base = ApprovalValidationRequest.from_approval_request(approval_request(), approval_ref)
 

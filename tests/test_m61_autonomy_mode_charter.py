@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _toggle(**overrides):
+def _toggle(**overrides: Any) -> Any:
     data = {
         "toggle_ref": "autonomy-toggle:m61-observe",
         "capability_ref": "capability:autonomy-observe-only",

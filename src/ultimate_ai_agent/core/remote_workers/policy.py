@@ -32,7 +32,7 @@ class RemoteExecutionPolicy(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def policy_must_be_safe(self):
+    def policy_must_be_safe(self) -> Any:
         unsupported = []
         if self.remote_tailnet_enabled:
             unsupported.append("REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5")
@@ -78,7 +78,7 @@ class RemoteTransportSelectionPolicy(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def selection_policy_must_be_safe(self):
+    def selection_policy_must_be_safe(self) -> Any:
         if not self.prefer_open_source_first:
             raise ValueError("REMOTE_OPEN_SOURCE_FIRST_REQUIRED")
         if not self.prefer_self_hosted_control_plane:

@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.openwebui_bridge import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.openwebui_bridge import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "adapter_request_ref": "openwebui-bridge-adapter-request:m51-safe",
         "session_ref": "openwebui-session:m51-safe",

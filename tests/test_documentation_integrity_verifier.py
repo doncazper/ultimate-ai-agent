@@ -3,11 +3,11 @@ from pathlib import Path
 import scripts.verify_documentation_integrity as verifier
 
 
-def test_documentation_integrity_verifier_passes_current_repo():
+def test_documentation_integrity_verifier_passes_current_repo() -> None:
     assert verifier.verify() == []
 
 
-def test_documentation_integrity_verifier_flags_unsafe_active_claim(tmp_path: Path):
+def test_documentation_integrity_verifier_flags_unsafe_active_claim(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     readme = tmp_path / "README.md"
     readme.write_text(readme.read_text(encoding="utf-8") + "\nRemote execution is supported.\n", encoding="utf-8")
@@ -17,7 +17,7 @@ def test_documentation_integrity_verifier_flags_unsafe_active_claim(tmp_path: Pa
     assert any("remote execution is supported" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_milestone_charter_docs(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_milestone_charter_docs(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     (tmp_path / "docs/roadmap/MILESTONE_CHARTERS.md").unlink()
     (tmp_path / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md").unlink()
@@ -28,7 +28,7 @@ def test_documentation_integrity_verifier_requires_milestone_charter_docs(tmp_pa
     assert any("NEXT_SEQUENCE_v0_17_5" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_flags_m14_browser_smoke_claim(tmp_path: Path):
+def test_documentation_integrity_verifier_flags_m14_browser_smoke_claim(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     sequence = tmp_path / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"
     sequence.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +49,7 @@ def test_documentation_integrity_verifier_flags_m14_browser_smoke_claim(tmp_path
     assert any("M14 must not be local browser smoke" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_open_design_governance_docs(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_open_design_governance_docs(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     design_doc = tmp_path / "docs/design/OPEN_DESIGN_SYSTEM.md"
     design_doc.unlink(missing_ok=True)
@@ -59,7 +59,7 @@ def test_documentation_integrity_verifier_requires_open_design_governance_docs(t
     assert any("docs/design/OPEN_DESIGN_SYSTEM.md" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_design_tooling_safety_language(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_design_tooling_safety_language(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     tooling_policy = tmp_path / "docs/design/DESIGN_TOOLING_POLICY.md"
     tooling_policy.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +71,7 @@ def test_documentation_integrity_verifier_requires_design_tooling_safety_languag
     assert any("design docs must say no automatic design sync" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_openwebui_ccc_strategy_docs(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_openwebui_ccc_strategy_docs(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     (tmp_path / "docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md").unlink(missing_ok=True)
 
@@ -80,7 +80,7 @@ def test_documentation_integrity_verifier_requires_openwebui_ccc_strategy_docs(t
     assert any("docs/ui/OPENWEBUI_AND_CCC_STRATEGY.md" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_openwebui_bridge_contract_docs(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_openwebui_bridge_contract_docs(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.25.0")
     (tmp_path / "docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md").unlink(missing_ok=True)
 
@@ -89,7 +89,7 @@ def test_documentation_integrity_verifier_requires_openwebui_bridge_contract_doc
     assert any("docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_blocks_openwebui_runtime_claims(tmp_path: Path):
+def test_documentation_integrity_verifier_blocks_openwebui_runtime_claims(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.25.0")
     bridge = tmp_path / "docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md"
     bridge.write_text(
@@ -102,7 +102,7 @@ def test_documentation_integrity_verifier_blocks_openwebui_runtime_claims(tmp_pa
     assert any("OpenWebUI integration" in failure or "openwebui integration" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_ccc_native_client_boundaries(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_ccc_native_client_boundaries(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     native_strategy = tmp_path / "docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md"
     native_strategy.parent.mkdir(parents=True, exist_ok=True)
@@ -119,7 +119,7 @@ def test_documentation_integrity_verifier_requires_ccc_native_client_boundaries(
     assert any("CCC native strategy must say no native build workflow is added" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_post_m20_roadmap_docs(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_post_m20_roadmap_docs(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     (tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md").unlink(missing_ok=True)
     (tmp_path / "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md").unlink(missing_ok=True)
@@ -132,7 +132,7 @@ def test_documentation_integrity_verifier_requires_post_m20_roadmap_docs(tmp_pat
     assert any("docs/roadmap/CAPABILITY_LAYERING_STRATEGY.md" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_rejects_active_m34_label_mismatch(tmp_path: Path):
+def test_documentation_integrity_verifier_rejects_active_m34_label_mismatch(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.37.3")
     expected = "v0.38.0 / M34 - Broader File Capability Review"
     active_docs = {
@@ -176,7 +176,7 @@ def test_documentation_integrity_verifier_rejects_active_m34_label_mismatch(tmp_
     )
 
 
-def test_documentation_integrity_verifier_requires_m34_m60_supersession_labels(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_m34_m60_supersession_labels(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.37.4")
     _write_m34_m60_active_docs(tmp_path)
     roadmap = tmp_path / "docs/roadmap/M34_M60_ROADMAP_SUPERSESSION.md"
@@ -197,7 +197,7 @@ def test_documentation_integrity_verifier_requires_m34_m60_supersession_labels(t
     )
 
 
-def test_documentation_integrity_verifier_rejects_stale_m35_m40_projection(tmp_path: Path):
+def test_documentation_integrity_verifier_rejects_stale_m35_m40_projection(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.37.4")
     _write_m34_m60_active_docs(tmp_path)
     roadmap = tmp_path / "docs/canonical/09_roadmap.md"
@@ -216,7 +216,7 @@ def test_documentation_integrity_verifier_rejects_stale_m35_m40_projection(tmp_p
     )
 
 
-def test_documentation_integrity_verifier_requires_m60_status_on_m60_row(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_m60_status_on_m60_row(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.64.0")
     charters = tmp_path / "docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md"
     charters.write_text(
@@ -247,7 +247,7 @@ def test_documentation_integrity_verifier_requires_m60_status_on_m60_row(tmp_pat
     assert "roadmap sequence must mark M60/v0.64.0 implemented" in failures
 
 
-def test_documentation_integrity_verifier_requires_m34_review_docs(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_m34_review_docs(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.38.0")
     _write_m34_m60_active_docs(tmp_path, m34_released=True)
     _write_m34_review_docs(tmp_path)
@@ -259,7 +259,7 @@ def test_documentation_integrity_verifier_requires_m34_review_docs(tmp_path: Pat
     assert any("BROADER_FILE_CAPABILITY_REVIEW.md" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_rejects_m34_runtime_capability_claim(tmp_path: Path):
+def test_documentation_integrity_verifier_rejects_m34_runtime_capability_claim(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.38.0")
     _write_m34_m60_active_docs(tmp_path, m34_released=True)
     _write_m34_review_docs(tmp_path)
@@ -276,7 +276,7 @@ def test_documentation_integrity_verifier_rejects_m34_runtime_capability_claim(t
     assert any("M34 docs must not claim file review UI implementation" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_rejects_stale_active_m34_currentness(tmp_path: Path):
+def test_documentation_integrity_verifier_rejects_stale_active_m34_currentness(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.38.1")
     _write_m34_m60_active_docs(tmp_path, m34_released=True)
     _write_m34_review_docs(tmp_path)
@@ -298,7 +298,7 @@ def test_documentation_integrity_verifier_rejects_stale_active_m34_currentness(t
     assert any("active M33 docs must not say M34 remains planned/provisional" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_rejects_stale_active_baseline_labels(tmp_path: Path):
+def test_documentation_integrity_verifier_rejects_stale_active_baseline_labels(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.38.2")
     _write_m34_m60_active_docs(tmp_path, m34_released=True)
     _write_m34_review_docs(tmp_path)
@@ -337,7 +337,7 @@ def test_documentation_integrity_verifier_rejects_stale_active_baseline_labels(t
     )
 
 
-def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tmp_path: Path):
+def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     roadmap = tmp_path / "docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md"
     roadmap.parent.mkdir(parents=True, exist_ok=True)
@@ -353,7 +353,7 @@ def test_documentation_integrity_verifier_rejects_implemented_post_m20_claims(tm
     assert any("M21-M40 docs must not claim implementation" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_post_m18_status_labels(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_post_m18_status_labels(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.22.1")
     sequence = tmp_path / "docs/roadmap/NEXT_SEQUENCE_v0_17_5.md"
     sequence.write_text(
@@ -374,7 +374,7 @@ def test_documentation_integrity_verifier_requires_post_m18_status_labels(tmp_pa
     assert any("roadmap sequence must mark M18/v0.22.0 as implemented" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_rejects_stale_v023_roadmap_currentness(tmp_path: Path):
+def test_documentation_integrity_verifier_rejects_stale_v023_roadmap_currentness(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.23.1")
     roadmap = tmp_path / "docs/canonical/09_roadmap.md"
     roadmap.write_text(
@@ -398,7 +398,7 @@ def test_documentation_integrity_verifier_rejects_stale_v023_roadmap_currentness
     assert any("active roadmap docs must not be maintained only through v0.22.1" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_requires_m20_device_capability_docs(tmp_path: Path):
+def test_documentation_integrity_verifier_requires_m20_device_capability_docs(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.24.0")
     roadmap = tmp_path / "docs/canonical/09_roadmap.md"
     roadmap.write_text(
@@ -415,7 +415,7 @@ def test_documentation_integrity_verifier_requires_m20_device_capability_docs(tm
     assert any("M21/v0.25.0 planned/provisional" in failure for failure in failures)
 
 
-def test_documentation_integrity_verifier_rejects_active_historical_verifiers(tmp_path: Path):
+def test_documentation_integrity_verifier_rejects_active_historical_verifiers(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path, version="0.29.4")
     (tmp_path / "verify_ultimate_ai_agent_v0_5_4.py").write_text(
         "REQ = ['README_IMPORT_v0_5_4.md']\n",

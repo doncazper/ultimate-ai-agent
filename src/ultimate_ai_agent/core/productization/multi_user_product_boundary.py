@@ -98,7 +98,7 @@ class MultiUserProductBoundaryPolicy(_MultiUserProductBoundaryModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -189,7 +189,7 @@ class MultiUserProductBoundaryRequest(_MultiUserProductBoundaryModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -279,7 +279,7 @@ class MultiUserProductBoundaryRecord(_MultiUserProductBoundaryModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -472,7 +472,7 @@ def validate_multi_user_product_boundary_record(
     return validated
 
 
-def _request_ref_pairs(request: MultiUserProductBoundaryRequest):
+def _request_ref_pairs(request: MultiUserProductBoundaryRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.product_boundary_ref, "product_boundary_ref"),
@@ -486,7 +486,7 @@ def _request_ref_pairs(request: MultiUserProductBoundaryRequest):
     ]
 
 
-def _record_ref_pairs(record: MultiUserProductBoundaryRecord):
+def _record_ref_pairs(record: MultiUserProductBoundaryRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.product_boundary_ref, "product_boundary_ref"),

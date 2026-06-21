@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Iterable
+from typing import Any, Iterable
 
 from pydantic import ValidationError
 
@@ -40,7 +40,7 @@ def _safe_decision(
     status: TaskPlanDecisionStatus,
     reasons: list[str],
     safe_message: str,
-    derived_plan_risk_level,
+    derived_plan_risk_level: Any,
 ) -> TaskPlanDecision:
     decision_id = f"task-plan-decision:{plan_id.split(':', 1)[-1]}"
     receipt_plan = TaskPlanReceiptPlan(

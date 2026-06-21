@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.providers.validation import validate_provider_manife
 
 
 class ProviderRegistry:
-    def __init__(self):
+    def __init__(self) -> None:
         self._providers: Dict[str, ProviderManifest] = {}
 
     def register_provider(self, manifest: ProviderManifest) -> None:

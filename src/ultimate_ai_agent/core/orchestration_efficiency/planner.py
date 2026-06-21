@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 import hashlib
 from dataclasses import dataclass
@@ -34,7 +35,7 @@ class _EligibleCandidate:
 
 
 class OrchestrationEfficiencyPlanner:
-    def __init__(self, router: ModelRouter | None = None, cost_governor: CostGovernor | None = None):
+    def __init__(self, router: ModelRouter | None = None, cost_governor: CostGovernor | None = None) -> None:
         self.router = router or ModelRouter()
         self.cost_governor = cost_governor or self.router.cost_governor
 
@@ -291,7 +292,7 @@ class OrchestrationEfficiencyPlanner:
         self,
         request: ModelRouteRequest,
         profile: ModelCapabilityProfile,
-        prepared,
+        prepared: Any,
         routing_budgets: list[CostBudget],
     ) -> tuple[ModelRouteDecision, float | None]:
         profile_reasons = self.router._profile_rejection_reasons(request, profile, prepared)
@@ -377,7 +378,7 @@ class OrchestrationEfficiencyPlanner:
         status: ModelRouteStatus,
         *,
         approval_required: bool,
-        prepared,
+        prepared: Any,
     ) -> ModelRouteDecision:
         return ModelRouteDecision(
             request_id=request.request_id,

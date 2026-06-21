@@ -1,3 +1,4 @@
+from pathlib import Path
 from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluators import (
     EXPECTED_M21_OPENAPI_PATH_COUNT,
@@ -12,7 +13,7 @@ from scripts.verify_all import (
 )
 
 
-def test_m21_openwebui_bridge_contract_criterion_exists_and_passes():
+def test_m21_openwebui_bridge_contract_criterion_exists_and_passes() -> None:
     criteria = default_foundation_gate_criteria()
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
@@ -34,7 +35,7 @@ def test_m21_openwebui_bridge_contract_criterion_exists_and_passes():
     assert report.passed_count == 1
 
 
-def test_m21_openapi_route_guard_rejects_openwebui_runtime_expansion():
+def test_m21_openapi_route_guard_rejects_openwebui_runtime_expansion() -> None:
     failures = m21_openapi_route_failures(
         {
             "/health",
@@ -61,7 +62,7 @@ def test_m21_openapi_route_guard_rejects_openwebui_runtime_expansion():
     assert any("/chat/run" in failure for failure in failures)
 
 
-def test_m21_gate_scans_openwebui_bridge_package_for_forbidden_runtime_fragments(tmp_path):
+def test_m21_gate_scans_openwebui_bridge_package_for_forbidden_runtime_fragments(tmp_path: Path) -> None:
     bridge_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "openwebui_bridge" / "runtime.py"
     bridge_file.parent.mkdir(parents=True)
     bridge_file.write_text("OPENWEBUI_API_KEY = 'blocked'\n", encoding="utf-8")
@@ -72,7 +73,7 @@ def test_m21_gate_scans_openwebui_bridge_package_for_forbidden_runtime_fragments
     assert any("openwebui_api_key" in failure for failure in failures)
 
 
-def test_m21_gate_recursively_rejects_forbidden_openwebui_config_paths_outside_docs(tmp_path):
+def test_m21_gate_recursively_rejects_forbidden_openwebui_config_paths_outside_docs(tmp_path: Path) -> None:
     forbidden_config = tmp_path / "sandbox" / "nested" / "openwebui.config.yml"
     allowed_doc = tmp_path / "docs" / "openwebui" / "openwebui.config.yml"
     forbidden_config.parent.mkdir(parents=True)
@@ -86,7 +87,7 @@ def test_m21_gate_recursively_rejects_forbidden_openwebui_config_paths_outside_d
     assert "docs/openwebui/openwebui.config.yml" not in matches
 
 
-def test_verify_all_openwebui_helpers_match_gate_hardening(tmp_path):
+def test_verify_all_openwebui_helpers_match_gate_hardening(tmp_path: Path) -> None:
     config_path = tmp_path / "tools" / "openwebui_plugins" / "README.md"
     bridge_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "openwebui_bridge" / "client.py"
     config_path.parent.mkdir(parents=True)

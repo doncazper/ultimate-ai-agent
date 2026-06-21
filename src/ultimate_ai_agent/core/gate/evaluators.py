@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import tempfile
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 
 from pydantic import ValidationError
 
@@ -304,12 +304,12 @@ def m21_forbidden_openwebui_runtime_fragment_failures(root: Path) -> List[str]:
 
 
 class FoundationGateEvaluator:
-    def __init__(self, root: Optional[Path] = None):
+    def __init__(self, root: Optional[Path] = None) -> None:
         self.root = root or Path(__file__).resolve().parents[4]
         self.src_root = self.root / "src" / "ultimate_ai_agent"
 
     @contextmanager
-    def _repository_filesystem_cache(self):
+    def _repository_filesystem_cache(self) -> Iterator[Any]:
         original_rglob = Path.rglob
         original_read_text = Path.read_text
         rglob_cache = {}
@@ -328,7 +328,7 @@ class FoundationGateEvaluator:
             cacheable_paths[path] = cacheable
             return cacheable
 
-        def cached_rglob(path: Path, pattern: str):
+        def cached_rglob(path: Path, pattern: str) -> Any:
             if not is_cacheable(path):
                 return original_rglob(path, pattern)
             key = (path, pattern)
@@ -336,7 +336,7 @@ class FoundationGateEvaluator:
                 rglob_cache[key] = tuple(original_rglob(path, pattern))
             return iter(rglob_cache[key])
 
-        def cached_read_text(path: Path, *args, **kwargs):
+        def cached_read_text(path: Path, *args: Any, **kwargs: Any) -> Any:
             if not is_cacheable(path):
                 return original_read_text(path, *args, **kwargs)
             key = (path, args, tuple(sorted(kwargs.items())))
@@ -353,7 +353,7 @@ class FoundationGateEvaluator:
             Path.read_text = original_read_text
 
     @contextmanager
-    def _openapi_contract_cache(self):
+    def _openapi_contract_cache(self) -> Iterator[Any]:
         from ultimate_ai_agent.api import app as api_app
         from ultimate_ai_agent.api import openapi as api_openapi
 
@@ -363,12 +363,12 @@ class FoundationGateEvaluator:
         schema_cache = {}
         contract_cache = {}
 
-        def cached_openapi():
+        def cached_openapi() -> Any:
             if "schema" not in schema_cache:
                 schema_cache["schema"] = original_openapi()
             return schema_cache["schema"]
 
-        def cached_verify_openapi_contract(candidate_app):
+        def cached_verify_openapi_contract(candidate_app: Any) -> Any:
             if candidate_app is not app:
                 return original_verify_openapi_contract(candidate_app)
             if "status" not in contract_cache:
@@ -2725,7 +2725,7 @@ class FoundationGateEvaluator:
 
         adapter = LocalLoopbackModelRuntimeAdapter()
         policy = LoopbackRuntimePolicy(policy_id="m9_gate_policy", allow_real_loopback_execution=True)
-        def endpoint(base_url: str):
+        def endpoint(base_url: str) -> Any:
             return LoopbackRuntimeEndpoint(
                 endpoint_id="m9_gate_endpoint",
                 base_url=base_url,
@@ -6673,7 +6673,7 @@ class FoundationGateEvaluator:
             if manifest.model_provider_calls_enabled or manifest.context_pack_authority_enabled:
                 failures.append("M27 manifest enables model calls or context-pack authority")
 
-            def safe_intent(**overrides):
+            def safe_intent(**overrides: Any) -> Any:
                 data = {
                     "intent_id": "tool-intent:m27-gate",
                     "tool_id": "file.metadata_preview",
@@ -6981,7 +6981,7 @@ class FoundationGateEvaluator:
             if not safe_decision.receipt_plan or safe_decision.receipt_plan.execution_performed:
                 failures.append("M28 safe decision receipt plan is missing or executable")
 
-            def require_denial(decision, required_reason: str, label: str) -> None:
+            def require_denial(decision: Any, required_reason: str, label: str) -> None:
                 if decision.allowed_for_policy or decision.execution_authorized or decision.execution_performed:
                     failures.append(f"M28 denied probe was allowed: {label}")
                 if required_reason not in decision.reason_codes:
@@ -7416,7 +7416,7 @@ class FoundationGateEvaluator:
             elif safe_decision.receipt_plan.derived_plan_risk_level != safe_decision.derived_plan_risk_level:
                 failures.append("M29 receipt plan did not preserve derived plan risk")
 
-            def require_denial(decision, required_reason: str, label: str) -> None:
+            def require_denial(decision: Any, required_reason: str, label: str) -> None:
                 if decision.valid_for_review or decision.execution_authorized or decision.execution_performed:
                     failures.append(f"M29 denied probe was allowed: {label}")
                 if decision.scheduler_registered:
@@ -7766,7 +7766,7 @@ class FoundationGateEvaluator:
             if not safe_decision.receipt_plan or safe_decision.receipt_plan.execution_performed:
                 failures.append("M30 safe transition receipt is missing or executable")
 
-            def require_denial(decision, required_reason: str, label: str) -> None:
+            def require_denial(decision: Any, required_reason: str, label: str) -> None:
                 if decision.status != ExecutionTransitionStatus.denied or decision.execution_performed:
                     failures.append(f"M30 denied probe was allowed: {label}")
                 if required_reason not in decision.reason_codes:
@@ -8094,7 +8094,7 @@ class FoundationGateEvaluator:
             if safe_decision.result and (safe_decision.result.output.raw_input_echoed or safe_decision.result.raw_content_stored):
                 failures.append("M31 no-op runtime echoed or stored raw content")
 
-            def require_denial(decision, required_reason: str, label: str) -> None:
+            def require_denial(decision: Any, required_reason: str, label: str) -> None:
                 if decision.status == ToolInvocationStatus.noop_completed or decision.execution_performed:
                     failures.append(f"M31 denied probe was allowed: {label}")
                 if decision.side_effects_performed:
@@ -8367,7 +8367,7 @@ class FoundationGateEvaluator:
                     if "gate metadata only" in str(dumped):
                         failures.append("M32 filesystem metadata output leaked file content")
 
-                def require_denial(decision, required_reason: str, label: str) -> None:
+                def require_denial(decision: Any, required_reason: str, label: str) -> None:
                     if decision.status == ToolInvocationStatus.metadata_completed or decision.execution_performed:
                         failures.append(f"M32 denied probe was allowed: {label}")
                     if decision.side_effects_performed:
@@ -8737,7 +8737,7 @@ class FoundationGateEvaluator:
                         if "REDACTED_FILE_PREVIEW_OUTPUT_CONTAINS_SECRET_LIKE_CONTENT" not in str(exc):
                             failures.append("M33 redacted preview output rejected unsafe content with unexpected reason")
 
-                def require_denial(decision, required_reason: str, label: str) -> None:
+                def require_denial(decision: Any, required_reason: str, label: str) -> None:
                     if decision.status == ToolInvocationStatus.preview_completed or decision.execution_performed:
                         failures.append(f"M33 denied probe was allowed: {label}")
                     if decision.side_effects_performed:
@@ -18397,7 +18397,7 @@ class FoundationGateEvaluator:
                 ToolRuntimeAdapter,
             )
 
-            def fake_transport(_request, _policy):
+            def fake_transport(_request: Any, _policy: Any) -> Any:
                 return ReadOnlyHttpFetchTransportResponse(
                     status_code=200,
                     content_type="text/plain",
@@ -19007,7 +19007,7 @@ class FoundationGateEvaluator:
                 safe_summary="Observe an injected safe browser page snapshot without browser control.",
             )
 
-            def transport(_request, _policy):
+            def transport(_request: Any, _policy: Any) -> Any:
                 return BrowserObserveOnlyObservation(
                     title="M74 safe page",
                     safe_url_ref="browser-url:m74-safe-doc",
@@ -49799,7 +49799,7 @@ class FoundationGateEvaluator:
             from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
 
             client = TestClient(app)
-            def kernel_payload(workspace_root: Path, approval_ref: str):
+            def kernel_payload(workspace_root: Path, approval_ref: str) -> dict[str, Any]:
                 return {
                     "request_id": "ktr_gate_v0292",
                     "run_id": "run_gate_v0292",
@@ -50386,7 +50386,7 @@ class FoundationGateEvaluator:
             },
         }
 
-    def _m85_gate_approval_request(self, subject_id: str = "m85_gate_subject"):
+    def _m85_gate_approval_request(self, subject_id: str = "m85_gate_subject") -> Any:
         from datetime import timedelta
 
         from ultimate_ai_agent.core.approvals import ApprovalRequest, ApprovalRiskLevel, ApprovalSubjectType
@@ -50407,7 +50407,7 @@ class FoundationGateEvaluator:
             expires_at=utc_now() + timedelta(minutes=30),
         )
 
-    def _m85_runtime_manifest(self):
+    def _m85_runtime_manifest(self) -> Any:
         from ultimate_ai_agent.core.model_runtime import ModelRuntimeAdapterManifest, ModelRuntimeKind, ModelRuntimeSafetyMode
 
         return ModelRuntimeAdapterManifest(
@@ -50431,7 +50431,7 @@ class FoundationGateEvaluator:
             enabled=True,
         )
 
-    def _m9_loopback_endpoint(self):
+    def _m9_loopback_endpoint(self) -> Any:
         from ultimate_ai_agent.core.model_runtime import LoopbackRuntimeEndpoint, ModelRuntimeKind
 
         return LoopbackRuntimeEndpoint(
@@ -50446,7 +50446,7 @@ class FoundationGateEvaluator:
             version="0.0.0",
         )
 
-    def _m9_loopback_policy(self):
+    def _m9_loopback_policy(self) -> Any:
         from ultimate_ai_agent.core.model_runtime import LoopbackRuntimePolicy
 
         return LoopbackRuntimePolicy(
@@ -50456,7 +50456,7 @@ class FoundationGateEvaluator:
             max_output_tokens=1024,
         )
 
-    def _m9_runtime_manifest(self):
+    def _m9_runtime_manifest(self) -> Any:
         from ultimate_ai_agent.core.model_runtime import ModelRuntimeAdapterManifest, ModelRuntimeKind, ModelRuntimeSafetyMode
 
         return ModelRuntimeAdapterManifest(
@@ -50483,7 +50483,7 @@ class FoundationGateEvaluator:
             enabled=True,
         )
 
-    def _m9_runtime_request(self, approval_ref: Optional[str] = None):
+    def _m9_runtime_request(self, approval_ref: Optional[str] = None) -> Any:
         from ultimate_ai_agent.core.model_runtime import ModelRuntimeOutputFormat, ModelRuntimeRequest, ModelRuntimeSafetyMode
 
         return ModelRuntimeRequest(
@@ -50509,7 +50509,7 @@ class FoundationGateEvaluator:
             metadata={"route_reason_codes": ["SELECTED_PROFILE"]},
         )
 
-    def _m10_smoke_endpoint(self, **overrides):
+    def _m10_smoke_endpoint(self, **overrides: Any) -> Any:
         from ultimate_ai_agent.core.model_runtime import LoopbackRuntimeEndpoint, ModelRuntimeKind
 
         payload = {
@@ -50526,7 +50526,7 @@ class FoundationGateEvaluator:
         payload.update(overrides)
         return LoopbackRuntimeEndpoint(**payload)
 
-    def _m10_smoke_request(self, **overrides):
+    def _m10_smoke_request(self, **overrides: Any) -> Any:
         from ultimate_ai_agent.core.model_runtime import DEFAULT_MANUAL_LOOPBACK_SMOKE_PROMPT, ManualLoopbackSmokePolicy, ManualLoopbackSmokeRequest
 
         payload = {
@@ -50544,7 +50544,7 @@ class FoundationGateEvaluator:
         payload.update(overrides)
         return ManualLoopbackSmokeRequest(**payload)
 
-    def _m105_node_registry(self):
+    def _m105_node_registry(self) -> Any:
         from ultimate_ai_agent.core.remote_workers import (
             NodeCapabilitySet,
             NodeIdentity,
@@ -50571,12 +50571,12 @@ class FoundationGateEvaluator:
         )
         return registry
 
-    def _m105_transport_registry(self):
+    def _m105_transport_registry(self) -> Any:
         from ultimate_ai_agent.core.remote_workers import default_remote_transport_registry
 
         return default_remote_transport_registry()
 
-    def _m105_remote_job(self, **overrides):
+    def _m105_remote_job(self, **overrides: Any) -> Any:
         from ultimate_ai_agent.core.remote_workers import RemoteAuditContext, RemoteJobEnvelope, RemoteRiskLevel
 
         payload = {

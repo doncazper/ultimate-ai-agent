@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.network import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.network import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "review_ref": "network-tool-contract-review:m71",
         "candidate_ref": "network-tool-candidate:m71-read-only-http-fetch",

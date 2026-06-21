@@ -1,9 +1,10 @@
+import pytest
 import json
 
 import scripts.verify_release_lanes as release_lanes
 
 
-def test_release_lanes_cover_required_categories():
+def test_release_lanes_cover_required_categories() -> None:
     manifest = release_lanes.build_release_lane_manifest()
 
     assert manifest["schema_version"] == "uaa_release_verification_lanes.v1"
@@ -26,7 +27,7 @@ def test_release_lanes_cover_required_categories():
     assert manifest["accepted_failures"] == []
 
 
-def test_release_lanes_define_status_semantics_and_commands():
+def test_release_lanes_define_status_semantics_and_commands() -> None:
     manifest = release_lanes.build_release_lane_manifest()
 
     assert set(manifest["status_semantics"]) == {
@@ -48,7 +49,7 @@ def test_release_lanes_define_status_semantics_and_commands():
             assert command["argv"][0] in {".venv/bin/python", "make"}
 
 
-def test_durability_lane_includes_backup_restore_verification():
+def test_durability_lane_includes_backup_restore_verification() -> None:
     manifest = release_lanes.build_release_lane_manifest()
     durability = next(lane for lane in manifest["lanes"] if lane["lane_id"] == "durability")
 
@@ -58,7 +59,7 @@ def test_durability_lane_includes_backup_restore_verification():
     assert "docs/production/BACKUP_RESTORE_VERIFICATION.md" in durability["evidence_refs"]
 
 
-def test_openapi_lane_includes_route_module_ownership_guard():
+def test_openapi_lane_includes_route_module_ownership_guard() -> None:
     manifest = release_lanes.build_release_lane_manifest()
     openapi = next(lane for lane in manifest["lanes"] if lane["lane_id"] == "openapi")
 
@@ -71,7 +72,7 @@ def test_openapi_lane_includes_route_module_ownership_guard():
     assert "docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md" in openapi["evidence_refs"]
 
 
-def test_security_redaction_lane_includes_artifact_scan():
+def test_security_redaction_lane_includes_artifact_scan() -> None:
     manifest = release_lanes.build_release_lane_manifest()
     security = next(
         lane for lane in manifest["lanes"] if lane["lane_id"] == "security-redaction"
@@ -92,7 +93,7 @@ def test_security_redaction_lane_includes_artifact_scan():
     assert "scripts/verify_security_redaction_artifacts.py" in security["evidence_refs"]
 
 
-def test_release_lane_manifest_is_report_safe():
+def test_release_lane_manifest_is_report_safe() -> None:
     manifest = release_lanes.build_release_lane_manifest()
 
     safety = manifest["report_safety"]
@@ -107,7 +108,7 @@ def test_release_lane_manifest_is_report_safe():
     assert safety["credential_material_included"] is False
 
 
-def test_release_lane_script_emits_parseable_json(capsys):
+def test_release_lane_script_emits_parseable_json(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = release_lanes.main(["--json"])
 
     assert exit_code == 0
@@ -118,7 +119,7 @@ def test_release_lane_script_emits_parseable_json(capsys):
     assert payload["lane_count"] == 10
 
 
-def test_release_lane_script_does_not_add_command_execution_imports():
+def test_release_lane_script_does_not_add_command_execution_imports() -> None:
     source = release_lanes.__file__
     assert source is not None
     with open(source, encoding="utf-8") as handle:

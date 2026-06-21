@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -32,7 +32,7 @@ class ModelRouteRequest(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def prompt_summary_must_be_secret_clean(self):
+    def prompt_summary_must_be_secret_clean(self) -> Any:
         if scan_payload_for_secrets(self.prompt_summary):
             raise ValueError("Model route prompt_summary contains secret-like content.")
         return self

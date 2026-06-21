@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 
 from ultimate_ai_agent.core.mobile_companion import (
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.mobile_companion.approval_capture import (
 from ultimate_ai_agent.core.time import utc_now
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "approval_ref": "mobile-review-approval-capture:approval",
         "actor_ref": "user:mobile-reviewer",
@@ -43,7 +44,7 @@ def _request(**overrides):
     return MobileReviewApprovalCaptureRequest(**data)
 
 
-def _record(**overrides):
+def _record(**overrides: Any) -> Any:
     decision = capture_mobile_review_approval(_request(**overrides), current_time=utc_now())
     assert decision.record is not None
     return decision.record

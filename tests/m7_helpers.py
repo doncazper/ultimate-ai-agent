@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.context_budget import ContextBudget
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
@@ -81,7 +82,7 @@ def cloud_profile(
     )
 
 
-def policy(**overrides) -> ModelRoutingPolicy:
+def policy(**overrides: Any) -> ModelRoutingPolicy:
     payload = {
         "policy_id": "policy_test",
         "required_capabilities": [ModelTaskCapability.chat],

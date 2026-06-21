@@ -17,7 +17,7 @@ EXPECTED_RUNTIME_KINDS = {
 }
 
 
-def test_default_local_runtime_activation_manifest_is_contract_only():
+def test_default_local_runtime_activation_manifest_is_contract_only() -> None:
     manifest = build_default_local_runtime_activation_manifest()
 
     assert manifest.baseline_version == "0.26.0"
@@ -38,7 +38,7 @@ def test_default_local_runtime_activation_manifest_is_contract_only():
     assert validate_local_runtime_activation_manifest(manifest) is manifest
 
 
-def test_default_manifest_profiles_cover_planned_local_runtime_families():
+def test_default_manifest_profiles_cover_planned_local_runtime_families() -> None:
     manifest = build_default_local_runtime_activation_manifest()
     kinds = {profile.kind for profile in manifest.provider_profiles}
 

@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 
 from ultimate_ai_agent.core.file_review import (
@@ -16,7 +17,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _preview_output(**overrides):
+def _preview_output(**overrides: Any) -> Any:
     data = {
         "output_ref": "redacted-file-preview-output:m35",
         "status": RedactedFilePreviewStatus.preview_generated,
@@ -35,7 +36,7 @@ def _preview_output(**overrides):
     return RedactedFilePreviewOutput(**data)
 
 
-def _packet(**overrides):
+def _packet(**overrides: Any) -> Any:
     return build_file_review_packet(
         preview_output=_preview_output(),
         actor_ref="user:m35",
@@ -46,7 +47,7 @@ def _packet(**overrides):
     )
 
 
-def _approval(packet, **overrides):
+def _approval(packet: Any, **overrides: Any) -> Any:
     data = {
         "approval_ref": "file-review-approval:m35",
         "actor_ref": "user:m35",
@@ -62,7 +63,7 @@ def _approval(packet, **overrides):
     return UserFileReviewApproval(**data)
 
 
-def test_default_file_review_policy_is_review_only_and_non_authoritative():
+def test_default_file_review_policy_is_review_only_and_non_authoritative() -> None:
     policy = FileReviewWorkflowPolicy()
 
     assert policy.file_review_workflow_enabled is True
@@ -83,7 +84,7 @@ def test_default_file_review_policy_is_review_only_and_non_authoritative():
     assert policy.backend_routes_enabled is False
 
 
-def test_review_packet_is_built_from_redacted_preview_output_only():
+def test_review_packet_is_built_from_redacted_preview_output_only() -> None:
     packet = _packet()
 
     assert packet.status == FileReviewPacketStatus.ready_for_review
@@ -107,7 +108,7 @@ def test_review_packet_is_built_from_redacted_preview_output_only():
     assert "super-secret-value" not in dumped
 
 
-def test_exact_approval_binding_allows_review_only_decision():
+def test_exact_approval_binding_allows_review_only_decision() -> None:
     packet = _packet()
     approval = _approval(packet)
 
@@ -128,7 +129,7 @@ def test_exact_approval_binding_allows_review_only_decision():
     assert decision.receipt_plan.receipt_is_authority is False
 
 
-def test_mismatched_approval_packet_is_denied():
+def test_mismatched_approval_packet_is_denied() -> None:
     packet = _packet()
     approval = _approval(packet).model_copy(update={"review_packet_ref": "file-review-packet:other"})
 
@@ -141,7 +142,7 @@ def test_mismatched_approval_packet_is_denied():
     assert decision.execution_performed is False
 
 
-def test_model_copy_mutated_packet_file_ref_is_denied_at_gate():
+def test_model_copy_mutated_packet_file_ref_is_denied_at_gate() -> None:
     packet = _packet()
     approval = _approval(packet)
     mutated_packet = packet.model_copy(update={"source": packet.source.model_copy(update={"file_ref": "file-ref:m35-mutated"})})
@@ -155,7 +156,7 @@ def test_model_copy_mutated_packet_file_ref_is_denied_at_gate():
     assert decision.execution_performed is False
 
 
-def test_model_copy_mutated_packet_safe_path_ref_is_denied_at_gate():
+def test_model_copy_mutated_packet_safe_path_ref_is_denied_at_gate() -> None:
     packet = _packet()
     approval = _approval(packet)
     mutated_packet = packet.model_copy(

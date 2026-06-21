@@ -275,7 +275,7 @@ class SessionEvent(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def validate_session_event(self):
+    def validate_session_event(self) -> Any:
         if self.schema_version != SESSION_EVENT_SCHEMA_VERSION:
             raise ValueError("SESSION_LOG_SCHEMA_VERSION_UNSUPPORTED")
         _validate_metadata_payload(self.metadata, "metadata")
@@ -382,7 +382,7 @@ class ClientErrorReport(BaseModel):
 class SessionLogStore:
     """Durable local JSONL store for redacted UAA-managed session events."""
 
-    def __init__(self, root: str | Path | None = None, *, filepath: str | Path | None = None):
+    def __init__(self, root: str | Path | None = None, *, filepath: str | Path | None = None) -> None:
         if filepath is not None:
             self.filepath = Path(filepath)
             self.root = self.filepath.parent.parent

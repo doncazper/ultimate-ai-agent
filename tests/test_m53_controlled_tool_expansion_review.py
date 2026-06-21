@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.tools import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.tools import (
 )
 
 
-def _candidate(**overrides):
+def _candidate(**overrides: Any) -> Any:
     data = {
         "candidate_ref": "tool-expansion-candidate:m53-safe",
         "safe_name": "Metadata-only review candidate",

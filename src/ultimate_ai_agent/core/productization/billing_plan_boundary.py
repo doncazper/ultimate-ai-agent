@@ -101,7 +101,7 @@ class BillingPlanBoundaryPolicy(_BillingPlanBoundaryModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -198,7 +198,7 @@ class BillingPlanBoundaryRequest(_BillingPlanBoundaryModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -293,7 +293,7 @@ class BillingPlanBoundaryRecord(_BillingPlanBoundaryModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -471,7 +471,7 @@ def validate_billing_plan_boundary_record(
     return validated
 
 
-def _request_ref_pairs(request: BillingPlanBoundaryRequest):
+def _request_ref_pairs(request: BillingPlanBoundaryRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.billing_boundary_ref, "billing_boundary_ref"),
@@ -485,7 +485,7 @@ def _request_ref_pairs(request: BillingPlanBoundaryRequest):
     ]
 
 
-def _record_ref_pairs(record: BillingPlanBoundaryRecord):
+def _record_ref_pairs(record: BillingPlanBoundaryRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.billing_boundary_ref, "billing_boundary_ref"),
@@ -500,7 +500,7 @@ def _record_ref_pairs(record: BillingPlanBoundaryRecord):
     ]
 
 
-def _request_ref_lists(request: BillingPlanBoundaryRequest):
+def _request_ref_lists(request: BillingPlanBoundaryRequest) -> list[Any]:
     return [
         (
             request.billing_boundary_refs,
@@ -540,7 +540,7 @@ def _request_ref_lists(request: BillingPlanBoundaryRequest):
     ]
 
 
-def _record_ref_lists(record: BillingPlanBoundaryRecord):
+def _record_ref_lists(record: BillingPlanBoundaryRecord) -> list[Any]:
     return [
         (
             record.billing_boundary_refs,

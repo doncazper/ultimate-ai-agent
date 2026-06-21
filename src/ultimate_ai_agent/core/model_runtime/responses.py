@@ -32,7 +32,7 @@ class ModelRuntimeResponse(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def response_must_be_simulated_and_secret_clean(self):
+    def response_must_be_simulated_and_secret_clean(self) -> Any:
         if str(self.status) not in {
             ModelRuntimeResponseStatus.simulated_success.value,
             ModelRuntimeResponseStatus.simulated_refusal.value,

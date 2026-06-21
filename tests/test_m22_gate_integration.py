@@ -1,3 +1,4 @@
+from pathlib import Path
 from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluators import (
     EXPECTED_M22_OPENAPI_PATH_COUNT,
@@ -9,7 +10,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
 from scripts.verify_all import find_m22_local_runtime_forbidden_fragment_failures
 
 
-def test_m22_local_runtime_activation_contract_criterion_exists_and_passes():
+def test_m22_local_runtime_activation_contract_criterion_exists_and_passes() -> None:
     criteria = default_foundation_gate_criteria()
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
@@ -27,7 +28,7 @@ def test_m22_local_runtime_activation_contract_criterion_exists_and_passes():
     assert report.passed_count == 1
 
 
-def test_m22_openapi_route_guard_rejects_activation_or_probe_routes():
+def test_m22_openapi_route_guard_rejects_activation_or_probe_routes() -> None:
     failures = m22_openapi_route_failures(
         {
             "/health",
@@ -50,7 +51,7 @@ def test_m22_openapi_route_guard_rejects_activation_or_probe_routes():
     assert any("/model-runtime/local/call" in failure for failure in failures)
 
 
-def test_m22_route_guard_allows_exact_task_decomposition_canonical_surface():
+def test_m22_route_guard_allows_exact_task_decomposition_canonical_surface() -> None:
     historical_paths = {
         f"/historical-contract-path-{index}"
         for index in range(EXPECTED_M22_OPENAPI_PATH_COUNT)
@@ -66,7 +67,7 @@ def test_m22_route_guard_allows_exact_task_decomposition_canonical_surface():
     assert any("OpenAPI path count" in failure for failure in failures)
 
 
-def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(tmp_path):
+def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(tmp_path: Path) -> None:
     source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
     source_file.parent.mkdir(parents=True)
     source_file.write_text("import ollama\nclient.generate('hello')\n", encoding="utf-8")
@@ -77,7 +78,7 @@ def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(t
     assert any("import ollama" in failure for failure in failures)
 
 
-def test_m22_gate_scan_allows_harmless_get_method_usage(tmp_path):
+def test_m22_gate_scan_allows_harmless_get_method_usage(tmp_path: Path) -> None:
     source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "metadata_contract.py"
     source_file.parent.mkdir(parents=True)
     source_file.write_text("def read_ref(metadata):\n    return metadata.get('runtime_profile_ref')\n", encoding="utf-8")
@@ -87,7 +88,7 @@ def test_m22_gate_scan_allows_harmless_get_method_usage(tmp_path):
     assert failures == []
 
 
-def test_m22_gate_scan_blocks_qualified_runtime_network_calls(tmp_path):
+def test_m22_gate_scan_blocks_qualified_runtime_network_calls(tmp_path: Path) -> None:
     source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
     source_file.parent.mkdir(parents=True)
     source_file.write_text(
@@ -103,7 +104,7 @@ def test_m22_gate_scan_blocks_qualified_runtime_network_calls(tmp_path):
     assert any("ollama.generate(" in failure for failure in failures)
 
 
-def test_verify_all_m22_helper_matches_gate_scan(tmp_path):
+def test_verify_all_m22_helper_matches_gate_scan(tmp_path: Path) -> None:
     source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
     source_file.parent.mkdir(parents=True)
     source_file.write_text("import httpx\nhttpx.post('http://localhost')\n", encoding="utf-8")
@@ -114,7 +115,7 @@ def test_verify_all_m22_helper_matches_gate_scan(tmp_path):
     assert any("import httpx" in failure for failure in failures)
 
 
-def test_verify_all_m22_helper_allows_harmless_get_method_usage(tmp_path):
+def test_verify_all_m22_helper_allows_harmless_get_method_usage(tmp_path: Path) -> None:
     source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "metadata_contract.py"
     source_file.parent.mkdir(parents=True)
     source_file.write_text("def read_ref(metadata):\n    return metadata.get('runtime_profile_ref')\n", encoding="utf-8")

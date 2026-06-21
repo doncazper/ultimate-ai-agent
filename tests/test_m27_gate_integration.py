@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
 )
 
 
-def test_m27_foundation_gate_criteria_are_registered():
+def test_m27_foundation_gate_criteria_are_registered() -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
 
@@ -25,7 +25,7 @@ def test_m27_foundation_gate_criteria_are_registered():
     assert "approval_ref is not authority" in criterion.pass_condition
 
 
-def test_m27_openapi_route_guard_rejects_tool_execution_routes():
+def test_m27_openapi_route_guard_rejects_tool_execution_routes() -> None:
     failures = m27_openapi_route_failures(
         {
             "/tools/execute": {},
@@ -42,7 +42,7 @@ def test_m27_openapi_route_guard_rejects_tool_execution_routes():
     assert m27_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
-def test_m27_foundation_gate_evaluator_passes_current_contracts():
+def test_m27_foundation_gate_evaluator_passes_current_contracts() -> None:
     evaluator = FoundationGateEvaluator()
     criteria = [
         criterion

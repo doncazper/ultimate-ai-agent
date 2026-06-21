@@ -5,7 +5,7 @@ from ultimate_ai_agent.core.gate import (
 )
 
 
-def test_default_foundation_gate_criteria_cover_m6_acceptance_surface():
+def test_default_foundation_gate_criteria_cover_m6_acceptance_surface() -> None:
     criteria = default_foundation_gate_criteria()
     by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
@@ -49,7 +49,7 @@ def test_default_foundation_gate_criteria_cover_m6_acceptance_surface():
     assert all(criterion.pass_condition for criterion in criteria)
 
 
-def test_foundation_gate_criterion_rejects_unknown_fields():
+def test_foundation_gate_criterion_rejects_unknown_fields() -> None:
     criterion = default_foundation_gate_criteria()[0]
     payload = criterion.model_dump()
     payload["unexpected"] = "not allowed"
@@ -62,7 +62,7 @@ def test_foundation_gate_criterion_rejects_unknown_fields():
         raise AssertionError("FoundationGateCriterion accepted an unknown field")
 
 
-def test_foundation_gate_status_values_are_public_contracts():
+def test_foundation_gate_status_values_are_public_contracts() -> None:
     assert {status.value for status in FoundationGateStatus} == {
         "passed",
         "failed",

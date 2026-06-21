@@ -39,7 +39,7 @@ class GroundedRecallRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m26_request(self):
+    def validate_m26_request(self) -> Any:
         validate_safe_recall_text(self.query_summary, "query_summary")
         validate_safe_recall_payload(self.metadata_refs, "metadata_refs")
         validate_safe_recall_payload(self.metadata)
@@ -81,7 +81,7 @@ class RecallSelection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m26_selection(self):
+    def validate_m26_selection(self) -> Any:
         validate_safe_recall_text(self.safe_summary, "safe_summary")
         validate_safe_recall_payload(self.metadata_refs, "metadata_refs")
         validate_safe_recall_payload(self.metadata)
@@ -106,7 +106,7 @@ class GroundedRecallDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m26_decision(self):
+    def validate_m26_decision(self) -> Any:
         if not self.no_memory_write_performed:
             raise ValueError("M26 recall decision must not write memory")
         if not self.no_external_retrieval_performed:

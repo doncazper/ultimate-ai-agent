@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.truth import (
 )
 
 
-def test_model_output_cannot_be_authoritative():
+def test_model_output_cannot_be_authoritative() -> None:
     with pytest.raises(ValidationError, match="model_output"):
         TruthSourceManifest(
             source_id="src_model",
@@ -24,7 +24,7 @@ def test_model_output_cannot_be_authoritative():
         )
 
 
-def test_memory_has_lower_authority_than_canonical():
+def test_memory_has_lower_authority_than_canonical() -> None:
     canonical = TruthSourceManifest(
         source_id="src_canonical",
         source_type=TruthSourceType.canonical_file,
@@ -50,7 +50,7 @@ def test_memory_has_lower_authority_than_canonical():
     assert memory.authority_rank < canonical.authority_rank
 
 
-def test_consent_required_source_without_consent_is_not_selectable():
+def test_consent_required_source_without_consent_is_not_selectable() -> None:
     source = TruthSourceManifest(
         source_id="src_private",
         source_type=TruthSourceType.approved_document,
@@ -67,7 +67,7 @@ def test_consent_required_source_without_consent_is_not_selectable():
     assert is_source_selectable(source, consent_refs=["consent_123"]) is False
 
 
-def test_secret_like_source_metadata_rejected():
+def test_secret_like_source_metadata_rejected() -> None:
     source = TruthSourceManifest(
         source_id="src_secret",
         source_type=TruthSourceType.approved_document,

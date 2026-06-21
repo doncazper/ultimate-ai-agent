@@ -33,7 +33,7 @@ class RuntimeCapabilityEntry(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def no_runtime_expansion(self):
+    def no_runtime_expansion(self) -> Any:
         if self.real_model_call_allowed:
             raise ValueError("REAL_MODEL_CALL_NOT_ALLOWED")
         if self.cloud_allowed:

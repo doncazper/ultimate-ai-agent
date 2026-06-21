@@ -104,7 +104,7 @@ class ExternalSecurityReviewPolicy(_ExternalSecurityReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -204,7 +204,7 @@ class ExternalSecurityReviewRequest(_ExternalSecurityReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -302,7 +302,7 @@ class ExternalSecurityReviewRecord(_ExternalSecurityReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -487,7 +487,7 @@ def validate_external_security_review_record(
     return validated
 
 
-def _request_ref_pairs(request: ExternalSecurityReviewRequest):
+def _request_ref_pairs(request: ExternalSecurityReviewRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.security_review_ref, "security_review_ref"),
@@ -501,7 +501,7 @@ def _request_ref_pairs(request: ExternalSecurityReviewRequest):
     ]
 
 
-def _record_ref_pairs(record: ExternalSecurityReviewRecord):
+def _record_ref_pairs(record: ExternalSecurityReviewRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.security_review_ref, "security_review_ref"),
@@ -516,7 +516,7 @@ def _record_ref_pairs(record: ExternalSecurityReviewRecord):
     ]
 
 
-def _request_ref_lists(request: ExternalSecurityReviewRequest):
+def _request_ref_lists(request: ExternalSecurityReviewRequest) -> list[Any]:
     return [
         (
             request.security_review_refs,
@@ -556,7 +556,7 @@ def _request_ref_lists(request: ExternalSecurityReviewRequest):
     ]
 
 
-def _record_ref_lists(record: ExternalSecurityReviewRecord):
+def _record_ref_lists(record: ExternalSecurityReviewRecord) -> list[Any]:
     return [
         (
             record.security_review_refs,

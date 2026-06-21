@@ -68,7 +68,7 @@ class ProductionThreatModelPolicy(_ProductionThreatModelModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -122,7 +122,7 @@ class ProductionThreatModelRecord(_ProductionThreatModelModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.threat_model_ref, "threat_model_ref"),
             (self.source_freeze_ref, "source_freeze_ref"),

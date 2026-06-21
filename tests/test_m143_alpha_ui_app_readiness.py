@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.productization import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.productization import (
 )
 
 
-def _request(**overrides) -> AlphaUiAppReadinessRequest:
+def _request(**overrides: Any) -> AlphaUiAppReadinessRequest:
     data = {
         "request_ref": "alpha-ui-app-readiness-request:m143",
         "readiness_review_ref": "alpha-ui-app-readiness:m143",
@@ -168,7 +169,7 @@ def test_m143_record_uses_safe_refs_only() -> None:
         ("dependency_added", "M143_DEPENDENCY_DENIED"),
     ],
 )
-def test_m143_policy_denies_authority_expansion(field, reason) -> None:
+def test_m143_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_alpha_ui_app_readiness_policy(
             AlphaUiAppReadinessPolicy(**{field: True})
@@ -197,7 +198,7 @@ def test_m143_policy_denies_authority_expansion(field, reason) -> None:
         ("dependency_requested", "M143_DEPENDENCY_DENIED"),
     ],
 )
-def test_m143_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m143_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_alpha_ui_app_readiness_request(
             _request().model_copy(update={field: True})
@@ -253,7 +254,7 @@ def test_m143_requires_exact_checkpoint_and_readiness_refs() -> None:
         ({"production_authority_granted": True}, "M143_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m143_record_denies_unsafe_mutations(update, reason) -> None:
+def test_m143_record_denies_unsafe_mutations(update: Any, reason: str) -> None:
     record = build_alpha_ui_app_readiness_record(_request())
 
     with pytest.raises(ValueError, match=reason):

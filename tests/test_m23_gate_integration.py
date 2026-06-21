@@ -2,7 +2,7 @@ from ultimate_ai_agent.core.gate.criteria import default_foundation_gate_criteri
 from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator, m23_openapi_route_failures
 
 
-def test_m23_foundation_gate_criterion_exists_and_passes():
+def test_m23_foundation_gate_criterion_exists_and_passes() -> None:
     criteria_by_id = {criterion.criterion_id: criterion for criterion in default_foundation_gate_criteria()}
 
     assert "m23_first_local_llm_call_safe" in criteria_by_id
@@ -16,7 +16,7 @@ def test_m23_foundation_gate_criterion_exists_and_passes():
     assert str(report.overall_status) == "passed"
 
 
-def test_m23_openapi_route_guard_rejects_execution_routes():
+def test_m23_openapi_route_guard_rejects_execution_routes() -> None:
     failures = m23_openapi_route_failures(
         {
             "/api/manifest",

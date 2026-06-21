@@ -1,3 +1,4 @@
+from typing import Any
 import json
 import time
 from urllib import error as urllib_error
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.model_runtime.smoke_policy import ManualLoopbackSmok
 class StdlibLoopbackSmokeTransport:
     """Manual local-dev smoke only; not production model execution and never for user data."""
 
-    def __init__(self, opener=None):
+    def __init__(self, opener: Any | None = None) -> None:
         self._opener = opener or urllib_request.urlopen
 
     def preview_request(self, request: ManualLoopbackSmokeRequest) -> dict:
@@ -30,7 +31,7 @@ class StdlibLoopbackSmokeTransport:
         self,
         request: ManualLoopbackSmokeRequest,
         approval_decision: ApprovalValidationDecision | None = None,
-    ):
+    ) -> Any:
         decision = validate_manual_loopback_smoke_request(request, approval_decision)
         if not decision.allowed:
             return decision

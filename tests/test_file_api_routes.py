@@ -1,3 +1,5 @@
+from typing import Any
+import pytest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -7,7 +9,7 @@ from ultimate_ai_agent.api.app import app
 client = TestClient(app)
 
 
-def actor_payload():
+def actor_payload() -> dict[str, Any]:
     return {
         "actor_type": "human_user",
         "actor_id": "user_123",
@@ -15,7 +17,7 @@ def actor_payload():
     }
 
 
-def test_file_ref_validate_endpoint_blocks_env_file():
+def test_file_ref_validate_endpoint_blocks_env_file() -> None:
     response = client.post(
         "/files/refs/validate",
         json={
@@ -30,7 +32,7 @@ def test_file_ref_validate_endpoint_blocks_env_file():
     assert response.json()["success"] is False
 
 
-def test_file_read_preview_endpoint_returns_metadata_only(monkeypatch, tmp_path: Path):
+def test_file_read_preview_endpoint_returns_metadata_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
     response = client.post(
@@ -57,7 +59,7 @@ def test_file_read_preview_endpoint_returns_metadata_only(monkeypatch, tmp_path:
     assert "hello" not in response.text
 
 
-def test_file_read_preview_endpoint_rejects_caller_selected_workspace_root(tmp_path: Path):
+def test_file_read_preview_endpoint_rejects_caller_selected_workspace_root(tmp_path: Path) -> None:
     response = client.post(
         "/files/read/preview",
         json={
@@ -77,7 +79,7 @@ def test_file_read_preview_endpoint_rejects_caller_selected_workspace_root(tmp_p
     assert str(tmp_path) not in response.text
 
 
-def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(monkeypatch, tmp_path: Path):
+def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     hostile_path = "notes/api_key=supersecretvalue123.txt"
     response = client.post(
@@ -100,7 +102,7 @@ def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(monkeyp
     assert hostile_path not in response.text
 
 
-def test_file_tree_preview_endpoint_returns_safe_refs_only(monkeypatch, tmp_path: Path):
+def test_file_tree_preview_endpoint_returns_safe_refs_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "visible.txt").write_text("hello", encoding="utf-8")
@@ -132,7 +134,7 @@ def test_file_tree_preview_endpoint_returns_safe_refs_only(monkeypatch, tmp_path
     assert "hello" not in response.text
 
 
-def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(monkeypatch, tmp_path: Path):
+def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     hostile_root = "notes/api_key=supersecretvalue123"
 
@@ -157,7 +159,7 @@ def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(monkeyp
     assert hostile_root not in response.text
 
 
-def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch, tmp_path: Path):
+def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     payload = {
         "proposal": {
@@ -185,7 +187,7 @@ def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch, tmp
     assert "hello" not in diff_response.text
 
 
-def test_file_write_propose_endpoint_reports_failure_when_blocked(monkeypatch, tmp_path: Path):
+def test_file_write_propose_endpoint_reports_failure_when_blocked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     payload = {
         "proposal": {

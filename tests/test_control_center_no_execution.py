@@ -6,7 +6,7 @@ from ultimate_ai_agent.api.app import app
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_control_center_source_has_no_execution_or_frontend_integrations():
+def test_control_center_source_has_no_execution_or_frontend_integrations() -> None:
     control_center_root = ROOT / "src/ultimate_ai_agent/core/control_center"
     forbidden = [
         "import requests",
@@ -36,7 +36,7 @@ def test_control_center_source_has_no_execution_or_frontend_integrations():
             assert fragment not in text, f"{fragment} found in {path}"
 
 
-def test_control_center_public_api_has_no_execute_enable_dispatch_or_connect_route():
+def test_control_center_public_api_has_no_execute_enable_dispatch_or_connect_route() -> None:
     paths = {getattr(route, "path", "") for route in app.routes}
     forbidden_paths = {
         "/control-center/actions/execute",

@@ -1,3 +1,4 @@
+from typing import Any
 from pydantic import ValidationError
 
 from ultimate_ai_agent.core.gate import FoundationGateStatus
@@ -6,14 +7,14 @@ from ultimate_ai_agent.core.truth.claims import ClaimEvidence
 from ultimate_ai_agent.core.truth.enums import ClaimVerificationStatus, SourceFreshnessStatus
 
 
-def test_truth_evidence_gate_criteria_passes_contract_checks(foundation_gate_results):
+def test_truth_evidence_gate_criteria_passes_contract_checks(foundation_gate_results: Any) -> None:
     result = foundation_gate_results["truth_evidence_contracts_valid"]
 
     assert result.status == FoundationGateStatus.passed
     assert result.evidence_refs
 
 
-def test_supported_claim_requires_evidence_reference():
+def test_supported_claim_requires_evidence_reference() -> None:
     try:
         ClaimEvidence(
             claim_id="claim_missing_evidence",
@@ -27,7 +28,7 @@ def test_supported_claim_requires_evidence_reference():
         raise AssertionError("supported claims must require evidence references")
 
 
-def test_evidence_manifest_rejects_unknown_fields():
+def test_evidence_manifest_rejects_unknown_fields() -> None:
     try:
         EvidenceManifest(manifest_id="evm_gate", run_id="run_gate", unexpected=True)
     except ValidationError:

@@ -74,7 +74,7 @@ class AutonomousToolExecutionContractPolicy(_AutonomousToolExecutionContractMode
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -137,7 +137,7 @@ class AutonomousToolExecutionContractRequest(_AutonomousToolExecutionContractMod
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.contract_ref, "contract_ref"),
@@ -194,7 +194,7 @@ class AutonomousToolExecutionContractReceiptPlan(_AutonomousToolExecutionContrac
     safe_summary: str = "M91 autonomous tool execution contract receipt stores safe refs only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.contract_ref, "contract_ref"),
@@ -277,7 +277,7 @@ class AutonomousToolExecutionContractDecision(_AutonomousToolExecutionContractMo
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.request_ref, "request_ref"),

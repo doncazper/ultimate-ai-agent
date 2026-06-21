@@ -78,7 +78,7 @@ class LowRiskBrowserClickPolicy(_LowRiskBrowserClickModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -137,7 +137,7 @@ class LowRiskBrowserClickRequest(_LowRiskBrowserClickModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.click_ref, "click_ref"),
@@ -205,7 +205,7 @@ class LowRiskBrowserClickReceiptPlan(_LowRiskBrowserClickModel):
     safe_summary: str = "M94 low-risk browser click receipt stores safe refs only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.click_ref, "click_ref"),
@@ -282,7 +282,7 @@ class LowRiskBrowserClickDecision(_LowRiskBrowserClickModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.request_ref, "request_ref"),
@@ -326,7 +326,7 @@ class LowRiskBrowserClickTransportResponse(_LowRiskBrowserClickModel):
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.safe_result_ref, "safe_result_ref")
         _validate_safe_payload(self.safe_summary)
         return self
@@ -366,7 +366,7 @@ class LowRiskBrowserClickResult(_LowRiskBrowserClickModel):
     reason_codes: list[str]
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.result_ref, "result_ref"),
             (self.decision_ref, "decision_ref"),

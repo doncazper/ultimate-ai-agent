@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.truth import (
     GroundingMode,
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.truth import (
 )
 
 
-def actor():
+def actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -19,7 +20,7 @@ def actor():
     )
 
 
-def source(source_id, source_type, authority, **kwargs):
+def source(source_id: str, source_type: Any, authority: Any, **kwargs: Any) -> Any:
     return TruthSourceManifest(
         source_id=source_id,
         source_type=source_type,
@@ -33,7 +34,7 @@ def source(source_id, source_type, authority, **kwargs):
     )
 
 
-def request(task_class, sources, *, policy=None, consent_refs=None):
+def request(task_class: Any, sources: Any, *, policy: Any | None = None, consent_refs: Any | None = None) -> Any:
     return TruthRouteRequest(
         request_id="trr_123",
         run_id="run_123",
@@ -53,7 +54,7 @@ def request(task_class, sources, *, policy=None, consent_refs=None):
     )
 
 
-def test_project_truth_selects_canonical_over_memory():
+def test_project_truth_selects_canonical_over_memory() -> None:
     decision = TruthSourceRouter().route(
         request(
             TruthTaskClass.project_truth,
@@ -68,7 +69,7 @@ def test_project_truth_selects_canonical_over_memory():
     assert "MEMORY_SUPPORTING_ONLY" in decision.reason_codes
 
 
-def test_live_status_refuses_memory_only():
+def test_live_status_refuses_memory_only() -> None:
     decision = TruthSourceRouter().route(
         request(
             TruthTaskClass.live_status,
@@ -81,7 +82,7 @@ def test_live_status_refuses_memory_only():
     assert "REQUIRED_SOURCE_UNAVAILABLE" in decision.reason_codes
 
 
-def test_weather_requires_provider_or_api_result():
+def test_weather_requires_provider_or_api_result() -> None:
     decision = TruthSourceRouter().route(
         request(
             TruthTaskClass.weather,
@@ -92,7 +93,7 @@ def test_weather_requires_provider_or_api_result():
     assert decision.selected_source_ids == ["src_provider"]
 
 
-def test_model_output_not_selected_as_authoritative():
+def test_model_output_not_selected_as_authoritative() -> None:
     decision = TruthSourceRouter().route(
         request(
             TruthTaskClass.factual_answer,
@@ -104,7 +105,7 @@ def test_model_output_not_selected_as_authoritative():
     assert "MODEL_OUTPUT_NOT_AUTHORITY" in decision.reason_codes
 
 
-def test_private_source_rejected_without_consent():
+def test_private_source_rejected_without_consent() -> None:
     decision = TruthSourceRouter().route(
         request(
             TruthTaskClass.factual_answer,
@@ -124,7 +125,7 @@ def test_private_source_rejected_without_consent():
     assert "CONSENT_REQUIRED" in decision.reason_codes
 
 
-def test_provider_result_accepted_for_live_fact():
+def test_provider_result_accepted_for_live_fact() -> None:
     decision = TruthSourceRouter().route(
         request(
             TruthTaskClass.live_status,

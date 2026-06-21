@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 from ultimate_ai_agent.core.file_review import (
     FileReviewApprovalCaptureDecisionStatus,
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def context_proposal_packet():
+def context_proposal_packet() -> Any:
     preview = RedactedFilePreviewOutput(
         output_ref="redacted-file-preview-output:context-proposal",
         status=RedactedFilePreviewStatus.preview_generated,
@@ -32,7 +33,7 @@ def context_proposal_packet():
     )
 
 
-def approved_context_proposal_record(packet=None, **overrides):
+def approved_context_proposal_record(packet: Any | None = None, **overrides: Any) -> Any:
     active_packet = packet or context_proposal_packet()
     data = {
         "approval_ref": "file-review-approval-capture:context-proposal",
@@ -52,7 +53,7 @@ def approved_context_proposal_record(packet=None, **overrides):
     return FileReviewApprovalRecord(**data)
 
 
-def denied_context_proposal_record(packet=None, **overrides):
+def denied_context_proposal_record(packet: Any | None = None, **overrides: Any) -> Any:
     return approved_context_proposal_record(
         packet,
         decision=FileReviewApprovalDecisionKind.deny_review_only,

@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import UTC, datetime
 
 import pytest
@@ -29,7 +30,7 @@ from ultimate_ai_agent.core.tools import ToolBroker, ToolRegistry
 
 
 @pytest.fixture
-def actor_context():
+def actor_context() -> Any:
     return ActorContext(
         actor_type=ActorType.orchestrator,
         actor_id="test_actor",
@@ -112,7 +113,7 @@ def evaluate_with_tool(
     firewall: CapabilityFirewallPolicy | None = None,
     execution_contract: ExecutionContract | None = None,
     context_pack: ContextPack | None = None,
-):
+) -> Any:
     registry = ToolRegistry()
     registry.register_tool(tool)
     broker = ToolBroker(
@@ -127,7 +128,7 @@ def evaluate_with_tool(
     )
 
 
-def test_tool_broker_denies_contract_forbidden_tool(actor_context):
+def test_tool_broker_denies_contract_forbidden_tool(actor_context: Any) -> None:
     contract = ExecutionContract(
         contract_id="ec_stage_a_forbidden",
         run_id="run_stage_a",
@@ -147,7 +148,7 @@ def test_tool_broker_denies_contract_forbidden_tool(actor_context):
     assert decision.reason_codes == ["CONTRACT_FORBIDDEN_TOOL"]
 
 
-def test_tool_broker_denies_tool_not_in_contract_allowed_list(actor_context):
+def test_tool_broker_denies_tool_not_in_contract_allowed_list(actor_context: Any) -> None:
     contract = ExecutionContract(
         contract_id="ec_stage_a_allowed",
         run_id="run_stage_a",
@@ -167,7 +168,7 @@ def test_tool_broker_denies_tool_not_in_contract_allowed_list(actor_context):
     assert decision.reason_codes == ["CONTRACT_TOOL_NOT_ALLOWED"]
 
 
-def test_tool_broker_denies_tool_not_in_context_permissions(actor_context):
+def test_tool_broker_denies_tool_not_in_context_permissions(actor_context: Any) -> None:
     context_pack = ContextPack(
         context_pack_id="cp_stage_a",
         contract_id="ec_stage_a",
@@ -185,7 +186,7 @@ def test_tool_broker_denies_tool_not_in_context_permissions(actor_context):
     assert decision.reason_codes == ["CONTEXT_TOOL_NOT_ALLOWED"]
 
 
-def test_tool_broker_allows_when_contract_and_context_permit_then_checks_next_policy(actor_context):
+def test_tool_broker_allows_when_contract_and_context_permit_then_checks_next_policy(actor_context: Any) -> None:
     contract = ExecutionContract(
         contract_id="ec_stage_a_permitted",
         run_id="run_stage_a",
@@ -220,7 +221,7 @@ def test_tool_broker_allows_when_contract_and_context_permit_then_checks_next_po
     assert decision.reason_codes == ["AUTHORIZED"]
 
 
-def test_high_risk_tool_with_unvalidated_approval_ref_stays_approval_required(actor_context):
+def test_high_risk_tool_with_unvalidated_approval_ref_stays_approval_required(actor_context: Any) -> None:
     decision = evaluate_with_tool(
         make_request(actor_context, approval_ref="human_approved_ref_123"),
         make_tool(risk_level=ToolRiskLevel.high),
@@ -231,7 +232,7 @@ def test_high_risk_tool_with_unvalidated_approval_ref_stays_approval_required(ac
     assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
 
 
-def test_high_risk_tool_with_test_approval_ref_stays_approval_required(actor_context):
+def test_high_risk_tool_with_test_approval_ref_stays_approval_required(actor_context: Any) -> None:
     decision = evaluate_with_tool(
         make_request(actor_context, approval_ref="approval_test_123"),
         make_tool(risk_level=ToolRiskLevel.high, execution_mode=ToolExecutionMode.mock),
@@ -242,7 +243,7 @@ def test_high_risk_tool_with_test_approval_ref_stays_approval_required(actor_con
     assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
 
 
-def test_external_action_without_valid_approval_is_approval_required(actor_context):
+def test_external_action_without_valid_approval_is_approval_required(actor_context: Any) -> None:
     decision = evaluate_with_tool(
         make_request(actor_context, requested_action="send", approval_ref="approval_prod_123"),
         make_tool(risk_level=ToolRiskLevel.low),
@@ -254,7 +255,7 @@ def test_external_action_without_valid_approval_is_approval_required(actor_conte
     assert "EXTERNAL_ACTION_REQUIRES_APPROVAL" in decision.reason_codes
 
 
-def test_idempotency_required_for_mutable_tool(actor_context):
+def test_idempotency_required_for_mutable_tool(actor_context: Any) -> None:
     decision = evaluate_with_tool(
         make_request(actor_context, requested_action="write"),
         make_tool(idempotency_required=True),
@@ -265,7 +266,7 @@ def test_idempotency_required_for_mutable_tool(actor_context):
     assert decision.reason_codes == ["IDEMPOTENCY_KEY_REQUIRED"]
 
 
-def test_idempotency_key_allows_mutable_policy_to_proceed(actor_context):
+def test_idempotency_key_allows_mutable_policy_to_proceed(actor_context: Any) -> None:
     decision = evaluate_with_tool(
         make_request(actor_context, requested_action="write", idempotency_key="idem_123456"),
         make_tool(idempotency_required=True),
@@ -275,7 +276,7 @@ def test_idempotency_key_allows_mutable_policy_to_proceed(actor_context):
     assert decision.status == ToolDecisionStatus.allowed
 
 
-def test_firewall_denies_filesystem_when_no_roots_allowlisted():
+def test_firewall_denies_filesystem_when_no_roots_allowlisted() -> None:
     manifest = make_tool(
         requested_permissions=[ToolPermissionKind.filesystem_read],
         permission_manifest=ToolPermissionManifest(
@@ -290,7 +291,7 @@ def test_firewall_denies_filesystem_when_no_roots_allowlisted():
     assert "FILESYSTEM_ACCESS_NOT_ALLOWLISTED" in reasons
 
 
-def test_firewall_allows_requested_root_under_allowlisted_root():
+def test_firewall_allows_requested_root_under_allowlisted_root() -> None:
     manifest = make_tool(
         requested_permissions=[ToolPermissionKind.filesystem_read],
         permission_manifest=ToolPermissionManifest(
@@ -307,7 +308,7 @@ def test_firewall_allows_requested_root_under_allowlisted_root():
     assert reasons == []
 
 
-def test_firewall_denies_requested_root_outside_allowlist():
+def test_firewall_denies_requested_root_outside_allowlist() -> None:
     manifest = make_tool(
         requested_permissions=[ToolPermissionKind.filesystem_read],
         permission_manifest=ToolPermissionManifest(
@@ -324,7 +325,7 @@ def test_firewall_denies_requested_root_outside_allowlist():
     assert "FILESYSTEM_ACCESS_NOT_ALLOWLISTED" in reasons
 
 
-def test_firewall_denies_network_when_no_domains_allowlisted():
+def test_firewall_denies_network_when_no_domains_allowlisted() -> None:
     manifest = make_tool(
         requested_permissions=[ToolPermissionKind.network],
         permission_manifest=ToolPermissionManifest(
@@ -339,7 +340,7 @@ def test_firewall_denies_network_when_no_domains_allowlisted():
     assert "NETWORK_ACCESS_NOT_ALLOWLISTED" in reasons
 
 
-def test_firewall_allows_explicitly_allowlisted_network_domain():
+def test_firewall_allows_explicitly_allowlisted_network_domain() -> None:
     manifest = make_tool(
         requested_permissions=[ToolPermissionKind.network],
         permission_manifest=ToolPermissionManifest(
@@ -356,7 +357,7 @@ def test_firewall_allows_explicitly_allowlisted_network_domain():
     assert reasons == []
 
 
-def test_firewall_denies_unallowlisted_network_domain():
+def test_firewall_denies_unallowlisted_network_domain() -> None:
     manifest = make_tool(
         requested_permissions=[ToolPermissionKind.network],
         permission_manifest=ToolPermissionManifest(
@@ -373,7 +374,7 @@ def test_firewall_denies_unallowlisted_network_domain():
     assert "NETWORK_ACCESS_NOT_ALLOWLISTED" in reasons
 
 
-def test_firewall_denies_credentials_before_secret_broker_phase():
+def test_firewall_denies_credentials_before_secret_broker_phase() -> None:
     manifest = make_tool(
         requested_permissions=[ToolPermissionKind.credential],
         permission_manifest=ToolPermissionManifest(
@@ -390,7 +391,7 @@ def test_firewall_denies_credentials_before_secret_broker_phase():
     assert "CREDENTIAL_ACCESS_NOT_PERMITTED" in reasons
 
 
-def test_m3_boundary_models_reject_unexpected_fields(actor_context):
+def test_m3_boundary_models_reject_unexpected_fields(actor_context: Any) -> None:
     with pytest.raises(ValidationError):
         ConsentGrant(
             consent_id="grant_extra",
@@ -432,7 +433,7 @@ def test_m3_boundary_models_reject_unexpected_fields(actor_context):
         )
 
 
-def test_permission_action_any_allows_actions():
+def test_permission_action_any_allows_actions() -> None:
     ledger = ConsentLedger()
     ledger.add_grant(
         ConsentGrant(
@@ -459,7 +460,7 @@ def test_permission_action_any_allows_actions():
     assert decision.allowed is True
 
 
-def test_permission_action_any_deny_overrides_allow_any():
+def test_permission_action_any_deny_overrides_allow_any() -> None:
     ledger = ConsentLedger()
     ledger.add_grant(
         ConsentGrant(
@@ -499,7 +500,7 @@ def test_permission_action_any_deny_overrides_allow_any():
     assert decision.reason_codes == ["EXPLICIT_DENY_ACTION"]
 
 
-def test_specific_deny_overrides_allow_any():
+def test_specific_deny_overrides_allow_any() -> None:
     ledger = ConsentLedger()
     ledger.add_grant(
         ConsentGrant(

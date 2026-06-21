@@ -35,7 +35,7 @@ class ScopedRecurringLowRiskAutomationCadence(_ScopedRecurringLowRiskAutomationM
     renewal_expiration_ref: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.cadence_ref, "cadence_ref"),
             (self.time_window_ref, "time_window_ref"),
@@ -82,7 +82,7 @@ class ScopedRecurringLowRiskAutomationPolicy(_ScopedRecurringLowRiskAutomationMo
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_safe_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -131,7 +131,7 @@ class ScopedRecurringLowRiskAutomationRequest(_ScopedRecurringLowRiskAutomationM
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.actor_ref, "actor_ref"),
@@ -198,7 +198,7 @@ class ScopedRecurringLowRiskAutomationReceiptPlan(_ScopedRecurringLowRiskAutomat
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.request_ref, "request_ref"),
@@ -275,7 +275,7 @@ class ScopedRecurringLowRiskAutomationDecision(_ScopedRecurringLowRiskAutomation
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.request_ref, "request_ref"),

@@ -7,7 +7,7 @@ from ultimate_ai_agent.core.runtime_readiness import RuntimeHealthStatus, build_
 client = TestClient(app)
 
 
-def test_model_runtime_health_validation():
+def test_model_runtime_health_validation() -> None:
     health = ModelRuntimeHealth(
         status="healthy",
         latency_ms=45.2,
@@ -20,7 +20,7 @@ def test_model_runtime_health_validation():
     assert health.error_count == 0
 
 
-def test_runtime_health_status_builder_preserves_api_shape():
+def test_runtime_health_status_builder_preserves_api_shape() -> None:
     health = build_runtime_health_status(version="test-version")
 
     assert isinstance(health, RuntimeHealthStatus)
@@ -30,7 +30,7 @@ def test_runtime_health_status_builder_preserves_api_shape():
     }
 
 
-def test_health_route_preserves_response_shape():
+def test_health_route_preserves_response_shape() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200

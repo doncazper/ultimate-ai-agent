@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.test_m89_emergency_stop_process_kill_safety import _request as _m89_request
@@ -13,11 +14,11 @@ from ultimate_ai_agent.core.sandbox import (
 )
 
 
-def _m89_decision():
+def _m89_decision() -> Any:
     return build_emergency_stop_process_kill_safety(_m89_request())
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     m89_decision = overrides.pop("emergency_stop_process_kill_safety_decision", _m89_decision())
     data = {
         "request_ref": "shell-subprocess-hardening-freeze-request:m90",

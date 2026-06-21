@@ -15,7 +15,7 @@ from ultimate_ai_agent.core.mobile_companion.planning import (
 )
 
 
-def test_default_mobile_permission_manifest_denies_runtime_access():
+def test_default_mobile_permission_manifest_denies_runtime_access() -> None:
     manifest = build_default_mobile_permission_manifest()
 
     assert manifest.version == "0.23.1"
@@ -25,7 +25,7 @@ def test_default_mobile_permission_manifest_denies_runtime_access():
     assert all(decision.decision != MobilePermissionDecision.allowed_contract_only for decision in manifest.decisions)
 
 
-def test_capability_allowed_now_is_rejected():
+def test_capability_allowed_now_is_rejected() -> None:
     capability = MobileCapabilityPlan(
         capability=MobileCapabilityKind.approvals_planned,
         status=MobileCapabilityStatus.contract_only,
@@ -37,7 +37,7 @@ def test_capability_allowed_now_is_rejected():
         validate_mobile_capability_plan(capability)
 
 
-def test_metadata_refs_reject_secret_like_values():
+def test_metadata_refs_reject_secret_like_values() -> None:
     capability = MobileCapabilityPlan(
         capability=MobileCapabilityKind.contacts_planned,
         status=MobileCapabilityStatus.future_requires_device_capability_broker,
@@ -56,7 +56,7 @@ def test_metadata_refs_reject_secret_like_values():
         validate_mobile_capability_plan(capability)
 
 
-def test_os_permission_integration_flag_is_rejected():
+def test_os_permission_integration_flag_is_rejected() -> None:
     capability = MobileCapabilityPlan(
         capability=MobileCapabilityKind.location_planned,
         status=MobileCapabilityStatus.future_requires_device_capability_broker,
@@ -68,7 +68,7 @@ def test_os_permission_integration_flag_is_rejected():
         validate_mobile_capability_plan(capability)
 
 
-def test_background_service_flag_is_rejected():
+def test_background_service_flag_is_rejected() -> None:
     capability = MobileCapabilityPlan(
         capability=MobileCapabilityKind.location_planned,
         status=MobileCapabilityStatus.future_requires_device_capability_broker,
@@ -80,7 +80,7 @@ def test_background_service_flag_is_rejected():
         validate_mobile_capability_plan(capability)
 
 
-def test_sensitive_capture_storage_is_rejected_without_future_policy():
+def test_sensitive_capture_storage_is_rejected_without_future_policy() -> None:
     capture = MobileCaptureIntentPlan(
         capture_ref="capture_plan_sensitive_001",
         capability=MobileCapabilityKind.files_planned,
@@ -93,7 +93,7 @@ def test_sensitive_capture_storage_is_rejected_without_future_policy():
         validate_mobile_capture_intent_plan(capture)
 
 
-def test_automatic_memory_write_is_rejected():
+def test_automatic_memory_write_is_rejected() -> None:
     capture = MobileCaptureIntentPlan(
         capture_ref="capture_plan_memory_001",
         capability=MobileCapabilityKind.photos_planned,

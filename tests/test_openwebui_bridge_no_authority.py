@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.openwebui_bridge import (
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.openwebui_bridge.validation import (
 )
 
 
-def test_manifest_rejects_openwebui_agent_brain_claim():
+def test_manifest_rejects_openwebui_agent_brain_claim() -> None:
     manifest = OpenWebUIBridgeManifest(
         manifest_id="owui_manifest_authority",
         baseline_version="0.25.1",
@@ -28,7 +29,7 @@ def test_manifest_rejects_openwebui_agent_brain_claim():
         assert_agent_core_authority_boundary(manifest)
 
 
-def test_manifest_rejects_missing_agent_core_authority():
+def test_manifest_rejects_missing_agent_core_authority() -> None:
     manifest = build_default_openwebui_bridge_manifest()
     manifest.agent_core_remains_authority = False
 
@@ -36,7 +37,7 @@ def test_manifest_rejects_missing_agent_core_authority():
         assert_agent_core_authority_boundary(manifest)
 
 
-def test_chat_session_refs_are_identifiers_not_authority():
+def test_chat_session_refs_are_identifiers_not_authority() -> None:
     session = OpenWebUIChatSessionRef(
         session_ref="owui_session_demo",
         shell_ref="openwebui_local_shell_planned",
@@ -49,7 +50,7 @@ def test_chat_session_refs_are_identifiers_not_authority():
         validate_openwebui_chat_session_ref(session)
 
 
-def test_manifest_rejects_bridge_runtime_or_deployment_claims():
+def test_manifest_rejects_bridge_runtime_or_deployment_claims() -> None:
     manifest = build_default_openwebui_bridge_manifest()
     manifest.openwebui_integration_implemented = True
     manifest.deployment_config_added = True
@@ -67,7 +68,7 @@ def test_manifest_rejects_bridge_runtime_or_deployment_claims():
         "OpenWebUI does not bypass Python Agent Core authority.",
     ],
 )
-def test_negated_openwebui_authority_boundary_text_is_allowed(safe_warning):
+def test_negated_openwebui_authority_boundary_text_is_allowed(safe_warning: Any) -> None:
     plan = OpenWebUIBridgePlan(
         purpose="Keep the future shell contract-only.",
         allowed_scope=["redacted safe summaries only"],
@@ -88,7 +89,7 @@ def test_negated_openwebui_authority_boundary_text_is_allowed(safe_warning):
         "OpenWebUI approves actions.",
     ],
 )
-def test_positive_openwebui_authority_claim_text_is_rejected(authority_claim):
+def test_positive_openwebui_authority_claim_text_is_rejected(authority_claim: Any) -> None:
     plan = OpenWebUIBridgePlan(
         purpose="Keep the future shell contract-only.",
         allowed_scope=["redacted safe summaries only"],

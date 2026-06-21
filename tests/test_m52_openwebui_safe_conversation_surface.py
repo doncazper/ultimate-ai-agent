@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.openwebui_bridge import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.openwebui_bridge import (
 )
 
 
-def _turn(**overrides):
+def _turn(**overrides: Any) -> Any:
     data = {
         "turn_ref": "openwebui-conversation-turn:m52-safe",
         "session_ref": "openwebui-session:m52-safe",

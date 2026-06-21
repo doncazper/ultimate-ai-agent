@@ -60,7 +60,7 @@ class PublicGitHubReadinessPolicy(_M59PublicReadinessModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_policy_shape(self):
+    def validate_policy_shape(self) -> Any:
         _validate_m59_ref(self.policy_ref, "policy_ref")
         for ref in self.docs_refs:
             _require_nonempty(ref, "docs_ref")
@@ -96,7 +96,7 @@ class PublicGitHubReadinessRequest(_M59PublicReadinessModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_request_shape(self):
+    def validate_request_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.readiness_ref, "readiness_ref"),
@@ -134,7 +134,7 @@ class PublicGitHubReadinessReceiptPlan(_M59PublicReadinessModel):
     safe_summary: str = "M59 public GitHub readiness receipt plan."
 
     @model_validator(mode="after")
-    def validate_receipt_plan(self):
+    def validate_receipt_plan(self) -> Any:
         _validate_m59_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m59_ref(self.readiness_ref, "readiness_ref")
         if not self.review_only:
@@ -177,7 +177,7 @@ class PublicGitHubReadinessReport(_M59PublicReadinessModel):
     metadata_refs: list[str] = Field(default_factory=lambda: ["milestone:M59", "version:v0.63.0"])
 
     @model_validator(mode="after")
-    def validate_report(self):
+    def validate_report(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.request_ref, "request_ref"),

@@ -96,7 +96,7 @@ class TrustedRecurringWorkflowPolicy(_TrustedRecurringWorkflowModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -184,7 +184,7 @@ class TrustedRecurringWorkflowRequest(_TrustedRecurringWorkflowModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M132_RESOURCE_REF_REQUIRED")
@@ -237,7 +237,7 @@ class TrustedRecurringWorkflowReceiptPlan(_TrustedRecurringWorkflowModel):
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _receipt_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         try:
@@ -344,7 +344,7 @@ class TrustedRecurringWorkflowDecision(_TrustedRecurringWorkflowModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _decision_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M132_RESOURCE_REF_REQUIRED")
@@ -591,7 +591,7 @@ def _validate_risk_ceiling(risk: AutonomyRiskClass) -> None:
         raise ValueError("M132_RISK_CEILING_DENIED")
 
 
-def _request_ref_pairs(request: TrustedRecurringWorkflowRequest):
+def _request_ref_pairs(request: TrustedRecurringWorkflowRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.trusted_workflow_ref, "trusted_workflow_ref"),
@@ -617,7 +617,7 @@ def _request_ref_pairs(request: TrustedRecurringWorkflowRequest):
     ]
 
 
-def _receipt_ref_pairs(receipt: TrustedRecurringWorkflowReceiptPlan):
+def _receipt_ref_pairs(receipt: TrustedRecurringWorkflowReceiptPlan) -> list[Any]:
     return [
         (receipt.receipt_plan_ref, "receipt_plan_ref"),
         (receipt.trusted_workflow_ref, "trusted_workflow_ref"),
@@ -636,7 +636,7 @@ def _receipt_ref_pairs(receipt: TrustedRecurringWorkflowReceiptPlan):
     ]
 
 
-def _decision_ref_pairs(decision: TrustedRecurringWorkflowDecision):
+def _decision_ref_pairs(decision: TrustedRecurringWorkflowDecision) -> list[Any]:
     return [
         (decision.decision_ref, "decision_ref"),
         (decision.request_ref, "request_ref"),

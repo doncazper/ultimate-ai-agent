@@ -27,7 +27,7 @@ class CapabilityExecutor:
         *,
         approval_callback: ApprovalCallback | None = None,
         event_sink: CapabilityEventSink | None = None,
-    ):
+    ) -> None:
         self.approval_callback = approval_callback
         self.event_sink = event_sink or NoopCapabilityEventSink()
 

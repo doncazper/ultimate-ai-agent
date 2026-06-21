@@ -41,11 +41,11 @@ def _manifest(risk_level: ToolRiskLevel) -> ToolManifest:
     )
 
 
-def test_forbidden_tool_maps_to_forbidden_capability_risk():
+def test_forbidden_tool_maps_to_forbidden_capability_risk() -> None:
     spec = capability_from_tool_manifest(_manifest(ToolRiskLevel.forbidden))
     assert spec.policy.risk == RiskLevel.forbidden
 
 
-def test_critical_tool_still_maps_to_secret_access():
+def test_critical_tool_still_maps_to_secret_access() -> None:
     spec = capability_from_tool_manifest(_manifest(ToolRiskLevel.critical))
     assert spec.policy.risk == RiskLevel.SECRET_ACCESS

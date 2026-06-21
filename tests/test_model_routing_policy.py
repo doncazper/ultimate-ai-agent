@@ -4,7 +4,7 @@ from tests.m7_helpers import policy
 from ultimate_ai_agent.core.model_router import ModelPrivacyClass, ModelProviderKind, ModelTaskCapability
 
 
-def test_model_routing_policy_tracks_capability_privacy_and_cost_controls():
+def test_model_routing_policy_tracks_capability_privacy_and_cost_controls() -> None:
     routing_policy = policy(
         required_capabilities=[ModelTaskCapability.coding],
         preferred_capabilities=[ModelTaskCapability.structured_output],
@@ -24,7 +24,7 @@ def test_model_routing_policy_tracks_capability_privacy_and_cost_controls():
     assert ModelTaskCapability.coding in routing_policy.required_capabilities
 
 
-def test_model_routing_policy_rejects_unknown_fields():
+def test_model_routing_policy_rejects_unknown_fields() -> None:
     payload = policy().model_dump()
     payload["surprise"] = "nope"
 

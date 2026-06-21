@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.gate import (
     FoundationGateStatus,
     default_foundation_gate_criteria,
@@ -8,7 +9,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
 )
 
 
-def test_m37_gate_criteria_are_registered_and_pass(foundation_gate_results):
+def test_m37_gate_criteria_are_registered_and_pass(foundation_gate_results: Any) -> None:
     criteria = default_foundation_gate_criteria()
     ids = {criterion.criterion_id for criterion in criteria}
     expected = [
@@ -23,7 +24,7 @@ def test_m37_gate_criteria_are_registered_and_pass(foundation_gate_results):
         assert foundation_gate_results[criterion_id].status == FoundationGateStatus.passed
 
 
-def test_m37_route_boundary_allows_only_capture_route():
+def test_m37_route_boundary_allows_only_capture_route() -> None:
     failures = m37_openapi_route_failures(
         {
             "/api/manifest": {},
@@ -38,7 +39,7 @@ def test_m37_route_boundary_allows_only_capture_route():
     assert any("/context/propose" in failure for failure in failures)
 
 
-def test_m37_frontend_surface_rejects_unsafe_capture_controls():
+def test_m37_frontend_surface_rejects_unsafe_capture_controls() -> None:
     failures = m37_control_center_surface_failures(
         component_text="""
         <button>Approve review-only</button>

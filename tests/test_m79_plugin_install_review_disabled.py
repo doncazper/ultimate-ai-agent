@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.plugin_install_review import (
@@ -17,7 +18,7 @@ from ultimate_ai_agent.core.plugin_manifest import (
 )
 
 
-def _manifest_security_decision():
+def _manifest_security_decision() -> Any:
     return build_plugin_manifest_security_decision(
         PluginManifestSecurityReviewRequest(
             review_request_ref="plugin-manifest-review-request:m79-safe",
@@ -67,7 +68,7 @@ def _approval_binding() -> PluginInstallReviewApprovalBinding:
     )
 
 
-def _request(**overrides) -> PluginInstallReviewRequest:
+def _request(**overrides: Any) -> PluginInstallReviewRequest:
     data = {
         "install_review_request_ref": "plugin-install-review-request:m79-safe",
         "manifest_security_decision": _manifest_security_decision(),

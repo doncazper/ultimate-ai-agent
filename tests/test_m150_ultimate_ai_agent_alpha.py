@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.productization import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.productization import (
 )
 
 
-def _request(**overrides) -> UltimateAiAgentAlphaRequest:
+def _request(**overrides: Any) -> UltimateAiAgentAlphaRequest:
     data = {
         "request_ref": "ultimate-ai-agent-alpha-request:m150",
         "alpha_target_ref": "ultimate-ai-agent-alpha:m150",
@@ -199,7 +200,7 @@ def test_m150_record_uses_safe_refs_only() -> None:
         ("production_authority_granted", "M150_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m150_policy_denies_authority_expansion(field, reason) -> None:
+def test_m150_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_ultimate_ai_agent_alpha_policy(
             UltimateAiAgentAlphaPolicy(**{field: True})
@@ -235,7 +236,7 @@ def test_m150_policy_denies_authority_expansion(field, reason) -> None:
         ("production_authority_requested", "M150_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m150_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m150_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_ultimate_ai_agent_alpha_request(
             _request().model_copy(update={field: True})
@@ -304,7 +305,7 @@ def test_m150_requires_exact_checkpoint_and_safety_refs() -> None:
         ({"production_authority_granted": True}, "M150_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m150_record_denies_unsafe_mutations(update, reason) -> None:
+def test_m150_record_denies_unsafe_mutations(update: Any, reason: str) -> None:
     record = build_ultimate_ai_agent_alpha_record(_request())
 
     with pytest.raises(ValueError, match=reason):

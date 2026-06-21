@@ -27,7 +27,7 @@ class TruthRouterManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_disabled_authority_paths(self):
+    def validate_disabled_authority_paths(self) -> Any:
         if self.external_verification_enabled:
             raise ValueError("External verification is not implemented in M25.")
         if self.web_search_enabled:

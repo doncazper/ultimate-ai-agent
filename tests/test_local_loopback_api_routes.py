@@ -6,7 +6,7 @@ from ultimate_ai_agent.api.app import app
 client = TestClient(app)
 
 
-def test_local_loopback_endpoint_validation_rejects_remote_credentials_and_secret_query():
+def test_local_loopback_endpoint_validation_rejects_remote_credentials_and_secret_query() -> None:
     for url, code in [
         ("http://example.com/api/generate", "NON_LOOPBACK_HOST_DENIED"),
         ("http://user:pass@127.0.0.1:11434/api/generate", "URL_CREDENTIALS_DENIED"),
@@ -18,7 +18,7 @@ def test_local_loopback_endpoint_validation_rejects_remote_credentials_and_secre
         assert code in body["data"]["reason_codes"]
 
 
-def test_local_loopback_endpoint_validation_accepts_safe_loopback_hosts():
+def test_local_loopback_endpoint_validation_accepts_safe_loopback_hosts() -> None:
     for url in [
         "http://127.0.0.1/api/generate",
         "http://localhost/api/generate",
@@ -30,7 +30,7 @@ def test_local_loopback_endpoint_validation_accepts_safe_loopback_hosts():
         assert body["data"]["reason_codes"] == ["ENDPOINT_ALLOWED"]
 
 
-def test_local_loopback_endpoint_api_rejects_allowed_remote_policy_override_safely():
+def test_local_loopback_endpoint_api_rejects_allowed_remote_policy_override_safely() -> None:
     payload = {
         "endpoint": loopback_endpoint(
             base_url="http://example.com/api/generate",
@@ -53,7 +53,7 @@ def test_local_loopback_endpoint_api_rejects_allowed_remote_policy_override_safe
     assert "deny_non_loopback" not in response.text
 
 
-def test_local_loopback_api_does_not_expose_public_execution_route():
+def test_local_loopback_api_does_not_expose_public_execution_route() -> None:
     paths = {route.path for route in app.routes}
 
     assert "/model-runtime/local/execution/validate" in paths
@@ -62,7 +62,7 @@ def test_local_loopback_api_does_not_expose_public_execution_route():
     assert "/model-runtime/local/execution" not in paths
 
 
-def test_local_loopback_execution_validation_and_simulated_fallback_routes():
+def test_local_loopback_execution_validation_and_simulated_fallback_routes() -> None:
     validate_payload = {
         "request": local_runtime_request(approval_ref="human_approved_ref_123").model_dump(mode="json"),
         "manifest": local_manifest().model_dump(mode="json"),
@@ -78,7 +78,7 @@ def test_local_loopback_execution_validation_and_simulated_fallback_routes():
     assert fallback_body["data"]["response_origin"] == "simulated"
 
 
-def test_local_loopback_api_validation_errors_do_not_echo_secrets():
+def test_local_loopback_api_validation_errors_do_not_echo_secrets() -> None:
     secret = "sk_test_secret_value_12345"
     payload = {"endpoint": {**loopback_endpoint().model_dump(mode="json"), "metadata": {"note": f"api_key={secret}"}}}
 

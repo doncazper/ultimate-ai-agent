@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 
 
-def test_m36_foundation_gate_criteria_are_registered():
+def test_m36_foundation_gate_criteria_are_registered() -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
 
@@ -13,7 +13,7 @@ def test_m36_foundation_gate_criteria_are_registered():
     assert "m36_m37_m38_remain_future" in criterion_ids
 
 
-def test_m36_openapi_route_guard_rejects_review_mutation_context_and_execution_routes():
+def test_m36_openapi_route_guard_rejects_review_mutation_context_and_execution_routes() -> None:
     from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M36_OPENAPI_PATH_COUNT, m36_openapi_route_failures
 
     failures = m36_openapi_route_failures(
@@ -42,7 +42,7 @@ def test_m36_openapi_route_guard_rejects_review_mutation_context_and_execution_r
     assert m36_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
-def test_m36_surface_guard_rejects_unsafe_refs_and_mutating_requests():
+def test_m36_surface_guard_rejects_unsafe_refs_and_mutating_requests() -> None:
     from ultimate_ai_agent.core.gate.evaluators import m36_file_review_surface_failures
 
     failures = m36_file_review_surface_failures(
@@ -55,7 +55,7 @@ def test_m36_surface_guard_rejects_unsafe_refs_and_mutating_requests():
     assert any("private path fragment in M36 file review fixture" in failure for failure in failures)
 
 
-def test_m36_foundation_gate_evaluator_passes_current_surface():
+def test_m36_foundation_gate_evaluator_passes_current_surface() -> None:
     evaluator = FoundationGateEvaluator()
     criteria = [
         criterion

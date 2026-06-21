@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.truth import RetrievalLogEntry
 
 
-def test_retrieval_log_stores_refs_not_raw_payloads():
+def test_retrieval_log_stores_refs_not_raw_payloads() -> None:
     entry = RetrievalLogEntry(
         retrieval_id="ret_123",
         run_id="run_123",

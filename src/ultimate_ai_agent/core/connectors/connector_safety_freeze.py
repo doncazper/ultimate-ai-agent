@@ -80,7 +80,7 @@ class ConnectorSafetyFreezePolicy(_ConnectorSafetyFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -170,7 +170,7 @@ class ConnectorSafetyFreezeRecord(_ConnectorSafetyFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         for checkpoint_ref in self.accepted_checkpoint_refs:
@@ -391,7 +391,7 @@ def _validate_accepted_checkpoint_refs(refs: list[str]) -> None:
         raise ValueError("M130_ACCEPTED_CHECKPOINT_REFS_REQUIRED")
 
 
-def _record_ref_pairs(record: ConnectorSafetyFreezeRecord):
+def _record_ref_pairs(record: ConnectorSafetyFreezeRecord) -> list[Any]:
     return [
         (record.freeze_ref, "freeze_ref"),
         (record.source_hardening_ref, "source_hardening_ref"),

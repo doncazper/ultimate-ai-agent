@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.test_m92_low_risk_tool_autonomy_single_session import _request as _m92_request
@@ -13,11 +14,11 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _m92_decision():
+def _m92_decision() -> Any:
     return build_low_risk_tool_autonomy_single_session_decision(_m92_request())
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     m92_decision = overrides.pop("m92_single_session_decision", _m92_decision())
     data = {
         "request_ref": "multi-tool-dry-run-promotion-request:m93",

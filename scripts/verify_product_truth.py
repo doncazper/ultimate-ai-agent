@@ -5,8 +5,8 @@ work as complete, production-ready, publicly released, signed, audited, or broad
 This verifier is repo-local and deterministic. It scans scoped docs and optional frontend
 source/build output for product-truth overclaims without echoing the offending content.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import hashlib

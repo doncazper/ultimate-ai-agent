@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.sandbox import (
@@ -22,7 +23,7 @@ from ultimate_ai_agent.core.sandbox.read_only_command_allowlist import (
 )
 
 
-def _sandboxed_echo_decision(command_ref: str = "command-ref:safe-noop"):
+def _sandboxed_echo_decision(command_ref: str = "command-ref:safe-noop") -> Any:
     proposal = build_command_proposal(
         CommandProposalRequest(
             request_ref="command-proposal-request:m85-base",
@@ -84,7 +85,7 @@ def _sandboxed_echo_decision(command_ref: str = "command-ref:safe-noop"):
     )
 
 
-def _entry(command_ref: str = "command-ref:safe-noop"):
+def _entry(command_ref: str = "command-ref:safe-noop") -> Any:
     return ReadOnlyCommandAllowlistEntry(
         entry_ref="read-only-command-allowlist-entry:m85-noop",
         command_ref=command_ref,
@@ -94,7 +95,7 @@ def _entry(command_ref: str = "command-ref:safe-noop"):
     )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     upstream = overrides.pop("sandboxed_echo_noop_decision", _sandboxed_echo_decision())
     command_ref = overrides.pop("requested_command_ref", "command-ref:safe-noop")
     data = {

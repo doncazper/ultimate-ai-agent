@@ -38,7 +38,7 @@ class ApprovalRequest(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def request_must_be_secret_clean(self):
+    def request_must_be_secret_clean(self) -> Any:
         assert_approval_secret_clean(self.model_dump(mode="json"), "Approval request")
         return self
 

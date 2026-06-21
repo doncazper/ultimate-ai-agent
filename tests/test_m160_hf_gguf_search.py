@@ -1,3 +1,4 @@
+from typing import Any
 import os
 
 import pytest
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.local_model_management import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "hf-gguf-search-request:m160-qwopus",
         "query": "qwopus",
@@ -25,7 +26,7 @@ def _request(**overrides):
     return M160HuggingFaceGgufSearchRequest(**data)
 
 
-def test_m160_policy_allows_only_bounded_unauthenticated_metadata_search():
+def test_m160_policy_allows_only_bounded_unauthenticated_metadata_search() -> None:
     policy = validate_m160_huggingface_gguf_search_policy(M160HuggingFaceGgufSearchPolicy())
 
     assert policy.bounded_read_only is True
@@ -56,7 +57,7 @@ def test_m160_policy_allows_only_bounded_unauthenticated_metadata_search():
         "x" * 129,
     ],
 )
-def test_m160_rejects_unsafe_queries(query):
+def test_m160_rejects_unsafe_queries(query: str) -> None:
     with pytest.raises(ValueError):
         _request(query=query)
 
@@ -71,12 +72,12 @@ def test_m160_rejects_unsafe_queries(query):
         ({"model_call_requested": True}, "M160_MODEL_CALL_DENIED"),
     ],
 )
-def test_m160_request_denies_auth_download_raw_response_and_model_calls(update, reason):
+def test_m160_request_denies_auth_download_raw_response_and_model_calls(update: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_m160_huggingface_gguf_search_request(_request(**update))
 
 
-def test_m160_builds_expected_huggingface_models_url_without_tokens_or_bodies():
+def test_m160_builds_expected_huggingface_models_url_without_tokens_or_bodies() -> None:
     url = build_m160_huggingface_search_url(_request(query="qwen gguf", limit=3))
 
     assert url.startswith("https://huggingface.co/api/models?")
@@ -88,7 +89,7 @@ def test_m160_builds_expected_huggingface_models_url_without_tokens_or_bodies():
     assert "api_key" not in url.lower()
 
 
-def test_m160_fake_transport_filters_gguf_and_redacts_raw_payload():
+def test_m160_fake_transport_filters_gguf_and_redacts_raw_payload() -> None:
     transport = FakeM160HuggingFaceSearchTransport(
         [
             {
@@ -141,7 +142,7 @@ def test_m160_fake_transport_filters_gguf_and_redacts_raw_payload():
     assert "raw_card" not in payload
 
 
-def test_m160_can_include_gated_metadata_only_when_explicitly_requested():
+def test_m160_can_include_gated_metadata_only_when_explicitly_requested() -> None:
     transport = FakeM160HuggingFaceSearchTransport(
         [
             {
@@ -164,7 +165,7 @@ def test_m160_can_include_gated_metadata_only_when_explicitly_requested():
     assert result.download_performed is False
 
 
-def test_m160_fake_search_output_is_stable():
+def test_m160_fake_search_output_is_stable() -> None:
     request = _request(query="qwopus", limit=2)
     transport = FakeM160HuggingFaceSearchTransport(
         [
@@ -193,7 +194,7 @@ def test_m160_fake_search_output_is_stable():
     ]
 
 
-def test_m160_live_transport_result_validation_rejects_unsafe_mutations():
+def test_m160_live_transport_result_validation_rejects_unsafe_mutations() -> None:
     result = search_huggingface_gguf_models(
         _request(),
         transport=FakeM160HuggingFaceSearchTransport(
@@ -215,7 +216,7 @@ def test_m160_live_transport_result_validation_rejects_unsafe_mutations():
     os.getenv("UAA_M160_LIVE_HF_GGUF_SEARCH") != "1",
     reason="explicit live smoke only",
 )
-def test_m160_optional_live_hf_smoke_shape():
+def test_m160_optional_live_hf_smoke_shape() -> None:
     result = search_huggingface_gguf_models(
         _request(query=os.getenv("UAA_M160_LIVE_HF_QUERY", "qwen gguf"), limit=3),
         transport=StdlibM160HuggingFaceSearchTransport(),

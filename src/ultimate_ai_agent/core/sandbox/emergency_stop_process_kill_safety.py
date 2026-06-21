@@ -77,7 +77,7 @@ class EmergencyStopProcessKillSafetyPolicy(_EmergencyStopProcessKillSafetyModel)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -144,7 +144,7 @@ class EmergencyStopProcessKillSafetyRequest(_EmergencyStopProcessKillSafetyModel
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.emergency_stop_safety_ref, "emergency_stop_safety_ref"),
@@ -206,7 +206,7 @@ class EmergencyStopProcessKillSafetyReceiptPlan(_EmergencyStopProcessKillSafetyM
     safe_summary: str = "M89 emergency stop and process kill safety receipt stores safe refs only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.emergency_stop_safety_ref, "emergency_stop_safety_ref"),
@@ -290,7 +290,7 @@ class EmergencyStopProcessKillSafetyDecision(_EmergencyStopProcessKillSafetyMode
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.request_ref, "request_ref"),

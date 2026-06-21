@@ -1,3 +1,6 @@
+from typing import Any
+from pathlib import Path
+import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
@@ -12,11 +15,11 @@ from ultimate_ai_agent.core.mattermost import (
 client = TestClient(app)
 
 
-def _headers():
+def _headers() -> dict[str, Any]:
     return {"Authorization": "Bearer local-mattermost"}
 
 
-def _enable(monkeypatch, tmp_path, *, reply=True, auto_create=False):
+def _enable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, reply: bool = True, auto_create: bool = False) -> None:
     monkeypatch.setenv(MATTERMOST_BRIDGE_ENV, "1")
     monkeypatch.setenv(MATTERMOST_BRIDGE_BEARER_ENV, "local-mattermost")
     monkeypatch.setenv(MATTERMOST_BRIDGE_STORAGE_DIR_ENV, str(tmp_path))
@@ -24,7 +27,7 @@ def _enable(monkeypatch, tmp_path, *, reply=True, auto_create=False):
     monkeypatch.setenv(MATTERMOST_AUTO_CREATE_ROLES_ENV, "1" if auto_create else "0")
 
 
-def _bind_payload(**updates):
+def _bind_payload(**updates: Any) -> Any:
     payload = {
         "workspace_ref": "mattermost-workspace:local",
         "channel_ref": "mattermost-channel:town-square",
@@ -37,7 +40,7 @@ def _bind_payload(**updates):
     return payload
 
 
-def _event_payload(**updates):
+def _event_payload(**updates: Any) -> Any:
     payload = {
         "event_ref": "mattermost-event:post1",
         "workspace_ref": "mattermost-workspace:local",
@@ -55,7 +58,7 @@ def _event_payload(**updates):
     return payload
 
 
-def test_mattermost_status_is_public_metadata_and_disabled_by_default(monkeypatch):
+def test_mattermost_status_is_public_metadata_and_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(MATTERMOST_BRIDGE_ENV, raising=False)
 
     response = client.get("/integrations/mattermost/status")
@@ -67,7 +70,7 @@ def test_mattermost_status_is_public_metadata_and_disabled_by_default(monkeypatc
     assert "mattermost_raw_transcript_storage" in body["data"]["capabilities_blocked"]
 
 
-def test_mattermost_protected_routes_require_enabled_bridge_and_bearer(monkeypatch, tmp_path):
+def test_mattermost_protected_routes_require_enabled_bridge_and_bearer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(MATTERMOST_BRIDGE_ENV, raising=False)
     disabled = client.get("/integrations/mattermost/audit")
     catalog_disabled = client.get("/integrations/mattermost/roles/catalog")
@@ -80,7 +83,7 @@ def test_mattermost_protected_routes_require_enabled_bridge_and_bearer(monkeypat
     assert wrong.status_code == 401
 
 
-def test_mattermost_role_catalog_and_suggestions(monkeypatch, tmp_path):
+def test_mattermost_role_catalog_and_suggestions(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _enable(monkeypatch, tmp_path, auto_create=True)
 
     catalog = client.get("/integrations/mattermost/roles/catalog", headers=_headers())
@@ -112,7 +115,7 @@ def test_mattermost_role_catalog_and_suggestions(monkeypatch, tmp_path):
     assert auto_created.json()["data"]["suggestions"][0]["status"] == "auto_created"
 
 
-def test_mattermost_bind_message_receipts_and_audit(monkeypatch, tmp_path):
+def test_mattermost_bind_message_receipts_and_audit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _enable(monkeypatch, tmp_path)
 
     bind = client.post("/integrations/mattermost/roles/bind", headers=_headers(), json=_bind_payload())
@@ -133,7 +136,7 @@ def test_mattermost_bind_message_receipts_and_audit(monkeypatch, tmp_path):
     assert "@uaa-planner please plan this" not in stored
 
 
-def test_mattermost_tool_action_returns_approval_required(monkeypatch, tmp_path):
+def test_mattermost_tool_action_returns_approval_required(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _enable(monkeypatch, tmp_path)
     client.post(
         "/integrations/mattermost/roles/bind",
@@ -163,7 +166,7 @@ def test_mattermost_tool_action_returns_approval_required(monkeypatch, tmp_path)
     assert body["reply_commands"] == []
 
 
-def test_mattermost_unbind_disables_channel(monkeypatch, tmp_path):
+def test_mattermost_unbind_disables_channel(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _enable(monkeypatch, tmp_path)
     client.post("/integrations/mattermost/roles/bind", headers=_headers(), json=_bind_payload())
 

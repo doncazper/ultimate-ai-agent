@@ -17,7 +17,7 @@ from ultimate_ai_agent.core.device_capabilities.validation import (
 )
 
 
-def test_default_device_capability_manifest_is_contract_only_and_not_authority():
+def test_default_device_capability_manifest_is_contract_only_and_not_authority() -> None:
     manifest = build_default_device_capability_manifest()
 
     assert manifest.milestone == "M20"
@@ -40,7 +40,7 @@ def test_default_device_capability_manifest_is_contract_only_and_not_authority()
     assert_device_contract_only(manifest)
 
 
-def test_device_capability_descriptor_forbids_extra_fields():
+def test_device_capability_descriptor_forbids_extra_fields() -> None:
     with pytest.raises(ValidationError):
         DeviceCapabilityDescriptor(
             capability_id="camera_contract",
@@ -55,7 +55,7 @@ def test_device_capability_descriptor_forbids_extra_fields():
         )
 
 
-def test_device_capability_descriptor_defaults_to_disabled_contract():
+def test_device_capability_descriptor_defaults_to_disabled_contract() -> None:
     descriptor = DeviceCapabilityDescriptor(
         capability_id="clipboard_contract",
         platform=DevicePlatform.mobile_web_planned,

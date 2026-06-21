@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.planning import (
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.planning import (
 )
 
 
-def _step(**overrides):
+def _step(**overrides: Any) -> Any:
     data = {
         "step_id": "step:m29-validate",
         "step_kind": TaskStepKind.review_metadata,
@@ -25,7 +26,7 @@ def _step(**overrides):
     return TaskStep(**data)
 
 
-def _plan(**overrides):
+def _plan(**overrides: Any) -> Any:
     data = {
         "plan_id": "plan:m29-validate",
         "goal": TaskGoal(goal_id="goal:m29-validate", safe_summary="Plan a safe review."),
@@ -48,7 +49,7 @@ def _plan(**overrides):
         ({"metadata_refs": ["secret:m29"]}, "SECRET_METADATA_DENIED"),
     ],
 )
-def test_model_copy_mutated_input_boundary_is_revalidated(update, reason):
+def test_model_copy_mutated_input_boundary_is_revalidated(update: Any, reason: str) -> None:
     step = _step(input_boundary=TaskStepInputBoundary(input_refs=["canonical:m29"]))
     mutated_boundary = step.input_boundary.model_copy(update=update)
     mutated_step = step.model_copy(update={"input_boundary": mutated_boundary})
@@ -73,7 +74,7 @@ def test_model_copy_mutated_input_boundary_is_revalidated(update, reason):
         ("control-center:m29", PlanInputTrustLevel.unknown_blocked, "UNKNOWN_INPUT_REF_DENIED"),
     ],
 )
-def test_non_authoritative_refs_cannot_authorize_plans(input_ref, trust_level, reason):
+def test_non_authoritative_refs_cannot_authorize_plans(input_ref: Any, trust_level: Any, reason: str) -> None:
     boundary = TaskStepInputBoundary(input_refs=[input_ref], input_trust_level=trust_level)
     decision = evaluate_task_plan(_plan(steps=[_step(input_boundary=boundary)]))
 
@@ -82,7 +83,7 @@ def test_non_authoritative_refs_cannot_authorize_plans(input_ref, trust_level, r
     assert reason in decision.reason_codes
 
 
-def test_approval_ref_alone_and_test_refs_are_denied():
+def test_approval_ref_alone_and_test_refs_are_denied() -> None:
     arbitrary = evaluate_task_plan(_plan(approval_ref="approval:m28-arbitrary"))
     test_ref = evaluate_task_plan(_plan(approval_ref="approval_test_m29"))
 
@@ -92,7 +93,7 @@ def test_approval_ref_alone_and_test_refs_are_denied():
     assert "APPROVAL_TEST_REF_DENIED" in test_ref.reason_codes
 
 
-def test_hidden_side_effect_metadata_is_denied_for_safe_step_kind():
+def test_hidden_side_effect_metadata_is_denied_for_safe_step_kind() -> None:
     step = _step(
         step_kind=TaskStepKind.review_metadata,
         declared_risk_level=TaskRiskLevel.low,
@@ -106,7 +107,7 @@ def test_hidden_side_effect_metadata_is_denied_for_safe_step_kind():
     assert "TASK_RISK_DOWNGRADE_DENIED" in decision.reason_codes
 
 
-def test_safe_plan_reports_derived_plan_risk_from_steps():
+def test_safe_plan_reports_derived_plan_risk_from_steps() -> None:
     low = _step(step_id="step:m29-low", declared_risk_level=TaskRiskLevel.low)
     medium = _step(step_id="step:m29-medium", declared_risk_level=TaskRiskLevel.medium)
 

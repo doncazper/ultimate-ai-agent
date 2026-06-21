@@ -1,3 +1,4 @@
+from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
@@ -12,7 +13,7 @@ def _reject_unsafe_payload(payload: object, error_code: str) -> None:
 class _ProviderRuntimeContract(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    def model_copy(self, *, update=None, deep: bool = False):
+    def model_copy(self, *, update: Any | None = None, deep: bool = False) -> Any:
         copied = super().model_copy(update=update, deep=deep)
         return self.__class__.model_validate(copied.model_dump(mode="python"))
 
@@ -47,7 +48,7 @@ class ProviderCredentialValidationReadiness(_ProviderRuntimeContract):
     )
 
     @model_validator(mode="after")
-    def validation_readiness_must_remain_disabled(self):
+    def validation_readiness_must_remain_disabled(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "PROVIDER_CREDENTIAL_VALIDATION_SECRET_LIKE_VALUE_REJECTED",
@@ -88,7 +89,7 @@ class ProviderCredentialValidationRequest(_ProviderRuntimeContract):
     provider_sdk_allowed: bool = False
 
     @model_validator(mode="after")
-    def validation_request_must_remain_blocked(self):
+    def validation_request_must_remain_blocked(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "PROVIDER_CREDENTIAL_VALIDATION_REQUEST_SECRET_LIKE_VALUE_REJECTED",
@@ -122,7 +123,7 @@ class ProviderCredentialValidationReceipt(_ProviderRuntimeContract):
     )
 
     @model_validator(mode="after")
-    def validation_receipt_must_remain_blocked(self):
+    def validation_receipt_must_remain_blocked(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "PROVIDER_CREDENTIAL_VALIDATION_RECEIPT_SECRET_LIKE_VALUE_REJECTED",
@@ -181,7 +182,7 @@ class GovernedProviderInvocationReadiness(_ProviderRuntimeContract):
     )
 
     @model_validator(mode="after")
-    def invocation_readiness_must_remain_disabled(self):
+    def invocation_readiness_must_remain_disabled(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "GOVERNED_PROVIDER_INVOCATION_SECRET_LIKE_VALUE_REJECTED",
@@ -250,7 +251,7 @@ class GovernedProviderInvocationRequest(_ProviderRuntimeContract):
     model_output_authoritative: bool = False
 
     @model_validator(mode="after")
-    def invocation_request_must_remain_blocked(self):
+    def invocation_request_must_remain_blocked(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "GOVERNED_PROVIDER_INVOCATION_REQUEST_SECRET_LIKE_VALUE_REJECTED",
@@ -298,7 +299,7 @@ class GovernedProviderInvocationReceipt(_ProviderRuntimeContract):
     safe_error_summary: str = "Provider invocation is blocked until a scoped runtime milestone."
 
     @model_validator(mode="after")
-    def invocation_receipt_must_remain_blocked(self):
+    def invocation_receipt_must_remain_blocked(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "GOVERNED_PROVIDER_INVOCATION_RECEIPT_SECRET_LIKE_VALUE_REJECTED",

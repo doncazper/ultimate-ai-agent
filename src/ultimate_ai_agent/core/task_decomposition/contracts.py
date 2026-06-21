@@ -95,7 +95,7 @@ class CapabilityRoutingCard(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def high_risk_requires_approval(self):
+    def high_risk_requires_approval(self) -> Any:
         if self.risk_level in {RiskLevel.high, RiskLevel.critical} and not self.requires_approval:
             raise ValueError("HIGH_RISK_CAPABILITY_REQUIRES_APPROVAL")
         return self
@@ -124,7 +124,7 @@ class CapabilityContract(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def risky_permissions_require_approval(self):
+    def risky_permissions_require_approval(self) -> Any:
         if any(permission_requires_approval(permission) for permission in self.required_permissions):
             if not self.card.requires_approval:
                 raise ValueError("DANGEROUS_PERMISSION_REQUIRES_APPROVAL")
@@ -261,7 +261,7 @@ class TaskNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def selected_capability_must_be_candidate(self):
+    def selected_capability_must_be_candidate(self) -> Any:
         if self.selected_capability and self.selected_capability not in self.candidate_capabilities:
             raise ValueError("SELECTED_CAPABILITY_NOT_IN_CANDIDATES")
         if self.risk_level in {RiskLevel.high, RiskLevel.critical} and not self.requires_approval:

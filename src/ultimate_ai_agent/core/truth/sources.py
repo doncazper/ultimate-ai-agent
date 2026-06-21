@@ -76,7 +76,7 @@ class TruthSourceManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_authority(self):
+    def validate_authority(self) -> Any:
         if self.source_type == TruthSourceType.model_output and self.authority_level != TruthAuthorityLevel.not_authority:
             raise ValueError("model_output cannot be authoritative evidence.")
         if self.source_type == TruthSourceType.memory and self.authority_level == TruthAuthorityLevel.authoritative:
@@ -119,7 +119,7 @@ class TruthSourceRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m25_source_ref(self):
+    def validate_m25_source_ref(self) -> Any:
         from ultimate_ai_agent.core.truth.validation import (
             assert_no_raw_truth_content,
             validate_structured_truth_ref,

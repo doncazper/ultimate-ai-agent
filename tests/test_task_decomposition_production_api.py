@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import json
 
 import pytest
@@ -28,7 +30,7 @@ TASK_API_BEARER = "test-task-decomposition-local"
 TASK_API_HEADERS = {"Authorization": f"Bearer {TASK_API_BEARER}"}
 
 
-def _client(monkeypatch, tmp_path):
+def _client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Any, ...]:
     monkeypatch.setenv(api_app.TASK_DECOMPOSITION_API_ENV, "1")
     monkeypatch.setenv(api_app.TASK_DECOMPOSITION_API_BEARER_ENV, TASK_API_BEARER)
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
@@ -37,7 +39,7 @@ def _client(monkeypatch, tmp_path):
     return TestClient(api_app.app), service
 
 
-def test_task_decomposition_post_routes_are_disabled_without_local_authority(monkeypatch, tmp_path) -> None:
+def test_task_decomposition_post_routes_are_disabled_without_local_authority(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(api_app.TASK_DECOMPOSITION_API_ENV, raising=False)
     monkeypatch.delenv(api_app.TASK_DECOMPOSITION_API_BEARER_ENV, raising=False)
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
@@ -55,7 +57,7 @@ def test_task_decomposition_post_routes_are_disabled_without_local_authority(mon
     assert "disabled by default" in read_response.json()["detail"]
 
 
-def test_canonical_api_exposes_task_decomposition_surface(monkeypatch, tmp_path) -> None:
+def test_canonical_api_exposes_task_decomposition_surface(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     client, _service = _client(monkeypatch, tmp_path)
 
     init_response = client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
@@ -112,7 +114,7 @@ def test_canonical_api_exposes_task_decomposition_surface(monkeypatch, tmp_path)
     assert "capabilities" in metrics["data"]
 
 
-def test_task_decomposition_api_redacts_secret_like_raw_requests(monkeypatch, tmp_path) -> None:
+def test_task_decomposition_api_redacts_secret_like_raw_requests(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     client, _service = _client(monkeypatch, tmp_path)
     client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
     raw_request = "Summarize api_key='abcdefghijklmnop' without echoing it."
@@ -126,7 +128,7 @@ def test_task_decomposition_api_redacts_secret_like_raw_requests(monkeypatch, tm
         assert "raw_request_omitted" in response.text
 
 
-def test_task_decomposition_api_returns_safe_durable_binding(monkeypatch, tmp_path) -> None:
+def test_task_decomposition_api_returns_safe_durable_binding(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     client, _service = _client(monkeypatch, tmp_path)
     client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
 
@@ -154,7 +156,7 @@ def test_task_decomposition_api_returns_safe_durable_binding(monkeypatch, tmp_pa
     assert "Summarize this request directly" not in response.text
 
 
-def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(monkeypatch, tmp_path) -> None:
+def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     client, _service = _client(monkeypatch, tmp_path)
     client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
     payload = {
@@ -173,7 +175,7 @@ def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(m
     assert second.json()["error"]["code"] == "TASK_DECOMPOSITION_IDEMPOTENCY_REPLAY_DENIED"
 
 
-def test_task_decomposition_durable_run_binds_approval_receipt_replay_and_restart(tmp_path) -> None:
+def test_task_decomposition_durable_run_binds_approval_receipt_replay_and_restart(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     base = build_echo_tool_capability()
@@ -276,7 +278,7 @@ def test_task_decomposition_durable_run_binds_approval_receipt_replay_and_restar
     assert reloaded_binding.receipt_refs
 
 
-def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeypatch, tmp_path) -> None:
+def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     client, service = _client(monkeypatch, tmp_path)
     base = build_echo_tool_capability()
     gated = base.model_copy(
@@ -414,7 +416,7 @@ def test_canonical_api_captures_revokes_and_enforces_capability_approval(monkeyp
     assert denied_after_revoke.status == "awaiting_approval"
 
 
-def test_registry_store_uses_versioned_tamper_evident_documents(tmp_path) -> None:
+def test_registry_store_uses_versioned_tamper_evident_documents(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     store.ensure_example_registry()
 
@@ -429,7 +431,7 @@ def test_registry_store_uses_versioned_tamper_evident_documents(tmp_path) -> Non
         store.load()
 
 
-def test_top_level_handler_ref_persists_in_registered_contract(tmp_path) -> None:
+def test_top_level_handler_ref_persists_in_registered_contract(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     base = build_echo_tool_capability()
@@ -472,7 +474,7 @@ def test_top_level_handler_ref_persists_in_registered_contract(tmp_path) -> None
     assert result.status == "succeeded"
 
 
-def test_register_rejects_conflicting_top_level_and_contract_handler_refs(tmp_path) -> None:
+def test_register_rejects_conflicting_top_level_and_contract_handler_refs(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     contract = build_echo_tool_capability()
@@ -496,7 +498,7 @@ def test_task_decomposition_rate_limiter_blocks_repeated_actor_events() -> None:
         limiter.check("actor:local")
 
 
-def test_service_rejects_unallowlisted_handler_refs(tmp_path) -> None:
+def test_service_rejects_unallowlisted_handler_refs(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     contract = build_echo_tool_capability().model_copy(update={"handler_ref": "unreviewed.dynamic_import"})

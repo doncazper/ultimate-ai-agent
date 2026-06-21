@@ -18,7 +18,7 @@ def result(criterion_id: str, status: FoundationGateStatus) -> FoundationGateRes
     )
 
 
-def test_required_failure_makes_foundation_gate_report_fail():
+def test_required_failure_makes_foundation_gate_report_fail() -> None:
     report = build_foundation_gate_report(
         version="0.10.0",
         results=[
@@ -34,7 +34,7 @@ def test_required_failure_makes_foundation_gate_report_fail():
     assert validate_foundation_gate_report(report).success is True
 
 
-def test_warning_report_stays_warning_not_passed():
+def test_warning_report_stays_warning_not_passed() -> None:
     report = build_foundation_gate_report(
         version="0.10.0",
         results=[result("documentation_current", FoundationGateStatus.warning)],
@@ -44,7 +44,7 @@ def test_warning_report_stays_warning_not_passed():
     assert report.next_recommended_action == "Review warnings before expansion."
 
 
-def test_foundation_gate_report_orders_results_deterministically():
+def test_foundation_gate_report_orders_results_deterministically() -> None:
     report = build_foundation_gate_report(
         version="0.10.0",
         results=[
@@ -61,7 +61,7 @@ def test_foundation_gate_report_orders_results_deterministically():
     ]
 
 
-def test_foundation_gate_report_includes_command_receipts():
+def test_foundation_gate_report_includes_command_receipts() -> None:
     receipt = FoundationGateCommandReceipt(
         command_ref="command:scripts.verify_all",
         command_mode="ci-after-verify-all",
@@ -81,7 +81,7 @@ def test_foundation_gate_report_includes_command_receipts():
     assert validate_foundation_gate_report(report).success is True
 
 
-def test_foundation_gate_report_accepts_safe_latency_summary():
+def test_foundation_gate_report_accepts_safe_latency_summary() -> None:
     report = build_foundation_gate_report(
         version="0.10.0",
         results=[result("versioning_consistent", FoundationGateStatus.passed)],
@@ -152,7 +152,7 @@ def test_foundation_gate_report_accepts_safe_latency_summary():
     assert validate_foundation_gate_report(report).success is True
 
 
-def test_foundation_gate_report_accepts_safe_release_lane_summary():
+def test_foundation_gate_report_accepts_safe_release_lane_summary() -> None:
     report = build_foundation_gate_report(
         version="0.10.0",
         results=[result("versioning_consistent", FoundationGateStatus.passed)],
@@ -200,7 +200,7 @@ def test_foundation_gate_report_accepts_safe_release_lane_summary():
     assert validate_foundation_gate_report(report).success is True
 
 
-def test_report_validation_blocks_raw_secret_like_payloads():
+def test_report_validation_blocks_raw_secret_like_payloads() -> None:
     report = build_foundation_gate_report(
         version="0.10.0",
         results=[

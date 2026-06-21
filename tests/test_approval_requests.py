@@ -5,7 +5,7 @@ from tests.m85_helpers import approval_request
 from ultimate_ai_agent.core.approvals import ApprovalRiskLevel
 
 
-def test_approval_request_forbids_unknown_fields():
+def test_approval_request_forbids_unknown_fields() -> None:
     payload = approval_request().model_dump()
     payload["unexpected"] = "blocked"
 
@@ -13,14 +13,14 @@ def test_approval_request_forbids_unknown_fields():
         type(approval_request())(**payload)
 
 
-def test_approval_request_blocks_secret_like_purpose():
+def test_approval_request_blocks_secret_like_purpose() -> None:
     payload = approval_request().model_dump()
     payload["purpose"] = "api_key='ABCDEFGHIJKLMNOP'"
     with pytest.raises(ValueError, match="secret-like"):
         type(approval_request())(**payload)
 
 
-def test_approval_request_keeps_scope_and_risk_explicit():
+def test_approval_request_keeps_scope_and_risk_explicit() -> None:
     request = approval_request(risk_level=ApprovalRiskLevel.high, resource_refs=["cloud_reasoner"])
 
     assert request.subject_id == "route_req_1"

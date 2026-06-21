@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.model_runtime import validate_local_model_endpoint, 
         "http://[::1]:11434/api/generate",
     ],
 )
-def test_m23_endpoint_accepts_loopback_only(endpoint_url):
+def test_m23_endpoint_accepts_loopback_only(endpoint_url: str) -> None:
     validated = validate_local_model_endpoint(endpoint_url)
 
     assert validated == endpoint_url
@@ -38,17 +38,17 @@ def test_m23_endpoint_accepts_loopback_only(endpoint_url):
         ("http://localhost:11434/api/generate?profile=api_key='abcdefghijklmnop'", "secret-like"),
     ],
 )
-def test_m23_endpoint_rejects_external_lan_public_domain_credentials_and_secret_query(endpoint_url, message):
+def test_m23_endpoint_rejects_external_lan_public_domain_credentials_and_secret_query(endpoint_url: str, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         validate_local_model_endpoint(endpoint_url)
 
 
-def test_m23_request_endpoint_validation_is_enforced():
+def test_m23_request_endpoint_validation_is_enforced() -> None:
     with pytest.raises(ValueError, match="loopback"):
         validate_local_model_call_request(valid_request(endpoint_url="http://example.com/api/generate"))
 
 
-def test_m23_safe_endpoint_label_must_not_echo_raw_url_or_query():
+def test_m23_safe_endpoint_label_must_not_echo_raw_url_or_query() -> None:
     with pytest.raises(ValueError, match="endpoint label"):
         validate_local_model_call_request(
             valid_request(safe_endpoint_label="http://127.0.0.1:11434/api/generate?model=local")

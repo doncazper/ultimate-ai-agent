@@ -73,7 +73,7 @@ class GovernedWebEvidencePolicy(_GovernedWebEvidenceModel):
     timeout_s: float = Field(default=GOVERNED_WEB_EVIDENCE_DEFAULT_TIMEOUT_S, gt=0, le=10)
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         for field_name in [
             "https_get_only",
@@ -132,7 +132,7 @@ class GovernedWebEvidenceRequest(_GovernedWebEvidenceModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_request_shape(self):
+    def validate_request_shape(self) -> Any:
         _validate_m61_ref(self.request_ref, "request_ref")
         _validate_m61_ref(self.run_id, "run_id")
         _validate_m61_ref(self.actor_ref, "actor_ref")
@@ -184,7 +184,7 @@ class GovernedWebEvidenceReceipt(_GovernedWebEvidenceModel):
     redactions_applied: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_receipt(self):
+    def validate_receipt(self) -> Any:
         for value, field_name in [
             (self.receipt_ref, "receipt_ref"),
             (self.request_ref, "request_ref"),

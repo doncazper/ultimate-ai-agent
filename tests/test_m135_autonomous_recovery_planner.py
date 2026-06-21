@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "autonomous-recovery-planner-request:m135:review",
         "recovery_plan_ref": "autonomous-recovery-plan:m135:review",
@@ -64,7 +65,7 @@ def _request(**overrides):
     return AutonomousRecoveryPlannerRequest(**data)
 
 
-def test_m135_autonomous_recovery_planner_is_review_only_and_route_free():
+def test_m135_autonomous_recovery_planner_is_review_only_and_route_free() -> None:
     decision = build_autonomous_recovery_planner_decision(_request())
 
     assert decision.status == AutonomousRecoveryPlannerStatus.ready_for_review
@@ -175,7 +176,7 @@ def test_m135_autonomous_recovery_planner_is_review_only_and_route_free():
         ("production_authority_granted", "M135_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m135_policy_denies_recovery_runtime_and_future_authority(field, reason):
+def test_m135_policy_denies_recovery_runtime_and_future_authority(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_autonomous_recovery_planner_policy(
             AutonomousRecoveryPlannerPolicy(**{field: True})
@@ -251,7 +252,7 @@ def test_m135_policy_denies_recovery_runtime_and_future_authority(field, reason)
         ({"side_effects_performed": ["retry"]}, "M135_SIDE_EFFECTS_DENIED"),
     ],
 )
-def test_m135_request_rejects_unbounded_or_executing_recovery(overrides, reason):
+def test_m135_request_rejects_unbounded_or_executing_recovery(overrides: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_autonomous_recovery_planner_request(_request(**overrides))
 
@@ -296,7 +297,7 @@ def test_m135_request_rejects_unbounded_or_executing_recovery(overrides, reason)
         ({"max_risk_class": AutonomyRiskClass.high}, "M135_RISK_CEILING_DENIED"),
     ],
 )
-def test_m135_decision_rejects_runtime_or_unsafe_mutations(update, reason):
+def test_m135_decision_rejects_runtime_or_unsafe_mutations(update: Any, reason: str) -> None:
     decision = build_autonomous_recovery_planner_decision(_request())
 
     with pytest.raises(ValueError, match=reason):
@@ -320,7 +321,7 @@ def test_m135_decision_rejects_runtime_or_unsafe_mutations(update, reason):
         ("execution_performed", "M135_EXECUTION_DENIED"),
     ],
 )
-def test_m135_receipt_plan_rejects_raw_storage_and_effects(field, reason):
+def test_m135_receipt_plan_rejects_raw_storage_and_effects(field: str, reason: str) -> None:
     decision = build_autonomous_recovery_planner_decision(_request())
     receipt = decision.receipt_plan.model_copy(update={field: True})
 
@@ -330,7 +331,7 @@ def test_m135_receipt_plan_rejects_raw_storage_and_effects(field, reason):
         )
 
 
-def test_m135_receipt_plan_must_match_decision_scope():
+def test_m135_receipt_plan_must_match_decision_scope() -> None:
     decision = build_autonomous_recovery_planner_decision(_request())
 
     with pytest.raises(ValueError, match="M135_RECEIPT_BINDING_MISMATCH"):
@@ -345,7 +346,7 @@ def test_m135_receipt_plan_must_match_decision_scope():
         )
 
 
-def test_m135_rejects_secret_like_safe_summary_and_metadata():
+def test_m135_rejects_secret_like_safe_summary_and_metadata() -> None:
     with pytest.raises(ValueError, match="M135_SECRET_LIKE_RECOVERY_CONTENT_DENIED"):
         _request(safe_recovery_summary="api_key=secret")
 

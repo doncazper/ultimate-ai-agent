@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -28,7 +28,7 @@ class ExecutionReceiptPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_receipt(self):
+    def validate_receipt(self) -> Any:
         blocked_fields = [
             "execution_authorized",
             "execution_performed",

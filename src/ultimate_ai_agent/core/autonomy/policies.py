@@ -58,7 +58,7 @@ class AutonomyPolicyRule(_AutonomyPolicyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.rule_ref, "rule_ref")
         for refs, field_name, reason in [
             (self.allowed_actor_refs, "actor_ref", "POLICY_ACTOR_BINDING_REQUIRED"),
@@ -85,7 +85,7 @@ class AutonomyPolicyEnginePolicy(_AutonomyPolicyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         _validate_m61_ref(self.policy_version_ref, "policy_version_ref")
         if not self.rules:
@@ -105,7 +105,7 @@ class AutonomyPolicyEvaluationRequest(_AutonomyPolicyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.evaluation_request_ref, "evaluation_request_ref")
         if self.approval_ref is not None:
             _validate_m61_ref(self.approval_ref, "approval_ref")
@@ -131,7 +131,7 @@ class AutonomyPolicyDecision(_AutonomyPolicyModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         _validate_m61_ref(self.decision_ref, "decision_ref")
         _validate_m61_ref(self.evaluation_request_ref, "evaluation_request_ref")
         _validate_m61_ref(self.policy_ref, "policy_ref")

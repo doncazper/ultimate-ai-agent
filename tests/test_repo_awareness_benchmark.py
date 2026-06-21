@@ -9,7 +9,7 @@ import scripts.benchmark_repo_awareness as benchmark
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_repo_awareness_snapshot_scores_are_deterministic_and_safe():
+def test_repo_awareness_snapshot_scores_are_deterministic_and_safe() -> None:
     snapshot = benchmark.build_snapshot(
         root=ROOT,
         reason="manual_review",
@@ -30,7 +30,7 @@ def test_repo_awareness_snapshot_scores_are_deterministic_and_safe():
     assert benchmark.validate_benchmark_snapshot(snapshot, root=ROOT) == []
 
 
-def test_repo_awareness_snapshot_rejects_unknown_tier_and_score_mismatch():
+def test_repo_awareness_snapshot_rejects_unknown_tier_and_score_mismatch() -> None:
     snapshot = benchmark.build_snapshot(
         root=ROOT,
         generated_at=datetime(2026, 6, 20, 12, 0, 0, tzinfo=timezone.utc),
@@ -46,7 +46,7 @@ def test_repo_awareness_snapshot_rejects_unknown_tier_and_score_mismatch():
     assert any("does not match weighted category score" in failure for failure in failures)
 
 
-def test_repo_awareness_snapshot_rejects_missing_evidence_path():
+def test_repo_awareness_snapshot_rejects_missing_evidence_path() -> None:
     snapshot = benchmark.build_snapshot(
         root=ROOT,
         generated_at=datetime(2026, 6, 20, 12, 0, 0, tzinfo=timezone.utc),
@@ -60,7 +60,7 @@ def test_repo_awareness_snapshot_rejects_missing_evidence_path():
     assert any("evidence ref is not a safe known ref" in failure for failure in failures)
 
 
-def test_repo_awareness_snapshot_rejects_raw_private_fragments():
+def test_repo_awareness_snapshot_rejects_raw_private_fragments() -> None:
     snapshot = benchmark.build_snapshot(
         root=ROOT,
         generated_at=datetime(2026, 6, 20, 12, 0, 0, tzinfo=timezone.utc),
@@ -74,7 +74,7 @@ def test_repo_awareness_snapshot_rejects_raw_private_fragments():
     assert any("forbidden raw/private fragment" in failure for failure in failures)
 
 
-def test_repo_awareness_compare_reports_deltas():
+def test_repo_awareness_compare_reports_deltas() -> None:
     older = benchmark.build_snapshot(
         root=ROOT,
         generated_at=datetime(2026, 6, 13, 12, 0, 0, tzinfo=timezone.utc),
@@ -96,7 +96,7 @@ def test_repo_awareness_compare_reports_deltas():
     assert any(item["category_id"] == "module_maturity" for item in comparison["category_deltas"])
 
 
-def test_repo_awareness_compare_reports_missing_prior_snapshot():
+def test_repo_awareness_compare_reports_missing_prior_snapshot() -> None:
     latest = benchmark.build_snapshot(
         root=ROOT,
         generated_at=datetime(2026, 6, 20, 12, 0, 0, tzinfo=timezone.utc),
@@ -110,7 +110,7 @@ def test_repo_awareness_compare_reports_missing_prior_snapshot():
     assert comparison["safe_summary"] == "No prior benchmark snapshot exists for the requested comparison window."
 
 
-def test_repo_awareness_write_snapshot_creates_latest_and_index(tmp_path):
+def test_repo_awareness_write_snapshot_creates_latest_and_index(tmp_path: Path) -> None:
     source = ROOT / "docs"
     target_docs = tmp_path / "docs"
     target_benchmark = target_docs / "benchmarks" / "repo_awareness"
@@ -132,5 +132,5 @@ def test_repo_awareness_write_snapshot_creates_latest_and_index(tmp_path):
     assert source.exists()
 
 
-def test_repo_awareness_verifier_passes_current_repo():
+def test_repo_awareness_verifier_passes_current_repo() -> None:
     assert benchmark.validate_repo_awareness_benchmark(root=ROOT) == []

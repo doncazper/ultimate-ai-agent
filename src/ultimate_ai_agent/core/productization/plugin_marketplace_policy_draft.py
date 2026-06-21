@@ -100,7 +100,7 @@ class PluginMarketplacePolicyDraftPolicy(_PluginMarketplacePolicyDraftModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -198,7 +198,7 @@ class PluginMarketplacePolicyDraftRequest(_PluginMarketplacePolicyDraftModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -293,7 +293,7 @@ class PluginMarketplacePolicyDraftRecord(_PluginMarketplacePolicyDraftModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -465,7 +465,7 @@ def validate_plugin_marketplace_policy_draft_record(
     return validated
 
 
-def _request_ref_pairs(request: PluginMarketplacePolicyDraftRequest):
+def _request_ref_pairs(request: PluginMarketplacePolicyDraftRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.policy_draft_ref, "policy_draft_ref"),
@@ -479,7 +479,7 @@ def _request_ref_pairs(request: PluginMarketplacePolicyDraftRequest):
     ]
 
 
-def _record_ref_pairs(record: PluginMarketplacePolicyDraftRecord):
+def _record_ref_pairs(record: PluginMarketplacePolicyDraftRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.policy_draft_ref, "policy_draft_ref"),
@@ -494,7 +494,7 @@ def _record_ref_pairs(record: PluginMarketplacePolicyDraftRecord):
     ]
 
 
-def _request_ref_lists(request: PluginMarketplacePolicyDraftRequest):
+def _request_ref_lists(request: PluginMarketplacePolicyDraftRequest) -> list[Any]:
     return [
         (
             request.marketplace_policy_refs,
@@ -539,7 +539,7 @@ def _request_ref_lists(request: PluginMarketplacePolicyDraftRequest):
     ]
 
 
-def _record_ref_lists(record: PluginMarketplacePolicyDraftRecord):
+def _record_ref_lists(record: PluginMarketplacePolicyDraftRecord) -> list[Any]:
     return [
         (
             record.marketplace_policy_refs,

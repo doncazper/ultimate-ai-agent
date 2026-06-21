@@ -5,7 +5,7 @@ from ultimate_ai_agent.api.app import app
 client = TestClient(app)
 
 
-def test_validate_secret_credential_endpoint():
+def test_validate_secret_credential_endpoint() -> None:
     payload = {
         "credential_ref": "cred_api",
         "provider_id": "provider_api",
@@ -23,7 +23,7 @@ def test_validate_secret_credential_endpoint():
     assert "secret_value" not in str(data)
 
 
-def test_secret_access_endpoint_never_returns_raw_secret():
+def test_secret_access_endpoint_never_returns_raw_secret() -> None:
     payload = {
         "reference": {
             "credential_ref": "cred_api_access",
@@ -52,7 +52,7 @@ def test_secret_access_endpoint_never_returns_raw_secret():
     assert "raw_secret" not in response.text
 
 
-def test_secret_access_endpoint_rejects_raw_secret_value_field_without_echoing_value():
+def test_secret_access_endpoint_rejects_raw_secret_value_field_without_echoing_value() -> None:
     secret = "abcdefghijklmnop"
     payload = {
         "reference": {
@@ -80,7 +80,7 @@ def test_secret_access_endpoint_rejects_raw_secret_value_field_without_echoing_v
     assert "secret_value" not in response.text
 
 
-def test_provider_manifest_and_resolve_endpoints_are_non_executing():
+def test_provider_manifest_and_resolve_endpoints_are_non_executing() -> None:
     manifest = {
         "provider_id": "weather_no_key_api",
         "display_name": "Weather No Key API",
@@ -111,7 +111,7 @@ def test_provider_manifest_and_resolve_endpoints_are_non_executing():
     assert resolve_response.json()["data"]["selected_provider_id"] == "weather_no_key_api"
 
 
-def test_provider_result_validate_endpoint_blocks_secret_leakage():
+def test_provider_result_validate_endpoint_blocks_secret_leakage() -> None:
     response = client.post(
         "/providers/results/validate",
         json={

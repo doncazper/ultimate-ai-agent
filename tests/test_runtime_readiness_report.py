@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.runtime_readiness import (
 )
 
 
-def test_runtime_readiness_report_is_not_production_or_execution_ready():
+def test_runtime_readiness_report_is_not_production_or_execution_ready() -> None:
     report = build_readiness_report(baseline_version="0.15.0")
     dumped = report.model_dump(mode="json")
 

@@ -7,7 +7,7 @@ from ultimate_ai_agent.core.hygiene.temporal_context import TemporalContext, Fre
 from ultimate_ai_agent.core.hygiene.envelopes import ErrorEnvelope, ErrorCategory, Severity, ResultEnvelope, Classification
 from ultimate_ai_agent.core.hygiene.policies import IdempotencyPolicy, OperationType, RetryClass, DataClassification, ClassificationValue, RedactionPolicy, RedactionSurface, RedactionAction, CapabilityFlag, Stage, Status
 
-def test_actor_context_valid():
+def test_actor_context_valid() -> None:
     ctx = ActorContext(
         actor_type=ActorType.human_user,
         actor_id="usr_123",
@@ -19,7 +19,7 @@ def test_actor_context_valid():
     assert ctx.actor_id == "usr_123"
     assert ctx.actor_type == "human_user"
 
-def test_actor_context_invalid_enum():
+def test_actor_context_invalid_enum() -> None:
     with pytest.raises(ValidationError):
         ActorContext(
             actor_type="invalid_type",  # type: ignore
@@ -27,7 +27,7 @@ def test_actor_context_invalid_enum():
             authority_source=AuthoritySource.explicit_user_request
         )
 
-def test_actor_context_extra_fields():
+def test_actor_context_extra_fields() -> None:
     with pytest.raises(ValidationError):
         ActorContext(
             actor_type=ActorType.human_user,
@@ -36,7 +36,7 @@ def test_actor_context_extra_fields():
             extra_field="not_allowed"  # type: ignore
         )
 
-def test_temporal_context_valid():
+def test_temporal_context_valid() -> None:
     ctx = TemporalContext(
         current_time_utc=datetime.now(UTC),
         freshness_class=FreshnessClass.daily,
@@ -45,14 +45,14 @@ def test_temporal_context_valid():
     assert ctx.freshness_class == "daily"
     assert ctx.staleness_policy == "allow_with_label"
 
-def test_temporal_context_invalid_negative_window():
+def test_temporal_context_invalid_negative_window() -> None:
     with pytest.raises(ValidationError):
         TemporalContext(
             freshness_class=FreshnessClass.hourly,
             freshness_window_seconds=-10
         )
 
-def test_error_envelope_valid():
+def test_error_envelope_valid() -> None:
     err = ErrorEnvelope(
         code="ERR_AUTH_FAILED",
         category=ErrorCategory.authentication_error,
@@ -66,7 +66,7 @@ def test_error_envelope_valid():
     assert err.code == "ERR_AUTH_FAILED"
     assert err.severity == "high"
 
-def test_result_envelope_valid():
+def test_result_envelope_valid() -> None:
     err = ErrorEnvelope(
         code="ERR_INVALID_INPUT",
         category=ErrorCategory.validation_error,
@@ -89,7 +89,7 @@ def test_result_envelope_valid():
     assert res.error is not None
     assert res.error.code == "ERR_INVALID_INPUT"
 
-def test_idempotency_policy_valid():
+def test_idempotency_policy_valid() -> None:
     policy = IdempotencyPolicy(
         idempotency_key="key_12345678",
         operation_type=OperationType.file_write,
@@ -100,7 +100,7 @@ def test_idempotency_policy_valid():
     assert policy.idempotency_key == "key_12345678"
     assert policy.max_attempts == 3
 
-def test_idempotency_policy_invalid_key_length():
+def test_idempotency_policy_invalid_key_length() -> None:
     with pytest.raises(ValidationError):
         IdempotencyPolicy(
             idempotency_key="short",  # < 8 chars
@@ -109,7 +109,7 @@ def test_idempotency_policy_invalid_key_length():
             attempt_number=1
         )
 
-def test_data_classification_valid():
+def test_data_classification_valid() -> None:
     cls = DataClassification(
         classification=ClassificationValue.sensitive_personal,
         source="user_profile",
@@ -119,7 +119,7 @@ def test_data_classification_valid():
     assert cls.classification == "sensitive_personal"
     assert cls.requires_consent is True
 
-def test_redaction_policy_valid():
+def test_redaction_policy_valid() -> None:
     policy = RedactionPolicy(
         policy_id="pol_redact_secrets",
         surfaces=[RedactionSurface.prompts, RedactionSurface.event_ledger_payloads],
@@ -129,7 +129,7 @@ def test_redaction_policy_valid():
     assert policy.policy_id == "pol_redact_secrets"
     assert len(policy.surfaces) == 2
 
-def test_capability_flag_valid():
+def test_capability_flag_valid() -> None:
     flag = CapabilityFlag(
         capability_id="cap_file_writer",
         enabled=True,

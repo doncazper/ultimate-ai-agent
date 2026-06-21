@@ -1,3 +1,5 @@
+from pathlib import Path
+import pytest
 from datetime import timedelta
 
 from fastapi.testclient import TestClient
@@ -35,7 +37,7 @@ DEV_API_BEARER = "test-task-decomposition-dev"
 DEV_API_HEADERS = {"Authorization": f"Bearer {DEV_API_BEARER}"}
 
 
-def test_json_registry_store_persists_and_reloads_example_handlers(tmp_path) -> None:
+def test_json_registry_store_persists_and_reloads_example_handlers(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     registry = build_example_registry()
     store.save(registry)
@@ -47,7 +49,7 @@ def test_json_registry_store_persists_and_reloads_example_handlers(tmp_path) -> 
     assert loaded.get("capability:example-validation-workflow") is not None
 
 
-def test_service_decompose_and_run_uses_persistent_registry(tmp_path) -> None:
+def test_service_decompose_and_run_uses_persistent_registry(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     service.ensure_examples()
@@ -59,7 +61,7 @@ def test_service_decompose_and_run_uses_persistent_registry(tmp_path) -> None:
     assert result.execution.status == DAGExecutionStatus.succeeded
 
 
-def test_local_approval_authority_grant_authorizes_gated_capability(tmp_path) -> None:
+def test_local_approval_authority_grant_authorizes_gated_capability(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     contract = build_echo_tool_capability().model_copy(
@@ -131,7 +133,7 @@ def test_local_approval_authority_grant_authorizes_gated_capability(tmp_path) ->
     assert result.status == DAGExecutionStatus.succeeded
 
 
-def test_kernel_adapter_previews_local_decomposition(tmp_path) -> None:
+def test_kernel_adapter_previews_local_decomposition(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     service.ensure_examples()
@@ -143,7 +145,7 @@ def test_kernel_adapter_previews_local_decomposition(tmp_path) -> None:
     assert preview.plan.nodes[0].selected_capability == "capability:example-echo-summary"
 
 
-def test_cli_init_catalog_decompose_and_run(tmp_path, capsys) -> None:
+def test_cli_init_catalog_decompose_and_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     registry_path = str(tmp_path / "registry.json")
 
     assert cli_main(["--registry", registry_path, "init-examples"]) == 0
@@ -155,7 +157,7 @@ def test_cli_init_catalog_decompose_and_run(tmp_path, capsys) -> None:
     assert "capability:example-echo-summary" in output
 
 
-def test_api_routes_initialize_decompose_and_run(tmp_path, monkeypatch) -> None:
+def test_api_routes_initialize_decompose_and_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(TASK_DECOMPOSITION_API_ENV, "1")
     monkeypatch.setenv(TASK_DECOMPOSITION_API_BEARER_ENV, DEV_API_BEARER)
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
@@ -188,7 +190,7 @@ def test_api_routes_initialize_decompose_and_run(tmp_path, monkeypatch) -> None:
     assert run_response.json()["success"] is True
 
 
-def test_dev_api_is_disabled_without_local_authority(tmp_path, monkeypatch) -> None:
+def test_dev_api_is_disabled_without_local_authority(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(TASK_DECOMPOSITION_API_ENV, raising=False)
     monkeypatch.delenv(TASK_DECOMPOSITION_API_BEARER_ENV, raising=False)
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))

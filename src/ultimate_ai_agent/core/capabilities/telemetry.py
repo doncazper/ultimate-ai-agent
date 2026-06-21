@@ -16,7 +16,7 @@ class NoOpTelemetrySink:
 
 
 class InMemoryTelemetrySink:
-    def __init__(self):
+    def __init__(self) -> None:
         self.events: list[TelemetryEvent] = []
 
     def record(self, event: TelemetryEvent) -> None:

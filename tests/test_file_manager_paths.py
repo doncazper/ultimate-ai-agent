@@ -5,7 +5,7 @@ import pytest
 from ultimate_ai_agent.core.files import LocalFileManager
 
 
-def test_file_manager_blocks_absolute_and_traversal_paths(tmp_path: Path):
+def test_file_manager_blocks_absolute_and_traversal_paths(tmp_path: Path) -> None:
     manager = LocalFileManager(workspace_root=tmp_path)
 
     with pytest.raises(ValueError, match="absolute"):
@@ -27,14 +27,14 @@ def test_file_manager_blocks_absolute_and_traversal_paths(tmp_path: Path):
         ("docs\\note.txt", "Backslash"),
     ],
 )
-def test_file_manager_blocks_ambiguous_and_secret_like_paths(tmp_path: Path, path: str, reason: str):
+def test_file_manager_blocks_ambiguous_and_secret_like_paths(tmp_path: Path, path: str, reason: str) -> None:
     manager = LocalFileManager(workspace_root=tmp_path)
 
     with pytest.raises(ValueError, match=reason):
         manager.normalize_path(path)
 
 
-def test_file_manager_constructor_does_not_create_workspace_root(tmp_path: Path):
+def test_file_manager_constructor_does_not_create_workspace_root(tmp_path: Path) -> None:
     workspace = tmp_path / "not-created-by-constructor"
 
     LocalFileManager(workspace_root=workspace)
@@ -42,7 +42,7 @@ def test_file_manager_constructor_does_not_create_workspace_root(tmp_path: Path)
     assert not workspace.exists()
 
 
-def test_file_manager_builds_ref_inside_workspace(tmp_path: Path):
+def test_file_manager_builds_ref_inside_workspace(tmp_path: Path) -> None:
     manager = LocalFileManager(workspace_root=tmp_path)
     path = tmp_path / "docs" / "note.md"
     path.parent.mkdir()

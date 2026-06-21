@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi.testclient import TestClient
 
 from tests.m7_helpers import actor
@@ -7,7 +8,7 @@ from ultimate_ai_agent.core.remote_workers import RemoteAuditContext, RemoteJobE
 client = TestClient(app)
 
 
-def _job_payload(**overrides):
+def _job_payload(**overrides: Any) -> Any:
     payload = {
         "job_id": "job_api",
         "correlation_id": "corr_api",
@@ -22,7 +23,7 @@ def _job_payload(**overrides):
     return payload
 
 
-def test_remote_worker_status_and_dry_run_api_are_validation_only():
+def test_remote_worker_status_and_dry_run_api_are_validation_only() -> None:
     status = client.get("/remote-workers/status").json()
     dry_run = client.post("/remote-workers/dry-run", json={"job": _job_payload()}).json()
 
@@ -36,7 +37,7 @@ def test_remote_worker_status_and_dry_run_api_are_validation_only():
     assert dry_run["data"]["network_connections_opened"] == []
 
 
-def test_remote_worker_validate_routes_and_tailnet_status_are_safe():
+def test_remote_worker_validate_routes_and_tailnet_status_are_safe() -> None:
     envelope = RemoteJobEnvelope(**_job_payload())
 
     assert client.post("/remote-workers/policy/validate", json={"policy": {"policy_id": "policy_default"}}).json()["success"] is True
@@ -45,7 +46,7 @@ def test_remote_worker_validate_routes_and_tailnet_status_are_safe():
     assert client.get("/remote-workers/mesh/status").json()["data"]["live_mesh_enabled"] is False
 
 
-def test_remote_worker_status_includes_open_source_first_private_mesh_metadata():
+def test_remote_worker_status_includes_open_source_first_private_mesh_metadata() -> None:
     status = client.get("/remote-workers/status").json()["data"]
     mesh = client.get("/remote-workers/mesh/status").json()["data"]
     transport_ids = set(status["transports"]["transport_ids"])
@@ -59,7 +60,7 @@ def test_remote_worker_status_includes_open_source_first_private_mesh_metadata()
     assert mesh["wireguard_integrated"] is False
 
 
-def test_remote_worker_transport_validate_accepts_planned_headscale_descriptor_but_denies_enablement():
+def test_remote_worker_transport_validate_accepts_planned_headscale_descriptor_but_denies_enablement() -> None:
     safe = client.post(
         "/remote-workers/transports/validate",
         json={
@@ -103,7 +104,7 @@ def test_remote_worker_transport_validate_accepts_planned_headscale_descriptor_b
     assert "REMOTE_TRANSPORT_NETWORK_DENIED" in enabled["data"]["reason_codes"]
 
 
-def test_remote_worker_policy_validate_rejects_unsupported_enable_flags():
+def test_remote_worker_policy_validate_rejects_unsupported_enable_flags() -> None:
     tailnet = client.post(
         "/remote-workers/policy/validate",
         json={"policy": {"policy_id": "policy_tailnet", "remote_tailnet_enabled": True}},
@@ -132,7 +133,7 @@ def test_remote_worker_policy_validate_rejects_unsupported_enable_flags():
     assert "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5" in both.text
 
 
-def test_remote_worker_api_wrappers_reject_top_level_extra_fields():
+def test_remote_worker_api_wrappers_reject_top_level_extra_fields() -> None:
     requests = [
         ("/remote-workers/nodes/validate", {"node": {}, "unexpected": "extra"}),
         ("/remote-workers/transports/validate", {"transport": {}, "unexpected": "extra"}),
@@ -149,7 +150,7 @@ def test_remote_worker_api_wrappers_reject_top_level_extra_fields():
         assert body["error"]["code"] == "REQUEST_VALIDATION_FAILED"
 
 
-def test_remote_worker_api_top_level_secret_extra_does_not_echo():
+def test_remote_worker_api_top_level_secret_extra_does_not_echo() -> None:
     response = client.post(
         "/remote-workers/policy/validate",
         json={"policy": {"policy_id": "policy_extra_secret"}, "api_key": "sk_secret_value_123456"},
@@ -161,7 +162,7 @@ def test_remote_worker_api_top_level_secret_extra_does_not_echo():
     assert "sk_secret_value_123456" not in response.text
 
 
-def test_remote_worker_invalid_payload_does_not_echo_secret():
+def test_remote_worker_invalid_payload_does_not_echo_secret() -> None:
     response = client.post(
         "/remote-workers/jobs/validate",
         json={"job": {**_job_payload(task_summary="api_key='abcdefghijklmnop'")}},
@@ -173,7 +174,7 @@ def test_remote_worker_invalid_payload_does_not_echo_secret():
     assert "abcdefghijklmnop" not in response.text
 
 
-def test_public_api_has_no_remote_execution_routes():
+def test_public_api_has_no_remote_execution_routes() -> None:
     paths = {route.path for route in app.routes}
 
     assert "/remote-workers/dry-run" in paths

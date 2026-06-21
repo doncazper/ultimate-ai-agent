@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.sandbox import (
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.sandbox import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "command-proposal-request:m82",
         "proposal_ref": "command-proposal:m82",

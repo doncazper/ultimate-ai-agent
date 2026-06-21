@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.productization import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.productization import (
 )
 
 
-def _request(**overrides) -> ExternalSecurityReviewRequest:
+def _request(**overrides: Any) -> ExternalSecurityReviewRequest:
     data = {
         "request_ref": "external-security-review-request:m148",
         "security_review_ref": "external-security-review:m148",
@@ -205,7 +206,7 @@ def test_m148_record_uses_safe_refs_only() -> None:
         ("production_authority_granted", "M148_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m148_policy_denies_authority_expansion(field, reason) -> None:
+def test_m148_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_external_security_review_policy(
             ExternalSecurityReviewPolicy(**{field: True})
@@ -239,7 +240,7 @@ def test_m148_policy_denies_authority_expansion(field, reason) -> None:
         ("production_authority_requested", "M148_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m148_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m148_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_external_security_review_request(
             _request().model_copy(update={field: True})
@@ -305,7 +306,7 @@ def test_m148_requires_exact_checkpoint_and_safety_refs() -> None:
         ({"production_authority_granted": True}, "M148_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m148_record_denies_unsafe_mutations(update, reason) -> None:
+def test_m148_record_denies_unsafe_mutations(update: Any, reason: str) -> None:
     record = build_external_security_review_record(_request())
 
     with pytest.raises(ValueError, match=reason):

@@ -67,7 +67,7 @@ class SandboxedEchoNoOpCommandPolicy(_SandboxedEchoNoOpCommandModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -114,7 +114,7 @@ class SandboxedEchoNoOpCommandRequest(_SandboxedEchoNoOpCommandModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.sandboxed_command_ref, "sandboxed_command_ref"),
@@ -148,7 +148,7 @@ class SandboxedEchoNoOpCommandReceiptPlan(_SandboxedEchoNoOpCommandModel):
     safe_summary: str = "M84 sandboxed echo/no-op command receipt stores safe metadata only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.sandboxed_command_ref, "sandboxed_command_ref"),
@@ -202,7 +202,7 @@ class SandboxedEchoNoOpCommandDecision(_SandboxedEchoNoOpCommandModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.sandboxed_command_ref, "sandboxed_command_ref"),

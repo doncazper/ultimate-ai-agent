@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.productization import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.productization import (
 )
 
 
-def _request(**overrides) -> MultiUserProductBoundaryRequest:
+def _request(**overrides: Any) -> MultiUserProductBoundaryRequest:
     data = {
         "request_ref": "multi-user-product-boundary-request:m141",
         "product_boundary_ref": "multi-user-product-boundary:m141",
@@ -179,7 +180,7 @@ def test_m141_record_uses_safe_refs_only() -> None:
         ("production_authority_granted", "M141_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m141_policy_denies_authority_expansion(field, reason) -> None:
+def test_m141_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_multi_user_product_boundary_policy(
             MultiUserProductBoundaryPolicy(**{field: True})
@@ -217,7 +218,7 @@ def test_m141_policy_denies_authority_expansion(field, reason) -> None:
         ("contains_secret", "M141_SECRET_DENIED"),
     ],
 )
-def test_m141_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m141_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_multi_user_product_boundary_request(
             _request().model_copy(update={field: True})

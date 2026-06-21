@@ -8,14 +8,14 @@ from ultimate_ai_agent.core.secrets import (
 )
 
 
-def test_secret_broker_detects_obvious_secret_leakage():
+def test_secret_broker_detects_obvious_secret_leakage() -> None:
     broker = SecretBroker()
 
     assert broker.validate_no_secret_leak({"payload": "api_key='abcdefghijklmnop'"}) is False
     assert broker.validate_no_secret_leak({"credential_ref": "cred_123"}) is True
 
 
-def test_result_envelope_data_can_carry_secret_handle_without_raw_secret():
+def test_result_envelope_data_can_carry_secret_handle_without_raw_secret() -> None:
     broker = SecretBroker()
     broker.register_credential(
         CredentialReference(

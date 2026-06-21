@@ -122,7 +122,7 @@ class CapabilitySpec(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def validate_schema_shapes(self):
+    def validate_schema_shapes(self) -> Any:
         if not isinstance(self.input_schema, dict):
             raise ValueError("capability input_schema must be a mapping")
         if self.output_schema is not None and not isinstance(self.output_schema, dict):
@@ -267,7 +267,7 @@ class ContextPolicy(_CoordinatorCapabilityModel):
     notes_supported: bool = True
 
     @model_validator(mode="after")
-    def validate_context_policy(self):
+    def validate_context_policy(self) -> Any:
         if self.allow_raw_content:
             raise ValueError("Capability context policy must not allow raw content by default.")
         _assert_secret_clean(self.model_dump(mode="json"), "context_policy")
@@ -305,7 +305,7 @@ class QualitySignals(_CoordinatorCapabilityModel):
     deprecated: bool = False
 
     @model_validator(mode="after")
-    def validate_quality(self):
+    def validate_quality(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "quality")
         return self
 
@@ -348,7 +348,7 @@ class CapabilityManifest(_CoordinatorCapabilityModel):
         return [value.strip() for value in values if value and value.strip()]
 
     @model_validator(mode="after")
-    def validate_manifest(self):
+    def validate_manifest(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "capability_manifest")
         if not self.examples:
             raise ValueError("Capability manifests require at least one positive example.")
@@ -448,7 +448,7 @@ class TaskEnvelope(_CoordinatorCapabilityModel):
     parent_trace_id: str | None = None
 
     @model_validator(mode="after")
-    def validate_envelope(self):
+    def validate_envelope(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "task_envelope")
         return self
 
@@ -468,7 +468,7 @@ class TaskNode(_CoordinatorCapabilityModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_node(self):
+    def validate_node(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "task_node")
         return self
 
@@ -485,7 +485,7 @@ class TaskPlan(_CoordinatorCapabilityModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_plan(self):
+    def validate_plan(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "task_plan")
         mutating_nodes = [node for node in self.nodes if is_mutating_side_effect(node.expected_side_effects)]
         if len(mutating_nodes) == 1 and self.single_writer_node_id is None:
@@ -506,7 +506,7 @@ class Artifact(_CoordinatorCapabilityModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_artifact(self):
+    def validate_artifact(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "artifact")
         return self
 
@@ -524,7 +524,7 @@ class CapabilitySelection(_CoordinatorCapabilityModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_selection(self):
+    def validate_selection(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "capability_selection")
         return self
 

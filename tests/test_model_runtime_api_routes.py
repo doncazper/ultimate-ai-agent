@@ -9,7 +9,7 @@ SECRET_VALUE = "sk_test_secret_value"
 SECRET_ASSIGNMENT = f"api_key={SECRET_VALUE}"
 
 
-def test_model_runtime_manifest_validate_endpoint_accepts_simulated_manifest():
+def test_model_runtime_manifest_validate_endpoint_accepts_simulated_manifest() -> None:
     response = client.post("/model-runtime/manifests/validate", json=simulated_manifest().model_dump(mode="json"))
 
     assert response.status_code == 200
@@ -18,7 +18,7 @@ def test_model_runtime_manifest_validate_endpoint_accepts_simulated_manifest():
     assert body["data"]["status"] == "validated"
 
 
-def test_model_runtime_request_validate_endpoint_blocks_secret_prompt_summary():
+def test_model_runtime_request_validate_endpoint_blocks_secret_prompt_summary() -> None:
     payload = runtime_request().model_dump(mode="json")
     payload["prompt_summary"] = "api_key='ABCDEFGHIJKLMNOP'"
 
@@ -31,7 +31,7 @@ def test_model_runtime_request_validate_endpoint_blocks_secret_prompt_summary():
     assert "ABCDEFGHIJKLMNOP" not in response.text
 
 
-def test_model_runtime_manifest_secret_metadata_validation_does_not_echo_input():
+def test_model_runtime_manifest_secret_metadata_validation_does_not_echo_input() -> None:
     payload = simulated_manifest().model_dump(mode="json")
     payload["metadata"] = {"note": SECRET_ASSIGNMENT}
 
@@ -43,7 +43,7 @@ def test_model_runtime_manifest_secret_metadata_validation_does_not_echo_input()
     assert SECRET_ASSIGNMENT not in response.text
 
 
-def test_model_runtime_manifest_extra_api_key_validation_does_not_echo_input():
+def test_model_runtime_manifest_extra_api_key_validation_does_not_echo_input() -> None:
     payload = simulated_manifest().model_dump(mode="json")
     payload["api_key"] = SECRET_VALUE
 
@@ -54,7 +54,7 @@ def test_model_runtime_manifest_extra_api_key_validation_does_not_echo_input():
     assert SECRET_VALUE not in response.text
 
 
-def test_model_runtime_request_nested_manifest_secret_validation_does_not_echo_input():
+def test_model_runtime_request_nested_manifest_secret_validation_does_not_echo_input() -> None:
     manifest = simulated_manifest().model_dump(mode="json")
     manifest["metadata"] = {"note": SECRET_ASSIGNMENT}
 
@@ -69,7 +69,7 @@ def test_model_runtime_request_nested_manifest_secret_validation_does_not_echo_i
     assert SECRET_ASSIGNMENT not in response.text
 
 
-def test_model_runtime_simulate_nested_manifest_secret_validation_does_not_echo_input():
+def test_model_runtime_simulate_nested_manifest_secret_validation_does_not_echo_input() -> None:
     manifest = simulated_manifest().model_dump(mode="json")
     manifest["metadata"] = {"note": SECRET_ASSIGNMENT}
 
@@ -84,7 +84,7 @@ def test_model_runtime_simulate_nested_manifest_secret_validation_does_not_echo_
     assert SECRET_ASSIGNMENT not in response.text
 
 
-def test_model_runtime_response_secret_validation_does_not_echo_input():
+def test_model_runtime_response_secret_validation_does_not_echo_input() -> None:
     payload = {
         "runtime_response_id": "mrt_resp_secret",
         "runtime_request_id": "mrt_req_secret",
@@ -104,7 +104,7 @@ def test_model_runtime_response_secret_validation_does_not_echo_input():
     assert SECRET_ASSIGNMENT not in response.text
 
 
-def test_model_runtime_simulate_endpoint_returns_simulated_response():
+def test_model_runtime_simulate_endpoint_returns_simulated_response() -> None:
     response = client.post(
         "/model-runtime/simulate",
         json={"request": runtime_request().model_dump(mode="json"), "manifest": simulated_manifest().model_dump(mode="json")},
@@ -117,7 +117,7 @@ def test_model_runtime_simulate_endpoint_returns_simulated_response():
     assert "no model was called" in body["data"]["output_summary"]
 
 
-def test_openapi_includes_m8_routes_with_unique_operation_ids():
+def test_openapi_includes_m8_routes_with_unique_operation_ids() -> None:
     schema = app.openapi()
     paths = schema["paths"]
     operation_ids = [

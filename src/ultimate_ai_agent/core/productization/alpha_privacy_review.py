@@ -91,7 +91,7 @@ class AlphaPrivacyReviewPolicy(_AlphaPrivacyReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -176,7 +176,7 @@ class AlphaPrivacyReviewRequest(_AlphaPrivacyReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -259,7 +259,7 @@ class AlphaPrivacyReviewRecord(_AlphaPrivacyReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -458,7 +458,7 @@ def validate_alpha_privacy_review_record(
     return validated
 
 
-def _request_ref_pairs(request: AlphaPrivacyReviewRequest):
+def _request_ref_pairs(request: AlphaPrivacyReviewRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.privacy_review_ref, "privacy_review_ref"),
@@ -472,7 +472,7 @@ def _request_ref_pairs(request: AlphaPrivacyReviewRequest):
     ]
 
 
-def _record_ref_pairs(record: AlphaPrivacyReviewRecord):
+def _record_ref_pairs(record: AlphaPrivacyReviewRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.privacy_review_ref, "privacy_review_ref"),

@@ -1,3 +1,5 @@
+from typing import Any
+import pytest
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.memory import store as memory_store_module
 from ultimate_ai_agent.core.memory import (
@@ -13,7 +15,7 @@ from ultimate_ai_agent.core.memory import (
 )
 
 
-def actor():
+def actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -23,7 +25,7 @@ def actor():
     )
 
 
-def write(store, content, *, scope=MemoryScope.project, scope_id="proj_123", tags=None):
+def write(store: Any, content: str, *, scope: str = MemoryScope.project, scope_id: str = "proj_123", tags: Any | None = None) -> Any:
     return store.write_memory(
         MemoryWriteRequest(
             request_id=f"mwr_{len(store.list_memories())}",
@@ -44,7 +46,7 @@ def write(store, content, *, scope=MemoryScope.project, scope_id="proj_123", tag
     )
 
 
-def test_keyword_retrieval_is_deterministic_and_scope_filtered():
+def test_keyword_retrieval_is_deterministic_and_scope_filtered() -> None:
     store = MemoryStore()
     write(store, "FastAPI is the API boundary for this project.", tags=["api"])
     write(store, "Memory uses source-linked recall below canonical files.", tags=["memory"])
@@ -69,7 +71,7 @@ def test_keyword_retrieval_is_deterministic_and_scope_filtered():
     ]
 
 
-def test_deleted_and_superseded_memories_are_filtered_by_default():
+def test_deleted_and_superseded_memories_are_filtered_by_default() -> None:
     store = MemoryStore()
     old = write(store, "Use the old project name.").memory_id
     new = write(store, "Use the current project name.").memory_id
@@ -91,7 +93,7 @@ def test_deleted_and_superseded_memories_are_filtered_by_default():
     assert decision.results == []
 
 
-def test_retrieval_policy_excludes_sensitive_without_consent_and_limits_results():
+def test_retrieval_policy_excludes_sensitive_without_consent_and_limits_results() -> None:
     store = MemoryStore()
     write(store, "Public memory about the roadmap.")
     write(store, "Sensitive memory about user private context.", scope=MemoryScope.user, scope_id="user_123")
@@ -121,7 +123,7 @@ def test_retrieval_policy_excludes_sensitive_without_consent_and_limits_results(
     assert policy.embedding_model_ref == "embed_contract_only"
 
 
-def test_memory_search_never_returns_raw_content_without_summary():
+def test_memory_search_never_returns_raw_content_without_summary() -> None:
     store = MemoryStore()
     store.write_memory(
         MemoryWriteRequest(
@@ -159,7 +161,7 @@ def test_memory_search_never_returns_raw_content_without_summary():
     assert "raw_memory_content_omitted" in decision.redactions_applied
 
 
-def test_memory_search_scope_prefilter_skips_out_of_scope_scoring(monkeypatch):
+def test_memory_search_scope_prefilter_skips_out_of_scope_scoring(monkeypatch: pytest.MonkeyPatch) -> None:
     store = MemoryStore()
     write(store, "Project-scoped memory about latency.", tags=["latency"])
     write(
@@ -172,7 +174,7 @@ def test_memory_search_scope_prefilter_skips_out_of_scope_scoring(monkeypatch):
     scored_scopes = []
     original_score_memory = memory_store_module.score_memory
 
-    def counting_score_memory(record, query, tags):
+    def counting_score_memory(record: Any, query: str, tags: Any) -> Any:
         scored_scopes.append(record.scope)
         return original_score_memory(record, query, tags)
 

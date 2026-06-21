@@ -1,7 +1,7 @@
 import pytest
 from ultimate_ai_agent.core.ledger import DeterministicRunState, RunState, InvalidStateTransitionError
 
-def test_deterministic_valid_transitions():
+def test_deterministic_valid_transitions() -> None:
     state = DeterministicRunState(run_id="run_1")
     assert state.current_state == RunState.created
     
@@ -37,13 +37,13 @@ def test_deterministic_valid_transitions():
     state.transition_to(RunState.completed)
     assert state.current_state == RunState.completed
 
-def test_invalid_transition_raises():
+def test_invalid_transition_raises() -> None:
     state = DeterministicRunState(run_id="run_1")
     with pytest.raises(InvalidStateTransitionError):
         # cannot transition from created straight to planned
         state.transition_to(RunState.planned)
 
-def test_terminal_state_frozen():
+def test_terminal_state_frozen() -> None:
     state = DeterministicRunState(run_id="run_1", current_state=RunState.completed)
     with pytest.raises(InvalidStateTransitionError):
         state.transition_to(RunState.in_progress)

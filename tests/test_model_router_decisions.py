@@ -2,7 +2,7 @@ from tests.m7_helpers import cloud_profile, local_profile, policy, route_request
 from ultimate_ai_agent.core.model_router import ModelRouteStatus, ModelRouter, ModelTaskCapability
 
 
-def test_local_model_selected_when_prefer_local_and_capable():
+def test_local_model_selected_when_prefer_local_and_capable() -> None:
     request = route_request(
         profiles=[
             cloud_profile(capabilities=[ModelTaskCapability.chat, ModelTaskCapability.coding]),
@@ -24,7 +24,7 @@ def test_local_model_selected_when_prefer_local_and_capable():
     assert "SELECTED_PROFILE" in decision.reason_codes
 
 
-def test_disabled_profile_and_capability_miss_are_rejected():
+def test_disabled_profile_and_capability_miss_are_rejected() -> None:
     request = route_request(
         profiles=[
             local_profile(profile_id="disabled_local", enabled=False),
@@ -42,7 +42,7 @@ def test_disabled_profile_and_capability_miss_are_rejected():
     assert "CAPABILITY_MISSING" in decision.reason_codes
 
 
-def test_deterministic_tie_breaker_uses_stable_profile_id():
+def test_deterministic_tie_breaker_uses_stable_profile_id() -> None:
     request = route_request(
         profiles=[
             local_profile(profile_id="z_profile"),
@@ -57,7 +57,7 @@ def test_deterministic_tie_breaker_uses_stable_profile_id():
     assert decision.selected_profile_id == "a_profile"
 
 
-def test_paid_model_blocked_when_policy_disallows_paid_routes():
+def test_paid_model_blocked_when_policy_disallows_paid_routes() -> None:
     request = route_request(
         profiles=[cloud_profile()],
         routing_policy=policy(allow_cloud=True, allow_paid=False),
@@ -69,7 +69,7 @@ def test_paid_model_blocked_when_policy_disallows_paid_routes():
     assert "PAID_MODEL_DISALLOWED" in decision.reason_codes
 
 
-def test_credentialed_profile_skipped_when_credential_metadata_unavailable():
+def test_credentialed_profile_skipped_when_credential_metadata_unavailable() -> None:
     request = route_request(
         profiles=[cloud_profile(credential_ref="cred_missing")],
         routing_policy=policy(allow_cloud=True, allow_paid=True),
@@ -82,7 +82,7 @@ def test_credentialed_profile_skipped_when_credential_metadata_unavailable():
     assert "CREDENTIAL_NOT_AVAILABLE" in decision.reason_codes
 
 
-def test_router_selects_candidate_with_soft_budget_warning():
+def test_router_selects_candidate_with_soft_budget_warning() -> None:
     request = route_request(
         profiles=[
             local_profile(
@@ -106,7 +106,7 @@ def test_router_selects_candidate_with_soft_budget_warning():
     assert decision.safe_message == "Model route selected with policy warnings. No model execution was performed."
 
 
-def test_router_rejects_candidate_with_hard_budget_denial():
+def test_router_rejects_candidate_with_hard_budget_denial() -> None:
     request = route_request(
         profiles=[
             local_profile(

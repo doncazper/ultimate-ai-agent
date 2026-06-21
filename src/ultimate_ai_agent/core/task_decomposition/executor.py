@@ -26,7 +26,7 @@ class DAGExecutor:
         validator: PlanValidator | None = None,
         *,
         parallel: bool = True,
-    ):
+    ) -> None:
         self.registry = registry
         self.validator = validator or PlanValidator()
         self.parallel = parallel
@@ -219,7 +219,7 @@ class DAGExecutor:
             completed_at=utc_now(),
         )
 
-    def _complete_internal_node(self, node: TaskNode, started) -> NodeExecutionRecord:
+    def _complete_internal_node(self, node: TaskNode, started: Any) -> NodeExecutionRecord:
         if node.decomposition_strategy == TaskNodeStrategy.human_approval:
             output = {"success": True, "approval_gate": True}
             summary = "Human approval or clarification gate completed."

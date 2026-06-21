@@ -65,7 +65,7 @@ class CameraPhotosMetadataOnlyPolicy(_CameraPhotosMetadataOnlyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -98,7 +98,7 @@ class CameraPhotosMetadataContract(_CameraPhotosMetadataOnlyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.metadata_contract_ref, "metadata_contract_ref"),
             (self.safe_media_ref, "safe_media_ref"),
@@ -150,7 +150,7 @@ class CameraPhotosMetadataOnlyReport(_CameraPhotosMetadataOnlyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.baseline_ref, "baseline_ref"),

@@ -47,7 +47,7 @@ class ToolRuntimeAdapterDescriptor(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_descriptor(self):
+    def validate_descriptor(self) -> Any:
         validate_tool_runtime_ref(self.adapter_ref, "adapter_ref")
         validate_tool_runtime_ref(self.tool_ref, "tool_ref")
         validate_safe_tool_runtime_text(self.tool_name, "tool_name")
@@ -105,7 +105,7 @@ class ToolRuntimePolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         if not self.tool_runtime_enabled:
             raise ValueError("M33 tool runtime adapter must be enabled for allowlisted safe tools")
         if not self.noop_tool_enabled:
@@ -186,7 +186,7 @@ class ToolRuntimeManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_manifest(self):
+    def validate_manifest(self) -> Any:
         if self.allowlisted_tool_refs != [
             NOOP_TOOL_REF,
             FILESYSTEM_METADATA_TOOL_REF,
@@ -220,7 +220,7 @@ class ToolInvocationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         validate_tool_runtime_ref(self.invocation_id, "invocation_id")
         validate_tool_runtime_ref(self.tool_ref, "tool_ref")
         validate_safe_tool_runtime_text(self.tool_name, "tool_name")
@@ -249,7 +249,7 @@ class NoOpToolInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_input(self):
+    def validate_input(self) -> Any:
         validate_tool_runtime_ref(self.input_ref, "input_ref")
         validate_safe_tool_runtime_text(self.safe_summary, "safe_summary")
         for ref in self.metadata_refs:
@@ -268,7 +268,7 @@ class NoOpToolOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_output(self):
+    def validate_output(self) -> Any:
         validate_tool_runtime_ref(self.output_ref, "output_ref")
         validate_safe_tool_runtime_text(self.safe_message, "safe_message")
         if not self.deterministic or self.raw_input_echoed or self.raw_content_stored or self.side_effects_performed:
@@ -292,7 +292,7 @@ class ToolInvocationReceiptPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_receipt(self):
+    def validate_receipt(self) -> Any:
         for ref in [self.receipt_plan_ref, self.invocation_id, self.tool_ref, *self.metadata_refs]:
             validate_tool_runtime_ref(ref, "metadata_ref")
         if self.tool_ref not in {
@@ -331,7 +331,7 @@ class ToolInvocationResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_result(self):
+    def validate_result(self) -> Any:
         for ref in [self.result_id, self.invocation_id, self.tool_ref]:
             validate_tool_runtime_ref(ref, "metadata_ref")
         expected_status_by_tool = {
@@ -381,7 +381,7 @@ class ToolInvocationDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         for ref in [self.decision_id, self.invocation_id, self.tool_ref]:
             validate_tool_runtime_ref(ref, "metadata_ref")
         validate_safe_tool_runtime_text(self.safe_message, "safe_message")

@@ -4,8 +4,8 @@
 This local verifier validates current-version claims against VERSION without
 performing writes, network calls, git operations, tag operations, or commits.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import re

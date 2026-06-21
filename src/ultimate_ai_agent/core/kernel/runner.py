@@ -1,7 +1,7 @@
 import uuid
 from ultimate_ai_agent.core.time import utc_now
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from pydantic import ValidationError
 
@@ -68,7 +68,7 @@ class MinimumKernelRunner:
         truth_router: Optional[TruthSourceRouter] = None,
         file_manager_factory: Optional[Callable[[str], LocalFileManager]] = None,
         approval_authority: Optional[LocalApprovalAuthority] = None,
-    ):
+    ) -> None:
         self.event_ledger = event_ledger or EventLedger()
         self.memory_store = memory_store or MemoryStore()
         self.tool_registry = tool_registry or ToolRegistry()
@@ -328,12 +328,12 @@ class MinimumKernelRunner:
         safe_message: str,
         success: bool,
         *,
-        file_change=None,
+        file_change: Any | None = None,
         rollback_ref: Optional[str] = None,
-        tool_decision=None,
-        consent_decision=None,
-        write_decision=None,
-        memory_decision=None,
+        tool_decision: Any | None = None,
+        consent_decision: Any | None = None,
+        write_decision: Any | None = None,
+        memory_decision: Any | None = None,
         evidence_refs: Optional[list[str]] = None,
     ) -> KernelTaskResult:
         evidence_refs = evidence_refs or []
@@ -370,9 +370,9 @@ class MinimumKernelRunner:
         safe_message: str,
         errors: list[str],
         *,
-        tool_decision=None,
-        consent_decision=None,
-        write_decision=None,
+        tool_decision: Any | None = None,
+        consent_decision: Any | None = None,
+        write_decision: Any | None = None,
         redactions: Optional[list[str]] = None,
     ) -> KernelTaskResult:
         self._append_event(request, run_id, trace_id, EventName.run_failed, "run", "Kernel run", "fail", status.value, severity="warning")
@@ -530,7 +530,7 @@ class MinimumKernelRunner:
             ledger.add_grant(grant)
         return ledger
 
-    def _preview_consent(self, request: KernelTaskRequest, ledger: ConsentLedger):
+    def _preview_consent(self, request: KernelTaskRequest, ledger: ConsentLedger) -> Any:
         return ledger.evaluate(
             ConsentQuery(
                 actor_id=request.actor_context.actor_id,
@@ -646,7 +646,7 @@ class MinimumKernelRunner:
             rollback_ref=patch_result.rollback_ref,
         )
 
-    def _write_memory(self, request: KernelTaskRequest, run_id: str, file_ref: str, rollback_ref: Optional[str]):
+    def _write_memory(self, request: KernelTaskRequest, run_id: str, file_ref: str, rollback_ref: Optional[str]) -> Any:
         content = (
             f"Recall only: M5 local/dev kernel changed {file_ref}. "
             "Memory is recall only, not authority; canonical files and the Event Ledger outrank it."

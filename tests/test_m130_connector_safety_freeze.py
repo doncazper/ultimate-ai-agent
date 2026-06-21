@@ -1,3 +1,4 @@
+from typing import Any
 from functools import lru_cache
 
 import pytest
@@ -5,21 +6,21 @@ import pytest
 from tests.test_m129_connector_audit_revocation_hardening import _request as _m129_request
 
 
-def _connectors():
+def _connectors() -> Any:
     import ultimate_ai_agent.core.connectors as connectors
 
     return connectors
 
 
 @lru_cache(maxsize=1)
-def _source_report():
+def _source_report() -> Any:
     connectors = _connectors()
     return connectors.build_connector_audit_revocation_hardening_report(
         _m129_request()
     )
 
 
-def test_m130_connector_safety_freeze_is_freeze_only_and_non_authoritative():
+def test_m130_connector_safety_freeze_is_freeze_only_and_non_authoritative() -> None:
     connectors = _connectors()
     source_report = _source_report()
     record = connectors.build_connector_safety_freeze_record(
@@ -93,7 +94,7 @@ def test_m130_connector_safety_freeze_is_freeze_only_and_non_authoritative():
     ]
 
 
-def test_m130_connector_safety_freeze_uses_safe_refs_only():
+def test_m130_connector_safety_freeze_uses_safe_refs_only() -> None:
     connectors = _connectors()
     record = connectors.build_connector_safety_freeze_record(
         source_report=_source_report()
@@ -148,7 +149,7 @@ def test_m130_connector_safety_freeze_uses_safe_refs_only():
         ("production_authority_granted", "M130_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m130_policy_denies_connector_freeze_authority(field, reason):
+def test_m130_policy_denies_connector_freeze_authority(field: str, reason: str) -> None:
     connectors = _connectors()
 
     with pytest.raises(ValueError, match=reason):
@@ -157,7 +158,7 @@ def test_m130_policy_denies_connector_freeze_authority(field, reason):
         )
 
 
-def test_m130_record_denies_model_copy_runtime_and_freeze_drift():
+def test_m130_record_denies_model_copy_runtime_and_freeze_drift() -> None:
     connectors = _connectors()
     record = connectors.build_connector_safety_freeze_record(
         source_report=_source_report()
@@ -198,7 +199,7 @@ def test_m130_record_denies_model_copy_runtime_and_freeze_drift():
             )
 
 
-def test_m130_record_denies_source_binding_drift_and_secret_metadata():
+def test_m130_record_denies_source_binding_drift_and_secret_metadata() -> None:
     connectors = _connectors()
     record = connectors.build_connector_safety_freeze_record(
         source_report=_source_report()
@@ -226,7 +227,7 @@ def test_m130_record_denies_source_binding_drift_and_secret_metadata():
             )
 
 
-def test_m130_revalidates_mutated_m129_source_report():
+def test_m130_revalidates_mutated_m129_source_report() -> None:
     connectors = _connectors()
     source_report = _source_report().model_copy(update={"revocation_executed": True})
 

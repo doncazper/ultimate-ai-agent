@@ -73,7 +73,7 @@ class SandboxedCommandAuditReplayStep(_SandboxedCommandAuditReplayModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.step_ref, "step_ref"),
             (self.event_ref, "event_ref"),
@@ -120,7 +120,7 @@ class SandboxedCommandAuditReplayPolicy(_SandboxedCommandAuditReplayModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -181,7 +181,7 @@ class SandboxedCommandAuditReplayRequest(_SandboxedCommandAuditReplayModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.replay_view_ref, "replay_view_ref"),
@@ -235,7 +235,7 @@ class SandboxedCommandAuditReplayReceiptPlan(_SandboxedCommandAuditReplayModel):
     safe_summary: str = "M87 sandboxed command audit replay receipt stores safe refs only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.replay_view_ref, "replay_view_ref"),
@@ -310,7 +310,7 @@ class SandboxedCommandAuditReplayDecision(_SandboxedCommandAuditReplayModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.replay_view_ref, "replay_view_ref"),

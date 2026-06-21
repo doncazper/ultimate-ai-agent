@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
@@ -32,7 +33,7 @@ def consent() -> ConsentGrant:
     )
 
 
-def test_kernel_request_requires_idempotency_for_mutation(tmp_path):
+def test_kernel_request_requires_idempotency_for_mutation(tmp_path: Path) -> None:
     with pytest.raises(ValidationError, match="idempotency"):
         KernelTaskRequest(
             request_id="ktr_1",
@@ -50,7 +51,7 @@ def test_kernel_request_requires_idempotency_for_mutation(tmp_path):
         )
 
 
-def test_kernel_request_requires_target_and_content_for_mutation(tmp_path):
+def test_kernel_request_requires_target_and_content_for_mutation(tmp_path: Path) -> None:
     with pytest.raises(ValidationError, match="target_path"):
         KernelTaskRequest(
             request_id="ktr_2",
@@ -68,7 +69,7 @@ def test_kernel_request_requires_target_and_content_for_mutation(tmp_path):
         )
 
 
-def test_kernel_request_blocks_absolute_and_traversal_paths(tmp_path):
+def test_kernel_request_blocks_absolute_and_traversal_paths(tmp_path: Path) -> None:
     for target_path in ["/tmp/outside.md", "../outside.md"]:
         with pytest.raises(ValidationError, match="path"):
             KernelTaskRequest(
@@ -88,7 +89,7 @@ def test_kernel_request_blocks_absolute_and_traversal_paths(tmp_path):
             )
 
 
-def test_kernel_request_blocks_secret_like_inputs(tmp_path):
+def test_kernel_request_blocks_secret_like_inputs(tmp_path: Path) -> None:
     with pytest.raises(ValidationError, match="secret"):
         KernelTaskRequest(
             request_id="ktr_secret",

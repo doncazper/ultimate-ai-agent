@@ -89,7 +89,7 @@ class ConnectorApprovalCaptureRequest(_ConnectorApprovalCapture):
     dependency_added: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             if value is not None:
                 _validate_m61_ref(value, field_name)
@@ -135,7 +135,7 @@ class ConnectorApprovalCaptureRecord(_ConnectorApprovalCapture):
     replay_safe: bool = True
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         for refs, field_name in _record_ref_list_pairs(self):
@@ -169,7 +169,7 @@ class ConnectorApprovalCaptureReceiptPlan(_ConnectorApprovalCapture):
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.approval_ref, "approval_ref"),
@@ -233,7 +233,7 @@ class ConnectorApprovalCaptureDecision(_ConnectorApprovalCapture):
     dependency_added: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.decision_ref, "decision_ref")
         _validate_m61_ref(
             self.connector_read_only_runtime_ref, "connector_read_only_runtime_ref"
@@ -551,7 +551,7 @@ def _validate_safe_text(value: str) -> None:
     _validate_safe_payload({"safe_text": value})
 
 
-def _request_ref_pairs(request: ConnectorApprovalCaptureRequest):
+def _request_ref_pairs(request: ConnectorApprovalCaptureRequest) -> list[Any]:
     return [
         (getattr(request, "approval_ref", None), "approval_ref"),
         (getattr(request, "actor_ref", None), "actor_ref"),
@@ -577,7 +577,7 @@ def _request_ref_pairs(request: ConnectorApprovalCaptureRequest):
     ]
 
 
-def _request_ref_list_pairs(request: ConnectorApprovalCaptureRequest):
+def _request_ref_list_pairs(request: ConnectorApprovalCaptureRequest) -> list[Any]:
     return [
         (getattr(request, "connector_scope_refs", []), "connector_scope_ref", True),
         (
@@ -600,7 +600,7 @@ def _request_ref_list_pairs(request: ConnectorApprovalCaptureRequest):
     ]
 
 
-def _record_ref_pairs(record: ConnectorApprovalCaptureRecord):
+def _record_ref_pairs(record: ConnectorApprovalCaptureRecord) -> list[Any]:
     return [
         (record.approval_ref, "approval_ref"),
         (record.actor_ref, "actor_ref"),
@@ -619,7 +619,7 @@ def _record_ref_pairs(record: ConnectorApprovalCaptureRecord):
     ]
 
 
-def _record_ref_list_pairs(record: ConnectorApprovalCaptureRecord):
+def _record_ref_list_pairs(record: ConnectorApprovalCaptureRecord) -> list[Any]:
     return [
         (record.connector_scope_refs, "connector_scope_ref"),
         (record.connector_allowlist_refs, "connector_allowlist_ref"),

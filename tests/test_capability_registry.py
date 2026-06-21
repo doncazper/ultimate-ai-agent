@@ -1,3 +1,4 @@
+from typing import Any
 import asyncio
 
 import pytest
@@ -23,7 +24,7 @@ from ultimate_ai_agent.core.contracts import AgentMode, ContractStatus, Executio
 
 
 class _Sink:
-    def __init__(self):
+    def __init__(self) -> None:
         self.events: list[CapabilityEvent] = []
 
     def emit(self, event: CapabilityEvent) -> None:
@@ -42,7 +43,7 @@ class ReadOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-def _spec(name: str = "files.read_text", **overrides) -> CapabilitySpec:
+def _spec(name: str = "files.read_text", **overrides: Any) -> CapabilitySpec:
     data = {
         "id": f"capability:{name}:1.0.0",
         "name": name,
@@ -60,7 +61,7 @@ def _spec(name: str = "files.read_text", **overrides) -> CapabilitySpec:
     return CapabilitySpec(**data)
 
 
-def test_register_get_list_and_duplicate_behavior():
+def test_register_get_list_and_duplicate_behavior() -> None:
     registry = CapabilityRegistry()
     spec = _spec()
 
@@ -76,7 +77,7 @@ def test_register_get_list_and_duplicate_behavior():
     assert registry.get("files.read_text").title == "Read Text V2"
 
 
-def test_name_validation_is_conservative():
+def test_name_validation_is_conservative() -> None:
     registry = CapabilityRegistry()
 
     with pytest.raises(ValueError, match="capability name"):
@@ -86,7 +87,7 @@ def test_name_validation_is_conservative():
         registry.get("files read text")
 
 
-def test_decorator_generates_pydantic_schemas_and_preserves_function_metadata():
+def test_decorator_generates_pydantic_schemas_and_preserves_function_metadata() -> None:
     @tool_capability(
         name="math.add",
         title="Add",
@@ -96,7 +97,7 @@ def test_decorator_generates_pydantic_schemas_and_preserves_function_metadata():
         tags={"math"},
         policy=CapabilityPolicy(risk=RiskLevel.READ_ONLY),
     )
-    async def decorated(ctx, args: ReadInput) -> ReadOutput:
+    async def decorated(ctx: Any, args: ReadInput) -> ReadOutput:
         """Original docstring."""
         return ReadOutput(text=args.path)
 
@@ -108,7 +109,7 @@ def test_decorator_generates_pydantic_schemas_and_preserves_function_metadata():
     assert spec.output_schema["properties"]["text"]["type"] == "string"
 
 
-def test_resolve_filters_by_agent_scope_tags_and_scores_query():
+def test_resolve_filters_by_agent_scope_tags_and_scores_query() -> None:
     registry = CapabilityRegistry()
     registry.register(
         _spec(
@@ -136,7 +137,7 @@ def test_resolve_filters_by_agent_scope_tags_and_scores_query():
     assert registry.resolve("agent.beta", {"files:read"}, tags={"files"}) == []
 
 
-def test_permission_denial_returns_structured_result():
+def test_permission_denial_returns_structured_result() -> None:
     registry = CapabilityRegistry()
     registry.register(
         _spec(policy=CapabilityPolicy(allowed_agents={"agent.alpha"}, risk=RiskLevel.READ_ONLY)),
@@ -151,7 +152,7 @@ def test_permission_denial_returns_structured_result():
     assert "AGENT_NOT_ALLOWED" in result.error
 
 
-def test_approval_required_denies_without_callback():
+def test_approval_required_denies_without_callback() -> None:
     registry = CapabilityRegistry()
     registry.register(
         _spec(policy=CapabilityPolicy(risk=RiskLevel.WRITE, requires_approval=True)),
@@ -166,11 +167,11 @@ def test_approval_required_denies_without_callback():
     assert result.error == "APPROVAL_REQUIRED"
 
 
-def test_successful_async_execution_and_events():
+def test_successful_async_execution_and_events() -> None:
     sink = _Sink()
     registry = CapabilityRegistry(event_sink=sink)
 
-    async def read_text(ctx, args: ReadInput) -> ReadOutput:
+    async def read_text(ctx: Any, args: ReadInput) -> ReadOutput:
         return ReadOutput(text=f"read:{args.path}")
 
     registry.register(_spec(), read_text, input_model=ReadInput, output_model=ReadOutput)
@@ -183,7 +184,7 @@ def test_successful_async_execution_and_events():
     assert "capability.call.succeeded" in [event.event_type for event in sink.events]
 
 
-def test_successful_sync_execution():
+def test_successful_sync_execution() -> None:
     registry = CapabilityRegistry()
     registry.register(
         _spec(),
@@ -198,10 +199,10 @@ def test_successful_sync_execution():
     assert result.structured_content == {"text": "A.TXT"}
 
 
-def test_timeout_failure():
+def test_timeout_failure() -> None:
     registry = CapabilityRegistry()
 
-    async def slow(ctx, args):
+    async def slow(ctx: Any, args: Any) -> dict[str, Any]:
         await asyncio.sleep(0.05)
         return {"text": "late"}
 
@@ -217,7 +218,7 @@ def test_timeout_failure():
     assert result.error == "CAPABILITY_TIMEOUT"
 
 
-def test_input_validation_failure():
+def test_input_validation_failure() -> None:
     registry = CapabilityRegistry()
     registry.register(_spec(), lambda ctx, args: ReadOutput(text=args.path), input_model=ReadInput, output_model=ReadOutput)
 
@@ -227,7 +228,7 @@ def test_input_validation_failure():
     assert result.metadata["error_code"] == "INPUT_VALIDATION_FAILED"
 
 
-def test_output_validation_failure():
+def test_output_validation_failure() -> None:
     registry = CapabilityRegistry()
     registry.register(_spec(), lambda ctx, args: {"text": 123}, input_model=ReadInput, output_model=ReadOutput)
 
@@ -237,7 +238,7 @@ def test_output_validation_failure():
     assert result.metadata["error_code"] == "OUTPUT_VALIDATION_FAILED"
 
 
-def test_openai_and_mcp_adapters_do_not_expose_callable_refs_or_metadata():
+def test_openai_and_mcp_adapters_do_not_expose_callable_refs_or_metadata() -> None:
     spec = _spec(metadata={"secret": "not exported"}, callable_ref="module.fn", instructions="Use concise output.")
 
     openai_tool = capability_to_openai_tool(spec)
@@ -254,12 +255,12 @@ def test_openai_and_mcp_adapters_do_not_expose_callable_refs_or_metadata():
     assert "callable_ref" not in str(mcp_tool)
 
 
-def test_model_facing_instructions_reject_secret_like_values():
+def test_model_facing_instructions_reject_secret_like_values() -> None:
     with pytest.raises(ValueError, match="instructions"):
         _spec(instructions="api_key='abc12345678901234567890'")
 
 
-def test_executable_framework_adapters_are_disabled():
+def test_executable_framework_adapters_are_disabled() -> None:
     spec = _spec()
 
     with pytest.raises(RuntimeError, match="LangChain tool export is disabled"):
@@ -268,25 +269,25 @@ def test_executable_framework_adapters_are_disabled():
         capability_to_pydantic_ai_tool(spec)
 
 
-def test_tool_manifest_adapter_matches_existing_registry_contract():
+def test_tool_manifest_adapter_matches_existing_registry_contract() -> None:
     manifest = capability_to_tool_manifest(_spec(policy=CapabilityPolicy(risk=RiskLevel.WRITE)))
 
     assert manifest.tool_id == "files.read_text"
     assert manifest.permission_manifest.required_permissions == manifest.permissions_required
 
 
-def test_entry_point_discovery_registers_specs(monkeypatch):
+def test_entry_point_discovery_registers_specs(monkeypatch: pytest.MonkeyPatch) -> None:
     spec = _spec("plugins.echo")
     loaded = False
 
     class FakeEntryPoint:
-        def load(self):
+        def load(self) -> Any:
             nonlocal loaded
             loaded = True
             return lambda: [spec]
 
     class FakeEntryPoints(list):
-        def select(self, group):
+        def select(self, group: Any) -> Any:
             assert group == "ultimate_ai_agent.capabilities"
             return self
 
@@ -304,7 +305,7 @@ def test_entry_point_discovery_registers_specs(monkeypatch):
     assert registry.get("plugins.echo").name == "plugins.echo"
 
 
-def test_execution_contract_uses_capability_registry_for_blocked_flags():
+def test_execution_contract_uses_capability_registry_for_blocked_flags() -> None:
     registry = CapabilityRegistry()
     registry.register(
         _spec(
@@ -333,7 +334,7 @@ def test_execution_contract_uses_capability_registry_for_blocked_flags():
     assert result.error.code == "BLOCKED_CAPABILITY"
 
 
-def test_execution_contract_keeps_default_blocked_flags_with_custom_registry():
+def test_execution_contract_keeps_default_blocked_flags_with_custom_registry() -> None:
     registry = CapabilityRegistry()
     contract = ExecutionContract(
         contract_id="ec_capability_registry_002",

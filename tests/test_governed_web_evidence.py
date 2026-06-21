@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 
 import pytest
@@ -30,7 +31,7 @@ from ultimate_ai_agent.core.truth import (
 
 
 class FakeGovernedWebTransport:
-    def __init__(self, response: GovernedWebEvidenceTransportResponse):
+    def __init__(self, response: GovernedWebEvidenceTransportResponse) -> None:
         self.response = response
         self.called = False
 
@@ -154,7 +155,7 @@ def test_governed_web_evidence_blocks_redirect_response() -> None:
     assert result.receipt.redirect_followed is False
 
 
-def test_governed_web_evidence_api_status_is_operator_visible(monkeypatch) -> None:
+def test_governed_web_evidence_api_status_is_operator_visible(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(GOVERNED_WEB_EVIDENCE_ENABLED_ENV, "1")
     monkeypatch.setenv(GOVERNED_WEB_EVIDENCE_ALLOWED_HOSTS_ENV, "example.com")
     client = TestClient(app)
@@ -169,7 +170,7 @@ def test_governed_web_evidence_api_status_is_operator_visible(monkeypatch) -> No
     assert body["data"]["chatbot_capability_disclosure"]["available"] is True
 
 
-def test_governed_web_evidence_api_request_is_blocked_without_runtime_transport(monkeypatch) -> None:
+def test_governed_web_evidence_api_request_is_blocked_without_runtime_transport(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(GOVERNED_WEB_EVIDENCE_ENABLED_ENV, "1")
     monkeypatch.setenv(GOVERNED_WEB_EVIDENCE_ALLOWED_HOSTS_ENV, "example.com")
     client = TestClient(app)
@@ -206,14 +207,14 @@ def test_governed_web_evidence_routes_are_in_manifest_with_safe_metadata() -> No
     assert "governed_web_evidence_raw_body_storage" in manifest["capabilities_blocked"]
 
 
-def _intake_record_payload():
+def _intake_record_payload() -> Any:
     return build_fixture_governed_web_evidence_intake_record().model_dump(
         mode="python",
         round_trip=True,
     )
 
 
-def test_governed_web_evidence_accepts_operator_supplied_metadata_only():
+def test_governed_web_evidence_accepts_operator_supplied_metadata_only() -> None:
     record = build_fixture_governed_web_evidence_intake_record()
     bundle = build_fixture_governed_web_evidence_intake_bundle()
     policy = GovernedWebEvidenceIntakePolicy()
@@ -227,7 +228,7 @@ def test_governed_web_evidence_accepts_operator_supplied_metadata_only():
     assert policy.openwebui_web_search_allowed is False
 
 
-def test_governed_web_evidence_rejects_raw_body_fields_and_metadata():
+def test_governed_web_evidence_rejects_raw_body_fields_and_metadata() -> None:
     payload = _intake_record_payload()
 
     with pytest.raises(ValidationError, match="extra"):
@@ -240,7 +241,7 @@ def test_governed_web_evidence_rejects_raw_body_fields_and_metadata():
         GovernedWebEvidenceIntakeRecord(**payload)
 
 
-def test_governed_web_evidence_rejects_overlong_quote_and_preview():
+def test_governed_web_evidence_rejects_overlong_quote_and_preview() -> None:
     payload = _intake_record_payload()
     payload["bounded_quote"] = "q" * (WEB_EVIDENCE_MAX_QUOTE_CHARS + 1)
 
@@ -254,7 +255,7 @@ def test_governed_web_evidence_rejects_overlong_quote_and_preview():
         GovernedWebEvidenceIntakeRecord(**payload)
 
 
-def test_governed_web_evidence_requires_freshness_authority_and_receipts():
+def test_governed_web_evidence_requires_freshness_authority_and_receipts() -> None:
     payload = _intake_record_payload()
     payload.pop("freshness")
 
@@ -289,7 +290,7 @@ def test_governed_web_evidence_requires_freshness_authority_and_receipts():
         ("redirects_followed", "WEB_EVIDENCE_NO_LIVE_FETCH"),
     ],
 )
-def test_governed_web_evidence_rejects_live_fetch_or_browsing_flags(field_name, reason):
+def test_governed_web_evidence_rejects_live_fetch_or_browsing_flags(field_name: str, reason: str) -> None:
     payload = _intake_record_payload()
     payload[field_name] = True
 
@@ -297,7 +298,7 @@ def test_governed_web_evidence_rejects_live_fetch_or_browsing_flags(field_name, 
         GovernedWebEvidenceIntakeRecord(**payload)
 
 
-def test_governed_web_evidence_future_https_lane_is_disabled_and_bounded():
+def test_governed_web_evidence_future_https_lane_is_disabled_and_bounded() -> None:
     plan = FutureAllowlistedHttpsGetLanePlan(
         rollback_plan_ref="rollback:web-evidence-future-lane",
         non_goal_ref="non-goal:web-evidence-future-lane",
@@ -323,7 +324,7 @@ def test_governed_web_evidence_future_https_lane_is_disabled_and_bounded():
         )
 
 
-def test_governed_web_evidence_source_contains_no_live_transport_code():
+def test_governed_web_evidence_source_contains_no_live_transport_code() -> None:
     source = Path("src/ultimate_ai_agent/core/truth/web_evidence.py").read_text(
         encoding="utf-8"
     )

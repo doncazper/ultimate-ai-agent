@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -6,7 +7,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.core.time import utc_now
 
 
-def _refs(**overrides):
+def _refs(**overrides: Any) -> Any:
     from ultimate_ai_agent.core.approvals.v2 import (
         ActionKind,
         ActionRef,
@@ -48,7 +49,7 @@ def _refs(**overrides):
     return data
 
 
-def _intent(**overrides):
+def _intent(**overrides: Any) -> Any:
     from ultimate_ai_agent.core.approvals.v2 import ActionIntent
 
     refs = _refs()
@@ -66,7 +67,7 @@ def _intent(**overrides):
     return ActionIntent(**data)
 
 
-def _grant(**overrides):
+def _grant(**overrides: Any) -> Any:
     from ultimate_ai_agent.core.approvals.v2 import ApprovalGrant, ApprovalGrantStatus
 
     refs = _refs()
@@ -85,7 +86,7 @@ def _grant(**overrides):
     return ApprovalGrant(**data)
 
 
-def test_evaluate_grant_uses_most_restrictive_expiry():
+def test_evaluate_grant_uses_most_restrictive_expiry() -> None:
     from ultimate_ai_agent.core.approvals.v2 import (
         ApprovalScope,
         ApprovalScopeKind,
@@ -111,7 +112,7 @@ def test_evaluate_grant_uses_most_restrictive_expiry():
     assert "APPROVAL_GRANT_EXPIRED" in reasons
 
 
-def test_evaluate_grant_normalizes_mixed_expiry_datetime_awareness():
+def test_evaluate_grant_normalizes_mixed_expiry_datetime_awareness() -> None:
     from ultimate_ai_agent.core.approvals.v2 import (
         ApprovalScope,
         ApprovalScopeKind,
@@ -135,7 +136,7 @@ def test_evaluate_grant_normalizes_mixed_expiry_datetime_awareness():
     assert "APPROVAL_GRANT_EXPIRED" in reasons
 
 
-def test_default_manifest_is_contract_only_and_disables_execution_authority():
+def test_default_manifest_is_contract_only_and_disables_execution_authority() -> None:
     from ultimate_ai_agent.core.approvals.v2 import build_approval_authority_v2_manifest
 
     manifest = build_approval_authority_v2_manifest(baseline_version="0.32.0")
@@ -156,7 +157,7 @@ def test_default_manifest_is_contract_only_and_disables_execution_authority():
     assert manifest.approval_test_refs_enabled is False
 
 
-def test_safe_read_metadata_policy_decision_allows_policy_only_without_execution():
+def test_safe_read_metadata_policy_decision_allows_policy_only_without_execution() -> None:
     from ultimate_ai_agent.core.approvals.v2 import ApprovalDecisionStatus, evaluate_action_policy
 
     decision = evaluate_action_policy(_intent(), grant=_grant(), replay_nonce="nonce:m28-safe")
@@ -177,7 +178,7 @@ def test_safe_read_metadata_policy_decision_allows_policy_only_without_execution
         ("approval_test_m28", "APPROVAL_TEST_REF_DENIED"),
     ],
 )
-def test_approval_ref_alone_and_test_refs_are_denied(approval_ref, reason):
+def test_approval_ref_alone_and_test_refs_are_denied(approval_ref: Any, reason: str) -> None:
     from ultimate_ai_agent.core.approvals.v2 import ApprovalDecisionStatus, evaluate_action_policy
 
     decision = evaluate_action_policy(_intent(approval_ref=approval_ref))
@@ -188,7 +189,7 @@ def test_approval_ref_alone_and_test_refs_are_denied(approval_ref, reason):
     assert reason in decision.reason_codes
 
 
-def test_consent_ref_alone_is_not_authority():
+def test_consent_ref_alone_is_not_authority() -> None:
     from ultimate_ai_agent.core.approvals.v2 import evaluate_action_policy
 
     decision = evaluate_action_policy(_intent(consent_ref="consent:m28"))
@@ -197,7 +198,7 @@ def test_consent_ref_alone_is_not_authority():
     assert "CONSENT_REF_NOT_AUTHORITY" in decision.reason_codes
 
 
-def test_wildcard_scope_is_denied():
+def test_wildcard_scope_is_denied() -> None:
     from ultimate_ai_agent.core.approvals.v2 import ApprovalScope, ApprovalScopeKind, evaluate_action_policy
 
     refs = _refs()
@@ -229,7 +230,7 @@ def test_wildcard_scope_is_denied():
         ({"resource_ref": "file_ref:other"}, "APPROVAL_RESOURCE_MISMATCH"),
     ],
 )
-def test_grant_expiry_revocation_replay_and_binding_mismatches_are_denied(grant_update, reason):
+def test_grant_expiry_revocation_replay_and_binding_mismatches_are_denied(grant_update: Any, reason: str) -> None:
     from ultimate_ai_agent.core.approvals.v2 import evaluate_action_policy
 
     grant = _grant(**grant_update)
@@ -249,7 +250,7 @@ def test_grant_expiry_revocation_replay_and_binding_mismatches_are_denied(grant_
         ("tool-intent:m27", "tool_intent_ref", "TOOL_INTENT_NOT_AUTHORITY"),
     ],
 )
-def test_model_memory_context_and_tool_intent_refs_cannot_authorize(resource_ref, resource_kind, reason):
+def test_model_memory_context_and_tool_intent_refs_cannot_authorize(resource_ref: Any, resource_kind: Any, reason: str) -> None:
     from ultimate_ai_agent.core.approvals.v2 import ResourceRef, ResourceRefKind, evaluate_action_policy
 
     resource = ResourceRef(
@@ -281,7 +282,7 @@ def test_model_memory_context_and_tool_intent_refs_cannot_authorize(resource_ref
         "destructive_blocked",
     ],
 )
-def test_effectful_or_executing_action_kinds_are_denied(action_kind):
+def test_effectful_or_executing_action_kinds_are_denied(action_kind: Any) -> None:
     from ultimate_ai_agent.core.approvals.v2 import ActionKind, ActionRef, ActionRiskLevel, ActionSideEffectClass, evaluate_action_policy
 
     action = ActionRef(
@@ -309,7 +310,7 @@ def test_effectful_or_executing_action_kinds_are_denied(action_kind):
         {"metadata": {"token": "abc123"}},
     ],
 )
-def test_raw_or_secret_like_action_inputs_are_rejected(field_update):
+def test_raw_or_secret_like_action_inputs_are_rejected(field_update: Any) -> None:
     with pytest.raises(ValidationError):
         _intent(**field_update)
 
@@ -328,7 +329,7 @@ def test_raw_or_secret_like_action_inputs_are_rejected(field_update):
         ({"safe_summary": "contains api_key=abc123"}, "ACTION_INTENT_SECRET_CONTENT_DENIED"),
     ],
 )
-def test_action_policy_revalidates_model_copy_mutated_action_intents(field_update, reason):
+def test_action_policy_revalidates_model_copy_mutated_action_intents(field_update: Any, reason: str) -> None:
     from ultimate_ai_agent.core.approvals.v2 import evaluate_action_policy
 
     decision = evaluate_action_policy(
@@ -353,7 +354,7 @@ def test_action_policy_revalidates_model_copy_mutated_action_intents(field_updat
         ({"metadata_refs": ["secret:m28"]}, "SECRET_METADATA_DENIED"),
     ],
 )
-def test_approval_grant_revalidation_blocks_model_copy_mutations(grant_update, reason):
+def test_approval_grant_revalidation_blocks_model_copy_mutations(grant_update: Any, reason: str) -> None:
     from ultimate_ai_agent.core.approvals.v2 import evaluate_action_policy
 
     decision = evaluate_action_policy(
@@ -375,7 +376,7 @@ def test_approval_grant_revalidation_blocks_model_copy_mutations(grant_update, r
         ({"policy_ref": "invalid-policy-ref"}, "ACTION_POLICY_REVALIDATION_FAILED"),
     ],
 )
-def test_action_policy_revalidation_blocks_model_copy_mutations(policy_update, reason):
+def test_action_policy_revalidation_blocks_model_copy_mutations(policy_update: Any, reason: str) -> None:
     from ultimate_ai_agent.core.approvals.v2 import ActionPolicy, evaluate_action_policy
 
     decision = evaluate_action_policy(

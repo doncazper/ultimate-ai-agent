@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -14,7 +15,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _scope(**overrides):
+def _scope(**overrides: Any) -> Any:
     data = {
         "scope_ref": "autonomy-session-scope:m63-local-review",
         "actor_ref": "actor:local-reviewer",
@@ -31,7 +32,7 @@ def _scope(**overrides):
     return ScopedAutonomySessionScope(**data)
 
 
-def _session_request(**overrides):
+def _session_request(**overrides: Any) -> Any:
     data = {
         "session_request_ref": "autonomy-session-request:m63-local-review",
         "requested_mode": AutonomyAuthorityMode.dry_run_plan,
@@ -41,7 +42,7 @@ def _session_request(**overrides):
     return ScopedAutonomySessionRequest(**data)
 
 
-def _rule(**overrides):
+def _rule(**overrides: Any) -> Any:
     data = {
         "rule_ref": "autonomy-policy-rule:m63-local-review",
         "allowed_actor_refs": ["actor:local-reviewer"],
@@ -59,7 +60,7 @@ def _rule(**overrides):
     return AutonomyPolicyRule(**data)
 
 
-def _policy(**overrides):
+def _policy(**overrides: Any) -> Any:
     data = {
         "policy_ref": "autonomy-policy:m63-local-review",
         "policy_version_ref": "autonomy-policy-version:m63-v1",
@@ -69,7 +70,7 @@ def _policy(**overrides):
     return AutonomyPolicyEnginePolicy(**data)
 
 
-def _evaluation_request(**overrides):
+def _evaluation_request(**overrides: Any) -> Any:
     data = {
         "evaluation_request_ref": "autonomy-policy-evaluation:m63-local-review",
         "policy": _policy(),
@@ -152,7 +153,7 @@ def test_autonomy_policy_decision_is_review_only_and_non_authoritative() -> None
         ({"scope": _scope(risk_class=AutonomyRiskClass.medium)}, "POLICY_RISK_EXCEEDED"),
     ],
 )
-def test_autonomy_policy_decision_denies_out_of_scope_requests(request_update, reason) -> None:
+def test_autonomy_policy_decision_denies_out_of_scope_requests(request_update: Any, reason: str) -> None:
     decision = build_autonomy_policy_decision(
         _evaluation_request(session_request=_session_request(**request_update))
     )

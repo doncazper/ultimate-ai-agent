@@ -32,6 +32,6 @@ class RemoteTransportDescriptor(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def descriptor_must_be_safe(self):
+    def descriptor_must_be_safe(self) -> Any:
         assert_remote_secret_clean(self.model_dump(mode="json"), "Remote transport descriptor")
         return self

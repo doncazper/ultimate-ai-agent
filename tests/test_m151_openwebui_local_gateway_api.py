@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
@@ -23,7 +24,7 @@ def _auth_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY}"}
 
 
-def test_m151_models_endpoint_is_disabled_by_default(monkeypatch):
+def test_m151_models_endpoint_is_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(UAA_OPENWEBUI_TEST_GATEWAY_ENV, raising=False)
 
     response = client.get("/v1/models", headers=_auth_headers())
@@ -32,7 +33,7 @@ def test_m151_models_endpoint_is_disabled_by_default(monkeypatch):
     assert "disabled" in response.json()["detail"].lower()
 
 
-def test_m151_models_endpoint_requires_local_bearer_value(monkeypatch):
+def test_m151_models_endpoint_requires_local_bearer_value(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(UAA_OPENWEBUI_TEST_GATEWAY_ENV, "1")
 
     response = client.get("/v1/models", headers={"Authorization": "Bearer wrong"})
@@ -40,7 +41,7 @@ def test_m151_models_endpoint_requires_local_bearer_value(monkeypatch):
     assert response.status_code == 401
 
 
-def test_m151_models_endpoint_returns_safe_openai_compatible_model_list(monkeypatch):
+def test_m151_models_endpoint_returns_safe_openai_compatible_model_list(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(UAA_OPENWEBUI_TEST_GATEWAY_ENV, "1")
 
     response = client.get("/v1/models", headers=_auth_headers())
@@ -53,7 +54,7 @@ def test_m151_models_endpoint_returns_safe_openai_compatible_model_list(monkeypa
     assert body["uaa_safety"]["tool_execution_enabled"] is False
 
 
-def test_m151_chat_completion_returns_deterministic_safe_response(monkeypatch):
+def test_m151_chat_completion_returns_deterministic_safe_response(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(UAA_OPENWEBUI_TEST_GATEWAY_ENV, "1")
     secret_like_prompt = "token=should-not-appear"
 
@@ -80,7 +81,7 @@ def test_m151_chat_completion_returns_deterministic_safe_response(monkeypatch):
     assert body["uaa_safety"]["external_network_called"] is False
 
 
-def test_m151_chat_completion_rejects_streaming_and_tools(monkeypatch):
+def test_m151_chat_completion_rejects_streaming_and_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(UAA_OPENWEBUI_TEST_GATEWAY_ENV, "1")
     secret_like_prompt = "token=should-not-appear"
 
@@ -109,7 +110,7 @@ def test_m151_chat_completion_rejects_streaming_and_tools(monkeypatch):
     assert secret_like_prompt not in streaming_response.text
 
 
-def test_p0_005_local_model_e2e_smoke_harness_passes_with_reviewed_prereqs():
+def test_p0_005_local_model_e2e_smoke_harness_passes_with_reviewed_prereqs() -> None:
     process_factory = FakeM163ProcessFactory()
 
     report = run_local_model_e2e_smoke_harness(
@@ -155,7 +156,7 @@ def test_p0_005_local_model_e2e_smoke_harness_passes_with_reviewed_prereqs():
     assert "smoke harness response" not in report.model_dump_json()
 
 
-def test_p0_005_local_model_e2e_smoke_harness_skips_missing_prereqs_safely():
+def test_p0_005_local_model_e2e_smoke_harness_skips_missing_prereqs_safely() -> None:
     report = run_local_model_e2e_smoke_harness()
     statuses_by_step = {step.step: step.status for step in report.step_results}
 
@@ -190,7 +191,7 @@ def test_p0_005_local_model_e2e_smoke_harness_skips_missing_prereqs_safely():
     assert report.new_production_authority_granted is False
 
 
-def test_p0_005_local_model_e2e_smoke_harness_blocks_incomplete_lifecycle():
+def test_p0_005_local_model_e2e_smoke_harness_blocks_incomplete_lifecycle() -> None:
     report = run_local_model_e2e_smoke_harness(
         LocalModelE2ESmokePrerequisites(
             approved_gguf_ref="gguf-artifact:p0-005-approved",

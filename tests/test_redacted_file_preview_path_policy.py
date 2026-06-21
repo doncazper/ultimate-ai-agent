@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.tools.runtime import (
@@ -11,13 +13,13 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _safe_root(tmp_path):
+def _safe_root(tmp_path: Path) -> Any:
     root = tmp_path / "safe-root"
     root.mkdir()
     return FilePreviewSafeRoot(root_ref="safe-root:test", root_path=root, safe_label="Test safe root")
 
 
-def _request(relative_path, **metadata):
+def _request(relative_path: Any, **metadata: Any) -> Any:
     suffix = str(abs(hash(relative_path)))
     payload = {"root_ref": "safe-root:test", "relative_path": relative_path}
     payload.update(metadata)
@@ -54,7 +56,7 @@ def _request(relative_path, **metadata):
         ("notes/%2A.md", "GLOB_PATH_DENIED"),
     ],
 )
-def test_unsafe_preview_paths_are_denied(tmp_path, relative_path, reason_code):
+def test_unsafe_preview_paths_are_denied(tmp_path: Path, relative_path: Any, reason_code: Any) -> None:
     decision = evaluate_tool_invocation(_request(relative_path), safe_roots=[_safe_root(tmp_path)])
 
     assert decision.status == ToolInvocationStatus.denied
@@ -64,7 +66,7 @@ def test_unsafe_preview_paths_are_denied(tmp_path, relative_path, reason_code):
     assert decision.side_effects_performed == []
 
 
-def test_unknown_safe_root_ref_is_denied(tmp_path):
+def test_unknown_safe_root_ref_is_denied(tmp_path: Path) -> None:
     decision = evaluate_tool_invocation(
         _request("notes/report.md", root_ref="safe-root:missing"),
         safe_roots=[_safe_root(tmp_path)],
@@ -74,7 +76,7 @@ def test_unknown_safe_root_ref_is_denied(tmp_path):
     assert "UNKNOWN_SAFE_ROOT_DENIED" in decision.reason_codes
 
 
-def test_arbitrary_root_path_in_metadata_is_denied(tmp_path):
+def test_arbitrary_root_path_in_metadata_is_denied(tmp_path: Path) -> None:
     decision = evaluate_tool_invocation(
         _request("notes/report.md", root_path=str(tmp_path)),
         safe_roots=[_safe_root(tmp_path)],
@@ -84,7 +86,7 @@ def test_arbitrary_root_path_in_metadata_is_denied(tmp_path):
     assert "CALLER_SELECTED_ROOT_DENIED" in decision.reason_codes
 
 
-def test_directory_path_is_denied_without_listing(tmp_path):
+def test_directory_path_is_denied_without_listing(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     notes = safe_root.root_path / "notes"
     notes.mkdir()
@@ -97,7 +99,7 @@ def test_directory_path_is_denied_without_listing(tmp_path):
     assert "child.md" not in str(decision.model_dump())
 
 
-def test_symlink_path_is_denied(tmp_path):
+def test_symlink_path_is_denied(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "target.md"
     target.write_text("safe target", encoding="utf-8")
@@ -113,7 +115,7 @@ def test_symlink_path_is_denied(tmp_path):
     assert "SYMLINK_DENIED" in decision.reason_codes
 
 
-def test_symlink_safe_root_is_denied_before_preview(tmp_path):
+def test_symlink_safe_root_is_denied_before_preview(tmp_path: Path) -> None:
     real_root = tmp_path / "real-root"
     real_root.mkdir()
     (real_root / "notes").mkdir()
@@ -153,7 +155,7 @@ def test_symlink_safe_root_is_denied_before_preview(tmp_path):
         ("context_injection_enabled", "CONTEXT_INJECTION_DENIED"),
     ],
 )
-def test_preview_denies_model_copy_mutated_metadata_alias_flags(tmp_path, flag_name, reason_code):
+def test_preview_denies_model_copy_mutated_metadata_alias_flags(tmp_path: Path, flag_name: str, reason_code: Any) -> None:
     safe_root = _safe_root(tmp_path)
     request = _request("notes/report.md").model_copy(
         update={"metadata": {"root_ref": "safe-root:test", "relative_path": "notes/report.md", flag_name: True}}

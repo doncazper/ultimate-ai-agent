@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.adapters import (
     validate_a2a_delegation_block,
 )
 
-def test_a2a_card_validation():
+def test_a2a_card_validation() -> None:
     card = A2AAgentCardMinimal(
         agent_id="agent_assistant",
         name="Research Assistant",
@@ -15,7 +15,7 @@ def test_a2a_card_validation():
     assert card.agent_id == "agent_assistant"
     assert card.name == "Research Assistant"
 
-def test_a2a_delegation_is_blocked():
+def test_a2a_delegation_is_blocked() -> None:
     card = A2AAgentCardMinimal(
         agent_id="agent_assistant",
         name="Research Assistant",

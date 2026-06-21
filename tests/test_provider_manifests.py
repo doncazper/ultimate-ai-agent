@@ -11,7 +11,7 @@ from ultimate_ai_agent.core.providers import (
 )
 
 
-def test_provider_manifest_validates_without_raw_secret():
+def test_provider_manifest_validates_without_raw_secret() -> None:
     manifest = ProviderManifest(
         provider_id="weather_no_key",
         display_name="Weather No Key",
@@ -29,7 +29,7 @@ def test_provider_manifest_validates_without_raw_secret():
     assert validate_provider_manifest(manifest) is True
 
 
-def test_provider_manifest_rejects_credentialed_provider_without_ref():
+def test_provider_manifest_rejects_credentialed_provider_without_ref() -> None:
     manifest = ProviderManifest(
         provider_id="weather_keyed",
         display_name="Weather Keyed",
@@ -47,7 +47,7 @@ def test_provider_manifest_rejects_credentialed_provider_without_ref():
         validate_provider_manifest(manifest)
 
 
-def test_provider_manifest_rejects_raw_secret_metadata():
+def test_provider_manifest_rejects_raw_secret_metadata() -> None:
     manifest = ProviderManifest(
         provider_id="weather_secret",
         display_name="Weather Secret",

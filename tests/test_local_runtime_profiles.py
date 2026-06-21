@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.runtime import (
     validate_runtime_safety,
 )
 
-def test_local_runtime_validation():
+def test_local_runtime_validation() -> None:
     profile = LocalModelProfile(
         model_id="llama3-8b",
         model_family="llama3",
@@ -24,7 +24,7 @@ def test_local_runtime_validation():
     )
     assert validate_runtime_safety(manifest, policy) is True
 
-def test_unsafe_runtime_rejected():
+def test_unsafe_runtime_rejected() -> None:
     # Unknown context window (0 or negative)
     profile = LocalModelProfile(
         model_id="llama_unknown",
@@ -39,7 +39,7 @@ def test_unsafe_runtime_rejected():
     with pytest.raises(ValueError, match="model context window must be greater than 0"):
         validate_runtime_safety(manifest, policy)
 
-def test_privacy_routing_violation():
+def test_privacy_routing_violation() -> None:
     profile = LocalModelProfile(
         model_id="llama3-8b",
         context_window=8192

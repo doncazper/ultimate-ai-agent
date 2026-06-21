@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from pydantic import ValidationError
 
@@ -9,7 +10,7 @@ from ultimate_ai_agent.core.control_center import (
 )
 
 
-def preview_payload(**overrides):
+def preview_payload(**overrides: Any) -> Any:
     payload = {
         "request_id": "cc_preview_001",
         "actor_context": {"actor_type": "user", "actor_id": "local_operator"},
@@ -25,7 +26,7 @@ def preview_payload(**overrides):
     return payload
 
 
-def test_control_center_action_preview_allows_safe_status_view():
+def test_control_center_action_preview_allows_safe_status_view() -> None:
     decision = preview_control_center_action(preview_payload())
 
     assert decision.allowed is True
@@ -47,7 +48,7 @@ def test_control_center_action_preview_allows_safe_status_view():
         ({"approval_ref": "approval_any_string"}, "ARBITRARY_APPROVAL_REF_NOT_AUTHORITY"),
     ],
 )
-def test_control_center_action_preview_denies_unsafe_claims(overrides, reason):
+def test_control_center_action_preview_denies_unsafe_claims(overrides: Any, reason: str) -> None:
     decision = preview_control_center_action(preview_payload(**overrides))
 
     assert decision.allowed is False
@@ -55,7 +56,7 @@ def test_control_center_action_preview_denies_unsafe_claims(overrides, reason):
     assert "abcdefghijklmnop" not in decision.safe_message
 
 
-def test_control_center_high_risk_preview_requires_approval_without_execution():
+def test_control_center_high_risk_preview_requires_approval_without_execution() -> None:
     decision = preview_control_center_action(
         preview_payload(
             action_kind=ControlCenterActionKind.preview_action,
@@ -70,6 +71,6 @@ def test_control_center_high_risk_preview_requires_approval_without_execution():
     assert decision.preview_summary == "Preview only; no action was executed."
 
 
-def test_control_center_action_preview_rejects_extra_raw_prompt_field():
+def test_control_center_action_preview_rejects_extra_raw_prompt_field() -> None:
     with pytest.raises(ValidationError):
         preview_control_center_action(preview_payload(raw_prompt="summarize private file"))

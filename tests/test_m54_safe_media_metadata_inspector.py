@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.media import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.media import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "media-metadata-request:m54-sample",
         "media_ref": "media:m54-sample",

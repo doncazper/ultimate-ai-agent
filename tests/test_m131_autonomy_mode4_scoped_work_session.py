@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -14,7 +15,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "mode4-work-session-request:m131:review",
         "work_session_ref": "mode4-work-session:m131:review",
@@ -42,7 +43,7 @@ def _request(**overrides):
     return Mode4ScopedWorkSessionRequest(**data)
 
 
-def test_m131_mode4_scoped_work_session_is_review_only_and_route_free():
+def test_m131_mode4_scoped_work_session_is_review_only_and_route_free() -> None:
     decision = build_mode4_scoped_work_session_decision(_request())
 
     assert decision.status == Mode4ScopedWorkSessionStatus.ready_for_review
@@ -133,7 +134,7 @@ def test_m131_mode4_scoped_work_session_is_review_only_and_route_free():
         ),
     ],
 )
-def test_m131_policy_denies_runtime_and_future_authority(field, reason):
+def test_m131_policy_denies_runtime_and_future_authority(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_mode4_scoped_work_session_policy(
             Mode4ScopedWorkSessionPolicy(**{field: True})
@@ -165,12 +166,12 @@ def test_m131_policy_denies_runtime_and_future_authority(field, reason):
         ({"contains_secret": True}, "M131_SECRET_LIKE_MODE4_CONTENT_DENIED"),
     ],
 )
-def test_m131_request_denies_unsafe_or_unbounded_scope(override, reason):
+def test_m131_request_denies_unsafe_or_unbounded_scope(override: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         build_mode4_scoped_work_session_decision(_request(**override))
 
 
-def test_m131_revalidates_model_copy_mutations_and_receipt_binding():
+def test_m131_revalidates_model_copy_mutations_and_receipt_binding() -> None:
     decision = build_mode4_scoped_work_session_decision(_request())
 
     for update, reason in [
@@ -216,7 +217,7 @@ def test_m131_revalidates_model_copy_mutations_and_receipt_binding():
         )
 
 
-def test_m131_denies_secret_like_metadata_on_request_policy_and_decision():
+def test_m131_denies_secret_like_metadata_on_request_policy_and_decision() -> None:
     with pytest.raises(ValueError, match="M131_SECRET_LIKE_MODE4_CONTENT_DENIED"):
         validate_mode4_scoped_work_session_request(
             _request(metadata={"connector_token": "abc123supersecret"})

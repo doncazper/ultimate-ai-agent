@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Any, Iterator
 import argparse
 import json
 import sys
@@ -351,7 +352,7 @@ M22_LOCAL_RUNTIME_ALLOWED_SOURCE_FILES = {
 }
 
 
-def run_cmd(args, cwd=ROOT, env=None):
+def run_cmd(args: Any, cwd: Any = ROOT, env: Any | None = None) -> None:
     print(f"\nRunning: {' '.join(args)}")
     result = subprocess.run(args, cwd=cwd, env=env, text=True)
     if result.returncode != 0:
@@ -361,7 +362,7 @@ def run_cmd(args, cwd=ROOT, env=None):
 
 
 @contextmanager
-def repository_filesystem_cache(root=ROOT):
+def repository_filesystem_cache(root: Any = ROOT) -> Iterator[Any]:
     """Deduplicate repository file walks and text reads within one scan pass."""
     original_rglob = Path.rglob
     original_read_text = Path.read_text
@@ -381,7 +382,7 @@ def repository_filesystem_cache(root=ROOT):
         cacheable_paths[path] = cacheable
         return cacheable
 
-    def cached_rglob(path: Path, pattern: str):
+    def cached_rglob(path: Path, pattern: str) -> Any:
         if not is_cacheable(path):
             return original_rglob(path, pattern)
         key = (path, pattern)
@@ -389,7 +390,7 @@ def repository_filesystem_cache(root=ROOT):
             rglob_cache[key] = tuple(original_rglob(path, pattern))
         return iter(rglob_cache[key])
 
-    def cached_read_text(path: Path, *args, **kwargs):
+    def cached_read_text(path: Path, *args: Any, **kwargs: Any) -> Any:
         if not is_cacheable(path):
             return original_read_text(path, *args, **kwargs)
         key = (path, args, tuple(sorted(kwargs.items())))
@@ -405,10 +406,10 @@ def repository_filesystem_cache(root=ROOT):
         Path.rglob = original_rglob
         Path.read_text = original_read_text
 
-def _is_doc_path(rel_path):
+def _is_doc_path(rel_path: str) -> Any:
     return rel_path == "docs" or rel_path.startswith("docs/")
 
-def find_openwebui_forbidden_config_path_matches(root=ROOT):
+def find_openwebui_forbidden_config_path_matches(root: Any = ROOT) -> Any:
     matches = set()
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [name for name in dirnames if name not in OPENWEBUI_SCAN_EXCLUDED_DIRS]
@@ -427,7 +428,7 @@ def find_openwebui_forbidden_config_path_matches(root=ROOT):
                 matches.add(rel)
     return sorted(matches)
 
-def find_openwebui_forbidden_runtime_fragment_failures(root=ROOT):
+def find_openwebui_forbidden_runtime_fragment_failures(root: Any = ROOT) -> Any:
     failures = []
     implementation_roots = [root / "src", root / "apps", root / "scripts"]
     for implementation_root in implementation_roots:
@@ -454,7 +455,7 @@ def find_openwebui_forbidden_runtime_fragment_failures(root=ROOT):
                     failures.append(f"Forbidden OpenWebUI runtime/config fragment in {rel}: {fragment}")
     return failures
 
-def find_m22_local_runtime_forbidden_fragment_failures(root=ROOT):
+def find_m22_local_runtime_forbidden_fragment_failures(root: Any = ROOT) -> Any:
     failures = []
     runtime_root = Path(root) / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
     if not runtime_root.exists():
@@ -471,7 +472,7 @@ def find_m22_local_runtime_forbidden_fragment_failures(root=ROOT):
                 failures.append(f"Forbidden M22 local runtime activation fragment in {rel}: {fragment}")
     return failures
 
-def verify_no_generated_artifacts():
+def verify_no_generated_artifacts() -> None:
     print("\n[Verifier] Running generated-artifact scan...")
     try:
         git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
@@ -484,7 +485,7 @@ def verify_no_generated_artifacts():
         print(f"Warning: Failed to run git ls-files ({e}). Skipping tracked artifact verification.")
     print("OK: No generated egg-info, .venv, build, or dist files are tracked in git")
 
-def verify_no_obvious_secrets():
+def verify_no_obvious_secrets() -> None:
     print("\n[Verifier] Running obvious secret assignment scan...")
     try:
         git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
@@ -529,7 +530,7 @@ def verify_no_obvious_secrets():
                 pass
     print("OK: No obvious committed secrets detected in non-test files")
 
-def verify_no_blocked_modules():
+def verify_no_blocked_modules() -> None:
     print("\n[Verifier] Running advanced blocked module scan...")
     blocked_patterns = [
         ("src/ultimate_ai_agent/core/skill_factory/", "Skill Factory"),
@@ -558,7 +559,7 @@ def verify_no_blocked_modules():
             pass
     print("OK: Advanced blocked modules are not implemented")
 
-def verify_no_forbidden_external_integrations():
+def verify_no_forbidden_external_integrations() -> None:
     print("\n[Verifier] Running forbidden external integration scan...")
     allowed_stdlib_network_import_files = {
         "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
@@ -601,7 +602,7 @@ def verify_no_forbidden_external_integrations():
             pass
     print("OK: No forbidden provider API clients or network calls detected in src")
 
-def verify_no_real_model_runtime_execution():
+def verify_no_real_model_runtime_execution() -> None:
     print("\n[Verifier] Running M8/M9 model runtime local-only guard...")
     runtime_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "model_runtime"
     if not runtime_root.exists():
@@ -647,7 +648,7 @@ def verify_no_real_model_runtime_execution():
             pass
     print("OK: Model runtime package has no provider SDK, broad network, tokenizer, or billing code")
 
-def verify_no_real_approval_authority_integrations():
+def verify_no_real_approval_authority_integrations() -> None:
     print("\n[Verifier] Running M8.5 approval authority local-dev-only guard...")
     approval_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "approvals"
     if not approval_root.exists():
@@ -682,7 +683,7 @@ def verify_no_real_approval_authority_integrations():
             pass
     print("OK: Approval authority package is local/dev only")
 
-def verify_no_real_remote_worker_integrations():
+def verify_no_real_remote_worker_integrations() -> None:
     print("\n[Verifier] Running M10.5 remote worker foundation-only guard...")
     remote_root = ROOT / "src" / "ultimate_ai_agent" / "core" / "remote_workers"
     if not remote_root.exists():
@@ -739,7 +740,7 @@ def verify_no_real_remote_worker_integrations():
             pass
     print("OK: Remote worker package has no live network, process, private mesh, tailnet, or remote execution code")
 
-def verify_no_control_center_runtime_or_frontend_expansion():
+def verify_no_control_center_runtime_or_frontend_expansion() -> None:
     print("\n[Verifier] Running M12/M13 Control Center backend no-execution guard...")
     forbidden_frontend_files = [
         "package.json",
@@ -827,7 +828,7 @@ def verify_no_control_center_runtime_or_frontend_expansion():
                 sys.exit(1)
     print("OK: Control Center backend has no execution routes or runtime/provider/network expansions")
 
-def verify_m13_web_control_center_frontend_safety():
+def verify_m13_web_control_center_frontend_safety() -> None:
     print("\n[Verifier] Running M13 Web Control Center frontend safety guard...")
     app_root = ROOT / "apps" / "control-center"
     required = [
@@ -985,19 +986,19 @@ def verify_m13_web_control_center_frontend_safety():
         sys.exit(1)
     print("OK: M13 Web Control Center frontend is read-only/preview-only with safe dependencies and no tracked build artifacts")
 
-def verify_control_center_frontend_script():
+def verify_control_center_frontend_script() -> None:
     print("\n[Verifier] Running Control Center frontend safety verifier...")
     run_cmd([sys.executable, "scripts/verify_control_center_frontend.py"])
 
-def verify_control_center_browser_smoke_readiness_script():
+def verify_control_center_browser_smoke_readiness_script() -> None:
     print("\n[Verifier] Running Control Center browser smoke readiness verifier...")
     run_cmd([sys.executable, "scripts/verify_control_center_browser_smoke_readiness.py"])
 
-def verify_documentation_integrity():
+def verify_documentation_integrity() -> None:
     print("\n[Verifier] Running documentation integrity scan...")
     run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"])
 
-def verify_no_openwebui_runtime_or_config_implementation():
+def verify_no_openwebui_runtime_or_config_implementation() -> None:
     print("\n[Verifier] Running M21 OpenWebUI contract-only guard...")
     try:
         git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
@@ -1050,7 +1051,7 @@ def verify_no_openwebui_runtime_or_config_implementation():
 
     print("OK: No OpenWebUI runtime, deployment config, dependency, or execution route implementation detected")
 
-def verify_no_local_runtime_activation_implementation():
+def verify_no_local_runtime_activation_implementation() -> None:
     print("\n[Verifier] Running M22 local runtime activation contract-only guard...")
     forbidden_dependencies = [
         '"ollama"',
@@ -1113,7 +1114,7 @@ def verify_no_local_runtime_activation_implementation():
 
     print("OK: No M22 local runtime activation, endpoint probe, runtime client, dependency, or route implementation detected")
 
-def verify_m23_first_local_llm_call_boundary():
+def verify_m23_first_local_llm_call_boundary() -> None:
     print("\n[Verifier] Running M23 first local LLM call boundary guard...")
     required_files = [
         "src/ultimate_ai_agent/core/model_runtime/local_call_contracts.py",
@@ -1250,7 +1251,7 @@ def verify_m23_first_local_llm_call_boundary():
     print("OK: M23 is manual/CLI-only, loopback-only, fixed-prompt-only, non-tool, non-authoritative, and route-free")
 
 
-def verify_m24_memory_provider_local_store_safety():
+def verify_m24_memory_provider_local_store_safety() -> None:
     print("\n[Verifier] Running M24 memory provider/local store safety guard...")
     required_files = [
         "src/ultimate_ai_agent/core/memory/provider.py",
@@ -1392,7 +1393,7 @@ def verify_m24_memory_provider_local_store_safety():
     print("OK: M24 memory provider is local-only, reviewed-write-only, route-free, vector-free, and non-authoritative")
 
 
-def verify_m25_truth_source_evidence_checker_safety():
+def verify_m25_truth_source_evidence_checker_safety() -> None:
     print("\n[Verifier] Running M25 truth source/evidence checker safety guard...")
     required_files = [
         "src/ultimate_ai_agent/core/truth/sources.py",
@@ -1623,7 +1624,7 @@ def verify_m25_truth_source_evidence_checker_safety():
     print("OK: M25 truth source/evidence checker remains deterministic, local, route-free, and non-authoritative")
 
 
-def verify_governed_web_evidence_no_live_fetch():
+def verify_governed_web_evidence_no_live_fetch() -> None:
     print("\n[Verifier] Running governed web evidence no-live-fetch guard...")
     required_files = [
         "src/ultimate_ai_agent/core/truth/web_evidence.py",
@@ -1786,7 +1787,7 @@ def verify_governed_web_evidence_no_live_fetch():
     print("OK: Governed web evidence is intake-only, receipt-bound, and no-live-fetch")
 
 
-def verify_m26_grounded_recall_context_pack_safety():
+def verify_m26_grounded_recall_context_pack_safety() -> None:
     print("\n[Verifier] Running M26 grounded recall/context-pack safety guard...")
     required_files = [
         "src/ultimate_ai_agent/core/recall/__init__.py",
@@ -2110,7 +2111,7 @@ def verify_m26_grounded_recall_context_pack_safety():
     print("OK: M26 grounded recall/context-pack contracts remain deterministic, local, route-free, and non-authoritative")
 
 
-def verify_m27_tool_broker_v2_safety():
+def verify_m27_tool_broker_v2_safety() -> None:
     print("\n[Verifier] Running M27 Tool Broker v2 safe intent contract guard...")
     required_files = [
         "src/ultimate_ai_agent/core/tools/v2/__init__.py",
@@ -2251,7 +2252,7 @@ def verify_m27_tool_broker_v2_safety():
         print("FAIL: M27 Tool Broker v2 manifest enables forbidden runtime authority")
         sys.exit(1)
 
-    def safe_intent(**overrides):
+    def safe_intent(**overrides: Any) -> Any:
         data = {
             "intent_id": "tool-intent:verify-m27",
             "tool_id": "file.metadata_preview",
@@ -2343,7 +2344,7 @@ def verify_m27_tool_broker_v2_safety():
     print("OK: M27 Tool Broker v2 contracts remain preview-only, local, route-free, and non-authoritative")
 
 
-def verify_m28_approval_authority_v2_safety():
+def verify_m28_approval_authority_v2_safety() -> None:
     print("\n[Verifier] Running M28 Approval Authority v2 action policy guard...")
     required_files = [
         "src/ultimate_ai_agent/core/approvals/v2/__init__.py",
@@ -2552,7 +2553,7 @@ def verify_m28_approval_authority_v2_safety():
         print("FAIL: M28 safe policy decision receipt plan is missing or executable")
         sys.exit(1)
 
-    def require_denial(decision, required_reason: str, label: str) -> None:
+    def require_denial(decision: Any, required_reason: str, label: str) -> None:
         if decision.allowed_for_policy or decision.execution_authorized or decision.execution_performed:
             print(f"FAIL: M28 denied probe was allowed: {label}")
             sys.exit(1)
@@ -2744,7 +2745,7 @@ def verify_m28_approval_authority_v2_safety():
     print("OK: M28 Approval Authority v2 contracts remain policy-only, route-free, and non-executing")
 
 
-def verify_m29_task_planning_engine_safety():
+def verify_m29_task_planning_engine_safety() -> None:
     print("\n[Verifier] Running M29 Agent Task Planning Engine safety guard...")
     required_files = [
         "src/ultimate_ai_agent/core/planning/__init__.py",
@@ -2893,7 +2894,7 @@ def verify_m29_task_planning_engine_safety():
         print("FAIL: M29 receipt plan did not preserve derived plan risk")
         sys.exit(1)
 
-    def require_denial(decision, required_reason: str, label: str) -> None:
+    def require_denial(decision: Any, required_reason: str, label: str) -> None:
         if decision.valid_for_review or decision.execution_authorized or decision.execution_performed:
             print(f"FAIL: M29 denied probe was allowed: {label}")
             sys.exit(1)
@@ -3028,7 +3029,7 @@ def verify_m29_task_planning_engine_safety():
     print("OK: M29 Agent Task Planning Engine contracts remain review-only, route-free, and non-executing")
 
 
-def verify_m30_multi_step_execution_framework_safety():
+def verify_m30_multi_step_execution_framework_safety() -> None:
     print("\n[Verifier] Running M30 Multi-Step Execution Framework safety guard...")
     required_files = [
         "src/ultimate_ai_agent/core/execution/__init__.py",
@@ -3184,7 +3185,7 @@ def verify_m30_multi_step_execution_framework_safety():
         print("FAIL: M30 safe no-effect transition receipt plan is missing or executable")
         sys.exit(1)
 
-    def require_denial(decision, required_reason: str, label: str) -> None:
+    def require_denial(decision: Any, required_reason: str, label: str) -> None:
         if decision.status == ExecutionTransitionStatus.approved_no_effect_transition:
             print(f"FAIL: M30 denied probe was allowed: {label}")
             sys.exit(1)
@@ -3368,7 +3369,7 @@ def verify_m30_multi_step_execution_framework_safety():
     print("OK: M30 Multi-Step Execution Framework remains state-machine-only, route-free, and non-executing")
 
 
-def verify_m31_tool_runtime_noop_safety():
+def verify_m31_tool_runtime_noop_safety() -> None:
     print("\n[Verifier] Running M31 Real Tool Runtime Adapter no-op guard...")
     required_files = [
         "src/ultimate_ai_agent/core/tools/runtime/__init__.py",
@@ -3510,7 +3511,7 @@ def verify_m31_tool_runtime_noop_safety():
         print("FAIL: M31 deterministic no-op invocation echoed or stored raw input")
         sys.exit(1)
 
-    def require_denial(decision, required_reason: str, label: str) -> None:
+    def require_denial(decision: Any, required_reason: str, label: str) -> None:
         if decision.status == ToolInvocationStatus.noop_completed or decision.execution_performed:
             print(f"FAIL: M31 denied probe was allowed: {label}")
             sys.exit(1)
@@ -3590,7 +3591,7 @@ def verify_m31_tool_runtime_noop_safety():
     print("OK: M31 Tool Runtime Adapter allows only deterministic no-op invocation and remains route-free")
 
 
-def verify_m32_filesystem_metadata_tool_safety():
+def verify_m32_filesystem_metadata_tool_safety() -> None:
     print("\n[Verifier] Running M32 safe filesystem metadata tool guard...")
     required_files = [
         "src/ultimate_ai_agent/core/tools/runtime/filesystem_metadata.py",
@@ -3719,7 +3720,7 @@ def verify_m32_filesystem_metadata_tool_safety():
         print("FAIL: M32 policy enables unsafe filesystem/runtime authority")
         sys.exit(1)
 
-    def require_denial(decision, required_reason: str, label: str) -> None:
+    def require_denial(decision: Any, required_reason: str, label: str) -> None:
         if decision.status == ToolInvocationStatus.metadata_completed or decision.execution_performed:
             print(f"FAIL: M32 denied probe was allowed: {label}")
             sys.exit(1)
@@ -3897,7 +3898,7 @@ def verify_m32_filesystem_metadata_tool_safety():
     print("OK: M32 filesystem metadata tool is safe-root-bound, metadata-only, route-free, and non-mutating")
 
 
-def verify_m33_redacted_file_preview_tool_safety():
+def verify_m33_redacted_file_preview_tool_safety() -> None:
     print("\n[Verifier] Running M33 redacted file preview tool guard...")
     required_files = [
         "src/ultimate_ai_agent/core/tools/runtime/file_preview.py",
@@ -4017,7 +4018,7 @@ def verify_m33_redacted_file_preview_tool_safety():
         print("FAIL: M33 policy enables unsafe redacted preview/runtime authority")
         sys.exit(1)
 
-    def require_denial(decision, required_reason: str, label: str) -> None:
+    def require_denial(decision: Any, required_reason: str, label: str) -> None:
         if decision.status == ToolInvocationStatus.preview_completed or decision.execution_performed:
             print(f"FAIL: M33 denied probe was allowed: {label}")
             sys.exit(1)
@@ -4196,7 +4197,7 @@ def verify_m33_redacted_file_preview_tool_safety():
     print("OK: M33 redacted file preview tool is redacted-only, safe-root-bound, route-free, and non-mutating")
 
 
-def verify_m34_broader_file_capability_review_safety():
+def verify_m34_broader_file_capability_review_safety() -> None:
     print("\n[Verifier] Running M34 broader file capability review guard...")
     required_files = [
         "docs/files/BROADER_FILE_CAPABILITY_REVIEW.md",
@@ -4343,7 +4344,7 @@ def verify_m34_broader_file_capability_review_safety():
         print("OK: M34 broader file capability review is docs/verifier-only, route-free, and keeps M35/M36 future")
 
 
-def verify_m35_safe_file_review_workflow_safety():
+def verify_m35_safe_file_review_workflow_safety() -> None:
     print("\n[Verifier] Running M35 safe file review workflow guard...")
     required_files = [
         "src/ultimate_ai_agent/core/file_review/__init__.py",
@@ -4550,7 +4551,7 @@ def verify_m35_safe_file_review_workflow_safety():
     print("OK: M35 safe file review workflow is contract-only, review-only, route-free, and non-authoritative")
 
 
-def verify_m36_ccc_file_review_surface_safety():
+def verify_m36_ccc_file_review_surface_safety() -> None:
     print("\n[Verifier] Running M36 CCC file review surface guard...")
     if _current_version_tuple() >= _version_tuple("v0.41.0"):
         print("OK: M36 file review surface historical guard deferred to M37 capture verifier for active v0.41.0+ tree")
@@ -4664,7 +4665,7 @@ def verify_m36_ccc_file_review_surface_safety():
     print("OK: M36 CCC file review surface is review-only, mock, route-free, and non-authoritative")
 
 
-def verify_m37_review_approval_capture_safety():
+def verify_m37_review_approval_capture_safety() -> None:
     print("\n[Verifier] Running M37 review approval capture guard...")
     required_files = [
         "src/ultimate_ai_agent/core/file_review/approval_capture.py",
@@ -4803,7 +4804,7 @@ def verify_m37_review_approval_capture_safety():
     print("OK: M37 review approval capture is safe-ref-only, review-only, and non-authoritative")
 
 
-def verify_m38_safe_context_proposal_safety():
+def verify_m38_safe_context_proposal_safety() -> None:
     print("\n[Verifier] Running M38 safe context proposal guard...")
     required_files = [
         "src/ultimate_ai_agent/core/context_proposal/__init__.py",
@@ -4964,7 +4965,7 @@ def verify_m38_safe_context_proposal_safety():
     print("OK: M38 safe context proposal is proposal-only, route-free beyond M37 capture, and non-authoritative")
 
 
-def verify_m39_ccc_context_proposal_surface_safety():
+def verify_m39_ccc_context_proposal_surface_safety() -> None:
     print("\n[Verifier] Running M39 CCC context proposal surface guard...")
     required_files = [
         "apps/control-center/src/components/ContextProposalSurfacePanel.tsx",
@@ -5068,7 +5069,7 @@ def verify_m39_ccc_context_proposal_surface_safety():
     print("OK: M39 CCC context proposal surface is frontend-only, review-only, safe-ref-only, and non-authoritative")
 
 
-def verify_m40_context_handoff_approval_safety():
+def verify_m40_context_handoff_approval_safety() -> None:
     print("\n[Verifier] Running M40 context handoff approval guard...")
     required_files = [
         "src/ultimate_ai_agent/core/context_handoff/__init__.py",
@@ -5254,7 +5255,7 @@ def verify_m40_context_handoff_approval_safety():
     print("OK: M40 context handoff approval is exact-bound, review-only, no-injection, and route-free")
 
 
-def verify_m41_local_prototype_safety_freeze():
+def verify_m41_local_prototype_safety_freeze() -> None:
     print("\n[Verifier] Running M41 local prototype safety freeze guard...")
     required_files = [
         "docs/prototype/LOCAL_PROTOTYPE_SAFETY_FREEZE.md",
@@ -5362,7 +5363,7 @@ def verify_m41_local_prototype_safety_freeze():
     print("OK: M41 local prototype safety freeze is route-stable, localhost/review-only, and keeps future authority blocked")
 
 
-def verify_m42_mobile_product_contract_refresh():
+def verify_m42_mobile_product_contract_refresh() -> None:
     print("\n[Verifier] Running M42 mobile product contract refresh guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
@@ -5480,7 +5481,7 @@ def verify_m42_mobile_product_contract_refresh():
     print("OK: M42 mobile product refresh is contract-only, route-free, native-free, and sensor-free")
 
 
-def verify_m43_mobile_api_boundary_read_only():
+def verify_m43_mobile_api_boundary_read_only() -> None:
     print("\n[Verifier] Running M43 read-only mobile API boundary guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
@@ -5597,7 +5598,7 @@ def verify_m43_mobile_api_boundary_read_only():
     print("OK: M43 mobile API boundary is contract-only, read-only, route-stable, raw-data-free, and sensor-free")
 
 
-def verify_m44_ccc_ios_skeleton_no_authority():
+def verify_m44_ccc_ios_skeleton_no_authority() -> None:
     print("\n[Verifier] Running M44 CCC iOS skeleton no-authority guard...")
     required_files = [
         "apps/ccc-ios/README.md",
@@ -5767,7 +5768,7 @@ def verify_m44_ccc_ios_skeleton_no_authority():
     print("OK: M44 CCC iOS skeleton is source-only, mock-only, read-only, no-authority, and route-stable")
 
 
-def verify_m45_ccc_ios_local_read_only_connection():
+def verify_m45_ccc_ios_local_read_only_connection() -> None:
     print("\n[Verifier] Running M45 CCC iOS local read-only connection guard...")
     required_files = [
         "apps/ccc-ios/README.md",
@@ -5942,7 +5943,7 @@ def verify_m45_ccc_ios_local_read_only_connection():
     print("OK: M45 CCC iOS local connection is local-only, read-only, no-runtime, no-route, and no-authority")
 
 
-def verify_m46_ccc_ios_review_receipt_read_only_surfaces():
+def verify_m46_ccc_ios_review_receipt_read_only_surfaces() -> None:
     print("\n[Verifier] Running M46 CCC iOS review/receipt read-only surfaces guard...")
     required_files = [
         "apps/ccc-ios/README.md",
@@ -6129,7 +6130,7 @@ def verify_m46_ccc_ios_review_receipt_read_only_surfaces():
     print("OK: M46 CCC iOS review/receipt surfaces are source-only, read-only, redacted, no-runtime, and no-authority")
 
 
-def verify_m47_testflight_pipeline_internal_only():
+def verify_m47_testflight_pipeline_internal_only() -> None:
     print("\n[Verifier] Running M47 TestFlight pipeline internal-only guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
@@ -6298,7 +6299,7 @@ def verify_m47_testflight_pipeline_internal_only():
     print("OK: M47 TestFlight pipeline is internal-only, contract/checklist-only, no-build, no-upload, and no-authority")
 
 
-def verify_m48_first_internal_testflight_build():
+def verify_m48_first_internal_testflight_build() -> None:
     print("\n[Verifier] Running M48 first internal TestFlight build guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/contracts.py",
@@ -6478,7 +6479,7 @@ def verify_m48_first_internal_testflight_build():
     print("OK: M48 first internal TestFlight build is reviewed-candidate-only, no-build-artifact, no-upload, no-signing-material, and no-authority")
 
 
-def verify_m49_mobile_review_approval_capture():
+def verify_m49_mobile_review_approval_capture() -> None:
     print("\n[Verifier] Running M49 mobile review approval capture guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
@@ -6653,7 +6654,7 @@ def verify_m49_mobile_review_approval_capture():
     print("OK: M49 mobile review approval capture is exact-scope, safe-ref-only, review-only, no-route, and no-authority")
 
 
-def verify_m50_mobile_approval_audit_hardening():
+def verify_m50_mobile_approval_audit_hardening() -> None:
     print("\n[Verifier] Running M50 mobile approval audit hardening guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/approval_capture.py",
@@ -6828,7 +6829,7 @@ def verify_m50_mobile_approval_audit_hardening():
     print("OK: M50 mobile approval audit is safe-ref-only, review-only, no-route, no-export, and no-authority")
 
 
-def verify_m51_openwebui_bridge_adapter_pilot():
+def verify_m51_openwebui_bridge_adapter_pilot() -> None:
     print("\n[Verifier] Running M51 OpenWebUI bridge adapter pilot guard...")
     required_files = [
         "src/ultimate_ai_agent/core/openwebui_bridge/adapter.py",
@@ -7011,7 +7012,7 @@ def verify_m51_openwebui_bridge_adapter_pilot():
     print("OK: M51 OpenWebUI bridge adapter is safe-summary-only, no-route, no-runtime, and no-authority")
 
 
-def verify_m52_openwebui_safe_conversation_surface():
+def verify_m52_openwebui_safe_conversation_surface() -> None:
     print("\n[Verifier] Running M52 OpenWebUI safe conversation surface guard...")
     required_files = [
         "src/ultimate_ai_agent/core/openwebui_bridge/conversation.py",
@@ -7220,7 +7221,7 @@ def verify_m52_openwebui_safe_conversation_surface():
     print("OK: M52 OpenWebUI safe conversation surface is safe-summary-only, no-route, no-runtime, and no-authority")
 
 
-def verify_m53_controlled_tool_expansion_review():
+def verify_m53_controlled_tool_expansion_review() -> None:
     print("\n[Verifier] Running M53 controlled tool expansion review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/tools/expansion_review.py",
@@ -7348,7 +7349,7 @@ def verify_m53_controlled_tool_expansion_review():
     print("OK: M53 controlled tool expansion review is review-only, no-route, and no-authority")
 
 
-def verify_m54_safe_media_metadata_inspector():
+def verify_m54_safe_media_metadata_inspector() -> None:
     print("\n[Verifier] Running M54 safe media metadata inspector guard...")
     required_files = [
         "src/ultimate_ai_agent/core/media/__init__.py",
@@ -7545,7 +7546,7 @@ def verify_m54_safe_media_metadata_inspector():
     print("OK: M54 safe media metadata inspector is metadata-only, no-route, no-transform, and no-authority")
 
 
-def verify_m55_redacted_observability_export():
+def verify_m55_redacted_observability_export() -> None:
     print("\n[Verifier] Running M55 redacted observability export guard...")
     required_files = [
         "src/ultimate_ai_agent/core/observability/__init__.py",
@@ -7791,7 +7792,7 @@ def verify_m55_redacted_observability_export():
     print("OK: M55 redacted observability export is redacted-only, no-route, no-delivery, and no-authority")
 
 
-def verify_m56_agent_eval_regression_harness():
+def verify_m56_agent_eval_regression_harness() -> None:
     print("\n[Verifier] Running M56 agent eval regression harness guard...")
     required_files = [
         "src/ultimate_ai_agent/core/evals/__init__.py",
@@ -8017,7 +8018,7 @@ def verify_m56_agent_eval_regression_harness():
     print("OK: M56 agent eval regression harness is deterministic, no-route, no-execution, and no-authority")
 
 
-def verify_m57_runtime_sandbox_architecture_review():
+def verify_m57_runtime_sandbox_architecture_review() -> None:
     print("\n[Verifier] Running M57 runtime sandbox architecture review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -8222,7 +8223,7 @@ def verify_m57_runtime_sandbox_architecture_review():
     print("OK: M57 runtime sandbox architecture review is contract-only, no-route, no-execution, and no-authority")
 
 
-def verify_m58_dry_run_execution_audit_harness():
+def verify_m58_dry_run_execution_audit_harness() -> None:
     print("\n[Verifier] Running M58 dry-run execution audit harness guard...")
     required_files = [
         "src/ultimate_ai_agent/core/dry_run_audit/__init__.py",
@@ -8438,7 +8439,7 @@ def verify_m58_dry_run_execution_audit_harness():
     print("OK: M58 dry-run execution audit harness is dry-run-only, no-route, no-execution, and no-authority")
 
 
-def verify_m59_public_github_readiness():
+def verify_m59_public_github_readiness() -> None:
     print("\n[Verifier] Running M59 public GitHub readiness guard...")
     required_files = [
         "src/ultimate_ai_agent/core/public_readiness/__init__.py",
@@ -8632,7 +8633,7 @@ def verify_m59_public_github_readiness():
     print("OK: M59 public GitHub readiness is review-only, no-publication, no-route, and no-authority")
 
 
-def verify_m60_local_developer_beta_freeze():
+def verify_m60_local_developer_beta_freeze() -> None:
     print("\n[Verifier] Running M60 local developer beta freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/beta_freeze/__init__.py",
@@ -8835,7 +8836,7 @@ def verify_m60_local_developer_beta_freeze():
     print("OK: M60 local developer beta freeze is freeze-only, route-free, no-autonomy, and no-authority")
 
 
-def verify_m61_autonomy_mode_charter():
+def verify_m61_autonomy_mode_charter() -> None:
     print("\n[Verifier] Running M61 autonomy mode charter guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -9045,7 +9046,7 @@ def verify_m61_autonomy_mode_charter():
     print("OK: M61 autonomy mode charter is default-off, route-free, no-autonomy, and no-authority")
 
 
-def verify_m62_scoped_autonomy_session():
+def verify_m62_scoped_autonomy_session() -> None:
     print("\n[Verifier] Running M62 scoped autonomy session guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/sessions.py",
@@ -9229,7 +9230,7 @@ def verify_m62_scoped_autonomy_session():
     print("OK: M62 scoped autonomy session is contract-only, route-free, no-session-start, and no-authority")
 
 
-def verify_m63_autonomy_policy_engine():
+def verify_m63_autonomy_policy_engine() -> None:
     print("\n[Verifier] Running M63 autonomy policy engine guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/policies.py",
@@ -9440,7 +9441,7 @@ def verify_m63_autonomy_policy_engine():
     print("OK: M63 autonomy policy engine is contract-only, route-free, no-policy-activation, and no-authority")
 
 
-def verify_m64_autonomous_plan_simulator():
+def verify_m64_autonomous_plan_simulator() -> None:
     print("\n[Verifier] Running M64 autonomous plan simulator guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/simulator.py",
@@ -9668,7 +9669,7 @@ def verify_m64_autonomous_plan_simulator():
     print("OK: M64 autonomous plan simulator is contract-only, route-free, dry-run-only, and no-authority")
 
 
-def verify_m65_autonomy_audit_replay_viewer():
+def verify_m65_autonomy_audit_replay_viewer() -> None:
     print("\n[Verifier] Running M65 autonomy audit replay viewer guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/audit.py",
@@ -9913,7 +9914,7 @@ def verify_m65_autonomy_audit_replay_viewer():
     print("OK: M65 autonomy audit replay viewer is contract-only, route-free, replay-view-only, and no-authority")
 
 
-def verify_m66_scoped_approval_bundles():
+def verify_m66_scoped_approval_bundles() -> None:
     print("\n[Verifier] Running M66 scoped approval bundles guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/approvals.py",
@@ -10176,7 +10177,7 @@ def verify_m66_scoped_approval_bundles():
     print("OK: M66 scoped approval bundles are contract-only, route-free, exact-scope, and no-authority")
 
 
-def verify_m67_revocation_kill_switch():
+def verify_m67_revocation_kill_switch() -> None:
     print("\n[Verifier] Running M67 revocation kill switch guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/revocation.py",
@@ -10461,7 +10462,7 @@ def verify_m67_revocation_kill_switch():
     print("OK: M67 revocation kill switch is contract-only, route-free, exact-bound, and no-authority")
 
 
-def verify_m68_autonomy_risk_classifier():
+def verify_m68_autonomy_risk_classifier() -> None:
     print("\n[Verifier] Running M68 autonomy risk classifier guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/risk.py",
@@ -10681,7 +10682,7 @@ def verify_m68_autonomy_risk_classifier():
     print("OK: M68 autonomy risk classifier is contract-only, route-free, highest-risk, and no-authority")
 
 
-def verify_m69_low_risk_autonomous_dry_run():
+def verify_m69_low_risk_autonomous_dry_run() -> None:
     print("\n[Verifier] Running M69 low-risk autonomous dry-run guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/dry_run.py",
@@ -10944,7 +10945,7 @@ def verify_m69_low_risk_autonomous_dry_run():
     print("OK: M69 low-risk autonomous dry run is contract-only, route-free, low-risk-only, and no-authority")
 
 
-def verify_m70_autonomy_foundation_freeze():
+def verify_m70_autonomy_foundation_freeze() -> None:
     print("\n[Verifier] Running M70 autonomy foundation freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/foundation_freeze.py",
@@ -11166,7 +11167,7 @@ def verify_m70_autonomy_foundation_freeze():
     print("OK: M70 autonomy foundation freeze is contract-only, route-free, freeze-only, and no-authority")
 
 
-def verify_m71_network_tool_contract_review():
+def verify_m71_network_tool_contract_review() -> None:
     print("\n[Verifier] Running M71 network tool contract review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/network/contract_review.py",
@@ -11451,7 +11452,7 @@ def verify_m71_network_tool_contract_review():
     print("OK: M71 network tool contract review is contract-only, route-free, disabled-by-default, and no-authority")
 
 
-def verify_m72_read_only_http_fetch_tool():
+def verify_m72_read_only_http_fetch_tool() -> None:
     print("\n[Verifier] Running M72 read-only HTTP fetch tool guard...")
     required_files = [
         "src/ultimate_ai_agent/core/tools/runtime/http_fetch.py",
@@ -11527,7 +11528,7 @@ def verify_m72_read_only_http_fetch_tool():
         print(f"FAIL: {failure}")
         sys.exit(1)
 
-    def fake_transport(_request, _policy):
+    def fake_transport(_request: Any, _policy: Any) -> Any:
         return ReadOnlyHttpFetchTransportResponse(
             status_code=200,
             content_type="text/plain",
@@ -11686,7 +11687,7 @@ def verify_m72_read_only_http_fetch_tool():
     print("OK: M72 read-only HTTP fetch is allowlisted, redacted, route-free, and no-authority")
 
 
-def verify_m73_browser_automation_contract_review():
+def verify_m73_browser_automation_contract_review() -> None:
     print("\n[Verifier] Running M73 browser automation contract review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/browser/__init__.py",
@@ -11960,7 +11961,7 @@ def verify_m73_browser_automation_contract_review():
     print("OK: M73 browser automation contract review is contract-only, route-free, disabled-by-default, and no-authority")
 
 
-def verify_m74_browser_observe_only_adapter():
+def verify_m74_browser_observe_only_adapter() -> None:
     print("\n[Verifier] Running M74 browser observe-only adapter guard...")
     required_files = [
         "src/ultimate_ai_agent/core/browser/__init__.py",
@@ -12045,7 +12046,7 @@ def verify_m74_browser_observe_only_adapter():
         safe_summary="Observe an injected safe browser page snapshot without browser control.",
     )
 
-    def transport(_request, _policy):
+    def transport(_request: Any, _policy: Any) -> Any:
         return BrowserObserveOnlyObservation(
             title="Verify all status",
             safe_url_ref="browser-url:verify-all-m74",
@@ -12189,7 +12190,7 @@ def verify_m74_browser_observe_only_adapter():
     print("OK: M74 browser observe-only adapter is injected, redacted, route-free, and no-authority")
 
 
-def verify_m75_browser_action_dry_run_planner():
+def verify_m75_browser_action_dry_run_planner() -> None:
     print("\n[Verifier] Running M75 browser action dry-run planner guard...")
     required_files = [
         "src/ultimate_ai_agent/core/browser/__init__.py",
@@ -12415,7 +12416,7 @@ def verify_m75_browser_action_dry_run_planner():
     print("OK: M75 browser action dry-run planner is review-only, route-free, and no-authority")
 
 
-def verify_m76_openwebui_runtime_bridge():
+def verify_m76_openwebui_runtime_bridge() -> None:
     print("\n[Verifier] Running M76 OpenWebUI runtime bridge guard...")
     required_files = [
         "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
@@ -12552,7 +12553,7 @@ def verify_m76_openwebui_runtime_bridge():
     print("OK: M76 OpenWebUI runtime bridge is review-only, route-free, and no-authority")
 
 
-def verify_m77_openwebui_safe_handoff():
+def verify_m77_openwebui_safe_handoff() -> None:
     print("\n[Verifier] Running M77 OpenWebUI safe handoff guard...")
     required_files = [
         "src/ultimate_ai_agent/core/openwebui_bridge/__init__.py",
@@ -12708,7 +12709,7 @@ def verify_m77_openwebui_safe_handoff():
     print("OK: M77 OpenWebUI safe handoff is exact-bound, route-free, and no-authority")
 
 
-def verify_m78_plugin_manifest_security_model():
+def verify_m78_plugin_manifest_security_model() -> None:
     print("\n[Verifier] Running M78 plugin manifest security guard...")
     required_files = [
         "src/ultimate_ai_agent/core/plugin_manifest/__init__.py",
@@ -12900,7 +12901,7 @@ def verify_m78_plugin_manifest_security_model():
     print("OK: M78 plugin manifest security model is disabled-only, route-free, and no-authority")
 
 
-def verify_m79_plugin_install_review():
+def verify_m79_plugin_install_review() -> None:
     print("\n[Verifier] Running M79 plugin install review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/plugin_install_review/__init__.py",
@@ -13120,7 +13121,7 @@ def verify_m79_plugin_install_review():
     print("OK: M79 plugin install review is disabled-by-default, route-free, and no-authority")
 
 
-def verify_m80_network_browser_openwebui_hardening_freeze():
+def verify_m80_network_browser_openwebui_hardening_freeze() -> None:
     print("\n[Verifier] Running M80 network/browser/OpenWebUI hardening freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/hardening_freeze/__init__.py",
@@ -13323,7 +13324,7 @@ def verify_m80_network_browser_openwebui_hardening_freeze():
     print("OK: M80 network/browser/OpenWebUI hardening freeze is route-free and no-authority")
 
 
-def verify_m81_runtime_sandbox_spec():
+def verify_m81_runtime_sandbox_spec() -> None:
     print("\n[Verifier] Running M81 runtime sandbox spec guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -13541,7 +13542,7 @@ def verify_m81_runtime_sandbox_spec():
     print("OK: M81 runtime sandbox spec is spec-only, route-free, and no-authority")
 
 
-def verify_m82_command_proposal_contracts():
+def verify_m82_command_proposal_contracts() -> None:
     print("\n[Verifier] Running M82 command proposal contract guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -13743,7 +13744,7 @@ def verify_m82_command_proposal_contracts():
     print("OK: M82 command proposal contracts are proposal-only, route-free, and no-authority")
 
 
-def verify_m83_shell_dry_run_classifier():
+def verify_m83_shell_dry_run_classifier() -> None:
     print("\n[Verifier] Running M83 shell dry-run classifier guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -13972,7 +13973,7 @@ def verify_m83_shell_dry_run_classifier():
     print("OK: M83 shell dry-run classifier is classifier-only, route-free, and no-authority")
 
 
-def verify_m84_sandboxed_echo_noop_command():
+def verify_m84_sandboxed_echo_noop_command() -> None:
     print("\n[Verifier] Running M84 sandboxed echo/no-op command guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -14222,7 +14223,7 @@ def verify_m84_sandboxed_echo_noop_command():
     print("OK: M84 sandboxed echo/no-op command is in-process, route-free, and no-authority")
 
 
-def verify_m85_read_only_command_allowlist():
+def verify_m85_read_only_command_allowlist() -> None:
     print("\n[Verifier] Running M85 read-only command allowlist guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -14526,7 +14527,7 @@ def verify_m85_read_only_command_allowlist():
     print("OK: M85 read-only command allowlist is contract-only, route-free, and no-authority")
 
 
-def verify_m86_shell_approval_gate():
+def verify_m86_shell_approval_gate() -> None:
     print("\n[Verifier] Running M86 shell approval gate guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -14759,7 +14760,7 @@ def verify_m86_shell_approval_gate():
     print("OK: M86 shell approval gate is contract-only, route-free, and no-authority")
 
 
-def verify_m87_sandboxed_command_audit_replay():
+def verify_m87_sandboxed_command_audit_replay() -> None:
     print("\n[Verifier] Running M87 sandboxed command audit replay guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -14981,7 +14982,7 @@ def verify_m87_sandboxed_command_audit_replay():
     print("OK: M87 sandboxed command audit replay is replay-view-only, route-free, and no-authority")
 
 
-def verify_m88_mutating_command_proposal():
+def verify_m88_mutating_command_proposal() -> None:
     print("\n[Verifier] Running M88 mutating command proposal guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -15188,7 +15189,7 @@ def verify_m88_mutating_command_proposal():
     print("OK: M88 mutating command proposal is review-only, route-free, and no-authority")
 
 
-def verify_m89_emergency_stop_process_kill_safety():
+def verify_m89_emergency_stop_process_kill_safety() -> None:
     print("\n[Verifier] Running M89 emergency stop/process kill safety guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -15421,7 +15422,7 @@ def verify_m89_emergency_stop_process_kill_safety():
     print("OK: M89 emergency stop/process kill safety is review-only, route-free, and no-authority")
 
 
-def verify_m90_shell_subprocess_hardening_freeze():
+def verify_m90_shell_subprocess_hardening_freeze() -> None:
     print("\n[Verifier] Running M90 shell/subprocess hardening freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/sandbox/__init__.py",
@@ -15666,7 +15667,7 @@ def verify_m90_shell_subprocess_hardening_freeze():
     print("OK: M90 shell/subprocess hardening freeze is review-only, route-free, and no-authority")
 
 
-def verify_m91_autonomous_tool_execution_contract():
+def verify_m91_autonomous_tool_execution_contract() -> None:
     print("\n[Verifier] Running M91 autonomous tool execution contract guard...")
     required_files = [
         "src/ultimate_ai_agent/core/tools/__init__.py",
@@ -15947,7 +15948,7 @@ def verify_m91_autonomous_tool_execution_contract():
     print("OK: M91 autonomous tool execution contract is review-only, route-free, and no-authority")
 
 
-def verify_m92_low_risk_tool_autonomy_single_session():
+def verify_m92_low_risk_tool_autonomy_single_session() -> None:
     print("\n[Verifier] Running M92 low-risk tool autonomy single-session guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -16181,7 +16182,7 @@ def verify_m92_low_risk_tool_autonomy_single_session():
     print("OK: M92 low-risk tool autonomy single-session is review-only, route-free, and no-authority")
 
 
-def verify_m93_multi_tool_dry_run_promotion():
+def verify_m93_multi_tool_dry_run_promotion() -> None:
     print("\n[Verifier] Running M93 multi-tool dry-run promotion guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -16390,7 +16391,7 @@ def verify_m93_multi_tool_dry_run_promotion():
     print("OK: M93 multi-tool dry-run promotion is review-only, route-free, and no-authority")
 
 
-def verify_m94_low_risk_browser_clicks():
+def verify_m94_low_risk_browser_clicks() -> None:
     print("\n[Verifier] Running M94 low-risk browser clicks guard...")
     required_files = [
         "src/ultimate_ai_agent/core/browser/__init__.py",
@@ -16606,7 +16607,7 @@ def verify_m94_low_risk_browser_clicks():
     print("OK: M94 low-risk browser clicks are scoped, route-free, and no broad browser authority")
 
 
-def verify_m95_authless_network_tool_expansion():
+def verify_m95_authless_network_tool_expansion() -> None:
     print("\n[Verifier] Running M95 authless network tool expansion guard...")
     required_files = [
         "src/ultimate_ai_agent/core/network/__init__.py",
@@ -16846,7 +16847,7 @@ def verify_m95_authless_network_tool_expansion():
     print("OK: M95 authless network expansion is exact-scope, route-free, and no-authority")
 
 
-def verify_m96_plugin_execution_sandbox():
+def verify_m96_plugin_execution_sandbox() -> None:
     print("\n[Verifier] Running M96 plugin execution sandbox guard...")
     required_files = [
         "src/ultimate_ai_agent/core/plugin_execution_sandbox/__init__.py",
@@ -17046,7 +17047,7 @@ def verify_m96_plugin_execution_sandbox():
     print("OK: M96 plugin execution sandbox is built-in-only, route-free, and no external plugin authority")
 
 
-def verify_m97_recurring_automation_contracts():
+def verify_m97_recurring_automation_contracts() -> None:
     print("\n[Verifier] Running M97 recurring automation contracts guard...")
     required_files = [
         "src/ultimate_ai_agent/core/recurring_automation_contracts/__init__.py",
@@ -17220,7 +17221,7 @@ def verify_m97_recurring_automation_contracts():
     print("OK: M97 recurring automation contracts are contract-only, route-free, and no runtime authority")
 
 
-def verify_m98_scoped_recurring_low_risk_automation():
+def verify_m98_scoped_recurring_low_risk_automation() -> None:
     print("\n[Verifier] Running M98 scoped recurring low-risk automation guard...")
     required_files = [
         "src/ultimate_ai_agent/core/scoped_recurring_low_risk_automation/__init__.py",
@@ -17417,7 +17418,7 @@ def verify_m98_scoped_recurring_low_risk_automation():
     print("OK: M98 scoped recurring low-risk automation is safe-ref-only and route-free")
 
 
-def verify_m99_autonomy_v1_safety_freeze():
+def verify_m99_autonomy_v1_safety_freeze() -> None:
     print("\n[Verifier] Running M99 autonomy v1 safety freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/v1_safety_freeze.py",
@@ -17577,7 +17578,7 @@ def verify_m99_autonomy_v1_safety_freeze():
     print("OK: M99 autonomy v1 safety freeze is freeze-only and route-free")
 
 
-def verify_m100_mobile_permission_model_v1():
+def verify_m100_mobile_permission_model_v1() -> None:
     print("\n[Verifier] Running M100 mobile permission model v1 guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/permission_model_v1.py",
@@ -17728,10 +17729,10 @@ def verify_m100_mobile_permission_model_v1():
     print("OK: M100 mobile permission model v1 is contract-only, sensor-free, and route-free")
 
 
-def verify_post_m100_roadmap_reconciliation():
+def verify_post_m100_roadmap_reconciliation() -> None:
     print("\n[Verifier] Running post-M100 roadmap reconciliation guard...")
 
-    def contains_affirmative_fragment(text, fragment):
+    def contains_affirmative_fragment(text: str, fragment: Any) -> bool:
         pattern = re.compile(
             rf"\b{re.escape(fragment)}\b",
             re.IGNORECASE,
@@ -18218,7 +18219,7 @@ def verify_post_m100_roadmap_reconciliation():
     print("OK: Post-M100 roadmap reconciliation keeps future M101-M150 labels guarded")
 
 
-def verify_m101_mobile_sensor_contract_review():
+def verify_m101_mobile_sensor_contract_review() -> None:
     print("\n[Verifier] Running M101 mobile sensor contract review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/sensor_contract_review.py",
@@ -18365,7 +18366,7 @@ def verify_m101_mobile_sensor_contract_review():
     print("OK: M101 mobile sensor contract review is contract-only, sensor-off, and route-free")
 
 
-def verify_m102_location_sensor_off_by_default():
+def verify_m102_location_sensor_off_by_default() -> None:
     print("\n[Verifier] Running M102 location sensor off-by-default guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/location_sensor_off_by_default.py",
@@ -18519,7 +18520,7 @@ def verify_m102_location_sensor_off_by_default():
     print("OK: M102 location sensor remains off-by-default, contract-only, and route-free")
 
 
-def verify_m103_camera_photos_metadata_only():
+def verify_m103_camera_photos_metadata_only() -> None:
     print("\n[Verifier] Running M103 camera/photos metadata-only guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/camera_photos_metadata_only.py",
@@ -18697,7 +18698,7 @@ def verify_m103_camera_photos_metadata_only():
     print("OK: M103 camera/photos metadata-only is contract-only, media-off, and route-free")
 
 
-def verify_m104_notification_planning_no_push():
+def verify_m104_notification_planning_no_push() -> None:
     print("\n[Verifier] Running M104 notification planning no-push guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/notification_planning_no_push.py",
@@ -18861,7 +18862,7 @@ def verify_m104_notification_planning_no_push():
     print("OK: M104 notification planning is contract-only, no-push, and route-free")
 
 
-def verify_m105_background_task_contract_no_execution():
+def verify_m105_background_task_contract_no_execution() -> None:
     print("\n[Verifier] Running M105 background task contract no-execution guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/background_task_contract_no_execution.py",
@@ -19028,7 +19029,7 @@ def verify_m105_background_task_contract_no_execution():
     print("OK: M105 background task contract is contract-only, no-execution, and route-free")
 
 
-def verify_m106_mobile_background_read_only_status_sync():
+def verify_m106_mobile_background_read_only_status_sync() -> None:
     print("\n[Verifier] Running M106 mobile background read-only status sync guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/mobile_background_read_only_status_sync.py",
@@ -19197,7 +19198,7 @@ def verify_m106_mobile_background_read_only_status_sync():
     print("OK: M106 background status sync is read-only, no-runtime, and route-free")
 
 
-def verify_m107_mobile_approval_renewal_ux():
+def verify_m107_mobile_approval_renewal_ux() -> None:
     print("\n[Verifier] Running M107 mobile approval renewal UX guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/mobile_approval_renewal_ux.py",
@@ -19378,7 +19379,7 @@ def verify_m107_mobile_approval_renewal_ux():
     print("OK: M107 approval renewal UX is contract-only, no-runtime, and route-free")
 
 
-def verify_m108_mobile_kill_switch_revocation():
+def verify_m108_mobile_kill_switch_revocation() -> None:
     print("\n[Verifier] Running M108 mobile kill switch revocation guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/mobile_kill_switch_revocation.py",
@@ -19568,7 +19569,7 @@ def verify_m108_mobile_kill_switch_revocation():
     print("OK: M108 kill-switch/revocation is contract-only, no-runtime, and route-free")
 
 
-def verify_m109_mobile_sensor_audit_ledger():
+def verify_m109_mobile_sensor_audit_ledger() -> None:
     print("\n[Verifier] Running M109 mobile sensor audit ledger guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_audit_ledger.py",
@@ -19791,7 +19792,7 @@ def verify_m109_mobile_sensor_audit_ledger():
     print("OK: M109 sensor audit ledger is contract-only, no-runtime, and route-free")
 
 
-def verify_m110_mobile_sensor_hardening_freeze():
+def verify_m110_mobile_sensor_hardening_freeze() -> None:
     print("\n[Verifier] Running M110 mobile sensor hardening freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/mobile_companion/mobile_sensor_hardening_freeze.py",
@@ -20026,7 +20027,7 @@ def verify_m110_mobile_sensor_hardening_freeze():
     print("OK: M110 sensor hardening freeze is contract-only, no-runtime, and route-free")
 
 
-def verify_m111_production_threat_model():
+def verify_m111_production_threat_model() -> None:
     print("\n[Verifier] Running M111 production threat model guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/production_threat_model.py",
@@ -20197,7 +20198,7 @@ def verify_m111_production_threat_model():
     print("OK: M111 production threat model is contract-only, no-runtime, and route-free")
 
 
-def verify_m112_user_workspace_identity_model():
+def verify_m112_user_workspace_identity_model() -> None:
     print("\n[Verifier] Running M112 user/workspace identity model guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/user_workspace_identity.py",
@@ -20385,7 +20386,7 @@ def verify_m112_user_workspace_identity_model():
     print("OK: M112 user/workspace identity is contract-only, no-runtime, and route-free")
 
 
-def verify_m113_secrets_boundary_credential_vault():
+def verify_m113_secrets_boundary_credential_vault() -> None:
     print("\n[Verifier] Running M113 secrets boundary credential vault guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/secrets_boundary.py",
@@ -20618,7 +20619,7 @@ def verify_m113_secrets_boundary_credential_vault():
     print("OK: M113 secrets boundary is contract-only, no-runtime, and route-free")
 
 
-def verify_m114_account_connector_contract_review():
+def verify_m114_account_connector_contract_review() -> None:
     print("\n[Verifier] Running M114 account connector contract review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/account_connector_review.py",
@@ -20863,7 +20864,7 @@ def verify_m114_account_connector_contract_review():
     print("OK: M114 account connector review is contract-only, no-runtime, and route-free")
 
 
-def verify_m115_production_audit_retention_policy():
+def verify_m115_production_audit_retention_policy() -> None:
     print("\n[Verifier] Running M115 production audit retention policy guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/production_audit_retention.py",
@@ -21097,7 +21098,7 @@ def verify_m115_production_audit_retention_policy():
     print("OK: M115 production audit retention is contract-only, no-runtime, and route-free")
 
 
-def verify_m116_role_based_authority_model():
+def verify_m116_role_based_authority_model() -> None:
     print("\n[Verifier] Running M116 role-based authority model guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/role_based_authority.py",
@@ -21343,7 +21344,7 @@ def verify_m116_role_based_authority_model():
     print("OK: M116 role-based authority model is contract-only, no-runtime, and route-free")
 
 
-def verify_m117_remote_agent_coordination_contract():
+def verify_m117_remote_agent_coordination_contract() -> None:
     print("\n[Verifier] Running M117 remote agent coordination contract guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/remote_agent_coordination.py",
@@ -21548,7 +21549,7 @@ def verify_m117_remote_agent_coordination_contract():
     print("OK: M117 remote agent coordination is contract-only, no-runtime, and route-free")
 
 
-def verify_m118_deployment_mode_matrix():
+def verify_m118_deployment_mode_matrix() -> None:
     print("\n[Verifier] Running M118 deployment mode matrix guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/deployment_mode_matrix.py",
@@ -21772,7 +21773,7 @@ def verify_m118_deployment_mode_matrix():
     print("OK: M118 deployment mode matrix is contract-only, no-runtime, and route-free")
 
 
-def verify_m119_production_red_team_harness():
+def verify_m119_production_red_team_harness() -> None:
     print("\n[Verifier] Running M119 production red-team harness guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/production_red_team_harness.py",
@@ -21989,7 +21990,7 @@ def verify_m119_production_red_team_harness():
     print("OK: M119 production red-team harness is contract-only, no-runtime, and route-free")
 
 
-def verify_m120_production_authority_readiness_review():
+def verify_m120_production_authority_readiness_review() -> None:
     print("\n[Verifier] Running M120 production authority readiness review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/production_authority_readiness.py",
@@ -22204,7 +22205,7 @@ def verify_m120_production_authority_readiness_review():
     print("OK: M120 production authority readiness review is contract-only, no-runtime, and route-free")
 
 
-def verify_m121_email_connector_contract_refresh():
+def verify_m121_email_connector_contract_refresh() -> None:
     print("\n[Verifier] Running M121 email connector contract refresh guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -22429,7 +22430,7 @@ def verify_m121_email_connector_contract_refresh():
     print("OK: M121 email connector contract refresh is contract-only, no-runtime, and route-free")
 
 
-def verify_m122_calendar_connector_contract_refresh():
+def verify_m122_calendar_connector_contract_refresh() -> None:
     print("\n[Verifier] Running M122 calendar connector contract refresh guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -22661,7 +22662,7 @@ def verify_m122_calendar_connector_contract_refresh():
     print("OK: M122 calendar connector contract refresh is contract-only, no-runtime, and route-free")
 
 
-def verify_m123_contacts_connector_contract_refresh():
+def verify_m123_contacts_connector_contract_refresh() -> None:
     print("\n[Verifier] Running M123 contacts connector contract refresh guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -22769,7 +22770,7 @@ def verify_m123_contacts_connector_contract_refresh():
     print("OK: M123 contacts connector contract refresh is contract-only, no-runtime, and route-free")
 
 
-def verify_m124_messages_connector_contract_review():
+def verify_m124_messages_connector_contract_review() -> None:
     print("\n[Verifier] Running M124 messages connector contract review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -22880,7 +22881,7 @@ def verify_m124_messages_connector_contract_review():
     print("OK: M124 messages connector contract review is contract-only, no-runtime, and route-free")
 
 
-def verify_m125_connector_read_only_runtime():
+def verify_m125_connector_read_only_runtime() -> None:
     print("\n[Verifier] Running M125 connector read-only runtime guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -22985,7 +22986,7 @@ def verify_m125_connector_read_only_runtime():
     print("OK: M125 connector read-only runtime is safe-ref-only, no-live-runtime, and route-free")
 
 
-def verify_m126_connector_approval_capture():
+def verify_m126_connector_approval_capture() -> None:
     print("\n[Verifier] Running M126 connector approval capture guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -23091,7 +23092,7 @@ def verify_m126_connector_approval_capture():
     print("OK: M126 connector approval capture is exact-bound, review-only, and route-free")
 
 
-def verify_m127_connector_write_dry_run_planner():
+def verify_m127_connector_write_dry_run_planner() -> None:
     print("\n[Verifier] Running M127 connector write dry-run planner guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -23209,7 +23210,7 @@ def verify_m127_connector_write_dry_run_planner():
     print("OK: M127 connector write dry-run planner is dry-run-only, safe-ref-only, and route-free")
 
 
-def verify_m128_connector_write_execution_low_risk():
+def verify_m128_connector_write_execution_low_risk() -> None:
     print("\n[Verifier] Running M128 connector write execution low-risk guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -23422,7 +23423,7 @@ def verify_m128_connector_write_execution_low_risk():
     print("OK: M128 connector write execution is low-risk-only, safe-result-only, and route-free")
 
 
-def verify_m129_connector_audit_revocation_hardening():
+def verify_m129_connector_audit_revocation_hardening() -> None:
     print("\n[Verifier] Running M129 connector audit revocation hardening guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -23672,7 +23673,7 @@ def verify_m129_connector_audit_revocation_hardening():
     print("OK: M129 connector audit revocation hardening is review-only, safe-ref-only, and route-free")
 
 
-def verify_m130_connector_safety_freeze():
+def verify_m130_connector_safety_freeze() -> None:
     print("\n[Verifier] Running M130 connector safety freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/connectors/__init__.py",
@@ -23898,7 +23899,7 @@ def verify_m130_connector_safety_freeze():
     print("OK: M130 connector safety freeze is freeze-only, safe-ref-only, and route-free")
 
 
-def verify_m131_autonomy_mode4_scoped_work_session():
+def verify_m131_autonomy_mode4_scoped_work_session() -> None:
     print("\n[Verifier] Running M131 autonomy mode4 scoped work session guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -24139,7 +24140,7 @@ def verify_m131_autonomy_mode4_scoped_work_session():
     print("OK: M131 autonomy mode4 scoped work session is review-only, safe-ref-only, and route-free")
 
 
-def verify_m132_trusted_recurring_workflow():
+def verify_m132_trusted_recurring_workflow() -> None:
     print("\n[Verifier] Running M132 trusted recurring workflow guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -24386,7 +24387,7 @@ def verify_m132_trusted_recurring_workflow():
     print("OK: M132 trusted recurring workflow is review-only, safe-ref-only, and route-free")
 
 
-def verify_m133_long_running_task_supervisor():
+def verify_m133_long_running_task_supervisor() -> None:
     print("\n[Verifier] Running M133 long-running task supervisor guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -24653,7 +24654,7 @@ def verify_m133_long_running_task_supervisor():
     print("OK: M133 long-running task supervisor is review-only, safe-ref-only, and route-free")
 
 
-def verify_m134_human_checkpoint_scheduling():
+def verify_m134_human_checkpoint_scheduling() -> None:
     print("\n[Verifier] Running M134 human checkpoint scheduling guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -24925,7 +24926,7 @@ def verify_m134_human_checkpoint_scheduling():
     print("OK: M134 human checkpoint scheduling is review-only, safe-ref-only, and route-free")
 
 
-def verify_m135_autonomous_recovery_planner():
+def verify_m135_autonomous_recovery_planner() -> None:
     print("\n[Verifier] Running M135 autonomous recovery planner guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -25159,7 +25160,7 @@ def verify_m135_autonomous_recovery_planner():
     print("OK: M135 autonomous recovery planner is review-only, safe-ref-only, and route-free")
 
 
-def verify_m136_cross_tool_dependency_execution():
+def verify_m136_cross_tool_dependency_execution() -> None:
     print("\n[Verifier] Running M136 cross-tool dependency execution guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -25432,7 +25433,7 @@ def verify_m136_cross_tool_dependency_execution():
     print("OK: M136 cross-tool dependency execution is review-only, safe-ref-only, and route-free")
 
 
-def verify_m137_browser_connector_combined_workflow():
+def verify_m137_browser_connector_combined_workflow() -> None:
     print("\n[Verifier] Running M137 browser connector combined workflow guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -25688,7 +25689,7 @@ def verify_m137_browser_connector_combined_workflow():
     print("OK: M137 browser connector workflow is review-only, safe-ref-only, and route-free")
 
 
-def verify_m138_autonomous_error_handling_guardrails():
+def verify_m138_autonomous_error_handling_guardrails() -> None:
     print("\n[Verifier] Running M138 autonomous error handling guardrails guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -25952,7 +25953,7 @@ def verify_m138_autonomous_error_handling_guardrails():
     print("OK: M138 error handling guardrails are review-only, safe-ref-only, and route-free")
 
 
-def verify_m139_autonomy_abuse_loop_detection():
+def verify_m139_autonomy_abuse_loop_detection() -> None:
     print("\n[Verifier] Running M139 autonomy abuse/loop detection guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -26220,7 +26221,7 @@ def verify_m139_autonomy_abuse_loop_detection():
     print("OK: M139 abuse/loop detection is review-only, safe-ref-only, and route-free")
 
 
-def verify_m140_higher_autonomy_red_team_freeze():
+def verify_m140_higher_autonomy_red_team_freeze() -> None:
     print("\n[Verifier] Running M140 higher autonomy red-team freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/autonomy/__init__.py",
@@ -26435,7 +26436,7 @@ def verify_m140_higher_autonomy_red_team_freeze():
     print("OK: M140 red-team freeze is review-only, freeze-only, and route-free")
 
 
-def verify_m141_multi_user_product_boundary():
+def verify_m141_multi_user_product_boundary() -> None:
     print("\n[Verifier] Running M141 multi-user product boundary guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/__init__.py",
@@ -26677,7 +26678,7 @@ def verify_m141_multi_user_product_boundary():
     print("OK: M141 product boundary is review-only, safe-ref-only, and route-free")
 
 
-def verify_m142_alpha_privacy_review():
+def verify_m142_alpha_privacy_review() -> None:
     print("\n[Verifier] Running M142 alpha privacy review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/alpha_privacy_review.py",
@@ -26847,7 +26848,7 @@ def verify_m142_alpha_privacy_review():
     print("OK: M142 alpha privacy review is review-only, safe-ref-only, and route-free")
 
 
-def verify_m143_alpha_ui_app_readiness():
+def verify_m143_alpha_ui_app_readiness() -> None:
     print("\n[Verifier] Running M143 alpha UI/app readiness guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/alpha_ui_app_readiness.py",
@@ -27028,7 +27029,7 @@ def verify_m143_alpha_ui_app_readiness():
     print("OK: M143 alpha UI/app readiness is review-only, safe-ref-only, and route-free")
 
 
-def verify_m144_plugin_marketplace_policy_draft():
+def verify_m144_plugin_marketplace_policy_draft() -> None:
     print("\n[Verifier] Running M144 plugin marketplace policy draft guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/plugin_marketplace_policy_draft.py",
@@ -27233,7 +27234,7 @@ def verify_m144_plugin_marketplace_policy_draft():
     )
 
 
-def verify_m145_enterprise_pro_safety_modes():
+def verify_m145_enterprise_pro_safety_modes() -> None:
     print("\n[Verifier] Running M145 enterprise/pro safety modes guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/enterprise_pro_safety_modes.py",
@@ -27425,7 +27426,7 @@ def verify_m145_enterprise_pro_safety_modes():
     )
 
 
-def verify_m146_billing_plan_boundary():
+def verify_m146_billing_plan_boundary() -> None:
     print("\n[Verifier] Running M146 billing/plan boundary guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/billing_plan_boundary.py",
@@ -27636,7 +27637,7 @@ def verify_m146_billing_plan_boundary():
     )
 
 
-def verify_m147_public_docs_wiki_readiness():
+def verify_m147_public_docs_wiki_readiness() -> None:
     print("\n[Verifier] Running M147 public docs + wiki readiness guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/public_docs_wiki_readiness.py",
@@ -27860,7 +27861,7 @@ def verify_m147_public_docs_wiki_readiness():
     )
 
 
-def verify_m148_external_security_review():
+def verify_m148_external_security_review() -> None:
     print("\n[Verifier] Running M148 external security review guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/external_security_review.py",
@@ -28077,7 +28078,7 @@ def verify_m148_external_security_review():
     )
 
 
-def verify_m149_alpha_release_candidate_freeze():
+def verify_m149_alpha_release_candidate_freeze() -> None:
     print("\n[Verifier] Running M149 alpha release candidate freeze guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/alpha_release_candidate_freeze.py",
@@ -28292,7 +28293,7 @@ def verify_m149_alpha_release_candidate_freeze():
     )
 
 
-def verify_m150_ultimate_ai_agent_alpha():
+def verify_m150_ultimate_ai_agent_alpha() -> None:
     print("\n[Verifier] Running M150 Ultimate AI Agent Alpha guard...")
     required_files = [
         "src/ultimate_ai_agent/core/productization/ultimate_ai_agent_alpha.py",
@@ -28501,7 +28502,7 @@ def verify_m150_ultimate_ai_agent_alpha():
     )
 
 
-def verify_m151_local_openwebui_test_shell():
+def verify_m151_local_openwebui_test_shell() -> None:
     print("\n[Verifier] Running M151 local OpenWebUI test shell guard...")
     required_files = [
         "src/ultimate_ai_agent/core/openwebui_bridge/local_test_shell.py",
@@ -28647,7 +28648,7 @@ def verify_m151_local_openwebui_test_shell():
     )
 
 
-def verify_m152_local_model_management():
+def verify_m152_local_model_management() -> None:
     print("\n[Verifier] Running M152 local model management guard...")
     required_files = [
         "src/ultimate_ai_agent/core/local_model_management/__init__.py",
@@ -28747,7 +28748,7 @@ def verify_m152_local_model_management():
     )
 
 
-def verify_m153_m165_local_model_management_progression():
+def verify_m153_m165_local_model_management_progression() -> None:
     print("\n[Verifier] Running M153-M165 local model management progression guard...")
     required_files = [
         "docs/model_management/M153_M165_LOCAL_MODEL_MANAGEMENT_PROGRESSION.md",
@@ -28837,7 +28838,7 @@ def verify_m153_m165_local_model_management_progression():
     )
 
 
-def verify_m160_bounded_hf_gguf_search():
+def verify_m160_bounded_hf_gguf_search() -> None:
     print("\n[Verifier] Running M160 bounded Hugging Face GGUF search guard...")
     required_files = [
         "src/ultimate_ai_agent/core/local_model_management/hf_search.py",
@@ -28880,7 +28881,7 @@ def verify_m160_bounded_hf_gguf_search():
     )
 
 
-def verify_m161_local_system_capability_probe():
+def verify_m161_local_system_capability_probe() -> None:
     print("\n[Verifier] Running M161 local system capability probe guard...")
     required_files = [
         "src/ultimate_ai_agent/core/local_model_management/system_probe.py",
@@ -28923,7 +28924,7 @@ def verify_m161_local_system_capability_probe():
     )
 
 
-def verify_m162_exact_approved_gguf_acquisition():
+def verify_m162_exact_approved_gguf_acquisition() -> None:
     print("\n[Verifier] Running M162 exact-approved GGUF acquisition guard...")
     required_files = [
         "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py",
@@ -28966,7 +28967,7 @@ def verify_m162_exact_approved_gguf_acquisition():
     )
 
 
-def verify_m166_local_model_production_readiness_gate():
+def verify_m166_local_model_production_readiness_gate() -> None:
     print("\n[Verifier] Running M166 local model production readiness gate guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/production_release_gate.py",
@@ -29121,7 +29122,7 @@ def verify_m166_local_model_production_readiness_gate():
     )
 
 
-def verify_m167_live_model_production_hardening():
+def verify_m167_live_model_production_hardening() -> None:
     print("\n[Verifier] Running M167 live model production hardening guard...")
     required_files = [
         "src/ultimate_ai_agent/core/production_readiness/live_model_hardening.py",
@@ -29310,7 +29311,7 @@ def verify_m167_live_model_production_hardening():
     )
 
 
-def verify_local_developer_launcher_safety():
+def verify_local_developer_launcher_safety() -> None:
     print("\n[Verifier] Running local developer launcher safety guard...")
     required_files = [
         "scripts/dev/uaa",
@@ -29406,7 +29407,7 @@ def verify_local_developer_launcher_safety():
     print("OK: Local developer launcher is localhost-only, route-free, dependency-free, and tooling-only")
 
 
-def verify_v0292_local_dev_api_hardening():
+def verify_v0292_local_dev_api_hardening() -> None:
     print("\n[Verifier] Running v0.29.2 local dev API authority/raw preview hardening guard...")
     try:
         sys.path.insert(0, str(ROOT))
@@ -29568,7 +29569,7 @@ def verify_v0292_local_dev_api_hardening():
     print("OK: v0.29.2 local dev APIs remain dry-run/metadata-only with sanitized errors")
 
 
-def verify_no_shell_execution_in_runtime():
+def verify_no_shell_execution_in_runtime() -> None:
     print("\n[Verifier] Running runtime shell/subprocess execution scan...")
     forbidden_fragments = [
         "import subprocess",
@@ -29597,7 +29598,7 @@ def verify_no_shell_execution_in_runtime():
             pass
     print("OK: No shell/subprocess execution detected in runtime source")
 
-def verify_no_production_truth_integrations():
+def verify_no_production_truth_integrations() -> None:
     print("\n[Verifier] Running production truth integration scan...")
     forbidden_imports = [
         "import chromadb",
@@ -29627,7 +29628,7 @@ def verify_no_production_truth_integrations():
             pass
     print("OK: No production truth connector, vector DB, pgvector, or embedding runtime imports detected in src")
 
-def verify_no_broad_filesystem_scanning():
+def verify_no_broad_filesystem_scanning() -> None:
     print("\n[Verifier] Running broad filesystem scanning guard...")
     forbidden_fragments = [
         ".rglob(\"*\")",
@@ -29650,7 +29651,7 @@ def verify_no_broad_filesystem_scanning():
     print("OK: No broad filesystem scanning or home-directory traversal detected in src")
 
 
-def verify_no_mobile_native_or_sensor_implementation():
+def verify_no_mobile_native_or_sensor_implementation() -> None:
     print("\n[Verifier] Running M20 mobile/device capability contract-only guard...")
     try:
         git_files_raw = subprocess.check_output(["git", "ls-files"], text=True)
@@ -29772,7 +29773,7 @@ def verify_no_mobile_native_or_sensor_implementation():
     print("OK: No native mobile app, sensor API, OS permission, or mobile dependency implementation detected")
 
 
-def verify_release_verification_lanes():
+def verify_release_verification_lanes() -> None:
     print("\n[Verifier] Running release verification lanes guard...")
     verifier_path = ROOT / "scripts" / "verify_release_lanes.py"
     spec = importlib.util.spec_from_file_location("verify_release_lanes", verifier_path)
@@ -29791,7 +29792,7 @@ def verify_release_verification_lanes():
     print("OK: Release verification lanes are named, safe, and inspection-only")
 
 
-def verify_release_evidence_packet():
+def verify_release_evidence_packet() -> None:
     print("\n[Verifier] Running release evidence packet guard...")
     verifier_path = ROOT / "scripts" / "verify_release_evidence_packet.py"
     spec = importlib.util.spec_from_file_location("verify_release_evidence_packet", verifier_path)
@@ -29810,7 +29811,7 @@ def verify_release_evidence_packet():
     print("OK: Release evidence packet schema and template are safe and complete")
 
 
-def verify_security_redaction_artifacts():
+def verify_security_redaction_artifacts() -> None:
     print("\n[Verifier] Running security/redaction artifact guard...")
     verifier_path = ROOT / "scripts" / "verify_security_redaction_artifacts.py"
     spec = importlib.util.spec_from_file_location("verify_security_redaction_artifacts", verifier_path)
@@ -29829,7 +29830,7 @@ def verify_security_redaction_artifacts():
     print("OK: Security/redaction artifacts are safe-summary-only")
 
 
-def verify_product_truth():
+def verify_product_truth() -> None:
     print("\n[Verifier] Running product truth regression guard...")
     verifier_path = ROOT / "scripts" / "verify_product_truth.py"
     spec = importlib.util.spec_from_file_location("verify_product_truth", verifier_path)
@@ -29848,7 +29849,7 @@ def verify_product_truth():
     print("OK: No product-truth overclaims found in scoped docs and UI artifacts")
 
 
-def verify_backup_restore_verification():
+def verify_backup_restore_verification() -> None:
     print("\n[Verifier] Running backup/restore verification guard...")
     verifier_path = ROOT / "scripts" / "verify_backup_restore.py"
     spec = importlib.util.spec_from_file_location("verify_backup_restore", verifier_path)
@@ -29867,7 +29868,7 @@ def verify_backup_restore_verification():
     print("OK: Backup integrity and offline restore verification are safe")
 
 
-def record_timing(timings, name, started, status):
+def record_timing(timings: Any, name: str, started: Any, status: str) -> None:
     if timings is not None:
         timings.append(
             {
@@ -29878,7 +29879,7 @@ def record_timing(timings, name, started, status):
         )
 
 
-def run_timed(timings, name, function):
+def run_timed(timings: Any, name: str, function: Any) -> Any:
     started = time.perf_counter()
     status = "passed"
     try:
@@ -29890,7 +29891,7 @@ def run_timed(timings, name, function):
         record_timing(timings, name, started, status)
 
 
-def write_timings_json(path, timings):
+def write_timings_json(path: Any, timings: Any) -> None:
     output_path = Path(path)
     if not output_path.is_absolute():
         output_path = ROOT / output_path
@@ -29904,7 +29905,7 @@ def write_timings_json(path, timings):
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def run_static_scans(timings=None):
+def run_static_scans(timings: Any | None = None) -> None:
     print("\n=== Static Verification Scans ===")
     print("Scans enabled:")
     for scan_name, _ in SCAN_SEQUENCE:
@@ -29915,12 +29916,12 @@ def run_static_scans(timings=None):
             run_timed(timings, f"static_scan:{scan_name}", globals()[function_name])
 
 
-def verify_repo_awareness_benchmark():
+def verify_repo_awareness_benchmark() -> None:
     print("\n[Verifier] Running repo awareness benchmark verifier...")
     run_cmd([sys.executable, "scripts/verify_repo_awareness_benchmark.py"])
 
 
-def main(argv=None):
+def main(argv: Any | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run the Ultimate AI Agent master verification suite.")
     parser.add_argument("--timings-json", help="Optional path for per-phase and per-scan timing JSON.")
     parser.add_argument("--skip-ruff", action="store_true", help="Skip Ruff linting. Used by parallel CI jobs.")

@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.gate import (
 client = TestClient(app)
 
 
-def test_gate_report_validate_endpoint_accepts_safe_report():
+def test_gate_report_validate_endpoint_accepts_safe_report() -> None:
     report = build_foundation_gate_report(
         version="0.10.0",
         results=[
@@ -33,7 +33,7 @@ def test_gate_report_validate_endpoint_accepts_safe_report():
     assert body["data"]["status"] == "validated"
 
 
-def test_gate_report_validate_endpoint_blocks_secret_like_report():
+def test_gate_report_validate_endpoint_blocks_secret_like_report() -> None:
     report = build_foundation_gate_report(
         version="0.10.0",
         results=[
@@ -54,7 +54,7 @@ def test_gate_report_validate_endpoint_blocks_secret_like_report():
     assert body["error"]["code"] == "FOUNDATION_GATE_REPORT_SECRET_EXPOSURE"
 
 
-def test_shadow_replay_validate_endpoint_does_not_execute_replay():
+def test_shadow_replay_validate_endpoint_does_not_execute_replay() -> None:
     scenario = default_m5_shadow_replay_scenario()
 
     response = client.post("/gate/shadow-replay/validate", json=scenario.model_dump(mode="json"))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Benchmark Foundation Gate and release-critical local latency paths."""
-
 from __future__ import annotations
+
 
 import argparse
 import json

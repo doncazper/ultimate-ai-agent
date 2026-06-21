@@ -26,7 +26,7 @@ def _text_tokens(values: Iterable[str]) -> set[str]:
 
 
 class CapabilityRanker:
-    def __init__(self, outcome_metrics: dict[str, CapabilityOutcomeMetrics] | None = None):
+    def __init__(self, outcome_metrics: dict[str, CapabilityOutcomeMetrics] | None = None) -> None:
         self.outcome_metrics = outcome_metrics or {}
 
     def score(self, intent: TaskIntent, contract: CapabilityContract) -> CapabilityRankScore:

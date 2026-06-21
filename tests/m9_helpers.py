@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import UTC, datetime, timedelta
 
 from tests.m7_helpers import classification
@@ -10,7 +11,7 @@ from ultimate_ai_agent.core.approvals import (
 )
 
 
-def loopback_endpoint(**overrides):
+def loopback_endpoint(**overrides: Any) -> Any:
     from ultimate_ai_agent.core.model_runtime import LoopbackRuntimeEndpoint, ModelRuntimeKind
 
     payload = {
@@ -29,7 +30,7 @@ def loopback_endpoint(**overrides):
     return LoopbackRuntimeEndpoint(**payload)
 
 
-def loopback_policy(**overrides):
+def loopback_policy(**overrides: Any) -> Any:
     from ultimate_ai_agent.core.model_runtime import LoopbackRuntimePolicy
 
     payload = {
@@ -42,7 +43,7 @@ def loopback_policy(**overrides):
     return LoopbackRuntimePolicy(**payload)
 
 
-def local_manifest(**overrides):
+def local_manifest(**overrides: Any) -> Any:
     manifest = simulated_manifest()
     payload = manifest.model_dump()
     payload.update(
@@ -61,7 +62,7 @@ def local_manifest(**overrides):
     return ModelRuntimeAdapterManifest(**payload)
 
 
-def local_runtime_request(**overrides):
+def local_runtime_request(**overrides: Any) -> Any:
     payload = runtime_request(secret_handle_refs=[]).model_dump()
     payload.update(
         {
@@ -77,7 +78,7 @@ def local_runtime_request(**overrides):
     return ModelRuntimeRequest(**payload)
 
 
-def approval_for_runtime(request=None, *, action="execute_local_loopback_model"):
+def approval_for_runtime(request: Any | None = None, *, action: str = "execute_local_loopback_model") -> tuple[Any, ...]:
     runtime_request = request or local_runtime_request()
     approval_request = ApprovalRequest(
         approval_request_id=f"areq_{runtime_request.runtime_request_id}",

@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.context_budget import (
     trim_context,
 )
 
-def test_tool_result_trimming_order():
+def test_tool_result_trimming_order() -> None:
     items = [
         ContextItem(item_id="user_inst", item_type="user_instruction", content="Run tasks", tokens=100),
         ContextItem(item_id="exec_contract", item_type="execution_contract", content="Contract v0", tokens=200),
@@ -38,7 +38,7 @@ def test_tool_result_trimming_order():
     assert original_large.content == "extremely large tool output"
     assert original_large.tokens == 1000
 
-def test_protected_components_never_trimmed():
+def test_protected_components_never_trimmed() -> None:
     items = [
         ContextItem(item_id="user_inst", item_type="user_instruction", content="Critical user goal", tokens=500),
         ContextItem(item_id="safety", item_type="safety_constraint", content="Do not delete files", tokens=400),

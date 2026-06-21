@@ -34,12 +34,12 @@ class LoopbackRuntimeEndpoint(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def endpoint_must_be_secret_clean(self):
+    def endpoint_must_be_secret_clean(self) -> Any:
         assert_secret_clean(self.model_dump(mode="json"), "Loopback runtime endpoint")
         return self
 
     @property
-    def parsed_url(self):
+    def parsed_url(self) -> Any:
         return urlparse(self.base_url)
 
     @property

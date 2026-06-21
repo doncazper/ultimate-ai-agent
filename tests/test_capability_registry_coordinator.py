@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import asyncio
 
 import pytest
@@ -81,7 +83,7 @@ def _manifest(
     )
 
 
-def _tool_result(label: str):
+def _tool_result(label: str) -> Any:
     async def _call(envelope: TaskEnvelope, context: dict) -> Artifact:
         return Artifact(
             producer_capability_id=context["capability_id"],
@@ -405,7 +407,7 @@ def test_exact_approval_authority_allows_only_matching_grant() -> None:
     assert artifact.content[0]["producer_capability_id"] == high_risk.id
 
 
-def test_file_state_store_persists_plan_audit_telemetry_and_artifact(tmp_path) -> None:
+def test_file_state_store_persists_plan_audit_telemetry_and_artifact(tmp_path: Path) -> None:
     registry = _registry_with_readers()
     state_store = FileCoordinatorStateStore(tmp_path / "coordinator_state.json")
     coordinator = Coordinator(registry, state_store=state_store)

@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.recall import RecallSourceKind, recall_source_priority_rank
 
 
-def test_recall_source_priority_keeps_memory_below_source_backed_refs():
+def test_recall_source_priority_keeps_memory_below_source_backed_refs() -> None:
     assert recall_source_priority_rank(RecallSourceKind.canonical_document) < recall_source_priority_rank(
         RecallSourceKind.evidence_manifest
     )

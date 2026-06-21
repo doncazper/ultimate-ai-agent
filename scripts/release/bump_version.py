@@ -5,8 +5,8 @@ This local helper never creates commits, tags, pushes, network calls, or remote
 mutations. It previews version changes by default and only edits known local
 files when --apply --yes are both provided.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import re

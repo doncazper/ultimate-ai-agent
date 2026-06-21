@@ -17,7 +17,7 @@ def source(ref: str, kind: TruthSourceKind, priority: TruthSourcePriority) -> Tr
     )
 
 
-def test_primary_sources_rank_above_memory_and_blocked_output():
+def test_primary_sources_rank_above_memory_and_blocked_output() -> None:
     ranked = rank_truth_sources(
         [
             source("memory:reviewed", TruthSourceKind.reviewed_memory, TruthSourcePriority.reviewed_memory),

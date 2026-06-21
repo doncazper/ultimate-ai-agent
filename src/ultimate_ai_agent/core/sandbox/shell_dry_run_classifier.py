@@ -73,7 +73,7 @@ class ShellDryRunClassifierPolicy(_ShellDryRunClassifierModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -119,7 +119,7 @@ class ShellDryRunClassifierRequest(_ShellDryRunClassifierModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.classifier_ref, "classifier_ref"),
@@ -150,7 +150,7 @@ class ShellDryRunClassifierReceiptPlan(_ShellDryRunClassifierModel):
     safe_summary: str = "M83 shell dry-run classifier receipt stores safe metadata only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m61_ref(self.classifier_ref, "classifier_ref")
         _validate_m61_ref(self.command_proposal_ref, "command_proposal_ref")
@@ -201,7 +201,7 @@ class ShellDryRunClassifierDecision(_ShellDryRunClassifierModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.classifier_ref, "classifier_ref"),

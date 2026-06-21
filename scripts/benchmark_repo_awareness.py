@@ -6,8 +6,8 @@ repo-owned manifests, docs, and reports, then emits safe summary scores. It
 does not run tests, execute release lanes, call models, fetch networks, start
 background work, or add runtime authority.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import json

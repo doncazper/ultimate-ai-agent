@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from pydantic import ValidationError
 
@@ -27,7 +28,7 @@ from ultimate_ai_agent.core.model_runtime import (
         ("approval_ref_can_authorize_activation", "approval_ref"),
     ],
 )
-def test_activation_policy_rejects_m22_authority_flags(field, message):
+def test_activation_policy_rejects_m22_authority_flags(field: str, message: str) -> None:
     policy = LocalModelRuntimeActivationPolicy(**{field: True})
 
     with pytest.raises(ValueError, match=message):
@@ -47,7 +48,7 @@ def test_activation_policy_rejects_m22_authority_flags(field, message):
         ("memory_write_requested", "memory write"),
     ],
 )
-def test_activation_request_rejects_runtime_call_or_content_flags(field, message):
+def test_activation_request_rejects_runtime_call_or_content_flags(field: str, message: str) -> None:
     request = LocalModelRuntimeActivationRequest(
         request_ref="local_runtime_activation_request_demo",
         runtime_kind=LocalModelRuntimeKind.ollama_planned,
@@ -59,7 +60,7 @@ def test_activation_request_rejects_runtime_call_or_content_flags(field, message
         validate_local_runtime_activation_request(request)
 
 
-def test_approval_ref_does_not_authorize_activation_request():
+def test_approval_ref_does_not_authorize_activation_request() -> None:
     request = LocalModelRuntimeActivationRequest(
         request_ref="local_runtime_activation_request_demo",
         runtime_kind=LocalModelRuntimeKind.llama_cpp_planned,
@@ -72,7 +73,7 @@ def test_approval_ref_does_not_authorize_activation_request():
         validate_local_runtime_activation_request(request)
 
 
-def test_activation_decision_cannot_allow_runtime_activation():
+def test_activation_decision_cannot_allow_runtime_activation() -> None:
     decision = LocalModelRuntimeActivationDecision(
         decision_ref="local_runtime_activation_decision_demo",
         runtime_kind=LocalModelRuntimeKind.mlx_planned,
@@ -85,7 +86,7 @@ def test_activation_decision_cannot_allow_runtime_activation():
         validate_local_runtime_activation_decision(decision)
 
 
-def test_activation_request_forbids_raw_prompt_field():
+def test_activation_request_forbids_raw_prompt_field() -> None:
     with pytest.raises(ValidationError):
         LocalModelRuntimeActivationRequest(
             request_ref="local_runtime_activation_request_raw",
@@ -96,7 +97,7 @@ def test_activation_request_forbids_raw_prompt_field():
 
 
 @pytest.mark.parametrize("secret_key", ["api_key", "token", "Authorization"])
-def test_activation_policy_rejects_secret_like_metadata_keys(secret_key):
+def test_activation_policy_rejects_secret_like_metadata_keys(secret_key: Any) -> None:
     policy = LocalModelRuntimeActivationPolicy(metadata={secret_key: "safe-value"})
 
     with pytest.raises(ValueError, match="secret-like"):
@@ -104,7 +105,7 @@ def test_activation_policy_rejects_secret_like_metadata_keys(secret_key):
 
 
 @pytest.mark.parametrize("secret_key", ["api_key", "token", "Authorization"])
-def test_activation_request_rejects_secret_like_metadata_keys(secret_key):
+def test_activation_request_rejects_secret_like_metadata_keys(secret_key: Any) -> None:
     request = LocalModelRuntimeActivationRequest(
         request_ref="local_runtime_activation_request_metadata_key",
         runtime_kind=LocalModelRuntimeKind.ollama_planned,
@@ -117,7 +118,7 @@ def test_activation_request_rejects_secret_like_metadata_keys(secret_key):
 
 
 @pytest.mark.parametrize("secret_key", ["api_key", "token", "Authorization"])
-def test_activation_decision_rejects_secret_like_metadata_keys(secret_key):
+def test_activation_decision_rejects_secret_like_metadata_keys(secret_key: Any) -> None:
     decision = LocalModelRuntimeActivationDecision(
         decision_ref="local_runtime_activation_decision_metadata_key",
         runtime_kind=LocalModelRuntimeKind.ollama_planned,
@@ -153,7 +154,7 @@ def test_activation_decision_rejects_secret_like_metadata_keys(secret_key):
         ),
     ],
 )
-def test_activation_metadata_allows_safe_keys_and_values(factory, validator):
+def test_activation_metadata_allows_safe_keys_and_values(factory: Any, validator: Any) -> None:
     validator(factory())
 
 
@@ -181,6 +182,6 @@ def test_activation_metadata_allows_safe_keys_and_values(factory, validator):
         ),
     ],
 )
-def test_activation_metadata_still_rejects_secret_like_values(factory, validator):
+def test_activation_metadata_still_rejects_secret_like_values(factory: Any, validator: Any) -> None:
     with pytest.raises(ValueError, match="secret-like"):
         validator(factory())

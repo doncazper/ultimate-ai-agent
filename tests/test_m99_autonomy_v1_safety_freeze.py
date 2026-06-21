@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "autonomy-v1-safety-freeze-request:m99",
         "freeze_ref": "autonomy-v1-safety-freeze:m99",

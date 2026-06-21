@@ -85,7 +85,7 @@ class AccountConnectorContractReviewPolicy(_AccountConnectorReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -160,7 +160,7 @@ class AccountConnectorContractReviewRecord(_AccountConnectorReviewModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.account_connector_review_ref, "account_connector_review_ref"),
             (self.source_secrets_boundary_ref, "source_secrets_boundary_ref"),

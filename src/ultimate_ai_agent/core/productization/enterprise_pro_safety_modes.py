@@ -101,7 +101,7 @@ class EnterpriseProSafetyModesPolicy(_EnterpriseProSafetyModesModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -198,7 +198,7 @@ class EnterpriseProSafetyModesRequest(_EnterpriseProSafetyModesModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -293,7 +293,7 @@ class EnterpriseProSafetyModesRecord(_EnterpriseProSafetyModesModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -462,7 +462,7 @@ def validate_enterprise_pro_safety_modes_record(
     return validated
 
 
-def _request_ref_pairs(request: EnterpriseProSafetyModesRequest):
+def _request_ref_pairs(request: EnterpriseProSafetyModesRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.safety_modes_ref, "safety_modes_ref"),
@@ -476,7 +476,7 @@ def _request_ref_pairs(request: EnterpriseProSafetyModesRequest):
     ]
 
 
-def _record_ref_pairs(record: EnterpriseProSafetyModesRecord):
+def _record_ref_pairs(record: EnterpriseProSafetyModesRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.safety_modes_ref, "safety_modes_ref"),
@@ -491,7 +491,7 @@ def _record_ref_pairs(record: EnterpriseProSafetyModesRecord):
     ]
 
 
-def _request_ref_lists(request: EnterpriseProSafetyModesRequest):
+def _request_ref_lists(request: EnterpriseProSafetyModesRequest) -> list[Any]:
     return [
         (
             request.enterprise_safety_mode_refs,
@@ -531,7 +531,7 @@ def _request_ref_lists(request: EnterpriseProSafetyModesRequest):
     ]
 
 
-def _record_ref_lists(record: EnterpriseProSafetyModesRecord):
+def _record_ref_lists(record: EnterpriseProSafetyModesRecord) -> list[Any]:
     return [
         (
             record.enterprise_safety_mode_refs,

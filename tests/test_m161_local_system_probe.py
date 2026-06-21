@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.local_model_management import (
@@ -13,13 +14,13 @@ from ultimate_ai_agent.core.local_model_management import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {"request_ref": "local-system-probe-request:m161-test"}
     data.update(overrides)
     return M161LocalSystemProbeRequest(**data)
 
 
-def _sample(**overrides):
+def _sample(**overrides: Any) -> Any:
     data = {
         "os_name": "Darwin",
         "machine_arch": "arm64",
@@ -34,7 +35,7 @@ def _sample(**overrides):
     return M161SystemProbeSample(**data)
 
 
-def test_m161_policy_allows_only_redacted_stdlib_local_probe():
+def test_m161_policy_allows_only_redacted_stdlib_local_probe() -> None:
     policy = validate_m161_local_system_probe_policy(M161LocalSystemProbePolicy())
 
     assert policy.local_read_only is True
@@ -71,12 +72,12 @@ def test_m161_policy_allows_only_redacted_stdlib_local_probe():
         ({"model_call_requested": True}, "M161_MODEL_CALL_DENIED"),
     ],
 )
-def test_m161_request_denies_host_inventory_execution_network_and_models(update, reason):
+def test_m161_request_denies_host_inventory_execution_network_and_models(update: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_m161_local_system_probe_request(_request(**update))
 
 
-def test_m161_deterministic_sample_probe_returns_only_buckets():
+def test_m161_deterministic_sample_probe_returns_only_buckets() -> None:
     result = probe_local_system_capabilities(_request(), sample=_sample())
     payload = result.model_dump_json()
 
@@ -108,7 +109,7 @@ def test_m161_deterministic_sample_probe_returns_only_buckets():
     assert "PATH=" not in payload
 
 
-def test_m161_sample_probe_can_bucket_discrete_gpu_family_when_vram_is_injected():
+def test_m161_sample_probe_can_bucket_discrete_gpu_family_when_vram_is_injected() -> None:
     result = probe_local_system_capabilities(
         _request(request_ref="local-system-probe-request:m161-linux"),
         sample=_sample(
@@ -146,14 +147,14 @@ def test_m161_sample_probe_can_bucket_discrete_gpu_family_when_vram_is_injected(
         ({"model_call_performed": True}, "M161_MODEL_CALL_DENIED"),
     ],
 )
-def test_m161_result_validation_rejects_unsafe_mutations(update, reason):
+def test_m161_result_validation_rejects_unsafe_mutations(update: Any, reason: str) -> None:
     result = probe_local_system_capabilities(_request(), sample=_sample())
 
     with pytest.raises(ValueError, match=reason):
         validate_m161_local_system_capability_result(result.model_copy(update=update))
 
 
-def test_m161_actual_stdlib_probe_shape_is_redacted_and_safe():
+def test_m161_actual_stdlib_probe_shape_is_redacted_and_safe() -> None:
     sample = collect_m161_stdlib_system_probe_sample()
     result = probe_local_system_capabilities(
         _request(request_ref="local-system-probe-request:m161-actual"),

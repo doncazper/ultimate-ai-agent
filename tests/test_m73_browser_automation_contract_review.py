@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.browser import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.browser import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "review_ref": "browser-contract-review:m73",
         "candidate_ref": "browser-contract-candidate:m73-observe-only-adapter",

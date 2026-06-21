@@ -1,3 +1,4 @@
+from pathlib import Path
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.gate import default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluators import (
@@ -72,7 +73,7 @@ def test_m75_route_guard_denies_browser_action_runtime_routes() -> None:
     assert not m75_openapi_route_failures(app.openapi().get("paths", {}))
 
 
-def test_m75_static_gate_scans_unsafe_browser_action_fragments(tmp_path) -> None:
+def test_m75_static_gate_scans_unsafe_browser_action_fragments(tmp_path: Path) -> None:
     src_file = tmp_path / "src/ultimate_ai_agent/browser_action_escape.py"
     src_file.parent.mkdir(parents=True)
     src_file.write_text("browser_action_execution_performed=True\n", encoding="utf-8")

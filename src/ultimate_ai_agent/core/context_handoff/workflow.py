@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 from datetime import datetime
 
@@ -84,7 +85,7 @@ def _decision(
     approval_ref: str | None,
     proposal_ref: str | None,
     handoff_approved: bool,
-    receipt_plan=None,
+    receipt_plan: Any | None = None,
 ) -> ContextHandoffApprovalDecision:
     safe_approval_ref = approval_ref if _is_safe_ref(approval_ref, "approval_ref") else None
     suffix_source = safe_approval_ref or proposal_ref or "missing"

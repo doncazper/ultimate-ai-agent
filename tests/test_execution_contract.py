@@ -3,7 +3,7 @@ import pytest
 
 from ultimate_ai_agent.core.contracts import ExecutionContract, AgentMode, ContractStatus, EXECUTION_CONTRACT_SCHEMA_VERSION
 
-def test_minimal_valid_contract():
+def test_minimal_valid_contract() -> None:
     contract = ExecutionContract(
         contract_id="ec_test_123",
         run_id="run_123",
@@ -22,7 +22,7 @@ def test_minimal_valid_contract():
     assert contract.risk_level == "low"
     assert contract.schema_version == EXECUTION_CONTRACT_SCHEMA_VERSION
 
-def test_contract_invalid_id():
+def test_contract_invalid_id() -> None:
     with pytest.raises(ValidationError):
         # ID does not match ec_ pattern
         ExecutionContract(
@@ -37,7 +37,7 @@ def test_contract_invalid_id():
             acceptance_criteria=["Fail"]
         )
 
-def test_contract_missing_acceptance_criteria():
+def test_contract_missing_acceptance_criteria() -> None:
     with pytest.raises(ValidationError):
         ExecutionContract(
             contract_id="ec_test_123",

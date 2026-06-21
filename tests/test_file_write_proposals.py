@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 from datetime import timedelta
 
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType
 from ultimate_ai_agent.core.time import utc_now
 
 
-def actor():
+def actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -23,7 +24,7 @@ def actor():
     )
 
 
-def proposal(path: str, content: str, **kwargs) -> FileWriteProposal:
+def proposal(path: str, content: str, **kwargs: Any) -> FileWriteProposal:
     return FileWriteProposal(
         proposal_id=f"fwp_{path.replace('/', '_').replace('.', '_')}",
         run_id="run_123",
@@ -38,7 +39,7 @@ def proposal(path: str, content: str, **kwargs) -> FileWriteProposal:
     )
 
 
-def patch_proposal(manager: LocalFileManager, path: str, content: str, **kwargs) -> FilePatchProposal:
+def patch_proposal(manager: LocalFileManager, path: str, content: str, **kwargs: Any) -> FilePatchProposal:
     return FilePatchProposal(
         proposal_id=kwargs.pop("proposal_id", "file-patch-proposal:primary"),
         run_id="run_123",
@@ -56,7 +57,7 @@ def patch_proposal(manager: LocalFileManager, path: str, content: str, **kwargs)
     )
 
 
-def approve_patch(manager: LocalFileManager, patch: FilePatchProposal):
+def approve_patch(manager: LocalFileManager, patch: FilePatchProposal) -> tuple[Any, ...]:
     authority = LocalApprovalAuthority()
     request = manager.approval_request_for_patch(patch)
     authority.create_request(request)
@@ -71,7 +72,7 @@ def approve_patch(manager: LocalFileManager, patch: FilePatchProposal):
     return authority, patch.model_copy(update={"approval_ref": grant.approval_ref})
 
 
-def approve_rollback(manager: LocalFileManager, rollback_plan):
+def approve_rollback(manager: LocalFileManager, rollback_plan: Any) -> tuple[Any, ...]:
     authority = LocalApprovalAuthority()
     request = manager.approval_request_for_rollback(
         rollback_plan,
@@ -90,7 +91,7 @@ def approve_rollback(manager: LocalFileManager, rollback_plan):
     return authority, grant.approval_ref
 
 
-def test_write_proposal_requires_idempotency_key(tmp_path: Path):
+def test_write_proposal_requires_idempotency_key(tmp_path: Path) -> None:
     manager = LocalFileManager(workspace_root=tmp_path)
     decision = manager.propose_write(proposal("out.txt", "hello", idempotency_key=""))
 
@@ -99,7 +100,7 @@ def test_write_proposal_requires_idempotency_key(tmp_path: Path):
     assert "IDEMPOTENCY_KEY_REQUIRED" in decision.reason_codes
 
 
-def test_write_proposal_blocks_secret_content_and_secret_paths(tmp_path: Path):
+def test_write_proposal_blocks_secret_content_and_secret_paths(tmp_path: Path) -> None:
     manager = LocalFileManager(workspace_root=tmp_path)
 
     secret_content = manager.propose_write(proposal("out.txt", "api_key='abcdefghijklmnop'"))
@@ -111,7 +112,7 @@ def test_write_proposal_blocks_secret_content_and_secret_paths(tmp_path: Path):
     assert "FILE_PATH_BLOCKED" in env_file.reason_codes
 
 
-def test_canonical_overwrite_requires_expected_hash(tmp_path: Path):
+def test_canonical_overwrite_requires_expected_hash(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "canonical.md").write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -124,7 +125,7 @@ def test_canonical_overwrite_requires_expected_hash(tmp_path: Path):
     assert "EXPECTED_HASH_REQUIRED" in decision.reason_codes
 
 
-def test_expected_hash_mismatch_blocks_write(tmp_path: Path):
+def test_expected_hash_mismatch_blocks_write(tmp_path: Path) -> None:
     (tmp_path / "out.txt").write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
 
@@ -134,7 +135,7 @@ def test_expected_hash_mismatch_blocks_write(tmp_path: Path):
     assert "EXPECTED_HASH_MISMATCH" in decision.reason_codes
 
 
-def test_strict_contract_policy_blocks_unlisted_update_path(tmp_path: Path):
+def test_strict_contract_policy_blocks_unlisted_update_path(tmp_path: Path) -> None:
     manager = LocalFileManager(
         workspace_root=tmp_path,
         policy=FileManagerPolicy(strict_contract_paths=True, allowed_update_paths=["allowed.txt"]),
@@ -146,7 +147,7 @@ def test_strict_contract_policy_blocks_unlisted_update_path(tmp_path: Path):
     assert "CONTRACT_FILE_NOT_ALLOWED" in decision.reason_codes
 
 
-def test_patch_proposal_blocks_mismatched_file_path_binding(tmp_path: Path):
+def test_patch_proposal_blocks_mismatched_file_path_binding(tmp_path: Path) -> None:
     (tmp_path / "one.txt").write_text("old", encoding="utf-8")
     (tmp_path / "two.txt").write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -160,7 +161,7 @@ def test_patch_proposal_blocks_mismatched_file_path_binding(tmp_path: Path):
     assert decision.preview_ref is None
 
 
-def test_patch_apply_requires_exact_approval(tmp_path: Path):
+def test_patch_apply_requires_exact_approval(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -175,7 +176,7 @@ def test_patch_apply_requires_exact_approval(tmp_path: Path):
     assert result.rollback_ref is None
 
 
-def test_patch_apply_rejects_unvalidated_approval_ref_string(tmp_path: Path):
+def test_patch_apply_rejects_unvalidated_approval_ref_string(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -192,7 +193,7 @@ def test_patch_apply_rejects_unvalidated_approval_ref_string(tmp_path: Path):
     assert target.read_text(encoding="utf-8") == "old"
 
 
-def test_patch_apply_rejects_wrong_scope_approval(tmp_path: Path):
+def test_patch_apply_rejects_wrong_scope_approval(tmp_path: Path) -> None:
     (tmp_path / "first.txt").write_text("old", encoding="utf-8")
     (tmp_path / "second.txt").write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -216,7 +217,7 @@ def test_patch_apply_rejects_wrong_scope_approval(tmp_path: Path):
     assert (tmp_path / "second.txt").read_text(encoding="utf-8") == "old"
 
 
-def test_patch_proposal_blocks_expired_review_window(tmp_path: Path):
+def test_patch_proposal_blocks_expired_review_window(tmp_path: Path) -> None:
     (tmp_path / "note.txt").write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
     patch = patch_proposal(manager, "note.txt", "new", expires_at=utc_now() - timedelta(minutes=1))
@@ -228,7 +229,7 @@ def test_patch_proposal_blocks_expired_review_window(tmp_path: Path):
     assert "PATCH_PROPOSAL_EXPIRED" in decision.reason_codes
 
 
-def test_patch_apply_blocks_stale_proposal(tmp_path: Path):
+def test_patch_apply_blocks_stale_proposal(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -244,7 +245,7 @@ def test_patch_apply_blocks_stale_proposal(tmp_path: Path):
     assert target.read_text(encoding="utf-8") == "changed-before-apply"
 
 
-def test_patch_apply_blocks_duplicate_idempotency_after_success(tmp_path: Path):
+def test_patch_apply_blocks_duplicate_idempotency_after_success(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -264,7 +265,7 @@ def test_patch_apply_blocks_duplicate_idempotency_after_success(tmp_path: Path):
     assert target.read_text(encoding="utf-8") == "new"
 
 
-def test_patch_proposal_blocks_unsafe_diff_content(tmp_path: Path):
+def test_patch_proposal_blocks_unsafe_diff_content(tmp_path: Path) -> None:
     (tmp_path / "note.txt").write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
     unsafe_content = "api_" + "key='abcdefghijklmnop'"
@@ -277,7 +278,7 @@ def test_patch_proposal_blocks_unsafe_diff_content(tmp_path: Path):
     assert "abcdefghijklmnop" not in decision.model_dump_json()
 
 
-def test_patch_apply_exact_approval_captures_rollback_before_mutation(tmp_path: Path):
+def test_patch_apply_exact_approval_captures_rollback_before_mutation(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)

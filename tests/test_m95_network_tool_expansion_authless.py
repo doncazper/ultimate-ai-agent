@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.network import (
@@ -10,7 +11,7 @@ from ultimate_ai_agent.core.network import (
 )
 
 
-def _policy(**overrides):
+def _policy(**overrides: Any) -> Any:
     data = {
         "allowed_hosts": ("docs.example.test", "status.example.test"),
         "allowed_redirect_hosts": ("status.example.test",),
@@ -19,7 +20,7 @@ def _policy(**overrides):
     return AuthlessNetworkExpansionPolicy(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "network-authless-expansion-request:m95-safe",
         "actor_ref": "actor:local-reviewer",

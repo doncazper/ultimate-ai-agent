@@ -66,7 +66,7 @@ class SafeMediaMetadataPolicy(_M54MediaModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_policy_shape(self):
+    def validate_policy_shape(self) -> Any:
         _validate_m54_ref(self.policy_ref, "policy_ref")
         for ref in self.docs_refs:
             _require_nonempty(ref, "docs_ref")
@@ -98,7 +98,7 @@ class SafeMediaMetadataRequest(_M54MediaModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_request_shape(self):
+    def validate_request_shape(self) -> Any:
         _validate_m54_ref(self.request_ref, "request_ref")
         _validate_m54_ref(self.media_ref, "media_ref")
         _validate_m54_ref(self.safe_path_ref, "safe_path_ref")
@@ -125,7 +125,7 @@ class SafeMediaMetadataReceiptPlan(_M54MediaModel):
     metadata_refs: list[str] = Field(default_factory=lambda: ["milestone:M54", "version:v0.58.0"])
 
     @model_validator(mode="after")
-    def validate_receipt_plan(self):
+    def validate_receipt_plan(self) -> Any:
         _validate_m54_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m54_ref(self.request_ref, "request_ref")
         if not self.metadata_only:
@@ -171,7 +171,7 @@ class SafeMediaMetadataDecision(_M54MediaModel):
     metadata_refs: list[str] = Field(default_factory=lambda: ["milestone:M54", "version:v0.58.0"])
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         _validate_m54_ref(self.decision_ref, "decision_ref")
         _validate_m54_ref(self.request_ref, "request_ref")
         _validate_m54_ref(self.media_ref, "media_ref")

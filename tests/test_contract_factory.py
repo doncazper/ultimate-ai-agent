@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.contracts.factory import (
 )
 
 
-def test_factory_helpers_populate_request_summary():
+def test_factory_helpers_populate_request_summary() -> None:
     contract = create_answer_only_contract(
         contract_id="ec_factory_answer",
         run_id="run_factory",
@@ -19,7 +19,7 @@ def test_factory_helpers_populate_request_summary():
     assert contract.request_summary == "Explain the current state"
 
 
-def test_factory_helpers_redact_secret_like_request_summary():
+def test_factory_helpers_redact_secret_like_request_summary() -> None:
     contract = create_artifact_contract(
         contract_id="ec_factory_artifact",
         run_id="run_factory",
@@ -33,7 +33,7 @@ def test_factory_helpers_redact_secret_like_request_summary():
     assert "[REDACTED_SECRET]" in contract.request_summary
 
 
-def test_all_factory_helpers_create_valid_contracts():
+def test_all_factory_helpers_create_valid_contracts() -> None:
     contracts = [
         create_answer_only_contract(
             contract_id="ec_factory_answer_all",

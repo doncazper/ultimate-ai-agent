@@ -67,7 +67,7 @@ class LocalDeveloperBetaFreezePolicy(_M60BetaFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_policy_shape(self):
+    def validate_policy_shape(self) -> Any:
         _validate_m60_ref(self.policy_ref, "policy_ref")
         for ref in self.docs_refs:
             _require_nonempty(ref, "docs_ref")
@@ -108,7 +108,7 @@ class LocalDeveloperBetaFreezeRequest(_M60BetaFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_request_shape(self):
+    def validate_request_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.freeze_ref, "freeze_ref"),
@@ -142,7 +142,7 @@ class LocalDeveloperBetaFreezeReceiptPlan(_M60BetaFreezeModel):
     safe_summary: str = "M60 local developer beta freeze receipt plan."
 
     @model_validator(mode="after")
-    def validate_receipt_plan(self):
+    def validate_receipt_plan(self) -> Any:
         _validate_m60_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m60_ref(self.freeze_ref, "freeze_ref")
         if not self.freeze_only or not self.local_developer_beta_only:
@@ -181,7 +181,7 @@ class LocalDeveloperBetaFreezeReport(_M60BetaFreezeModel):
     metadata_refs: list[str] = Field(default_factory=lambda: ["milestone:M60", "version:v0.64.0"])
 
     @model_validator(mode="after")
-    def validate_report(self):
+    def validate_report(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.request_ref, "request_ref"),

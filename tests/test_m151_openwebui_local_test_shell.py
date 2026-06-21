@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.openwebui_bridge import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.openwebui_bridge import (
 )
 
 
-def test_m151_policy_is_local_disabled_and_non_authoritative():
+def test_m151_policy_is_local_disabled_and_non_authoritative() -> None:
     policy = build_default_openwebui_local_test_shell_policy()
 
     assert policy.local_dev_only is True
@@ -29,7 +30,7 @@ def test_m151_policy_is_local_disabled_and_non_authoritative():
     assert policy.production_authority_enabled is False
 
 
-def test_m151_gateway_enablement_and_local_bearer_value_are_explicit():
+def test_m151_gateway_enablement_and_local_bearer_value_are_explicit() -> None:
     assert openwebui_test_gateway_enabled({}) is False
     assert openwebui_test_gateway_enabled({"UAA_OPENWEBUI_TEST_GATEWAY_ENABLED": "1"}) is True
     assert openwebui_test_gateway_authorized(None, {}) is False
@@ -37,7 +38,7 @@ def test_m151_gateway_enablement_and_local_bearer_value_are_explicit():
     assert openwebui_test_gateway_authorized("Bearer wrong", {}) is False
 
 
-def test_m151_models_response_exposes_only_safe_local_model():
+def test_m151_models_response_exposes_only_safe_local_model() -> None:
     response = build_openwebui_local_models_response()
 
     assert response["data"][0]["id"] == UAA_OPENWEBUI_TEST_MODEL_ID
@@ -46,7 +47,7 @@ def test_m151_models_response_exposes_only_safe_local_model():
     assert response["uaa_safety"]["memory_write_enabled"] is False
 
 
-def test_m151_chat_response_does_not_echo_prompt_or_secret_like_text():
+def test_m151_chat_response_does_not_echo_prompt_or_secret_like_text() -> None:
     secret_like_prompt = "Please repeat this password: never-repeat-me"
     request = OpenWebUILocalChatCompletionRequest(
         model=UAA_OPENWEBUI_TEST_MODEL_ID,
@@ -79,6 +80,6 @@ def test_m151_chat_response_does_not_echo_prompt_or_secret_like_text():
         },
     ],
 )
-def test_m151_chat_request_denies_model_and_authority_expansion(payload):
+def test_m151_chat_request_denies_model_and_authority_expansion(payload: Any) -> None:
     with pytest.raises(ValueError):
         OpenWebUILocalChatCompletionRequest(**payload)

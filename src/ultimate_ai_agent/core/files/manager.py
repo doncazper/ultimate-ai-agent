@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ultimate_ai_agent.core.approvals import (
     ApprovalRequest,
@@ -76,7 +76,7 @@ _TEXT_HASH_CHUNK_CHARS = 1024 * 1024
 class LocalFileManager:
     """Local/dev workspace-only file manager."""
 
-    def __init__(self, workspace_root: str | Path, policy: Optional[FileManagerPolicy] = None):
+    def __init__(self, workspace_root: str | Path, policy: Optional[FileManagerPolicy] = None) -> None:
         self.workspace_root = Path(workspace_root).resolve()
         self.policy = policy or FileManagerPolicy()
         self._snapshots: Dict[str, str] = {}
@@ -558,7 +558,7 @@ class LocalFileManager:
         rollback_plan: RollbackPlan,
         *,
         run_id: str,
-        actor_context,
+        actor_context: Any,
         purpose: str = "Approve rollback for an approval-bound workspace mutation.",
         event_ref: str | None = None,
     ) -> ApprovalRequest:
@@ -593,7 +593,7 @@ class LocalFileManager:
         approval_ref: str | None = None,
         approval_authority: LocalApprovalAuthority | None = None,
         run_id: str | None = None,
-        actor_context=None,
+        actor_context: Any | None = None,
         purpose: str = "Approve rollback for an approval-bound workspace mutation.",
     ) -> FilePatchRollbackReceipt:
         if idempotency_key in self._rollback_idempotency_keys:

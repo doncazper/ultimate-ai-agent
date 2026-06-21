@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.m7_helpers import actor
@@ -18,7 +19,7 @@ from ultimate_ai_agent.core.remote_workers import (
 )
 
 
-def _envelope(**overrides):
+def _envelope(**overrides: Any) -> Any:
     payload = {
         "job_id": "job_policy",
         "correlation_id": "corr_policy",
@@ -33,7 +34,7 @@ def _envelope(**overrides):
     return RemoteJobEnvelope(**payload)
 
 
-def _node_registry():
+def _node_registry() -> Any:
     registry = RemoteNodeRegistry()
     registry.register_node(
         RemoteNode(
@@ -47,7 +48,7 @@ def _node_registry():
     return registry
 
 
-def test_remote_policy_defaults_safe_and_denies_unknowns():
+def test_remote_policy_defaults_safe_and_denies_unknowns() -> None:
     policy = RemoteExecutionPolicy(policy_id="policy_remote")
     decision = evaluate_remote_job_policy(_envelope(), RemoteNodeRegistry(), default_remote_transport_registry(), policy)
 
@@ -60,7 +61,7 @@ def test_remote_policy_defaults_safe_and_denies_unknowns():
     assert "REMOTE_NODE_UNKNOWN" in decision.reason_codes
 
 
-def test_remote_policy_rejects_tailnet_and_personal_data_enable_flags():
+def test_remote_policy_rejects_tailnet_and_personal_data_enable_flags() -> None:
     for field, reason in [
         ("remote_tailnet_enabled", "REMOTE_TAILNET_NOT_SUPPORTED_IN_M10_5"),
         ("remote_personal_data_enabled", "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5"),
@@ -69,7 +70,7 @@ def test_remote_policy_rejects_tailnet_and_personal_data_enable_flags():
             RemoteExecutionPolicy(policy_id=f"policy_{field}", **{field: True})
 
 
-def test_remote_policy_rejects_both_unsupported_enable_flags_safely():
+def test_remote_policy_rejects_both_unsupported_enable_flags_safely() -> None:
     with pytest.raises(ValueError) as excinfo:
         RemoteExecutionPolicy(
             policy_id="policy_remote_unsupported",
@@ -82,7 +83,7 @@ def test_remote_policy_rejects_both_unsupported_enable_flags_safely():
     assert "REMOTE_PERSONAL_DATA_NOT_SUPPORTED_IN_M10_5" in message
 
 
-def test_remote_transport_selection_policy_is_open_source_first_and_planned_only():
+def test_remote_transport_selection_policy_is_open_source_first_and_planned_only() -> None:
     policy = RemoteTransportSelectionPolicy(policy_id="mesh_selection")
 
     assert policy.prefer_open_source_first is True
@@ -96,7 +97,7 @@ def test_remote_transport_selection_policy_is_open_source_first_and_planned_only
     assert PrivateMeshProviderKind.tailscale_planned in policy.blocked_provider_kinds
 
 
-def test_remote_policy_denies_risky_capabilities_even_when_flagged_on():
+def test_remote_policy_denies_risky_capabilities_even_when_flagged_on() -> None:
     policy = RemoteExecutionPolicy(
         policy_id="policy_remote",
         remote_workers_enabled=True,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 import stat
 from pathlib import Path, PurePosixPath
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import unquote
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -44,7 +44,7 @@ class FilesystemSafeRoot(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_root(self):
+    def validate_root(self) -> Any:
         validate_tool_runtime_ref(self.root_ref, "root_ref")
         validate_safe_tool_runtime_text(self.safe_label, "safe_label")
         if not self.root_path.is_absolute():
@@ -68,7 +68,7 @@ class FilesystemMetadataRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         validate_tool_runtime_ref(self.request_ref, "request_ref")
         validate_tool_runtime_ref(self.root_ref, "root_ref")
         return self
@@ -97,7 +97,7 @@ class FilesystemMetadataOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_output(self):
+    def validate_output(self) -> Any:
         for ref in [self.output_ref, self.root_ref, self.safe_path_ref]:
             validate_tool_runtime_ref(ref, "metadata_ref")
         validate_safe_tool_runtime_text(self.safe_message, "safe_message")

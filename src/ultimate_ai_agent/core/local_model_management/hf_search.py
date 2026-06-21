@@ -42,7 +42,7 @@ class M160HuggingFaceGgufSearchPolicy(_M160Model):
     production_authority_granted: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -65,7 +65,7 @@ class M160HuggingFaceGgufSearchRequest(_M160Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.task_ref, "task_ref"),
@@ -87,7 +87,7 @@ class M160HuggingFaceGgufFileCandidate(_M160Model):
     file_ref: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_remote_filename(self.filename)
         _validate_m61_ref(self.quantization_ref, "quantization_ref")
         _validate_m61_ref(self.file_ref, "file_ref")
@@ -109,7 +109,7 @@ class M160HuggingFaceGgufModelCandidate(_M160Model):
     provenance_ref: str = "provenance:hugging-face-public-metadata"
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.candidate_ref, "candidate_ref")
         _validate_repo_id(self.repo_id)
         _validate_safe_text(self.revision, "revision", max_length=96)
@@ -149,7 +149,7 @@ class M160HuggingFaceGgufSearchResult(_M160Model):
     safe_summary: str = "Bounded Hugging Face GGUF metadata search completed."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.result_ref, "result_ref")
         _validate_m61_ref(self.request_ref, "request_ref")
         _validate_m160_query(self.query)
@@ -167,7 +167,7 @@ class M160HuggingFaceSearchTransport(Protocol):
 
 
 class FakeM160HuggingFaceSearchTransport:
-    def __init__(self, payload: Any):
+    def __init__(self, payload: Any) -> None:
         self.payload = payload
         self.calls: list[M160HuggingFaceGgufSearchRequest] = []
 
@@ -177,7 +177,7 @@ class FakeM160HuggingFaceSearchTransport:
 
 
 class StdlibM160HuggingFaceSearchTransport:
-    def __init__(self, *, timeout_seconds: float = 10.0, max_response_bytes: int = M160_MAX_RESPONSE_BYTES):
+    def __init__(self, *, timeout_seconds: float = 10.0, max_response_bytes: int = M160_MAX_RESPONSE_BYTES) -> None:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
 

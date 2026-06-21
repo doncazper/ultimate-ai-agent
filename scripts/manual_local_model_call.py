@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Any
 import argparse
 import json
 import sys
@@ -40,13 +41,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def build_transport(transport_shape: str):
+def build_transport(transport_shape: str) -> Any:
     if transport_shape == "openai-completions":
         return ManualStdlibOpenAICompletionsLocalModelCallTransport()
     return ManualStdlibLoopbackLocalModelCallTransport()
 
 
-def main(argv: list[str] | None = None, *, transport=None) -> int:
+def main(argv: list[str] | None = None, *, transport: Any | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     prompt = build_m23_fixed_prompt()
@@ -85,7 +86,7 @@ def main(argv: list[str] | None = None, *, transport=None) -> int:
     return 0 if result.decision.allowed or result.decision.status == "dry_run" else 1
 
 
-def _approval_decision_from_grant(request: LocalModelCallRequest, grant: ApprovalGrant | None):
+def _approval_decision_from_grant(request: LocalModelCallRequest, grant: ApprovalGrant | None) -> Any:
     if grant is None:
         return None
     authority = LocalApprovalAuthority()
@@ -99,7 +100,7 @@ def _default_transport_shape(runtime_kind: LocalModelRuntimeKind) -> str:
     return "ollama-generate"
 
 
-def _validation_denial(caused_by: str):
+def _validation_denial(caused_by: str) -> Any:
     from ultimate_ai_agent.core.model_runtime import (
         LocalModelCallDecision,
         LocalModelCallReceipt,

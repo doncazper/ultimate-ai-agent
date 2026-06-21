@@ -19,7 +19,7 @@ class ToolBroker:
         registry: ToolRegistry,
         firewall_policy: CapabilityFirewallPolicy,
         approval_authority: Optional[LocalApprovalAuthority] = None,
-    ):
+    ) -> None:
         self.registry = registry
         self.firewall_policy = firewall_policy
         self.approval_authority = approval_authority

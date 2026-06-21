@@ -22,7 +22,7 @@ from ultimate_ai_agent.core.task_decomposition.validator import PlanValidator
 
 
 class TaskDecomposer:
-    def __init__(self, registry: CapabilityRegistry, validator: PlanValidator | None = None):
+    def __init__(self, registry: CapabilityRegistry, validator: PlanValidator | None = None) -> None:
         self.registry = registry
         self.validator = validator or PlanValidator()
 

@@ -1,3 +1,4 @@
+from typing import Any
 import hashlib
 import importlib.util
 import io
@@ -64,7 +65,7 @@ def _implementation_surface_files() -> list[Path]:
     return sorted(files)
 
 
-def _load_setup():
+def _load_setup() -> Any:
     setup_path = ROOT / "scripts" / "dev" / "uaa_setup.py"
     spec = importlib.util.spec_from_file_location("uaa_setup_bootstrap_guard_test", setup_path)
     assert spec is not None
@@ -75,7 +76,7 @@ def _load_setup():
     return module
 
 
-def _load_launcher():
+def _load_launcher() -> Any:
     launcher_path = ROOT / "scripts" / "dev" / "uaa_launcher.py"
     spec = importlib.util.spec_from_file_location("uaa_launcher_bootstrap_guard_test", launcher_path)
     assert spec is not None
@@ -86,7 +87,7 @@ def _load_launcher():
     return module
 
 
-def _bootstrap_args(tmp_path: Path, **overrides):
+def _bootstrap_args(tmp_path: Path, **overrides: Any) -> Any:
     home = tmp_path / "home"
     values = {
         "setup_action": "bootstrap",
@@ -145,21 +146,21 @@ def _minisign_signature() -> bytes:
     )
 
 
-def _patch_supported_home(setup, monkeypatch, home: Path) -> None:
+def _patch_supported_home(setup: Any, monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
     monkeypatch.setattr(setup, "_bootstrap_platform_status", lambda: (True, "macOS arm64 supported"))
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
 
 
-def _approve_interactively(setup, monkeypatch) -> None:
+def _approve_interactively(setup: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO(f"{setup.SETUP_BOOTSTRAP_CONFIRMATION}\n"))
 
 
-def _write_token_for_args(setup, tmp_path: Path, args, token_path: Path) -> None:
+def _write_token_for_args(setup: Any, tmp_path: Path, args: Any, token_path: Path) -> None:
     plan = setup._bootstrap_plan(tmp_path, args)
     setup.write_setup_bootstrap_approval_token(tmp_path, plan, token_path)
 
 
-def test_github_bootstrap_milestone_defines_required_boundary():
+def test_github_bootstrap_milestone_defines_required_boundary() -> None:
     text = BOOTSTRAP_DOC.read_text(encoding="utf-8")
     lower = text.lower()
     normalized = " ".join(lower.replace("`", "").split())
@@ -212,7 +213,7 @@ def test_github_bootstrap_milestone_defines_required_boundary():
         assert " ".join(marker.lower().replace("`", "").split()) in normalized
 
 
-def test_trust_root_doc_exists_and_defines_fail_closed_verification():
+def test_trust_root_doc_exists_and_defines_fail_closed_verification() -> None:
     text = TRUST_ROOT_DOC.read_text(encoding="utf-8")
     normalized = " ".join(text.lower().replace("`", "").split())
     for marker in [
@@ -235,7 +236,7 @@ def test_trust_root_doc_exists_and_defines_fail_closed_verification():
         assert " ".join(marker.lower().replace("`", "").split()) in normalized
 
 
-def test_minisign_public_key_exists_and_is_pinned_by_setup_and_docs():
+def test_minisign_public_key_exists_and_is_pinned_by_setup_and_docs() -> None:
     setup = _load_setup()
     key_text = MINISIGN_KEY.read_text(encoding="utf-8")
     trust_text = TRUST_ROOT_DOC.read_text(encoding="utf-8")
@@ -249,7 +250,7 @@ def test_minisign_public_key_exists_and_is_pinned_by_setup_and_docs():
     assert MINISIGN_KEY_REF in bootstrap_text
 
 
-def test_github_bootstrap_shell_examples_do_not_execute_unverified_remote_code():
+def test_github_bootstrap_shell_examples_do_not_execute_unverified_remote_code() -> None:
     text = "\n".join(
         [
             BOOTSTRAP_DOC.read_text(encoding="utf-8"),
@@ -273,7 +274,7 @@ def test_github_bootstrap_shell_examples_do_not_execute_unverified_remote_code()
         assert fragment not in shell_text
 
 
-def test_github_bootstrap_doc_is_linked_from_active_catalogs():
+def test_github_bootstrap_doc_is_linked_from_active_catalogs() -> None:
     for path in [
         "docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md",
         "docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md",
@@ -286,7 +287,7 @@ def test_github_bootstrap_doc_is_linked_from_active_catalogs():
     assert TRUST_ROOT_DOC_REF in BOOTSTRAP_DOC.read_text(encoding="utf-8")
 
 
-def test_bootstrap_implementation_surface_denies_unsafe_remote_execution_patterns():
+def test_bootstrap_implementation_surface_denies_unsafe_remote_execution_patterns() -> None:
     forbidden_fragments = [
         "raw.githubusercontent.com",
         "| bash",
@@ -308,7 +309,7 @@ def test_bootstrap_implementation_surface_denies_unsafe_remote_execution_pattern
     assert "uaa setup install --target openwebui" in setup_text
 
 
-def test_openwebui_image_is_digest_pinned_across_runtime_surfaces():
+def test_openwebui_image_is_digest_pinned_across_runtime_surfaces() -> None:
     launcher = _load_launcher()
     setup = _load_setup()
     runtime_files = [
@@ -324,7 +325,7 @@ def test_openwebui_image_is_digest_pinned_across_runtime_surfaces():
         assert "ghcr.io/open-webui/open-webui:main" not in path.read_text(encoding="utf-8")
 
 
-def test_bootstrap_parser_requires_explicit_release_asset_checksum_and_signature():
+def test_bootstrap_parser_requires_explicit_release_asset_checksum_and_signature() -> None:
     launcher = _load_launcher()
 
     with pytest.raises(SystemExit):
@@ -369,7 +370,7 @@ def test_bootstrap_parser_requires_explicit_release_asset_checksum_and_signature
     assert parsed.provenance_mode == "local-dev-json"
 
 
-def test_bootstrap_parser_denies_mutable_refs_latest_and_arbitrary_urls():
+def test_bootstrap_parser_denies_mutable_refs_latest_and_arbitrary_urls() -> None:
     launcher = _load_launcher()
     base = [
         "setup",
@@ -407,7 +408,7 @@ def test_bootstrap_parser_denies_mutable_refs_latest_and_arbitrary_urls():
         )
 
 
-def test_bootstrap_path_validation_rejects_system_world_writable_symlink_and_conflicts(tmp_path, monkeypatch):
+def test_bootstrap_path_validation_rejects_system_world_writable_symlink_and_conflicts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -442,7 +443,7 @@ def test_bootstrap_path_validation_rejects_system_world_writable_symlink_and_con
         setup._validate_bootstrap_receipt_path(ROOT, receipt)
 
 
-def test_bootstrap_unsupported_platform_fails_before_download(tmp_path, monkeypatch, capsys):
+def test_bootstrap_unsupported_platform_fails_before_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -462,7 +463,7 @@ def test_bootstrap_unsupported_platform_fails_before_download(tmp_path, monkeypa
     assert "unsupported platform" in captured.out
 
 
-def test_bootstrap_refusal_runs_nothing_and_writes_redacted_receipt(tmp_path, monkeypatch, capsys):
+def test_bootstrap_refusal_runs_nothing_and_writes_redacted_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -486,7 +487,7 @@ def test_bootstrap_refusal_runs_nothing_and_writes_redacted_receipt(tmp_path, mo
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
 
 
-def test_bootstrap_checksum_mismatch_fails_closed_before_execution(tmp_path, monkeypatch, capsys):
+def test_bootstrap_checksum_mismatch_fails_closed_before_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -494,7 +495,7 @@ def test_bootstrap_checksum_mismatch_fails_closed_before_execution(tmp_path, mon
     _approve_interactively(setup, monkeypatch)
     calls = []
 
-    def fake_download(url, destination):
+    def fake_download(url: str, destination: Any) -> None:
         calls.append(url)
         destination.write_bytes(b"wrong artifact")
 
@@ -514,7 +515,7 @@ def test_bootstrap_checksum_mismatch_fails_closed_before_execution(tmp_path, mon
     assert "checksum verification failed" in captured.out.lower()
 
 
-def test_bootstrap_provenance_mismatch_fails_closed_before_execution(tmp_path, monkeypatch, capsys):
+def test_bootstrap_provenance_mismatch_fails_closed_before_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -523,7 +524,7 @@ def test_bootstrap_provenance_mismatch_fails_closed_before_execution(tmp_path, m
     artifact = _tar_bytes()
     digest = hashlib.sha256(artifact).hexdigest()
 
-    def fake_download(url, destination):
+    def fake_download(url: str, destination: Any) -> None:
         if url.endswith(".provenance.json"):
             destination.write_bytes(_provenance(digest=digest, release_tag="v0.0.0-wrong"))
         else:
@@ -542,7 +543,7 @@ def test_bootstrap_provenance_mismatch_fails_closed_before_execution(tmp_path, m
     assert "provenance verification failed" in captured.out.lower()
 
 
-def test_bootstrap_yes_without_preview_token_fails_before_download(tmp_path, monkeypatch, capsys):
+def test_bootstrap_yes_without_preview_token_fails_before_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -561,10 +562,10 @@ def test_bootstrap_yes_without_preview_token_fails_before_download(tmp_path, mon
 
 
 def test_bootstrap_matching_preview_token_allows_noninteractive_install_and_is_consumed(
-    tmp_path,
-    monkeypatch,
-    capsys,
-):
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -579,13 +580,13 @@ def test_bootstrap_matching_preview_token_allows_noninteractive_install_and_is_c
     token_args = _bootstrap_args(tmp_path, sha256=digest, receipt=str(receipt_path), write_approval_token=str(token_path))
     _write_token_for_args(setup, tmp_path, token_args, token_path)
 
-    def fake_download(url, destination):
+    def fake_download(url: str, destination: Any) -> None:
         if url.endswith(".provenance.json"):
             destination.write_bytes(_provenance(digest=digest))
         else:
             destination.write_bytes(artifact)
 
-    def fake_run(command):
+    def fake_run(command: str) -> dict[str, Any]:
         commands.append(command)
         return {"returncode": 0, "summary": "completed"}
 
@@ -612,7 +613,7 @@ def test_bootstrap_matching_preview_token_allows_noninteractive_install_and_is_c
     assert "secret-value" not in token_path.read_text(encoding="utf-8")
 
 
-def test_bootstrap_mismatched_preview_token_fails_closed(tmp_path, monkeypatch, capsys):
+def test_bootstrap_mismatched_preview_token_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -643,7 +644,7 @@ def test_bootstrap_mismatched_preview_token_fails_closed(tmp_path, monkeypatch, 
     assert "preview hash mismatch" in captured.out.lower()
 
 
-def test_bootstrap_stale_or_replayed_preview_token_fails_closed(tmp_path, monkeypatch, capsys):
+def test_bootstrap_stale_or_replayed_preview_token_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -684,7 +685,7 @@ def test_bootstrap_stale_or_replayed_preview_token_fails_closed(tmp_path, monkey
     assert "already used" in second.out.lower()
 
 
-def test_bootstrap_public_crypto_mode_rejects_json_only_provenance_before_execution(tmp_path, monkeypatch, capsys):
+def test_bootstrap_public_crypto_mode_rejects_json_only_provenance_before_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -693,7 +694,7 @@ def test_bootstrap_public_crypto_mode_rejects_json_only_provenance_before_execut
     artifact = _tar_bytes()
     digest = hashlib.sha256(artifact).hexdigest()
 
-    def fake_download(url, destination):
+    def fake_download(url: str, destination: Any) -> None:
         if url.endswith(".provenance.json"):
             destination.write_bytes(_provenance(digest=digest))
         else:
@@ -715,7 +716,7 @@ def test_bootstrap_public_crypto_mode_rejects_json_only_provenance_before_execut
     assert "cryptographic" in captured.out.lower()
 
 
-def test_bootstrap_minisign_statement_binds_tag_asset_digest_target_and_trust_root(tmp_path, monkeypatch):
+def test_bootstrap_minisign_statement_binds_tag_asset_digest_target_and_trust_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -759,7 +760,7 @@ def test_bootstrap_minisign_statement_binds_tag_asset_digest_target_and_trust_ro
     assert setup._bootstrap_minisign_statement(changed) != setup._bootstrap_minisign_statement(plan)
 
 
-def test_bootstrap_public_minisign_mode_verifies_statement_before_execution(tmp_path, monkeypatch, capsys):
+def test_bootstrap_public_minisign_mode_verifies_statement_before_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -770,20 +771,20 @@ def test_bootstrap_public_minisign_mode_verifies_statement_before_execution(tmp_
     statements = []
     commands = []
 
-    def fake_download(url, destination):
+    def fake_download(url: str, destination: Any) -> None:
         if url.endswith(".minisig"):
             destination.write_bytes(_minisign_signature())
         else:
             destination.write_bytes(artifact)
 
-    def fake_verify(statement_path, signature_path, public_key):
+    def fake_verify(statement_path: Any, signature_path: Any, public_key: Any) -> dict[str, Any]:
         statement = json.loads(statement_path.read_text(encoding="utf-8"))
         statements.append(statement)
         assert signature_path.name == "uaa-bootstrap-darwin-arm64.tar.gz.minisig"
         assert public_key == setup._bootstrap_minisign_public_key(ROOT)
         return {"verifier": "minisign", "raw_output_retained": False}
 
-    def fake_run(command):
+    def fake_run(command: str) -> dict[str, Any]:
         commands.append(command)
         return {"returncode": 0, "summary": "completed"}
 
@@ -823,7 +824,7 @@ def test_bootstrap_public_minisign_mode_verifies_statement_before_execution(tmp_
     assert "raw verifier" not in captured.out.lower()
 
 
-def test_bootstrap_public_minisign_missing_verifier_fails_before_execution(tmp_path, monkeypatch, capsys):
+def test_bootstrap_public_minisign_missing_verifier_fails_before_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -832,7 +833,7 @@ def test_bootstrap_public_minisign_missing_verifier_fails_before_execution(tmp_p
     artifact = _tar_bytes()
     digest = hashlib.sha256(artifact).hexdigest()
 
-    def fake_download(url, destination):
+    def fake_download(url: str, destination: Any) -> None:
         if url.endswith(".minisig"):
             destination.write_bytes(_minisign_signature())
         else:
@@ -861,10 +862,10 @@ def test_bootstrap_public_minisign_missing_verifier_fails_before_execution(tmp_p
 
 
 def test_bootstrap_approval_runs_only_verified_local_installer_and_writes_redacted_receipt(
-    tmp_path,
-    monkeypatch,
-    capsys,
-):
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -875,13 +876,13 @@ def test_bootstrap_approval_runs_only_verified_local_installer_and_writes_redact
     commands = []
     monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_KEY", "secret-value")
 
-    def fake_download(url, destination):
+    def fake_download(url: str, destination: Any) -> None:
         if url.endswith(".provenance.json"):
             destination.write_bytes(_provenance(digest=digest))
         else:
             destination.write_bytes(artifact)
 
-    def fake_run(command):
+    def fake_run(command: str) -> dict[str, Any]:
         commands.append(command)
         return {"returncode": 0, "summary": "completed"}
 
@@ -929,7 +930,7 @@ def test_bootstrap_approval_runs_only_verified_local_installer_and_writes_redact
     assert "secret-value" not in approval_receipt.read_text(encoding="utf-8")
 
 
-def test_plain_setup_stays_diagnostic_and_openwebui_image_installer_stays_separate(tmp_path, monkeypatch):
+def test_plain_setup_stays_diagnostic_and_openwebui_image_installer_stays_separate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     setup = _load_setup()
     monkeypatch.setattr(setup, "build_setup_report", lambda root, **kwargs: _stable_report(setup))
     monkeypatch.setattr(setup, "command_setup_bootstrap", lambda root, args: pytest.fail("plain setup must not bootstrap"))
@@ -943,7 +944,7 @@ def test_plain_setup_stays_diagnostic_and_openwebui_image_installer_stays_separa
     assert plan["action"] == "docker-image-pull"
 
 
-def _stable_report(setup):
+def _stable_report(setup: Any) -> Any:
     return setup.SetupReport(
         mode="local-llama",
         profile="minimal",
@@ -958,7 +959,7 @@ def _stable_report(setup):
     )
 
 
-def _plain_setup_args():
+def _plain_setup_args() -> dict[str, Any]:
     return {
         "setup_action": None,
         "mode": "local-llama",

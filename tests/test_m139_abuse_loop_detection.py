@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -16,7 +17,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _request(**updates) -> AbuseLoopDetectionRequest:
+def _request(**updates: Any) -> AbuseLoopDetectionRequest:
     payload = {
         "request_ref": "abuse-loop-detection-request:test",
         "detection_plan_ref": "abuse-loop-detection-plan:test",
@@ -160,7 +161,7 @@ def test_m139_builds_review_only_abuse_loop_decision() -> None:
         ),
     ],
 )
-def test_m139_policy_denies_runtime_authority(update, reason) -> None:
+def test_m139_policy_denies_runtime_authority(update: Any, reason: str) -> None:
     policy = AbuseLoopDetectionPolicy().model_copy(update=update)
 
     with pytest.raises(ValueError, match=reason):
@@ -204,7 +205,7 @@ def test_m139_policy_denies_runtime_authority(update, reason) -> None:
         ({"contains_secret": True}, "M139_SECRET_DENIED"),
     ],
 )
-def test_m139_request_denies_unsafe_inputs(update, reason) -> None:
+def test_m139_request_denies_unsafe_inputs(update: Any, reason: str) -> None:
     request = _request().model_copy(update=update)
 
     with pytest.raises(ValueError, match=reason):
@@ -283,7 +284,7 @@ def test_m139_request_denies_side_effects_and_secret_like_content() -> None:
         ),
     ],
 )
-def test_m139_decision_denies_unsafe_mutations(update, reason) -> None:
+def test_m139_decision_denies_unsafe_mutations(update: Any, reason: str) -> None:
     decision = build_abuse_loop_detection_decision(_request())
 
     with pytest.raises(ValueError, match=reason):
@@ -304,7 +305,7 @@ def test_m139_decision_denies_unsafe_mutations(update, reason) -> None:
         ({"recovery_execution_performed": True}, "M139_RECOVERY_EXECUTION_DENIED"),
     ],
 )
-def test_m139_receipt_plan_denies_raw_and_runtime_mutations(update, reason) -> None:
+def test_m139_receipt_plan_denies_raw_and_runtime_mutations(update: Any, reason: str) -> None:
     decision = build_abuse_loop_detection_decision(_request())
 
     with pytest.raises(ValueError, match=reason):

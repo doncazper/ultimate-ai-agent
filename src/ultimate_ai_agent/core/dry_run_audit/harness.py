@@ -55,7 +55,7 @@ class DryRunExecutionAuditPolicy(_M58DryRunAuditModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_policy_shape(self):
+    def validate_policy_shape(self) -> Any:
         _validate_m58_ref(self.policy_ref, "policy_ref")
         for ref in self.docs_refs:
             _require_nonempty(ref, "docs_ref")
@@ -91,7 +91,7 @@ class DryRunExecutionAuditIntent(_M58DryRunAuditModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_intent_shape(self):
+    def validate_intent_shape(self) -> Any:
         for value, field_name in [
             (self.intent_ref, "intent_ref"),
             (self.operation_ref, "operation_ref"),
@@ -120,7 +120,7 @@ class DryRunExecutionAuditRequest(_M58DryRunAuditModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_request_shape(self):
+    def validate_request_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.audit_ref, "audit_ref"),
@@ -151,7 +151,7 @@ class DryRunExecutionAuditEntry(_M58DryRunAuditModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_entry(self):
+    def validate_entry(self) -> Any:
         for value, field_name in [
             (self.intent_ref, "intent_ref"),
             (self.operation_ref, "operation_ref"),
@@ -192,7 +192,7 @@ class DryRunExecutionAuditReceiptPlan(_M58DryRunAuditModel):
     safe_summary: str = "M58 dry-run execution audit receipt plan."
 
     @model_validator(mode="after")
-    def validate_receipt_plan(self):
+    def validate_receipt_plan(self) -> Any:
         _validate_m58_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m58_ref(self.audit_ref, "audit_ref")
         if not self.dry_run_only:
@@ -235,7 +235,7 @@ class DryRunExecutionAuditReport(_M58DryRunAuditModel):
     metadata_refs: list[str] = Field(default_factory=lambda: ["milestone:M58", "version:v0.62.0"])
 
     @model_validator(mode="after")
-    def validate_report(self):
+    def validate_report(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.request_ref, "request_ref"),

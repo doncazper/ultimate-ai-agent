@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.device_capabilities import (
 )
 
 
-def test_default_manifest_includes_all_planned_platforms_and_major_capabilities():
+def test_default_manifest_includes_all_planned_platforms_and_major_capabilities() -> None:
     manifest = build_default_device_capability_manifest()
 
     assert set(manifest.platforms) >= {
@@ -48,7 +48,7 @@ def test_default_manifest_includes_all_planned_platforms_and_major_capabilities(
         assert capability.requires_redaction is True
 
 
-def test_default_manifest_has_safe_docs_and_warning_refs():
+def test_default_manifest_has_safe_docs_and_warning_refs() -> None:
     manifest = build_default_device_capability_manifest()
 
     assert "docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md" in manifest.docs_refs

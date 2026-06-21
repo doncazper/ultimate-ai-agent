@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.device_capabilities import (
@@ -34,7 +35,7 @@ from ultimate_ai_agent.core.device_capabilities.validation import (
 )
 
 
-def _descriptor(**overrides):
+def _descriptor(**overrides: Any) -> Any:
     values = {
         "capability_id": "camera_contract",
         "platform": DevicePlatform.ios_planned,
@@ -50,7 +51,7 @@ def _descriptor(**overrides):
     return DeviceCapabilityDescriptor(**values)
 
 
-def _capture_intent(**overrides):
+def _capture_intent(**overrides: Any) -> Any:
     values = {
         "intent_id": "capture_intent_camera_001",
         "platform": DevicePlatform.ios_planned,
@@ -65,7 +66,7 @@ def _capture_intent(**overrides):
     return DeviceCaptureIntentContract(**values)
 
 
-def _permission_request(**overrides):
+def _permission_request(**overrides: Any) -> Any:
     values = {
         "request_id": "permission_camera_001",
         "platform": DevicePlatform.ios_planned,
@@ -93,7 +94,7 @@ def _permission_request(**overrides):
         ("approval_execution_claimed", "approval/action execution"),
     ],
 )
-def test_descriptor_rejects_enabled_or_authority_flags(field, message):
+def test_descriptor_rejects_enabled_or_authority_flags(field: str, message: str) -> None:
     descriptor = _descriptor(**{field: True})
 
     with pytest.raises(ValueError, match=message):
@@ -108,7 +109,7 @@ def test_descriptor_rejects_enabled_or_authority_flags(field, message):
         DeviceCaptureMode.continuous_blocked,
     ],
 )
-def test_capture_intent_rejects_passive_background_and_continuous_modes(capture_mode):
+def test_capture_intent_rejects_passive_background_and_continuous_modes(capture_mode: Any) -> None:
     intent = _capture_intent(requested_capture_mode=capture_mode)
 
     with pytest.raises(ValueError, match="capture mode"):
@@ -124,14 +125,14 @@ def test_capture_intent_rejects_passive_background_and_continuous_modes(capture_
         ("raw_payload_allowed", "raw_payload_allowed"),
     ],
 )
-def test_capture_intent_rejects_raw_silent_memory_and_external_send(field, message):
+def test_capture_intent_rejects_raw_silent_memory_and_external_send(field: str, message: str) -> None:
     intent = _capture_intent(**{field: True})
 
     with pytest.raises(ValueError, match=message):
         validate_device_capture_intent(intent)
 
 
-def test_metadata_refs_metadata_and_summary_reject_secrets_and_private_paths():
+def test_metadata_refs_metadata_and_summary_reject_secrets_and_private_paths() -> None:
     descriptor = _descriptor(
         safe_summary="camera planning api_key=redacted",
         metadata_refs=["/Users/alice/private-photo.jpg"],
@@ -142,7 +143,7 @@ def test_metadata_refs_metadata_and_summary_reject_secrets_and_private_paths():
         validate_device_capability_descriptor(descriptor)
 
 
-def test_manifest_level_validation_helpers_pin_no_runtime_flags():
+def test_manifest_level_validation_helpers_pin_no_runtime_flags() -> None:
     manifest = build_default_device_capability_manifest()
 
     assert_no_silent_capture(_capture_intent())
@@ -161,14 +162,14 @@ def test_manifest_level_validation_helpers_pin_no_runtime_flags():
         ("background_service_runtime_claimed", "background service"),
     ],
 )
-def test_permission_request_rejects_runtime_permission_drift_flags(field, message):
+def test_permission_request_rejects_runtime_permission_drift_flags(field: str, message: str) -> None:
     request = _permission_request(**{field: True})
 
     with pytest.raises(ValueError, match=message):
         validate_device_permission_request(request)
 
 
-def test_validation_decision_cannot_allow_device_capability_runtime():
+def test_validation_decision_cannot_allow_device_capability_runtime() -> None:
     decision = DeviceCapabilityValidationDecision(
         decision_id="decision_runtime_claim",
         subject_ref="camera_contract",
@@ -181,7 +182,7 @@ def test_validation_decision_cannot_allow_device_capability_runtime():
         validate_device_capability_decision(decision)
 
 
-def test_receipt_plan_requires_redacted_receipt_and_no_raw_storage():
+def test_receipt_plan_requires_redacted_receipt_and_no_raw_storage() -> None:
     plan = DeviceCapabilityReceiptPlan(
         receipt_plan_id="receipt_plan_not_applicable",
         platform=DevicePlatform.ios_planned,
@@ -195,7 +196,7 @@ def test_receipt_plan_requires_redacted_receipt_and_no_raw_storage():
         validate_device_receipt_plan(plan)
 
 
-def test_revocation_plan_remains_contract_only():
+def test_revocation_plan_remains_contract_only() -> None:
     plan = DeviceRevocationPlan(
         plan_id="revocation_runtime_claim",
         platform=DevicePlatform.android_planned,

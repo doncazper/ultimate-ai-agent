@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.costs import BudgetScope, BudgetStatus, CostBudget, CostDecision, CostEstimate, CostGovernor
 
 
-def test_resource_governor_blocks_local_memory_over_budget():
+def test_resource_governor_blocks_local_memory_over_budget() -> None:
     decision = CostGovernor().evaluate(
         CostEstimate(
             estimate_id="estimate_memory",
@@ -19,7 +19,7 @@ def test_resource_governor_blocks_local_memory_over_budget():
     assert "MEMORY_BUDGET_EXCEEDED" in decision.reason_codes
 
 
-def test_cost_decision_is_deterministic_contract():
+def test_cost_decision_is_deterministic_contract() -> None:
     decision = CostDecision(
         decision_id="cost_decision_1",
         allowed=True,

@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.browser import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.browser import (
 )
 
 
-def _step(**overrides):
+def _step(**overrides: Any) -> Any:
     data = {
         "step_ref": "browser-action-step:m75-open-details",
         "action_kind": BrowserActionDryRunActionKind.click,
@@ -22,7 +23,7 @@ def _step(**overrides):
     return BrowserActionDryRunStep(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "plan_ref": "browser-action-plan:m75-safe",
         "actor_ref": "actor:local-reviewer",

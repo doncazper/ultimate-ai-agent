@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import json
 
 from ultimate_ai_agent.core.file_review import (
@@ -9,7 +11,7 @@ from ultimate_ai_agent.core.file_review import (
 from ultimate_ai_agent.core.time import utc_now
 
 
-def _record(**overrides):
+def _record(**overrides: Any) -> Any:
     data = {
         "approval_ref": "file-review-approval-capture:store",
         "actor_ref": "user:store",
@@ -27,7 +29,7 @@ def _record(**overrides):
     return FileReviewApprovalRecord(**data)
 
 
-def test_file_review_approval_store_writes_safe_jsonl_only(tmp_path):
+def test_file_review_approval_store_writes_safe_jsonl_only(tmp_path: Path) -> None:
     store_path = tmp_path / "review_approvals.jsonl"
     store = FileReviewApprovalStore(store_path)
     record = _record()
@@ -46,7 +48,7 @@ def test_file_review_approval_store_writes_safe_jsonl_only(tmp_path):
     assert "/Users/" not in store_path.read_text(encoding="utf-8")
 
 
-def test_file_review_approval_store_idempotent_same_record_is_safe(tmp_path):
+def test_file_review_approval_store_idempotent_same_record_is_safe(tmp_path: Path) -> None:
     store = FileReviewApprovalStore(tmp_path / "review_approvals.jsonl")
     record = _record()
 
@@ -58,7 +60,7 @@ def test_file_review_approval_store_idempotent_same_record_is_safe(tmp_path):
     assert second.reason_codes == ["FILE_REVIEW_APPROVAL_CAPTURE_IDEMPOTENT_REPLAY"]
 
 
-def test_file_review_approval_store_rejects_conflicting_replay(tmp_path):
+def test_file_review_approval_store_rejects_conflicting_replay(tmp_path: Path) -> None:
     store = FileReviewApprovalStore(tmp_path / "review_approvals.jsonl")
     record = _record()
     changed = _record(file_ref="file-ref:changed")
@@ -71,7 +73,7 @@ def test_file_review_approval_store_rejects_conflicting_replay(tmp_path):
     assert "FILE_REVIEW_APPROVAL_CAPTURE_REPLAY_MISMATCH" in decision.reason_codes
 
 
-def test_file_review_approval_record_model_copy_raw_extra_is_denied(tmp_path):
+def test_file_review_approval_record_model_copy_raw_extra_is_denied(tmp_path: Path) -> None:
     store = FileReviewApprovalStore(tmp_path / "review_approvals.jsonl")
     record = _record().model_copy(update={"raw_content": "secret raw text"})
 

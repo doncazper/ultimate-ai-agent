@@ -13,7 +13,7 @@ from ultimate_ai_agent.core.recall import (
 )
 
 
-def test_context_pack_builder_uses_selected_safe_summaries_and_refs_only():
+def test_context_pack_builder_uses_selected_safe_summaries_and_refs_only() -> None:
     recall_decision = route_grounded_recall(
         GroundedRecallRequest(
             request_id="recall:req:pack",
@@ -61,7 +61,7 @@ def test_context_pack_builder_uses_selected_safe_summaries_and_refs_only():
     assert pack.model_output_included is False
 
 
-def test_context_pack_builder_enforces_budget_without_tokenizer_dependency():
+def test_context_pack_builder_enforces_budget_without_tokenizer_dependency() -> None:
     recall_decision = route_grounded_recall(
         GroundedRecallRequest(
             request_id="recall:req:budget",
@@ -99,7 +99,7 @@ def test_context_pack_builder_enforces_budget_without_tokenizer_dependency():
     assert "CONTEXT_BUDGET_LIMIT_REACHED" in pack.warnings
 
 
-def test_context_pack_builder_rejects_mismatched_selected_items():
+def test_context_pack_builder_rejects_mismatched_selected_items() -> None:
     hostile_decision = GroundedRecallDecision(
         decision_id="recall:decision:hostile",
         request_id="recall:req:hostile",

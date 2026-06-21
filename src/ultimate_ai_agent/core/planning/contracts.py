@@ -29,7 +29,7 @@ class TaskGoal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_goal(self):
+    def validate_goal(self) -> Any:
         validate_task_ref(self.goal_id, "goal_id")
         validate_safe_task_text(self.safe_summary, "safe_summary")
         for ref in self.source_refs:
@@ -52,7 +52,7 @@ class TaskStepInputBoundary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_input_boundary(self):
+    def validate_input_boundary(self) -> Any:
         for ref in [*self.input_refs, *self.metadata_refs]:
             validate_task_ref(ref, "input_ref")
         for reason in raw_input_reasons(self):
@@ -75,7 +75,7 @@ class TaskStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_step(self):
+    def validate_step(self) -> Any:
         validate_task_ref(self.step_id, "step_id")
         validate_safe_task_text(self.safe_summary, "safe_summary")
         for ref in [*self.depends_on, *self.metadata_refs]:
@@ -94,7 +94,7 @@ class TaskDependency(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_dependency(self):
+    def validate_dependency(self) -> Any:
         validate_task_ref(self.dependency_id, "dependency_id")
         validate_task_ref(self.before_step_id, "before_step_id")
         validate_task_ref(self.after_step_id, "after_step_id")
@@ -110,7 +110,7 @@ class TaskConstraint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_constraint(self):
+    def validate_constraint(self) -> Any:
         validate_task_ref(self.constraint_id, "constraint_id")
         validate_safe_task_text(self.safe_summary, "safe_summary")
         for ref in self.metadata_refs:
@@ -133,7 +133,7 @@ class TaskPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_plan(self):
+    def validate_plan(self) -> Any:
         validate_task_ref(self.plan_id, "plan_id")
         validate_safe_task_text(self.safe_summary, "safe_summary")
         if self.approval_ref:
@@ -154,7 +154,7 @@ class TaskPlanningRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         validate_safe_task_payload(self.metadata, "metadata")
         return self
 
@@ -180,7 +180,7 @@ class TaskPlanReceiptPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_receipt(self):
+    def validate_receipt(self) -> Any:
         if self.execution_authorized:
             raise ValueError("M29 receipt plans must not authorize execution")
         if self.execution_performed:
@@ -232,7 +232,7 @@ class TaskPlanDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         if self.execution_authorized:
             raise ValueError("M29 task plan decisions must not authorize execution")
         if self.execution_performed:
@@ -284,7 +284,7 @@ class TaskPlanningManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_manifest(self):
+    def validate_manifest(self) -> Any:
         blocked_true_fields = [
             "task_execution_enabled",
             "auto_run_enabled",

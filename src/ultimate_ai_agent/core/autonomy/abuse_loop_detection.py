@@ -103,7 +103,7 @@ class AbuseLoopDetectionPolicy(_AbuseLoopDetectionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -198,7 +198,7 @@ class AbuseLoopDetectionRequest(_AbuseLoopDetectionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M139_RESOURCE_REF_REQUIRED")
@@ -269,7 +269,7 @@ class AbuseLoopDetectionReceiptPlan(_AbuseLoopDetectionModel):
     safe_receipt_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m61_ref(self.pattern_policy_ref, "pattern_policy_ref")
         _validate_m61_ref(self.threshold_policy_ref, "threshold_policy_ref")
@@ -370,7 +370,7 @@ class AbuseLoopDetectionDecision(_AbuseLoopDetectionModel):
     reason_codes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.pattern_policy_ref, "pattern_policy_ref"),
@@ -519,7 +519,7 @@ def _validate_m139_receipt_plan(
     return AbuseLoopDetectionReceiptPlan.model_validate(payload)
 
 
-def _request_ref_pairs(request: AbuseLoopDetectionRequest):
+def _request_ref_pairs(request: AbuseLoopDetectionRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.detection_plan_ref, "detection_plan_ref"),

@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.truth import (
     Claim,
     ClaimRiskLevel,
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.truth import (
 )
 
 
-def request_with_chain(**chain_updates) -> VerificationRequest:
+def request_with_chain(**chain_updates: Any) -> VerificationRequest:
     chain_payload = {
         "chain_id": "chain:safety",
         "claim_ref": "claim:safety",
@@ -38,7 +39,7 @@ def request_with_chain(**chain_updates) -> VerificationRequest:
     )
 
 
-def test_stale_conflicted_or_revoked_sources_are_denied():
+def test_stale_conflicted_or_revoked_sources_are_denied() -> None:
     cases = [
         ({"stale_refs": ["canonical:safety"], "source_staleness": SourceStaleness.stale}, "STALE_SOURCE_CANNOT_VERIFY_TRUTH"),
         ({"conflict_refs": ["conflict:safety"]}, "CONFLICTED_SOURCE_CANNOT_VERIFY_TRUTH"),

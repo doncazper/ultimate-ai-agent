@@ -23,7 +23,7 @@ def discover_entry_points(
     return count
 
 
-def _entry_points_for_group(group: str):
+def _entry_points_for_group(group: str) -> Any:
     entry_points = importlib_metadata.entry_points()
     if hasattr(entry_points, "select"):
         return list(entry_points.select(group=group))

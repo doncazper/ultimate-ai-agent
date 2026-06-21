@@ -57,7 +57,7 @@ class MattermostWorkspaceRef(RootModel[str]):
     root: str
 
     @model_validator(mode="after")
-    def validate_ref(self):
+    def validate_ref(self) -> Any:
         self.root = _validate_safe_ref(self.root, "workspace_ref")
         return self
 
@@ -66,7 +66,7 @@ class MattermostChannelRef(RootModel[str]):
     root: str
 
     @model_validator(mode="after")
-    def validate_ref(self):
+    def validate_ref(self) -> Any:
         self.root = _validate_safe_ref(self.root, "channel_ref")
         return self
 
@@ -75,7 +75,7 @@ class MattermostThreadRef(RootModel[str]):
     root: str
 
     @model_validator(mode="after")
-    def validate_ref(self):
+    def validate_ref(self) -> Any:
         self.root = _validate_safe_ref(self.root, "thread_ref")
         return self
 
@@ -84,7 +84,7 @@ class MattermostMessageRef(RootModel[str]):
     root: str
 
     @model_validator(mode="after")
-    def validate_ref(self):
+    def validate_ref(self) -> Any:
         self.root = _validate_safe_ref(self.root, "message_ref")
         return self
 
@@ -107,7 +107,7 @@ class MattermostRoleCard(_MattermostModel):
     speak_only_by_default: bool = True
 
     @model_validator(mode="after")
-    def validate_role(self):
+    def validate_role(self) -> Any:
         self.role_id = _validate_role_id(self.role_id)
         self.display_name = _safe_text(self.display_name, max_length=80, field_name="display_name")
         self.bot_username = _validate_role_id(self.bot_username)
@@ -139,7 +139,7 @@ class MattermostTriggerPolicy(_MattermostModel):
     respond_to_bot_messages: bool = False
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         self.mention_names = [
             _validate_role_id(item.lower().lstrip("@")) for item in self.mention_names
         ]
@@ -162,7 +162,7 @@ class MattermostRoleBinding(_MattermostModel):
     created_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
-    def validate_binding(self):
+    def validate_binding(self) -> Any:
         self.binding_id = _validate_safe_ref(self.binding_id, "binding_id")
         self.workspace_ref = _validate_safe_ref(self.workspace_ref, "workspace_ref")
         self.channel_ref = _validate_safe_ref(self.channel_ref, "channel_ref")
@@ -184,7 +184,7 @@ class MattermostRoleBindRequest(_MattermostModel):
     created_by_ref: str = "mattermost-actor:local"
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         self.workspace_ref = _validate_safe_ref(self.workspace_ref, "workspace_ref")
         self.channel_ref = _validate_safe_ref(self.channel_ref, "channel_ref")
         self.created_by_ref = _validate_safe_ref(self.created_by_ref, "created_by_ref")
@@ -201,7 +201,7 @@ class MattermostRoleUnbindRequest(_MattermostModel):
     actor_ref: str = "mattermost-actor:local"
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         self.workspace_ref = _validate_safe_ref(self.workspace_ref, "workspace_ref")
         self.channel_ref = _validate_safe_ref(self.channel_ref, "channel_ref")
         self.actor_ref = _validate_safe_ref(self.actor_ref, "actor_ref")
@@ -217,7 +217,7 @@ class MattermostRoleSuggestionRequest(_MattermostModel):
     actor_ref: str = "mattermost-actor:local"
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         self.prompt_preview = _safe_text(
             self.prompt_preview,
             max_length=MAX_PREVIEW_CHARS,
@@ -253,7 +253,7 @@ class MattermostMessageEvent(_MattermostModel):
     created_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
-    def validate_event(self):
+    def validate_event(self) -> Any:
         self.event_ref = _validate_safe_ref(self.event_ref, "event_ref")
         self.workspace_ref = _validate_safe_ref(self.workspace_ref, "workspace_ref")
         self.channel_ref = _validate_safe_ref(self.channel_ref, "channel_ref")
@@ -291,7 +291,7 @@ class MattermostReplyCommand(_MattermostModel):
     approval_ref: str | None = None
 
     @model_validator(mode="after")
-    def validate_command(self):
+    def validate_command(self) -> Any:
         self.command_ref = _validate_safe_ref(self.command_ref, "command_ref")
         self.role_id = _validate_role_id(self.role_id)
         self.bot_username = _validate_role_id(self.bot_username)
@@ -330,7 +330,7 @@ class MattermostBridgeReceipt(_MattermostModel):
     created_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
-    def validate_receipt(self):
+    def validate_receipt(self) -> Any:
         self.receipt_ref = _validate_safe_ref(self.receipt_ref, "receipt_ref")
         self.decision_ref = _validate_safe_ref(self.decision_ref, "decision_ref")
         for field_name in ("event_ref", "workspace_ref", "channel_ref", "message_ref", "approval_ref"):
@@ -359,7 +359,7 @@ class MattermostAgentDecision(_MattermostModel):
     latency_ms: float | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         self.decision_ref = _validate_safe_ref(self.decision_ref, "decision_ref")
         self.run_id = _validate_safe_ref(self.run_id, "run_id")
         if self.approval_ref is not None:
@@ -382,7 +382,7 @@ class MattermostAuditEvent(_MattermostModel):
     created_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
-    def validate_audit(self):
+    def validate_audit(self) -> Any:
         self.audit_ref = _validate_safe_ref(self.audit_ref, "audit_ref")
         self.safe_summary = _safe_text(self.safe_summary, max_length=800, field_name="safe_summary")
         for field_name in ("workspace_ref", "channel_ref", "message_ref", "decision_ref", "receipt_ref"):

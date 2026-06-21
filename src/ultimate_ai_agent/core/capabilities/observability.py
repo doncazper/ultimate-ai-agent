@@ -42,7 +42,7 @@ class NoopCapabilityEventSink:
 
 
 class LoggerCapabilityEventSink:
-    def __init__(self, logger: logging.Logger | None = None):
+    def __init__(self, logger: logging.Logger | None = None) -> None:
         self.logger = logger or logging.getLogger("ultimate_ai_agent.capabilities")
 
     def emit(self, event: CapabilityEvent) -> None:

@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 
 import pytest
@@ -10,7 +11,7 @@ from ultimate_ai_agent.core.observability import (
 )
 
 
-def test_debug_log_store_records_core_debug_categories(tmp_path):
+def test_debug_log_store_records_core_debug_categories(tmp_path: Path) -> None:
     log_path = tmp_path / "debug.jsonl"
     store = DebugLogStore(log_path, max_preview_chars=96)
 
@@ -87,7 +88,7 @@ def test_debug_log_store_records_core_debug_categories(tmp_path):
     assert len(reloaded.list_records(session_id="sess_1")) == 6
 
 
-def test_debug_log_store_rejects_duplicate_ids():
+def test_debug_log_store_rejects_duplicate_ids() -> None:
     store = DebugLogStore()
     record = DebugLogRecord(
         log_id="log_duplicate",
@@ -102,7 +103,7 @@ def test_debug_log_store_rejects_duplicate_ids():
         store.append(record)
 
 
-def test_debug_log_records_deny_raw_content_flags_and_raw_metadata_keys():
+def test_debug_log_records_deny_raw_content_flags_and_raw_metadata_keys() -> None:
     with pytest.raises(ValueError, match="DEBUG_LOG_RAW_CONTENT_DENIED"):
         DebugLogRecord(
             category=DebugLogCategory.prompt,
@@ -122,7 +123,7 @@ def test_debug_log_records_deny_raw_content_flags_and_raw_metadata_keys():
         )
 
 
-def test_debug_redaction_is_bounded_and_fingerprinted():
+def test_debug_redaction_is_bounded_and_fingerprinted() -> None:
     redacted = redact_debug_text(
         "hello " + "x" * 200 + " password=superlongpassword",
         max_chars=64,
@@ -135,7 +136,7 @@ def test_debug_redaction_is_bounded_and_fingerprinted():
     assert "credential_assignment" in redacted.redactions_applied
 
 
-def test_debug_log_jsonl_records_are_valid_json(tmp_path):
+def test_debug_log_jsonl_records_are_valid_json(tmp_path: Path) -> None:
     log_path = tmp_path / "debug.jsonl"
     store = DebugLogStore(log_path)
     store.log_gateway(

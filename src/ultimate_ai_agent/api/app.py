@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -437,7 +437,7 @@ def safe_request_validation_error_response(request: Request, exc: RequestValidat
     return JSONResponse(status_code=422, content=envelope.model_dump(mode="json"))
 
 @app.exception_handler(RequestValidationError)
-async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError) -> Any:
     return safe_request_validation_error_response(request, exc)
 
 
@@ -513,7 +513,7 @@ def _record_api_session_event(
 
 
 @app.middleware("http")
-async def session_log_api_middleware(request: Request, call_next):
+async def session_log_api_middleware(request: Request, call_next: Any) -> Any:
     started_clock = time.perf_counter()
     started_at = utc_now()
     status_code = 500
@@ -542,7 +542,7 @@ async def session_log_api_middleware(request: Request, call_next):
 register_system_routes(app)
 
 @app.get("/api/manifest", response_model=ApiManifest)
-def get_api_manifest():
+def get_api_manifest() -> Any:
     return build_api_manifest(app)
 
 
@@ -558,7 +558,7 @@ def get_observability_session_events(
     observed_after: datetime | None = None,
     observed_before: datetime | None = None,
     limit: int = 50,
-):
+) -> Any:
     store = get_default_session_log_store()
     result = store.list_events(
         session_id=session_id,
@@ -583,7 +583,7 @@ def get_observability_session_events(
 
 
 @app.post("/observability/client-errors", response_model=ResultEnvelope)
-def post_observability_client_error(report: ClientErrorReport):
+def post_observability_client_error(report: ClientErrorReport) -> Any:
     try:
         event = record_client_error_report(report)
     except SessionLogValidationError:
@@ -630,7 +630,7 @@ def post_observability_client_error(report: ClientErrorReport):
     )
 
 @app.get("/extensions/catalog", response_model=ResultEnvelope)
-def get_extensions_catalog():
+def get_extensions_catalog() -> Any:
     catalog = build_default_inspectable_extension_catalog()
     return ResultEnvelope(
         success=True,
@@ -674,7 +674,7 @@ def _require_m164_llama_cpp_gateway(
         )
 
 @app.get("/v1/models")
-def get_v1_models(authorization: str | None = Header(default=None)):
+def get_v1_models(authorization: str | None = Header(default=None)) -> Response:
     readiness = inspect_local_model_gateway()
     if readiness.gateway_mode == "m164_llama_cpp":
         _require_m164_llama_cpp_gateway(authorization, readiness)
@@ -686,7 +686,7 @@ def get_v1_models(authorization: str | None = Header(default=None)):
 def post_v1_chat_completions(
     request: V1ChatCompletionAPIRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Response:
     payload = request.model_dump(mode="json", exclude_none=True)
     readiness = inspect_local_model_gateway()
     if readiness.gateway_mode == "m164_llama_cpp":
@@ -713,15 +713,15 @@ def post_v1_chat_completions(
     return build_openwebui_local_chat_completion_response(local_request)
 
 @app.post("/contracts/validate", response_model=ResultEnvelope)
-def post_validate_contract(contract: ExecutionContract):
+def post_validate_contract(contract: ExecutionContract) -> Any:
     return validate_execution_contract(contract)
 
 @app.post("/context-packs/validate", response_model=ResultEnvelope)
-def post_validate_context_pack(pack: ContextPack):
+def post_validate_context_pack(pack: ContextPack) -> Any:
     return validate_context_pack(pack)
 
 @app.post("/events/validate", response_model=ResultEnvelope)
-def post_validate_event(event: EventLedgerEvent):
+def post_validate_event(event: EventLedgerEvent) -> Any:
     # Basic structural and type validation is done by Pydantic model payload validation.
     # Check for payload secrets just in case
     from ultimate_ai_agent.core.ledger.validation import scan_payload_for_secrets
@@ -752,7 +752,7 @@ def post_validate_event(event: EventLedgerEvent):
     )
 
 @app.post("/runs/state/transition/validate", response_model=ResultEnvelope)
-def post_validate_transition(req: TransitionRequest):
+def post_validate_transition(req: TransitionRequest) -> Any:
     try:
         state = DeterministicRunState(run_id=req.run_id, current_state=req.current_state)
         state.transition_to(req.next_state)
@@ -782,7 +782,7 @@ def post_validate_transition(req: TransitionRequest):
         )
 
 @app.post("/receipts/preview", response_model=ResultEnvelope)
-def post_preview_receipt(req: ReceiptPreviewRequest):
+def post_preview_receipt(req: ReceiptPreviewRequest) -> Any:
     try:
         receipt = generate_receipt_from_events(req.run_id, req.events)
         return ResultEnvelope(
@@ -821,7 +821,7 @@ class AdapterValidateRequest(BaseModel):
     policy: SDKAdapterBoundaryPolicy
 
 @app.post("/world-state/validate", response_model=ResultEnvelope)
-def post_validate_world_state(state: StructuredWorldState):
+def post_validate_world_state(state: StructuredWorldState) -> Any:
     if not validate_world_state_secrets(state):
         err = ErrorEnvelope(
             code="WORLD_STATE_SECRET_EXPOSURE",
@@ -848,7 +848,7 @@ def post_validate_world_state(state: StructuredWorldState):
     )
 
 @app.post("/context-budget/validate", response_model=ResultEnvelope)
-def post_validate_budget(budget: ContextBudget):
+def post_validate_budget(budget: ContextBudget) -> Any:
     try:
         validate_context_budget(budget)
         return ResultEnvelope(
@@ -877,7 +877,7 @@ def post_validate_budget(budget: ContextBudget):
         )
 
 @app.post("/local-runtime/validate", response_model=ResultEnvelope)
-def post_validate_local_runtime(req: RuntimeValidateRequest):
+def post_validate_local_runtime(req: RuntimeValidateRequest) -> Any:
     try:
         policy = req.policy or PrivacyRoutingPolicy(policy_id="default_policy", allowed_modes=["local_only"])
         validate_runtime_safety(req.manifest, policy)
@@ -907,7 +907,7 @@ def post_validate_local_runtime(req: RuntimeValidateRequest):
         )
 
 @app.post("/adapter-manifest/validate", response_model=ResultEnvelope)
-def post_validate_adapter_manifest(req: AdapterValidateRequest):
+def post_validate_adapter_manifest(req: AdapterValidateRequest) -> Any:
     try:
         validate_adapter_boundary_policy(req.manifest, req.policy)
         return ResultEnvelope(
@@ -936,7 +936,7 @@ def post_validate_adapter_manifest(req: AdapterValidateRequest):
         )
 
 @app.post("/models/profiles/validate", response_model=ResultEnvelope)
-def post_validate_model_profile(profile: ModelCapabilityProfile):
+def post_validate_model_profile(profile: ModelCapabilityProfile) -> Any:
     try:
         validate_model_capability_profile(profile)
         return ResultEnvelope(
@@ -964,7 +964,7 @@ def post_validate_model_profile(profile: ModelCapabilityProfile):
         )
 
 @app.post("/models/route/preview", response_model=ResultEnvelope)
-def post_preview_model_route(request: ModelRouteRequest):
+def post_preview_model_route(request: ModelRouteRequest) -> Any:
     decision = ModelRouter().route(request)
     return ResultEnvelope(
         success=True,
@@ -1079,7 +1079,7 @@ def _task_decomposition_public_error_code(exc: Exception, default: str) -> str:
 
 
 @app.post("/approvals/requests/validate", response_model=ResultEnvelope)
-def post_validate_approval_request(payload: dict):
+def post_validate_approval_request(payload: dict) -> Any:
     try:
         request = ApprovalRequest(**payload)
     except (ValidationError, ValueError) as exc:
@@ -1093,7 +1093,7 @@ def post_validate_approval_request(payload: dict):
     )
 
 @app.post("/approvals/grants/validate", response_model=ResultEnvelope)
-def post_validate_approval_grant(payload: dict):
+def post_validate_approval_grant(payload: dict) -> Any:
     try:
         grant = ApprovalGrant(**payload)
     except (ValidationError, ValueError) as exc:
@@ -1107,7 +1107,7 @@ def post_validate_approval_grant(payload: dict):
     )
 
 @app.post("/approvals/validate", response_model=ResultEnvelope)
-def post_validate_approval(payload: ApprovalValidatePayload):
+def post_validate_approval(payload: ApprovalValidatePayload) -> Any:
     try:
         validation_request = ApprovalValidationRequest(**payload.validation_request)
         authority = LocalApprovalAuthority()
@@ -1126,7 +1126,7 @@ def post_validate_approval(payload: ApprovalValidatePayload):
     )
 
 @app.post("/approvals/receipts/validate", response_model=ResultEnvelope)
-def post_validate_approval_receipt(payload: dict):
+def post_validate_approval_receipt(payload: dict) -> Any:
     try:
         receipt = ApprovalReceipt(**payload)
     except (ValidationError, ValueError) as exc:
@@ -1141,7 +1141,7 @@ def post_validate_approval_receipt(payload: dict):
 
 
 @app.get("/task-decomposition/status", response_model=ResultEnvelope)
-def get_task_decomposition_status(authorization: str | None = Header(default=None)):
+def get_task_decomposition_status(authorization: str | None = Header(default=None)) -> Any:
     _require_task_decomposition_local_authority(authorization)
     status = _task_decomposition_service.status()
     return ResultEnvelope(
@@ -1154,7 +1154,7 @@ def get_task_decomposition_status(authorization: str | None = Header(default=Non
 
 
 @app.get("/task-decomposition/catalog", response_model=ResultEnvelope)
-def get_task_decomposition_catalog(authorization: str | None = Header(default=None)):
+def get_task_decomposition_catalog(authorization: str | None = Header(default=None)) -> Any:
     _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
@@ -1166,7 +1166,7 @@ def get_task_decomposition_catalog(authorization: str | None = Header(default=No
 
 
 @app.get("/task-decomposition/registry/export", response_model=ResultEnvelope)
-def get_task_decomposition_registry_export(authorization: str | None = Header(default=None)):
+def get_task_decomposition_registry_export(authorization: str | None = Header(default=None)) -> Any:
     _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
@@ -1178,7 +1178,7 @@ def get_task_decomposition_registry_export(authorization: str | None = Header(de
 
 
 @app.post("/task-decomposition/examples/init", response_model=ResultEnvelope)
-def post_task_decomposition_init_examples(authorization: str | None = Header(default=None)):
+def post_task_decomposition_init_examples(authorization: str | None = Header(default=None)) -> Any:
     _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
@@ -1193,7 +1193,7 @@ def post_task_decomposition_init_examples(authorization: str | None = Header(def
 def post_task_decomposition_register_capability(
     request: TaskDecompositionRegisterRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     try:
         contract = _task_decomposition_service.register(request)
@@ -1217,7 +1217,7 @@ def post_task_decomposition_register_capability(
 def post_task_decomposition_classify(
     request: TaskDecompositionRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     intent = _task_decomposition_service.classify(request)
     return ResultEnvelope(
@@ -1233,7 +1233,7 @@ def post_task_decomposition_classify(
 def post_task_decomposition_decompose(
     request: TaskDecompositionRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     result = _task_decomposition_service.decompose(request)
     return ResultEnvelope(
@@ -1249,7 +1249,7 @@ def post_task_decomposition_decompose(
 def post_task_decomposition_validate_plan(
     request: TaskPlanValidationRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     validation = _task_decomposition_service.validate_plan(request)
     return ResultEnvelope(
@@ -1265,7 +1265,7 @@ def post_task_decomposition_validate_plan(
 def post_task_decomposition_approval_request(
     request: TaskCapabilityApprovalRequestPayload,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     try:
         approval = _task_decomposition_service.build_approval_request(request)
@@ -1286,7 +1286,7 @@ def post_task_decomposition_approval_request(
 
 
 @app.get("/task-decomposition/approvals", response_model=ResultEnvelope)
-def get_task_decomposition_approvals(authorization: str | None = Header(default=None)):
+def get_task_decomposition_approvals(authorization: str | None = Header(default=None)) -> Any:
     _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
@@ -1304,7 +1304,7 @@ def get_task_decomposition_approvals(authorization: str | None = Header(default=
 def post_task_decomposition_capture_approval_grant(
     request: TaskDecompositionApprovalGrantRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     try:
         grant = _task_decomposition_service.grant_approval(request)
@@ -1328,7 +1328,7 @@ def post_task_decomposition_capture_approval_grant(
 def post_task_decomposition_revoke_approval(
     request: TaskDecompositionApprovalRevokeRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     try:
         grant = _task_decomposition_service.revoke_approval(request)
@@ -1349,7 +1349,7 @@ def post_task_decomposition_revoke_approval(
 
 
 @app.get("/task-decomposition/audit", response_model=ResultEnvelope)
-def get_task_decomposition_audit(limit: int = 100, authorization: str | None = Header(default=None)):
+def get_task_decomposition_audit(limit: int = 100, authorization: str | None = Header(default=None)) -> Any:
     _require_task_decomposition_local_authority(authorization)
     bounded_limit = min(max(limit, 1), 500)
     return ResultEnvelope(
@@ -1365,7 +1365,7 @@ def get_task_decomposition_audit(limit: int = 100, authorization: str | None = H
 
 
 @app.get("/task-decomposition/metrics", response_model=ResultEnvelope)
-def get_task_decomposition_metrics(authorization: str | None = Header(default=None)):
+def get_task_decomposition_metrics(authorization: str | None = Header(default=None)) -> Any:
     _require_task_decomposition_local_authority(authorization)
     return ResultEnvelope(
         success=True,
@@ -1380,7 +1380,7 @@ def get_task_decomposition_metrics(authorization: str | None = Header(default=No
 async def post_task_decomposition_execute_plan(
     request: TaskPlanExecutionRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     try:
         result = await _task_decomposition_service.execute_plan(request)
@@ -1404,7 +1404,7 @@ async def post_task_decomposition_execute_plan(
 async def post_task_decomposition_run(
     request: TaskDecompositionRunRequest,
     authorization: str | None = Header(default=None),
-):
+) -> Any:
     _require_task_decomposition_local_authority(authorization)
     try:
         result = await _task_decomposition_service.run(request)
@@ -1426,7 +1426,7 @@ async def post_task_decomposition_run(
 
 
 @app.post("/model-runtime/manifests/validate", response_model=ResultEnvelope)
-def post_validate_model_runtime_manifest(manifest: dict):
+def post_validate_model_runtime_manifest(manifest: dict) -> Any:
     try:
         manifest = ModelRuntimeAdapterManifest(**manifest)
     except (ValidationError, ValueError) as exc:
@@ -1434,7 +1434,7 @@ def post_validate_model_runtime_manifest(manifest: dict):
     return validate_runtime_manifest(manifest)
 
 @app.post("/model-runtime/requests/validate", response_model=ResultEnvelope)
-def post_validate_model_runtime_request(payload: ModelRuntimeRequestValidatePayload):
+def post_validate_model_runtime_request(payload: ModelRuntimeRequestValidatePayload) -> Any:
     try:
         request = ModelRuntimeRequest(**payload.request)
         manifest = ModelRuntimeAdapterManifest(**payload.manifest)
@@ -1443,7 +1443,7 @@ def post_validate_model_runtime_request(payload: ModelRuntimeRequestValidatePayl
     return validate_runtime_request(request, manifest)
 
 @app.post("/model-runtime/responses/validate", response_model=ResultEnvelope)
-def post_validate_model_runtime_response(payload: ModelRuntimeResponseValidatePayload):
+def post_validate_model_runtime_response(payload: ModelRuntimeResponseValidatePayload) -> Any:
     try:
         response = ModelRuntimeResponse(**payload.response)
     except (ValidationError, ValueError) as exc:
@@ -1451,7 +1451,7 @@ def post_validate_model_runtime_response(payload: ModelRuntimeResponseValidatePa
     return validate_runtime_response(response)
 
 @app.post("/model-runtime/simulate", response_model=ResultEnvelope)
-def post_simulate_model_runtime(payload: ModelRuntimeSimulatePayload):
+def post_simulate_model_runtime(payload: ModelRuntimeSimulatePayload) -> Any:
     try:
         request = ModelRuntimeRequest(**payload.request)
         manifest = ModelRuntimeAdapterManifest(**payload.manifest)
@@ -1467,7 +1467,7 @@ def post_simulate_model_runtime(payload: ModelRuntimeSimulatePayload):
     )
 
 @app.post("/model-runtime/local/endpoints/validate", response_model=ResultEnvelope)
-def post_validate_local_loopback_endpoint(payload: LocalLoopbackEndpointValidatePayload):
+def post_validate_local_loopback_endpoint(payload: LocalLoopbackEndpointValidatePayload) -> Any:
     try:
         endpoint = LoopbackRuntimeEndpoint(**payload.endpoint)
         policy = LoopbackRuntimePolicy(**(payload.policy or {"policy_id": "api_default"}))
@@ -1483,7 +1483,7 @@ def post_validate_local_loopback_endpoint(payload: LocalLoopbackEndpointValidate
     )
 
 @app.post("/model-runtime/local/execution/validate", response_model=ResultEnvelope)
-def post_validate_local_loopback_execution(payload: LocalLoopbackExecutionValidatePayload):
+def post_validate_local_loopback_execution(payload: LocalLoopbackExecutionValidatePayload) -> Any:
     try:
         request = ModelRuntimeRequest(**payload.request)
         manifest = ModelRuntimeAdapterManifest(**payload.manifest)
@@ -1506,7 +1506,7 @@ def post_validate_local_loopback_execution(payload: LocalLoopbackExecutionValida
     )
 
 @app.post("/model-runtime/local/simulate-fallback", response_model=ResultEnvelope)
-def post_local_loopback_simulated_fallback(payload: LocalLoopbackExecutionValidatePayload):
+def post_local_loopback_simulated_fallback(payload: LocalLoopbackExecutionValidatePayload) -> Any:
     try:
         request = ModelRuntimeRequest(**payload.request)
         manifest = ModelRuntimeAdapterManifest(**payload.manifest)
@@ -1522,7 +1522,7 @@ def post_local_loopback_simulated_fallback(payload: LocalLoopbackExecutionValida
     )
 
 @app.post("/model-runtime/local/smoke/validate", response_model=ResultEnvelope)
-def post_validate_local_loopback_smoke(payload: LocalLoopbackSmokeValidatePayload):
+def post_validate_local_loopback_smoke(payload: LocalLoopbackSmokeValidatePayload) -> Any:
     try:
         request = ManualLoopbackSmokeRequest(**payload.request)
         approval_decision = None
@@ -1542,7 +1542,7 @@ def post_validate_local_loopback_smoke(payload: LocalLoopbackSmokeValidatePayloa
     )
 
 @app.post("/remote-workers/nodes/validate", response_model=ResultEnvelope)
-def post_validate_remote_worker_node(payload: RemoteNodeValidatePayload):
+def post_validate_remote_worker_node(payload: RemoteNodeValidatePayload) -> Any:
     try:
         node = RemoteNode(**payload.node)
     except (ValidationError, ValueError) as exc:
@@ -1556,7 +1556,7 @@ def post_validate_remote_worker_node(payload: RemoteNodeValidatePayload):
     )
 
 @app.post("/remote-workers/transports/validate", response_model=ResultEnvelope)
-def post_validate_remote_worker_transport(payload: RemoteTransportValidatePayload):
+def post_validate_remote_worker_transport(payload: RemoteTransportValidatePayload) -> Any:
     try:
         descriptor = RemoteTransportDescriptor(**payload.transport)
         registry = default_remote_transport_registry()
@@ -1573,7 +1573,7 @@ def post_validate_remote_worker_transport(payload: RemoteTransportValidatePayloa
     )
 
 @app.post("/remote-workers/policy/validate", response_model=ResultEnvelope)
-def post_validate_remote_worker_policy(payload: RemotePolicyValidatePayload):
+def post_validate_remote_worker_policy(payload: RemotePolicyValidatePayload) -> Any:
     try:
         policy = RemoteExecutionPolicy(**payload.policy)
     except (ValidationError, ValueError) as exc:
@@ -1587,7 +1587,7 @@ def post_validate_remote_worker_policy(payload: RemotePolicyValidatePayload):
     )
 
 @app.post("/remote-workers/jobs/validate", response_model=ResultEnvelope)
-def post_validate_remote_worker_job(payload: RemoteJobValidatePayload):
+def post_validate_remote_worker_job(payload: RemoteJobValidatePayload) -> Any:
     try:
         job = RemoteJobEnvelope(**payload.job)
     except (ValidationError, ValueError) as exc:
@@ -1608,7 +1608,7 @@ def post_validate_remote_worker_job(payload: RemoteJobValidatePayload):
     )
 
 @app.post("/remote-workers/dry-run", response_model=ResultEnvelope)
-def post_remote_worker_dry_run(payload: RemoteDryRunPayload):
+def post_remote_worker_dry_run(payload: RemoteDryRunPayload) -> Any:
     try:
         job = RemoteJobEnvelope(**payload.job)
         policy = (
@@ -1633,7 +1633,7 @@ def post_remote_worker_dry_run(payload: RemoteDryRunPayload):
     )
 
 @app.get("/remote-workers/status", response_model=ResultEnvelope)
-def get_remote_workers_status():
+def get_remote_workers_status() -> Any:
     nodes = default_remote_node_registry()
     transports = default_remote_transport_registry()
     return ResultEnvelope(
@@ -1652,7 +1652,7 @@ def get_remote_workers_status():
     )
 
 @app.get("/remote-workers/tailnet/status", response_model=ResultEnvelope)
-def get_remote_workers_tailnet_status():
+def get_remote_workers_tailnet_status() -> Any:
     return ResultEnvelope(
         success=True,
         operation="remote_workers_tailnet_status",
@@ -1667,7 +1667,7 @@ def get_remote_workers_tailnet_status():
     )
 
 @app.get("/remote-workers/mesh/status", response_model=ResultEnvelope)
-def get_remote_workers_mesh_status():
+def get_remote_workers_mesh_status() -> Any:
     return ResultEnvelope(
         success=True,
         operation="remote_workers_mesh_status",
@@ -1687,7 +1687,7 @@ def get_remote_workers_mesh_status():
     )
 
 @app.get("/runtime/readiness", response_model=ResultEnvelope)
-def get_runtime_readiness():
+def get_runtime_readiness() -> Any:
     report = build_readiness_report()
     return ResultEnvelope(
         success=True,
@@ -1698,7 +1698,7 @@ def get_runtime_readiness():
     )
 
 @app.get("/runtime/capability-matrix", response_model=ResultEnvelope)
-def get_runtime_capability_matrix():
+def get_runtime_capability_matrix() -> Any:
     matrix = build_matrix()
     return ResultEnvelope(
         success=True,
@@ -1709,7 +1709,7 @@ def get_runtime_capability_matrix():
     )
 
 @app.post("/runtime/smoke-reports/validate", response_model=ResultEnvelope)
-def post_validate_runtime_smoke_report(payload: RuntimeSmokeReportValidatePayload):
+def post_validate_runtime_smoke_report(payload: RuntimeSmokeReportValidatePayload) -> Any:
     validation = validate_manual_smoke_report(payload.report)
     return ResultEnvelope(
         success=validation.allowed,
@@ -1721,7 +1721,7 @@ def post_validate_runtime_smoke_report(payload: RuntimeSmokeReportValidatePayloa
 
 
 @app.get("/control-center/manifest", response_model=ResultEnvelope)
-def get_control_center_manifest():
+def get_control_center_manifest() -> Any:
     manifest = build_control_center_manifest()
     return ResultEnvelope(
         success=True,
@@ -1733,7 +1733,7 @@ def get_control_center_manifest():
 
 
 @app.get("/control-center/dashboard", response_model=ResultEnvelope)
-def get_control_center_dashboard():
+def get_control_center_dashboard() -> Any:
     api_manifest = build_api_manifest(app)
     control_center_route_count = sum(
         1 for route in api_manifest.routes if route.path.startswith("/control-center")
@@ -1753,7 +1753,7 @@ def get_control_center_dashboard():
 
 
 @app.get("/control-center/status", response_model=ResultEnvelope)
-def get_control_center_status():
+def get_control_center_status() -> Any:
     dashboard = build_control_center_dashboard()
     return ResultEnvelope(
         success=True,
@@ -1765,7 +1765,7 @@ def get_control_center_status():
 
 
 @app.get("/control-center/routes", response_model=ResultEnvelope)
-def get_control_center_routes():
+def get_control_center_routes() -> Any:
     api_manifest = build_api_manifest(app)
     control_center_routes = [
         route.model_dump(mode="json")
@@ -1786,7 +1786,7 @@ def get_control_center_routes():
 
 
 @app.get("/control-center/approvals/summary", response_model=ResultEnvelope)
-def get_control_center_approvals_summary():
+def get_control_center_approvals_summary() -> Any:
     dashboard = build_control_center_dashboard()
     return ResultEnvelope(
         success=True,
@@ -1798,7 +1798,7 @@ def get_control_center_approvals_summary():
 
 
 @app.get("/control-center/runtime-readiness/summary", response_model=ResultEnvelope)
-def get_control_center_runtime_readiness_summary():
+def get_control_center_runtime_readiness_summary() -> Any:
     dashboard = build_control_center_dashboard()
     return ResultEnvelope(
         success=True,
@@ -1810,7 +1810,7 @@ def get_control_center_runtime_readiness_summary():
 
 
 @app.get("/control-center/foundation-gate/summary", response_model=ResultEnvelope)
-def get_control_center_foundation_gate_summary():
+def get_control_center_foundation_gate_summary() -> Any:
     dashboard = build_control_center_dashboard(foundation_gate_status="not_run_by_endpoint")
     return ResultEnvelope(
         success=True,
@@ -1822,7 +1822,7 @@ def get_control_center_foundation_gate_summary():
 
 
 @app.get("/control-center/setup-assistant/summary", response_model=ResultEnvelope)
-def get_control_center_setup_assistant_summary():
+def get_control_center_setup_assistant_summary() -> Any:
     plan = build_default_macos_setup_assistant_plan()
     return ResultEnvelope(
         success=True,
@@ -1835,7 +1835,7 @@ def get_control_center_setup_assistant_summary():
 
 
 @app.post("/control-center/actions/preview", response_model=ResultEnvelope)
-def post_control_center_action_preview(request: ControlCenterActionPreviewRequest):
+def post_control_center_action_preview(request: ControlCenterActionPreviewRequest) -> Any:
     decision = preview_control_center_action(request)
     return ResultEnvelope(
         success=decision.allowed,
@@ -1847,7 +1847,7 @@ def post_control_center_action_preview(request: ControlCenterActionPreviewReques
     )
 
 @app.post("/costs/budgets/validate", response_model=ResultEnvelope)
-def post_validate_cost_budget(budget: CostBudget):
+def post_validate_cost_budget(budget: CostBudget) -> Any:
     try:
         validate_cost_budget(budget)
         return ResultEnvelope(
@@ -1875,7 +1875,7 @@ def post_validate_cost_budget(budget: CostBudget):
         )
 
 @app.post("/costs/estimate/preview", response_model=ResultEnvelope)
-def post_preview_cost_estimate(payload: CostEstimatePreviewRequest):
+def post_preview_cost_estimate(payload: CostEstimatePreviewRequest) -> Any:
     estimate = CostGovernor().estimate_route_cost(payload.request, payload.profile)
     return ResultEnvelope(
         success=True,
@@ -1886,7 +1886,7 @@ def post_preview_cost_estimate(payload: CostEstimatePreviewRequest):
     )
 
 @app.post("/costs/evaluate", response_model=ResultEnvelope)
-def post_evaluate_cost(payload: CostEvaluateRequest):
+def post_evaluate_cost(payload: CostEvaluateRequest) -> Any:
     decision = CostGovernor().evaluate(payload.estimate, payload.budgets)
     return ResultEnvelope(
         success=True,
@@ -1971,16 +1971,16 @@ class TruthFreshnessCheckRequest(BaseModel):
 
 
 @app.post("/gate/reports/validate", response_model=ResultEnvelope)
-def post_validate_foundation_gate_report(report: FoundationGateReport):
+def post_validate_foundation_gate_report(report: FoundationGateReport) -> Any:
     return validate_foundation_gate_report(report)
 
 
 @app.post("/gate/shadow-replay/validate", response_model=ResultEnvelope)
-def post_validate_shadow_replay_scenario(scenario: ShadowReplayScenario):
+def post_validate_shadow_replay_scenario(scenario: ShadowReplayScenario) -> Any:
     return validate_shadow_replay_scenario(scenario)
 
 @app.post("/consent/grants/validate", response_model=ResultEnvelope)
-def post_validate_consent_grant(grant: ConsentGrant):
+def post_validate_consent_grant(grant: ConsentGrant) -> Any:
     try:
         validate_consent_grant(grant)
         return ResultEnvelope(
@@ -2009,7 +2009,7 @@ def post_validate_consent_grant(grant: ConsentGrant):
         )
 
 @app.post("/consent/evaluate", response_model=ResultEnvelope)
-def post_evaluate_consent(req: ConsentEvaluateRequest):
+def post_evaluate_consent(req: ConsentEvaluateRequest) -> Any:
     try:
         ledger = ConsentLedger()
         for g in req.grants:
@@ -2041,7 +2041,7 @@ def post_evaluate_consent(req: ConsentEvaluateRequest):
         )
 
 @app.post("/tools/manifests/validate", response_model=ResultEnvelope)
-def post_validate_tool_manifest(manifest: ToolManifest):
+def post_validate_tool_manifest(manifest: ToolManifest) -> Any:
     try:
         validate_tool_manifest(manifest)
         return ResultEnvelope(
@@ -2070,7 +2070,7 @@ def post_validate_tool_manifest(manifest: ToolManifest):
         )
 
 @app.post("/tools/requests/evaluate", response_model=ResultEnvelope)
-def post_evaluate_tool_request(req: ToolEvaluateRequest):
+def post_evaluate_tool_request(req: ToolEvaluateRequest) -> Any:
     try:
         registry = ToolRegistry()
         registry.register_tool(req.tool)
@@ -2114,7 +2114,7 @@ def post_evaluate_tool_request(req: ToolEvaluateRequest):
         )
 
 @app.post("/tools/requests/dry-run", response_model=ResultEnvelope)
-def post_tool_dry_run(req: ToolDryRunRequest):
+def post_tool_dry_run(req: ToolDryRunRequest) -> Any:
     try:
         registry = ToolRegistry()
         registry.register_tool(req.tool)
@@ -2147,7 +2147,7 @@ def post_tool_dry_run(req: ToolDryRunRequest):
         )
 
 @app.post("/secrets/credentials/validate", response_model=ResultEnvelope)
-def post_validate_credential_reference(reference: CredentialReference):
+def post_validate_credential_reference(reference: CredentialReference) -> Any:
     try:
         validate_credential_reference(reference)
         return ResultEnvelope(
@@ -2176,7 +2176,7 @@ def post_validate_credential_reference(reference: CredentialReference):
         )
 
 @app.post("/secrets/access/evaluate", response_model=ResultEnvelope)
-def post_evaluate_secret_access(req: SecretAccessEvaluateRequest):
+def post_evaluate_secret_access(req: SecretAccessEvaluateRequest) -> Any:
     try:
         broker = SecretBroker()
         broker.register_credential(req.reference)
@@ -2209,7 +2209,7 @@ def post_evaluate_secret_access(req: SecretAccessEvaluateRequest):
         )
 
 @app.post("/providers/manifests/validate", response_model=ResultEnvelope)
-def post_validate_provider_manifest(manifest: ProviderManifest):
+def post_validate_provider_manifest(manifest: ProviderManifest) -> Any:
     try:
         validate_provider_manifest(manifest)
         return ResultEnvelope(
@@ -2238,7 +2238,7 @@ def post_validate_provider_manifest(manifest: ProviderManifest):
         )
 
 @app.post("/providers/resolve", response_model=ResultEnvelope)
-def post_resolve_provider(req: ProviderResolveRequest):
+def post_resolve_provider(req: ProviderResolveRequest) -> Any:
     registry = ProviderRegistry()
     for provider in req.providers:
         registry.register_provider(provider)
@@ -2257,7 +2257,7 @@ def post_resolve_provider(req: ProviderResolveRequest):
     )
 
 @app.post("/providers/results/validate", response_model=ResultEnvelope)
-def post_validate_provider_result(envelope: ProviderResultEnvelope):
+def post_validate_provider_result(envelope: ProviderResultEnvelope) -> Any:
     if not validate_provider_result_envelope(envelope):
         err = ErrorEnvelope(
             code="PROVIDER_RESULT_SECRET_EXPOSURE",
@@ -2284,7 +2284,7 @@ def post_validate_provider_result(envelope: ProviderResultEnvelope):
     )
 
 @app.post("/memory/records/validate", response_model=ResultEnvelope)
-def post_validate_memory_record(record: MemoryRecord):
+def post_validate_memory_record(record: MemoryRecord) -> Any:
     try:
         validate_memory_record(record)
         return ResultEnvelope(
@@ -2313,7 +2313,7 @@ def post_validate_memory_record(record: MemoryRecord):
         )
 
 @app.post("/memory/write/evaluate", response_model=ResultEnvelope)
-def post_evaluate_memory_write(request: MemoryWriteRequest):
+def post_evaluate_memory_write(request: MemoryWriteRequest) -> Any:
     store = MemoryStore()
     decision = store.write_memory(request)
     return ResultEnvelope(
@@ -2325,7 +2325,7 @@ def post_evaluate_memory_write(request: MemoryWriteRequest):
     )
 
 @app.post("/memory/query/preview", response_model=ResultEnvelope)
-def post_preview_memory_query(request: MemoryReadRequest):
+def post_preview_memory_query(request: MemoryReadRequest) -> Any:
     store = MemoryStore()
     decision = store.search(request)
     return ResultEnvelope(
@@ -2337,7 +2337,7 @@ def post_preview_memory_query(request: MemoryReadRequest):
     )
 
 @app.post("/files/refs/validate", response_model=ResultEnvelope)
-def post_validate_file_ref(req: FileRefValidateRequest):
+def post_validate_file_ref(req: FileRefValidateRequest) -> Any:
     try:
         file_ref = FileRef(
             file_ref=req.file_ref,
@@ -2371,7 +2371,7 @@ def post_validate_file_ref(req: FileRefValidateRequest):
         )
 
 @app.post("/files/review/approvals/capture", response_model=ResultEnvelope)
-def post_files_review_approvals_capture(request: FileReviewApprovalCaptureRequest):
+def post_files_review_approvals_capture(request: FileReviewApprovalCaptureRequest) -> Any:
     decision = capture_file_review_approval_request(request, store=_file_review_approval_store)
     if decision.status.value == "rejected":
         err = ErrorEnvelope(
@@ -2403,7 +2403,7 @@ def post_files_review_approvals_capture(request: FileReviewApprovalCaptureReques
     )
 
 @app.post("/files/read/preview", response_model=ResultEnvelope)
-def post_preview_file_read(req: FileReadPreviewAPIRequest):
+def post_preview_file_read(req: FileReadPreviewAPIRequest) -> Any:
     try:
         requested_ref = req.request.path or req.request.file_ref or ""
         if contains_secret_like(requested_ref):
@@ -2444,7 +2444,7 @@ def post_preview_file_read(req: FileReadPreviewAPIRequest):
         )
 
 @app.post("/files/tree/preview", response_model=ResultEnvelope)
-def post_preview_file_tree(req: FileTreePreviewAPIRequest):
+def post_preview_file_tree(req: FileTreePreviewAPIRequest) -> Any:
     try:
         requested_ref = req.request.root_path or ""
         if contains_secret_like(requested_ref):
@@ -2478,7 +2478,7 @@ def post_preview_file_tree(req: FileTreePreviewAPIRequest):
         )
 
 @app.post("/files/write/propose", response_model=ResultEnvelope)
-def post_propose_file_write(req: FileWriteAPIRequest):
+def post_propose_file_write(req: FileWriteAPIRequest) -> Any:
     decision = _review_file_write_api_proposal(req.safe_root_ref, req.proposal)
     return ResultEnvelope(
         success=decision.allowed,
@@ -2489,7 +2489,7 @@ def post_propose_file_write(req: FileWriteAPIRequest):
     )
 
 @app.post("/files/diff/preview", response_model=ResultEnvelope)
-def post_preview_file_diff(req: FileWriteAPIRequest):
+def post_preview_file_diff(req: FileWriteAPIRequest) -> Any:
     try:
         decision = _review_file_write_api_proposal(req.safe_root_ref, req.proposal)
         return ResultEnvelope(
@@ -2522,7 +2522,7 @@ def post_preview_file_diff(req: FileWriteAPIRequest):
         )
 
 @app.post("/truth/sources/validate", response_model=ResultEnvelope)
-def post_validate_truth_source(source: TruthSourceManifest):
+def post_validate_truth_source(source: TruthSourceManifest) -> Any:
     try:
         validate_truth_source_manifest(source)
         return ResultEnvelope(
@@ -2552,7 +2552,7 @@ def post_validate_truth_source(source: TruthSourceManifest):
         )
 
 @app.post("/truth/grounding-policy/validate", response_model=ResultEnvelope)
-def post_validate_grounding_policy(policy: GroundingPolicy):
+def post_validate_grounding_policy(policy: GroundingPolicy) -> Any:
     return ResultEnvelope(
         success=True,
         operation="validate_grounding_policy",
@@ -2562,7 +2562,7 @@ def post_validate_grounding_policy(policy: GroundingPolicy):
     )
 
 @app.post("/truth/evidence/validate", response_model=ResultEnvelope)
-def post_validate_evidence_manifest(manifest: EvidenceManifest):
+def post_validate_evidence_manifest(manifest: EvidenceManifest) -> Any:
     try:
         validate_evidence_manifest(manifest)
         return ResultEnvelope(
@@ -2592,7 +2592,7 @@ def post_validate_evidence_manifest(manifest: EvidenceManifest):
         )
 
 @app.post("/truth/route", response_model=ResultEnvelope)
-def post_route_truth_source(request: TruthRouteRequest):
+def post_route_truth_source(request: TruthRouteRequest) -> Any:
     decision = TruthSourceRouter().route(request)
     return ResultEnvelope(
         success=True,
@@ -2603,7 +2603,7 @@ def post_route_truth_source(request: TruthRouteRequest):
     )
 
 @app.post("/truth/freshness/check", response_model=ResultEnvelope)
-def post_check_truth_freshness(request: TruthFreshnessCheckRequest):
+def post_check_truth_freshness(request: TruthFreshnessCheckRequest) -> Any:
     now = request.current_time or utc_now()
     status = classify_freshness(request.evidence_item, request.policy, now)
     allowed, reason = enforce_freshness_policy(request.evidence_item, request.policy, now)
@@ -2621,7 +2621,7 @@ def post_check_truth_freshness(request: TruthFreshnessCheckRequest):
     )
 
 @app.post("/truth/conflicts/validate", response_model=ResultEnvelope)
-def post_validate_source_conflict(conflict: SourceConflictReport):
+def post_validate_source_conflict(conflict: SourceConflictReport) -> Any:
     return ResultEnvelope(
         success=True,
         operation="validate_source_conflict",
@@ -2631,7 +2631,7 @@ def post_validate_source_conflict(conflict: SourceConflictReport):
     )
 
 @app.post("/kernel/tasks/run", response_model=ResultEnvelope)
-def post_run_kernel_task(payload: dict):
+def post_run_kernel_task(payload: dict) -> Any:
     safe_payload = dict(payload)
     if safe_payload.get("task_type") in {"create_dev_file", "update_dev_file"}:
         safe_payload["dry_run"] = True

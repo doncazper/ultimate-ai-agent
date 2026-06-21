@@ -6,6 +6,7 @@ out-of-order detection unreachable, so the method always reported ``True`` for
 ordering regardless of how the events were actually recorded. These tests pin
 the corrected behaviour: the stored (append-order) trace must be chronological.
 """
+from typing import Any
 
 from datetime import UTC, datetime, timedelta
 
@@ -26,7 +27,7 @@ from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataCla
 
 
 @pytest.fixture
-def event_factory():
+def event_factory() -> Any:
     actor = ActorContext(
         actor_type=ActorType.orchestrator,
         actor_id="test_orchestrator",
@@ -42,7 +43,7 @@ def event_factory():
         classification=ClassificationValue.public, source="test"
     )
 
-    def _make(event_id: str, occurred_at: datetime, run_id: str = "run_chrono"):
+    def _make(event_id: str, occurred_at: datetime, run_id: str = "run_chrono") -> Any:
         return EventLedgerEvent(
             event_id=event_id,
             event_type="run",
@@ -67,7 +68,7 @@ def event_factory():
     return _make
 
 
-def test_trace_integrity_passes_for_chronological_append_order(event_factory):
+def test_trace_integrity_passes_for_chronological_append_order(event_factory: Any) -> None:
     ledger = EventLedger()
     base = datetime.now(UTC)
     ledger.append_event(event_factory("evt_1", base))
@@ -77,7 +78,7 @@ def test_trace_integrity_passes_for_chronological_append_order(event_factory):
     assert ledger.validate_trace_integrity("run_chrono") is True
 
 
-def test_trace_integrity_detects_out_of_order_append(event_factory):
+def test_trace_integrity_detects_out_of_order_append(event_factory: Any) -> None:
     ledger = EventLedger()
     base = datetime.now(UTC)
     # Second event is recorded with a timestamp earlier than the first.

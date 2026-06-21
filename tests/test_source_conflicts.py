@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.truth import (
     SourceConflictSeverity,
     TruthAuthorityLevel,
@@ -7,7 +8,7 @@ from ultimate_ai_agent.core.truth import (
 )
 
 
-def source(source_id, source_type, authority, **metadata):
+def source(source_id: str, source_type: Any, authority: Any, **metadata: Any) -> Any:
     return TruthSourceManifest(
         source_id=source_id,
         source_type=source_type,
@@ -21,7 +22,7 @@ def source(source_id, source_type, authority, **metadata):
     )
 
 
-def test_canonical_beats_memory_conflict():
+def test_canonical_beats_memory_conflict() -> None:
     report = resolve_source_conflict(
         claim_id="claim_project",
         sources=[
@@ -35,7 +36,7 @@ def test_canonical_beats_memory_conflict():
     assert "CANONICAL_OVERRIDES_MEMORY" in report.reason_codes
 
 
-def test_api_database_beats_document_for_hard_live_fact():
+def test_api_database_beats_document_for_hard_live_fact() -> None:
     report = resolve_source_conflict(
         claim_id="claim_metric",
         sources=[
@@ -50,7 +51,7 @@ def test_api_database_beats_document_for_hard_live_fact():
     assert "STRUCTURED_SOURCE_OVERRIDES_DOCUMENT" in report.reason_codes
 
 
-def test_stale_provider_result_does_not_automatically_beat_current_canonical():
+def test_stale_provider_result_does_not_automatically_beat_current_canonical() -> None:
     report = resolve_source_conflict(
         claim_id="claim_stale",
         sources=[
@@ -65,7 +66,7 @@ def test_stale_provider_result_does_not_automatically_beat_current_canonical():
     assert report.requires_human_review is True
 
 
-def test_unresolved_conflict_requires_human_review():
+def test_unresolved_conflict_requires_human_review() -> None:
     report = resolve_source_conflict(
         claim_id="claim_unresolved",
         sources=[

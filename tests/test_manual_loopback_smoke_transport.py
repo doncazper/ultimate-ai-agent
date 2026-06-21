@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def test_manual_smoke_disabled_missing_arbitrary_and_expired_approval_denied():
+def test_manual_smoke_disabled_missing_arbitrary_and_expired_approval_denied() -> None:
     request = smoke_request(policy=ManualLoopbackSmokePolicy(policy_id="disabled"))
 
     disabled = validate_manual_loopback_smoke_request(request, approval_decision=None)
@@ -27,7 +27,7 @@ def test_manual_smoke_disabled_missing_arbitrary_and_expired_approval_denied():
     assert "APPROVAL_EXPIRED" in expired.reason_codes
 
 
-def test_valid_approval_permits_fake_smoke_and_wrong_scope_denies():
+def test_valid_approval_permits_fake_smoke_and_wrong_scope_denies() -> None:
     request = smoke_request()
     _, _, grant, decision = approval_for_smoke(request)
     request = request.model_copy(update={"approval_ref": grant.approval_ref})
@@ -44,7 +44,7 @@ def test_valid_approval_permits_fake_smoke_and_wrong_scope_denies():
     assert wrong_scope.allowed is False
 
 
-def test_handcrafted_approval_decision_without_matched_grant_is_denied():
+def test_handcrafted_approval_decision_without_matched_grant_is_denied() -> None:
     request = smoke_request()
     forged = ApprovalValidationDecision(
         approval_ref=request.approval_ref,
@@ -60,7 +60,7 @@ def test_handcrafted_approval_decision_without_matched_grant_is_denied():
     assert "APPROVAL_MATCHED_GRANT_REQUIRED" in result.reason_codes
 
 
-def test_fake_smoke_transport_blocks_secret_like_response():
+def test_fake_smoke_transport_blocks_secret_like_response() -> None:
     request = smoke_request()
     _, _, grant, decision = approval_for_smoke(request)
     request = request.model_copy(update={"approval_ref": grant.approval_ref})
@@ -73,7 +73,7 @@ def test_fake_smoke_transport_blocks_secret_like_response():
     assert "api_key" not in result.model_dump_json()
 
 
-def test_stdlib_transport_is_isolated_and_not_used_by_default():
+def test_stdlib_transport_is_isolated_and_not_used_by_default() -> None:
     request = smoke_request(endpoint=loopback_endpoint(base_url="http://127.0.0.1:11434/api/generate"))
     transport = StdlibLoopbackSmokeTransport()
 
@@ -81,7 +81,7 @@ def test_stdlib_transport_is_isolated_and_not_used_by_default():
     assert transport.preview_request(request)["would_send_user_content"] is False
 
 
-def test_manual_smoke_result_rejects_secret_preview():
+def test_manual_smoke_result_rejects_secret_preview() -> None:
     with pytest.raises(ValueError):
         ManualLoopbackSmokeResult(
             smoke_request_id="smoke_req_1",

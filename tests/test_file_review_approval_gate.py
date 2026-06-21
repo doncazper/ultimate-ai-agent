@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 
 import pytest
@@ -16,7 +17,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _packet():
+def _packet() -> Any:
     preview = RedactedFilePreviewOutput(
         output_ref="redacted-file-preview-output:approval",
         status=RedactedFilePreviewStatus.preview_generated,
@@ -35,7 +36,7 @@ def _packet():
     )
 
 
-def _approval(packet, **overrides):
+def _approval(packet: Any, **overrides: Any) -> Any:
     data = {
         "approval_ref": "file-review-approval:approval",
         "actor_ref": "user:approval",
@@ -51,7 +52,7 @@ def _approval(packet, **overrides):
     return UserFileReviewApproval(**data)
 
 
-def test_approval_ref_alone_cannot_authorize_review():
+def test_approval_ref_alone_cannot_authorize_review() -> None:
     packet = _packet().model_copy(update={"approval_ref": "file-review-approval:approval"})
 
     decision = evaluate_file_review_gate(packet, approval=None, current_time=utc_now())
@@ -67,7 +68,7 @@ def test_approval_ref_alone_cannot_authorize_review():
     "approval_ref",
     ["approval_test_packet", "approval_test_:packet", "approval_test_m35"],
 )
-def test_approval_test_refs_are_denied_at_gate(approval_ref):
+def test_approval_test_refs_are_denied_at_gate(approval_ref: Any) -> None:
     packet = _packet()
     approval = _approval(packet).model_copy(update={"approval_ref": approval_ref})
 
@@ -91,7 +92,7 @@ def test_approval_test_refs_are_denied_at_gate(approval_ref):
         ({"replay_nonce": "file-review-replay:1", "used_replay_nonces": ["file-review-replay:1"]}, "FILE_REVIEW_APPROVAL_REPLAY_DETECTED"),
     ],
 )
-def test_approval_binding_denies_mismatch_expiry_revocation_and_replay(override, reason):
+def test_approval_binding_denies_mismatch_expiry_revocation_and_replay(override: Any, reason: str) -> None:
     packet = _packet()
     approval = _approval(packet, **override)
 
@@ -110,7 +111,7 @@ def test_approval_binding_denies_mismatch_expiry_revocation_and_replay(override,
         ({"safe_path_ref": "filesystem-preview-path:safe-root_approval/docs/mutated.md"}, "FILE_REVIEW_APPROVAL_PATH_REF_MISMATCH"),
     ],
 )
-def test_model_copy_mutated_packet_file_and_path_refs_are_denied(source_update, reason):
+def test_model_copy_mutated_packet_file_and_path_refs_are_denied(source_update: Any, reason: str) -> None:
     packet = _packet()
     approval = _approval(packet)
     mutated_packet = packet.model_copy(update={"source": packet.source.model_copy(update=source_update)})
@@ -124,7 +125,7 @@ def test_model_copy_mutated_packet_file_and_path_refs_are_denied(source_update, 
     assert decision.execution_performed is False
 
 
-def test_secret_like_approval_metadata_is_denied_without_echoing_secret():
+def test_secret_like_approval_metadata_is_denied_without_echoing_secret() -> None:
     packet = _packet()
     approval = _approval(packet).model_copy(update={"metadata": {"api_key": "abc123supersecret"}})
 

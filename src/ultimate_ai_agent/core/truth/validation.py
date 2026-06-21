@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.ledger.validation import scan_payload_for_secrets
 from ultimate_ai_agent.core.truth.enums import TruthSourceKind
 from ultimate_ai_agent.core.truth.enums import ClaimVerificationStatus
@@ -53,20 +54,20 @@ def validate_structured_truth_ref(ref: str, field_name: str = "ref") -> bool:
     return True
 
 
-def assert_claim_not_self_verified(evidence_chain) -> bool:
+def assert_claim_not_self_verified(evidence_chain: Any) -> bool:
     if evidence_chain.claim_ref in set(evidence_chain.source_refs + evidence_chain.evidence_refs):
         raise ValueError("Claim cannot self-verify.")
     return True
 
 
-def assert_memory_not_truth(evidence_chain) -> bool:
+def assert_memory_not_truth(evidence_chain: Any) -> bool:
     refs = set(evidence_chain.source_refs + evidence_chain.evidence_refs + evidence_chain.memory_refs)
     if any(ref.startswith("memory:") or ":memory:" in ref for ref in refs):
         raise ValueError("Memory refs cannot verify truth.")
     return True
 
 
-def assert_model_output_not_truth(evidence_chain) -> bool:
+def assert_model_output_not_truth(evidence_chain: Any) -> bool:
     refs = set(evidence_chain.source_refs + evidence_chain.evidence_refs)
     blocked_prefixes = ("model:", "runtime:", "openwebui:", "model_output:", "runtime_output:", "openwebui_output:")
     if any(ref.startswith(blocked_prefixes) for ref in refs):
@@ -89,31 +90,31 @@ def assert_no_external_verification(
     return True
 
 
-def validate_truth_source_ref(source_ref) -> bool:
+def validate_truth_source_ref(source_ref: Any) -> bool:
     validate_structured_truth_ref(source_ref.source_ref, "source_ref")
     assert_no_raw_truth_content(source_ref.model_dump(mode="json"))
     return True
 
 
-def validate_evidence_ref(evidence_ref) -> bool:
+def validate_evidence_ref(evidence_ref: Any) -> bool:
     validate_structured_truth_ref(evidence_ref.evidence_ref, "evidence_ref")
     validate_structured_truth_ref(evidence_ref.source_ref, "source_ref")
     assert_no_raw_truth_content(evidence_ref.model_dump(mode="json"))
     return True
 
 
-def validate_claim(claim) -> bool:
+def validate_claim(claim: Any) -> bool:
     assert_no_raw_truth_content(claim.model_dump(mode="json"))
     return True
 
 
-def validate_evidence_chain(evidence_chain) -> bool:
+def validate_evidence_chain(evidence_chain: Any) -> bool:
     assert_claim_not_self_verified(evidence_chain)
     assert_no_raw_truth_content(evidence_chain.model_dump(mode="json"))
     return True
 
 
-def validate_verification_request(request) -> bool:
+def validate_verification_request(request: Any) -> bool:
     if request.allow_model_output:
         raise ValueError("allow_model_output must be False.")
     if request.allow_raw_content:

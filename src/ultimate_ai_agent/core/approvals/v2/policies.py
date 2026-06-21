@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import UTC, datetime
 
 from ultimate_ai_agent.core.approvals.v2.contracts import (
@@ -30,22 +31,22 @@ def build_approval_authority_v2_manifest(baseline_version: str = "0.32.1") -> Ap
     return ApprovalAuthorityV2Manifest(baseline_version=baseline_version)
 
 
-def validate_actor_ref(actor_ref) -> bool:
+def validate_actor_ref(actor_ref: Any) -> bool:
     actor_ref.model_validate(actor_ref.model_dump())
     return True
 
 
-def validate_action_ref(action_ref) -> bool:
+def validate_action_ref(action_ref: Any) -> bool:
     action_ref.model_validate(action_ref.model_dump())
     return True
 
 
-def validate_resource_ref(resource_ref) -> bool:
+def validate_resource_ref(resource_ref: Any) -> bool:
     resource_ref.model_validate(resource_ref.model_dump())
     return True
 
 
-def validate_approval_scope(scope) -> bool:
+def validate_approval_scope(scope: str) -> bool:
     scope.model_validate(scope.model_dump())
     return True
 
@@ -112,7 +113,7 @@ def _validate_ref_reason(
     return []
 
 
-def _validate_payload_reason(value, field_name: str, *, fallback_reason: str) -> list[str]:
+def _validate_payload_reason(value: str, field_name: str, *, fallback_reason: str) -> list[str]:
     try:
         validate_safe_action_payload(value, field_name)
     except ValueError:
@@ -120,7 +121,7 @@ def _validate_payload_reason(value, field_name: str, *, fallback_reason: str) ->
     return []
 
 
-def _extra_value(model, field_name: str, default=None):
+def _extra_value(model: Any, field_name: str, default: Any | None = None) -> Any:
     return getattr(model, field_name, default)
 
 

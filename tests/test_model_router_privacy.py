@@ -3,7 +3,7 @@ from ultimate_ai_agent.core.hygiene.policies import ClassificationValue
 from ultimate_ai_agent.core.model_router import ModelPrivacyClass, ModelRouteStatus, ModelRouter
 
 
-def test_cloud_candidate_blocked_in_local_only_privacy_mode():
+def test_cloud_candidate_blocked_in_local_only_privacy_mode() -> None:
     request = route_request(
         profiles=[cloud_profile()],
         routing_policy=policy(privacy_mode=ModelPrivacyClass.local_only, allow_cloud=False),
@@ -16,7 +16,7 @@ def test_cloud_candidate_blocked_in_local_only_privacy_mode():
     assert "CLOUD_BLOCKED_BY_PRIVACY_MODE" in decision.reason_codes
 
 
-def test_sensitive_personal_cloud_route_requires_approval_when_policy_demands_it():
+def test_sensitive_personal_cloud_route_requires_approval_when_policy_demands_it() -> None:
     request = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -30,7 +30,7 @@ def test_sensitive_personal_cloud_route_requires_approval_when_policy_demands_it
     assert "CLOUD_APPROVAL_REQUIRED" in decision.reason_codes
 
 
-def test_arbitrary_approval_ref_does_not_authorize_sensitive_cloud_route():
+def test_arbitrary_approval_ref_does_not_authorize_sensitive_cloud_route() -> None:
     request = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -46,7 +46,7 @@ def test_arbitrary_approval_ref_does_not_authorize_sensitive_cloud_route():
     assert "APPROVAL_REF_UNVALIDATED" in decision.reason_codes
 
 
-def test_test_approval_ref_can_authorize_sensitive_cloud_route():
+def test_test_approval_ref_can_authorize_sensitive_cloud_route() -> None:
     request = route_request(
         profiles=[cloud_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -61,7 +61,7 @@ def test_test_approval_ref_can_authorize_sensitive_cloud_route():
     assert "SELECTED_PROFILE" in decision.reason_codes
 
 
-def test_local_route_does_not_require_cloud_approval():
+def test_local_route_does_not_require_cloud_approval() -> None:
     request = route_request(
         profiles=[local_profile()],
         data_classification=classification(ClassificationValue.sensitive_personal),
@@ -75,7 +75,7 @@ def test_local_route_does_not_require_cloud_approval():
     assert "CLOUD_APPROVAL_REQUIRED" not in decision.reason_codes
 
 
-def test_credential_secret_never_routes_to_model():
+def test_credential_secret_never_routes_to_model() -> None:
     request = route_request(
         profiles=[local_profile(), cloud_profile()],
         data_classification=classification(ClassificationValue.credential_secret),

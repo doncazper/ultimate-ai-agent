@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -18,7 +19,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _scope(**overrides):
+def _scope(**overrides: Any) -> Any:
     data = {
         "scope_ref": "autonomy-session-scope:m65-local-review",
         "actor_ref": "actor:local-reviewer",
@@ -35,7 +36,7 @@ def _scope(**overrides):
     return ScopedAutonomySessionScope(**data)
 
 
-def _session_request(**overrides):
+def _session_request(**overrides: Any) -> Any:
     data = {
         "session_request_ref": "autonomy-session-request:m65-local-review",
         "requested_mode": AutonomyAuthorityMode.dry_run_plan,
@@ -45,7 +46,7 @@ def _session_request(**overrides):
     return ScopedAutonomySessionRequest(**data)
 
 
-def _rule(**overrides):
+def _rule(**overrides: Any) -> Any:
     data = {
         "rule_ref": "autonomy-policy-rule:m65-local-review",
         "allowed_actor_refs": ["actor:local-reviewer"],
@@ -60,7 +61,7 @@ def _rule(**overrides):
     return AutonomyPolicyRule(**data)
 
 
-def _policy(**overrides):
+def _policy(**overrides: Any) -> Any:
     data = {
         "policy_ref": "autonomy-policy:m65-local-review",
         "policy_version_ref": "autonomy-policy-version:m65-v1",
@@ -70,7 +71,7 @@ def _policy(**overrides):
     return AutonomyPolicyEnginePolicy(**data)
 
 
-def _policy_decision(**overrides):
+def _policy_decision(**overrides: Any) -> Any:
     request = AutonomyPolicyEvaluationRequest(
         evaluation_request_ref="autonomy-policy-evaluation:m65-local-review",
         policy=_policy(),
@@ -82,7 +83,7 @@ def _policy_decision(**overrides):
     return decision
 
 
-def _step(step_ref: str = "autonomy-simulation-step:m65-inspect-plan", **overrides):
+def _step(step_ref: str = "autonomy-simulation-step:m65-inspect-plan", **overrides: Any) -> Any:
     data = {
         "step_ref": step_ref,
         "intent_ref": "intent:inspect-redacted-review-packet",
@@ -96,7 +97,7 @@ def _step(step_ref: str = "autonomy-simulation-step:m65-inspect-plan", **overrid
     return AutonomousPlanSimulationStep(**data)
 
 
-def _simulation_result(**overrides):
+def _simulation_result(**overrides: Any) -> Any:
     simulation_request = AutonomousPlanSimulationRequest(
         simulation_request_ref="autonomy-plan-simulation-request:m65-local-review",
         policy_decision=_policy_decision(),
@@ -120,7 +121,7 @@ def _simulation_result(**overrides):
     return result
 
 
-def _replay_view(**overrides):
+def _replay_view(**overrides: Any) -> Any:
     data = {
         "audit_view_ref": "autonomy-audit-replay-view:m65-local-review",
         "simulation_result": _simulation_result(),

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Any
 import argparse
 import sys
 import re
@@ -6,31 +7,31 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-def fail(msg):
+def fail(msg: Any) -> None:
     print(f"FAIL: {msg}")
     sys.exit(1)
 
-def ok(msg):
+def ok(msg: Any) -> None:
     print(f"OK: {msg}")
 
 
-def release_packet_paths(version_key):
+def release_packet_paths(version_key: Any) -> tuple[Any, ...]:
     return (
         f"docs/archive/releases/v{version_key}/README_IMPORT.md",
         f"docs/archive/releases/v{version_key}/master_plan.md",
     )
 
 
-def version_to_archive_key(version):
+def version_to_archive_key(version: str) -> Any:
     return version.replace(".", "_").replace("-", "_")
 
 
-def version_to_package_version(version):
+def version_to_package_version(version: str) -> Any:
     if version.endswith("-alpha"):
         return f"{version[:-6]}a0"
     return version
 
-def main(argv=None):
+def main(argv: Any | None = None) -> None:
     parser = argparse.ArgumentParser(description="Verify current baseline metadata and required files.")
     parser.add_argument(
         "--skip-static-scans",

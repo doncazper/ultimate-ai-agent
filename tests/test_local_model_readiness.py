@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.openwebui_bridge.local_test_shell import (
 )
 
 
-def test_local_model_gateway_readiness_is_disabled_by_default():
+def test_local_model_gateway_readiness_is_disabled_by_default() -> None:
     readiness = inspect_local_model_gateway({})
 
     assert isinstance(readiness, LocalModelGatewayReadiness)
@@ -22,7 +22,7 @@ def test_local_model_gateway_readiness_is_disabled_by_default():
     assert readiness.gateway_env_ref == UAA_OPENWEBUI_TEST_GATEWAY_ENV
 
 
-def test_local_model_gateway_readiness_reports_m164_missing_bearer():
+def test_local_model_gateway_readiness_reports_m164_missing_bearer() -> None:
     readiness = inspect_local_model_gateway({UAA_LLAMA_CPP_GATEWAY_ENV: "1"})
 
     assert readiness.gateway_mode == "m164_llama_cpp"
@@ -36,7 +36,7 @@ def test_local_model_gateway_readiness_reports_m164_missing_bearer():
     assert readiness.gateway_env_ref == UAA_LLAMA_CPP_GATEWAY_ENV
 
 
-def test_local_model_gateway_readiness_reports_m164_ready_for_bearer_auth():
+def test_local_model_gateway_readiness_reports_m164_ready_for_bearer_auth() -> None:
     readiness = inspect_local_model_gateway(
         {
             UAA_LLAMA_CPP_GATEWAY_ENV: "1",
@@ -53,7 +53,7 @@ def test_local_model_gateway_readiness_reports_m164_ready_for_bearer_auth():
     assert readiness.next_safe_action == "call_v1_routes_with_configured_local_bearer"
 
 
-def test_local_model_gateway_readiness_reports_m151_local_test_mode():
+def test_local_model_gateway_readiness_reports_m151_local_test_mode() -> None:
     readiness = inspect_local_model_gateway({UAA_OPENWEBUI_TEST_GATEWAY_ENV: "1"})
 
     assert readiness.gateway_mode == "m151_openwebui_local_test"
@@ -68,7 +68,7 @@ def test_local_model_gateway_readiness_reports_m151_local_test_mode():
     assert readiness.next_safe_action == "call_v1_routes_with_local_test_bearer"
 
 
-def test_local_model_gateway_readiness_reports_explicit_m151_bearer_env():
+def test_local_model_gateway_readiness_reports_explicit_m151_bearer_env() -> None:
     readiness = inspect_local_model_gateway(
         {
             UAA_OPENWEBUI_TEST_GATEWAY_ENV: "1",

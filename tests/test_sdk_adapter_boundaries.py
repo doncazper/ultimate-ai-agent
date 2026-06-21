@@ -5,7 +5,7 @@ from ultimate_ai_agent.core.adapters import (
     validate_adapter_boundary_policy,
 )
 
-def test_sdk_adapter_policy_validation():
+def test_sdk_adapter_policy_validation() -> None:
     manifest = AgentRuntimeAdapterManifest(
         adapter_id="aider_adapter",
         adapter_type="aider",
@@ -17,7 +17,7 @@ def test_sdk_adapter_policy_validation():
     # Default policy with bypass_execution_contract_allowed=False should pass
     assert validate_adapter_boundary_policy(manifest, policy) is True
 
-def test_adapter_bypass_attempt_fails():
+def test_adapter_bypass_attempt_fails() -> None:
     manifest = AgentRuntimeAdapterManifest(
         adapter_id="unsafe_adapter",
         adapter_type="openai_agents_sdk",
@@ -30,7 +30,7 @@ def test_adapter_bypass_attempt_fails():
     with pytest.raises(ValueError, match="cannot bypass core authority controls"):
         validate_adapter_boundary_policy(manifest, policy)
 
-def test_adapter_direct_access_fails():
+def test_adapter_direct_access_fails() -> None:
     manifest = AgentRuntimeAdapterManifest(
         adapter_id="direct_access_adapter",
         adapter_type="openhands",

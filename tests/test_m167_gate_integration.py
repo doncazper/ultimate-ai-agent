@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 
 from ultimate_ai_agent.api.app import app
@@ -24,7 +25,7 @@ def test_m167_foundation_gate_criteria_registered() -> None:
 
 
 def test_m167_foundation_gate_evaluator_accepts_current_repo(
-    foundation_gate_results,
+    foundation_gate_results: Any,
 ) -> None:
     for criterion_id in M167_CRITERIA:
         result = foundation_gate_results[criterion_id]

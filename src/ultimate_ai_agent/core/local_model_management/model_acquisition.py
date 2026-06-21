@@ -65,7 +65,7 @@ class M162ModelAcquisitionPolicy(_M162Model):
     production_authority_granted: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -82,7 +82,7 @@ class M162GgufArtifactRequest(_M162Model):
     provenance_ref: str = "provenance:hugging-face-public-artifact"
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.artifact_ref, "artifact_ref")
         _validate_repo_id(self.repo_id)
         _validate_pinned_revision(self.revision)
@@ -124,7 +124,7 @@ class M162ModelAcquisitionRequest(_M162Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.actor_ref, "actor_ref"),
@@ -172,7 +172,7 @@ class M162ArtifactTransferReceipt(_M162Model):
     token_used: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.artifact_ref, "artifact_ref")
         _validate_sha256(self.sha256)
         _validate_m61_ref(self.final_host_ref, "final_host_ref")
@@ -202,7 +202,7 @@ class M162AcquiredArtifactReceipt(_M162Model):
     subprocess_execution_performed: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.artifact_ref, "artifact_ref")
         _validate_repo_id(self.repo_id)
         _validate_pinned_revision(self.revision)
@@ -247,7 +247,7 @@ class M162ModelAcquisitionResult(_M162Model):
     safe_summary: str = "Exact approved GGUF artifacts were acquired into the UAA-owned cache."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.result_ref, "result_ref")
         _validate_m61_ref(self.request_ref, "request_ref")
         _validate_m61_ref(self.approval_ref, "approval_ref")
@@ -272,7 +272,7 @@ class M162ModelAcquisitionTransport(Protocol):
 
 
 class FakeM162ModelAcquisitionTransport:
-    def __init__(self, payload_by_artifact_ref: dict[str, bytes]):
+    def __init__(self, payload_by_artifact_ref: dict[str, bytes]) -> None:
         self.payload_by_artifact_ref = payload_by_artifact_ref
         self.calls: list[M162GgufArtifactRequest] = []
 
@@ -305,7 +305,7 @@ class StdlibM162HuggingFaceArtifactTransport:
         *,
         timeout_seconds: float = 30.0,
         chunk_bytes: int = M162_DEFAULT_CHUNK_BYTES,
-    ):
+    ) -> None:
         self.timeout_seconds = timeout_seconds
         self.chunk_bytes = max(chunk_bytes, M162_MIN_CHUNK_BYTES)
 

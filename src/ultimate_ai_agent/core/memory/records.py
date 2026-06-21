@@ -48,7 +48,7 @@ class MemorySourceRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def require_legacy_or_m24_source_identity(self):
+    def require_legacy_or_m24_source_identity(self) -> Any:
         if not ((self.source_id and self.source_type) or (self.source_ref and self.source_kind)):
             raise ValueError("source_id/source_type or source_ref/source_kind is required")
         return self
@@ -151,7 +151,7 @@ class MemoryRecord(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def require_source_for_non_user_memory(self):
+    def require_source_for_non_user_memory(self) -> Any:
         if self.authority != MemoryAuthority.user_provided and not self.source_refs:
             raise ValueError("source_refs are required unless authority is user_provided")
         if not self.content and not self.safe_summary:

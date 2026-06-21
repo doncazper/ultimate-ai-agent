@@ -7,7 +7,7 @@ from ultimate_ai_agent.api.app import app
 client = TestClient(app)
 
 
-def test_smoke_validate_endpoint_accepts_safe_request_with_valid_approval():
+def test_smoke_validate_endpoint_accepts_safe_request_with_valid_approval() -> None:
     request = smoke_request()
     _, _, grant, decision = approval_for_smoke(request)
     request = request.model_copy(update={"approval_ref": grant.approval_ref})
@@ -21,7 +21,7 @@ def test_smoke_validate_endpoint_accepts_safe_request_with_valid_approval():
     assert body["data"]["reason_codes"] == ["MANUAL_LOOPBACK_SMOKE_ALLOWED", "APPROVAL_VALIDATED"]
 
 
-def test_smoke_validate_endpoint_rejects_remote_and_secret_query_safely():
+def test_smoke_validate_endpoint_rejects_remote_and_secret_query_safely() -> None:
     for endpoint, expected in [
         (loopback_endpoint(base_url="http://example.com/api/generate", allowed_hosts=["example.com"]), "MODEL_RUNTIME_VALIDATION_FAILED"),
         (loopback_endpoint(base_url="http://127.0.0.1/api/generate?token=abc"), "MODEL_RUNTIME_VALIDATION_FAILED"),
@@ -35,7 +35,7 @@ def test_smoke_validate_endpoint_rejects_remote_and_secret_query_safely():
         assert "token=abc" not in response.text
 
 
-def test_public_api_has_no_smoke_execute_route():
+def test_public_api_has_no_smoke_execute_route() -> None:
     paths = {route.path for route in app.routes}
 
     assert "/model-runtime/local/smoke/validate" in paths

@@ -21,7 +21,7 @@ class SecretBroker:
     handle behavior.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._references: Dict[str, CredentialReference] = {}
         self._secret_values: Dict[str, str] = {}
 

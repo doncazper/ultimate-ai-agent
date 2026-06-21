@@ -33,7 +33,7 @@ class ApprovalGrant(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def grant_must_be_scoped_and_secret_clean(self):
+    def grant_must_be_scoped_and_secret_clean(self) -> Any:
         if not self.approved_actions:
             raise ValueError("ApprovalGrant must approve at least one action.")
         assert_approval_secret_clean(self.model_dump(mode="json"), "Approval grant")

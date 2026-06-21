@@ -11,7 +11,7 @@ from ultimate_ai_agent.core.truth import (
 )
 
 
-def test_claim_uses_hash_and_safe_summary_not_raw_text():
+def test_claim_uses_hash_and_safe_summary_not_raw_text() -> None:
     claim = Claim(
         claim_id="claim:1",
         safe_claim_summary="The roadmap marks M24 implemented.",
@@ -24,7 +24,7 @@ def test_claim_uses_hash_and_safe_summary_not_raw_text():
     assert claim.claim_text_hash == "sha256:abc123"
 
 
-def test_claim_rejects_raw_or_secret_like_summary():
+def test_claim_rejects_raw_or_secret_like_summary() -> None:
     with pytest.raises(ValueError, match="raw content"):
         Claim(
             claim_id="claim:raw",
@@ -47,7 +47,7 @@ def test_claim_rejects_raw_or_secret_like_summary():
         )
 
 
-def test_evidence_chain_rejects_claim_self_verification():
+def test_evidence_chain_rejects_claim_self_verification() -> None:
     with pytest.raises(ValueError, match="cannot self-verify"):
         EvidenceChain(
             chain_id="chain:1",

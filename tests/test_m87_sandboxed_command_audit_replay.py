@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.test_m86_shell_approval_gate import _request as _m86_request
@@ -14,7 +15,7 @@ from ultimate_ai_agent.core.sandbox import (
 )
 
 
-def _m86_decision():
+def _m86_decision() -> Any:
     return build_shell_approval_gate_decision(_m86_request())
 
 
@@ -29,7 +30,7 @@ def _step(step_ref: str = "sandboxed-command-audit-replay-step:m87-gate") -> San
     )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     gate = overrides.pop("shell_approval_gate_decision", _m86_decision())
     replay_steps = overrides.pop("replay_steps", [_step()])
     data = {

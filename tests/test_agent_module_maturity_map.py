@@ -13,18 +13,18 @@ def _payload() -> dict:
     return json.loads(MAP_PATH.read_text(encoding="utf-8"))
 
 
-def test_agent_module_maturity_map_verifier_passes_current_repo():
+def test_agent_module_maturity_map_verifier_passes_current_repo() -> None:
     assert verifier.verify(ROOT, MAP_PATH) == []
 
 
-def test_agent_module_maturity_map_covers_requested_modules_exactly():
+def test_agent_module_maturity_map_covers_requested_modules_exactly() -> None:
     payload = _payload()
     module_ids = {module["id"] for module in payload["modules"]}
 
     assert module_ids == verifier.REQUIRED_MODULE_IDS
 
 
-def test_agent_module_maturity_map_flags_missing_referenced_path():
+def test_agent_module_maturity_map_flags_missing_referenced_path() -> None:
     payload = _payload()
     broken = copy.deepcopy(payload)
     broken["modules"][0]["primary_paths"] = ["src/ultimate_ai_agent/core/not_real.py"]
@@ -34,7 +34,7 @@ def test_agent_module_maturity_map_flags_missing_referenced_path():
     assert any("references missing path" in failure for failure in failures)
 
 
-def test_agent_module_maturity_map_flags_unknown_maturity():
+def test_agent_module_maturity_map_flags_unknown_maturity() -> None:
     payload = _payload()
     broken = copy.deepcopy(payload)
     broken["modules"][0]["maturity"] = "vibes_only"

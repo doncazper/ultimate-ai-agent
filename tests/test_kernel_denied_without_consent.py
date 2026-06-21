@@ -1,9 +1,10 @@
+from pathlib import Path
 from ultimate_ai_agent.core.consent.enums import DataBoundary
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.kernel import KernelTaskRequest, KernelTaskStatus, KernelTaskType, MinimumKernelRunner
 
 
-def test_kernel_denies_without_consent_before_file_write(tmp_path):
+def test_kernel_denies_without_consent_before_file_write(tmp_path: Path) -> None:
     request = KernelTaskRequest(
         request_id="ktr_no_consent",
         actor_context=ActorContext(

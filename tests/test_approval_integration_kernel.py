@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 from tests.test_kernel_minimum_lovable_happy_path import grant_workspace_patch_for_kernel_request, request
@@ -5,7 +6,7 @@ from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectT
 from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
 
 
-def test_kernel_accepts_valid_local_dev_approval_grant(tmp_path):
+def test_kernel_accepts_valid_local_dev_approval_grant(tmp_path: Path) -> None:
     kernel_request = request(tmp_path).model_copy(update={"run_id": "run_kernel_m85", "approval_ref": None})
     authority = LocalApprovalAuthority()
     approval_request = authority.create_request(
@@ -43,7 +44,7 @@ def test_kernel_accepts_valid_local_dev_approval_grant(tmp_path):
     assert (tmp_path / "notes/m5.md").exists()
 
 
-def test_kernel_rejects_arbitrary_approval_even_with_authority(tmp_path):
+def test_kernel_rejects_arbitrary_approval_even_with_authority(tmp_path: Path) -> None:
     kernel_request = request(tmp_path).model_copy(update={"run_id": "run_kernel_m85", "approval_ref": "human_approved_ref_123"})
 
     result = MinimumKernelRunner(approval_authority=LocalApprovalAuthority()).run_task(kernel_request)

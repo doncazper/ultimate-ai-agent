@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.mobile_companion import (
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.mobile_companion.planning import (
 )
 
 
-def test_sensor_capability_must_remain_disabled_or_future_broker_only():
+def test_sensor_capability_must_remain_disabled_or_future_broker_only() -> None:
     capability = MobileCapabilityPlan(
         capability=MobileCapabilityKind.camera_planned,
         status=MobileCapabilityStatus.contract_only,
@@ -24,7 +25,7 @@ def test_sensor_capability_must_remain_disabled_or_future_broker_only():
         validate_mobile_capability_plan(capability)
 
 
-def test_sensor_capability_future_broker_status_is_contract_safe():
+def test_sensor_capability_future_broker_status_is_contract_safe() -> None:
     capability = MobileCapabilityPlan(
         capability=MobileCapabilityKind.location_planned,
         status=MobileCapabilityStatus.future_requires_device_capability_broker,
@@ -41,7 +42,7 @@ def test_sensor_capability_future_broker_status_is_contract_safe():
         MobileCapabilityKind.calendar_planned,
     ],
 )
-def test_contacts_and_calendar_capabilities_cannot_be_enabled(capability_kind):
+def test_contacts_and_calendar_capabilities_cannot_be_enabled(capability_kind: Any) -> None:
     capability = MobileCapabilityPlan(
         capability=capability_kind,
         status=MobileCapabilityStatus.future_requires_device_capability_broker,
@@ -60,7 +61,7 @@ def test_contacts_and_calendar_capabilities_cannot_be_enabled(capability_kind):
         MobileCapabilityKind.calendar_planned,
     ],
 )
-def test_contacts_and_calendar_capabilities_require_future_broker(capability_kind):
+def test_contacts_and_calendar_capabilities_require_future_broker(capability_kind: Any) -> None:
     capability = MobileCapabilityPlan(
         capability=capability_kind,
         status=MobileCapabilityStatus.planned_disabled,
@@ -79,7 +80,7 @@ def test_contacts_and_calendar_capabilities_require_future_broker(capability_kin
         MobileCapabilityKind.calendar_planned,
     ],
 )
-def test_contacts_and_calendar_capabilities_cannot_be_contract_implemented(capability_kind):
+def test_contacts_and_calendar_capabilities_cannot_be_contract_implemented(capability_kind: Any) -> None:
     capability = MobileCapabilityPlan(
         capability=capability_kind,
         status=MobileCapabilityStatus.contract_only,
@@ -90,7 +91,7 @@ def test_contacts_and_calendar_capabilities_cannot_be_contract_implemented(capab
         validate_mobile_capability_plan(capability)
 
 
-def test_silent_capture_and_external_send_are_rejected():
+def test_silent_capture_and_external_send_are_rejected() -> None:
     capture = MobileCaptureIntentPlan(
         capture_ref="capture_plan_silent_001",
         capability=MobileCapabilityKind.microphone_planned,
@@ -104,7 +105,7 @@ def test_silent_capture_and_external_send_are_rejected():
         validate_mobile_capture_intent_plan(capture)
 
 
-def test_external_send_allowed_is_rejected_independently():
+def test_external_send_allowed_is_rejected_independently() -> None:
     capture = MobileCaptureIntentPlan(
         capture_ref="capture_plan_external_send_001",
         capability=MobileCapabilityKind.photos_planned,

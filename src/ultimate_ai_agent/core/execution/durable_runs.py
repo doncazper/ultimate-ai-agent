@@ -185,7 +185,7 @@ class DurableRunPersistenceModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_persistence_model(self):
+    def validate_persistence_model(self) -> Any:
         if self.raw_payload_storage_allowed:
             raise ValueError("DURABLE_RUN_RAW_PAYLOAD_STORAGE_DENIED")
         if self.production_runtime_authority:
@@ -220,7 +220,7 @@ class DurableRunIdempotencyRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_idempotency_record(self):
+    def validate_idempotency_record(self) -> Any:
         for value, field_name in [
             (self.run_id, "run_id"),
             (self.idempotency_key, "idempotency_key"),
@@ -262,7 +262,7 @@ class DurableRunRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_record(self):
+    def validate_record(self) -> Any:
         validate_execution_ref(self.run_id, "run_id")
         validate_execution_ref(self.source_ref, "source_ref")
         _validate_durable_text(self.schema_version, "schema_version")
@@ -321,7 +321,7 @@ class DurableRunTransitionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         for value, field_name in [
             (self.run_id, "run_id"),
             (self.transition_id, "transition_id"),
@@ -380,7 +380,7 @@ class DurableRunTransitionDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         if self.execution_authorized:
             raise ValueError("DURABLE_RUN_EXECUTION_AUTHORITY_DENIED")
         if self.execution_performed:
@@ -427,7 +427,7 @@ class DurableRunSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_snapshot(self):
+    def validate_snapshot(self) -> Any:
         _validate_durable_text(self.schema_version, "schema_version")
         validate_execution_ref(self.snapshot_hash_ref, "snapshot_hash_ref")
         if self.schema_version != DURABLE_RUN_SCHEMA_VERSION:

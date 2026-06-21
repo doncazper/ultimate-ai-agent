@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 from functools import lru_cache
 from importlib import import_module
@@ -25,7 +26,7 @@ from ultimate_ai_agent.core.production_readiness import (
 from ultimate_ai_agent.core.time import utc_now
 
 
-def _connectors():
+def _connectors() -> Any:
     try:
         return import_module("ultimate_ai_agent.core.connectors")
     except ModuleNotFoundError as exc:
@@ -33,7 +34,7 @@ def _connectors():
 
 
 @lru_cache(maxsize=1)
-def _m120_source_record():
+def _m120_source_record() -> Any:
     return build_production_authority_readiness_review_record(
         source_record=build_production_red_team_harness_record(
             source_record=build_deployment_mode_matrix_record(
@@ -64,7 +65,7 @@ def _m120_source_record():
 
 
 @lru_cache(maxsize=1)
-def _m124_source_record():
+def _m124_source_record() -> Any:
     connectors = _connectors()
     return connectors.build_messages_connector_contract_review_record(
         source_record=connectors.build_contacts_connector_contract_refresh_record(
@@ -78,14 +79,14 @@ def _m124_source_record():
 
 
 @lru_cache(maxsize=1)
-def _runtime_record():
+def _runtime_record() -> Any:
     connectors = _connectors()
     return connectors.build_connector_read_only_runtime_record(
         source_record=_m124_source_record()
     )
 
 
-def _approval_decision(runtime_record, **overrides):
+def _approval_decision(runtime_record: Any, **overrides: Any) -> Any:
     connectors = _connectors()
     data = {
         "approval_ref": "connector-approval-capture:m126:m127-source",
@@ -124,7 +125,7 @@ def _approval_decision(runtime_record, **overrides):
     )
 
 
-def _request(approval_decision, **overrides):
+def _request(approval_decision: Any, **overrides: Any) -> Any:
     connectors = _connectors()
     assert approval_decision.record is not None
     record = approval_decision.record
@@ -170,7 +171,7 @@ def _request(approval_decision, **overrides):
     return connectors.ConnectorWriteDryRunRequest(**data)
 
 
-def test_m127_connector_write_dry_run_plans_safe_refs_without_authority():
+def test_m127_connector_write_dry_run_plans_safe_refs_without_authority() -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     approval_decision = _approval_decision(runtime_record)
@@ -222,7 +223,7 @@ def test_m127_connector_write_dry_run_plans_safe_refs_without_authority():
     assert "api_key" not in dumped
 
 
-def test_m127_denies_denied_m126_approval_decision():
+def test_m127_denies_denied_m126_approval_decision() -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     approval_decision = _approval_decision(
@@ -289,7 +290,7 @@ def test_m127_denies_denied_m126_approval_decision():
         ),
     ],
 )
-def test_m127_denies_binding_lifecycle_and_allowlist_failures(override, reason):
+def test_m127_denies_binding_lifecycle_and_allowlist_failures(override: Any, reason: str) -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     approval_decision = _approval_decision(runtime_record)
@@ -330,7 +331,7 @@ def test_m127_denies_binding_lifecycle_and_allowlist_failures(override, reason):
         ("dependency_added", "M127_DEPENDENCY_DENIED"),
     ],
 )
-def test_m127_model_copy_mutated_request_flags_are_revalidated(flag, reason):
+def test_m127_model_copy_mutated_request_flags_are_revalidated(flag: Any, reason: str) -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     approval_decision = _approval_decision(runtime_record)
@@ -347,7 +348,7 @@ def test_m127_model_copy_mutated_request_flags_are_revalidated(flag, reason):
     assert decision.execution_performed is False
 
 
-def test_m127_secret_metadata_is_denied_without_echoing_secret():
+def test_m127_secret_metadata_is_denied_without_echoing_secret() -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     approval_decision = _approval_decision(runtime_record)
@@ -365,7 +366,7 @@ def test_m127_secret_metadata_is_denied_without_echoing_secret():
     assert "connector-secret-abc123" not in str(decision.model_dump(mode="json"))
 
 
-def test_m127_plan_validation_denies_raw_fields_and_effects():
+def test_m127_plan_validation_denies_raw_fields_and_effects() -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     approval_decision = _approval_decision(runtime_record)

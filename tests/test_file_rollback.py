@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.files import (
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 
 
-def _actor():
+def _actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -21,7 +22,7 @@ def _actor():
     )
 
 
-def _patch(manager: LocalFileManager, target_path: str, content: str, **kwargs) -> FilePatchProposal:
+def _patch(manager: LocalFileManager, target_path: str, content: str, **kwargs: Any) -> FilePatchProposal:
     return FilePatchProposal(
         proposal_id=kwargs.pop("proposal_id", "file-patch-proposal:rollback"),
         run_id="run_123",
@@ -42,7 +43,7 @@ def _patch(manager: LocalFileManager, target_path: str, content: str, **kwargs) 
     )
 
 
-def _approve(manager: LocalFileManager, proposal: FilePatchProposal):
+def _approve(manager: LocalFileManager, proposal: FilePatchProposal) -> tuple[Any, ...]:
     authority = LocalApprovalAuthority()
     request = manager.approval_request_for_patch(proposal)
     authority.create_request(request)
@@ -56,7 +57,7 @@ def _approve(manager: LocalFileManager, proposal: FilePatchProposal):
     return authority, proposal.model_copy(update={"approval_ref": grant.approval_ref})
 
 
-def _approve_rollback(manager: LocalFileManager, rollback_plan, *, approval_ref="approval:file-rollback-primary"):
+def _approve_rollback(manager: LocalFileManager, rollback_plan: Any, *, approval_ref: str = "approval:file-rollback-primary") -> tuple[Any, ...]:
     authority = LocalApprovalAuthority()
     request = manager.approval_request_for_rollback(
         rollback_plan,
@@ -74,7 +75,7 @@ def _approve_rollback(manager: LocalFileManager, rollback_plan, *, approval_ref=
     return authority, grant.approval_ref
 
 
-def test_direct_rollback_bypass_is_denied(tmp_path: Path):
+def test_direct_rollback_bypass_is_denied(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -87,7 +88,7 @@ def test_direct_rollback_bypass_is_denied(tmp_path: Path):
     assert target.read_text(encoding="utf-8") == "new"
 
 
-def test_rollback_with_receipt_requires_exact_approval(tmp_path: Path):
+def test_rollback_with_receipt_requires_exact_approval(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -106,7 +107,7 @@ def test_rollback_with_receipt_requires_exact_approval(tmp_path: Path):
     assert target.read_text(encoding="utf-8") == "new"
 
 
-def test_rollback_with_receipt_rejects_wrong_scope_approval(tmp_path: Path):
+def test_rollback_with_receipt_rejects_wrong_scope_approval(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -130,7 +131,7 @@ def test_rollback_with_receipt_rejects_wrong_scope_approval(tmp_path: Path):
     assert target.read_text(encoding="utf-8") == "new"
 
 
-def test_patch_rollback_with_receipt_restores_snapshot_without_raw_data(tmp_path: Path):
+def test_patch_rollback_with_receipt_restores_snapshot_without_raw_data(tmp_path: Path) -> None:
     target = tmp_path / "artifact.txt"
     target.write_text("previous-private-text", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -165,7 +166,7 @@ def test_patch_rollback_with_receipt_restores_snapshot_without_raw_data(tmp_path
     assert "artifact.txt" not in receipt_json
 
 
-def test_patch_rollback_duplicate_idempotency_is_receipted_and_blocked(tmp_path: Path):
+def test_patch_rollback_duplicate_idempotency_is_receipted_and_blocked(tmp_path: Path) -> None:
     target = tmp_path / "artifact.txt"
     target.write_text("previous-private-text", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -205,8 +206,8 @@ def test_patch_rollback_duplicate_idempotency_is_receipted_and_blocked(tmp_path:
 
 def test_patch_rollback_apply_failure_returns_safe_receipt_and_preserves_state(
     tmp_path: Path,
-    monkeypatch,
-):
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     target = tmp_path / "artifact.txt"
     target.write_text("previous-private-text", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -214,7 +215,7 @@ def test_patch_rollback_apply_failure_returns_safe_receipt_and_preserves_state(
     result = manager.apply_patch_proposal(proposal, approval_authority=authority)
     rollback_authority, rollback_approval_ref = _approve_rollback(manager, manager.get_rollback_plan(result.rollback_ref))
 
-    def fail_replace(_source, _target):
+    def fail_replace(_source: Any, _target: Any) -> None:
         raise OSError("replace failed")
 
     monkeypatch.setattr("ultimate_ai_agent.core.files.manager.os.replace", fail_replace)

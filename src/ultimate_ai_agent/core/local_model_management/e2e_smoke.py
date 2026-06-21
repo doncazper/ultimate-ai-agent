@@ -69,7 +69,7 @@ class LocalModelE2ESmokePrerequisites(_LocalModelE2ESmokeModel):
     openwebui_shell_ref: str = "openwebui-shell-ref:p0-005:local-test-shell"
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.gateway_model_ref, "gateway_model_ref"),
             (self.rollback_plan_ref, "rollback_plan_ref"),
@@ -104,7 +104,7 @@ class LocalModelE2ESmokeStepResult(_LocalModelE2ESmokeModel):
     credential_material_included: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.evidence_ref, "evidence_ref"),
             (self.result_ref, "result_ref"),
@@ -152,7 +152,7 @@ class LocalModelE2ESmokeReport(_LocalModelE2ESmokeModel):
     side_effect_refs: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.source_checkpoint_ref, "source_checkpoint_ref"),
@@ -330,7 +330,7 @@ def run_local_model_e2e_smoke_harness(
     return _build_report(steps, prereq.rollback_plan_ref, side_effect_refs)
 
 
-def _probe_openwebui_shell(add) -> None:
+def _probe_openwebui_shell(add: Any) -> None:
     models = build_openwebui_local_models_response()
     chat = build_openwebui_local_chat_completion_response(
         OpenWebUILocalChatCompletionRequest(
@@ -356,7 +356,7 @@ def _probe_openwebui_shell(add) -> None:
         )
 
 
-def _probe_auth_failure(add) -> None:
+def _probe_auth_failure(add: Any) -> None:
     openwebui_denied = not openwebui_test_gateway_authorized(
         "Bearer wrong",
         {"UAA_OPENWEBUI_TEST_GATEWAY_KEY": DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY},
@@ -374,7 +374,7 @@ def _probe_auth_failure(add) -> None:
     )
 
 
-def _probe_safe_failure(add) -> None:
+def _probe_safe_failure(add: Any) -> None:
     try:
         M164ChatCompletionRequest(
             model=DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
@@ -392,7 +392,7 @@ def _probe_safe_failure(add) -> None:
     )
 
 
-def _probe_tools_functions_streaming_denial(add) -> None:
+def _probe_tools_functions_streaming_denial(add: Any) -> None:
     denied = 0
     probes: list[dict[str, Any]] = [
         {"stream": True},

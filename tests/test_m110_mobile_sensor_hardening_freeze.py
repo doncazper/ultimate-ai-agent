@@ -1,9 +1,10 @@
+from typing import Any
 import pytest
 
 import ultimate_ai_agent.core.mobile_companion as mobile_companion
 
 
-def _source_record():
+def _source_record() -> Any:
     return mobile_companion.build_mobile_sensor_audit_ledger_record(
         source_record=mobile_companion.build_mobile_kill_switch_revocation_record(
             source_report=mobile_companion.build_mobile_approval_renewal_ux_report()

@@ -8,6 +8,7 @@ write whose ``expected_existing_hash`` came from build_file_ref/read_preview
 was spuriously rejected with EXPECTED_HASH_MISMATCH even though nothing had
 changed. These tests pin a single, consistent hash across both paths.
 """
+import pytest
 
 import hashlib
 from pathlib import Path
@@ -35,7 +36,7 @@ def _actor() -> ActorContext:
     )
 
 
-def test_read_path_hash_matches_write_path_for_crlf_file(tmp_path: Path):
+def test_read_path_hash_matches_write_path_for_crlf_file(tmp_path: Path) -> None:
     target = tmp_path / "crlf.txt"
     # Write explicit CRLF bytes regardless of host platform.
     target.write_bytes(b"alpha\r\nbeta\r\ngamma\r\n")
@@ -76,7 +77,7 @@ def test_read_path_hash_matches_write_path_for_crlf_file(tmp_path: Path):
     assert decision.allowed is True
 
 
-def test_stale_expected_hash_still_detected(tmp_path: Path):
+def test_stale_expected_hash_still_detected(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_bytes(b"current contents\n")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -99,7 +100,7 @@ def test_stale_expected_hash_still_detected(tmp_path: Path):
     assert "EXPECTED_HASH_MISMATCH" in decision.reason_codes
 
 
-def test_read_path_hashing_remains_streaming(monkeypatch, tmp_path: Path):
+def test_read_path_hashing_remains_streaming(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     target = tmp_path / "large.txt"
     target.write_text("alpha\nbeta\n", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -125,7 +126,7 @@ def test_read_path_hashing_remains_streaming(monkeypatch, tmp_path: Path):
     assert preview.truncated is True
 
 
-def test_preview_hash_tolerates_invalid_utf8_without_full_read(tmp_path: Path):
+def test_preview_hash_tolerates_invalid_utf8_without_full_read(tmp_path: Path) -> None:
     target = tmp_path / "mixed.bin"
     target.write_bytes(b"alpha\xff\r\nbeta\n")
     manager = LocalFileManager(workspace_root=tmp_path)

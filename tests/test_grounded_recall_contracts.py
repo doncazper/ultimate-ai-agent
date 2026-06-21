@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.recall import (
 )
 
 
-def test_grounded_recall_models_are_contract_only_and_forbid_extra_fields():
+def test_grounded_recall_models_are_contract_only_and_forbid_extra_fields() -> None:
     candidate = RecallCandidate(
         candidate_ref="recall:candidate:canonical",
         source_ref="canonical:m26",
@@ -43,7 +43,7 @@ def test_grounded_recall_models_are_contract_only_and_forbid_extra_fields():
         )
 
 
-def test_grounded_recall_manifest_defaults_disable_runtime_behaviors():
+def test_grounded_recall_manifest_defaults_disable_runtime_behaviors() -> None:
     manifest = GroundedRecallManifest(baseline_version="0.30.1")
 
     assert manifest.recall_router_enabled is True
@@ -59,7 +59,7 @@ def test_grounded_recall_manifest_defaults_disable_runtime_behaviors():
     assert manifest.backend_routes_added is False
 
 
-def test_grounded_recall_request_rejects_unsafe_runtime_flags():
+def test_grounded_recall_request_rejects_unsafe_runtime_flags() -> None:
     candidate = RecallCandidate(
         candidate_ref="recall:candidate:flag",
         source_ref="canonical:m26",
@@ -88,7 +88,7 @@ def test_grounded_recall_request_rejects_unsafe_runtime_flags():
             )
 
 
-def test_grounded_recall_candidate_rejects_raw_or_secret_like_summary():
+def test_grounded_recall_candidate_rejects_raw_or_secret_like_summary() -> None:
     with pytest.raises(ValueError, match="raw"):
         RecallCandidate(
             candidate_ref="recall:candidate:raw",
@@ -106,7 +106,7 @@ def test_grounded_recall_candidate_rejects_raw_or_secret_like_summary():
         )
 
 
-def test_grounded_recall_status_enum_blocks_revoked_and_deleted_sources():
+def test_grounded_recall_status_enum_blocks_revoked_and_deleted_sources() -> None:
     assert RecallCandidateStatus.revoked.value == "revoked"
     assert RecallCandidateStatus.deleted.value == "deleted"
     assert RecallCandidateStatus.superseded.value == "superseded"

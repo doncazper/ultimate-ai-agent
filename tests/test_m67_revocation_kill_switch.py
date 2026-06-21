@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -19,7 +20,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _scope(**overrides):
+def _scope(**overrides: Any) -> Any:
     data = {
         "scope_ref": "autonomy-session-scope:m67-local-review",
         "actor_ref": "actor:local-reviewer",
@@ -36,7 +37,7 @@ def _scope(**overrides):
     return ScopedAutonomySessionScope(**data)
 
 
-def _policy_decision(scope=None):
+def _policy_decision(scope: Any | None = None) -> Any:
     active_scope = scope or _scope()
     request = ScopedAutonomySessionRequest(
         session_request_ref="autonomy-session-request:m67-local-review",
@@ -66,7 +67,7 @@ def _policy_decision(scope=None):
     )
 
 
-def _audit_view(scope=None):
+def _audit_view(scope: Any | None = None) -> Any:
     active_scope = scope or _scope()
     simulation_result = build_autonomous_plan_simulation_result(
         AutonomousPlanSimulationRequest(
@@ -98,7 +99,7 @@ def _audit_view(scope=None):
     )
 
 
-def _bundle(**overrides):
+def _bundle(**overrides: Any) -> Any:
     scope = overrides.pop("source_scope", _scope())
     data = {
         "bundle_ref": "scoped-approval-bundle:m67-local-review",
@@ -122,7 +123,7 @@ def _bundle(**overrides):
     return build_scoped_approval_bundle(**data)
 
 
-def _record(**overrides):
+def _record(**overrides: Any) -> Any:
     bundle = overrides.pop("approval_bundle", _bundle())
     data = {
         "revocation_record_ref": "revocation-kill-switch-record:m67-local-review",

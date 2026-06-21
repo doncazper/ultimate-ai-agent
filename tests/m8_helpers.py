@@ -1,3 +1,4 @@
+from typing import Any
 from tests.m7_helpers import actor, classification, local_profile, policy, route_request
 from ultimate_ai_agent.core.model_router import ModelRouter
 from ultimate_ai_agent.core.model_runtime import (
@@ -35,7 +36,7 @@ def simulated_manifest(enabled: bool = True, max_input_tokens: int = 4096) -> Mo
     )
 
 
-def runtime_request(**overrides) -> ModelRuntimeRequest:
+def runtime_request(**overrides: Any) -> ModelRuntimeRequest:
     payload = {
         "runtime_request_id": "mrt_req_1",
         "run_id": "run_m8",
@@ -62,7 +63,7 @@ def runtime_request(**overrides) -> ModelRuntimeRequest:
     return ModelRuntimeRequest(**payload)
 
 
-def selected_route_pair():
+def selected_route_pair() -> tuple[Any, ...]:
     profile = local_profile()
     request = route_request(profiles=[profile], routing_policy=policy(prefer_local=True, allow_cloud=False, allow_paid=False))
     decision = ModelRouter().route(request)

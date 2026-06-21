@@ -1,7 +1,8 @@
+from pathlib import Path
 from ultimate_ai_agent.core.gate import run_m5_shadow_replay
 
 
-def test_shadow_replay_exposes_receipt_and_event_refs(tmp_path):
+def test_shadow_replay_exposes_receipt_and_event_refs(tmp_path: Path) -> None:
     result = run_m5_shadow_replay(workspace_root=tmp_path)
 
     assert result.passed is True

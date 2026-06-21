@@ -1,3 +1,5 @@
+from pathlib import Path
+import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
@@ -7,7 +9,7 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 client = TestClient(app)
 
 
-def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypatch, tmp_path):
+def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
 
     for path, operation in [
@@ -142,7 +144,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
     assert "scoped memory policy milestone" in memory_item["next_safe_action"]
 
 
-def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_class(monkeypatch, tmp_path):
+def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_class(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}

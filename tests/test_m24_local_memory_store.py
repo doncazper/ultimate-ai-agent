@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 from ultimate_ai_agent.core.memory.enums import (
     MemoryDataClassification,
     MemoryLayer,
@@ -13,7 +15,7 @@ from ultimate_ai_agent.core.memory.provider import MemoryDeleteRequest, MemoryEx
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext
 
 
-def _request(request_id="mwr_m24_store", summary="Reviewed local memory summary."):
+def _request(request_id: str = "mwr_m24_store", summary: str = "Reviewed local memory summary.") -> Any:
     return PublicMemoryWriteRequest(
         request_id=request_id,
         provider_ref="local_dev_memory",
@@ -35,7 +37,7 @@ def _request(request_id="mwr_m24_store", summary="Reviewed local memory summary.
     )
 
 
-def test_m24_public_memory_write_request_is_provider_store_request():
+def test_m24_public_memory_write_request_is_provider_store_request() -> None:
     assert hasattr(provider_module, "MemoryProviderWriteRequest")
     MemoryProviderWriteRequest = provider_module.MemoryProviderWriteRequest
     assert PublicMemoryWriteRequest is MemoryProviderWriteRequest
@@ -44,7 +46,7 @@ def test_m24_public_memory_write_request_is_provider_store_request():
     assert "content" not in PublicMemoryWriteRequest.model_fields
 
 
-def test_m24_local_memory_store_accepts_package_root_write_request():
+def test_m24_local_memory_store_accepts_package_root_write_request() -> None:
     store = LocalMemoryStore()
 
     write = store.put_record(
@@ -66,7 +68,7 @@ def test_m24_local_memory_store_accepts_package_root_write_request():
     assert write.memory_id is not None
 
 
-def test_m24_local_memory_store_rejects_legacy_content_bearing_write_request():
+def test_m24_local_memory_store_rejects_legacy_content_bearing_write_request() -> None:
     assert hasattr(memory_package, "LegacyMemoryWriteRequest")
     LegacyMemoryWriteRequest = memory_package.LegacyMemoryWriteRequest
     store = LocalMemoryStore()
@@ -94,7 +96,7 @@ def test_m24_local_memory_store_rejects_legacy_content_bearing_write_request():
         raise AssertionError("legacy content-bearing MemoryWriteRequest was accepted by LocalMemoryStore")
 
 
-def test_m24_default_manifest_is_local_only_and_non_operational():
+def test_m24_default_manifest_is_local_only_and_non_operational() -> None:
     manifest = build_default_memory_provider_manifest(baseline_version="0.28.0")
     profile = manifest.providers[0]
 
@@ -113,7 +115,7 @@ def test_m24_default_manifest_is_local_only_and_non_operational():
     assert profile.production_ready is False
 
 
-def test_m24_local_memory_store_put_get_list_delete_export_in_memory():
+def test_m24_local_memory_store_put_get_list_delete_export_in_memory() -> None:
     store = LocalMemoryStore()
 
     write = store.put_record(_request())
@@ -153,7 +155,7 @@ def test_m24_local_memory_store_put_get_list_delete_export_in_memory():
     assert store.get_record(write.memory_id).retention_state == "deleted"
 
 
-def test_m24_local_memory_store_get_record_returns_defensive_copy_in_memory():
+def test_m24_local_memory_store_get_record_returns_defensive_copy_in_memory() -> None:
     store = LocalMemoryStore()
     write = store.put_record(_request(request_id="mwr_m24_copy", summary="Original reviewed summary."))
     assert write.allowed is True
@@ -169,7 +171,7 @@ def test_m24_local_memory_store_get_record_returns_defensive_copy_in_memory():
     assert "outside_mutation" not in second.metadata
 
 
-def test_m24_local_sqlite_store_uses_explicit_tmp_path_and_reopens(tmp_path):
+def test_m24_local_sqlite_store_uses_explicit_tmp_path_and_reopens(tmp_path: Path) -> None:
     db_path = tmp_path / "m24_memory.sqlite3"
     first = LocalMemoryStore(storage_path=db_path)
     write = first.put_record(_request(request_id="mwr_m24_sqlite", summary="Reviewed SQLite summary."))

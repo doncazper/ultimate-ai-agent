@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.test_m90_shell_subprocess_hardening_freeze import _request as _m90_request
@@ -13,11 +14,11 @@ from ultimate_ai_agent.core.tools import (
 )
 
 
-def _m90_decision():
+def _m90_decision() -> Any:
     return build_shell_subprocess_hardening_freeze(_m90_request())
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     m90_decision = overrides.pop("shell_subprocess_hardening_freeze_decision", _m90_decision())
     data = {
         "request_ref": "autonomous-tool-execution-contract-request:m91",

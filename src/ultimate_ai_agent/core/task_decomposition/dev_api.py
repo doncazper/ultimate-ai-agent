@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
@@ -37,7 +38,7 @@ def build_task_decomposition_dev_app(
     )
 
     @app.get("/task-decomposition/catalog", response_model=ResultEnvelope)
-    def get_catalog():
+    def get_catalog() -> Any:
         return ResultEnvelope(
             success=True,
             operation="task_decomposition_catalog",
@@ -47,7 +48,7 @@ def build_task_decomposition_dev_app(
         )
 
     @app.post("/task-decomposition/examples/init", response_model=ResultEnvelope)
-    def init_examples():
+    def init_examples() -> Any:
         return ResultEnvelope(
             success=True,
             operation="task_decomposition_init_examples",
@@ -57,7 +58,7 @@ def build_task_decomposition_dev_app(
         )
 
     @app.post("/task-decomposition/capabilities/register", response_model=ResultEnvelope)
-    def register_capability(request: TaskDecompositionRegisterRequest):
+    def register_capability(request: TaskDecompositionRegisterRequest) -> Any:
         try:
             contract = active_service.register(request)
             return ResultEnvelope(
@@ -71,7 +72,7 @@ def build_task_decomposition_dev_app(
             return _error("task_decomposition_register_capability", "TASK_DECOMPOSITION_REGISTER_FAILED")
 
     @app.post("/task-decomposition/classify", response_model=ResultEnvelope)
-    def classify(request: TaskDecompositionRequest):
+    def classify(request: TaskDecompositionRequest) -> Any:
         intent = active_service.classify(request)
         return ResultEnvelope(
             success=True,
@@ -82,7 +83,7 @@ def build_task_decomposition_dev_app(
         )
 
     @app.post("/task-decomposition/decompose", response_model=ResultEnvelope)
-    def decompose(request: TaskDecompositionRequest):
+    def decompose(request: TaskDecompositionRequest) -> Any:
         result = active_service.decompose(request)
         return ResultEnvelope(
             success=True,
@@ -93,7 +94,7 @@ def build_task_decomposition_dev_app(
         )
 
     @app.post("/task-decomposition/plans/validate", response_model=ResultEnvelope)
-    def validate_plan(request: TaskPlanValidationRequest):
+    def validate_plan(request: TaskPlanValidationRequest) -> Any:
         validation = active_service.validate_plan(request)
         return ResultEnvelope(
             success=validation.valid,
@@ -104,7 +105,7 @@ def build_task_decomposition_dev_app(
         )
 
     @app.post("/task-decomposition/approval-request", response_model=ResultEnvelope)
-    def approval_request(request: TaskCapabilityApprovalRequestPayload):
+    def approval_request(request: TaskCapabilityApprovalRequestPayload) -> Any:
         try:
             approval = active_service.build_approval_request(request)
             return ResultEnvelope(
@@ -118,7 +119,7 @@ def build_task_decomposition_dev_app(
             return _error("task_decomposition_approval_request", "TASK_DECOMPOSITION_APPROVAL_REQUEST_FAILED")
 
     @app.post("/task-decomposition/plans/execute", response_model=ResultEnvelope)
-    async def execute_plan(request: TaskPlanExecutionRequest):
+    async def execute_plan(request: TaskPlanExecutionRequest) -> Any:
         result = await active_service.execute_plan(request)
         return ResultEnvelope(
             success=result.status == "succeeded",
@@ -129,7 +130,7 @@ def build_task_decomposition_dev_app(
         )
 
     @app.post("/task-decomposition/run", response_model=ResultEnvelope)
-    async def run(request: TaskDecompositionRunRequest):
+    async def run(request: TaskDecompositionRunRequest) -> Any:
         result = await active_service.run(request)
         succeeded = result.execution is not None and result.execution.status == "succeeded"
         return ResultEnvelope(

@@ -27,7 +27,7 @@ def _extract_job_block(workflow: str, job_name: str) -> str:
     return "\n".join(lines[start:end])
 
 
-def test_foundation_gate_ci_report_depends_on_required_verification_jobs():
+def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     section = _extract_job_block(workflow, "foundation-gate-report")
 
@@ -42,7 +42,7 @@ def test_foundation_gate_ci_report_depends_on_required_verification_jobs():
     assert "$GITHUB_STEP_SUMMARY" in section
 
 
-def test_release_lanes_are_visible_ci_jobs_with_safe_summary_reports():
+def test_release_lanes_are_visible_ci_jobs_with_safe_summary_reports() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert "actions/upload-artifact" not in workflow
@@ -60,7 +60,7 @@ def test_release_lanes_are_visible_ci_jobs_with_safe_summary_reports():
             assert command_ref in section
 
 
-def test_openapi_release_lane_keeps_route_module_ownership_green():
+def test_openapi_release_lane_keeps_route_module_ownership_green() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     section = _extract_job_block(workflow, "release-lane-openapi")
 
@@ -69,7 +69,7 @@ def test_openapi_release_lane_keeps_route_module_ownership_green():
     assert "PYTHONPATH=src" in section
 
 
-def test_frontend_release_lane_uses_existing_frontend_job_as_required_equivalent():
+def test_frontend_release_lane_uses_existing_frontend_job_as_required_equivalent() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     section = _extract_job_block(workflow, "release-lane-frontend")
 

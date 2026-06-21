@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from datetime import UTC, datetime
 from ultimate_ai_agent.core.tools import (
@@ -22,7 +23,7 @@ from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType
 from ultimate_ai_agent.core.consent.enums import DataBoundary
 
 @pytest.fixture
-def actor_context():
+def actor_context() -> Any:
     return ActorContext(
         actor_type=ActorType.orchestrator,
         actor_id="test_actor",
@@ -30,7 +31,7 @@ def actor_context():
         created_at=datetime.now(UTC)
     )
 
-def test_tool_broker_high_risk_requires_human_approval(actor_context):
+def test_tool_broker_high_risk_requires_human_approval(actor_context: Any) -> None:
     registry = ToolRegistry()
     high_risk_tool = ToolManifest(
         tool_id="dangerous_tool",

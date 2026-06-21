@@ -104,7 +104,7 @@ class PublicDocsWikiReadinessPolicy(_PublicDocsWikiReadinessModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -204,7 +204,7 @@ class PublicDocsWikiReadinessRequest(_PublicDocsWikiReadinessModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -302,7 +302,7 @@ class PublicDocsWikiReadinessRecord(_PublicDocsWikiReadinessModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -487,7 +487,7 @@ def validate_public_docs_wiki_readiness_record(
     return validated
 
 
-def _request_ref_pairs(request: PublicDocsWikiReadinessRequest):
+def _request_ref_pairs(request: PublicDocsWikiReadinessRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.public_doc_ref, "public_doc_ref"),
@@ -501,7 +501,7 @@ def _request_ref_pairs(request: PublicDocsWikiReadinessRequest):
     ]
 
 
-def _record_ref_pairs(record: PublicDocsWikiReadinessRecord):
+def _record_ref_pairs(record: PublicDocsWikiReadinessRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.public_doc_ref, "public_doc_ref"),
@@ -516,7 +516,7 @@ def _record_ref_pairs(record: PublicDocsWikiReadinessRecord):
     ]
 
 
-def _request_ref_lists(request: PublicDocsWikiReadinessRequest):
+def _request_ref_lists(request: PublicDocsWikiReadinessRequest) -> list[Any]:
     return [
         (
             request.public_doc_refs,
@@ -556,7 +556,7 @@ def _request_ref_lists(request: PublicDocsWikiReadinessRequest):
     ]
 
 
-def _record_ref_lists(record: PublicDocsWikiReadinessRecord):
+def _record_ref_lists(record: PublicDocsWikiReadinessRecord) -> list[Any]:
     return [
         (
             record.public_doc_refs,

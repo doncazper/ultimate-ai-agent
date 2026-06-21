@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.production_readiness import (
 )
 
 
-def test_m166_release_gate_remains_exact_bound_for_m167_matrix_scaffold():
+def test_m166_release_gate_remains_exact_bound_for_m167_matrix_scaffold() -> None:
     reviewed_evidence = [
         item.model_copy(
             update={

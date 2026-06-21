@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.planning import (
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.planning import (
 )
 
 
-def _step(step_kind=TaskStepKind.review_metadata, risk=TaskRiskLevel.low, **overrides):
+def _step(step_kind: Any = TaskStepKind.review_metadata, risk: Any = TaskRiskLevel.low, **overrides: Any) -> Any:
     data = {
         "step_id": f"step:m29-{step_kind.value.replace('_', '-')}",
         "step_kind": step_kind,
@@ -25,7 +26,7 @@ def _step(step_kind=TaskStepKind.review_metadata, risk=TaskRiskLevel.low, **over
     return TaskStep(**data)
 
 
-def _plan(**overrides):
+def _plan(**overrides: Any) -> Any:
     data = {
         "plan_id": "plan:m29-no-exec",
         "goal": TaskGoal(goal_id="goal:m29-no-exec", safe_summary="Plan without execution."),
@@ -44,7 +45,7 @@ def _plan(**overrides):
         ({"schedule_requested": True}, "TASK_SCHEDULER_DENIED"),
     ],
 )
-def test_request_execution_auto_run_and_scheduler_are_denied(request_update, reason):
+def test_request_execution_auto_run_and_scheduler_are_denied(request_update: Any, reason: str) -> None:
     request = TaskPlanningRequest(plan=_plan()).model_copy(update=request_update)
     decision = evaluate_task_plan(request)
 
@@ -72,7 +73,7 @@ def test_request_execution_auto_run_and_scheduler_are_denied(request_update, rea
         TaskStepKind.shell_execution_blocked,
     ],
 )
-def test_effectful_or_executing_steps_are_denied_without_running(step_kind):
+def test_effectful_or_executing_steps_are_denied_without_running(step_kind: Any) -> None:
     decision = evaluate_task_plan(_plan(steps=[_step(step_kind=step_kind, risk=TaskRiskLevel.high)]))
 
     assert decision.valid_for_review is False
@@ -81,7 +82,7 @@ def test_effectful_or_executing_steps_are_denied_without_running(step_kind):
     assert "TASK_STEP_EXECUTION_DENIED" in decision.reason_codes
 
 
-def test_risk_downgrade_by_caller_metadata_is_denied():
+def test_risk_downgrade_by_caller_metadata_is_denied() -> None:
     step = _step(step_kind=TaskStepKind.file_mutation_planned, risk=TaskRiskLevel.low)
     decision = evaluate_task_plan(_plan(steps=[step]))
 
@@ -89,7 +90,7 @@ def test_risk_downgrade_by_caller_metadata_is_denied():
     assert "TASK_RISK_DOWNGRADE_DENIED" in decision.reason_codes
 
 
-def test_receipt_plan_cannot_claim_execution_or_raw_storage():
+def test_receipt_plan_cannot_claim_execution_or_raw_storage() -> None:
     decision = evaluate_task_plan(_plan())
     receipt = decision.receipt_plan.model_copy(update={"execution_performed": True})
 
@@ -101,7 +102,7 @@ def test_receipt_plan_cannot_claim_execution_or_raw_storage():
         raw_receipt.model_validate(raw_receipt.model_dump())
 
 
-def test_manifest_explicitly_disables_background_workers():
+def test_manifest_explicitly_disables_background_workers() -> None:
     from ultimate_ai_agent.core.planning import build_task_planning_manifest
 
     manifest = build_task_planning_manifest(baseline_version="0.33.1")

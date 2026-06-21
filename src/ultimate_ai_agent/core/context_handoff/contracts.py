@@ -39,7 +39,7 @@ class ContextHandoffApprovalPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         if not self.context_handoff_approval_enabled:
             raise ValueError("CONTEXT_HANDOFF_APPROVAL_DISABLED")
         if not self.exact_proposal_binding_required:
@@ -90,7 +90,7 @@ class ContextHandoffApprovalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         for value, field_name in [
             (self.approval_ref, "approval_ref"),
             (self.actor_ref, "actor_ref"),
@@ -146,7 +146,7 @@ class ContextHandoffApprovalReceiptPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_receipt(self):
+    def validate_receipt(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.approval_ref, "approval_ref"),
@@ -195,7 +195,7 @@ class ContextHandoffApprovalDecision(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         validate_action_ref(self.decision_ref, "decision_ref")
         if self.approval_ref:
             validate_action_ref(self.approval_ref, "approval_ref")

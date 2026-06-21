@@ -4,8 +4,8 @@
 This script is inspection-only. It defines release-candidate verification lanes
 and their commands, but it does not execute those commands.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import json

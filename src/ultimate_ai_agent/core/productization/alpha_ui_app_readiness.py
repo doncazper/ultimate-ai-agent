@@ -92,7 +92,7 @@ class AlphaUiAppReadinessPolicy(_AlphaUiAppReadinessModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -178,7 +178,7 @@ class AlphaUiAppReadinessRequest(_AlphaUiAppReadinessModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -262,7 +262,7 @@ class AlphaUiAppReadinessRecord(_AlphaUiAppReadinessModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -456,7 +456,7 @@ def validate_alpha_ui_app_readiness_record(
     return validated
 
 
-def _request_ref_pairs(request: AlphaUiAppReadinessRequest):
+def _request_ref_pairs(request: AlphaUiAppReadinessRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.readiness_review_ref, "readiness_review_ref"),
@@ -470,7 +470,7 @@ def _request_ref_pairs(request: AlphaUiAppReadinessRequest):
     ]
 
 
-def _record_ref_pairs(record: AlphaUiAppReadinessRecord):
+def _record_ref_pairs(record: AlphaUiAppReadinessRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.readiness_review_ref, "readiness_review_ref"),

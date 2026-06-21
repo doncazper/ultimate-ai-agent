@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.device_capabilities.validation import (
 )
 
 
-def test_manifest_rejects_device_client_authority():
+def test_manifest_rejects_device_client_authority() -> None:
     manifest = DeviceCapabilityManifest(
         manifest_id="device_capability_manifest_authority",
         baseline_version="0.24.0",
@@ -25,7 +25,7 @@ def test_manifest_rejects_device_client_authority():
         assert_device_contract_only(manifest)
 
 
-def test_manifest_rejects_trusted_control_input_claim():
+def test_manifest_rejects_trusted_control_input_claim() -> None:
     manifest = DeviceCapabilityManifest(
         manifest_id="device_capability_manifest_trusted_output",
         baseline_version="0.24.0",
@@ -38,7 +38,7 @@ def test_manifest_rejects_trusted_control_input_claim():
         assert_device_contract_only(manifest)
 
 
-def test_trust_handshake_plan_rejects_runtime_pairing_claims():
+def test_trust_handshake_plan_rejects_runtime_pairing_claims() -> None:
     plan = DeviceTrustHandshakePlan(
         plan_id="trust_handshake_runtime_claim",
         platform=DevicePlatform.mobile_web_planned,
@@ -52,7 +52,7 @@ def test_trust_handshake_plan_rejects_runtime_pairing_claims():
         validate_device_trust_handshake_plan(plan)
 
 
-def test_trust_handshake_plan_keeps_receipt_and_local_approval_required():
+def test_trust_handshake_plan_keeps_receipt_and_local_approval_required() -> None:
     plan = DeviceTrustHandshakePlan(
         plan_id="trust_handshake_contract",
         platform=DevicePlatform.macos_planned,

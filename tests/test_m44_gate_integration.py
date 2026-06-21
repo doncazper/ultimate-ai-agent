@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.gate import (
     FoundationGateStatus,
     default_foundation_gate_criteria,
@@ -5,7 +6,7 @@ from ultimate_ai_agent.core.gate import (
 from ultimate_ai_agent.core.gate.evaluators import m44_openapi_route_failures
 
 
-def test_m44_gate_criteria_are_registered_and_pass(foundation_gate_results) -> None:
+def test_m44_gate_criteria_are_registered_and_pass(foundation_gate_results: Any) -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
     expected = [

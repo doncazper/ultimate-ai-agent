@@ -33,7 +33,7 @@ class KernelTaskDecompositionRun(BaseModel):
 
 
 class TaskDecompositionKernelAdapter:
-    def __init__(self, service: TaskDecompositionService | None = None):
+    def __init__(self, service: TaskDecompositionService | None = None) -> None:
         self.service = service or TaskDecompositionService.from_env()
 
     def preview(self, raw_request: str, context: dict[str, Any] | None = None) -> KernelTaskDecompositionPreview:

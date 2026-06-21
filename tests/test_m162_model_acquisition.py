@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import hashlib
 import os
 
@@ -22,7 +24,7 @@ from ultimate_ai_agent.core.local_model_management import (
 PINNED_REVISION = "0123456789abcdef0123456789abcdef01234567"
 
 
-def _artifact(**overrides):
+def _artifact(**overrides: Any) -> Any:
     data = {
         "artifact_ref": "gguf-artifact:m162-qwopus-primary",
         "repo_id": "org/qwopus",
@@ -38,7 +40,7 @@ def _artifact(**overrides):
     return M162GgufArtifactRequest(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "model-acquisition-request:m162-qwopus",
         "approval_ref": "approval:m162-gguf-acquisition-qwopus",
@@ -48,7 +50,7 @@ def _request(**overrides):
     return M162ModelAcquisitionRequest(**data)
 
 
-def test_m162_policy_allows_only_exact_approved_gguf_cache_acquisition():
+def test_m162_policy_allows_only_exact_approved_gguf_cache_acquisition() -> None:
     policy = validate_m162_model_acquisition_policy(M162ModelAcquisitionPolicy())
 
     assert policy.exact_user_approval_required is True
@@ -77,7 +79,7 @@ def test_m162_policy_allows_only_exact_approved_gguf_cache_acquisition():
         ({"role": ArtifactRole.shard, "filename": "model-q4.gguf"}, "M162_SHARDED_FILENAME_REQUIRED"),
     ],
 )
-def test_m162_artifact_requests_require_exact_safe_refs(update, reason):
+def test_m162_artifact_requests_require_exact_safe_refs(update: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         _artifact(**update)
 
@@ -95,12 +97,12 @@ def test_m162_artifact_requests_require_exact_safe_refs(update, reason):
         ({"subprocess_requested": True}, "M162_SUBPROCESS_DENIED"),
     ],
 )
-def test_m162_request_denies_broad_approval_auth_model_and_process_authority(update, reason):
+def test_m162_request_denies_broad_approval_auth_model_and_process_authority(update: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_m162_model_acquisition_request(_request(**update))
 
 
-def test_m162_builds_exact_huggingface_resolve_url_without_tokens():
+def test_m162_builds_exact_huggingface_resolve_url_without_tokens() -> None:
     url = build_m162_huggingface_resolve_url(
         _artifact(filename="subdir/qwopus-q4_k_m.gguf")
     )
@@ -113,7 +115,7 @@ def test_m162_builds_exact_huggingface_resolve_url_without_tokens():
     assert "api_key" not in url.lower()
 
 
-def test_m162_fake_transport_acquires_primary_shards_and_mmproj_into_uaa_cache(tmp_path):
+def test_m162_fake_transport_acquires_primary_shards_and_mmproj_into_uaa_cache(tmp_path: Path) -> None:
     primary = _artifact()
     shard = _artifact(
         artifact_ref="gguf-artifact:m162-qwopus-shard-00001",
@@ -172,7 +174,7 @@ def test_m162_fake_transport_acquires_primary_shards_and_mmproj_into_uaa_cache(t
     assert "https://huggingface.co" not in payload
 
 
-def test_m162_checksum_mismatch_removes_partial_cache_file(tmp_path):
+def test_m162_checksum_mismatch_removes_partial_cache_file(tmp_path: Path) -> None:
     bad_artifact = _artifact(expected_sha256="0" * 64)
     cache_root = tmp_path / ".uaa" / "model-cache"
 
@@ -188,12 +190,12 @@ def test_m162_checksum_mismatch_removes_partial_cache_file(tmp_path):
     assert list(cache_root.rglob("*.gguf")) == []
 
 
-def test_m162_requires_uaa_owned_cache_root(tmp_path):
+def test_m162_requires_uaa_owned_cache_root(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="M162_UAA_OWNED_CACHE_REQUIRED"):
         validate_m162_cache_root(tmp_path / "model-cache")
 
 
-def test_m162_result_validation_rejects_unsafe_mutations(tmp_path):
+def test_m162_result_validation_rejects_unsafe_mutations(tmp_path: Path) -> None:
     result = acquire_huggingface_gguf_artifacts(
         _request(),
         cache_root=tmp_path / ".uaa" / "model-cache",
@@ -215,7 +217,7 @@ def test_m162_result_validation_rejects_unsafe_mutations(tmp_path):
     os.getenv("UAA_M162_LIVE_HF_ACQUISITION") != "1",
     reason="explicit live M162 acquisition smoke only",
 )
-def test_m162_optional_live_hf_acquisition_smoke(tmp_path):
+def test_m162_optional_live_hf_acquisition_smoke(tmp_path: Path) -> None:
     repo_id = os.environ["UAA_M162_LIVE_HF_REPO"]
     revision = os.environ["UAA_M162_LIVE_HF_REVISION"]
     filename = os.environ["UAA_M162_LIVE_HF_FILENAME"]

@@ -12,7 +12,7 @@ from ultimate_ai_agent.core.openwebui_bridge.validation import (
 )
 
 
-def test_default_openwebui_bridge_manifest_is_contract_only():
+def test_default_openwebui_bridge_manifest_is_contract_only() -> None:
     manifest = build_default_openwebui_bridge_manifest()
 
     assert manifest.baseline_version == "0.25.1"
@@ -29,7 +29,7 @@ def test_default_openwebui_bridge_manifest_is_contract_only():
     assert_agent_core_authority_boundary(manifest)
 
 
-def test_default_openwebui_bridge_plan_preserves_future_stage_boundary():
+def test_default_openwebui_bridge_plan_preserves_future_stage_boundary() -> None:
     plan = build_default_openwebui_bridge_plan()
 
     assert plan.status == OpenWebUIBridgeStatus.planned_disabled
@@ -40,7 +40,7 @@ def test_default_openwebui_bridge_plan_preserves_future_stage_boundary():
     assert "direct model runtime calls" in plan.blocked_scope
 
 
-def test_transcript_and_message_refs_are_summary_only_and_not_authority():
+def test_transcript_and_message_refs_are_summary_only_and_not_authority() -> None:
     manifest = build_default_openwebui_bridge_manifest()
 
     assert OpenWebUIContentMode.summary_only in manifest.allowed_content_modes

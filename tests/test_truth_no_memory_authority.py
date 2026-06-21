@@ -50,7 +50,7 @@ def memory_request(kind: TruthSourceKind) -> VerificationRequest:
     )
 
 
-def test_memory_kinds_cannot_verify_truth_alone():
+def test_memory_kinds_cannot_verify_truth_alone() -> None:
     for kind in [
         TruthSourceKind.source_linked_memory,
         TruthSourceKind.reviewed_memory,

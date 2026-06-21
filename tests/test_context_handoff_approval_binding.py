@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 
 import pytest
@@ -25,7 +26,7 @@ from tests.test_context_handoff_approval_contracts import _proposal, _request
         ({"safe_path_ref": "filesystem-preview-path:safe-root_context_proposal/docs/other.md"}, "path_ref_mismatch"),
     ],
 )
-def test_context_handoff_approval_requires_exact_proposal_binding(override, reason):
+def test_context_handoff_approval_requires_exact_proposal_binding(override: Any, reason: str) -> None:
     proposal = _proposal()
     if str(override.get("approval_ref", "")).startswith("approval_test_"):
         request = _request(proposal).model_copy(update=override)
@@ -53,7 +54,7 @@ def test_context_handoff_approval_requires_exact_proposal_binding(override, reas
         ),
     ],
 )
-def test_expired_revoked_and_replayed_handoff_approvals_are_denied(override, reason):
+def test_expired_revoked_and_replayed_handoff_approvals_are_denied(override: Any, reason: str) -> None:
     proposal = _proposal()
     decision = evaluate_context_handoff_approval(proposal=proposal, request=_request(proposal, **override))
 
@@ -62,7 +63,7 @@ def test_expired_revoked_and_replayed_handoff_approvals_are_denied(override, rea
     assert decision.handoff_approved_for_review is False
 
 
-def test_deny_decision_is_review_only_and_non_authoritative():
+def test_deny_decision_is_review_only_and_non_authoritative() -> None:
     proposal = _proposal()
     request = _request(proposal, decision="deny_handoff_review")
     decision = evaluate_context_handoff_approval(proposal=proposal, request=request)

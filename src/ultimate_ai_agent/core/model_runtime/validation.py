@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.hygiene.envelopes import ErrorCategory, ErrorEnvelope, ResultEnvelope, Severity
 from ultimate_ai_agent.core.model_runtime.enums import ModelRuntimeSafetyMode
 from ultimate_ai_agent.core.model_runtime.manifests import ModelRuntimeAdapterManifest
@@ -115,7 +116,7 @@ def validate_runtime_response(response: ModelRuntimeResponse) -> ResultEnvelope:
     )
 
 
-def _assert_safe_metadata_mapping(metadata, field_name: str) -> None:
+def _assert_safe_metadata_mapping(metadata: Any, field_name: str) -> None:
     from ultimate_ai_agent.core.model_runtime.redaction import assert_secret_clean
 
     for key, value in metadata.items():
@@ -126,7 +127,7 @@ def _assert_safe_metadata_mapping(metadata, field_name: str) -> None:
         _assert_safe_metadata_value(value, f"{field_name} value")
 
 
-def _assert_safe_metadata_value(value, field_name: str) -> None:
+def _assert_safe_metadata_value(value: str, field_name: str) -> None:
     from ultimate_ai_agent.core.model_runtime.redaction import assert_secret_clean
 
     if isinstance(value, dict):
@@ -144,7 +145,7 @@ def _is_m22_secret_metadata_key(key: str) -> bool:
     return any(fragment in lowered for fragment in M22_SECRET_METADATA_KEY_FRAGMENTS) or lowered in {"key", "auth"}
 
 
-def validate_local_runtime_activation_manifest(manifest):
+def validate_local_runtime_activation_manifest(manifest: Any) -> Any:
     from ultimate_ai_agent.core.model_runtime.enums import LocalModelRuntimeStatus
     from ultimate_ai_agent.core.model_runtime.endpoint_policy import validate_local_runtime_endpoint_descriptor
     from ultimate_ai_agent.core.model_runtime.health_plan import validate_local_runtime_health_probe_plan
@@ -188,7 +189,7 @@ def validate_local_runtime_activation_manifest(manifest):
     return manifest
 
 
-def validate_local_runtime_activation_policy(policy):
+def validate_local_runtime_activation_policy(policy: Any) -> Any:
     from ultimate_ai_agent.core.model_runtime.enums import LocalModelRuntimeStatus
     from ultimate_ai_agent.core.model_runtime.redaction import assert_secret_clean
 
@@ -225,7 +226,7 @@ def validate_local_runtime_activation_policy(policy):
     return policy
 
 
-def validate_local_runtime_activation_request(request):
+def validate_local_runtime_activation_request(request: Any) -> Any:
     from ultimate_ai_agent.core.model_runtime.redaction import assert_secret_clean
 
     assert_secret_clean(request.request_ref, "local runtime activation request_ref")
@@ -254,7 +255,7 @@ def validate_local_runtime_activation_request(request):
     return request
 
 
-def validate_local_runtime_activation_decision(decision):
+def validate_local_runtime_activation_decision(decision: Any) -> Any:
     from ultimate_ai_agent.core.model_runtime.redaction import assert_secret_clean
 
     assert_secret_clean(decision.decision_ref, "local runtime activation decision_ref")

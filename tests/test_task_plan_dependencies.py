@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.planning import (
     TaskDependency,
     TaskGoal,
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.planning import (
 )
 
 
-def _step(step_id, depends_on=None):
+def _step(step_id: str, depends_on: Any | None = None) -> Any:
     return TaskStep(
         step_id=step_id,
         step_kind=TaskStepKind.review_metadata,
@@ -22,7 +23,7 @@ def _step(step_id, depends_on=None):
     )
 
 
-def _plan(steps, dependencies=None):
+def _plan(steps: Any, dependencies: Any | None = None) -> Any:
     return TaskPlan(
         plan_id="plan:m29-deps",
         goal=TaskGoal(goal_id="goal:m29-deps", safe_summary="Plan deterministic dependencies."),
@@ -32,21 +33,21 @@ def _plan(steps, dependencies=None):
     )
 
 
-def test_duplicate_step_ids_are_denied():
+def test_duplicate_step_ids_are_denied() -> None:
     decision = evaluate_task_plan(_plan([_step("step:m29-a"), _step("step:m29-a")]))
 
     assert decision.status == TaskPlanDecisionStatus.denied
     assert "DUPLICATE_STEP_ID_DENIED" in decision.reason_codes
 
 
-def test_missing_dependency_is_denied():
+def test_missing_dependency_is_denied() -> None:
     decision = evaluate_task_plan(_plan([_step("step:m29-a", depends_on=["step:m29-missing"])]))
 
     assert decision.valid_for_review is False
     assert "MISSING_DEPENDENCY_STEP_DENIED" in decision.reason_codes
 
 
-def test_dependency_cycle_is_denied():
+def test_dependency_cycle_is_denied() -> None:
     decision = evaluate_task_plan(
         _plan(
             [
@@ -60,14 +61,14 @@ def test_dependency_cycle_is_denied():
     assert "DEPENDENCY_CYCLE_DENIED" in decision.reason_codes
 
 
-def test_self_dependency_is_denied():
+def test_self_dependency_is_denied() -> None:
     decision = evaluate_task_plan(_plan([_step("step:m29-a", depends_on=["step:m29-a"])]))
 
     assert decision.valid_for_review is False
     assert "DEPENDENCY_CYCLE_DENIED" in decision.reason_codes
 
 
-def test_indirect_dependency_cycle_is_denied():
+def test_indirect_dependency_cycle_is_denied() -> None:
     decision = evaluate_task_plan(
         _plan(
             [
@@ -82,7 +83,7 @@ def test_indirect_dependency_cycle_is_denied():
     assert "DEPENDENCY_CYCLE_DENIED" in decision.reason_codes
 
 
-def test_explicit_dependency_edges_are_validated():
+def test_explicit_dependency_edges_are_validated() -> None:
     decision = evaluate_task_plan(
         _plan(
             [_step("step:m29-a"), _step("step:m29-b")],

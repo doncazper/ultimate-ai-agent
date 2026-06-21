@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _scope(**overrides):
+def _scope(**overrides: Any) -> Any:
     data = {
         "scope_ref": "autonomy-session-scope:m62-local-review",
         "actor_ref": "actor:local-reviewer",
@@ -28,7 +29,7 @@ def _scope(**overrides):
     return ScopedAutonomySessionScope(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "session_request_ref": "autonomy-session-request:m62-local-review",
         "requested_mode": AutonomyAuthorityMode.dry_run_plan,

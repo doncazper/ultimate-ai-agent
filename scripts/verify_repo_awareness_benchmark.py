@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify repo awareness benchmark schema, docs, and tracked snapshots."""
-
 from __future__ import annotations
+
 
 import argparse
 import sys

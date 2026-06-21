@@ -3,7 +3,7 @@ from pathlib import Path
 from ultimate_ai_agent.api.app import safe_exception_message, sanitize_validation_errors
 
 
-def test_api_handlers_do_not_return_raw_exception_messages():
+def test_api_handlers_do_not_return_raw_exception_messages() -> None:
     app_source = Path("src/ultimate_ai_agent/api/app.py").read_text(encoding="utf-8")
 
     assert "safe_message=str(e)" not in app_source
@@ -16,7 +16,7 @@ def test_api_handlers_do_not_return_raw_exception_messages():
     assert "detail = str(exc)" not in app_source
 
 
-def test_api_safe_exception_message_is_redacted_and_non_diagnostic():
+def test_api_safe_exception_message_is_redacted_and_non_diagnostic() -> None:
     message = safe_exception_message("REQUEST_PROCESSING_FAILED")
 
     assert message == "REQUEST_PROCESSING_FAILED failed safely; details are redacted."
@@ -24,7 +24,7 @@ def test_api_safe_exception_message_is_redacted_and_non_diagnostic():
     assert "exception" not in message.lower()
 
 
-def test_validation_error_sanitizer_redacts_secret_like_location_and_message():
+def test_validation_error_sanitizer_redacts_secret_like_location_and_message() -> None:
     sanitized = sanitize_validation_errors(
         [
             {
@@ -45,7 +45,7 @@ def test_validation_error_sanitizer_redacts_secret_like_location_and_message():
     assert "abcdefghijklmnop" not in str(sanitized)
 
 
-def test_validation_error_sanitizer_handles_multiple_sensitive_fields():
+def test_validation_error_sanitizer_handles_multiple_sensitive_fields() -> None:
     sanitized = sanitize_validation_errors(
         [
             {

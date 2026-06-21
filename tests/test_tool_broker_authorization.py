@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from datetime import UTC, datetime
 from ultimate_ai_agent.core.tools import (
@@ -22,7 +23,7 @@ from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType
 from ultimate_ai_agent.core.consent.enums import DataBoundary
 
 @pytest.fixture
-def actor_context():
+def actor_context() -> Any:
     return ActorContext(
         actor_type=ActorType.orchestrator,
         actor_id="test_actor",
@@ -31,7 +32,7 @@ def actor_context():
     )
 
 @pytest.fixture
-def mock_tool_manifest():
+def mock_tool_manifest() -> Any:
     return ToolManifest(
         tool_id="mock_validator",
         display_name="Mock Validator",
@@ -45,7 +46,7 @@ def mock_tool_manifest():
         version="1.0.0"
     )
 
-def test_tool_broker_authorized_request(actor_context, mock_tool_manifest):
+def test_tool_broker_authorized_request(actor_context: Any, mock_tool_manifest: Any) -> None:
     registry = ToolRegistry()
     registry.register_tool(mock_tool_manifest)
     
@@ -80,7 +81,7 @@ def test_tool_broker_authorized_request(actor_context, mock_tool_manifest):
     assert decision.status == ToolDecisionStatus.allowed
     assert "grant_mock" in decision.matched_consent_refs
 
-def test_tool_broker_missing_consent(actor_context, mock_tool_manifest):
+def test_tool_broker_missing_consent(actor_context: Any, mock_tool_manifest: Any) -> None:
     registry = ToolRegistry()
     registry.register_tool(mock_tool_manifest)
     

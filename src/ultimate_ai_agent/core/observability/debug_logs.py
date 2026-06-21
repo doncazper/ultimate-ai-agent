@@ -121,7 +121,7 @@ class DebugLogRecord(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def validate_debug_log_record(self):
+    def validate_debug_log_record(self) -> Any:
         if self.raw_content_stored:
             raise ValueError("DEBUG_LOG_RAW_CONTENT_DENIED")
         _assert_no_raw_field_markers(self.metadata)
@@ -148,7 +148,7 @@ class DebugLogSummary(BaseModel):
 class DebugLogStore:
     """Append-only local debug log store with redacted, bounded JSONL records."""
 
-    def __init__(self, filepath: str | Path | None = None, *, max_preview_chars: int = DEFAULT_DEBUG_PREVIEW_CHARS):
+    def __init__(self, filepath: str | Path | None = None, *, max_preview_chars: int = DEFAULT_DEBUG_PREVIEW_CHARS) -> None:
         if max_preview_chars < 32:
             raise ValueError("DEBUG_LOG_PREVIEW_TOO_SMALL")
         self.filepath = Path(filepath) if filepath else None

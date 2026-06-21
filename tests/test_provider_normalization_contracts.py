@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.providers import (
 )
 
 
-def test_weather_normalized_contract_validates_provider_neutral_shape():
+def test_weather_normalized_contract_validates_provider_neutral_shape() -> None:
     weather = WeatherNormalized(
         location_name="San Francisco",
         temperature_c=16.0,
@@ -20,7 +20,7 @@ def test_weather_normalized_contract_validates_provider_neutral_shape():
     assert weather.temperature_c == 16.0
 
 
-def test_news_normalized_contract_validates_sources():
+def test_news_normalized_contract_validates_sources() -> None:
     news = NewsNormalized(
         headline="Provider registry remains contract-only",
         summary="No network fetchers were implemented.",
@@ -34,7 +34,7 @@ def test_news_normalized_contract_validates_sources():
     assert news.source.source_name == "Local Test Source"
 
 
-def test_provider_normalization_report_records_contract_only_status():
+def test_provider_normalization_report_records_contract_only_status() -> None:
     report = ProviderNormalizationReport(
         report_id="norm_1",
         provider_id="provider_test",

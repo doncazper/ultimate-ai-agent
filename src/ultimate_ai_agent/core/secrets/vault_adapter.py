@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -14,7 +14,7 @@ def _reject_unsafe_payload(payload: object, error_code: str) -> None:
 class _VaultAdapterContract(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    def model_copy(self, *, update=None, deep: bool = False):
+    def model_copy(self, *, update: Any | None = None, deep: bool = False) -> Any:
         copied = super().model_copy(update=update, deep=deep)
         return self.__class__.model_validate(copied.model_dump(mode="python"))
 
@@ -50,7 +50,7 @@ class CredentialVaultAdapterCapabilityReport(_VaultAdapterContract):
     )
 
     @model_validator(mode="after")
-    def capability_report_must_not_claim_unsafe_authority(self):
+    def capability_report_must_not_claim_unsafe_authority(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "CREDENTIAL_VAULT_ADAPTER_SECRET_LIKE_VALUE_REJECTED",
@@ -96,7 +96,7 @@ class CredentialVaultAdapterRequestBase(_VaultAdapterContract):
     safe_disable_ref: str = Field(..., min_length=1)
 
     @model_validator(mode="after")
-    def request_must_use_safe_refs(self):
+    def request_must_use_safe_refs(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "CREDENTIAL_VAULT_ADAPTER_REQUEST_SECRET_LIKE_VALUE_REJECTED",
@@ -111,7 +111,7 @@ class CredentialVaultStoreRequest(CredentialVaultAdapterRequestBase):
     credential_material_supplied_to_repo: bool = False
 
     @model_validator(mode="after")
-    def store_request_must_not_include_material(self):
+    def store_request_must_not_include_material(self) -> Any:
         if self.credential_material_supplied_to_repo:
             raise ValueError("CREDENTIAL_VAULT_STORE_MATERIAL_INTAKE_DENIED")
         return self
@@ -142,7 +142,7 @@ class CredentialVaultAdapterDecision(_VaultAdapterContract):
     credential_material_persisted_by_repo: bool = False
 
     @model_validator(mode="after")
-    def decision_must_remain_redacted(self):
+    def decision_must_remain_redacted(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "CREDENTIAL_VAULT_ADAPTER_DECISION_SECRET_LIKE_VALUE_REJECTED",
@@ -187,7 +187,7 @@ class ProviderCredentialEnrollmentReadiness(_VaultAdapterContract):
     )
 
     @model_validator(mode="after")
-    def enrollment_readiness_must_remain_disabled(self):
+    def enrollment_readiness_must_remain_disabled(self) -> Any:
         _reject_unsafe_payload(
             self.model_dump(mode="json"),
             "PROVIDER_CREDENTIAL_ENROLLMENT_SECRET_LIKE_VALUE_REJECTED",

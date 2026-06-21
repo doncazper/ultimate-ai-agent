@@ -1,7 +1,8 @@
+from typing import Any
 from ultimate_ai_agent.core.gate import FoundationGateStatus
 
 
-def test_m105_gate_criteria_pass_on_current_repo(foundation_gate_results):
+def test_m105_gate_criteria_pass_on_current_repo(foundation_gate_results: Any) -> None:
     expected = [
         "m105_remote_worker_files_present",
         "m105_remote_capabilities_default_safe",

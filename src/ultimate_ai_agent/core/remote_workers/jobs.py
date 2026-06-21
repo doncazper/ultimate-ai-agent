@@ -26,7 +26,7 @@ class RemoteJobEnvelope(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def envelope_must_be_safe(self):
+    def envelope_must_be_safe(self) -> Any:
         if self.correlation_id != self.audit_context.correlation_id:
             raise ValueError("REMOTE_CORRELATION_ID_MISMATCH")
         assert_remote_secret_clean(self.task_summary, "Remote job task_summary")

@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.context_proposal import (
 from tests.context_proposal_fixtures import approved_context_proposal_record, context_proposal_packet
 
 
-def test_context_proposal_receipt_plan_stores_refs_only_and_no_raw_content():
+def test_context_proposal_receipt_plan_stores_refs_only_and_no_raw_content() -> None:
     packet = context_proposal_packet()
     approval_record = approved_context_proposal_record(packet)
     proposal = build_safe_context_proposal(packet=packet, approval_record=approval_record)

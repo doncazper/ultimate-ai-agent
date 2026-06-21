@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.execution import (
@@ -24,7 +25,7 @@ from ultimate_ai_agent.core.execution import (
 )
 
 
-def _step(**overrides) -> ExecutionStep:
+def _step(**overrides: Any) -> ExecutionStep:
     data = {
         "step_id": "execution-step:m30-safety",
         "safe_summary": "Validate safe metadata only.",
@@ -45,7 +46,7 @@ def _run(step: ExecutionStep) -> ExecutionRun:
     )
 
 
-def _request(**overrides) -> ExecutionTransitionRequest:
+def _request(**overrides: Any) -> ExecutionTransitionRequest:
     data = {
         "run_id": "execution-run:m30-safety",
         "target_step_id": "execution-step:m30-safety",
@@ -58,7 +59,7 @@ def _request(**overrides) -> ExecutionTransitionRequest:
     return ExecutionTransitionRequest(**data)
 
 
-def _durable_record(**overrides) -> DurableRunRecord:
+def _durable_record(**overrides: Any) -> DurableRunRecord:
     data = {
         "run_id": "durable-run:p1-010",
         "source_ref": "plan:p1-010",
@@ -71,8 +72,8 @@ def _durable_record(**overrides) -> DurableRunRecord:
 def _durable_request(
     transition_kind: DurableRunTransitionKind = DurableRunTransitionKind.mark_ready,
     suffix: str = "ready",
-    **overrides,
-):
+    **overrides: Any,
+) -> Any:
     data = {
         "run_id": "durable-run:p1-010",
         "transition_id": f"durable-transition:p1-010-{suffix}",
@@ -104,7 +105,7 @@ def _durable_request(
         (ExecutionStepMode.background_worker_blocked, "BACKGROUND_WORKER_DENIED"),
     ],
 )
-def test_effectful_step_modes_are_denied_without_execution(mode, reason):
+def test_effectful_step_modes_are_denied_without_execution(mode: str, reason: str) -> None:
     decision = evaluate_execution_transition(_run(_step(mode=mode)), _request())
 
     assert decision.status == ExecutionTransitionStatus.denied
@@ -123,7 +124,7 @@ def test_effectful_step_modes_are_denied_without_execution(mode, reason):
         ({"metadata": {"token": "abc123"}}, "SECRET_METADATA_DENIED"),
     ],
 )
-def test_model_copy_mutated_step_input_boundary_is_revalidated(update, reason):
+def test_model_copy_mutated_step_input_boundary_is_revalidated(update: Any, reason: str) -> None:
     step = _step()
     mutated_boundary = step.input_boundary.model_copy(update=update)
     mutated_step = step.model_copy(update={"input_boundary": mutated_boundary})
@@ -148,7 +149,7 @@ def test_model_copy_mutated_step_input_boundary_is_revalidated(update, reason):
         ("random:m30", ExecutionInputTrustLevel.unknown_blocked, "UNKNOWN_INPUT_REF_DENIED"),
     ],
 )
-def test_non_authoritative_refs_cannot_authorize_execution(input_ref, trust_level, reason):
+def test_non_authoritative_refs_cannot_authorize_execution(input_ref: Any, trust_level: Any, reason: str) -> None:
     boundary = ExecutionStepInputBoundary(input_refs=[input_ref], input_trust_level=trust_level)
     decision = evaluate_execution_transition(_run(_step(input_boundary=boundary)), _request())
 
@@ -157,7 +158,7 @@ def test_non_authoritative_refs_cannot_authorize_execution(input_ref, trust_leve
     assert reason in decision.reason_codes
 
 
-def test_transition_request_execution_flags_are_denied_after_model_copy():
+def test_transition_request_execution_flags_are_denied_after_model_copy() -> None:
     request = _request().model_copy(
         update={
             "execution_requested": True,
@@ -179,7 +180,7 @@ def test_transition_request_execution_flags_are_denied_after_model_copy():
     assert "SIDE_EFFECT_EXECUTION_DENIED" in decision.reason_codes
 
 
-def test_hidden_side_effect_metadata_is_denied_after_model_copy():
+def test_hidden_side_effect_metadata_is_denied_after_model_copy() -> None:
     step = _step().model_copy(update={"metadata": {"declared_effect": "file_write"}})
 
     decision = evaluate_execution_transition(_run(step), _request())
@@ -189,7 +190,7 @@ def test_hidden_side_effect_metadata_is_denied_after_model_copy():
     assert "HIDDEN_SIDE_EFFECT_DENIED" in decision.reason_codes
 
 
-def test_blocked_step_cannot_complete_without_safe_transition():
+def test_blocked_step_cannot_complete_without_safe_transition() -> None:
     blocked_step = _step(status=ExecutionStepStatus.blocked)
 
     decision = evaluate_execution_transition(_run(blocked_step), _request())
@@ -199,7 +200,7 @@ def test_blocked_step_cannot_complete_without_safe_transition():
     assert "EXECUTION_STEP_BLOCKED_DENIED" in decision.reason_codes
 
 
-def test_completed_step_cannot_complete_twice():
+def test_completed_step_cannot_complete_twice() -> None:
     completed_step = _step(status=ExecutionStepStatus.completed_no_effect)
 
     decision = evaluate_execution_transition(_run(completed_step), _request())
@@ -209,7 +210,7 @@ def test_completed_step_cannot_complete_twice():
     assert "EXECUTION_STEP_ALREADY_COMPLETED_DENIED" in decision.reason_codes
 
 
-def test_durable_run_invalid_transition_is_denied_without_state_change():
+def test_durable_run_invalid_transition_is_denied_without_state_change() -> None:
     record = _durable_record()
     request = _durable_request(DurableRunTransitionKind.pause, "pause-from-created")
 
@@ -222,7 +223,7 @@ def test_durable_run_invalid_transition_is_denied_without_state_change():
     assert "DURABLE_RUN_INVALID_TRANSITION_DENIED" in decision.reason_codes
 
 
-def test_durable_run_duplicate_mutation_attempt_is_blocked_by_idempotency():
+def test_durable_run_duplicate_mutation_attempt_is_blocked_by_idempotency() -> None:
     record = _durable_record()
     request = _durable_request()
 
@@ -290,13 +291,13 @@ def test_durable_run_duplicate_mutation_attempt_is_blocked_by_idempotency():
     ],
 )
 def test_durable_run_lifecycle_transitions_are_explicit_and_safe(
-    initial_state,
-    transition_kind,
-    suffix,
-    expected_state,
-    extra,
-    expected_next,
-):
+    initial_state: Any,
+    transition_kind: Any,
+    suffix: str,
+    expected_state: Any,
+    extra: Any,
+    expected_next: Any,
+) -> None:
     record = _durable_record(state=initial_state)
     request = _durable_request(
         transition_kind,
@@ -316,7 +317,7 @@ def test_durable_run_lifecycle_transitions_are_explicit_and_safe(
     assert result.record.idempotency_records[-1].lifecycle_action is True
 
 
-def test_durable_run_lifecycle_repeat_is_idempotent_without_second_mutation():
+def test_durable_run_lifecycle_repeat_is_idempotent_without_second_mutation() -> None:
     record = _durable_record(state=DurableRunState.running)
     request = _durable_request(
         DurableRunTransitionKind.pause,
@@ -336,7 +337,7 @@ def test_durable_run_lifecycle_repeat_is_idempotent_without_second_mutation():
     assert second.record.generation == 1
 
 
-def test_durable_run_lifecycle_reused_idempotency_with_different_request_is_denied():
+def test_durable_run_lifecycle_reused_idempotency_with_different_request_is_denied() -> None:
     record = _durable_record(state=DurableRunState.running)
     first_request = _durable_request(
         DurableRunTransitionKind.pause,
@@ -359,7 +360,7 @@ def test_durable_run_lifecycle_reused_idempotency_with_different_request_is_deni
     assert "DURABLE_RUN_IDEMPOTENCY_CONFLICT_DENIED" in second.decision.reason_codes
 
 
-def test_durable_run_tampered_idempotency_record_run_ref_is_denied():
+def test_durable_run_tampered_idempotency_record_run_ref_is_denied() -> None:
     record = _durable_record(state=DurableRunState.running)
     request = _durable_request(
         DurableRunTransitionKind.pause,
@@ -378,7 +379,7 @@ def test_durable_run_tampered_idempotency_record_run_ref_is_denied():
     assert "DURABLE_RUN_RECORD_REVALIDATION_FAILED" in repeat.reason_codes
 
 
-def test_durable_run_lifecycle_stale_expected_state_is_denied():
+def test_durable_run_lifecycle_stale_expected_state_is_denied() -> None:
     record = _durable_record(state=DurableRunState.paused)
     request = _durable_request(
         DurableRunTransitionKind.pause,
@@ -393,7 +394,7 @@ def test_durable_run_lifecycle_stale_expected_state_is_denied():
     assert "DURABLE_RUN_STALE_STATE_DENIED" in decision.reason_codes
 
 
-def test_durable_run_dead_letter_requires_failure_ref_and_keeps_failure_visible():
+def test_durable_run_dead_letter_requires_failure_ref_and_keeps_failure_visible() -> None:
     record = _durable_record(state=DurableRunState.blocked)
     missing_failure = _durable_request(
         DurableRunTransitionKind.dead_letter,
@@ -417,7 +418,7 @@ def test_durable_run_dead_letter_requires_failure_ref_and_keeps_failure_visible(
     assert accepted.record.failure_refs == ["failure:p1-026-visible"]
 
 
-def test_durable_run_repeated_cancel_is_idempotent_even_after_terminal_state():
+def test_durable_run_repeated_cancel_is_idempotent_even_after_terminal_state() -> None:
     record = _durable_record(state=DurableRunState.running)
     request = _durable_request(
         DurableRunTransitionKind.cancel,
@@ -434,7 +435,7 @@ def test_durable_run_repeated_cancel_is_idempotent_even_after_terminal_state():
     assert second.record == first.record
 
 
-def test_durable_run_replay_ref_reuse_is_denied():
+def test_durable_run_replay_ref_reuse_is_denied() -> None:
     record = _durable_record(state=DurableRunState.ready, replay_refs=["replay:p1-010-reused"])
     request = _durable_request(
         DurableRunTransitionKind.start,
@@ -449,7 +450,7 @@ def test_durable_run_replay_ref_reuse_is_denied():
     assert "DURABLE_RUN_REPLAY_REF_REUSE_DENIED" in decision.reason_codes
 
 
-def test_durable_run_evidence_remains_redacted_refs_only():
+def test_durable_run_evidence_remains_redacted_refs_only() -> None:
     result = apply_durable_run_transition(_durable_record(), _durable_request())
     serialized = result.record.model_dump_json().lower()
 
@@ -461,7 +462,7 @@ def test_durable_run_evidence_remains_redacted_refs_only():
         assert forbidden not in serialized
 
 
-def test_durable_run_restart_recovery_and_snapshot_hash_are_visible():
+def test_durable_run_restart_recovery_and_snapshot_hash_are_visible() -> None:
     record = _durable_record(state=DurableRunState.running, generation=3)
     request = _durable_request(
         DurableRunTransitionKind.recover_after_restart,
@@ -484,7 +485,7 @@ def test_durable_run_restart_recovery_and_snapshot_hash_are_visible():
         restore_durable_run_snapshot(tampered)
 
 
-def test_durable_run_failure_transition_requires_failure_ref():
+def test_durable_run_failure_transition_requires_failure_ref() -> None:
     record = _durable_record(state=DurableRunState.running)
     request = _durable_request(DurableRunTransitionKind.fail, "fail")
 
@@ -494,7 +495,7 @@ def test_durable_run_failure_transition_requires_failure_ref():
     assert "DURABLE_RUN_FAILURE_REF_REQUIRED" in decision.reason_codes
 
 
-def test_durable_run_authority_flags_are_denied_after_model_copy():
+def test_durable_run_authority_flags_are_denied_after_model_copy() -> None:
     record = _durable_record()
     request = _durable_request().model_copy(
         update={

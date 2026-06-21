@@ -152,7 +152,7 @@ class LocalModelManagementPolicy(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         for ref in self.docs_refs:
             _require_nonempty(ref, "docs_ref")
@@ -181,7 +181,7 @@ class HardwareCapabilitySummary(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.summary_ref, "summary_ref"),
             (self.source_ref, "source_ref"),
@@ -221,7 +221,7 @@ class GgufArtifactRef(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.artifact_ref, "artifact_ref"),
             (self.repo_ref, "repo_ref"),
@@ -261,7 +261,7 @@ class HuggingFaceSearchPreviewRequest(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.task_ref, "task_ref"),
@@ -312,7 +312,7 @@ class LlamaCppSettingsPlan(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.plan_ref, "plan_ref"),
             (self.settings_ref, "settings_ref"),
@@ -360,7 +360,7 @@ class LocalModelCandidateSummary(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.candidate_ref, "candidate_ref"),
             (self.repo_ref, "repo_ref"),
@@ -398,7 +398,7 @@ class ModelSelectionPreview(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.preview_ref, "preview_ref"),
             (self.request_ref, "request_ref"),
@@ -449,7 +449,7 @@ class LocalModelObservabilitySignal(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.signal_ref, "signal_ref")
         _validate_m61_ref(self.settings_plan_ref, "settings_plan_ref")
         if self.suggested_adjustment_ref is not None:
@@ -477,7 +477,7 @@ class LocalModelObservabilityPreview(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.preview_ref, "preview_ref"),
             (self.settings_plan_ref, "settings_plan_ref"),
@@ -522,7 +522,7 @@ class LocalModelManagementFreezeRequest(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_freeze_ref_shape(
             self.request_ref,
             self.freeze_ref,
@@ -573,7 +573,7 @@ class LocalModelManagementFreezeRecord(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_freeze_ref_shape(
             self.record_ref,
             self.freeze_ref,
@@ -638,7 +638,7 @@ class LocalModelManagementMilestoneContract(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.milestone_ref, "milestone_ref"),
             (self.title_ref, "title_ref"),
@@ -704,7 +704,7 @@ class LocalModelManagementProgressionPlan(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.plan_ref, "plan_ref"),
             (self.baseline_ref, "baseline_ref"),
@@ -789,7 +789,7 @@ class FutureLiveLocalModelApprovalBoundContract(_LocalModelManagementModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.contract_ref, "contract_ref"),
             (self.source_m159_freeze_ref, "source_m159_freeze_ref"),

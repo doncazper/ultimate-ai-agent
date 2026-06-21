@@ -131,15 +131,15 @@ class MemoryProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_record(self, memory_id: str):
+    def get_record(self, memory_id: str) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def list_records(self):
+    def list_records(self) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def mark_deleted(self, request: MemoryDeleteRequest):
+    def mark_deleted(self, request: MemoryDeleteRequest) -> None:
         raise NotImplementedError
 
     @abstractmethod

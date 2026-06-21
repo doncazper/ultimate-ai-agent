@@ -1,3 +1,4 @@
+from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
@@ -8,7 +9,7 @@ from ultimate_ai_agent.core.secrets.vault_adapter import CredentialVaultAdapterC
 class _VaultReadinessContract(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    def model_copy(self, *, update=None, deep: bool = False):
+    def model_copy(self, *, update: Any | None = None, deep: bool = False) -> Any:
         copied = super().model_copy(update=update, deep=deep)
         return self.__class__.model_validate(copied.model_dump(mode="python"))
 
@@ -47,7 +48,7 @@ class ProviderCredentialVaultAdapterReadiness(_VaultReadinessContract):
     )
 
     @model_validator(mode="after")
-    def vault_adapter_readiness_must_remain_disabled(self):
+    def vault_adapter_readiness_must_remain_disabled(self) -> Any:
         dump = self.model_dump(mode="json")
         if contains_secret_like(dump) or contains_obvious_secret(dump):
             raise ValueError("PROVIDER_CREDENTIAL_VAULT_SECRET_LIKE_VALUE_REJECTED")

@@ -32,7 +32,7 @@ class CoordinatorAuditEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_secret_free(self):
+    def validate_secret_free(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "coordinator_audit_event")
         return self
 
@@ -52,7 +52,7 @@ class CoordinatorRunRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_secret_free(self):
+    def validate_secret_free(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "coordinator_run_record")
         return self
 
@@ -87,7 +87,7 @@ class CoordinatorStateStore(Protocol):
 
 
 class InMemoryCoordinatorStateStore:
-    def __init__(self):
+    def __init__(self) -> None:
         self.document = CoordinatorStateDocument()
 
     def save_plan(self, trace_id: str, plan: TaskPlan) -> None:
@@ -131,7 +131,7 @@ class InMemoryCoordinatorStateStore:
 
 
 class FileCoordinatorStateStore(InMemoryCoordinatorStateStore):
-    def __init__(self, path: str | Path, *, max_audit_events: int = 10000, max_telemetry_events: int = 10000):
+    def __init__(self, path: str | Path, *, max_audit_events: int = 10000, max_telemetry_events: int = 10000) -> None:
         self.path = Path(path)
         self.max_audit_events = max_audit_events
         self.max_telemetry_events = max_telemetry_events

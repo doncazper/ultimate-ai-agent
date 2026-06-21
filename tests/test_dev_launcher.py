@@ -1,3 +1,4 @@
+from typing import Any
 import importlib.util
 import stat
 import subprocess
@@ -13,7 +14,7 @@ WRAPPER_PATH = ROOT / "scripts" / "dev" / "uaa"
 GITIGNORE_PATH = ROOT / ".gitignore"
 
 
-def load_launcher():
+def load_launcher() -> Any:
     if not LAUNCHER_PATH.exists():
         pytest.fail("scripts/dev/uaa_launcher.py is missing")
     spec = importlib.util.spec_from_file_location("uaa_launcher", LAUNCHER_PATH)
@@ -25,7 +26,7 @@ def load_launcher():
     return module
 
 
-def test_launcher_rejects_non_loopback_hosts():
+def test_launcher_rejects_non_loopback_hosts() -> None:
     launcher = load_launcher()
 
     for host in ["127.0.0.1", "localhost", "::1"]:
@@ -36,7 +37,7 @@ def test_launcher_rejects_non_loopback_hosts():
             launcher.validate_local_host(host)
 
 
-def test_launcher_builds_localhost_only_command_lists():
+def test_launcher_builds_localhost_only_command_lists() -> None:
     launcher = load_launcher()
 
     backend = launcher.build_backend_command(ROOT)
@@ -90,7 +91,7 @@ def _docker_env(command: list[str]) -> dict[str, str]:
     return values
 
 
-def test_launcher_builds_m164_openwebui_command_without_secret_values(monkeypatch):
+def test_launcher_builds_m164_openwebui_command_without_secret_values(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
     monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", "1")
     monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_KEY", "local-secret-should-not-be-in-command")
@@ -111,19 +112,19 @@ def test_launcher_builds_m164_openwebui_command_without_secret_values(monkeypatc
     assert env["OPENAI_API_KEYS"] == "local-secret-should-not-be-in-command"
 
 
-def test_launcher_can_discover_macos_docker_desktop_cli_path():
+def test_launcher_can_discover_macos_docker_desktop_cli_path() -> None:
     launcher = load_launcher()
 
     assert Path("/Applications/Docker.app/Contents/Resources/bin") in launcher.DEVELOPER_TOOL_PATHS
 
 
-def test_shell_wrapper_exposes_macos_docker_desktop_cli_path():
+def test_shell_wrapper_exposes_macos_docker_desktop_cli_path() -> None:
     content = WRAPPER_PATH.read_text(encoding="utf-8")
 
     assert "/Applications/Docker.app/Contents/Resources/bin" in content
 
 
-def test_launcher_resolves_only_executable_developer_tools(tmp_path, monkeypatch):
+def test_launcher_resolves_only_executable_developer_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
     tool_dir = tmp_path / "bin"
     tool_dir.mkdir()
@@ -140,10 +141,10 @@ def test_launcher_resolves_only_executable_developer_tools(tmp_path, monkeypatch
     assert launcher._resolve_developer_tool("docker") == docker
 
 
-def test_docker_engine_status_reports_ready(monkeypatch):
+def test_docker_engine_status_reports_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
 
-    def fake_run(command, **kwargs):
+    def fake_run(command: str, **kwargs: Any) -> Any:
         assert command[-3:] == ["info", "--format", "{{.ServerVersion}}"]
         assert kwargs["timeout"] == launcher.DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS
         return subprocess.CompletedProcess(command, 0, stdout="27.0.0\n", stderr="")
@@ -157,10 +158,10 @@ def test_docker_engine_status_reports_ready(monkeypatch):
     assert message == "Docker engine ready: 27.0.0"
 
 
-def test_docker_engine_status_reports_timeout(monkeypatch):
+def test_docker_engine_status_reports_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
 
-    def fake_run(command, **kwargs):
+    def fake_run(command: str, **kwargs: Any) -> None:
         raise launcher.subprocess.TimeoutExpired(command, kwargs["timeout"])
 
     monkeypatch.setattr(launcher, "_resolve_developer_tool", lambda command: Path("/tmp/docker"))
@@ -173,10 +174,10 @@ def test_docker_engine_status_reports_timeout(monkeypatch):
     assert "finish first-run setup" in message
 
 
-def test_docker_engine_status_reports_engine_not_ready(monkeypatch):
+def test_docker_engine_status_reports_engine_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
 
-    def fake_run(command, **kwargs):
+    def fake_run(command: str, **kwargs: Any) -> Any:
         return subprocess.CompletedProcess(command, 1, stdout="", stderr="Cannot connect to the Docker daemon\n")
 
     monkeypatch.setattr(launcher, "_resolve_developer_tool", lambda command: Path("/tmp/docker"))
@@ -189,11 +190,11 @@ def test_docker_engine_status_reports_engine_not_ready(monkeypatch):
     assert "Cannot connect to the Docker daemon" in message
 
 
-def test_docker_image_present_uses_inspect_without_pull(monkeypatch):
+def test_docker_image_present_uses_inspect_without_pull(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
     calls = []
 
-    def fake_run(command, **kwargs):
+    def fake_run(command: str, **kwargs: Any) -> Any:
         calls.append(command)
         assert command[:4] == ["/tmp/docker", "image", "inspect", "--format"]
         assert "pull" not in command
@@ -210,7 +211,7 @@ def test_docker_image_present_uses_inspect_without_pull(monkeypatch):
     assert calls == [["/tmp/docker", "image", "inspect", "--format", "{{.Id}}", launcher.OPENWEBUI_IMAGE]]
 
 
-def test_stale_pid_cleanup_removes_only_stale_pid_file(tmp_path):
+def test_stale_pid_cleanup_removes_only_stale_pid_file(tmp_path: Path) -> None:
     launcher = load_launcher()
     pid_path = tmp_path / "backend.pid"
     pid_path.write_text("999999\n", encoding="utf-8")
@@ -221,7 +222,7 @@ def test_stale_pid_cleanup_removes_only_stale_pid_file(tmp_path):
     assert not pid_path.exists()
 
 
-def test_running_pid_cleanup_keeps_pid_file(tmp_path):
+def test_running_pid_cleanup_keeps_pid_file(tmp_path: Path) -> None:
     launcher = load_launcher()
     pid_path = tmp_path / "frontend.pid"
     pid_path.write_text("12345\n", encoding="utf-8")
@@ -232,7 +233,7 @@ def test_running_pid_cleanup_keeps_pid_file(tmp_path):
     assert pid_path.read_text(encoding="utf-8") == "12345\n"
 
 
-def test_macos_launcher_content_is_relative_and_safe():
+def test_macos_launcher_content_is_relative_and_safe() -> None:
     launcher = load_launcher()
 
     content = launcher.render_macos_launcher()
@@ -247,7 +248,7 @@ def test_macos_launcher_content_is_relative_and_safe():
     assert "/usr/local/bin" not in content
 
 
-def test_launcher_openwebui_service_config_is_localhost_only():
+def test_launcher_openwebui_service_config_is_localhost_only() -> None:
     launcher = load_launcher()
 
     service = launcher.service_config(ROOT, "openwebui")
@@ -258,7 +259,7 @@ def test_launcher_openwebui_service_config_is_localhost_only():
     assert service.log_file.name == "openwebui.log"
 
 
-def test_launch_ui_parser_defaults_to_designated_openwebui():
+def test_launch_ui_parser_defaults_to_designated_openwebui() -> None:
     launcher = load_launcher()
 
     args = launcher.parse_args(["launch-ui"])
@@ -267,7 +268,7 @@ def test_launch_ui_parser_defaults_to_designated_openwebui():
     assert args.target == "openwebui"
 
 
-def test_launch_ui_openwebui_refuses_missing_image(monkeypatch, capsys):
+def test_launch_ui_openwebui_refuses_missing_image(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     launcher = load_launcher()
     started = []
     opened = []
@@ -285,7 +286,7 @@ def test_launch_ui_openwebui_refuses_missing_image(monkeypatch, capsys):
     assert "setup install --target openwebui" in captured.out
 
 
-def test_launch_ui_openwebui_starts_backend_and_openwebui(monkeypatch, capsys):
+def test_launch_ui_openwebui_starts_backend_and_openwebui(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     launcher = load_launcher()
     started = []
     opened = []
@@ -310,7 +311,7 @@ def test_launch_ui_openwebui_starts_backend_and_openwebui(monkeypatch, capsys):
     assert "No packages were installed and no images were pulled" in captured.out
 
 
-def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch):
+def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
     monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_ENABLED", "1")
     monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_KEY", "should-not-pass-through")
@@ -331,20 +332,20 @@ def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch):
     assert env["UAA_LLAMA_CPP_API_KEY"] == "local-backend-secret"
 
 
-def test_shell_wrapper_exists_and_is_executable():
+def test_shell_wrapper_exists_and_is_executable() -> None:
     assert WRAPPER_PATH.exists()
     mode = WRAPPER_PATH.stat().st_mode
     assert mode & stat.S_IXUSR
 
 
-def test_launcher_runtime_state_is_gitignored():
+def test_launcher_runtime_state_is_gitignored() -> None:
     ignored = GITIGNORE_PATH.read_text(encoding="utf-8")
 
     assert ".uaa/" in ignored
     assert "Ultimate AI Agent.command" in ignored
 
 
-def test_launcher_records_redacted_session_lifecycle_refs(tmp_path, monkeypatch):
+def test_launcher_records_redacted_session_lifecycle_refs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
     monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
     from ultimate_ai_agent.core.observability import SessionLogStore, clear_default_session_log_store_cache

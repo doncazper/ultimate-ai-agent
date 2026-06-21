@@ -7,7 +7,7 @@ from ultimate_ai_agent.core.remote_workers.transports import RemoteTransportDesc
 
 
 class RemoteTransportRegistry:
-    def __init__(self):
+    def __init__(self) -> None:
         self._transports: dict[str, RemoteTransportDescriptor] = {}
 
     def register_transport(self, descriptor: RemoteTransportDescriptor) -> RemoteTransportDescriptor:
@@ -65,7 +65,7 @@ class RemoteTransportRegistry:
 
 
 class RemoteNodeRegistry:
-    def __init__(self):
+    def __init__(self) -> None:
         self._nodes: dict[str, RemoteNode] = {}
 
     def register_node(self, node: RemoteNode) -> RemoteNode:

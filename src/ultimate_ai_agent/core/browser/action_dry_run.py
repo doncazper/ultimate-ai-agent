@@ -69,7 +69,7 @@ class BrowserActionDryRunPlannerPolicy(_BrowserActionDryRunModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -89,7 +89,7 @@ class BrowserActionDryRunStep(_BrowserActionDryRunModel):
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.step_ref, "step_ref")
         _validate_safe_payload(self.safe_intent)
         return self
@@ -128,7 +128,7 @@ class BrowserActionDryRunPlannerRequest(_BrowserActionDryRunModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.plan_ref, "plan_ref"),
             (self.actor_ref, "actor_ref"),
@@ -202,7 +202,7 @@ class BrowserActionDryRunPlan(_BrowserActionDryRunModel):
     safe_message: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.plan_ref, "plan_ref"),
             (self.actor_ref, "actor_ref"),

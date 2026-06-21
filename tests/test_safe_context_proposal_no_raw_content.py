@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.context_proposal import (
@@ -18,7 +19,7 @@ from tests.context_proposal_fixtures import approved_context_proposal_record, co
         ("unredacted_preview", "unredacted_preview_present"),
     ],
 )
-def test_model_copy_mutated_raw_or_unredacted_proposal_fields_are_denied(extra_field, reason):
+def test_model_copy_mutated_raw_or_unredacted_proposal_fields_are_denied(extra_field: Any, reason: str) -> None:
     packet = context_proposal_packet()
     approval_record = approved_context_proposal_record(packet)
     proposal = build_safe_context_proposal(packet=packet, approval_record=approval_record)
@@ -32,7 +33,7 @@ def test_model_copy_mutated_raw_or_unredacted_proposal_fields_are_denied(extra_f
     assert "do not expose" not in str(decision.model_dump(mode="json"))
 
 
-def test_secret_like_proposal_section_content_is_denied_without_echoing_secret():
+def test_secret_like_proposal_section_content_is_denied_without_echoing_secret() -> None:
     packet = context_proposal_packet()
     approval_record = approved_context_proposal_record(packet)
     proposal = build_safe_context_proposal(packet=packet, approval_record=approval_record)
@@ -47,7 +48,7 @@ def test_secret_like_proposal_section_content_is_denied_without_echoing_secret()
     assert "abc123supersecret" not in str(decision.model_dump(mode="json"))
 
 
-def test_raw_review_packet_material_is_denied_before_proposal_build():
+def test_raw_review_packet_material_is_denied_before_proposal_build() -> None:
     packet = context_proposal_packet().model_copy(update={"raw_content": "raw file body"})
     approval_record = approved_context_proposal_record(context_proposal_packet())
 

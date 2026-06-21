@@ -88,7 +88,7 @@ class ScopedApprovalBundle(_ScopedApprovalBundleModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.bundle_ref, "bundle_ref"),
             (self.actor_ref, "actor_ref"),

@@ -26,7 +26,7 @@ from ultimate_ai_agent.core.capabilities.telemetry import NoOpTelemetrySink, Tel
 
 
 class PolicyDeniedError(RuntimeError):
-    def __init__(self, reason_codes: list[str], safe_message: str):
+    def __init__(self, reason_codes: list[str], safe_message: str) -> None:
         super().__init__(safe_message)
         self.reason_codes = reason_codes
         self.safe_message = safe_message
@@ -44,7 +44,7 @@ class Coordinator:
         approval_authority: ApprovalAuthority | None = None,
         single_writer_locks: SingleWriterLockManager | None = None,
         coordinator_capability_id: str = "coordinator:central",
-    ):
+    ) -> None:
         self.registry = registry
         self.policy_engine = policy_engine or PolicyEngine(approval_authority=approval_authority)
         self.telemetry = telemetry or NoOpTelemetrySink()

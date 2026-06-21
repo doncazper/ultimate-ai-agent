@@ -41,7 +41,7 @@ class CapabilityRegistry:
         *,
         approval_callback: ApprovalCallback | None = None,
         event_sink: CapabilityEventSink | None = None,
-    ):
+    ) -> None:
         self._capabilities: dict[str, CapabilityRegistration] = {}
         self._manifests: dict[str, CapabilityManifest] = {}
         self._adapters: dict[str, Any] = {}

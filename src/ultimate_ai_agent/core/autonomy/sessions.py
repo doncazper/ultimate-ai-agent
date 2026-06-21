@@ -56,7 +56,7 @@ class ScopedAutonomySessionScope(_ScopedAutonomySessionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.scope_ref, "scope_ref"),
             (self.actor_ref, "actor_ref"),
@@ -93,7 +93,7 @@ class ScopedAutonomySessionRequest(_ScopedAutonomySessionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.session_request_ref, "session_request_ref")
         if self.approval_ref is not None:
             _validate_m61_ref(self.approval_ref, "approval_ref")
@@ -116,7 +116,7 @@ class ScopedAutonomySessionDecision(_ScopedAutonomySessionModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         _validate_m61_ref(self.decision_ref, "decision_ref")
         _validate_m61_ref(self.session_request_ref, "session_request_ref")
         _validate_m61_ref(self.scope_ref, "scope_ref")

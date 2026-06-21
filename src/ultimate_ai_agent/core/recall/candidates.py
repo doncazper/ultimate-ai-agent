@@ -32,7 +32,7 @@ class RecallCandidate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m26_candidate(self):
+    def validate_m26_candidate(self) -> Any:
         validate_recall_ref(self.candidate_ref, "candidate_ref")
         validate_recall_ref(self.source_ref, "source_ref")
         validate_safe_recall_text(self.safe_summary, "safe_summary")

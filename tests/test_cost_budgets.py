@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.core.costs import BudgetScope, CostBudget, CostEstimate, ResourceKind
 
 
-def test_cost_budget_contract_tracks_money_tokens_and_resources():
+def test_cost_budget_contract_tracks_money_tokens_and_resources() -> None:
     budget = CostBudget(
         budget_id="budget_run",
         scope=BudgetScope.run,
@@ -21,7 +21,7 @@ def test_cost_budget_contract_tracks_money_tokens_and_resources():
     assert ResourceKind.tokens.value == "tokens"
 
 
-def test_cost_estimate_total_tokens_is_validated():
+def test_cost_estimate_total_tokens_is_validated() -> None:
     estimate = CostEstimate(
         estimate_id="estimate_1",
         input_tokens=100,
@@ -33,7 +33,7 @@ def test_cost_estimate_total_tokens_is_validated():
     assert estimate.total_tokens == 150
 
 
-def test_cost_budget_rejects_unknown_fields():
+def test_cost_budget_rejects_unknown_fields() -> None:
     payload = {"budget_id": "budget_extra", "scope": BudgetScope.run, "unexpected": True}
 
     try:

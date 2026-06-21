@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import json
 from concurrent.futures import ThreadPoolExecutor
 
@@ -8,10 +10,10 @@ from ultimate_ai_agent.core.gate.reports import FoundationGateResult, build_foun
 
 
 class _FastFoundationGateEvaluator:
-    def __init__(self, root=None):
+    def __init__(self, root: Any | None = None) -> None:
         self.root = root
 
-    def evaluate(self):
+    def evaluate(self) -> Any:
         return build_foundation_gate_report(
             version="test",
             results=[
@@ -24,15 +26,15 @@ class _FastFoundationGateEvaluator:
         )
 
 
-def _use_fast_gate_report(monkeypatch):
+def _use_fast_gate_report(monkeypatch: pytest.MonkeyPatch) -> None:
     def fast_latency_summary(
         *,
-        foundation_gate_report_json,
-        foundation_gate_report_md,
-        precomputed_foundation_gate_ms=None,
-        precomputed_foundation_gate_status=None,
-        precomputed_foundation_gate_result_count=None,
-    ):
+        foundation_gate_report_json: Any,
+        foundation_gate_report_md: Any,
+        precomputed_foundation_gate_ms: Any | None = None,
+        precomputed_foundation_gate_status: Any | None = None,
+        precomputed_foundation_gate_result_count: Any | None = None,
+    ) -> Any:
         assert precomputed_foundation_gate_ms is not None
         assert precomputed_foundation_gate_status == "passed"
         assert precomputed_foundation_gate_result_count == 1
@@ -136,7 +138,7 @@ def _use_fast_gate_report(monkeypatch):
     )
 
 
-def test_run_foundation_gate_writes_requested_output(tmp_path, monkeypatch):
+def test_run_foundation_gate_writes_requested_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _use_fast_gate_report(monkeypatch)
     output_path = tmp_path / "gate_report.json"
 
@@ -162,7 +164,7 @@ def test_run_foundation_gate_writes_requested_output(tmp_path, monkeypatch):
     assert payload["summary"] == f"{expected_count} passed, 0 failed, 0 warnings, 0 blocked."
 
 
-def test_run_foundation_gate_ci_mode_records_external_verify_receipt(tmp_path, monkeypatch):
+def test_run_foundation_gate_ci_mode_records_external_verify_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _use_fast_gate_report(monkeypatch)
     output_path = tmp_path / "gate_report.json"
 
@@ -178,7 +180,7 @@ def test_run_foundation_gate_ci_mode_records_external_verify_receipt(tmp_path, m
     assert payload["command_receipts"][0]["satisfied_by"] == "ci-master-verification"
 
 
-def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tmp_path, monkeypatch):
+def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _use_fast_gate_report(monkeypatch)
     output_path = tmp_path / "gate_report.json"
 
@@ -194,7 +196,7 @@ def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tm
     assert payload["command_receipts"][0]["satisfied_by"] == "ci-parallel-required-jobs"
 
 
-def test_atomic_report_write_leaves_latest_json_valid_after_repeated_writes(tmp_path):
+def test_atomic_report_write_leaves_latest_json_valid_after_repeated_writes(tmp_path: Path) -> None:
     report_path = tmp_path / "latest_foundation_gate_report.json"
     payloads = [
         {"report_id": "gate_report_1", "overall_status": "passed", "summary": "first"},
@@ -212,7 +214,7 @@ def test_atomic_report_write_leaves_latest_json_valid_after_repeated_writes(tmp_
     assert report_path.stat().st_size > 0
 
 
-def test_atomic_report_write_keeps_latest_json_parseable_under_concurrent_writes(tmp_path):
+def test_atomic_report_write_keeps_latest_json_parseable_under_concurrent_writes(tmp_path: Path) -> None:
     report_path = tmp_path / "latest_foundation_gate_report.json"
 
     def write_report(index: int) -> None:
@@ -233,7 +235,7 @@ def test_atomic_report_write_keeps_latest_json_parseable_under_concurrent_writes
     assert not list(tmp_path.glob(".latest_foundation_gate_report.json.*.tmp"))
 
 
-def test_write_json_atomic_rejects_empty_payload_with_clear_error(tmp_path):
+def test_write_json_atomic_rejects_empty_payload_with_clear_error(tmp_path: Path) -> None:
     report_path = tmp_path / "latest_foundation_gate_report.json"
 
     # An empty/whitespace payload must raise the explicit "must not be empty"

@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.context_proposal import (
 from tests.context_proposal_fixtures import approved_context_proposal_record, context_proposal_packet
 
 
-def test_default_context_proposal_policy_is_proposal_only_and_non_authoritative():
+def test_default_context_proposal_policy_is_proposal_only_and_non_authoritative() -> None:
     policy = build_safe_context_proposal_policy()
 
     assert isinstance(policy, SafeContextProposalPolicy)
@@ -33,7 +33,7 @@ def test_default_context_proposal_policy_is_proposal_only_and_non_authoritative(
     assert policy.control_center_surface_enabled is False
 
 
-def test_valid_approved_review_builds_non_authoritative_context_proposal():
+def test_valid_approved_review_builds_non_authoritative_context_proposal() -> None:
     packet = context_proposal_packet()
     approval_record = approved_context_proposal_record(packet)
 

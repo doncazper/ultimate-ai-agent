@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.beta_freeze import (
@@ -10,7 +11,7 @@ from ultimate_ai_agent.core.beta_freeze import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "beta-freeze-request:m60",
         "freeze_ref": "beta-freeze:m60",

@@ -178,7 +178,7 @@ class TaskDecompositionStatus(BaseModel):
 
 
 class TaskDecompositionRateLimiter:
-    def __init__(self, max_events: int = 600, window_s: float = 60.0):
+    def __init__(self, max_events: int = 600, window_s: float = 60.0) -> None:
         self.max_events = max_events
         self.window_s = window_s
         self._events: dict[str, list[float]] = {}
@@ -257,7 +257,7 @@ class TaskDecompositionRunResult(BaseModel):
 
 
 class CapabilityRegistryStore:
-    def __init__(self, config: CapabilityRegistryStoreConfig | None = None):
+    def __init__(self, config: CapabilityRegistryStoreConfig | None = None) -> None:
         self.config = config or CapabilityRegistryStoreConfig()
         self._lock = threading.RLock()
 
@@ -431,7 +431,7 @@ class TaskDecompositionService:
         reflection_store: ReflectionStore | None = None,
         approval_authority: LocalApprovalAuthority | None = None,
         rate_limiter: TaskDecompositionRateLimiter | None = None,
-    ):
+    ) -> None:
         self.registry_store = registry_store or CapabilityRegistryStore()
         self.registry = registry or self.registry_store.load()
         self.approval_authority = approval_authority or LocalApprovalAuthority()

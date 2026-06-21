@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from tests.test_m93_multi_tool_dry_run_promotion import _request as _m93_request
@@ -16,11 +17,11 @@ from ultimate_ai_agent.core.browser import (
 )
 
 
-def _m93_decision():
+def _m93_decision() -> Any:
     return build_multi_tool_dry_run_promotion_decision(_m93_request())
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     m93_decision = overrides.pop("m93_promotion_decision", _m93_decision())
     data = {
         "request_ref": "low-risk-browser-click-request:m94",
@@ -55,7 +56,7 @@ def _request(**overrides):
     return LowRiskBrowserClickRequest(**data)
 
 
-def _transport(_decision):
+def _transport(_decision: Any) -> Any:
     return LowRiskBrowserClickTransportResponse(
         click_completed=True,
         safe_result_ref="browser-click-result:m94-safe-details-opened",
@@ -218,7 +219,7 @@ def test_m94_revalidates_model_copy_mutated_m93_decision_and_outputs() -> None:
 def test_m94_transport_denies_hidden_unsafe_side_effects() -> None:
     decision = build_low_risk_browser_click_decision(_request())
 
-    def unsafe_transport(_decision):
+    def unsafe_transport(_decision: Any) -> Any:
         return LowRiskBrowserClickTransportResponse(
             click_completed=True,
             safe_result_ref="browser-click-result:m94-unsafe",

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import sqlite3
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.core.memory.enums import (
@@ -34,7 +34,7 @@ from ultimate_ai_agent.core.time import utc_now
 class LocalMemoryStore(MemoryProvider):
     """Stdlib-only local/dev memory store for reviewed recall records."""
 
-    def __init__(self, storage_path: Optional[Path] = None):
+    def __init__(self, storage_path: Optional[Path] = None) -> None:
         self.storage_path = Path(storage_path) if storage_path is not None else None
         self._records: Dict[str, MemoryRecord] = {}
         provider_kind = MemoryProviderKind.local_sqlite if self.storage_path else MemoryProviderKind.local_in_memory
@@ -57,7 +57,7 @@ class LocalMemoryStore(MemoryProvider):
             )
             self._conn.commit()
 
-    def put_record(self, request: MemoryProviderWriteRequest):
+    def put_record(self, request: MemoryProviderWriteRequest) -> Any:
         if not isinstance(request, MemoryProviderWriteRequest):
             raise TypeError("LocalMemoryStore.put_record requires the M24 provider/store MemoryWriteRequest.")
         decision = validate_memory_write_request(request)
@@ -155,7 +155,7 @@ class LocalMemoryStore(MemoryProvider):
         self._save(record)
         return record
 
-    def export_records(self, request: MemoryExportRequest):
+    def export_records(self, request: MemoryExportRequest) -> Any:
         decision = validate_memory_export_request(request)
         if not decision.allowed:
             return decision

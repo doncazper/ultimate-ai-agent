@@ -28,7 +28,7 @@ class _PreparedRoutePolicy:
 
 
 class ModelRouter:
-    def __init__(self, cost_governor: CostGovernor | None = None, approval_authority: LocalApprovalAuthority | None = None):
+    def __init__(self, cost_governor: CostGovernor | None = None, approval_authority: LocalApprovalAuthority | None = None) -> None:
         self.cost_governor = cost_governor or CostGovernor()
         self.approval_authority = approval_authority
 

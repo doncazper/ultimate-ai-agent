@@ -72,7 +72,7 @@ class ConnectorWriteExecutionLowRiskPolicy(_ConnectorWriteExecutionLowRisk):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         _validate_safe_payload(self.metadata)
         return self
@@ -133,7 +133,7 @@ class ConnectorWriteExecutionLowRiskRequest(_ConnectorWriteExecutionLowRisk):
     high_risk_write_requested: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         for refs, field_name in _request_ref_list_pairs(self):
@@ -173,7 +173,7 @@ class ConnectorWriteExecutionReceiptPlan(_ConnectorWriteExecutionLowRisk):
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.execution_ref, "execution_ref"),
@@ -242,7 +242,7 @@ class ConnectorWriteExecutionDecision(_ConnectorWriteExecutionLowRisk):
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.execution_ref, "execution_ref"),
@@ -287,7 +287,7 @@ class ConnectorWriteExecutionTransportResponse(_ConnectorWriteExecutionLowRisk):
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.safe_result_ref, "safe_result_ref")
         _validate_safe_payload({"safe_summary": self.safe_summary})
         return self
@@ -324,7 +324,7 @@ class ConnectorWriteExecutionResult(_ConnectorWriteExecutionLowRisk):
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.result_ref, "result_ref"),
             (self.execution_ref, "execution_ref"),
@@ -606,7 +606,7 @@ def _validate_prior_milestone_refs(refs: list[str]) -> None:
         raise ValueError("M128_PRIOR_MILESTONE_REF_UNEXPECTED")
 
 
-def _request_ref_pairs(request: ConnectorWriteExecutionLowRiskRequest):
+def _request_ref_pairs(request: ConnectorWriteExecutionLowRiskRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.execution_ref, "execution_ref"),
@@ -642,7 +642,7 @@ def _request_ref_pairs(request: ConnectorWriteExecutionLowRiskRequest):
     ]
 
 
-def _request_ref_list_pairs(request: ConnectorWriteExecutionLowRiskRequest):
+def _request_ref_list_pairs(request: ConnectorWriteExecutionLowRiskRequest) -> list[Any]:
     return [
         (request.connector_scope_refs, "connector_scope_ref"),
         (request.connector_allowlist_refs, "connector_allowlist_ref"),

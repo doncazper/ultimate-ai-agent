@@ -121,7 +121,7 @@ def validate_execution_ref(value: str, field_name: str = "ref") -> None:
         raise ValueError(f"{field_name} must be a structured safe ref")
 
 
-def raw_input_reasons(boundary) -> list[str]:
+def raw_input_reasons(boundary: Any) -> list[str]:
     reasons: list[str] = []
     if bool(getattr(boundary, "contains_raw_prompt", False)):
         reasons.append("RAW_PROMPT_DENIED")
@@ -207,7 +207,7 @@ def input_trust_reasons(source_ref: str, declared: ExecutionInputTrustLevel) -> 
     return dedupe_reasons(reasons)
 
 
-def boundary_reason_codes(boundary) -> list[str]:
+def boundary_reason_codes(boundary: Any) -> list[str]:
     reasons = raw_input_reasons(boundary)
     for ref in [*getattr(boundary, "input_refs", []), *getattr(boundary, "metadata_refs", [])]:
         reasons.extend(input_trust_reasons(ref, getattr(boundary, "input_trust_level", ExecutionInputTrustLevel.safe_reference)))

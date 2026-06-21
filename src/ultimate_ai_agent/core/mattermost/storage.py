@@ -17,7 +17,7 @@ from ultimate_ai_agent.core.time import utc_now
 
 
 class MattermostBridgeStore:
-    def __init__(self, storage_dir: str | Path):
+    def __init__(self, storage_dir: str | Path) -> None:
         self.storage_dir = Path(storage_dir)
         self.bindings_path = self.storage_dir / "bindings.json"
         self.audit_path = self.storage_dir / "audit.jsonl"

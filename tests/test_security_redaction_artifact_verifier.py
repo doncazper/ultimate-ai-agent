@@ -1,15 +1,18 @@
+from typing import Any
+from pathlib import Path
+import pytest
 import json
 
 import scripts.verify_security_redaction_artifacts as verifier
 
 
-def _write_text(root, rel_path: str, text: str) -> None:
+def _write_text(root: Any, rel_path: str, text: str) -> None:
     path = root / rel_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
-def test_security_redaction_artifact_verifier_clean_scopes_pass(tmp_path):
+def test_security_redaction_artifact_verifier_clean_scopes_pass(tmp_path: Path) -> None:
     _write_text(
         tmp_path,
         "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
@@ -38,7 +41,7 @@ def test_security_redaction_artifact_verifier_clean_scopes_pass(tmp_path):
     assert findings == []
 
 
-def test_security_redaction_artifact_verifier_flags_private_material_safely(tmp_path):
+def test_security_redaction_artifact_verifier_flags_private_material_safely(tmp_path: Path) -> None:
     secret_value = "abcdefghijklmnop"
     user_fragment = "private-user-name"
     _write_text(
@@ -71,7 +74,7 @@ def test_security_redaction_artifact_verifier_flags_private_material_safely(tmp_
         assert finding.evidence_hash.startswith("sha256:")
 
 
-def test_security_redaction_artifact_verifier_covers_frontend_build_output(tmp_path):
+def test_security_redaction_artifact_verifier_covers_frontend_build_output(tmp_path: Path) -> None:
     _write_text(
         tmp_path,
         "apps/control-center/dist/assets/index.js",
@@ -89,7 +92,7 @@ def test_security_redaction_artifact_verifier_covers_frontend_build_output(tmp_p
     assert {finding.category for finding in findings} == {"bearer_token_material"}
 
 
-def test_security_redaction_artifact_verifier_blocks_unsafe_release_claims():
+def test_security_redaction_artifact_verifier_blocks_unsafe_release_claims() -> None:
     findings = verifier.scan_text(
         "docs/production/unsafe.md",
         "\n".join(
@@ -115,9 +118,9 @@ def test_security_redaction_artifact_verifier_blocks_unsafe_release_claims():
 
 
 def test_security_redaction_artifact_verifier_cli_redacts_failure_output(
-    tmp_path,
-    capsys,
-):
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     secret_value = "qrstuvwxyz123456"
     _write_text(
         tmp_path,

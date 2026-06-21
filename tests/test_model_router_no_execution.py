@@ -7,7 +7,7 @@ from ultimate_ai_agent.core.ledger import EventLedgerEvent, EventName
 from ultimate_ai_agent.core.model_router import ModelRouteStatus, ModelRouter
 
 
-def test_model_router_is_decision_only_and_serializes_safely():
+def test_model_router_is_decision_only_and_serializes_safely() -> None:
     decision = ModelRouter().route(route_request(profiles=[cloud_profile()]))
     payload = decision.model_dump(mode="json")
 
@@ -16,7 +16,7 @@ def test_model_router_is_decision_only_and_serializes_safely():
     assert "raw_secret" not in str(payload)
 
 
-def test_model_router_source_has_no_provider_or_network_imports():
+def test_model_router_source_has_no_provider_or_network_imports() -> None:
     forbidden_modules = {
         "openai",
         "anthropic",
@@ -39,7 +39,7 @@ def test_model_router_source_has_no_provider_or_network_imports():
                 assert node.module not in forbidden_modules
 
 
-def test_route_decision_can_be_referenced_by_event_ledger_metadata():
+def test_route_decision_can_be_referenced_by_event_ledger_metadata() -> None:
     decision = ModelRouter().route(route_request(profiles=[cloud_profile()]))
 
     event = EventLedgerEvent(
@@ -70,7 +70,7 @@ def test_route_decision_can_be_referenced_by_event_ledger_metadata():
     assert event.metadata["status"] == "selected"
 
 
-def test_cloud_route_does_not_imply_consent_or_credential_resolution():
+def test_cloud_route_does_not_imply_consent_or_credential_resolution() -> None:
     decision = ModelRouter().route(route_request(profiles=[cloud_profile(credential_ref="cred_cloud")], credential_availability={"cred_cloud": True}))
 
     assert decision.status == ModelRouteStatus.selected

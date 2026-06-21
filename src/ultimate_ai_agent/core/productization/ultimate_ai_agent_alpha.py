@@ -109,7 +109,7 @@ class UltimateAiAgentAlphaPolicy(_UltimateAiAgentAlphaModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         _validate_m61_ref(self.product_target_ref, "product_target_ref")
         try:
@@ -213,7 +213,7 @@ class UltimateAiAgentAlphaRequest(_UltimateAiAgentAlphaModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -312,7 +312,7 @@ class UltimateAiAgentAlphaRecord(_UltimateAiAgentAlphaModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _record_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -497,7 +497,7 @@ def validate_ultimate_ai_agent_alpha_record(
     return validated
 
 
-def _request_ref_pairs(request: UltimateAiAgentAlphaRequest):
+def _request_ref_pairs(request: UltimateAiAgentAlphaRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.alpha_target_ref, "alpha_target_ref"),
@@ -512,7 +512,7 @@ def _request_ref_pairs(request: UltimateAiAgentAlphaRequest):
     ]
 
 
-def _record_ref_pairs(record: UltimateAiAgentAlphaRecord):
+def _record_ref_pairs(record: UltimateAiAgentAlphaRecord) -> list[Any]:
     return [
         (record.record_ref, "record_ref"),
         (record.alpha_target_ref, "alpha_target_ref"),
@@ -528,7 +528,7 @@ def _record_ref_pairs(record: UltimateAiAgentAlphaRecord):
     ]
 
 
-def _request_ref_lists(request: UltimateAiAgentAlphaRequest):
+def _request_ref_lists(request: UltimateAiAgentAlphaRequest) -> list[Any]:
     return [
         (request.alpha_target_refs, "alpha_target_ref", "M150_ALPHA_TARGET_REF_REQUIRED"),
         (
@@ -564,7 +564,7 @@ def _request_ref_lists(request: UltimateAiAgentAlphaRequest):
     ]
 
 
-def _record_ref_lists(record: UltimateAiAgentAlphaRecord):
+def _record_ref_lists(record: UltimateAiAgentAlphaRecord) -> list[Any]:
     return [
         (record.alpha_target_refs, "alpha_target_ref", "M150_ALPHA_TARGET_REF_REQUIRED"),
         (

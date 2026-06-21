@@ -1,9 +1,10 @@
+from typing import Any
 from importlib import import_module
 
 import pytest
 
 
-def _connectors():
+def _connectors() -> Any:
     try:
         return import_module("ultimate_ai_agent.core.connectors")
     except ModuleNotFoundError as exc:

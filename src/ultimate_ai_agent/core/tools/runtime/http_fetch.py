@@ -46,7 +46,7 @@ class HttpFetchRedactionSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_summary(self):
+    def validate_summary(self) -> Any:
         allowed_categories = {"secret_assignment", "bearer_token", "private_key_marker", "high_entropy_token"}
         if self.redaction_count < 0:
             raise ValueError("HTTP_FETCH_REDACTION_COUNT_INVALID")
@@ -89,7 +89,7 @@ class ReadOnlyHttpFetchPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         validate_tool_runtime_ref(self.policy_ref, "policy_ref")
         if not self.read_only_http_fetch_allowed:
             raise ValueError("READ_ONLY_HTTP_FETCH_POLICY_DISABLED")
@@ -164,7 +164,7 @@ class ReadOnlyHttpFetchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         validate_tool_runtime_ref(self.request_ref, "request_ref")
         validate_tool_runtime_ref(self.allowed_host_policy_ref, "allowed_host_policy_ref")
         validate_safe_tool_runtime_text(self.safe_summary, "safe_summary")
@@ -187,7 +187,7 @@ class ReadOnlyHttpFetchTransportResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_response(self):
+    def validate_response(self) -> Any:
         if not 100 <= self.status_code <= 599:
             raise ValueError("HTTP_FETCH_STATUS_INVALID")
         validate_safe_tool_runtime_text(self.content_type, "content_type")
@@ -233,7 +233,7 @@ class ReadOnlyHttpFetchOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_output(self):
+    def validate_output(self) -> Any:
         for ref in [self.output_ref, self.request_ref, self.safe_url_ref, self.host_ref]:
             validate_tool_runtime_ref(ref, "http_fetch_ref")
         validate_safe_tool_runtime_text(self.safe_message, "safe_message")

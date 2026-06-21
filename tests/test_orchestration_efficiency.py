@@ -1,3 +1,4 @@
+from typing import Any
 import ast
 import json
 from pathlib import Path
@@ -19,7 +20,7 @@ from ultimate_ai_agent.core.orchestration_efficiency import (
 )
 
 
-def cache_plan(**overrides) -> CacheabilityPlan:
+def cache_plan(**overrides: Any) -> CacheabilityPlan:
     data = {
         "plan_ref": "cache-plan:route_req_1:stable",
         "run_id": "run_m7",
@@ -39,7 +40,7 @@ def cache_plan(**overrides) -> CacheabilityPlan:
     return CacheabilityPlan(**data)
 
 
-def efficiency_policy(**overrides) -> OrchestrationEfficiencyPolicy:
+def efficiency_policy(**overrides: Any) -> OrchestrationEfficiencyPolicy:
     data = {
         "policy_id": "orch-efficiency-policy:test",
         "cost_mode": ModelRouteCostMode.balanced,
@@ -285,7 +286,7 @@ def test_fallback_planning_is_capped_but_candidate_count_preserves_all_eligible(
 
 def test_critical_approval_preflight_skips_router_work() -> None:
     class ExplodingRouter(ModelRouter):
-        def route(self, request):  # pragma: no cover - failure path only
+        def route(self, request: Any) -> None:  # pragma: no cover - failure path only
             raise AssertionError("router should not run for critical approval preflight")
 
     request = route_request(profiles=[local_profile()], routing_policy=policy())
@@ -303,11 +304,11 @@ def test_critical_approval_preflight_skips_router_work() -> None:
 
 def test_selected_path_estimates_each_eligible_profile_once() -> None:
     class CountingCostGovernor(CostGovernor):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.estimate_calls = 0
 
-        def estimate_route_cost(self, route_request, profile):
+        def estimate_route_cost(self, route_request: Any, profile: str) -> Any:
             self.estimate_calls += 1
             return super().estimate_route_cost(route_request, profile)
 
@@ -330,11 +331,11 @@ def test_selected_path_estimates_each_eligible_profile_once() -> None:
 
 def test_planner_reuses_router_cost_governor_by_default() -> None:
     class CountingCostGovernor(CostGovernor):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.estimate_calls = 0
 
-        def estimate_route_cost(self, route_request, profile):
+        def estimate_route_cost(self, route_request: Any, profile: str) -> Any:
             self.estimate_calls += 1
             return super().estimate_route_cost(route_request, profile)
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 import argparse
 import sys
@@ -14,7 +15,7 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
 )
 
 
-def _service(args) -> TaskDecompositionService:
+def _service(args: Any) -> TaskDecompositionService:
     store = CapabilityRegistryStore(
         CapabilityRegistryStoreConfig(
             registry_path=args.registry,
@@ -24,27 +25,27 @@ def _service(args) -> TaskDecompositionService:
     return TaskDecompositionService(registry_store=store)
 
 
-def _cmd_init_examples(args) -> int:
+def _cmd_init_examples(args: Any) -> int:
     service = _service(args)
     catalog = service.ensure_examples()
     print(dump_json({"registered": [card["id"] for card in catalog], "registry_path": args.registry}))
     return 0
 
 
-def _cmd_catalog(args) -> int:
+def _cmd_catalog(args: Any) -> int:
     service = _service(args)
     print(dump_json(service.catalog()))
     return 0
 
 
-def _cmd_decompose(args) -> int:
+def _cmd_decompose(args: Any) -> int:
     service = _service(args)
     result = service.decompose(TaskDecompositionRequest(raw_request=args.request, context={}))
     print(dump_json(result))
     return 0 if result.validation.valid else 2
 
 
-def _cmd_run(args) -> int:
+def _cmd_run(args: Any) -> int:
     service = _service(args)
     approval_refs = {}
     for value in args.approval_ref or []:
@@ -65,7 +66,7 @@ def _cmd_run(args) -> int:
     return 0 if result.execution is not None and result.execution.status == "succeeded" else 2
 
 
-def _cmd_serve_api(args) -> int:
+def _cmd_serve_api(args: Any) -> int:
     import uvicorn
 
     uvicorn.run(

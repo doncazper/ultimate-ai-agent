@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 from functools import lru_cache
 from importlib import import_module
@@ -25,7 +26,7 @@ from ultimate_ai_agent.core.production_readiness import (
 from ultimate_ai_agent.core.time import utc_now
 
 
-def _connectors():
+def _connectors() -> Any:
     try:
         return import_module("ultimate_ai_agent.core.connectors")
     except ModuleNotFoundError as exc:
@@ -33,7 +34,7 @@ def _connectors():
 
 
 @lru_cache(maxsize=1)
-def _m120_source_record():
+def _m120_source_record() -> Any:
     return build_production_authority_readiness_review_record(
         source_record=build_production_red_team_harness_record(
             source_record=build_deployment_mode_matrix_record(
@@ -64,7 +65,7 @@ def _m120_source_record():
 
 
 @lru_cache(maxsize=1)
-def _m124_source_record():
+def _m124_source_record() -> Any:
     connectors = _connectors()
     return connectors.build_messages_connector_contract_review_record(
         source_record=connectors.build_contacts_connector_contract_refresh_record(
@@ -78,14 +79,14 @@ def _m124_source_record():
 
 
 @lru_cache(maxsize=1)
-def _runtime_record():
+def _runtime_record() -> Any:
     connectors = _connectors()
     return connectors.build_connector_read_only_runtime_record(
         source_record=_m124_source_record()
     )
 
 
-def _request(runtime_record, **overrides):
+def _request(runtime_record: Any, **overrides: Any) -> Any:
     connectors = _connectors()
     data = {
         "approval_ref": "connector-approval-capture:m126:approval",
@@ -121,7 +122,7 @@ def _request(runtime_record, **overrides):
     return connectors.ConnectorApprovalCaptureRequest(**data)
 
 
-def test_m126_connector_approval_capture_persists_safe_record_without_authority():
+def test_m126_connector_approval_capture_persists_safe_record_without_authority() -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     request = _request(runtime_record)
@@ -174,7 +175,7 @@ def test_m126_connector_approval_capture_persists_safe_record_without_authority(
     assert "account_secret" not in dumped
 
 
-def test_m126_connector_approval_denial_persists_safe_denial_record():
+def test_m126_connector_approval_denial_persists_safe_denial_record() -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     request = _request(
@@ -245,8 +246,8 @@ def test_m126_connector_approval_denial_persists_safe_denial_record():
     ],
 )
 def test_m126_capture_denies_binding_authority_and_lifecycle_failures(
-    override, reason
-):
+    override: Any, reason: str
+) -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     request = _request(runtime_record).model_copy(update=override)
@@ -287,8 +288,8 @@ def test_m126_capture_denies_binding_authority_and_lifecycle_failures(
     ],
 )
 def test_m126_model_copy_mutated_capture_request_flags_are_revalidated(
-    flag, reason
-):
+    flag: Any, reason: str
+) -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     request = _request(runtime_record).model_copy(update={flag: True})
@@ -304,7 +305,7 @@ def test_m126_model_copy_mutated_capture_request_flags_are_revalidated(
     assert decision.execution_performed is False
 
 
-def test_m126_model_copy_mutated_secret_metadata_is_denied_without_echoing_secret():
+def test_m126_model_copy_mutated_secret_metadata_is_denied_without_echoing_secret() -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     request = _request(runtime_record).model_copy(
@@ -321,7 +322,7 @@ def test_m126_model_copy_mutated_secret_metadata_is_denied_without_echoing_secre
     assert "connector-secret-abc123" not in str(decision.model_dump(mode="json"))
 
 
-def test_m126_record_validation_denies_model_copy_authority_and_raw_fields():
+def test_m126_record_validation_denies_model_copy_authority_and_raw_fields() -> None:
     connectors = _connectors()
     runtime_record = _runtime_record()
     request = _request(runtime_record)

@@ -47,7 +47,7 @@ class ManualLoopbackSmokePolicy(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def policy_must_be_loopback_and_secret_clean(self):
+    def policy_must_be_loopback_and_secret_clean(self) -> Any:
         if self.require_loopback is not True:
             raise ValueError("SMOKE_LOOPBACK_REQUIRED")
         if self.forbid_credentials is not True:
@@ -80,7 +80,7 @@ class ManualLoopbackSmokeRequest(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def request_must_be_fixed_loopback_and_secret_clean(self):
+    def request_must_be_fixed_loopback_and_secret_clean(self) -> Any:
         if self.policy.require_fixed_smoke_prompt and self.fixed_prompt != DEFAULT_MANUAL_LOOPBACK_SMOKE_PROMPT:
             raise ValueError("SMOKE_PROMPT_MUST_MATCH_FIXED_PROMPT")
         if self.policy.forbid_user_content and _contains_user_content_marker(self.fixed_prompt):
@@ -112,7 +112,7 @@ class ManualLoopbackSmokeResult(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def result_must_be_non_authoritative_and_secret_clean(self):
+    def result_must_be_non_authoritative_and_secret_clean(self) -> Any:
         if self.metadata.get("truth_authority") is not False:
             raise ValueError("SMOKE_RESULT_NOT_TRUTH_AUTHORITY")
         assert_secret_clean(self.response_preview, "Manual loopback smoke response preview")

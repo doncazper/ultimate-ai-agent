@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.files import FileKind, FileSensitivity, FileWritePro
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 
 
-def test_diff_preview_is_deterministic(tmp_path: Path):
+def test_diff_preview_is_deterministic(tmp_path: Path) -> None:
     (tmp_path / "note.txt").write_text("old\n", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
     proposal = FileWriteProposal(

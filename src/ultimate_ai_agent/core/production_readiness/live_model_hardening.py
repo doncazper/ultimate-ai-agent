@@ -174,7 +174,7 @@ class LiveModelHardeningEvidenceRecord(_LiveModelProductionHardeningModel):
     production_side_effect_unreviewed: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.evidence_ref, "evidence_ref"),
             (self.source_checkpoint_ref, "source_checkpoint_ref"),
@@ -224,7 +224,7 @@ class LiveModelProductionHardeningPolicy(_LiveModelProductionHardeningModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         _validate_m61_ref(self.source_checkpoint_ref, "source_checkpoint_ref")
         _validate_safe_payload(self.metadata)
@@ -279,7 +279,7 @@ class LiveModelProductionHardeningReport(_LiveModelProductionHardeningModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.source_checkpoint_ref, "source_checkpoint_ref"),

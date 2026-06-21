@@ -1,3 +1,4 @@
+from typing import Any
 from tests.test_stage_a_policy_hardening import make_consent_ledger, make_request, make_tool
 from ultimate_ai_agent.core.approvals import ApprovalRiskLevel, ApprovalSubjectType, LocalApprovalAuthority
 from ultimate_ai_agent.core.consent.enums import PermissionAction
@@ -6,7 +7,7 @@ from ultimate_ai_agent.core.tools import CapabilityFirewallPolicy, ToolBroker, T
 from ultimate_ai_agent.core.tools.enums import ToolRiskLevel
 
 
-def actor_context():
+def actor_context() -> Any:
     return ActorContext(
         actor_type=ActorType.orchestrator,
         actor_id="test_actor",
@@ -14,7 +15,7 @@ def actor_context():
     )
 
 
-def evaluate_with_authority(request, tool, authority):
+def evaluate_with_authority(request: Any, tool: Any, authority: Any) -> Any:
     registry = ToolRegistry()
     registry.register_tool(tool)
     broker = ToolBroker(
@@ -25,7 +26,7 @@ def evaluate_with_authority(request, tool, authority):
     return broker.evaluate_request(request, make_consent_ledger(PermissionAction.execute))
 
 
-def test_high_risk_tool_with_arbitrary_approval_ref_stays_approval_required():
+def test_high_risk_tool_with_arbitrary_approval_ref_stays_approval_required() -> None:
     request = make_request(actor_context(), approval_ref="human_approved_ref_123")
     decision = evaluate_with_authority(request, make_tool(risk_level=ToolRiskLevel.high), LocalApprovalAuthority())
 
@@ -33,7 +34,7 @@ def test_high_risk_tool_with_arbitrary_approval_ref_stays_approval_required():
     assert "APPROVAL_REF_UNKNOWN" in decision.reason_codes
 
 
-def test_high_risk_tool_with_local_authority_grant_is_policy_authorized():
+def test_high_risk_tool_with_local_authority_grant_is_policy_authorized() -> None:
     request = make_request(actor_context())
     authority = LocalApprovalAuthority()
     approval_request = authority.create_request(

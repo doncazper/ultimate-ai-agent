@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import time
-from typing import Mapping
+from typing import Any, Mapping
 
 from ultimate_ai_agent.core.mattermost.api_safety import (
     mattermost_auto_create_roles_enabled,
@@ -57,7 +57,7 @@ class MattermostBridgeConfig:
 
 
 class MattermostBridgeService:
-    def __init__(self, config: MattermostBridgeConfig, store: MattermostBridgeStore | None = None):
+    def __init__(self, config: MattermostBridgeConfig, store: MattermostBridgeStore | None = None) -> None:
         self.config = config
         self.store = store or MattermostBridgeStore(config.storage_dir)
 
@@ -435,7 +435,7 @@ class MattermostBridgeService:
         return any(marker in lowered for marker in markers)
 
     @staticmethod
-    def _role_for_binding(binding: MattermostRoleBinding, role_id: str):
+    def _role_for_binding(binding: MattermostRoleBinding, role_id: str) -> Any:
         predefined = get_predefined_role(role_id)
         if predefined is not None:
             return predefined

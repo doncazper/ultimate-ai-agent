@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
 )
 
 
-def test_m18_local_runtime_manual_smoke_surface_criterion_exists_and_passes():
+def test_m18_local_runtime_manual_smoke_surface_criterion_exists_and_passes() -> None:
     criteria = default_foundation_gate_criteria()
     criteria_by_id = {criterion.criterion_id: criterion for criterion in criteria}
 
@@ -22,7 +22,7 @@ def test_m18_local_runtime_manual_smoke_surface_criterion_exists_and_passes():
     assert report.passed_count == 1
 
 
-def test_m18_openapi_route_guard_rejects_runtime_execution_expansion():
+def test_m18_openapi_route_guard_rejects_runtime_execution_expansion() -> None:
     failures = m18_openapi_route_failures(
         {
             "/health",

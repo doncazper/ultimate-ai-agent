@@ -39,7 +39,7 @@ class CapabilityApprovalGrant(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def validate_secret_free(self):
+    def validate_secret_free(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "capability_approval_grant")
         return self
 
@@ -55,7 +55,7 @@ class ApprovalAuthority(Protocol):
 
 
 class LocalApprovalAuthority:
-    def __init__(self, grants: list[CapabilityApprovalGrant] | None = None):
+    def __init__(self, grants: list[CapabilityApprovalGrant] | None = None) -> None:
         self._grants: dict[str, CapabilityApprovalGrant] = {}
         for grant in grants or []:
             self.add_grant(grant)

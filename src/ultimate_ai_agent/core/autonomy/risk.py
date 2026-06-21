@@ -73,7 +73,7 @@ class AutonomyRiskSignal(_AutonomyRiskClassifierModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.signal_ref, "signal_ref")
         _validate_m61_ref(self.source_ref, "source_ref")
         if not self.reason_code:
@@ -123,7 +123,7 @@ class AutonomyRiskClassificationRequest(_AutonomyRiskClassifierModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.classification_request_ref, "classification_request_ref"),
             (self.actor_ref, "actor_ref"),
@@ -196,7 +196,7 @@ class AutonomyRiskClassificationDecision(_AutonomyRiskClassifierModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.classification_request_ref, "classification_request_ref"),

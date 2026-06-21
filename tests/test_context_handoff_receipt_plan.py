@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.context_handoff import (
     ContextHandoffApprovalKind,
     ContextHandoffApprovalRequest,
@@ -12,13 +13,13 @@ from tests.context_proposal_fixtures import (
 )
 
 
-def _proposal():
+def _proposal() -> Any:
     packet = context_proposal_packet()
     approval_record = approved_context_proposal_record(packet)
     return build_safe_context_proposal(packet=packet, approval_record=approval_record)
 
 
-def _request(proposal):
+def _request(proposal: Any) -> Any:
     return ContextHandoffApprovalRequest(
         approval_ref="context-handoff-approval:receipt",
         actor_ref=proposal.binding.actor_ref,

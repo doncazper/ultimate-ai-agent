@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import UTC, datetime
 from pydantic import ValidationError
 import pytest
@@ -8,7 +9,7 @@ from ultimate_ai_agent.core.hygiene.temporal_context import TemporalContext, Fre
 from ultimate_ai_agent.core.hygiene.policies import DataClassification, ClassificationValue
 
 @pytest.fixture
-def dummy_hygiene_contexts():
+def dummy_hygiene_contexts() -> tuple[Any, ...]:
     actor = ActorContext(
         actor_type=ActorType.orchestrator,
         actor_id="test_orchestrator",
@@ -26,7 +27,7 @@ def dummy_hygiene_contexts():
     )
     return actor, temporal, classification
 
-def test_valid_ledger_event_creation(dummy_hygiene_contexts):
+def test_valid_ledger_event_creation(dummy_hygiene_contexts: Any) -> None:
     actor, temporal, classification = dummy_hygiene_contexts
     event = EventLedgerEvent(
         event_id="evt_123",
@@ -50,7 +51,7 @@ def test_valid_ledger_event_creation(dummy_hygiene_contexts):
     assert event.event_name == "run.created"
     assert event.event_version == "event_ledger_event.v0"
 
-def test_invalid_event_missing_fields():
+def test_invalid_event_missing_fields() -> None:
     with pytest.raises(ValidationError):
         # Missing required fields like run_id, actor_context etc
         EventLedgerEvent(

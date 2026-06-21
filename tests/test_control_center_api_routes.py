@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi.testclient import TestClient
 from pathlib import Path
 import json
@@ -22,12 +23,12 @@ def _visible_frontend_routes() -> set[str]:
     return set(re.findall(r'\{\s*path:\s*"([^"]+)",\s*label:', routes_text))
 
 
-def _api_route_index():
+def _api_route_index() -> Any:
     manifest = build_api_manifest(app)
     return {(route.method, route.path): route for route in manifest.routes}
 
 
-def test_control_center_api_routes_are_read_only_preview_only():
+def test_control_center_api_routes_are_read_only_preview_only() -> None:
     for path in [
         "/control-center/manifest",
         "/control-center/dashboard",
@@ -51,7 +52,7 @@ def test_control_center_api_routes_are_read_only_preview_only():
     assert "runtime_execution" in manifest["blocked_capabilities"]
 
 
-def test_control_center_setup_assistant_summary_is_dry_run_only():
+def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
     response = client.get("/control-center/setup-assistant/summary")
 
     assert response.status_code == 200
@@ -177,7 +178,7 @@ def test_control_center_setup_assistant_summary_is_dry_run_only():
     assert rollback_plan["config_removed"] is False
 
 
-def test_control_center_action_preview_api_denies_execute_and_does_not_echo_secret():
+def test_control_center_action_preview_api_denies_execute_and_does_not_echo_secret() -> None:
     secret = "api_key='abcdefghijklmnop'"
     response = client.post(
         "/control-center/actions/preview",
@@ -202,7 +203,7 @@ def test_control_center_action_preview_api_denies_execute_and_does_not_echo_secr
     assert secret not in body
 
 
-def test_control_center_openapi_routes_and_operation_ids_are_safe():
+def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     schema = app.openapi()
     paths = schema["paths"]
     required = {
@@ -250,7 +251,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe():
     assert len(operation_ids) == len(set(operation_ids)) == 112
 
 
-def test_control_center_operator_shell_gap_map_is_current_and_safe():
+def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     doc_path = ROOT / "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
     text = doc_path.read_text(encoding="utf-8")
     compact = " ".join(text.lower().split())
@@ -311,7 +312,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe():
         assert forbidden not in compact
 
 
-def test_control_center_route_status_manifest_covers_visible_actions():
+def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     manifest = _load_route_status_manifest()
     visible_actions = manifest["visible_actions"]
     action_routes = {
@@ -358,7 +359,7 @@ def test_control_center_route_status_manifest_covers_visible_actions():
         assert action_id in action_ids
 
 
-def test_control_center_route_status_manifest_matches_openapi_and_api_manifest():
+def test_control_center_route_status_manifest_matches_openapi_and_api_manifest() -> None:
     route_status = _load_route_status_manifest()
     api_routes = _api_route_index()
     openapi_paths = app.openapi()["paths"]
@@ -385,7 +386,7 @@ def test_control_center_route_status_manifest_matches_openapi_and_api_manifest()
         assert route["operation_id"] == openapi_paths[route["path"]][route["method"].lower()]["operationId"]
 
 
-def test_control_center_route_status_manifest_keeps_unready_actions_unready():
+def test_control_center_route_status_manifest_keeps_unready_actions_unready() -> None:
     manifest = _load_route_status_manifest()
     surfaces = {surface["surface"]: surface for surface in manifest["surfaces"]}
     actions = {action["action_id"]: action for action in manifest["visible_actions"]}
@@ -412,7 +413,7 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready():
             assert action["release_status"] not in release_available
 
 
-def test_control_center_product_language_rules_are_current_and_enforced():
+def test_control_center_product_language_rules_are_current_and_enforced() -> None:
     doc_text = PRODUCT_LANGUAGE_RULES_PATH.read_text(encoding="utf-8").lower()
     doc_compact = " ".join(doc_text.split())
     agents_text = (ROOT / "AGENTS.md").read_text(encoding="utf-8").lower()

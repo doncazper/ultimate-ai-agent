@@ -2,7 +2,7 @@ from tests.m7_helpers import cloud_profile, local_profile, route_request
 from ultimate_ai_agent.core.costs import BudgetScope, BudgetStatus, CostBudget, CostGovernor, CostEstimate
 
 
-def test_cost_governor_estimates_route_cost_from_profile_rates():
+def test_cost_governor_estimates_route_cost_from_profile_rates() -> None:
     estimate = CostGovernor().estimate_route_cost(
         route_request(profiles=[cloud_profile()]),
         cloud_profile(cost_per_1k_input_tokens=0.01, cost_per_1k_output_tokens=0.03),
@@ -14,7 +14,7 @@ def test_cost_governor_estimates_route_cost_from_profile_rates():
     assert estimate.estimated_cost_usd == 0.025
 
 
-def test_over_hard_budget_is_denied():
+def test_over_hard_budget_is_denied() -> None:
     decision = CostGovernor().evaluate(
         CostEstimate(
             estimate_id="estimate_over",
@@ -31,7 +31,7 @@ def test_over_hard_budget_is_denied():
     assert "COST_BUDGET_EXCEEDED" in decision.reason_codes
 
 
-def test_warning_threshold_allows_with_warning_for_soft_limit():
+def test_warning_threshold_allows_with_warning_for_soft_limit() -> None:
     decision = CostGovernor().evaluate(
         CostEstimate(
             estimate_id="estimate_warn",
@@ -56,7 +56,7 @@ def test_warning_threshold_allows_with_warning_for_soft_limit():
     assert "COST_WARNING_THRESHOLD_REACHED" in decision.reason_codes
 
 
-def test_soft_budget_overage_allows_with_warning():
+def test_soft_budget_overage_allows_with_warning() -> None:
     decision = CostGovernor().evaluate(
         CostEstimate(
             estimate_id="estimate_soft_over",
@@ -82,7 +82,7 @@ def test_soft_budget_overage_allows_with_warning():
     assert decision.safe_message == "Budget check allowed with warning."
 
 
-def test_soft_budget_overage_does_not_bypass_later_hard_budget_denial():
+def test_soft_budget_overage_does_not_bypass_later_hard_budget_denial() -> None:
     decision = CostGovernor().evaluate(
         CostEstimate(
             estimate_id="estimate_soft_then_hard",
@@ -112,7 +112,7 @@ def test_soft_budget_overage_does_not_bypass_later_hard_budget_denial():
     assert "HARD_BUDGET_EXCEEDED" in decision.reason_codes
 
 
-def test_unknown_paid_cost_requires_approval():
+def test_unknown_paid_cost_requires_approval() -> None:
     estimate = CostGovernor().estimate_route_cost(
         route_request(profiles=[cloud_profile()]),
         cloud_profile(cost_per_1k_input_tokens=None, cost_per_1k_output_tokens=None),
@@ -124,7 +124,7 @@ def test_unknown_paid_cost_requires_approval():
     assert decision.approval_required is True
 
 
-def test_local_zero_cost_route_still_checks_token_budget():
+def test_local_zero_cost_route_still_checks_token_budget() -> None:
     estimate = CostGovernor().estimate_route_cost(route_request(profiles=[local_profile()]), local_profile())
     decision = CostGovernor().evaluate(
         estimate,

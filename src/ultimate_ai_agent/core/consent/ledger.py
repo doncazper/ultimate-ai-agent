@@ -18,7 +18,7 @@ EXPLICIT_DATA_BOUNDARY_REQUIRED = {
 }
 
 class ConsentLedger:
-    def __init__(self):
+    def __init__(self) -> None:
         self._grants: List[ConsentGrant] = []
         self._revocations: List[RevocationRecord] = []
 

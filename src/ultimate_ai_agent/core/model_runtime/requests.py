@@ -36,7 +36,7 @@ class ModelRuntimeRequest(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def request_must_be_simulated_and_secret_clean(self):
+    def request_must_be_simulated_and_secret_clean(self) -> Any:
         if self.safety_mode == ModelRuntimeSafetyMode.disabled:
             raise ValueError("Model runtime request cannot use disabled safety mode.")
         assert_secret_clean(self.prompt_summary, "Model runtime request prompt_summary")

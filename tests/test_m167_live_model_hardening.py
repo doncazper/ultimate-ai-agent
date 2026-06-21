@@ -35,7 +35,7 @@ def _matrix_rows() -> dict[str, list[str]]:
     return rows
 
 
-def test_m167_live_model_matrix_has_required_safe_ref_rows():
+def test_m167_live_model_matrix_has_required_safe_ref_rows() -> None:
     rows = _matrix_rows()
 
     assert list(rows) == [
@@ -65,7 +65,7 @@ def test_m167_live_model_matrix_has_required_safe_ref_rows():
         assert profile
 
 
-def test_m167_live_model_matrix_documents_status_semantics_and_scope_denials():
+def test_m167_live_model_matrix_documents_status_semantics_and_scope_denials() -> None:
     text = MATRIX_PATH.read_text(encoding="utf-8").lower()
 
     for fragment in [

@@ -3,7 +3,7 @@ from ultimate_ai_agent.core.gate.criteria import default_foundation_gate_criteri
 from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator, m24_openapi_route_failures
 
 
-def test_m24_foundation_gate_criterion_exists_and_passes():
+def test_m24_foundation_gate_criterion_exists_and_passes() -> None:
     criteria_by_id = {criterion.criterion_id: criterion for criterion in default_foundation_gate_criteria()}
 
     assert "m24_memory_provider_local_store_safe" in criteria_by_id
@@ -18,7 +18,7 @@ def test_m24_foundation_gate_criterion_exists_and_passes():
     assert str(report.overall_status) == "passed"
 
 
-def test_m24_openapi_route_guard_keeps_memory_mutation_routes_absent():
+def test_m24_openapi_route_guard_keeps_memory_mutation_routes_absent() -> None:
     failures = m24_openapi_route_failures(
         {
             "/api/manifest",

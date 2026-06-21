@@ -74,7 +74,7 @@ class AutonomyCapabilityToggle(_AutonomyModeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.toggle_ref, "toggle_ref"),
             (self.capability_ref, "capability_ref"),
@@ -130,7 +130,7 @@ class AutonomyModeCharter(_AutonomyModeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.charter_ref, "charter_ref")
         if set(self.available_modes) != set(AutonomyAuthorityMode):
             raise ValueError("AUTONOMY_AUTHORITY_MODES_INCOMPLETE")
@@ -153,7 +153,7 @@ class AutonomyModeDecision(_AutonomyModeModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         _validate_m61_ref(self.decision_ref, "decision_ref")
         _validate_m61_ref(self.charter_ref, "charter_ref")
         _validate_m61_ref(self.toggle_ref, "toggle_ref")

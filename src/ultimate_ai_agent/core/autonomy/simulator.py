@@ -51,7 +51,7 @@ class AutonomousPlanSimulationStep(_AutonomousPlanSimulatorModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.step_ref, "step_ref"),
             (self.intent_ref, "intent_ref"),
@@ -104,7 +104,7 @@ class AutonomousPlanSimulationRequest(_AutonomousPlanSimulatorModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.simulation_request_ref, "simulation_request_ref"),
             (self.actor_ref, "actor_ref"),
@@ -149,7 +149,7 @@ class AutonomousPlanSimulationResult(_AutonomousPlanSimulatorModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_result(self):
+    def validate_result(self) -> Any:
         _validate_m61_ref(self.simulation_result_ref, "simulation_result_ref")
         _validate_m61_ref(self.simulation_request_ref, "simulation_request_ref")
         _validate_m61_ref(self.policy_decision_ref, "policy_decision_ref")

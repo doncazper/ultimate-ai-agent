@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -15,7 +16,7 @@ from ultimate_ai_agent.core.autonomy import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "long-running-task-supervisor-request:m133:review",
         "supervisor_ref": "long-running-task-supervisor:m133:review",
@@ -64,7 +65,7 @@ def _request(**overrides):
     return LongRunningTaskSupervisorRequest(**data)
 
 
-def test_m133_long_running_task_supervisor_is_review_only_and_route_free():
+def test_m133_long_running_task_supervisor_is_review_only_and_route_free() -> None:
     decision = build_long_running_task_supervisor_decision(_request())
 
     assert decision.status == LongRunningTaskSupervisorStatus.ready_for_review
@@ -163,7 +164,7 @@ def test_m133_long_running_task_supervisor_is_review_only_and_route_free():
         ("production_authority_granted", "M133_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m133_policy_denies_supervisor_runtime_and_future_authority(field, reason):
+def test_m133_policy_denies_supervisor_runtime_and_future_authority(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_long_running_task_supervisor_policy(
             LongRunningTaskSupervisorPolicy(**{field: True})
@@ -217,12 +218,12 @@ def test_m133_policy_denies_supervisor_runtime_and_future_authority(field, reaso
         ({"contains_secret": True}, "M133_SECRET_LIKE_SUPERVISOR_CONTENT_DENIED"),
     ],
 )
-def test_m133_request_denies_unsafe_or_unbounded_scope(override, reason):
+def test_m133_request_denies_unsafe_or_unbounded_scope(override: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         build_long_running_task_supervisor_decision(_request(**override))
 
 
-def test_m133_revalidates_model_copy_mutations_and_receipt_binding():
+def test_m133_revalidates_model_copy_mutations_and_receipt_binding() -> None:
     decision = build_long_running_task_supervisor_decision(_request())
 
     for update, reason in [
@@ -279,7 +280,7 @@ def test_m133_revalidates_model_copy_mutations_and_receipt_binding():
         )
 
 
-def test_m133_denies_secret_like_metadata_on_request_policy_and_decision():
+def test_m133_denies_secret_like_metadata_on_request_policy_and_decision() -> None:
     with pytest.raises(ValueError, match="M133_SECRET_LIKE_SUPERVISOR_CONTENT_DENIED"):
         validate_long_running_task_supervisor_request(
             _request(metadata={"connector_token": "abc123supersecret"})

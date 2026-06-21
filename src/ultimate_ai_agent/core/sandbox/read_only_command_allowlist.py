@@ -78,7 +78,7 @@ class ReadOnlyCommandAllowlistEntry(_ReadOnlyCommandAllowlistModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.entry_ref, "entry_ref"),
             (self.command_ref, "command_ref"),
@@ -119,7 +119,7 @@ class ReadOnlyCommandAllowlistPolicy(_ReadOnlyCommandAllowlistModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -174,7 +174,7 @@ class ReadOnlyCommandAllowlistRequest(_ReadOnlyCommandAllowlistModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.allowlist_ref, "allowlist_ref"),
@@ -215,7 +215,7 @@ class ReadOnlyCommandAllowlistReceiptPlan(_ReadOnlyCommandAllowlistModel):
     safe_summary: str = "M85 read-only command allowlist receipt stores safe refs only."
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.allowlist_ref, "allowlist_ref"),
@@ -280,7 +280,7 @@ class ReadOnlyCommandAllowlistDecision(_ReadOnlyCommandAllowlistModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.allowlist_ref, "allowlist_ref"),

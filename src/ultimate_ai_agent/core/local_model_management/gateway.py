@@ -43,7 +43,7 @@ class M164LocalGatewayModel(_M164Model):
     streaming_enabled: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_model_id(self.model_id)
         _validate_loopback_base_url(self.base_url)
         _validate_safe_text(self.owned_by, "owned_by", max_length=80)
@@ -75,7 +75,7 @@ class M164ChatCompletionRequest(_M164Model):
     function_call: Any = None
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_model_id(self.model)
         if self.stream:
             raise ValueError("M164_STREAMING_DENIED")
@@ -115,7 +115,7 @@ class M164GatewayTransport(Protocol):
 
 
 class FakeM164GatewayTransport:
-    def __init__(self, content: str = "UAA_M164_LLAMA_CPP_GATEWAY_OK"):
+    def __init__(self, content: str = "UAA_M164_LLAMA_CPP_GATEWAY_OK") -> None:
         self.content = content
         self.calls: list[M164ChatCompletionRequest] = []
 
@@ -132,7 +132,7 @@ class FakeM164GatewayTransport:
 
 
 class StdlibM164LlamaCppGatewayTransport:
-    def __init__(self, *, timeout_seconds: float = 120.0, max_response_bytes: int = M164_MAX_RESPONSE_BYTES):
+    def __init__(self, *, timeout_seconds: float = 120.0, max_response_bytes: int = M164_MAX_RESPONSE_BYTES) -> None:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
 

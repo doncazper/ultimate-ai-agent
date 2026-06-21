@@ -201,7 +201,7 @@ class DurableRunStorageEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_entry(self):
+    def validate_entry(self) -> Any:
         for value, field_name in [
             (self.entry_id, "entry_id"),
             (self.run_id, "run_id"),
@@ -266,7 +266,7 @@ def _entry_hash_ref(entry: DurableRunStorageEntry) -> str:
 class AppendFirstRunStorage:
     """Append-first local storage for durable run records and receipt summaries."""
 
-    def __init__(self, filepath: str | Path):
+    def __init__(self, filepath: str | Path) -> None:
         self.filepath = Path(filepath)
         self._entries: list[DurableRunStorageEntry] = []
         self._entry_ids: set[str] = set()

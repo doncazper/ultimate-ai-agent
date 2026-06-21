@@ -74,7 +74,7 @@ class ConnectorAuditRevocationHardeningPolicy(_ConnectorAuditRevocationHardening
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         _validate_safe_payload(self.metadata)
         return self
@@ -135,7 +135,7 @@ class ConnectorAuditRevocationHardeningRequest(_ConnectorAuditRevocationHardenin
     production_authority_requested: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         for refs, field_name in _request_ref_list_pairs(self):
@@ -175,7 +175,7 @@ class ConnectorAuditLedgerEntry(_ConnectorAuditRevocationHardening):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _ledger_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         if not self.store_safe_refs_only or not self.store_safe_summary_only:
@@ -217,7 +217,7 @@ class ConnectorRevocationHardeningRecord(_ConnectorAuditRevocationHardening):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _revocation_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         if not self.revocation_ready or not self.revocation_review_only:
@@ -279,7 +279,7 @@ class ConnectorAuditRevocationHardeningReport(_ConnectorAuditRevocationHardening
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _report_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload({"safe_message": self.safe_message})
@@ -539,7 +539,7 @@ def _validate_prior_milestone_refs(refs: list[str]) -> None:
         raise ValueError("M129_PRIOR_MILESTONE_REF_UNEXPECTED")
 
 
-def _request_ref_pairs(request: ConnectorAuditRevocationHardeningRequest):
+def _request_ref_pairs(request: ConnectorAuditRevocationHardeningRequest) -> list[Any]:
     return [
         (request.hardening_request_ref, "hardening_request_ref"),
         (request.hardening_ref, "hardening_ref"),
@@ -569,14 +569,14 @@ def _request_ref_pairs(request: ConnectorAuditRevocationHardeningRequest):
     ]
 
 
-def _request_ref_list_pairs(request: ConnectorAuditRevocationHardeningRequest):
+def _request_ref_list_pairs(request: ConnectorAuditRevocationHardeningRequest) -> list[Any]:
     return [
         (request.prior_milestone_refs, "prior_milestone_ref"),
         (request.metadata_refs, "metadata_ref"),
     ]
 
 
-def _ledger_ref_pairs(entry: ConnectorAuditLedgerEntry):
+def _ledger_ref_pairs(entry: ConnectorAuditLedgerEntry) -> list[Any]:
     return [
         (entry.audit_ledger_entry_ref, "audit_ledger_entry_ref"),
         (entry.hardening_ref, "hardening_ref"),
@@ -595,7 +595,7 @@ def _ledger_ref_pairs(entry: ConnectorAuditLedgerEntry):
     ]
 
 
-def _revocation_ref_pairs(record: ConnectorRevocationHardeningRecord):
+def _revocation_ref_pairs(record: ConnectorRevocationHardeningRecord) -> list[Any]:
     return [
         (record.revocation_record_ref, "revocation_record_ref"),
         (record.hardening_ref, "hardening_ref"),
@@ -612,7 +612,7 @@ def _revocation_ref_pairs(record: ConnectorRevocationHardeningRecord):
     ]
 
 
-def _report_ref_pairs(report: ConnectorAuditRevocationHardeningReport):
+def _report_ref_pairs(report: ConnectorAuditRevocationHardeningReport) -> list[Any]:
     return [
         (report.report_ref, "report_ref"),
         (report.hardening_ref, "hardening_ref"),

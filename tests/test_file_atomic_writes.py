@@ -1,3 +1,4 @@
+from typing import Any
 from pathlib import Path
 import json
 
@@ -27,7 +28,7 @@ from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType
 from ultimate_ai_agent.core.time import utc_now
 
 
-def _actor():
+def _actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -35,7 +36,7 @@ def _actor():
     )
 
 
-def _patch(manager: LocalFileManager, path: str, content: str, **kwargs) -> FilePatchProposal:
+def _patch(manager: LocalFileManager, path: str, content: str, **kwargs: Any) -> FilePatchProposal:
     return FilePatchProposal(
         proposal_id=kwargs.pop("proposal_id", "file-patch-proposal:atomic"),
         run_id="run_123",
@@ -53,7 +54,7 @@ def _patch(manager: LocalFileManager, path: str, content: str, **kwargs) -> File
     )
 
 
-def _approve(manager: LocalFileManager, proposal: FilePatchProposal):
+def _approve(manager: LocalFileManager, proposal: FilePatchProposal) -> tuple[Any, ...]:
     authority = LocalApprovalAuthority()
     request = manager.approval_request_for_patch(proposal)
     authority.create_request(request)
@@ -81,7 +82,7 @@ def _durable_record(run_id: str = "run:p1-025") -> DurableRunRecord:
     )
 
 
-def test_direct_apply_write_bypass_is_denied(tmp_path: Path):
+def test_direct_apply_write_bypass_is_denied(tmp_path: Path) -> None:
     manager = LocalFileManager(workspace_root=tmp_path)
     proposal = FileWriteProposal(
         proposal_id="fwp_atomic",
@@ -108,7 +109,7 @@ def test_direct_apply_write_bypass_is_denied(tmp_path: Path):
     assert not (tmp_path / "nested" / "out.txt").exists()
 
 
-def test_apply_write_records_pre_write_diff_summary(tmp_path: Path):
+def test_apply_write_records_pre_write_diff_summary(tmp_path: Path) -> None:
     target = tmp_path / "out.txt"
     secret_like_old_content = "token=should-not-appear\n"
     target.write_text(secret_like_old_content, encoding="utf-8")
@@ -140,7 +141,7 @@ def test_apply_write_records_pre_write_diff_summary(tmp_path: Path):
     assert "new" not in diff_summary
 
 
-def test_direct_apply_write_denial_has_no_temp_file(tmp_path: Path):
+def test_direct_apply_write_denial_has_no_temp_file(tmp_path: Path) -> None:
     target = tmp_path / "out.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -167,7 +168,7 @@ def test_direct_apply_write_denial_has_no_temp_file(tmp_path: Path):
     assert list(tmp_path.glob(".out.txt.*.tmp")) == []
 
 
-def test_patch_apply_emits_redacted_receipt_with_preimage_and_postimage_refs(tmp_path: Path):
+def test_patch_apply_emits_redacted_receipt_with_preimage_and_postimage_refs(tmp_path: Path) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
@@ -195,14 +196,14 @@ def test_patch_apply_emits_redacted_receipt_with_preimage_and_postimage_refs(tmp
 
 def test_patch_apply_failure_returns_safe_receipt_and_preserves_existing_file(
     tmp_path: Path,
-    monkeypatch,
-):
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     target = tmp_path / "note.txt"
     target.write_text("old", encoding="utf-8")
     manager = LocalFileManager(workspace_root=tmp_path)
     authority, proposal = _approve(manager, _patch(manager, "note.txt", "new"))
 
-    def fail_replace(_source, _target):
+    def fail_replace(_source: Any, _target: Any) -> None:
         raise OSError("replace failed")
 
     monkeypatch.setattr("ultimate_ai_agent.core.files.manager.os.replace", fail_replace)
@@ -231,7 +232,7 @@ def test_patch_apply_failure_returns_safe_receipt_and_preserves_existing_file(
     assert "note.txt" not in result.receipt.model_dump_json()
 
 
-def test_append_first_run_storage_writes_run_and_receipt_atomically(tmp_path: Path):
+def test_append_first_run_storage_writes_run_and_receipt_atomically(tmp_path: Path) -> None:
     store = AppendFirstRunStorage(tmp_path / "runs.jsonl")
 
     run_entry = store.append_run_record(
@@ -282,7 +283,7 @@ def test_append_first_run_storage_writes_run_and_receipt_atomically(tmp_path: Pa
     assert replay.receipt_hash_ref == receipt_entry.receipt_hash_ref
 
 
-def test_append_first_run_storage_receipt_hash_is_stable_and_redacted():
+def test_append_first_run_storage_receipt_hash_is_stable_and_redacted() -> None:
     summary_a = {
         "status": "persisted",
         "safe_summary": "Receipt summary stores safe refs only.",
@@ -314,7 +315,7 @@ def test_append_first_run_storage_receipt_hash_is_stable_and_redacted():
     assert "p1-029-receipt" not in hash_a
 
 
-def test_append_first_run_storage_validates_receipt_replay(tmp_path: Path):
+def test_append_first_run_storage_validates_receipt_replay(tmp_path: Path) -> None:
     store = AppendFirstRunStorage(tmp_path / "runs.jsonl")
     store.append_run_record(
         _durable_record(run_id="run:p1-029"),
@@ -350,7 +351,7 @@ def test_append_first_run_storage_validates_receipt_replay(tmp_path: Path):
     assert replay_entry.replay_validation_ref == receipt_entry.replay_validation_ref
 
 
-def test_append_first_run_storage_receipt_hash_detects_summary_mismatch():
+def test_append_first_run_storage_receipt_hash_detects_summary_mismatch() -> None:
     summary = {
         "status": "persisted",
         "safe_summary": "Receipt summary stores safe refs only.",
@@ -371,7 +372,7 @@ def test_append_first_run_storage_receipt_hash_detects_summary_mismatch():
 
 def test_append_first_run_storage_rejects_private_data_shaped_receipt_hash_keys(
     tmp_path: Path,
-):
+) -> None:
     store = AppendFirstRunStorage(tmp_path / "runs.jsonl")
 
     with pytest.raises(ValueError, match="unsafe durable receipt hash key"):
@@ -390,8 +391,8 @@ def test_append_first_run_storage_rejects_private_data_shaped_receipt_hash_keys(
 
 def test_append_first_run_storage_preserves_prior_file_when_replace_fails(
     tmp_path: Path,
-    monkeypatch,
-):
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     store = AppendFirstRunStorage(tmp_path / "runs.jsonl")
     store.append_run_record(
         _durable_record(),
@@ -403,7 +404,7 @@ def test_append_first_run_storage_preserves_prior_file_when_replace_fails(
     )
     before = (tmp_path / "runs.jsonl").read_text(encoding="utf-8")
 
-    def fail_replace(_temp_path, _target_path):
+    def fail_replace(_temp_path: Any, _target_path: Any) -> None:
         raise OSError("replace failed")
 
     monkeypatch.setattr(store, "_replace_temp_file", fail_replace)
@@ -430,7 +431,7 @@ def test_append_first_run_storage_preserves_prior_file_when_replace_fails(
     assert list(tmp_path.glob(".runs.jsonl.*.tmp")) == []
 
 
-def test_append_first_run_storage_rejects_corrupted_hash_chain(tmp_path: Path):
+def test_append_first_run_storage_rejects_corrupted_hash_chain(tmp_path: Path) -> None:
     store_path = tmp_path / "runs.jsonl"
     store = AppendFirstRunStorage(store_path)
     store.append_run_record(
@@ -455,7 +456,7 @@ def test_append_first_run_storage_rejects_corrupted_hash_chain(tmp_path: Path):
 
 def test_append_first_run_storage_blocks_duplicate_idempotency_keys(
     tmp_path: Path,
-):
+) -> None:
     store = AppendFirstRunStorage(tmp_path / "runs.jsonl")
     store.append_run_record(
         _durable_record(),
@@ -484,7 +485,7 @@ def test_append_first_run_storage_blocks_duplicate_idempotency_keys(
         )
 
 
-def test_append_first_run_storage_recovers_restart_visibility(tmp_path: Path):
+def test_append_first_run_storage_recovers_restart_visibility(tmp_path: Path) -> None:
     restarted = _durable_record().model_copy(
         update={
             "state": DurableRunState.restart_recovery,
@@ -515,7 +516,7 @@ def test_append_first_run_storage_recovers_restart_visibility(tmp_path: Path):
 
 def test_append_first_run_storage_rejects_unredacted_receipt_summary(
     tmp_path: Path,
-):
+) -> None:
     store = AppendFirstRunStorage(tmp_path / "runs.jsonl")
 
     with pytest.raises(ValueError, match="unsafe durable storage language"):

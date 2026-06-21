@@ -1,3 +1,4 @@
+import pytest
 import json
 from pathlib import Path
 
@@ -8,11 +9,11 @@ import scripts.verify_release_evidence_packet as release_packet
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_release_evidence_packet_verifier_passes():
+def test_release_evidence_packet_verifier_passes() -> None:
     assert release_packet.validate_release_evidence_packet() == []
 
 
-def test_release_evidence_packet_schema_and_template_cover_required_fields():
+def test_release_evidence_packet_schema_and_template_cover_required_fields() -> None:
     schema = json.loads(
         (ROOT / "docs/schemas/release_evidence_packet.schema.json").read_text(
             encoding="utf-8"
@@ -77,7 +78,7 @@ def test_release_evidence_packet_schema_and_template_cover_required_fields():
     assert "report:security-redaction:artifact-scan" in security["report_refs"]
 
 
-def test_release_evidence_packet_lane_ids_match_release_lane_manifest():
+def test_release_evidence_packet_lane_ids_match_release_lane_manifest() -> None:
     template = json.loads(
         (ROOT / "docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json").read_text(
             encoding="utf-8"
@@ -90,7 +91,7 @@ def test_release_evidence_packet_lane_ids_match_release_lane_manifest():
     }
 
 
-def test_release_evidence_packet_safety_flags_are_false():
+def test_release_evidence_packet_safety_flags_are_false() -> None:
     template = json.loads(
         (ROOT / "docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json").read_text(
             encoding="utf-8"
@@ -111,7 +112,7 @@ def test_release_evidence_packet_safety_flags_are_false():
     }
 
 
-def test_release_evidence_packet_script_does_not_execute_commands():
+def test_release_evidence_packet_script_does_not_execute_commands() -> None:
     script = release_packet.__file__
     assert script is not None
     text = Path(script).read_text(encoding="utf-8")
@@ -121,7 +122,7 @@ def test_release_evidence_packet_script_does_not_execute_commands():
     assert "subprocess.run" not in text
 
 
-def test_release_evidence_packet_script_accepts_template_path(capsys):
+def test_release_evidence_packet_script_accepts_template_path(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = release_packet.main(
         ["docs/production/RELEASE_EVIDENCE_PACKET_TEMPLATE.json"]
     )

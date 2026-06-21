@@ -85,7 +85,7 @@ class MobilePermissionModelV1Policy(_MobilePermissionModelV1Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -108,7 +108,7 @@ class MobilePermissionTaxonomyEntry(_MobilePermissionModelV1Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.permission_ref, "permission_ref")
         _validate_safe_payload(self.safe_label)
         _validate_safe_payload(self.safe_privacy_copy)
@@ -143,7 +143,7 @@ class MobilePermissionConsentContract(_MobilePermissionModelV1Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.consent_ref, "consent_ref"),
             (self.actor_ref, "actor_ref"),
@@ -168,7 +168,7 @@ class MobilePermissionRevocationContract(_MobilePermissionModelV1Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.revocation_ref, "revocation_ref"),
             (self.consent_ref, "consent_ref"),
@@ -193,7 +193,7 @@ class MobilePermissionAuditPlan(_MobilePermissionModelV1Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.audit_ref, "audit_ref")
         if not self.permission_refs:
             raise ValueError("M100_AUDIT_PERMISSION_REF_REQUIRED")
@@ -250,7 +250,7 @@ class MobilePermissionModelV1Report(_MobilePermissionModelV1Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.report_ref, "report_ref"),
             (self.baseline_ref, "baseline_ref"),

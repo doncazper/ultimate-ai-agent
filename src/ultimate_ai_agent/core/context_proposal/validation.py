@@ -339,7 +339,7 @@ def _validate_safe_text_reason(value: str | None, field_name: str, fallback_reas
     return []
 
 
-def _validate_payload_reason(value, field_name: str, fallback_reason: str) -> list[str]:
+def _validate_payload_reason(value: str, field_name: str, fallback_reason: str) -> list[str]:
     try:
         validate_safe_action_payload(value, field_name)
     except ValueError:
@@ -347,7 +347,7 @@ def _validate_payload_reason(value, field_name: str, fallback_reason: str) -> li
     return []
 
 
-def _extra_value(model: Any, field_name: str, default=None):
+def _extra_value(model: Any, field_name: str, default: Any | None = None) -> Any:
     return getattr(model, field_name, default)
 
 

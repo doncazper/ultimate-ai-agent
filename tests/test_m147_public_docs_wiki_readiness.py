@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.productization import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.productization import (
 )
 
 
-def _request(**overrides) -> PublicDocsWikiReadinessRequest:
+def _request(**overrides: Any) -> PublicDocsWikiReadinessRequest:
     data = {
         "request_ref": "public-docs-wiki-readiness-request:m147",
         "public_doc_ref": "public-docs-wiki-readiness:m147",
@@ -205,7 +206,7 @@ def test_m147_record_uses_safe_refs_only() -> None:
         ("production_authority_granted", "M147_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m147_policy_denies_authority_expansion(field, reason) -> None:
+def test_m147_policy_denies_authority_expansion(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_public_docs_wiki_readiness_policy(
             PublicDocsWikiReadinessPolicy(**{field: True})
@@ -239,7 +240,7 @@ def test_m147_policy_denies_authority_expansion(field, reason) -> None:
         ("production_authority_requested", "M147_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m147_request_denies_unsafe_inputs(field, reason) -> None:
+def test_m147_request_denies_unsafe_inputs(field: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_public_docs_wiki_readiness_request(
             _request().model_copy(update={field: True})
@@ -305,7 +306,7 @@ def test_m147_requires_exact_checkpoint_and_safety_refs() -> None:
         ({"production_authority_granted": True}, "M147_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m147_record_denies_unsafe_mutations(update, reason) -> None:
+def test_m147_record_denies_unsafe_mutations(update: Any, reason: str) -> None:
     record = build_public_docs_wiki_readiness_record(_request())
 
     with pytest.raises(ValueError, match=reason):

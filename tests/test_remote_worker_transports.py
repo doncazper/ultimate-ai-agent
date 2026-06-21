@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.remote_workers import (
 )
 
 
-def test_remote_worker_module_has_no_network_subprocess_or_background_imports():
+def test_remote_worker_module_has_no_network_subprocess_or_background_imports() -> None:
     root = Path("src/ultimate_ai_agent/core/remote_workers")
     forbidden_roots = {"socket", "subprocess", "threading", "asyncio", "requests", "httpx", "urllib"}
 
@@ -22,7 +22,7 @@ def test_remote_worker_module_has_no_network_subprocess_or_background_imports():
                 assert node.module.split(".")[0] not in forbidden_roots, f"{path} imports from {node.module}"
 
 
-def test_transport_rejects_live_execution_capabilities_in_model_validation():
+def test_transport_rejects_live_execution_capabilities_in_model_validation() -> None:
     for field in ["requires_network", "requires_credentials", "supports_dispatch", "supports_file_transfer", "supports_subagents"]:
         payload = {
             "transport_id": f"transport_{field}",

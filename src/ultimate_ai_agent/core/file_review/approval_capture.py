@@ -52,7 +52,7 @@ class FileReviewApprovalCaptureRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_capture_request(self):
+    def validate_capture_request(self) -> Any:
         for value, field_name in [
             (self.approval_ref, "approval_ref"),
             (self.actor_ref, "actor_ref"),
@@ -99,7 +99,7 @@ class FileReviewApprovalRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_record(self):
+    def validate_record(self) -> Any:
         for value, field_name in [
             (self.approval_ref, "approval_ref"),
             (self.actor_ref, "actor_ref"),
@@ -164,7 +164,7 @@ class FileReviewApprovalCaptureDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         validate_action_ref(self.decision_ref, "decision_ref")
         validate_action_ref(self.review_packet_ref, "review_packet_ref")
         if self.approval_ref:
@@ -187,7 +187,7 @@ class FileReviewApprovalCaptureDecision(BaseModel):
 
 
 class FileReviewApprovalStore:
-    def __init__(self, path: Path | str | None = None):
+    def __init__(self, path: Path | str | None = None) -> None:
         self.path = Path(path) if path is not None else None
         self._records: dict[str, FileReviewApprovalRecord] = {}
 
@@ -435,7 +435,7 @@ def _validate_safe_text_reason(value: str, field_name: str, fallback_reason: str
     return []
 
 
-def _validate_payload_reason(value, field_name: str, fallback_reason: str) -> list[str]:
+def _validate_payload_reason(value: str, field_name: str, fallback_reason: str) -> list[str]:
     try:
         validate_safe_action_payload(value, field_name)
     except ValueError:

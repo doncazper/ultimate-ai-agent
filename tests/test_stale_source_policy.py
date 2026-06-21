@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime, timedelta
 
 from ultimate_ai_agent.core.truth import (
@@ -14,7 +15,7 @@ from ultimate_ai_agent.core.truth import (
 NOW = datetime(2026, 6, 1, 12, 0, 0)
 
 
-def evidence(observed_at=None):
+def evidence(observed_at: Any | None = None) -> Any:
     return EvidenceItem(
         evidence_id="ev_weather",
         source_id="src_weather",
@@ -26,7 +27,7 @@ def evidence(observed_at=None):
     )
 
 
-def policy():
+def policy() -> Any:
     return FreshnessPolicy(
         policy_id="fresh_live",
         freshness_window_seconds=3600,
@@ -37,23 +38,23 @@ def policy():
     )
 
 
-def test_fresh_evidence_classified_current():
+def test_fresh_evidence_classified_current() -> None:
     item = evidence(observed_at=NOW - timedelta(minutes=15))
 
     assert classify_freshness(item, policy(), NOW) == SourceFreshnessStatus.current
 
 
-def test_stale_evidence_classified_stale():
+def test_stale_evidence_classified_stale() -> None:
     item = evidence(observed_at=NOW - timedelta(hours=3))
 
     assert classify_freshness(item, policy(), NOW) == SourceFreshnessStatus.stale
 
 
-def test_missing_timestamp_classified_unknown():
+def test_missing_timestamp_classified_unknown() -> None:
     assert classify_freshness(evidence(), policy(), NOW) == SourceFreshnessStatus.unknown
 
 
-def test_stale_live_status_evidence_rejected():
+def test_stale_live_status_evidence_rejected() -> None:
     item = evidence(observed_at=NOW - timedelta(hours=3))
 
     allowed, reason = enforce_freshness_policy(item, policy(), NOW)

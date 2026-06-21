@@ -32,7 +32,7 @@ def _candidate(
     )
 
 
-def test_grounded_recall_router_selects_safe_candidates_by_source_priority():
+def test_grounded_recall_router_selects_safe_candidates_by_source_priority() -> None:
     request = GroundedRecallRequest(
         request_id="recall:req:priority",
         query_summary="Need M26 context.",
@@ -74,7 +74,7 @@ def test_grounded_recall_router_selects_safe_candidates_by_source_priority():
     assert decision.no_context_injection_performed is True
 
 
-def test_grounded_recall_router_excludes_unknown_and_arbitrary_refs():
+def test_grounded_recall_router_excludes_unknown_and_arbitrary_refs() -> None:
     request = GroundedRecallRequest(
         request_id="recall:req:unknown",
         query_summary="Need M26 context.",
@@ -121,7 +121,7 @@ def test_grounded_recall_router_denies_source_ref_kind_mismatches(
     source_ref: str,
     declared_kind: RecallSourceKind,
     expected_reason: str,
-):
+) -> None:
     request = GroundedRecallRequest(
         request_id="recall:req:source-identity",
         query_summary="Need M26 context.",
@@ -146,7 +146,7 @@ def test_grounded_recall_router_denies_source_ref_kind_mismatches(
         assert "SOURCE_REF_KIND_MISMATCH_DENIED" in reason_codes
 
 
-def test_grounded_recall_router_preserves_valid_primary_source_refs():
+def test_grounded_recall_router_preserves_valid_primary_source_refs() -> None:
     request = GroundedRecallRequest(
         request_id="recall:req:valid-primary",
         query_summary="Need M26 context.",
@@ -178,7 +178,7 @@ def test_grounded_recall_router_preserves_valid_primary_source_refs():
     assert not decision.excluded
 
 
-def test_grounded_recall_router_excludes_model_runtime_and_openwebui_outputs():
+def test_grounded_recall_router_excludes_model_runtime_and_openwebui_outputs() -> None:
     request = GroundedRecallRequest(
         request_id="recall:req:outputs",
         query_summary="Need M26 context.",
@@ -204,7 +204,7 @@ def test_grounded_recall_router_excludes_model_runtime_and_openwebui_outputs():
     assert "OPENWEBUI_OUTPUT_EXCLUDED" in reason_codes
 
 
-def test_grounded_recall_router_excludes_stale_conflicted_revoked_deleted_and_superseded():
+def test_grounded_recall_router_excludes_stale_conflicted_revoked_deleted_and_superseded() -> None:
     request = GroundedRecallRequest(
         request_id="recall:req:states",
         query_summary="Need M26 context.",

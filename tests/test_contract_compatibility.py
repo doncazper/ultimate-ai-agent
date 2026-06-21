@@ -1,3 +1,4 @@
+from pathlib import Path
 from datetime import UTC, datetime
 
 from pydantic import ValidationError
@@ -39,7 +40,7 @@ def temporal_context() -> TemporalContext:
     )
 
 
-def test_core_public_contracts_remain_instantiable_and_serializable(tmp_path):
+def test_core_public_contracts_remain_instantiable_and_serializable(tmp_path: Path) -> None:
     result_envelope = ResultEnvelope(
         success=True,
         operation="contract_compatibility",
@@ -226,7 +227,7 @@ def test_core_public_contracts_remain_instantiable_and_serializable(tmp_path):
     }
 
 
-def test_strict_public_models_reject_extra_fields(tmp_path):
+def test_strict_public_models_reject_extra_fields(tmp_path: Path) -> None:
     strict_cases = [
         (ResultEnvelope, {"success": True, "operation": "op", "service": "svc", "trace_id": "trace", "extra": True}),
         (ExecutionContract, {

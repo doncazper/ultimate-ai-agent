@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 import json
 import sys
@@ -72,7 +73,7 @@ def build_registry() -> CapabilityRegistry:
         del ctx
         return EchoOutput(summary=f"smoke:{args.message.strip()}")
 
-    async def manifest_echo(envelope, context) -> Artifact:
+    async def manifest_echo(envelope: Any, context: Any) -> Artifact:
         return Artifact(
             producer_capability_id=context["capability_id"],
             kind="smoke.manifest_result",
@@ -81,7 +82,7 @@ def build_registry() -> CapabilityRegistry:
             confidence=1.0,
         )
 
-    async def approved_review(envelope, context) -> Artifact:
+    async def approved_review(envelope: Any, context: Any) -> Artifact:
         return Artifact(
             producer_capability_id=context["capability_id"],
             kind="smoke.approved_review",

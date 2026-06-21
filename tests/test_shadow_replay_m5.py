@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.gate import (
 )
 
 
-def test_shadow_replay_m5_happy_path_captures_events_receipt_and_rollback(tmp_path):
+def test_shadow_replay_m5_happy_path_captures_events_receipt_and_rollback(tmp_path: Path) -> None:
     result = run_m5_shadow_replay(workspace_root=tmp_path)
 
     assert result.passed is True
@@ -25,7 +25,7 @@ def test_shadow_replay_m5_happy_path_captures_events_receipt_and_rollback(tmp_pa
     assert (tmp_path / "notes/m5.md").read_text(encoding="utf-8") == "before\n"
 
 
-def test_shadow_replay_denial_path_does_not_write_file(tmp_path: Path):
+def test_shadow_replay_denial_path_does_not_write_file(tmp_path: Path) -> None:
     result = run_m5_shadow_replay(workspace_root=tmp_path, denial_path=True)
 
     assert result.passed is True
@@ -35,7 +35,7 @@ def test_shadow_replay_denial_path_does_not_write_file(tmp_path: Path):
     assert "tool.call.requested" in result.event_names
 
 
-def test_shadow_replay_scenario_has_gate_contract_defaults():
+def test_shadow_replay_scenario_has_gate_contract_defaults() -> None:
     scenario = default_m5_shadow_replay_scenario()
 
     assert scenario.scenario_id == "m5_minimum_lovable_kernel_replay"

@@ -1,9 +1,10 @@
+from pathlib import Path
 from tests.test_kernel_minimum_lovable_happy_path import request
 
 from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
 
 
-def test_kernel_denies_actual_apply_without_valid_approval(tmp_path):
+def test_kernel_denies_actual_apply_without_valid_approval(tmp_path: Path) -> None:
     kernel_request = request(tmp_path).model_copy(update={"approval_ref": None})
 
     result = MinimumKernelRunner().run_task(kernel_request)
@@ -14,7 +15,7 @@ def test_kernel_denies_actual_apply_without_valid_approval(tmp_path):
     assert not (tmp_path / "notes/m5.md").exists()
 
 
-def test_kernel_rejects_arbitrary_approval_ref(tmp_path):
+def test_kernel_rejects_arbitrary_approval_ref(tmp_path: Path) -> None:
     kernel_request = request(tmp_path).model_copy(update={"approval_ref": "approval_prod_unsafe"})
 
     result = MinimumKernelRunner().run_task(kernel_request)
@@ -25,7 +26,7 @@ def test_kernel_rejects_arbitrary_approval_ref(tmp_path):
     assert not (tmp_path / "notes/m5.md").exists()
 
 
-def test_kernel_rejects_test_prefixed_approval_without_authority(tmp_path):
+def test_kernel_rejects_test_prefixed_approval_without_authority(tmp_path: Path) -> None:
     kernel_request = request(tmp_path).model_copy(update={"approval_ref": "approval_test_create"})
 
     result = MinimumKernelRunner().run_task(kernel_request)

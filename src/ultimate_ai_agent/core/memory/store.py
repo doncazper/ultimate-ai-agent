@@ -1,7 +1,7 @@
 import uuid
 from collections import defaultdict
 from ultimate_ai_agent.core.time import utc_now
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ultimate_ai_agent.core.memory.decisions import MemoryReadDecision, MemorySearchResult, MemoryWriteDecision
 from ultimate_ai_agent.core.memory.enums import MemorySensitivity, MemoryStatus, MemoryWriteDisposition
@@ -23,7 +23,7 @@ SENSITIVE_REQUIRES_CONSENT = {
 class MemoryStore:
     """Local/dev-only in-memory memory store."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._records: Dict[str, MemoryRecord] = {}
         self._records_by_scope: dict[object, list[str]] = defaultdict(list)
         self._idempotency: Dict[str, str] = {}
@@ -97,10 +97,10 @@ class MemoryStore:
 
     def list_memories(
         self,
-        scope=None,
+        scope: Any | None = None,
         scope_id: Optional[str] = None,
-        memory_type=None,
-        status=None,
+        memory_type: Any | None = None,
+        status: Any | None = None,
     ) -> List[MemoryRecord]:
         records = self._records_for_scope(scope)
         if scope is not None:
@@ -232,7 +232,7 @@ class MemoryStore:
         if record.memory_id not in self._records_by_scope[record.scope]:
             self._records_by_scope[record.scope].append(record.memory_id)
 
-    def _records_for_scope(self, scope) -> List[MemoryRecord]:
+    def _records_for_scope(self, scope: str) -> List[MemoryRecord]:
         if scope is None:
             return list(self._records.values())
         return [

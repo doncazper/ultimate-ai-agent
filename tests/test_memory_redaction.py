@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.memory import redact_memory_content
 
 
-def test_memory_redaction_masks_secret_like_values():
+def test_memory_redaction_masks_secret_like_values() -> None:
     redacted, applied = redact_memory_content("api_key='abcdefghijklmnop' should not be stored")
 
     assert "abcdefghijklmnop" not in redacted

@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.sandbox import (
@@ -10,7 +11,7 @@ from ultimate_ai_agent.core.sandbox import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "sandbox-review-request:m57-runtime-boundary",
         "review_ref": "sandbox-review:m57-runtime-boundary",

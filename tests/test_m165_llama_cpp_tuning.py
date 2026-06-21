@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.local_model_management import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.local_model_management import (
 )
 
 
-def _observation(kind: str):
+def _observation(kind: str) -> Any:
     return M165RuntimeObservation(
         observation_ref=f"runtime-observation:m165-{kind}",
         signal_kind=kind,
@@ -20,7 +21,7 @@ def _observation(kind: str):
     )
 
 
-def _apply_request(**overrides):
+def _apply_request(**overrides: Any) -> Any:
     data = {
         "request_ref": "settings-apply-request:m165-test",
         "approval_ref": "approval:m165-settings-apply",
@@ -42,7 +43,7 @@ def _apply_request(**overrides):
         ("error", "batch-size"),
     ],
 )
-def test_m165_recommends_one_advisory_change(kind, setting):
+def test_m165_recommends_one_advisory_change(kind: Any, setting: Any) -> None:
     recommendation = recommend_m165_llama_cpp_adjustment(
         [_observation(kind)],
         current_settings={"ctx-size": "4096", "n-gpu-layers": "20"},
@@ -56,7 +57,7 @@ def test_m165_recommends_one_advisory_change(kind, setting):
     validate_m165_tuning_recommendation(recommendation)
 
 
-def test_m165_apply_requires_exact_approval_and_applies_settings():
+def test_m165_apply_requires_exact_approval_and_applies_settings() -> None:
     applier = FakeM165SettingsApplier(apply_ok=True)
 
     result = apply_m165_settings_with_rollback(_apply_request(), applier=applier)
@@ -70,7 +71,7 @@ def test_m165_apply_requires_exact_approval_and_applies_settings():
     assert result.raw_response_logged is False
 
 
-def test_m165_failed_apply_rolls_back_to_previous_known_good_preset():
+def test_m165_failed_apply_rolls_back_to_previous_known_good_preset() -> None:
     applier = FakeM165SettingsApplier(apply_ok=False)
 
     result = apply_m165_settings_with_rollback(_apply_request(), applier=applier)
@@ -90,12 +91,12 @@ def test_m165_failed_apply_rolls_back_to_previous_known_good_preset():
         ({"settings": {"unknown": "1"}}, "M165_SETTING_DENIED"),
     ],
 )
-def test_m165_apply_request_rejects_unsafe_shape(update, reason):
+def test_m165_apply_request_rejects_unsafe_shape(update: Any, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         validate_m165_settings_apply_request(_apply_request(**update))
 
 
-def test_m165_result_validation_rejects_unsafe_mutation():
+def test_m165_result_validation_rejects_unsafe_mutation() -> None:
     result = apply_m165_settings_with_rollback(
         _apply_request(),
         applier=FakeM165SettingsApplier(),

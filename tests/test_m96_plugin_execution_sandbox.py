@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.plugin_execution_sandbox import (
@@ -24,7 +25,7 @@ from ultimate_ai_agent.core.plugin_manifest import (
 )
 
 
-def _manifest_security_decision():
+def _manifest_security_decision() -> Any:
     return build_plugin_manifest_security_decision(
         PluginManifestSecurityReviewRequest(
             review_request_ref="plugin-manifest-review-request:m96-built-in",
@@ -62,7 +63,7 @@ def _manifest_security_decision():
     )
 
 
-def _install_review_decision():
+def _install_review_decision() -> Any:
     manifest_decision = _manifest_security_decision()
     return build_plugin_install_review_decision(
         PluginInstallReviewRequest(
@@ -94,7 +95,7 @@ def _install_review_decision():
     )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     install_decision = overrides.pop("install_review_decision", _install_review_decision())
     data = {
         "request_ref": "plugin-execution-sandbox-request:m96-safe",

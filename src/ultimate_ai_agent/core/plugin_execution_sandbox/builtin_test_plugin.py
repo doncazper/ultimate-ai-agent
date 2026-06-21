@@ -66,7 +66,7 @@ class BuiltInPluginExecutionSandboxPolicy(_BuiltInPluginExecutionSandboxModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         for ref in self.allowed_plugin_refs:
             _validate_m61_ref(ref, "allowed_plugin_ref")
@@ -118,7 +118,7 @@ class BuiltInPluginExecutionSandboxRequest(_BuiltInPluginExecutionSandboxModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.plugin_ref, "plugin_ref"),
@@ -166,7 +166,7 @@ class BuiltInPluginExecutionSandboxReceiptPlan(_BuiltInPluginExecutionSandboxMod
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_ref, "receipt_ref"),
             (self.request_ref, "request_ref"),
@@ -227,7 +227,7 @@ class BuiltInPluginExecutionSandboxDecision(_BuiltInPluginExecutionSandboxModel)
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.request_ref, "request_ref"),

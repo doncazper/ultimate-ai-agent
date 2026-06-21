@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
 from ultimate_ai_agent.core.memory import (
     MemoryAuthority,
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.memory import (
 )
 
 
-def actor():
+def actor() -> Any:
     return ActorContext(
         actor_type=ActorType.human_user,
         actor_id="user_123",
@@ -21,7 +22,7 @@ def actor():
     )
 
 
-def test_write_memory_requires_consent_for_sensitive_data():
+def test_write_memory_requires_consent_for_sensitive_data() -> None:
     store = MemoryStore()
     request = MemoryWriteRequest(
         request_id="mwr_sensitive",
@@ -43,7 +44,7 @@ def test_write_memory_requires_consent_for_sensitive_data():
     assert "CONSENT_REQUIRED" in decision.reason_codes
 
 
-def test_write_memory_is_idempotent_for_same_key():
+def test_write_memory_is_idempotent_for_same_key() -> None:
     store = MemoryStore()
     request = MemoryWriteRequest(
         request_id="mwr_pref",
@@ -68,7 +69,7 @@ def test_write_memory_is_idempotent_for_same_key():
     assert len(store.list_memories(scope=MemoryScope.user)) == 1
 
 
-def test_non_user_write_requires_source_ref():
+def test_non_user_write_requires_source_ref() -> None:
     store = MemoryStore()
     request = MemoryWriteRequest(
         request_id="mwr_source",
@@ -89,7 +90,7 @@ def test_non_user_write_requires_source_ref():
     assert "SOURCE_REF_REQUIRED" in decision.reason_codes
 
 
-def test_active_memory_can_be_written_with_source_ref():
+def test_active_memory_can_be_written_with_source_ref() -> None:
     store = MemoryStore()
     request = MemoryWriteRequest(
         request_id="mwr_project",

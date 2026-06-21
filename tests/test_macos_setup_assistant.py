@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.macos_setup_assistant import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.macos_setup_assistant import (
 )
 
 
-def test_default_macos_setup_assistant_plan_is_dry_run_only():
+def test_default_macos_setup_assistant_plan_is_dry_run_only() -> None:
     plan = build_default_macos_setup_assistant_plan()
 
     assert plan.macos_first is True
@@ -54,7 +55,7 @@ def test_default_macos_setup_assistant_plan_is_dry_run_only():
     }.issubset(set(plan.blocked_capabilities))
 
 
-def test_model_recommendations_are_safe_ref_only_and_approval_gated():
+def test_model_recommendations_are_safe_ref_only_and_approval_gated() -> None:
     recommendations = recommend_local_model_options()
 
     assert [item.model_ref for item in recommendations] == [
@@ -70,7 +71,7 @@ def test_model_recommendations_are_safe_ref_only_and_approval_gated():
     assert all(item.raw_model_url_included is False for item in recommendations)
 
 
-def test_secret_like_log_preview_is_rejected():
+def test_secret_like_log_preview_is_rejected() -> None:
     with pytest.raises(ValueError, match="LOG_PREVIEW_SECRET_LIKE"):
         MacOSSetupStep(
             step_id="macos-setup-step:secret-log",
@@ -84,7 +85,7 @@ def test_secret_like_log_preview_is_rejected():
         )
 
 
-def test_side_effect_flags_are_rejected_in_foundation_slice():
+def test_side_effect_flags_are_rejected_in_foundation_slice() -> None:
     with pytest.raises(ValueError, match="MACOS_SETUP_TERMINAL_EXECUTION_DENIED"):
         MacOSSetupStep(
             step_id="macos-setup-step:exec-denied",
@@ -98,7 +99,7 @@ def test_side_effect_flags_are_rejected_in_foundation_slice():
         )
 
 
-def test_plan_exposes_approval_receipt_latency_and_rollback_refs():
+def test_plan_exposes_approval_receipt_latency_and_rollback_refs() -> None:
     plan = build_default_macos_setup_assistant_plan()
     model_step = next(step for step in plan.steps if step.kind == MacOSSetupStepKind.model_selection)
     rollback_step = next(step for step in plan.steps if step.kind == MacOSSetupStepKind.rollback_uninstall)
@@ -115,7 +116,7 @@ def test_plan_exposes_approval_receipt_latency_and_rollback_refs():
     assert plan.rollback_plan.rollback_executed is False
 
 
-def test_default_plan_exposes_dry_run_setup_approval_envelopes():
+def test_default_plan_exposes_dry_run_setup_approval_envelopes() -> None:
     plan = build_default_macos_setup_assistant_plan()
     steps_by_id = {step.step_id: step for step in plan.steps}
     envelopes_by_kind = {envelope.setup_step_kind: envelope for envelope in plan.approval_envelopes}
@@ -198,7 +199,7 @@ def test_default_plan_exposes_dry_run_setup_approval_envelopes():
         assert envelope.rollback_executed is False
 
 
-def _safe_setup_approval_envelope(**overrides):
+def _safe_setup_approval_envelope(**overrides: Any) -> Any:
     payload = {
         "envelope_ref": "macos-setup-approval-envelope:test",
         "status": MacOSSetupApprovalEnvelopeStatus.approval_required,
@@ -273,12 +274,12 @@ def _safe_setup_approval_envelope(**overrides):
         ),
     ],
 )
-def test_setup_approval_envelope_rejects_unsafe_authority_requests(field_name, reason):
+def test_setup_approval_envelope_rejects_unsafe_authority_requests(field_name: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         _safe_setup_approval_envelope(**{field_name: True})
 
 
-def test_setup_approval_envelope_rejects_launchctl_and_raw_paths():
+def test_setup_approval_envelope_rejects_launchctl_and_raw_paths() -> None:
     with pytest.raises(ValueError, match="MACOS_SETUP_APPROVAL_ENVELOPE_RUNTIME_TEXT_DENIED"):
         _safe_setup_approval_envelope(stale_state_handling="Run launchctl load now.")
 
@@ -288,7 +289,7 @@ def test_setup_approval_envelope_rejects_launchctl_and_raw_paths():
         )
 
 
-def test_setup_approval_envelope_requires_safe_refs_and_validation_only_side_effect_class():
+def test_setup_approval_envelope_requires_safe_refs_and_validation_only_side_effect_class() -> None:
     with pytest.raises(ValueError, match="APPROVAL_REQUEST_REF_PREFIX_REQUIRED"):
         _safe_setup_approval_envelope(approval_request_ref="approval-placeholder")
 

@@ -43,7 +43,7 @@ class M161LocalSystemProbePolicy(_M161Model):
     production_authority_granted: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -68,7 +68,7 @@ class M161LocalSystemProbeRequest(_M161Model):
     model_call_requested: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.policy_ref, "policy_ref"),
@@ -93,7 +93,7 @@ class M161SystemProbeSample(_M161Model):
     thermal_state_hint: str = "unknown"
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_safe_component_text(self.os_name, "os_name")
         _validate_safe_component_text(self.machine_arch, "machine_arch")
         _validate_safe_component_text(self.power_source_hint, "power_source_hint")
@@ -134,7 +134,7 @@ class M161LocalSystemCapabilityResult(_M161Model):
     production_authority_granted: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.result_ref, "result_ref"),
             (self.request_ref, "request_ref"),

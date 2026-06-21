@@ -20,7 +20,7 @@ from ultimate_ai_agent.core.task_decomposition.api_safety import (
 )
 
 
-def test_control_center_dashboard_snapshot_is_safe_summary_only():
+def test_control_center_dashboard_snapshot_is_safe_summary_only() -> None:
     snapshot = build_control_center_dashboard(
         baseline_version="0.16.0",
         api_route_count=74,
@@ -52,7 +52,7 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only():
     assert snapshot.next_recommended_action == "review_status_and_previews_only"
 
 
-def test_control_center_dashboard_contains_no_raw_or_secret_content():
+def test_control_center_dashboard_contains_no_raw_or_secret_content() -> None:
     snapshot = build_control_center_dashboard(baseline_version="0.16.0")
     dump = snapshot.model_dump_json().lower()
 
@@ -74,7 +74,7 @@ def test_control_center_dashboard_contains_no_raw_or_secret_content():
         assert fragment not in dump
 
 
-def test_operator_loop_summary_reports_local_backend_prerequisites_without_authority():
+def test_operator_loop_summary_reports_local_backend_prerequisites_without_authority() -> None:
     snapshot = build_control_center_dashboard(
         env={
             UAA_LLAMA_CPP_GATEWAY_ENV: "1",
@@ -102,7 +102,7 @@ def test_operator_loop_summary_reports_local_backend_prerequisites_without_autho
     assert "/task-decomposition/metrics" in loop.inspection_route_refs
 
 
-def test_provider_credential_readiness_is_reference_only():
+def test_provider_credential_readiness_is_reference_only() -> None:
     summary = build_provider_credential_readiness_summary()
 
     assert summary.status == "reference_readiness_only"
@@ -149,7 +149,7 @@ def test_provider_credential_readiness_is_reference_only():
         assert provider.readiness_status == "blocked_reference_only"
 
 
-def test_provider_credential_readiness_rejects_authority_or_secret_like_refs():
+def test_provider_credential_readiness_rejects_authority_or_secret_like_refs() -> None:
     with pytest.raises(ValidationError, match="AUTHORITY_DENIED"):
         ProviderCredentialReadinessSummary(invocation_enabled=True, providers=[])
 

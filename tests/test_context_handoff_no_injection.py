@@ -24,7 +24,7 @@ from tests.test_context_handoff_approval_contracts import _proposal, _request
         ("unredacted_preview_stored", "unredacted_preview_present"),
     ],
 )
-def test_model_copy_mutated_proposal_safety_fields_are_revalidated(field, reason):
+def test_model_copy_mutated_proposal_safety_fields_are_revalidated(field: str, reason: str) -> None:
     proposal = _proposal()
     mutated = proposal.model_copy(update={field: True})
 
@@ -52,7 +52,7 @@ def test_model_copy_mutated_proposal_safety_fields_are_revalidated(field, reason
         ("backend_route_enabled", "future_milestone_required"),
     ],
 )
-def test_model_copy_mutated_request_authority_flags_are_revalidated(field, reason):
+def test_model_copy_mutated_request_authority_flags_are_revalidated(field: str, reason: str) -> None:
     proposal = _proposal()
     request = _request(proposal).model_copy(update={field: True})
 

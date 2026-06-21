@@ -93,7 +93,7 @@ class FCCCalendarReadOnlyPolicy(_FCCReadOnlyIntegrationModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -130,7 +130,7 @@ class FCCEmailMetadataReadOnlyPolicy(_FCCReadOnlyIntegrationModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -174,7 +174,7 @@ class FCCDraftEmailResponseProposalPolicy(_FCCReadOnlyIntegrationModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         return self
 
@@ -231,7 +231,7 @@ class FCCCalendarEventMetadataEnvelope(_FCCReadOnlyIntegrationModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_ref_fields(
             [
                 (self.calendar_contract_ref, "calendar_contract_ref"),
@@ -309,7 +309,7 @@ class FCCEmailMetadataEnvelope(_FCCReadOnlyIntegrationModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_ref_fields(
             [
                 (self.email_contract_ref, "email_contract_ref"),
@@ -412,7 +412,7 @@ class FCCDraftEmailResponseProposalEnvelope(_FCCReadOnlyIntegrationModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_ref_fields(
             [
                 (self.draft_proposal_contract_ref, "draft_proposal_contract_ref"),
@@ -478,7 +478,7 @@ class FCCReadOnlyIntegrationContractPair(_FCCReadOnlyIntegrationModel):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_ref_fields(
             [
                 (self.pair_ref, "pair_ref"),

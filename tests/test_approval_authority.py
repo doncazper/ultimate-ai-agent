@@ -2,7 +2,7 @@ from tests.m85_helpers import approval_request
 from ultimate_ai_agent.core.approvals import ApprovalDecisionStatus, LocalApprovalAuthority
 
 
-def test_local_approval_authority_grant_validates():
+def test_local_approval_authority_grant_validates() -> None:
     authority = LocalApprovalAuthority()
     request = authority.create_request(approval_request())
     grant = authority.grant(request.approval_request_id, approved_by_actor_id="human_reviewer")
@@ -14,7 +14,7 @@ def test_local_approval_authority_grant_validates():
     assert decision.matched_grant_ref == grant.approval_ref
 
 
-def test_unknown_approval_ref_is_invalid():
+def test_unknown_approval_ref_is_invalid() -> None:
     authority = LocalApprovalAuthority()
     request = authority.create_request(approval_request())
 
@@ -25,7 +25,7 @@ def test_unknown_approval_ref_is_invalid():
     assert "APPROVAL_REF_UNKNOWN" in decision.reason_codes
 
 
-def test_test_approval_ref_requires_local_authority_fixture():
+def test_test_approval_ref_requires_local_authority_fixture() -> None:
     authority = LocalApprovalAuthority()
     request = authority.create_request(approval_request())
     grant = authority.create_test_grant(request.approval_request_id, approval_ref="approval_test_fixture")

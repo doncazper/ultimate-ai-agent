@@ -77,7 +77,7 @@ class VerificationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_m25_request(self):
+    def validate_m25_request(self) -> Any:
         assert_no_external_verification(
             external_verification_enabled=False,
             web_search_enabled=False,

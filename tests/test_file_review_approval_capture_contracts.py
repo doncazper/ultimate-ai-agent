@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 
 import pytest
@@ -17,7 +18,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _packet():
+def _packet() -> Any:
     preview = RedactedFilePreviewOutput(
         output_ref="redacted-file-preview-output:capture",
         status=RedactedFilePreviewStatus.preview_generated,
@@ -36,7 +37,7 @@ def _packet():
     )
 
 
-def _request(packet, **overrides):
+def _request(packet: Any, **overrides: Any) -> Any:
     data = {
         "approval_ref": "file-review-approval-capture:approval",
         "actor_ref": packet.source.actor_ref,
@@ -55,7 +56,7 @@ def _request(packet, **overrides):
     return FileReviewApprovalCaptureRequest(**data)
 
 
-def test_review_only_approval_capture_persists_safe_record_without_authority():
+def test_review_only_approval_capture_persists_safe_record_without_authority() -> None:
     packet = _packet()
     request = _request(packet)
 
@@ -81,7 +82,7 @@ def test_review_only_approval_capture_persists_safe_record_without_authority():
     assert "unredacted_preview" not in dumped
 
 
-def test_review_only_denial_capture_persists_safe_denial_record():
+def test_review_only_denial_capture_persists_safe_denial_record() -> None:
     packet = _packet()
     request = _request(packet, decision=FileReviewApprovalDecisionKind.deny_review_only)
 
@@ -110,7 +111,7 @@ def test_review_only_denial_capture_persists_safe_denial_record():
         ({"replay_nonce": "file-review-replay:1", "used_replay_nonces": ["file-review-replay:1"]}, "FILE_REVIEW_APPROVAL_CAPTURE_REPLAY_DETECTED"),
     ],
 )
-def test_capture_denies_binding_authority_and_lifecycle_failures(override, reason):
+def test_capture_denies_binding_authority_and_lifecycle_failures(override: Any, reason: str) -> None:
     packet = _packet()
     request = _request(packet)
     if "approval_ref" in override and str(override["approval_ref"]).startswith("approval_test_"):
@@ -141,7 +142,7 @@ def test_capture_denies_binding_authority_and_lifecycle_failures(override, reaso
         ("execution_enabled", "FILE_REVIEW_APPROVAL_CAPTURE_EXECUTION_DENIED"),
     ],
 )
-def test_model_copy_mutated_capture_request_flags_are_revalidated(flag, reason):
+def test_model_copy_mutated_capture_request_flags_are_revalidated(flag: Any, reason: str) -> None:
     packet = _packet()
     request = _request(packet).model_copy(update={flag: True})
 
@@ -154,7 +155,7 @@ def test_model_copy_mutated_capture_request_flags_are_revalidated(flag, reason):
     assert decision.execution_performed is False
 
 
-def test_model_copy_mutated_secret_metadata_is_denied_without_echoing_secret():
+def test_model_copy_mutated_secret_metadata_is_denied_without_echoing_secret() -> None:
     packet = _packet()
     request = _request(packet).model_copy(update={"metadata": {"api_key": "abc123supersecret"}})
 

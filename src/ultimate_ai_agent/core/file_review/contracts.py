@@ -39,7 +39,7 @@ class FileReviewWorkflowPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         required_enabled = [
             "file_review_workflow_enabled",
             "review_packet_enabled",
@@ -83,7 +83,7 @@ class FileReviewPacketSource(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_source(self):
+    def validate_source(self) -> Any:
         for value, field_name in [
             (self.preview_result_ref, "preview_result_ref"),
             (self.safe_path_ref, "safe_path_ref"),
@@ -109,7 +109,7 @@ class FileReviewRedactionVerification(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_verification(self):
+    def validate_verification(self) -> Any:
         validate_action_ref(self.verification_ref, "verification_ref")
         validate_action_ref(self.redaction_summary_ref, "redaction_summary_ref")
         required_true = [
@@ -140,7 +140,7 @@ class FileReviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_request(self):
+    def validate_request(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.actor_ref, "actor_ref"),
@@ -184,7 +184,7 @@ class FileReviewPacket(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_packet(self):
+    def validate_packet(self) -> Any:
         validate_action_ref(self.review_packet_ref, "review_packet_ref")
         validate_safe_action_text(self.safe_summary, "safe_summary")
         _validate_redacted_preview_text(self.redacted_preview)
@@ -235,7 +235,7 @@ class UserFileReviewApproval(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_approval(self):
+    def validate_approval(self) -> Any:
         for value, field_name in [
             (self.approval_ref, "approval_ref"),
             (self.actor_ref, "actor_ref"),
@@ -281,7 +281,7 @@ class FileReviewReceiptPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_receipt_plan(self):
+    def validate_receipt_plan(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.review_packet_ref, "review_packet_ref"),
@@ -332,7 +332,7 @@ class FileReviewDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         validate_action_ref(self.decision_ref, "decision_ref")
         validate_action_ref(self.review_packet_ref, "review_packet_ref")
         validate_safe_action_text(self.safe_message, "safe_message")
@@ -365,7 +365,7 @@ class FileReviewGate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_gate(self):
+    def validate_gate(self) -> Any:
         for value, field_name in [
             (self.gate_ref, "gate_ref"),
             (self.expected_actor_ref, "expected_actor_ref"),

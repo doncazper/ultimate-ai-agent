@@ -1,3 +1,4 @@
+from typing import Any
 from importlib import import_module
 
 import pytest
@@ -14,14 +15,14 @@ from ultimate_ai_agent.core.production_readiness import (
 )
 
 
-def _production_readiness():
+def _production_readiness() -> Any:
     try:
         return import_module("ultimate_ai_agent.core.production_readiness")
     except ModuleNotFoundError as exc:
         pytest.fail(f"M113 production_readiness package missing: {exc}")
 
 
-def _source_record():
+def _source_record() -> Any:
     return build_user_workspace_identity_record(
         source_record=build_production_threat_model_record(
             source_record=build_mobile_sensor_hardening_freeze_record(

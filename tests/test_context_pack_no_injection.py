@@ -3,7 +3,7 @@ import pytest
 from ultimate_ai_agent.core.recall import ContextPackBuildRequest, GroundedRecallDecision, build_evidence_linked_context_pack
 
 
-def test_context_pack_builder_rejects_injection_runtime_flag():
+def test_context_pack_builder_rejects_injection_runtime_flag() -> None:
     decision = GroundedRecallDecision(
         decision_id="recall:decision:empty",
         request_id="recall:req:empty",
@@ -22,7 +22,7 @@ def test_context_pack_builder_rejects_injection_runtime_flag():
         )
 
 
-def test_empty_context_pack_is_safe_and_non_injecting():
+def test_empty_context_pack_is_safe_and_non_injecting() -> None:
     decision = GroundedRecallDecision(
         decision_id="recall:decision:empty",
         request_id="recall:req:empty",

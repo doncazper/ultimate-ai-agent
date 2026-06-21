@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.model_runtime import (
@@ -16,7 +17,7 @@ from ultimate_ai_agent.core.model_runtime import (
         "http://[::1]:11434",
     ],
 )
-def test_endpoint_descriptor_accepts_loopback_or_relative_metadata_only(endpoint_ref):
+def test_endpoint_descriptor_accepts_loopback_or_relative_metadata_only(endpoint_ref: Any) -> None:
     descriptor = LocalRuntimeEndpointDescriptor(
         endpoint_ref=endpoint_ref,
         runtime_kind=LocalModelRuntimeKind.ollama_planned,
@@ -40,7 +41,7 @@ def test_endpoint_descriptor_accepts_loopback_or_relative_metadata_only(endpoint
         ("http://localhost:11434?api_key=secret", "secret-like query"),
     ],
 )
-def test_endpoint_descriptor_rejects_external_credentials_or_secret_query(endpoint_ref, message):
+def test_endpoint_descriptor_rejects_external_credentials_or_secret_query(endpoint_ref: Any, message: str) -> None:
     descriptor = LocalRuntimeEndpointDescriptor(
         endpoint_ref=endpoint_ref,
         runtime_kind=LocalModelRuntimeKind.generic_loopback_http_planned,
@@ -61,7 +62,7 @@ def test_endpoint_descriptor_rejects_external_credentials_or_secret_query(endpoi
         ("secret_query_present", "secret-like query"),
     ],
 )
-def test_endpoint_descriptor_rejects_activation_or_contact_flags(field, message):
+def test_endpoint_descriptor_rejects_activation_or_contact_flags(field: str, message: str) -> None:
     descriptor = LocalRuntimeEndpointDescriptor(
         endpoint_ref="loopback_future_runtime",
         runtime_kind=LocalModelRuntimeKind.mlx_planned,

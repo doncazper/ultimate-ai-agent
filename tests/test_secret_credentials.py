@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.secrets import (
 )
 
 
-def test_credential_reference_never_serializes_raw_secret_value():
+def test_credential_reference_never_serializes_raw_secret_value() -> None:
     ref = CredentialReference(
         credential_ref="cred_weather_user",
         provider_id="weather_free_keyed",
@@ -27,7 +27,7 @@ def test_credential_reference_never_serializes_raw_secret_value():
     assert "raw_secret" not in ref.model_dump_json()
 
 
-def test_secret_broker_registers_reference_and_denies_expired_credential():
+def test_secret_broker_registers_reference_and_denies_expired_credential() -> None:
     broker = SecretBroker()
     ref = CredentialReference(
         credential_ref="cred_expired",
@@ -49,7 +49,7 @@ def test_secret_broker_registers_reference_and_denies_expired_credential():
     assert "CREDENTIAL_INACTIVE" in decision.reason_codes
 
 
-def test_secret_broker_registration_validates_reference_metadata():
+def test_secret_broker_registration_validates_reference_metadata() -> None:
     broker = SecretBroker()
     ref = CredentialReference(
         credential_ref="api_key='abcdefghijklmnop'",

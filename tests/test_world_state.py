@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.world_state import (
     validate_world_state_secrets,
 )
 
-def test_world_state_serialization():
+def test_world_state_serialization() -> None:
     step = WorldStateStep(
         step_id="step_1",
         step_type="code_generation",
@@ -24,7 +24,7 @@ def test_world_state_serialization():
     assert state.completed_steps[0].step_type == "code_generation"
     assert validate_world_state_secrets(state) is True
 
-def test_world_state_secrets_blocking():
+def test_world_state_secrets_blocking() -> None:
     # Attempt to inject secret into step outcome
     step = WorldStateStep(
         step_id="step_secret",

@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.tools.runtime import (
     NOOP_TOOL_NAME,
     NOOP_TOOL_REF,
@@ -8,7 +9,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "invocation_id": "tool-runtime-invocation:m31-noop",
         "tool_ref": NOOP_TOOL_REF,
@@ -21,7 +22,7 @@ def _request(**overrides):
     return ToolInvocationRequest(**data)
 
 
-def test_noop_invocation_succeeds_deterministically():
+def test_noop_invocation_succeeds_deterministically() -> None:
     decision = evaluate_tool_invocation(_request())
 
     assert decision.status == ToolInvocationStatus.noop_completed
@@ -38,7 +39,7 @@ def test_noop_invocation_succeeds_deterministically():
     assert decision.receipt_plan.side_effects_performed == []
 
 
-def test_noop_adapter_invocation_uses_same_safe_path():
+def test_noop_adapter_invocation_uses_same_safe_path() -> None:
     decision = ToolRuntimeAdapter().invoke(_request(invocation_id="tool-runtime-invocation:m31-adapter"))
 
     assert decision.status == ToolInvocationStatus.noop_completed

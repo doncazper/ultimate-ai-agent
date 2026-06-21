@@ -60,7 +60,7 @@ class PolicyEngine:
         deny_deprecated: bool = True,
         deny_unhealthy: bool = True,
         approval_authority: ApprovalAuthority | None = None,
-    ):
+    ) -> None:
         self.default_max_risk = default_max_risk
         self.deny_deprecated = deny_deprecated
         self.deny_unhealthy = deny_unhealthy

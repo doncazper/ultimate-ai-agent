@@ -4,7 +4,7 @@ from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 from ultimate_ai_agent.core.gate.evaluators import FoundationGateEvaluator
 
 
-def test_m35_foundation_gate_criteria_are_registered():
+def test_m35_foundation_gate_criteria_are_registered() -> None:
     criteria = default_foundation_gate_criteria()
     criterion_ids = {criterion.criterion_id for criterion in criteria}
 
@@ -13,7 +13,7 @@ def test_m35_foundation_gate_criteria_are_registered():
     assert "m35_m36_m37_m38_remain_future" in criterion_ids
 
 
-def test_m35_openapi_route_guard_rejects_raw_review_mutation_and_execution_routes():
+def test_m35_openapi_route_guard_rejects_raw_review_mutation_and_execution_routes() -> None:
     from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M35_OPENAPI_PATH_COUNT, m35_openapi_route_failures
 
     failures = m35_openapi_route_failures(
@@ -42,7 +42,7 @@ def test_m35_openapi_route_guard_rejects_raw_review_mutation_and_execution_route
     assert m35_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
-def test_m35_foundation_gate_evaluator_passes_current_contracts():
+def test_m35_foundation_gate_evaluator_passes_current_contracts() -> None:
     evaluator = FoundationGateEvaluator()
     criteria = [
         criterion

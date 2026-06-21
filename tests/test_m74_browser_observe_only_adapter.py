@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.browser import (
@@ -10,7 +11,7 @@ from ultimate_ai_agent.core.browser import (
 )
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     data = {
         "request_ref": "browser-observe-request:m74-safe",
         "target_ref": "browser-target:m74-docs-status",
@@ -21,7 +22,7 @@ def _request(**overrides):
     return BrowserObserveOnlyRequest(**data)
 
 
-def _observation(**overrides):
+def _observation(**overrides: Any) -> Any:
     data = {
         "title": "Docs status",
         "safe_url_ref": "browser-url:docs-example-test/status",
@@ -32,7 +33,7 @@ def _observation(**overrides):
     return BrowserObserveOnlyObservation(**data)
 
 
-def _transport(_request, _policy):
+def _transport(_request: Any, _policy: Any) -> Any:
     return _observation()
 
 

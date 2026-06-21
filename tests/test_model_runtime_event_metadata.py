@@ -2,7 +2,7 @@ from tests.m8_helpers import runtime_request, simulated_manifest
 from ultimate_ai_agent.core.model_runtime import SimulatedModelRuntimeAdapter, runtime_event_metadata
 
 
-def test_runtime_event_metadata_is_receipt_safe_and_secret_free():
+def test_runtime_event_metadata_is_receipt_safe_and_secret_free() -> None:
     response = SimulatedModelRuntimeAdapter().simulate_response(runtime_request(), simulated_manifest())
     metadata = runtime_event_metadata(runtime_request(), response)
 

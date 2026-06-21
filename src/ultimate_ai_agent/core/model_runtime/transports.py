@@ -17,7 +17,7 @@ class TransportResponse(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
     @model_validator(mode="after")
-    def transport_response_must_be_safe(self):
+    def transport_response_must_be_safe(self) -> Any:
         forbidden_headers = {"authorization", "cookie", "set-cookie", "x-api-key"}
         if forbidden_headers.intersection({key.lower() for key in self.headers_summary}):
             raise ValueError("Transport response headers must not include credential-bearing names.")

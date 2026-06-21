@@ -36,7 +36,7 @@ class ActorRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_actor(self):
+    def validate_actor(self) -> Any:
         validate_action_ref(self.actor_ref, "actor_ref")
         if self.safe_label:
             validate_safe_action_text(self.safe_label, "safe_label")
@@ -53,7 +53,7 @@ class ActionRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_action(self):
+    def validate_action(self) -> Any:
         validate_action_ref(self.action_ref, "action_ref")
         validate_safe_action_text(self.safe_summary, "safe_summary")
         return self
@@ -67,7 +67,7 @@ class ResourceRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_resource(self):
+    def validate_resource(self) -> Any:
         validate_action_ref(self.resource_ref, "resource_ref")
         if self.safe_label:
             validate_safe_action_text(self.safe_label, "safe_label")
@@ -86,7 +86,7 @@ class ApprovalScope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_scope(self):
+    def validate_scope(self) -> Any:
         allow_wildcard = self.scope_kind == ApprovalScopeKind.blocked_wildcard
         validate_action_ref(self.scope_ref, "scope_ref")
         validate_action_ref(self.actor_ref, "actor_ref", allow_wildcard=allow_wildcard)
@@ -114,7 +114,7 @@ class ApprovalGrant(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_grant(self):
+    def validate_grant(self) -> Any:
         allow_wildcard = self.scope.scope_kind == ApprovalScopeKind.blocked_wildcard
         for value, field_name in [
             (self.grant_ref, "grant_ref"),
@@ -150,7 +150,7 @@ class ActionIntent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_intent(self):
+    def validate_intent(self) -> Any:
         validate_action_ref(self.intent_id, "intent_id")
         validate_safe_action_text(self.safe_summary, "safe_summary")
         if self.approval_ref:
@@ -177,7 +177,7 @@ class ActionPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         validate_action_ref(self.policy_ref, "policy_ref")
         validate_safe_action_text(self.safe_summary, "safe_summary")
         return self
@@ -191,7 +191,7 @@ class ApprovalAuthorityV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_authority(self):
+    def validate_authority(self) -> Any:
         validate_action_ref(self.authority_ref, "authority_ref")
         validate_safe_action_text(self.safe_summary, "safe_summary")
         return self
@@ -214,7 +214,7 @@ class ApprovalReceiptPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_receipt(self):
+    def validate_receipt(self) -> Any:
         assert_no_execution_authorized(self.execution_authorized)
         assert_no_execution_performed(self.execution_performed)
         if self.raw_content_stored:
@@ -254,7 +254,7 @@ class ActionPolicyDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         assert_no_execution_authorized(self.execution_authorized)
         assert_no_execution_performed(self.execution_performed)
         if not self.no_memory_write_performed:
@@ -302,7 +302,7 @@ class ApprovalAuthorityV2Manifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_manifest(self):
+    def validate_manifest(self) -> Any:
         blocked_true_fields = [
             "action_execution_enabled",
             "execution_authorized",

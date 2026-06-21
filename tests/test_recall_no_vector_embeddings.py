@@ -3,7 +3,7 @@ from pathlib import Path
 from ultimate_ai_agent.core.recall import GroundedRecallManifest
 
 
-def test_recall_manifest_disables_vector_embedding_and_external_retrieval():
+def test_recall_manifest_disables_vector_embedding_and_external_retrieval() -> None:
     manifest = GroundedRecallManifest(baseline_version="0.30.1")
 
     assert manifest.vector_search_enabled is False
@@ -13,7 +13,7 @@ def test_recall_manifest_disables_vector_embedding_and_external_retrieval():
     assert manifest.web_search_enabled is False
 
 
-def test_recall_source_has_no_vector_embedding_or_provider_imports():
+def test_recall_source_has_no_vector_embedding_or_provider_imports() -> None:
     recall_root = Path("src/ultimate_ai_agent/core/recall")
     forbidden = [
         "import chromadb",

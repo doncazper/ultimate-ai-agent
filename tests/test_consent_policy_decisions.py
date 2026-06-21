@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.consent import (
     DataBoundary,
 )
 
-def test_consent_policy_deny_overrides_allow():
+def test_consent_policy_deny_overrides_allow() -> None:
     ledger = ConsentLedger()
     # Allow grant
     g_allow = ConsentGrant(
@@ -47,7 +47,7 @@ def test_consent_policy_deny_overrides_allow():
     assert decision.allowed is False
     assert "EXPLICIT_DENY_ACTION" in decision.reason_codes
 
-def test_consent_policy_sensitive_personal_data():
+def test_consent_policy_sensitive_personal_data() -> None:
     ledger = ConsentLedger()
     # Allow grant that does NOT specify sensitive personal boundary
     g1 = ConsentGrant(
@@ -93,7 +93,7 @@ def test_consent_policy_sensitive_personal_data():
     assert "g2" in decision2.matched_grants
 
 
-def test_consent_policy_denied_purpose_overrides_allow():
+def test_consent_policy_denied_purpose_overrides_allow() -> None:
     ledger = ConsentLedger()
     ledger.add_grant(
         ConsentGrant(
@@ -123,7 +123,7 @@ def test_consent_policy_denied_purpose_overrides_allow():
     assert "EXPLICIT_DENY_PURPOSE" in decision.reason_codes
 
 
-def test_consent_policy_denied_resource_prefix_overrides_broad_allow():
+def test_consent_policy_denied_resource_prefix_overrides_broad_allow() -> None:
     ledger = ConsentLedger()
     ledger.add_grant(
         ConsentGrant(
@@ -154,7 +154,7 @@ def test_consent_policy_denied_resource_prefix_overrides_broad_allow():
     assert "EXPLICIT_DENY_RESOURCE" in decision.reason_codes
 
 
-def test_consent_policy_regulated_data_requires_explicit_boundary():
+def test_consent_policy_regulated_data_requires_explicit_boundary() -> None:
     ledger = ConsentLedger()
     ledger.add_grant(
         ConsentGrant(

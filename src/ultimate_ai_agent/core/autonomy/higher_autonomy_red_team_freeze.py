@@ -82,7 +82,7 @@ class HigherAutonomyRedTeamFreezePolicy(_HigherAutonomyRedTeamFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -153,7 +153,7 @@ class HigherAutonomyRedTeamFreezeRequest(_HigherAutonomyRedTeamFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -223,7 +223,7 @@ class HigherAutonomyRedTeamFreezeReport(_HigherAutonomyRedTeamFreezeModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _report_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_safe_payload(self.safe_summary)
@@ -371,7 +371,7 @@ def validate_higher_autonomy_red_team_freeze_report(
     return validated
 
 
-def _request_ref_pairs(request: HigherAutonomyRedTeamFreezeRequest):
+def _request_ref_pairs(request: HigherAutonomyRedTeamFreezeRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.freeze_ref, "freeze_ref"),
@@ -385,7 +385,7 @@ def _request_ref_pairs(request: HigherAutonomyRedTeamFreezeRequest):
     ]
 
 
-def _report_ref_pairs(report: HigherAutonomyRedTeamFreezeReport):
+def _report_ref_pairs(report: HigherAutonomyRedTeamFreezeReport) -> list[Any]:
     return [
         (report.report_ref, "report_ref"),
         (report.freeze_ref, "freeze_ref"),

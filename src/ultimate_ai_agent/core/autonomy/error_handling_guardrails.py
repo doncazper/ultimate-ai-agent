@@ -105,7 +105,7 @@ class ErrorHandlingGuardrailPolicy(_ErrorHandlingGuardrailModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         try:
             _validate_safe_payload(self.metadata)
@@ -203,7 +203,7 @@ class ErrorHandlingGuardrailRequest(_ErrorHandlingGuardrailModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         _validate_ref_list(self.resource_refs, "resource_ref", "M138_RESOURCE_REF_REQUIRED")
@@ -267,7 +267,7 @@ class ErrorHandlingGuardrailReceiptPlan(_ErrorHandlingGuardrailModel):
     safe_receipt_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m61_ref(self.guardrail_policy_ref, "guardrail_policy_ref")
         _validate_ref_list(
@@ -369,7 +369,7 @@ class ErrorHandlingGuardrailDecision(_ErrorHandlingGuardrailModel):
     reason_codes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.decision_ref, "decision_ref"),
             (self.guardrail_policy_ref, "guardrail_policy_ref"),
@@ -517,7 +517,7 @@ def _validate_m138_receipt_plan(
     return ErrorHandlingGuardrailReceiptPlan.model_validate(payload)
 
 
-def _request_ref_pairs(request: ErrorHandlingGuardrailRequest):
+def _request_ref_pairs(request: ErrorHandlingGuardrailRequest) -> list[Any]:
     return [
         (request.request_ref, "request_ref"),
         (request.guardrail_plan_ref, "guardrail_plan_ref"),

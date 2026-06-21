@@ -103,7 +103,7 @@ def _validate_json_like_schema(value: Any, schema: dict[str, Any] | None, path: 
 
 
 class CapabilityRegistry:
-    def __init__(self, approval_authority: LocalApprovalAuthority | None = None):
+    def __init__(self, approval_authority: LocalApprovalAuthority | None = None) -> None:
         self._contracts: dict[str, CapabilityContract] = {}
         self._handlers: dict[str, Handler] = {}
         self._outcomes: dict[str, list[CapabilityOutcomeRecord]] = {}
@@ -163,7 +163,7 @@ class CapabilityRegistry:
         cards.sort(key=lambda item: (-item[0], item[1].id))
         return [card for _score, card in cards[:top_k]]
 
-    def rank_for_task(self, task_intent, candidates: list[CapabilityRoutingCard]) -> list[CapabilityRoutingCard]:
+    def rank_for_task(self, task_intent: Any, candidates: list[CapabilityRoutingCard]) -> list[CapabilityRoutingCard]:
         from ultimate_ai_agent.core.task_decomposition.ranker import CapabilityRanker
 
         ranker = CapabilityRanker(outcome_metrics=self.metrics())
@@ -432,7 +432,7 @@ class CapabilityRegistry:
         registry.import_json(data)
         return registry
 
-    def register_tool_manifest(self, manifest) -> CapabilityContract:
+    def register_tool_manifest(self, manifest: Any) -> CapabilityContract:
         risk_value = getattr(getattr(manifest, "risk_level", None), "value", str(getattr(manifest, "risk_level", "low")))
         mapped_risk = RiskLevel.low if risk_value in {"safe", "low"} else RiskLevel.medium
         if risk_value in {"high", "critical"}:

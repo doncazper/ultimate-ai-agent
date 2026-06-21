@@ -1,7 +1,7 @@
 from ultimate_ai_agent.core.truth import ClaimEvidence, ClaimVerificationStatus, SourceFreshnessStatus
 
 
-def test_supported_claim_records_claim_level_evidence():
+def test_supported_claim_records_claim_level_evidence() -> None:
     claim = ClaimEvidence(
         claim_id="claim_supported",
         claim_text="Canonical files outrank memory.",
@@ -16,7 +16,7 @@ def test_supported_claim_records_claim_level_evidence():
     assert claim.source_ids == ["src_canonical"]
 
 
-def test_human_review_required_claim_can_be_labeled():
+def test_human_review_required_claim_can_be_labeled() -> None:
     claim = ClaimEvidence(
         claim_id="claim_review",
         claim_text="Security decision requires review.",

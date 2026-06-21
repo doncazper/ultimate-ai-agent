@@ -82,7 +82,7 @@ class ConnectorWriteDryRunPolicy(_ConnectorWriteDryRun):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         _validate_safe_payload(self.metadata)
         return self
@@ -143,7 +143,7 @@ class ConnectorWriteDryRunRequest(_ConnectorWriteDryRun):
     dependency_added: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _request_ref_pairs(self):
             if value is not None:
                 _validate_m61_ref(value, field_name)
@@ -219,7 +219,7 @@ class ConnectorWriteDryRunPlan(_ConnectorWriteDryRun):
     safe_summary: str
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in _plan_ref_pairs(self):
             _validate_m61_ref(value, field_name)
         for refs, field_name in _plan_ref_list_pairs(self):
@@ -257,7 +257,7 @@ class ConnectorWriteDryRunReceiptPlan(_ConnectorWriteDryRun):
     )
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.dry_run_plan_ref, "dry_run_plan_ref"),
@@ -309,7 +309,7 @@ class ConnectorWriteDryRunDecision(_ConnectorWriteDryRun):
     dependency_added: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_m61_ref(self.decision_ref, "decision_ref")
         _validate_m61_ref(
             self.connector_read_only_runtime_ref, "connector_read_only_runtime_ref"
@@ -732,7 +732,7 @@ def _validate_safe_text(value: str) -> None:
     _validate_safe_payload({"safe_text": value})
 
 
-def _request_ref_pairs(request: ConnectorWriteDryRunRequest):
+def _request_ref_pairs(request: ConnectorWriteDryRunRequest) -> list[Any]:
     return [
         (getattr(request, "dry_run_request_ref", None), "dry_run_request_ref"),
         (getattr(request, "approval_ref", None), "approval_ref"),
@@ -759,7 +759,7 @@ def _request_ref_pairs(request: ConnectorWriteDryRunRequest):
     ]
 
 
-def _request_ref_list_pairs(request: ConnectorWriteDryRunRequest):
+def _request_ref_list_pairs(request: ConnectorWriteDryRunRequest) -> list[Any]:
     return [
         (getattr(request, "connector_scope_refs", []), "connector_scope_ref", True),
         (
@@ -799,7 +799,7 @@ def _request_ref_list_pairs(request: ConnectorWriteDryRunRequest):
     ]
 
 
-def _plan_ref_pairs(plan: ConnectorWriteDryRunPlan):
+def _plan_ref_pairs(plan: ConnectorWriteDryRunPlan) -> list[Any]:
     return [
         (plan.dry_run_plan_ref, "dry_run_plan_ref"),
         (plan.approval_ref, "approval_ref"),
@@ -819,7 +819,7 @@ def _plan_ref_pairs(plan: ConnectorWriteDryRunPlan):
     ]
 
 
-def _plan_ref_list_pairs(plan: ConnectorWriteDryRunPlan):
+def _plan_ref_list_pairs(plan: ConnectorWriteDryRunPlan) -> list[Any]:
     return [
         (plan.connector_scope_refs, "connector_scope_ref"),
         (plan.connector_allowlist_refs, "connector_allowlist_ref"),

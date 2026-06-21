@@ -35,7 +35,7 @@ def evidence(ref: str, kind: TruthSourceKind, strength: EvidenceStrength) -> Evi
     )
 
 
-def test_primary_source_backed_evidence_can_support_claim():
+def test_primary_source_backed_evidence_can_support_claim() -> None:
     chain = EvidenceChain(
         chain_id="chain:release",
         claim_ref="claim:release",
@@ -60,7 +60,7 @@ def test_primary_source_backed_evidence_can_support_claim():
     assert decision.claim_status == ClaimStatus.verified_by_primary_source
 
 
-def test_memory_only_evidence_is_denied_for_verified_status():
+def test_memory_only_evidence_is_denied_for_verified_status() -> None:
     chain = EvidenceChain(
         chain_id="chain:memory",
         claim_ref="claim:release",
@@ -86,7 +86,7 @@ def test_memory_only_evidence_is_denied_for_verified_status():
     assert "MEMORY_ONLY_CANNOT_VERIFY_TRUTH" in decision.reason_codes
 
 
-def test_inferred_unknown_ref_is_denied_for_evidence_supported():
+def test_inferred_unknown_ref_is_denied_for_evidence_supported() -> None:
     chain = EvidenceChain(
         chain_id="chain:random",
         claim_ref="claim:release",
@@ -111,7 +111,7 @@ def test_inferred_unknown_ref_is_denied_for_evidence_supported():
     assert "ARBITRARY_SOURCE_REF_DENIED" in decision.reason_codes
 
 
-def test_explicit_unknown_source_kind_is_denied_for_evidence_supported():
+def test_explicit_unknown_source_kind_is_denied_for_evidence_supported() -> None:
     chain = EvidenceChain(
         chain_id="chain:unknown",
         claim_ref="claim:release",
@@ -136,7 +136,7 @@ def test_explicit_unknown_source_kind_is_denied_for_evidence_supported():
     assert "UNKNOWN_SOURCE_KIND_DENIED" in decision.reason_codes
 
 
-def test_unknown_ref_is_denied_for_verified_by_primary_source():
+def test_unknown_ref_is_denied_for_verified_by_primary_source() -> None:
     chain = EvidenceChain(
         chain_id="chain:random-primary",
         claim_ref="claim:release",
@@ -161,7 +161,7 @@ def test_unknown_ref_is_denied_for_verified_by_primary_source():
     assert "ARBITRARY_SOURCE_REF_DENIED" in decision.reason_codes
 
 
-def test_unknown_ref_is_denied_for_source_linked_status():
+def test_unknown_ref_is_denied_for_source_linked_status() -> None:
     chain = EvidenceChain(
         chain_id="chain:random-source-linked",
         claim_ref="claim:release",

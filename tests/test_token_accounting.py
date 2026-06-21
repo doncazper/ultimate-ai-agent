@@ -3,7 +3,7 @@ from ultimate_ai_agent.core.context_budget import (
     calibrate_tokens,
 )
 
-def test_token_calibration_increases():
+def test_token_calibration_increases() -> None:
     budget = ContextBudget(
         model_context_limit=8000,
         token_calibration_factor=1.0
@@ -20,7 +20,7 @@ def test_token_calibration_increases():
     assert budget.token_calibration_factor == 2.0
     assert event.new_calibration_factor == 2.0
 
-def test_token_calibration_no_decrease():
+def test_token_calibration_no_decrease() -> None:
     budget = ContextBudget(
         model_context_limit=8000,
         token_calibration_factor=1.5

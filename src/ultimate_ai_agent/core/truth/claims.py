@@ -1,6 +1,6 @@
 from datetime import datetime
 from ultimate_ai_agent.core.time import utc_now
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -24,7 +24,7 @@ class ClaimEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_status(self):
+    def validate_status(self) -> Any:
         if self.verification_status == ClaimVerificationStatus.supported and not self.evidence_refs:
             raise ValueError("supported claims require at least one evidence_ref.")
         if self.verification_status == ClaimVerificationStatus.unsupported and not self.unsupported_reason:
@@ -43,7 +43,7 @@ class ClaimRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_claim_ref(self):
+    def validate_claim_ref(self) -> Any:
         from ultimate_ai_agent.core.truth.validation import assert_no_raw_truth_content, validate_structured_truth_ref
 
         validate_structured_truth_ref(self.claim_ref, "claim_ref")
@@ -73,7 +73,7 @@ class Claim(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_claim(self):
+    def validate_claim(self) -> Any:
         from ultimate_ai_agent.core.truth.validation import assert_no_raw_truth_content
 
         assert_no_raw_truth_content(self.safe_claim_summary)

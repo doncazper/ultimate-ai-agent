@@ -6,7 +6,7 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def test_simulated_response_is_deterministic_and_marked_simulated():
+def test_simulated_response_is_deterministic_and_marked_simulated() -> None:
     adapter = SimulatedModelRuntimeAdapter()
     request = runtime_request(output_format=ModelRuntimeOutputFormat.text)
     manifest = simulated_manifest()
@@ -20,7 +20,7 @@ def test_simulated_response_is_deterministic_and_marked_simulated():
     assert "no model was called" in first.output_summary
 
 
-def test_simulated_json_and_structured_outputs_are_safe():
+def test_simulated_json_and_structured_outputs_are_safe() -> None:
     adapter = SimulatedModelRuntimeAdapter()
 
     json_response = adapter.simulate_response(runtime_request(output_format=ModelRuntimeOutputFormat.json), simulated_manifest())
@@ -31,7 +31,7 @@ def test_simulated_json_and_structured_outputs_are_safe():
     assert "prompt" not in str(json_response.model_dump()).lower()
 
 
-def test_simulated_refusal_uses_refusal_status():
+def test_simulated_refusal_uses_refusal_status() -> None:
     response = SimulatedModelRuntimeAdapter().simulate_response(
         runtime_request(output_format=ModelRuntimeOutputFormat.refusal),
         simulated_manifest(),
@@ -41,7 +41,7 @@ def test_simulated_refusal_uses_refusal_status():
     assert response.refusal_reason == "SIMULATED_REFUSAL_REQUESTED"
 
 
-def test_preview_does_not_call_model_and_returns_safe_plan():
+def test_preview_does_not_call_model_and_returns_safe_plan() -> None:
     preview = SimulatedModelRuntimeAdapter().preview(runtime_request(), simulated_manifest())
 
     assert preview.success is True

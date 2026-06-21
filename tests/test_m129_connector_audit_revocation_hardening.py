@@ -1,3 +1,4 @@
+from typing import Any
 from functools import lru_cache
 
 import pytest
@@ -8,14 +9,14 @@ from tests.test_m128_connector_write_execution_low_risk import (
 )
 
 
-def _connectors():
+def _connectors() -> Any:
     import ultimate_ai_agent.core.connectors as connectors
 
     return connectors
 
 
 @lru_cache(maxsize=1)
-def _m128_decision_and_result():
+def _m128_decision_and_result() -> tuple[Any, ...]:
     connectors = _connectors()
     decision = connectors.build_connector_write_execution_decision(_m128_request())
     result = connectors.perform_low_risk_connector_write(
@@ -25,7 +26,7 @@ def _m128_decision_and_result():
     return decision, result
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     connectors = _connectors()
     decision, result = overrides.pop("m128_pair") if "m128_pair" in overrides else _m128_decision_and_result()
     data = {
@@ -66,7 +67,7 @@ def _request(**overrides):
     return connectors.ConnectorAuditRevocationHardeningRequest(**data)
 
 
-def test_m129_connector_audit_revocation_report_is_exact_bound_and_safe():
+def test_m129_connector_audit_revocation_report_is_exact_bound_and_safe() -> None:
     connectors = _connectors()
     report = connectors.build_connector_audit_revocation_hardening_report(_request())
 
@@ -150,7 +151,7 @@ def test_m129_connector_audit_revocation_report_is_exact_bound_and_safe():
         ("production_authority_requested", "M129_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
-def test_m129_request_denies_unsafe_audit_revocation_authority(field, reason):
+def test_m129_request_denies_unsafe_audit_revocation_authority(field: str, reason: str) -> None:
     connectors = _connectors()
 
     with pytest.raises(ValueError, match=reason):
@@ -159,7 +160,7 @@ def test_m129_request_denies_unsafe_audit_revocation_authority(field, reason):
         )
 
 
-def test_m129_requires_exact_m128_decision_and_result_binding():
+def test_m129_requires_exact_m128_decision_and_result_binding() -> None:
     connectors = _connectors()
 
     for update, reason in [
@@ -185,7 +186,7 @@ def test_m129_requires_exact_m128_decision_and_result_binding():
             )
 
 
-def test_m129_revalidates_mutated_m128_result_and_report_outputs():
+def test_m129_revalidates_mutated_m128_result_and_report_outputs() -> None:
     connectors = _connectors()
     decision, result = _m128_decision_and_result()
     mutated_result = result.model_copy(update={"network_access_performed": True})
@@ -206,7 +207,7 @@ def test_m129_revalidates_mutated_m128_result_and_report_outputs():
         )
 
 
-def test_m129_ledger_and_revocation_records_deny_raw_or_executed_mutations():
+def test_m129_ledger_and_revocation_records_deny_raw_or_executed_mutations() -> None:
     connectors = _connectors()
     report = connectors.build_connector_audit_revocation_hardening_report(_request())
 
@@ -234,7 +235,7 @@ def test_m129_ledger_and_revocation_records_deny_raw_or_executed_mutations():
         )
 
 
-def test_m129_policy_denies_runtime_and_revocation_execution_enablement():
+def test_m129_policy_denies_runtime_and_revocation_execution_enablement() -> None:
     connectors = _connectors()
 
     for update, reason in [

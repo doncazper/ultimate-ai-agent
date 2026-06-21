@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import UTC, datetime, timedelta
 import pytest
 from ultimate_ai_agent.core.consent import (
@@ -10,8 +11,8 @@ from ultimate_ai_agent.core.consent import (
 )
 
 @pytest.fixture
-def dummy_grant_factory():
-    def _make(consent_id="grant_123", actor="orchestrator", action=PermissionAction.read, status=ConsentStatus.active, denied_actions=None, expires_at=None):
+def dummy_grant_factory() -> Any:
+    def _make(consent_id: str = "grant_123", actor: str = "orchestrator", action: Any = PermissionAction.read, status: str = ConsentStatus.active, denied_actions: Any | None = None, expires_at: Any | None = None) -> Any:
         return ConsentGrant(
             consent_id=consent_id,
             subject_type=ConsentSubjectType.tool,
@@ -27,7 +28,7 @@ def dummy_grant_factory():
         )
     return _make
 
-def test_consent_ledger_add_and_revoke(dummy_grant_factory):
+def test_consent_ledger_add_and_revoke(dummy_grant_factory: Any) -> None:
     ledger = ConsentLedger()
     grant = dummy_grant_factory(consent_id="g1")
     ledger.add_grant(grant)
@@ -39,7 +40,7 @@ def test_consent_ledger_add_and_revoke(dummy_grant_factory):
     assert grants[0].status == ConsentStatus.revoked
     assert grants[0].revoked_at is not None
 
-def test_consent_ledger_check_expiration(dummy_grant_factory):
+def test_consent_ledger_check_expiration(dummy_grant_factory: Any) -> None:
     ledger = ConsentLedger()
     # Expired 1 hour ago
     grant = dummy_grant_factory(
@@ -52,7 +53,7 @@ def test_consent_ledger_check_expiration(dummy_grant_factory):
     ledger.check_expiration(datetime.now(UTC))
     assert ledger.list_grants()[0].status == ConsentStatus.expired
 
-def test_consent_ledger_wildcard_allowed_actions(dummy_grant_factory):
+def test_consent_ledger_wildcard_allowed_actions(dummy_grant_factory: Any) -> None:
     from ultimate_ai_agent.core.consent.decisions import ConsentQuery
     from ultimate_ai_agent.core.consent.enums import PermissionRisk, DataBoundary
     ledger = ConsentLedger()

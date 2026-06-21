@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 from ultimate_ai_agent.core.macos_setup_assistant.contracts import (
     MacOSSetupApprovalEnvelope,
@@ -630,7 +631,7 @@ def _step(
     receipt_ref: str | None = None,
     rollback_ref: str | None = None,
     latency_ref: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> MacOSSetupStep:
     suffix = step_id.split(":")[-1]
     return MacOSSetupStep(

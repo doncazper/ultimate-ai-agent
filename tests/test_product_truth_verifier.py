@@ -1,13 +1,17 @@
+from pathlib import Path
+
+import pytest
+
 import scripts.verify_product_truth as verifier
 
 
-def _write_text(root, rel_path: str, text: str) -> None:
+def _write_text(root: Path, rel_path: str, text: str) -> None:
     path = root / rel_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
-def test_product_truth_verifier_clean_scopes_pass(tmp_path):
+def test_product_truth_verifier_clean_scopes_pass(tmp_path: Path) -> None:
     _write_text(
         tmp_path,
         "docs/kanban/current_board.md",
@@ -42,7 +46,7 @@ def test_product_truth_verifier_clean_scopes_pass(tmp_path):
     assert findings == []
 
 
-def test_product_truth_verifier_flags_blocked_work_claimed_complete(tmp_path):
+def test_product_truth_verifier_flags_blocked_work_claimed_complete(tmp_path: Path) -> None:
     _write_text(
         tmp_path,
         "docs/production/RELEASE_EVIDENCE_PACKET.md",
@@ -70,8 +74,8 @@ def test_product_truth_verifier_flags_blocked_work_claimed_complete(tmp_path):
 
 
 def test_product_truth_verifier_flags_pending_partial_skipped_planned_overclaims(
-    tmp_path,
-):
+    tmp_path: Path,
+) -> None:
     findings = verifier.scan_text(
         "docs/production/RELEASE_VERIFICATION_LANES.md",
         "\n".join([
@@ -89,7 +93,7 @@ def test_product_truth_verifier_flags_pending_partial_skipped_planned_overclaims
     assert "planned_work_claimed_released" in categories
 
 
-def test_product_truth_verifier_flags_autonomy_overclaims():
+def test_product_truth_verifier_flags_autonomy_overclaims() -> None:
     findings = verifier.scan_text(
         "README.md",
         "\n".join([
@@ -106,7 +110,7 @@ def test_product_truth_verifier_flags_autonomy_overclaims():
     assert "autonomous_execution_enabled_claim" in categories
 
 
-def test_product_truth_verifier_no_false_positive_on_correct_disclaimer_language():
+def test_product_truth_verifier_no_false_positive_on_correct_disclaimer_language() -> None:
     # These are the correct disclaimer forms used throughout the real repo docs.
     clean_lines = [
         "blocked for production-readiness claims",
@@ -135,7 +139,7 @@ def test_product_truth_verifier_no_false_positive_on_correct_disclaimer_language
         )
 
 
-def test_product_truth_verifier_cli_redacts_failure_output(tmp_path, capsys):
+def test_product_truth_verifier_cli_redacts_failure_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     sensitive_label = "auth_service_migration"
     _write_text(
         tmp_path,
@@ -154,7 +158,7 @@ def test_product_truth_verifier_cli_redacts_failure_output(tmp_path, capsys):
     assert sensitive_label not in output
 
 
-def test_product_truth_verifier_json_report_structure(tmp_path):
+def test_product_truth_verifier_json_report_structure(tmp_path: Path) -> None:
     _write_text(
         tmp_path,
         "README.md",

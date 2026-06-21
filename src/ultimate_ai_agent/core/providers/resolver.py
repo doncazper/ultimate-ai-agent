@@ -23,7 +23,7 @@ class ProviderResolutionDecision(BaseModel):
 
 
 class ProviderResolver:
-    def __init__(self, registry: ProviderRegistry):
+    def __init__(self, registry: ProviderRegistry) -> None:
         self.registry = registry
 
     def resolve(

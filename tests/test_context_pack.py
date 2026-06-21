@@ -3,7 +3,7 @@ import pytest
 
 from ultimate_ai_agent.core.contracts import ContextPack, ContextSource, ContextPackScope, AuthorityType, ContentRole, CONTEXT_PACK_SCHEMA_VERSION
 
-def test_minimal_valid_context_pack():
+def test_minimal_valid_context_pack() -> None:
     src = ContextSource(
         source_id="src_1",
         source_type="file",
@@ -28,7 +28,7 @@ def test_minimal_valid_context_pack():
     assert pack.canonical_sources[0].source_id == "src_1"
     assert pack.schema_version == CONTEXT_PACK_SCHEMA_VERSION
 
-def test_context_pack_invalid_id():
+def test_context_pack_invalid_id() -> None:
     with pytest.raises(ValidationError):
         ContextPack(
             context_pack_id="invalid_id",

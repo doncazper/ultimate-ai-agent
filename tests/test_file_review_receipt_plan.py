@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.file_review import FileReviewReceiptPlan, build_file_review_packet, build_file_review_receipt_plan
@@ -8,7 +9,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _packet():
+def _packet() -> Any:
     preview = RedactedFilePreviewOutput(
         output_ref="redacted-file-preview-output:receipt",
         status=RedactedFilePreviewStatus.preview_generated,
@@ -27,7 +28,7 @@ def _packet():
     )
 
 
-def test_receipt_plan_stores_refs_only_and_is_not_authority():
+def test_receipt_plan_stores_refs_only_and_is_not_authority() -> None:
     packet = _packet()
     receipt_plan = build_file_review_receipt_plan(packet)
 
@@ -58,7 +59,7 @@ def test_receipt_plan_stores_refs_only_and_is_not_authority():
         "receipt_is_authority",
     ],
 )
-def test_receipt_plan_rejects_authority_and_side_effect_flags(field_name):
+def test_receipt_plan_rejects_authority_and_side_effect_flags(field_name: str) -> None:
     with pytest.raises(ValueError):
         FileReviewReceiptPlan(
             receipt_plan_ref="file-review-receipt-plan:unsafe",

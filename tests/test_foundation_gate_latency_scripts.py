@@ -1,3 +1,4 @@
+from typing import Any
 import json
 
 import pytest
@@ -167,7 +168,7 @@ def _hot_path_rows() -> list[dict[str, object]]:
     ]
 
 
-def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch):
+def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(benchmark_foundation_gate, "_evaluate_once", lambda: _FakeReport())
 
     metrics = benchmark_foundation_gate._benchmark(
@@ -220,7 +221,7 @@ def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch):
     assert metrics["hot_path_profile_overall_status"] == "passed"
 
 
-def test_performance_regression_report_is_release_evidence_ready():
+def test_performance_regression_report_is_release_evidence_ready() -> None:
     report = benchmark_foundation_gate._performance_regression_report(
         _release_latency_source_report()
     )
@@ -259,7 +260,7 @@ def test_performance_regression_report_is_release_evidence_ready():
     }.issubset(first_row)
 
 
-def test_performance_regression_markdown_includes_retention_guidance():
+def test_performance_regression_markdown_includes_retention_guidance() -> None:
     report = benchmark_foundation_gate._performance_regression_report(
         _release_latency_source_report()
     )
@@ -272,7 +273,7 @@ def test_performance_regression_markdown_includes_retention_guidance():
     assert "Machine identity, environment variables, raw paths" in markdown
 
 
-def test_release_latency_markdown_includes_measurement_prerequisites():
+def test_release_latency_markdown_includes_measurement_prerequisites() -> None:
     markdown = benchmark_foundation_gate._performance_markdown(
         _release_latency_source_report()
     )
@@ -283,7 +284,7 @@ def test_release_latency_markdown_includes_measurement_prerequisites():
     assert "Secret material cached for speed: `False`" in markdown
 
 
-def test_release_latency_report_fails_failed_measurement_prerequisite(monkeypatch):
+def test_release_latency_report_fails_failed_measurement_prerequisite(monkeypatch: pytest.MonkeyPatch) -> None:
     failed_prerequisites = _release_latency_measurement_prerequisites()
     failed_prerequisites["status"] = "failed"
     failed_prerequisites["api_manifest_static_cache_primed"] = False
@@ -320,7 +321,7 @@ def test_release_latency_report_fails_failed_measurement_prerequisite(monkeypatc
     assert metrics["release_latency_measurement_prerequisites"] == failed_prerequisites
 
 
-def test_hot_path_profile_report_is_timing_summary_only():
+def test_hot_path_profile_report_is_timing_summary_only() -> None:
     report = benchmark_foundation_gate._build_hot_path_profile_report(
         rows=_hot_path_rows(),
         generated_at_utc="2026-06-19T00:00:00Z",
@@ -345,7 +346,7 @@ def test_hot_path_profile_report_is_timing_summary_only():
         assert row["raw_log_recorded"] is False
 
 
-def test_hot_path_profile_markdown_documents_safe_usage():
+def test_hot_path_profile_markdown_documents_safe_usage() -> None:
     report = benchmark_foundation_gate._build_hot_path_profile_report(
         rows=_hot_path_rows(),
         generated_at_utc="2026-06-19T00:00:00Z",
@@ -360,8 +361,8 @@ def test_hot_path_profile_markdown_documents_safe_usage():
     assert "OpenAPI profiling restores the schema cache" in markdown
 
 
-def test_foundation_gate_latency_guard_emits_parseable_metrics(monkeypatch, capsys):
-    def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int):
+def test_foundation_gate_latency_guard_emits_parseable_metrics(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int) -> dict[str, Any]:
         return {
             "schema_version": "foundation_gate_benchmark.v2",
             "repeat": repeat,
@@ -406,12 +407,12 @@ def test_foundation_gate_latency_guard_emits_parseable_metrics(monkeypatch, caps
 
 
 def test_foundation_gate_latency_summary_reuses_precomputed_gate_timing(
-    monkeypatch,
-):
-    def fail_benchmark(*args, **kwargs):
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_benchmark(*args: Any, **kwargs: Any) -> None:
         pytest.fail("precomputed Foundation Gate timing must not rerun full benchmark")
 
-    def fake_release_latency_paths(*, repeat: int, warmup: int, write_report: bool):
+    def fake_release_latency_paths(*, repeat: int, warmup: int, write_report: bool) -> dict[str, Any]:
         assert repeat == 3
         assert warmup == 1
         assert write_report is True
@@ -444,7 +445,7 @@ def test_foundation_gate_latency_summary_reuses_precomputed_gate_timing(
     assert summary["authority_invariants"]["foundation_gate_checks_preserved"] is True
 
 
-def test_foundation_gate_latency_summary_rejects_partial_precomputed_timing():
+def test_foundation_gate_latency_summary_rejects_partial_precomputed_timing() -> None:
     with pytest.raises(ValueError, match="requires elapsed ms, status, and result count"):
         check_foundation_gate_latency.run_latency_gate_summary(
             precomputed_foundation_gate_ms=12.34,
@@ -452,8 +453,8 @@ def test_foundation_gate_latency_summary_rejects_partial_precomputed_timing():
         )
 
 
-def test_foundation_gate_latency_guard_fails_when_budget_exceeded(monkeypatch, capsys):
-    def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int):
+def test_foundation_gate_latency_guard_fails_when_budget_exceeded(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int) -> dict[str, Any]:
         return {
             "schema_version": "foundation_gate_benchmark.v2",
             "repeat": repeat,
@@ -490,7 +491,7 @@ def test_foundation_gate_latency_guard_fails_when_budget_exceeded(monkeypatch, c
     assert payload["foundation_gate_latency_summary"]["status"] == "failed"
 
 
-def test_release_latency_gate_fails_missing_required_path():
+def test_release_latency_gate_fails_missing_required_path() -> None:
     path_results = [
         _release_latency_result(path_id)
         for path_id in sorted(
@@ -509,7 +510,7 @@ def test_release_latency_gate_fails_missing_required_path():
     assert "api_manifest release latency result is missing" in failures
 
 
-def test_release_latency_gate_fails_required_path_budget_regression():
+def test_release_latency_gate_fails_required_path_budget_regression() -> None:
     path_results = []
     for path_id in sorted(benchmark_foundation_gate.RELEASE_LATENCY_REQUIRED_PATH_IDS):
         if path_id == "api_manifest":
@@ -531,7 +532,7 @@ def test_release_latency_gate_fails_required_path_budget_regression():
     assert "api_manifest p95 151.00 ms exceeds budget 150.00 ms" in failures
 
 
-def test_release_latency_gate_allows_optional_skipped_prerequisite():
+def test_release_latency_gate_allows_optional_skipped_prerequisite() -> None:
     failures = check_foundation_gate_latency._release_latency_gate_failures(
         _release_latency_success_payload()
     )
@@ -539,7 +540,7 @@ def test_release_latency_gate_allows_optional_skipped_prerequisite():
     assert failures == []
 
 
-def test_release_latency_gate_requires_measurement_prerequisites():
+def test_release_latency_gate_requires_measurement_prerequisites() -> None:
     payload = _release_latency_success_payload()
     payload.pop("release_latency_measurement_prerequisites")
 
@@ -554,7 +555,7 @@ def test_release_latency_gate_requires_measurement_prerequisites():
     ]
 
 
-def test_release_latency_gate_rejects_unsafe_primer_caching():
+def test_release_latency_gate_rejects_unsafe_primer_caching() -> None:
     payload = _release_latency_success_payload()
     prerequisites = dict(payload["release_latency_measurement_prerequisites"])
     prerequisites["authority_decisions_cached_for_speed"] = True
@@ -577,7 +578,7 @@ def test_release_latency_gate_rejects_unsafe_primer_caching():
     )
 
 
-def test_release_latency_gate_rejects_missing_explicit_false_primer_flag():
+def test_release_latency_gate_rejects_missing_explicit_false_primer_flag() -> None:
     payload = _release_latency_success_payload()
     prerequisites = dict(payload["release_latency_measurement_prerequisites"])
     prerequisites.pop("secret_material_cached_for_speed")
@@ -595,7 +596,7 @@ def test_release_latency_gate_rejects_missing_explicit_false_primer_flag():
     )
 
 
-def test_foundation_gate_latency_summary_keeps_optional_skips_visible():
+def test_foundation_gate_latency_summary_keeps_optional_skips_visible() -> None:
     summary = check_foundation_gate_latency.build_foundation_gate_latency_summary(
         {
             "schema_version": "foundation_gate_benchmark.v2",
@@ -650,10 +651,10 @@ def test_foundation_gate_latency_summary_keeps_optional_skips_visible():
 
 
 def test_foundation_gate_latency_guard_fails_failed_release_overall(
-    monkeypatch,
-    capsys,
-):
-    def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int):
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fake_benchmark(*, repeat: int, warmup: int, path_repeat: int, path_warmup: int) -> dict[str, Any]:
         return {
             "schema_version": "foundation_gate_benchmark.v2",
             "repeat": repeat,
@@ -691,7 +692,7 @@ def test_foundation_gate_latency_guard_fails_failed_release_overall(
     )
 
 
-def test_foundation_gate_latency_guard_rejects_invalid_env_budget(monkeypatch):
+def test_foundation_gate_latency_guard_rejects_invalid_env_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FOUNDATION_GATE_MAX_MEAN_MS", "not-a-number")
 
     with pytest.raises(SystemExit) as exc:

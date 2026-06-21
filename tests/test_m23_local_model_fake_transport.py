@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def test_m23_dry_run_does_not_call_transport():
+def test_m23_dry_run_does_not_call_transport() -> None:
     request = valid_request()
     transport = FakeLocalModelCallTransport(response_text="UAA_M23_LOCAL_MODEL_CALL_OK")
 
@@ -21,7 +21,7 @@ def test_m23_dry_run_does_not_call_transport():
     assert result.receipt.files_written is False
 
 
-def test_m23_fake_transport_executes_only_with_valid_approval_decision():
+def test_m23_fake_transport_executes_only_with_valid_approval_decision() -> None:
     from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 
     request = valid_request(dry_run=False, execute_local_call=True, approval_ref="approval_m23")
@@ -46,7 +46,7 @@ def test_m23_fake_transport_executes_only_with_valid_approval_decision():
     assert result.receipt.files_written is False
 
 
-def test_m23_fake_transport_blocks_secret_like_response():
+def test_m23_fake_transport_blocks_secret_like_response() -> None:
     from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 
     request = valid_request(dry_run=False, execute_local_call=True, approval_ref="approval_m23")
@@ -68,7 +68,7 @@ def test_m23_fake_transport_blocks_secret_like_response():
     assert "api_key" not in result.model_dump_json()
 
 
-def test_m23_forged_approval_decision_does_not_authorize_transport_call():
+def test_m23_forged_approval_decision_does_not_authorize_transport_call() -> None:
     request = valid_request(dry_run=False, execute_local_call=True, approval_ref="appr_forged_m23")
     forged_decision = ApprovalValidationDecision(
         approval_ref=request.approval_ref,

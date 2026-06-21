@@ -28,7 +28,7 @@ class RouteOptimizationWeights(_EfficiencyModel):
     locality_weight: float = Field(default=0.25, ge=0)
 
     @model_validator(mode="after")
-    def at_least_one_weight(self):
+    def at_least_one_weight(self) -> Any:
         if not any(
             [
                 self.cost_weight,
@@ -64,7 +64,7 @@ class OrchestrationEfficiencyPolicy(_EfficiencyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         _assert_secret_clean(self.metadata, "metadata")
         for ref in [*self.premium_profile_refs, *self.metadata_refs]:
             _assert_secret_clean(ref, "metadata_ref")
@@ -98,7 +98,7 @@ class CacheabilityPlan(_EfficiencyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_cache_plan(self):
+    def validate_cache_plan(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "cacheability_plan")
         if self.cache_eligible and not any(
             [
@@ -122,7 +122,7 @@ class FallbackPlan(_EfficiencyModel):
     safe_summary: str = Field(..., min_length=1)
 
     @model_validator(mode="after")
-    def validate_fallback_plan(self):
+    def validate_fallback_plan(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "fallback_plan")
         return self
 
@@ -206,7 +206,7 @@ class OrchestrationPreviewDecision(_EfficiencyModel):
     correlation_id: str | None = None
 
     @model_validator(mode="after")
-    def validate_preview_decision(self):
+    def validate_preview_decision(self) -> Any:
         _assert_secret_clean(self.model_dump(mode="json"), "orchestration_preview_decision")
         if not self.no_effect:
             raise ValueError("Orchestration preview decisions must remain no-effect.")

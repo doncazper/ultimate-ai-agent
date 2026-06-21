@@ -13,7 +13,7 @@ from ultimate_ai_agent.core.execution import (
 )
 
 
-def test_receipt_plan_is_non_authoritative_and_summary_only():
+def test_receipt_plan_is_non_authoritative_and_summary_only() -> None:
     run = ExecutionRun(
         run_id="execution-run:m30-receipt",
         source_task_plan_ref="plan:m30-receipt",
@@ -46,7 +46,7 @@ def test_receipt_plan_is_non_authoritative_and_summary_only():
     assert decision.receipt_plan.safe_summary
 
 
-def test_receipt_plan_rejects_execution_or_raw_storage_claims():
+def test_receipt_plan_rejects_execution_or_raw_storage_claims() -> None:
     receipt = ExecutionReceiptPlan(
         receipt_plan_ref="execution-receipt:m30",
         run_id="execution-run:m30",

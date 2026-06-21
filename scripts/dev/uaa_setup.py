@@ -9,8 +9,8 @@ does not install Python, Node/npm deps, llama.cpp, providers, models, plugins,
 browser tooling, credentials, mutate OpenWebUI internals, or enable
 provider/model authority.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import hashlib

@@ -84,7 +84,7 @@ class ControlledToolExpansionPolicy(_M53ToolExpansionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         validate_tool_ref(self.policy_ref, "policy_ref")
         for ref in self.docs_refs:
             _require_nonempty(ref, "docs_ref")
@@ -113,7 +113,7 @@ class ControlledToolExpansionCandidate(_M53ToolExpansionModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_candidate(self):
+    def validate_candidate(self) -> Any:
         _validate_m53_ref(self.candidate_ref, "candidate_ref")
         _require_nonempty(self.safe_name, "safe_name")
         _require_nonempty(self.safe_summary, "safe_summary")
@@ -141,7 +141,7 @@ class ControlledToolExpansionReceiptPlan(_M53ToolExpansionModel):
     metadata_refs: list[str] = Field(default_factory=lambda: ["milestone:M53", "version:v0.57.0"])
 
     @model_validator(mode="after")
-    def validate_receipt_plan(self):
+    def validate_receipt_plan(self) -> Any:
         _validate_m53_ref(self.receipt_plan_ref, "receipt_plan_ref")
         _validate_m53_ref(self.candidate_ref, "candidate_ref")
         _require_nonempty(self.safe_summary, "safe_summary")
@@ -184,7 +184,7 @@ class ControlledToolExpansionDecision(_M53ToolExpansionModel):
     metadata_refs: list[str] = Field(default_factory=lambda: ["milestone:M53", "version:v0.57.0"])
 
     @model_validator(mode="after")
-    def validate_decision(self):
+    def validate_decision(self) -> Any:
         _validate_m53_ref(self.decision_ref, "decision_ref")
         _validate_m53_ref(self.candidate_ref, "candidate_ref")
         for ref in self.reason_codes:

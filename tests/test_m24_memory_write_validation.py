@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.memory.enums import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.memory.provider import MemoryWriteRequest
 from ultimate_ai_agent.core.memory.validation import validate_memory_export_request, validate_memory_write_request
 
 
-def _safe_request(**overrides):
+def _safe_request(**overrides: Any) -> Any:
     payload = {
         "request_id": "mwr_m24_safe",
         "provider_ref": "local_dev_memory",
@@ -35,7 +36,7 @@ def _safe_request(**overrides):
     return MemoryWriteRequest(**payload)
 
 
-def test_m24_reviewed_safe_write_request_is_allowed_for_local_store():
+def test_m24_reviewed_safe_write_request_is_allowed_for_local_store() -> None:
     decision = validate_memory_write_request(_safe_request())
 
     assert decision.allowed is True
@@ -60,7 +61,7 @@ def test_m24_reviewed_safe_write_request_is_allowed_for_local_store():
         ("contains_raw_transcript", "RAW_TRANSCRIPT_MEMORY_BLOCKED"),
     ],
 )
-def test_m24_forbidden_write_sources_are_denied(field, reason):
+def test_m24_forbidden_write_sources_are_denied(field: str, reason: str) -> None:
     decision = validate_memory_write_request(_safe_request(**{field: True}))
 
     assert decision.allowed is False
@@ -68,7 +69,7 @@ def test_m24_forbidden_write_sources_are_denied(field, reason):
     assert reason in decision.reason_codes
 
 
-def test_m24_unreviewed_missing_source_or_forbidden_classification_denied():
+def test_m24_unreviewed_missing_source_or_forbidden_classification_denied() -> None:
     unreviewed = validate_memory_write_request(_safe_request(user_reviewed=False))
     missing_sources = validate_memory_write_request(_safe_request(source_refs=[]))
     forbidden = validate_memory_write_request(_safe_request(data_classification=MemoryDataClassification.forbidden))
@@ -89,7 +90,7 @@ def test_m24_unreviewed_missing_source_or_forbidden_classification_denied():
     assert "SECRET_LIKE_TAG_BLOCKED" in secret_tag.reason_codes
 
 
-def test_m24_source_refs_are_required_even_with_supplemental_refs():
+def test_m24_source_refs_are_required_even_with_supplemental_refs() -> None:
     decision = validate_memory_write_request(
         _safe_request(
             source_refs=[],
@@ -106,7 +107,7 @@ def test_m24_source_refs_are_required_even_with_supplemental_refs():
     assert "evidence, event, or receipt refs are required" not in decision.safe_message.lower()
 
 
-def test_m24_required_write_guard_fields_exist_before_mutation_checks():
+def test_m24_required_write_guard_fields_exist_before_mutation_checks() -> None:
     required_guard_fields = {
         "automatic_write",
         "model_output_source",
@@ -123,7 +124,7 @@ def test_m24_required_write_guard_fields_exist_before_mutation_checks():
     assert required_guard_fields <= set(MemoryWriteRequest.model_fields)
 
 
-def test_m24_export_raw_content_is_rejected():
+def test_m24_export_raw_content_is_rejected() -> None:
     decision = validate_memory_export_request(
         {
             "request_id": "mer_m24_raw",

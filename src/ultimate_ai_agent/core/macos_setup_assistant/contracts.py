@@ -71,7 +71,7 @@ class MacOSSetupHardwareProfile(_MacOSSetupModel):
     subprocess_execution_performed: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_ref(self.profile_ref, "profile_ref")
         for field_name in [
             "chip_family_bucket",
@@ -121,7 +121,7 @@ class MacOSSetupStep(_MacOSSetupModel):
     next_safe_action: str = "inspect_setup_plan"
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_ref(self.step_id, "step_id")
         for value, field_name in [
             (self.receipt_ref, "receipt_ref"),
@@ -171,7 +171,7 @@ class MacOSSetupModelRecommendation(_MacOSSetupModel):
     reason_codes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.recommendation_ref, "recommendation_ref"),
             (self.model_ref, "model_ref"),
@@ -212,7 +212,7 @@ class MacOSSetupBridgePreview(_MacOSSetupModel):
     reason_codes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_ref(self.bridge_ref, "bridge_ref")
         _validate_safe_text(self.label, "label", 120)
         _validate_safe_text(self.safe_summary, "safe_summary", MAX_DETAIL_PREVIEW_CHARS)
@@ -282,7 +282,7 @@ class MacOSSetupApprovalEnvelope(_MacOSSetupModel):
     reason_codes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.envelope_ref, "envelope_ref"),
             (self.setup_step_id, "setup_step_id"),
@@ -351,7 +351,7 @@ class MacOSSetupReceiptPlan(_MacOSSetupModel):
     credential_material_stored: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.receipt_plan_ref, "receipt_plan_ref"),
             (self.audit_ref, "audit_ref"),
@@ -383,7 +383,7 @@ class MacOSSetupRollbackPlan(_MacOSSetupModel):
     config_removed: bool = False
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.rollback_plan_ref, "rollback_plan_ref"),
             (self.uninstall_ref, "uninstall_ref"),
@@ -426,7 +426,7 @@ class MacOSSetupAssistantPlan(_MacOSSetupModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_ref(self.plan_ref, "plan_ref")
         _validate_ref(self.visual_shell_ref, "visual_shell_ref")
         if not self.macos_first:

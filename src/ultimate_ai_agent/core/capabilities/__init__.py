@@ -1,3 +1,4 @@
+from typing import Any
 from ultimate_ai_agent.core.capabilities.catalog import render_compact_catalog
 from ultimate_ai_agent.core.capabilities.context import NotesStore, SimpleNotesStore
 from ultimate_ai_agent.core.capabilities.coordinator import Coordinator, PolicyDeniedError
@@ -138,7 +139,7 @@ _ADAPTER_EXPORTS = {
     "wrap_tool",
 }
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name in _ADAPTER_EXPORTS:
         from ultimate_ai_agent.core.capabilities import adapters
 

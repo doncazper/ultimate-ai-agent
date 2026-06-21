@@ -47,7 +47,7 @@ class BrowserObserveOnlyRedactionSummary(_BrowserObserveOnlyModel):
     sensitive_values_returned: bool = False
 
     @model_validator(mode="after")
-    def validate_summary(self):
+    def validate_summary(self) -> Any:
         allowed = {"secret_assignment", "bearer_token", "private_key_marker", "high_entropy_token"}
         if self.redaction_count < 0:
             raise ValueError("BROWSER_OBSERVE_REDACTION_COUNT_INVALID")
@@ -89,7 +89,7 @@ class BrowserObserveOnlyPolicy(_BrowserObserveOnlyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Any:
         _validate_m61_ref(self.policy_ref, "policy_ref")
         for field_name, reason in _POLICY_REQUIRED_TRUE:
             if not getattr(self, field_name):
@@ -131,7 +131,7 @@ class BrowserObserveOnlyRequest(_BrowserObserveOnlyModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         for value, field_name in [
             (self.request_ref, "request_ref"),
             (self.target_ref, "target_ref"),
@@ -164,7 +164,7 @@ class BrowserObserveOnlyObservation(_BrowserObserveOnlyModel):
     side_effects_performed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_shape(self):
+    def validate_shape(self) -> Any:
         _validate_safe_payload(self.title)
         _validate_m61_ref(self.safe_url_ref, "safe_url_ref")
         if self.visible_text_bytes < 0:
@@ -215,7 +215,7 @@ class BrowserObserveOnlyOutput(_BrowserObserveOnlyModel):
     safe_message: str
 
     @model_validator(mode="after")
-    def validate_output(self):
+    def validate_output(self) -> Any:
         for value, field_name in [
             (self.output_ref, "output_ref"),
             (self.request_ref, "request_ref"),

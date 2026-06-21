@@ -4,7 +4,7 @@ from pathlib import Path
 MODEL_RUNTIME_ROOT = Path("src/ultimate_ai_agent/core/model_runtime")
 
 
-def test_model_runtime_source_has_no_real_runtime_imports_or_network_calls():
+def test_model_runtime_source_has_no_real_runtime_imports_or_network_calls() -> None:
     forbidden = [
         "import openai",
         "from openai import",

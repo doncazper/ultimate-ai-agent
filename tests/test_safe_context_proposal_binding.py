@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.context_proposal import (
@@ -14,7 +15,7 @@ from tests.context_proposal_fixtures import (
 )
 
 
-def test_missing_approved_review_is_denied_and_approval_ref_alone_is_not_authority():
+def test_missing_approved_review_is_denied_and_approval_ref_alone_is_not_authority() -> None:
     packet = context_proposal_packet()
     decision = evaluate_safe_context_proposal_request(
         packet=packet,
@@ -29,7 +30,7 @@ def test_missing_approved_review_is_denied_and_approval_ref_alone_is_not_authori
     assert decision.context_injection_authorized is False
 
 
-def test_denied_review_record_does_not_build_context_proposal():
+def test_denied_review_record_does_not_build_context_proposal() -> None:
     packet = context_proposal_packet()
     approval_record = denied_context_proposal_record(packet)
 
@@ -52,7 +53,7 @@ def test_denied_review_record_does_not_build_context_proposal():
         ({"safe_path_ref": "filesystem-preview-path:safe-root_context_proposal/docs/other.md"}, "path_ref_mismatch"),
     ],
 )
-def test_exact_approval_record_binding_is_enforced(override, reason):
+def test_exact_approval_record_binding_is_enforced(override: Any, reason: str) -> None:
     packet = context_proposal_packet()
     approval_record = approved_context_proposal_record(packet).model_copy(update=override)
 
@@ -63,7 +64,7 @@ def test_exact_approval_record_binding_is_enforced(override, reason):
     assert decision.proposal_ready is False
 
 
-def test_model_copy_mutated_proposal_source_path_ref_is_revalidated():
+def test_model_copy_mutated_proposal_source_path_ref_is_revalidated() -> None:
     packet = context_proposal_packet()
     approval_record = approved_context_proposal_record(packet)
     proposal = build_safe_context_proposal(packet=packet, approval_record=approval_record)

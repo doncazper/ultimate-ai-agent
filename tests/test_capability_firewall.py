@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from ultimate_ai_agent.core.tools import (
     ToolManifest,
@@ -10,8 +11,8 @@ from ultimate_ai_agent.core.tools import (
 )
 
 @pytest.fixture
-def base_manifest_factory():
-    def _make(tool_id="test_tool", category=ToolCategory.file, risk=ToolRiskLevel.safe, perm_manifest=None):
+def base_manifest_factory() -> Any:
+    def _make(tool_id: str = "test_tool", category: str = ToolCategory.file, risk: Any = ToolRiskLevel.safe, perm_manifest: Any | None = None) -> Any:
         return ToolManifest(
             tool_id=tool_id,
             display_name="Test Tool",
@@ -28,7 +29,7 @@ def base_manifest_factory():
         )
     return _make
 
-def test_firewall_denies_unbounded_filesystem(base_manifest_factory):
+def test_firewall_denies_unbounded_filesystem(base_manifest_factory: Any) -> None:
     # Unbounded root request ("/")
     perm = ToolPermissionManifest(
         required_permissions=[ToolPermissionKind.filesystem_read],
@@ -41,7 +42,7 @@ def test_firewall_denies_unbounded_filesystem(base_manifest_factory):
     assert passed is False
     assert "UNBOUNDED_FILESYSTEM_ACCESS_DENIED" in reasons
 
-def test_firewall_reason_codes_are_deduplicated(base_manifest_factory):
+def test_firewall_reason_codes_are_deduplicated(base_manifest_factory: Any) -> None:
     # Two filesystem roots with an empty allowlist previously appended
     # FILESYSTEM_ACCESS_NOT_ALLOWLISTED once per root, polluting the reason list.
     perm = ToolPermissionManifest(
@@ -57,7 +58,7 @@ def test_firewall_reason_codes_are_deduplicated(base_manifest_factory):
     assert "FILESYSTEM_ACCESS_NOT_ALLOWLISTED" in reasons
     assert len(reasons) == len(set(reasons))
 
-def test_firewall_denies_network_domain(base_manifest_factory):
+def test_firewall_denies_network_domain(base_manifest_factory: Any) -> None:
     perm = ToolPermissionManifest(
         required_permissions=[ToolPermissionKind.network],
         network_domains=["untrusted-domain.com"]
@@ -72,7 +73,7 @@ def test_firewall_denies_network_domain(base_manifest_factory):
     assert passed is False
     assert "NETWORK_DOMAIN_DENIED" in reasons
 
-def test_firewall_denies_unpermitted_credentials(base_manifest_factory):
+def test_firewall_denies_unpermitted_credentials(base_manifest_factory: Any) -> None:
     perm = ToolPermissionManifest(
         required_permissions=[ToolPermissionKind.credential],
         credentials_keys=["AWS_SECRET_KEY"]

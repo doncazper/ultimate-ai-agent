@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Profile release-critical hot paths with timing-summary-only output."""
-
 from __future__ import annotations
+
 
 import argparse
 import json

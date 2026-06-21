@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -18,7 +19,7 @@ from ultimate_ai_agent.core.autonomy.error_handling_guardrails import (
 )
 
 
-def _request(**updates) -> ErrorHandlingGuardrailRequest:
+def _request(**updates: Any) -> ErrorHandlingGuardrailRequest:
     payload = {
         "request_ref": "error-handling-guardrail-request:test",
         "guardrail_plan_ref": "error-handling-guardrail-plan:test",
@@ -172,7 +173,7 @@ def test_m138_builds_review_only_guardrail_decision() -> None:
         ),
     ],
 )
-def test_m138_policy_denies_runtime_authority(update, reason) -> None:
+def test_m138_policy_denies_runtime_authority(update: Any, reason: str) -> None:
     policy = ErrorHandlingGuardrailPolicy().model_copy(update=update)
 
     with pytest.raises(ValueError, match=reason):
@@ -216,7 +217,7 @@ def test_m138_policy_denies_runtime_authority(update, reason) -> None:
         ({"contains_secret": True}, "M138_SECRET_DENIED"),
     ],
 )
-def test_m138_request_denies_unsafe_inputs(update, reason) -> None:
+def test_m138_request_denies_unsafe_inputs(update: Any, reason: str) -> None:
     request = _request().model_copy(update=update)
 
     with pytest.raises(ValueError, match=reason):
@@ -299,7 +300,7 @@ def test_m138_request_denies_side_effects_and_secret_like_content() -> None:
         ),
     ],
 )
-def test_m138_decision_denies_unsafe_mutations(update, reason) -> None:
+def test_m138_decision_denies_unsafe_mutations(update: Any, reason: str) -> None:
     decision = build_error_handling_guardrail_decision(_request())
 
     with pytest.raises(ValueError, match=reason):
@@ -324,7 +325,7 @@ def test_m138_decision_denies_unsafe_mutations(update, reason) -> None:
         ),
     ],
 )
-def test_m138_receipt_plan_denies_raw_and_runtime_mutations(update, reason) -> None:
+def test_m138_receipt_plan_denies_raw_and_runtime_mutations(update: Any, reason: str) -> None:
     decision = build_error_handling_guardrail_decision(_request())
 
     with pytest.raises(ValueError, match=reason):

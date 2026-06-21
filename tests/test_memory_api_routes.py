@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
@@ -5,7 +6,7 @@ from ultimate_ai_agent.api.app import app
 client = TestClient(app)
 
 
-def actor_payload():
+def actor_payload() -> dict[str, Any]:
     return {
         "actor_type": "human_user",
         "actor_id": "user_123",
@@ -15,7 +16,7 @@ def actor_payload():
     }
 
 
-def test_memory_record_validate_endpoint_blocks_secret():
+def test_memory_record_validate_endpoint_blocks_secret() -> None:
     response = client.post(
         "/memory/records/validate",
         json={
@@ -34,7 +35,7 @@ def test_memory_record_validate_endpoint_blocks_secret():
     assert "abcdefghijklmnop" not in response.text
 
 
-def test_memory_write_evaluate_endpoint_returns_decision_without_persistence():
+def test_memory_write_evaluate_endpoint_returns_decision_without_persistence() -> None:
     response = client.post(
         "/memory/write/evaluate",
         json={
@@ -58,7 +59,7 @@ def test_memory_write_evaluate_endpoint_returns_decision_without_persistence():
     assert data["data"]["allowed"] is True
 
 
-def test_memory_query_preview_endpoint_is_validation_only():
+def test_memory_query_preview_endpoint_is_validation_only() -> None:
     response = client.post(
         "/memory/query/preview",
         json={

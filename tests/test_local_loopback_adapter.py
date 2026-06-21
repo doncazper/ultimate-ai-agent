@@ -7,7 +7,7 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def test_execution_validation_requires_opt_in_policy_approval_and_no_secret_handles():
+def test_execution_validation_requires_opt_in_policy_approval_and_no_secret_handles() -> None:
     adapter = LocalLoopbackModelRuntimeAdapter()
     request = local_runtime_request(approval_ref="human_approved_ref_123")
 
@@ -35,7 +35,7 @@ def test_execution_validation_requires_opt_in_policy_approval_and_no_secret_hand
     assert "CREDENTIALS_NOT_ALLOWED_FOR_M9" in secret_handle.reason_codes
 
 
-def test_valid_approval_and_fake_transport_produce_non_authoritative_local_dev_response():
+def test_valid_approval_and_fake_transport_produce_non_authoritative_local_dev_response() -> None:
     adapter = LocalLoopbackModelRuntimeAdapter()
     request = local_runtime_request()
     _, _, grant, approval_decision = approval_for_runtime(request)
@@ -61,7 +61,7 @@ def test_valid_approval_and_fake_transport_produce_non_authoritative_local_dev_r
     assert request.prompt_summary not in response.output_summary
 
 
-def test_execute_dev_falls_back_to_simulation_when_blocked():
+def test_execute_dev_falls_back_to_simulation_when_blocked() -> None:
     response = LocalLoopbackModelRuntimeAdapter().execute_dev(
         local_runtime_request(approval_ref="human_approved_ref_123"),
         local_manifest(),

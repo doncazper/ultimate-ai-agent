@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.model_runtime import (
 )
 
 
-def test_runtime_request_validates_and_keeps_secret_handles_opaque():
+def test_runtime_request_validates_and_keeps_secret_handles_opaque() -> None:
     request = runtime_request(secret_handle_refs=["handle_opaque_1"])
     result = validate_runtime_request(request, simulated_manifest())
 
@@ -19,24 +19,24 @@ def test_runtime_request_validates_and_keeps_secret_handles_opaque():
     assert "secret_value" not in str(result.model_dump()).lower()
 
 
-def test_secret_like_prompt_summary_is_rejected():
+def test_secret_like_prompt_summary_is_rejected() -> None:
     with pytest.raises(ValueError, match="secret-like"):
         runtime_request(prompt_summary="api_key='ABCDEFGHIJKLMNOP'")
 
 
-def test_request_exceeding_adapter_limits_is_denied():
+def test_request_exceeding_adapter_limits_is_denied() -> None:
     result = validate_runtime_request(runtime_request(estimated_input_tokens=5000), simulated_manifest(max_input_tokens=1024))
 
     assert result.success is False
     assert result.error.code == "MODEL_RUNTIME_TOKEN_LIMIT_EXCEEDED"
 
 
-def test_production_safety_mode_is_not_supported():
+def test_production_safety_mode_is_not_supported() -> None:
     with pytest.raises(ValueError):
         runtime_request(safety_mode=ModelRuntimeSafetyMode.disabled)
 
 
-def test_factory_creates_request_from_selected_route_and_preserves_warnings():
+def test_factory_creates_request_from_selected_route_and_preserves_warnings() -> None:
     profile = cloud_profile(profile_id="cloud_soft", cost_per_1k_input_tokens=0.02, cost_per_1k_output_tokens=0.02)
     route = route_request(
         profiles=[profile],
@@ -60,7 +60,7 @@ def test_factory_creates_request_from_selected_route_and_preserves_warnings():
     assert "SOFT_BUDGET_EXCEEDED" in request.metadata["route_reason_codes"]
 
 
-def test_factory_rejects_denied_and_approval_required_routes():
+def test_factory_rejects_denied_and_approval_required_routes() -> None:
     route, decision = selected_route_pair()
     denied = decision.model_copy(update={"status": ModelRouteStatus.denied, "selected_profile_id": None, "selected_model_id": None})
     approval = decision.model_copy(update={"status": ModelRouteStatus.approval_required, "required_approval": True})
@@ -71,7 +71,7 @@ def test_factory_rejects_denied_and_approval_required_routes():
         ModelRuntimeRequestFactory.from_route_decision(approval, route, simulated_manifest())
 
 
-def test_factory_carries_credential_ref_as_opaque_handle_only():
+def test_factory_carries_credential_ref_as_opaque_handle_only() -> None:
     profile = cloud_profile(credential_ref="cred_provider_1")
     route = route_request(
         profiles=[profile],

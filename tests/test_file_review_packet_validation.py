@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.file_review import (
@@ -12,7 +13,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _preview_output(**overrides):
+def _preview_output(**overrides: Any) -> Any:
     data = {
         "output_ref": "redacted-file-preview-output:packet",
         "status": RedactedFilePreviewStatus.preview_generated,
@@ -28,7 +29,7 @@ def _preview_output(**overrides):
     return RedactedFilePreviewOutput(**data)
 
 
-def _packet():
+def _packet() -> Any:
     return build_file_review_packet(
         preview_output=_preview_output(),
         actor_ref="user:packet",
@@ -47,7 +48,7 @@ def _packet():
         ("raw_absolute_path", "FILE_REVIEW_RAW_ABSOLUTE_PATH_DENIED"),
     ],
 )
-def test_evaluator_revalidates_model_copy_mutated_raw_packet_fields(field_name, reason):
+def test_evaluator_revalidates_model_copy_mutated_raw_packet_fields(field_name: str, reason: str) -> None:
     packet = _packet().model_copy(update={field_name: "/Users/sam/private/raw secret"})
 
     decision = evaluate_file_review_packet(packet)
@@ -67,7 +68,7 @@ def test_evaluator_revalidates_model_copy_mutated_raw_packet_fields(field_name, 
         ("execution_enabled", "FILE_REVIEW_EXECUTION_DENIED"),
     ],
 )
-def test_evaluator_revalidates_model_copy_mutated_authority_flags(field_name, reason):
+def test_evaluator_revalidates_model_copy_mutated_authority_flags(field_name: str, reason: str) -> None:
     packet = _packet().model_copy(update={field_name: True})
 
     decision = evaluate_file_review_packet(packet)
@@ -78,7 +79,7 @@ def test_evaluator_revalidates_model_copy_mutated_authority_flags(field_name, re
     assert decision.execution_performed is False
 
 
-def test_missing_redaction_summary_is_denied():
+def test_missing_redaction_summary_is_denied() -> None:
     verification = FileReviewRedactionVerification(redaction_summary_ref="file-review-redaction-summary:packet")
     packet = _packet().model_copy(update={"redaction_verification": verification.model_copy(update={"redaction_summary_required": False})})
 
@@ -88,7 +89,7 @@ def test_missing_redaction_summary_is_denied():
     assert "FILE_REVIEW_REDACTION_SUMMARY_REQUIRED" in decision.reason_codes
 
 
-def test_secret_like_metadata_is_denied_without_echoing_secret():
+def test_secret_like_metadata_is_denied_without_echoing_secret() -> None:
     packet = _packet().model_copy(update={"metadata": {"token": "abc123supersecret"}})
 
     decision = evaluate_file_review_packet(packet)

@@ -1,3 +1,4 @@
+from typing import Any
 import json
 
 from scripts import manual_local_model_call
@@ -11,13 +12,13 @@ from ultimate_ai_agent.core.model_runtime import (
 class _FakeHTTPResponse:
     status = 200
 
-    def __init__(self, payload: dict):
+    def __init__(self, payload: dict) -> None:
         self._body = json.dumps(payload).encode("utf-8")
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         return self
 
-    def __exit__(self, exc_type, exc, traceback):
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool:
         return False
 
     def read(self, size: int) -> bytes:
@@ -25,11 +26,11 @@ class _FakeHTTPResponse:
 
 
 class _RecordingOpenAICompletionsOpener:
-    def __init__(self, completion_text: str = "UAA_M23_LOCAL_MODEL_CALL_OK"):
+    def __init__(self, completion_text: str = "UAA_M23_LOCAL_MODEL_CALL_OK") -> None:
         self.completion_text = completion_text
         self.calls = []
 
-    def __call__(self, request, timeout: float):
+    def __call__(self, request: Any, timeout: float) -> Any:
         self.calls.append(
             {
                 "url": request.full_url,
@@ -42,7 +43,7 @@ class _RecordingOpenAICompletionsOpener:
         return _FakeHTTPResponse({"choices": [{"text": self.completion_text}]})
 
 
-def test_llama_cpp_openai_completions_transport_extracts_safe_completion_text():
+def test_llama_cpp_openai_completions_transport_extracts_safe_completion_text() -> None:
     opener = _RecordingOpenAICompletionsOpener()
     request = valid_request(
         runtime_kind=LocalModelRuntimeKind.llama_cpp_planned,
@@ -78,7 +79,7 @@ def test_llama_cpp_openai_completions_transport_extracts_safe_completion_text():
     ]
 
 
-def test_llama_cpp_transport_blocks_secret_like_completion_text():
+def test_llama_cpp_transport_blocks_secret_like_completion_text() -> None:
     opener = _RecordingOpenAICompletionsOpener(completion_text="api_key='abcdefghijklmnop'")
     request = valid_request(
         runtime_kind=LocalModelRuntimeKind.llama_cpp_planned,
@@ -96,6 +97,6 @@ def test_llama_cpp_transport_blocks_secret_like_completion_text():
     assert "api_key" not in result.model_dump_json()
 
 
-def test_m23_cli_defaults_llama_cpp_runtime_to_openai_completions_transport():
+def test_m23_cli_defaults_llama_cpp_runtime_to_openai_completions_transport() -> None:
     assert manual_local_model_call._default_transport_shape(LocalModelRuntimeKind.llama_cpp_planned) == "openai-completions"
     assert manual_local_model_call._default_transport_shape(LocalModelRuntimeKind.ollama_planned) == "ollama-generate"

@@ -10,7 +10,7 @@ from ultimate_ai_agent.core.truth import (
 )
 
 
-def test_default_truth_router_manifest_disables_external_authority():
+def test_default_truth_router_manifest_disables_external_authority() -> None:
     manifest = build_truth_router_manifest("0.29.0")
 
     assert isinstance(manifest, TruthRouterManifest)
@@ -22,7 +22,7 @@ def test_default_truth_router_manifest_disables_external_authority():
     assert manifest.automatic_claim_verification_enabled is False
 
 
-def test_truth_source_ref_rejects_arbitrary_or_secret_refs():
+def test_truth_source_ref_rejects_arbitrary_or_secret_refs() -> None:
     with pytest.raises(ValueError, match="structured source_ref"):
         TruthSourceRef(
             source_ref="not-structured",
@@ -42,7 +42,7 @@ def test_truth_source_ref_rejects_arbitrary_or_secret_refs():
         )
 
 
-def test_truth_source_ref_blocks_memory_authority():
+def test_truth_source_ref_blocks_memory_authority() -> None:
     with pytest.raises(ValueError, match="Memory cannot be authoritative"):
         TruthSourceRef(
             source_ref="memory:source-linked",

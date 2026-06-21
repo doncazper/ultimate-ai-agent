@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.file_review import (
@@ -13,7 +14,7 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _packet(**overrides):
+def _packet(**overrides: Any) -> Any:
     preview = RedactedFilePreviewOutput(
         output_ref="redacted-file-preview-output:authority",
         status=RedactedFilePreviewStatus.preview_generated,
@@ -45,7 +46,7 @@ def _packet(**overrides):
         (["control-center-preview:abc"], "FILE_REVIEW_CONTROL_CENTER_PREVIEW_NOT_AUTHORITY"),
     ],
 )
-def test_non_authoritative_refs_cannot_grant_file_review_authority(refs, reason):
+def test_non_authoritative_refs_cannot_grant_file_review_authority(refs: Any, reason: str) -> None:
     packet = _packet(authority_refs=refs)
 
     decision = evaluate_file_review_packet(packet)
@@ -74,12 +75,12 @@ def test_non_authoritative_refs_cannot_grant_file_review_authority(refs, reason)
         ("backend_routes_enabled", "FILE_REVIEW_BACKEND_ROUTES_DENIED"),
     ],
 )
-def test_policy_denies_future_authority_flags(field_name, reason):
+def test_policy_denies_future_authority_flags(field_name: str, reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         FileReviewWorkflowPolicy(**{field_name: True})
 
 
-def test_safe_review_packet_does_not_create_context_memory_export_or_execution_authority():
+def test_safe_review_packet_does_not_create_context_memory_export_or_execution_authority() -> None:
     decision = evaluate_file_review_packet(_packet())
 
     assert decision.status == FileReviewDecisionStatus.packet_valid_for_review

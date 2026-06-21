@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent import __version__
@@ -7,7 +8,7 @@ from ultimate_ai_agent.api.app import app
 client = TestClient(app)
 
 
-def _payload(**overrides):
+def _payload(**overrides: Any) -> Any:
     data = {
         "approval_ref": "file-review-approval-capture:api",
         "actor_ref": "user:api",
@@ -24,7 +25,7 @@ def _payload(**overrides):
     return data
 
 
-def test_file_review_approval_capture_route_persists_review_only_record():
+def test_file_review_approval_capture_route_persists_review_only_record() -> None:
     response = client.post("/files/review/approvals/capture", json=_payload())
 
     assert response.status_code == 200
@@ -42,7 +43,7 @@ def test_file_review_approval_capture_route_persists_review_only_record():
     assert body["data"]["execution_performed"] is False
 
 
-def test_file_review_approval_capture_route_rejects_raw_content_extra():
+def test_file_review_approval_capture_route_rejects_raw_content_extra() -> None:
     response = client.post(
         "/files/review/approvals/capture",
         json=_payload(raw_content="raw secret text"),
@@ -52,7 +53,7 @@ def test_file_review_approval_capture_route_rejects_raw_content_extra():
     assert "raw secret text" not in response.text
 
 
-def test_openapi_current_boundary_includes_review_capture_and_m151_smoke_routes():
+def test_openapi_current_boundary_includes_review_capture_and_m151_smoke_routes() -> None:
     schema = app.openapi()
 
     assert schema["info"]["version"] == __version__

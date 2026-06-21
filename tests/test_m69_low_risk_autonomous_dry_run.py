@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.autonomy import (
@@ -12,7 +13,7 @@ from tests.test_m68_autonomy_risk_classifier import _decision as _risk_decision
 from tests.test_m68_autonomy_risk_classifier import _request as _risk_request
 
 
-def _step(**overrides):
+def _step(**overrides: Any) -> Any:
     data = {
         "step_ref": "low-risk-dry-run-step:m69-inspect-redacted-review",
         "intent_ref": "intent:inspect-redacted-review-packet",
@@ -25,7 +26,7 @@ def _step(**overrides):
     return LowRiskAutonomousDryRunStep(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     risk_decision = overrides.pop("risk_decision", _risk_decision())
     data = {
         "dry_run_request_ref": "low-risk-autonomous-dry-run-request:m69-local-review",
@@ -46,7 +47,7 @@ def _request(**overrides):
     return LowRiskAutonomousDryRunRequest(**data)
 
 
-def _record(**overrides):
+def _record(**overrides: Any) -> Any:
     request = overrides.pop("dry_run_request", _request())
     record = build_low_risk_autonomous_dry_run_record(request)
     if overrides:

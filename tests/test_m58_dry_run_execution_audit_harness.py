@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from ultimate_ai_agent.core.dry_run_audit import (
@@ -11,7 +12,7 @@ from ultimate_ai_agent.core.dry_run_audit import (
 )
 
 
-def _intent(**overrides):
+def _intent(**overrides: Any) -> Any:
     data = {
         "intent_ref": "dry-run-intent:m58-safe-tool-preview",
         "operation_ref": "operation:tool-preview",
@@ -26,7 +27,7 @@ def _intent(**overrides):
     return DryRunExecutionAuditIntent(**data)
 
 
-def _request(**overrides):
+def _request(**overrides: Any) -> Any:
     intent = overrides.pop("intent", _intent())
     data = {
         "request_ref": "dry-run-audit-request:m58-safe-tool-preview",

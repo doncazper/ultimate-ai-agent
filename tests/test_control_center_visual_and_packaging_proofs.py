@@ -2,19 +2,19 @@ import scripts.verify_control_center_visual_regression as visual
 import scripts.verify_local_runtime_packaging_proof as packaging
 
 
-def test_control_center_visual_regression_manifest_is_safe():
+def test_control_center_visual_regression_manifest_is_safe() -> None:
     failures = visual.validate_manifest(visual.load_manifest())
 
     assert failures == []
 
 
-def test_local_runtime_packaging_proof_manifest_is_safe():
+def test_local_runtime_packaging_proof_manifest_is_safe() -> None:
     failures = packaging.validate_manifest(packaging.load_manifest())
 
     assert failures == []
 
 
-def test_local_runtime_packaging_proof_summary_shape_is_safe():
+def test_local_runtime_packaging_proof_summary_shape_is_safe() -> None:
     summary = {
         "schema_version": "uaa-local-runtime-packaging-proof-summary.v1",
         "status": "passed",

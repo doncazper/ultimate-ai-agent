@@ -4,8 +4,8 @@
 This verifier is inspection-only. It validates release packet structure and safe
 evidence rules, but it does not execute release checks or create artifacts.
 """
-
 from __future__ import annotations
+
 
 import argparse
 import json

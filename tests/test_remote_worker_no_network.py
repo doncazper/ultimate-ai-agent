@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-def test_remote_worker_source_has_no_live_network_or_execution_fragments():
+def test_remote_worker_source_has_no_live_network_or_execution_fragments() -> None:
     root = Path("src/ultimate_ai_agent/core/remote_workers")
     forbidden = [
         "socket",

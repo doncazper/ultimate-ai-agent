@@ -1,3 +1,5 @@
+from typing import Any
+from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.tools.runtime import (
@@ -18,13 +20,13 @@ from ultimate_ai_agent.core.tools.runtime import (
 )
 
 
-def _safe_root(tmp_path):
+def _safe_root(tmp_path: Path) -> Any:
     root = tmp_path / "safe-root"
     root.mkdir()
     return FilePreviewSafeRoot(root_ref="safe-root:test", root_path=root, safe_label="Test safe root")
 
 
-def _preview_request(**overrides):
+def _preview_request(**overrides: Any) -> Any:
     data = {
         "invocation_id": "tool-runtime-invocation:m33-preview",
         "tool_ref": REDACTED_FILE_PREVIEW_TOOL_REF,
@@ -39,7 +41,7 @@ def _preview_request(**overrides):
     return ToolInvocationRequest(**data)
 
 
-def test_default_file_preview_policy_is_redacted_preview_only():
+def test_default_file_preview_policy_is_redacted_preview_only() -> None:
     policy = RedactedFilePreviewPolicy()
 
     assert policy.redacted_preview_enabled is True
@@ -56,7 +58,7 @@ def test_default_file_preview_policy_is_redacted_preview_only():
     assert policy.context_injection_enabled is False
 
 
-def test_manifest_allowlists_noop_metadata_and_redacted_preview_only():
+def test_manifest_allowlists_noop_metadata_and_redacted_preview_only() -> None:
     manifest = build_tool_runtime_manifest(baseline_version="0.37.0")
 
     assert manifest.baseline_version == "0.37.0"
@@ -74,7 +76,7 @@ def test_manifest_allowlists_noop_metadata_and_redacted_preview_only():
     assert manifest.policy.file_delete_enabled is False
 
 
-def test_safe_text_fixture_preview_returns_redacted_preview_only(tmp_path):
+def test_safe_text_fixture_preview_returns_redacted_preview_only(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "notes" / "report.md"
     target.parent.mkdir()
@@ -117,7 +119,7 @@ def test_safe_text_fixture_preview_returns_redacted_preview_only(tmp_path):
         "abcdefghijklmnopqrstuvwxyz1234567890ABCDEF",
     ],
 )
-def test_redacted_preview_output_rejects_secret_like_preview_content(unsafe_preview):
+def test_redacted_preview_output_rejects_secret_like_preview_content(unsafe_preview: Any) -> None:
     with pytest.raises(ValueError, match="REDACTED_FILE_PREVIEW_OUTPUT_CONTAINS_SECRET_LIKE_CONTENT"):
         RedactedFilePreviewOutput(
             output_ref="redacted-file-preview-output:unsafe",
@@ -130,7 +132,7 @@ def test_redacted_preview_output_rejects_secret_like_preview_content(unsafe_prev
         )
 
 
-def test_long_file_preview_is_bounded_and_truncated(tmp_path):
+def test_long_file_preview_is_bounded_and_truncated(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "notes" / "long.md"
     target.parent.mkdir()
@@ -149,7 +151,7 @@ def test_long_file_preview_is_bounded_and_truncated(tmp_path):
     assert output.raw_content_returned is False
 
 
-def test_oversized_file_is_denied_before_preview(tmp_path):
+def test_oversized_file_is_denied_before_preview(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "notes" / "large.md"
     target.parent.mkdir()
@@ -166,7 +168,7 @@ def test_oversized_file_is_denied_before_preview(tmp_path):
     assert decision.result is None
 
 
-def test_binary_file_is_denied(tmp_path):
+def test_binary_file_is_denied(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "notes" / "binary.txt"
     target.parent.mkdir()
@@ -181,7 +183,7 @@ def test_binary_file_is_denied(tmp_path):
     assert "BINARY_FILE_DENIED" in decision.reason_codes
 
 
-def test_unsupported_encoding_is_denied(tmp_path):
+def test_unsupported_encoding_is_denied(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "notes" / "latin1.txt"
     target.parent.mkdir()
@@ -196,7 +198,7 @@ def test_unsupported_encoding_is_denied(tmp_path):
     assert "UNSUPPORTED_ENCODING_DENIED" in decision.reason_codes
 
 
-def test_noop_and_metadata_tools_still_work(tmp_path):
+def test_noop_and_metadata_tools_still_work(tmp_path: Path) -> None:
     safe_root = _safe_root(tmp_path)
     target = safe_root.root_path / "notes" / "report.md"
     target.parent.mkdir()
@@ -230,7 +232,7 @@ def test_noop_and_metadata_tools_still_work(tmp_path):
     assert "metadata still works" not in str(metadata.model_dump())
 
 
-def test_unknown_raw_file_read_tool_is_denied(tmp_path):
+def test_unknown_raw_file_read_tool_is_denied(tmp_path: Path) -> None:
     decision = evaluate_tool_invocation(
         _preview_request(
             tool_ref="tool:file_raw_read.v1",

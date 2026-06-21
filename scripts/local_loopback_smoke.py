@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Any
 import argparse
 import json
 import sys
@@ -23,11 +24,11 @@ from ultimate_ai_agent.core.model_runtime import (  # noqa: E402
 from ultimate_ai_agent.core.model_runtime.loopback import LoopbackRuntimeEndpoint  # noqa: E402
 
 
-def build_transport():
+def build_transport() -> Any:
     return StdlibLoopbackSmokeTransport()
 
 
-def main(argv: list[str] | None = None, *, transport=None) -> int:
+def main(argv: list[str] | None = None, *, transport: Any | None = None) -> int:
     parser = argparse.ArgumentParser(description="Manual local loopback smoke test. Not for user data or production execution.")
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--model", required=True)
@@ -88,7 +89,7 @@ def main(argv: list[str] | None = None, *, transport=None) -> int:
     return 0 if result.success else 1
 
 
-def _approval_decision_from_grant(request: ManualLoopbackSmokeRequest, grant: ApprovalGrant | None):
+def _approval_decision_from_grant(request: ManualLoopbackSmokeRequest, grant: ApprovalGrant | None) -> Any:
     if grant is None:
         return None
     authority = LocalApprovalAuthority()

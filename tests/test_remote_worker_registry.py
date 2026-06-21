@@ -8,7 +8,7 @@ from ultimate_ai_agent.core.remote_workers import (
 )
 
 
-def test_default_registry_loads_mock_local_and_planned_transports():
+def test_default_registry_loads_mock_local_and_planned_transports() -> None:
     registry = default_remote_transport_registry()
     summary = registry.status_summary()
 
@@ -20,7 +20,7 @@ def test_default_registry_loads_mock_local_and_planned_transports():
     assert registry.validate_transport("lan_planned").allowed is False
 
 
-def test_default_registry_loads_open_source_first_private_mesh_planned_transports():
+def test_default_registry_loads_open_source_first_private_mesh_planned_transports() -> None:
     registry = default_remote_transport_registry()
     summary = registry.status_summary()
     expected = {
@@ -53,7 +53,7 @@ def test_default_registry_loads_open_source_first_private_mesh_planned_transport
         assert "REMOTE_TRANSPORT_PLANNED_ONLY" in decision.reason_codes
 
 
-def test_unknown_and_network_or_dispatch_transports_are_denied():
+def test_unknown_and_network_or_dispatch_transports_are_denied() -> None:
     registry = RemoteTransportRegistry()
     registry.register_transport(
         RemoteTransportDescriptor(

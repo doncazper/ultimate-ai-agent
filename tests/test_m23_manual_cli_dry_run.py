@@ -1,10 +1,11 @@
+import pytest
 import json
 
 from scripts import manual_local_model_call
 from ultimate_ai_agent.core.model_runtime import M23_FIXED_LOCAL_MODEL_PROMPT_ID, FakeLocalModelCallTransport
 
 
-def test_m23_cli_dry_run_succeeds_without_network_or_approval(capsys):
+def test_m23_cli_dry_run_succeeds_without_network_or_approval(capsys: pytest.CaptureFixture[str]) -> None:
     code = manual_local_model_call.main(
         [
             "--endpoint",
@@ -24,7 +25,7 @@ def test_m23_cli_dry_run_succeeds_without_network_or_approval(capsys):
     assert "prompt_text" not in payload
 
 
-def test_m23_cli_rejects_execute_without_valid_approval(capsys):
+def test_m23_cli_rejects_execute_without_valid_approval(capsys: pytest.CaptureFixture[str]) -> None:
     code = manual_local_model_call.main(
         [
             "--endpoint",
@@ -46,7 +47,7 @@ def test_m23_cli_rejects_execute_without_valid_approval(capsys):
     assert "APPROVAL_DECISION_REQUIRED" in payload["decision"]["reason_codes"]
 
 
-def test_m23_cli_does_not_accept_arbitrary_prompt_or_auth_arguments():
+def test_m23_cli_does_not_accept_arbitrary_prompt_or_auth_arguments() -> None:
     parser_help = manual_local_model_call.build_parser().format_help()
 
     for forbidden_arg in [

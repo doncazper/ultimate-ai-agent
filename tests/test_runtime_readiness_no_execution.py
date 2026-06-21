@@ -5,7 +5,7 @@ from pathlib import Path
 RUNTIME_READINESS_ROOT = Path("src/ultimate_ai_agent/core/runtime_readiness")
 
 
-def test_runtime_readiness_package_has_no_execution_or_network_imports():
+def test_runtime_readiness_package_has_no_execution_or_network_imports() -> None:
     forbidden_import_roots = {
         "requests",
         "httpx",

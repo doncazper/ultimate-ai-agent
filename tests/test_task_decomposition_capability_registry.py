@@ -1,3 +1,4 @@
+from typing import Any
 import asyncio
 import time
 
@@ -87,7 +88,7 @@ def _contract(
     )
 
 
-def _success_handler(args, context):
+def _success_handler(args: Any, context: Any) -> dict[str, Any]:
     return {"success": True, "status": "succeeded", "summary": str(args.get("request", "done"))}
 
 
@@ -101,7 +102,7 @@ def _plan(nodes: list[TaskNode]) -> TaskPlan:
     )
 
 
-def test_registry_registers_searches_ranks_and_exports_json():
+def test_registry_registers_searches_ranks_and_exports_json() -> None:
     registry = build_example_registry()
     cards = registry.search("summary request", top_k=2)
 
@@ -117,7 +118,7 @@ def test_registry_registers_searches_ranks_and_exports_json():
     assert imported.get("capability:example-validation-workflow") is not None
 
 
-def test_registry_validates_schema_and_rejects_unregistered_capability():
+def test_registry_validates_schema_and_rejects_unregistered_capability() -> None:
     registry = build_example_registry()
 
     missing = registry.validate_call("capability:missing", {"request": "x"})
@@ -129,7 +130,7 @@ def test_registry_validates_schema_and_rejects_unregistered_capability():
     assert any(code.startswith("SCHEMA_REQUIRED_MISSING") for code in invalid.reason_codes)
 
 
-def test_validator_detects_cycle_and_missing_capability():
+def test_validator_detects_cycle_and_missing_capability() -> None:
     registry = build_example_registry()
     plan = _plan(
         [
@@ -163,7 +164,7 @@ def test_validator_detects_cycle_and_missing_capability():
     assert "TASK_PLAN_CANDIDATE_CAPABILITY_MISSING" in result.reason_codes
 
 
-def test_validator_schema_issue_uses_redacted_safe_message():
+def test_validator_schema_issue_uses_redacted_safe_message() -> None:
     registry = build_example_registry()
     plan = _plan(
         [
@@ -189,7 +190,7 @@ def test_validator_schema_issue_uses_redacted_safe_message():
     assert "should-not-appear" not in schema_issue.safe_message
 
 
-def test_risky_capability_requires_plan_gate_and_runtime_approval():
+def test_risky_capability_requires_plan_gate_and_runtime_approval() -> None:
     registry = CapabilityRegistry()
     registry.register(
         _contract(
@@ -234,15 +235,15 @@ def test_risky_capability_requires_plan_gate_and_runtime_approval():
     assert approved_result.status == DAGExecutionStatus.succeeded
 
 
-def test_executor_runs_dag_in_dependency_order():
+def test_executor_runs_dag_in_dependency_order() -> None:
     events: list[str] = []
     registry = CapabilityRegistry()
 
-    def first(args, context):
+    def first(args: Any, context: Any) -> dict[str, Any]:
         events.append("first")
         return {"success": True, "status": "succeeded", "summary": "first"}
 
-    def second(args, context):
+    def second(args: Any, context: Any) -> dict[str, Any]:
         events.append(f"second:{args['request']}")
         return {"success": True, "status": "succeeded", "summary": "second"}
 
@@ -278,10 +279,10 @@ def test_executor_runs_dag_in_dependency_order():
     assert events == ["first", "second:first"]
 
 
-def test_executor_runs_independent_nodes_in_parallel():
+def test_executor_runs_independent_nodes_in_parallel() -> None:
     registry = CapabilityRegistry()
 
-    async def sleeper(args, context):
+    async def sleeper(args: Any, context: Any) -> dict[str, Any]:
         await asyncio.sleep(0.05)
         return {"success": True, "status": "succeeded", "summary": args["request"]}
 
@@ -318,11 +319,11 @@ def test_executor_runs_independent_nodes_in_parallel():
     assert elapsed < 0.09
 
 
-def test_executor_retries_failed_node_until_success():
+def test_executor_retries_failed_node_until_success() -> None:
     registry = CapabilityRegistry()
     calls = {"count": 0}
 
-    def flaky(args, context):
+    def flaky(args: Any, context: Any) -> dict[str, Any]:
         calls["count"] += 1
         if calls["count"] == 1:
             raise RuntimeError("boom")
@@ -353,10 +354,10 @@ def test_executor_retries_failed_node_until_success():
     assert calls["count"] == 2
 
 
-def test_executor_triggers_repair_hook_when_fallback_exists():
+def test_executor_triggers_repair_hook_when_fallback_exists() -> None:
     registry = CapabilityRegistry()
 
-    def failing(args, context):
+    def failing(args: Any, context: Any) -> dict[str, Any]:
         return {"success": False, "status": "failed", "summary": "failed"}
 
     registry.register(_contract("capability:failing"), failing)
@@ -392,7 +393,7 @@ def test_executor_triggers_repair_hook_when_fallback_exists():
     assert any(record.node_id == "node:repair" and record.status == NodeExecutionStatus.succeeded for record in result.node_records)
 
 
-def test_reflection_store_records_failures_and_promotes_repeated_successes():
+def test_reflection_store_records_failures_and_promotes_repeated_successes() -> None:
     promoted = []
     store = ReflectionStore(promotion_hook=promoted.append, promotion_threshold=2)
     registry = build_example_registry()
@@ -407,7 +408,7 @@ def test_reflection_store_records_failures_and_promotes_repeated_successes():
     assert store.promotion_candidates()[0].promoted is True
 
 
-def test_end_to_end_decompose_validate_and_execute():
+def test_end_to_end_decompose_validate_and_execute() -> None:
     registry = build_example_registry()
     decomposer = TaskDecomposer(registry)
 
