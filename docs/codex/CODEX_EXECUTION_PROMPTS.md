@@ -391,6 +391,24 @@ Review the following documents first:
 [FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
 [FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
 
+Also review repo process/spec guidance before choosing scope:
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[agents_md_support.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/standards/agents_md_support.md)
+[RELEASE_PROCESS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/maintenance/RELEASE_PROCESS.md)
+
+If present, also review `SPECS.md`, `specs.md`, `SDLC.md`, `sdlc.md`, or the
+closest task-specific spec, ADR, schema, standards, or process docs discovered
+with `rg --files`. Treat these documents as contributor guidance, not runtime
+configuration or product authority.
+
+When no literal spec/SDLC file exists, treat these as the fallback
+process/spec baseline when relevant:
+[05_development_workflow.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/canonical/05_development_workflow.md)
+[definition_of_ready.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_ready.md)
+[definition_of_done.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_done.md)
+[foundation_first_build_policy.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/operating/foundation_first_build_policy.md)
+[PRODUCT_LANGUAGE_RULES.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+
 Milestone selection:
 1. Inspect the active docs and git history/status.
 2. Identify the first incomplete milestone in the documented order.
@@ -402,13 +420,32 @@ Milestone selection:
 4. If the selected milestone can be completed in one pass, create the exact
    implementation prompt for that milestone.
 
+Subagent usage:
+- Use subagents for nontrivial conveyor milestones. At minimum, spawn a scoped
+  explorer or reviewer for independent gap/safety review before hardening.
+  Skip subagents only for tiny mechanical edits, and record the reason.
+- Good subagent splits: current-state explorer, contract/test gap explorer,
+  adversarial product-language reviewer, or redaction/evidence reviewer.
+- Default conveyor subagents are read-only inspectors/reviewers. Any
+  write-capable subagent requires an explicit disjoint file set and the same
+  AGENTS/process/invariant brief.
+- Subagents are advisory unless explicitly assigned a disjoint write set. They
+  must not revert user or other-agent changes, create competing roadmap truth,
+  add runtime authority, or bypass policy/approval/OpenAPI/redaction checks.
+- Each subagent prompt must cite the relevant `AGENTS.md`, spec/process docs,
+  scope, non-goals, and authority/redaction/product-claim boundaries.
+- The main Codex run owns final integration, verification, commit/push, and the
+  next-prompt recommendation. Do not treat subagent output as product truth
+  without reviewing it against the active docs and verifiers.
+
 Before editing, create the milestone prompt in the repo:
 - Add or update the relevant section in
   docs/codex/CODEX_EXECUTION_PROMPTS.md, or add a subordinate prompt artifact
   only if the prompt is too large for that file.
 - The created prompt must include: scope, non-goals, files to read, acceptance
-  criteria, implementation steps, review/fix phase, hardening phase, validation
-  commands, commit/push instructions, and the next-prompt recommendation rule.
+  criteria, implementation steps, subagent review plan, review/fix phase,
+  hardening phase, validation commands, commit/push instructions, and the
+  next-prompt recommendation rule.
 - After creating the prompt, execute that created prompt in the same Codex run
   unless doing so would be unsafe, ambiguous, or too large. If execution is not
   safe, stop after creating the prompt and explain the blocker.
@@ -428,19 +465,25 @@ Global safety boundaries:
   to presentation concerns.
 
 Execution workflow:
-1. Review: read the required docs, inspect current code/tests/docs for the
-   selected milestone, and write down the exact current gap.
-2. Implement: make the smallest scoped changes needed to satisfy the selected
+1. Review: read the required docs, process/spec guidance, and closest
+   task-specific specs/ADRs/schemas/standards; inspect current code/tests/docs
+   for the selected milestone; and write down the exact current gap.
+2. Delegate: for nontrivial milestones, spawn one or more scoped subagents for
+   current-state inspection, contract/test gaps, or adversarial safety review.
+   Continue non-overlapping local work while they run. Integrate only reviewed
+   findings that fit the active docs and repo invariants.
+3. Implement: make the smallest scoped changes needed to satisfy the selected
    milestone or incremental slice.
-3. Review and fix: perform an adversarial self-review before hardening. Look
+4. Review and fix: perform an adversarial self-review before hardening. Look
    for stale roadmap truth, unsafe product claims, route/OpenAPI drift,
    authority expansion, raw/private evidence leaks, missing tests, UI-only
    product behavior, broken CLI/API parity, and unclear next-prompt state.
-   Fix all P0/P1 issues found by the review before moving on.
-4. Harden: add or tighten tests, static verifiers, docs integrity checks,
+   Include relevant subagent findings in this review. Fix all P0/P1 issues
+   found by the review before moving on.
+5. Harden: add or tighten tests, static verifiers, docs integrity checks,
    redaction checks, frontend checks, OpenAPI/API manifest checks, or Foundation
    Gate report-only checks as appropriate for the changed files.
-5. Verify: run focused tests first, then required verifiers. At minimum for
+6. Verify: run focused tests first, then required verifiers. At minimum for
    docs/planning changes run:
    .venv/bin/python scripts/verify_documentation_integrity.py
    git diff --check
@@ -451,12 +494,12 @@ Execution workflow:
    For frontend changes also run:
    make frontend-check
    .venv/bin/python scripts/verify_control_center_frontend.py
-6. Commit and push: only after checks pass, inspect git status, stage only the
+7. Commit and push: only after checks pass, inspect git status, stage only the
    files changed for this milestone, commit with a concise milestone message,
    and push the current branch. Do not stage unrelated user changes. If push is
    blocked by credentials, remote state, branch policy, or failing checks, do
    not force it; report the blocker and leave the work unpushed.
-7. Recommend the next prompt: after the commit/push step succeeds or is clearly
+8. Recommend the next prompt: after the commit/push step succeeds or is clearly
    blocked, add a "Next prompt" section to the final answer and, when useful,
    to docs/backlog/codex_recommendation_log.md. The next prompt must repeat the
    required review-doc list above and either:
@@ -471,13 +514,19 @@ Definition of complete for a milestone:
 - Relevant tests/verifiers pass or blockers are reported.
 - Product language distinguishes implemented, partial, planned, blocked,
   skipped, mock-only, and missing states.
+- The final summary records literal spec/SDLC files found or absent, process
+  docs consulted or skipped with reasons, subagents used or skipped with
+  reason, and confirms no runtime authority, raw private evidence, public beta,
+  public release, production readiness, or production authority claim was
+  introduced.
 - No unsafe authority or raw/private evidence was introduced.
 - A commit was created and pushed, or the exact push blocker is recorded.
 - The next prompt is recommended.
 
 Initial milestone prompt to create and execute:
 
-Task: UAA-P1-067 Today-Spine Founder Command Center beta-readiness planning.
+Task: UAA-P1-067 Today-Spine Founder Command Center private beta-readiness
+planning only.
 
 Goal: complete the planning/currentness milestone that defines the conveyor
 from UAA-P1-067 through UAA-P1-079. Make Today the product spine, keep robust
@@ -497,6 +546,16 @@ Read first:
 [founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
 [FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
 [FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[agents_md_support.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/standards/agents_md_support.md)
+[RELEASE_PROCESS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/maintenance/RELEASE_PROCESS.md)
+
+If present, also read `SPECS.md`, `specs.md`, `SDLC.md`, `sdlc.md`, and the
+closest task-specific spec, ADR, schema, standards, or process docs discovered
+with `rg --files`. Treat these documents as contributor guidance, not runtime
+configuration or product authority. When no literal spec/SDLC file exists,
+consult the fallback process/spec docs listed in the global conveyor prompt
+when relevant.
 
 Acceptance criteria:
 - When UAA-P1-067 is still incomplete, active docs mark it as the
@@ -519,6 +578,10 @@ Acceptance criteria:
 - The prompt conveyor is recorded so future Codex runs create, execute, review,
   harden, commit, push, and recommend the next prompt until documented
   milestones are complete.
+- Nontrivial conveyor runs use at least one scoped subagent for gap review,
+  contract/test review, or adversarial safety/product-language review before
+  hardening. Subagent findings are advisory and must preserve the same
+  authority, redaction, OpenAPI, policy, and product-language boundaries.
 
 Review/fix phase:
 - After edits, perform an adversarial review for stale milestone numbering,
