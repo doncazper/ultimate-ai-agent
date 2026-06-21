@@ -1,5 +1,3 @@
-import json
-
 import scripts.verify_product_truth as verifier
 
 
@@ -169,7 +167,6 @@ def test_product_truth_verifier_json_report_structure(tmp_path):
         "--json",
     ])
 
-    captured_output, _ = __import__("io").StringIO(), None
     report = verifier.build_scan_report(
         root=tmp_path,
         scopes=("README.md",),
