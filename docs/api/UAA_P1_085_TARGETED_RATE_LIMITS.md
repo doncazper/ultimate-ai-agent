@@ -68,7 +68,7 @@ multi-user fairness system.
 - `tests/test_api_manifest.py`
 - `tests/test_api_route_inventory_fixture.py`
 - `tests/test_api_cors.py`
-- `tests/fixtures/api_route_inventory_125.json`
+- `tests/fixtures/api_route_inventory_126.json`
 - `docs/schemas/api_targeted_rate_limits.schema.json`
 - `scripts/verify_uaa_p1_085_targeted_rate_limits.py`
 - `docs/api/openapi_contract.md`

@@ -70,6 +70,24 @@ def get_control_center_memory_review() -> ResultEnvelope:
     )
 
 
+@router.get("/evidence/timeline", response_model=ResultEnvelope)
+def get_control_center_evidence_timeline() -> ResultEnvelope:
+    data = get_founder_loop_service().evidence_timeline()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_evidence_timeline",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:evidence-timeline",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:evidence-timeline"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+        ],
+    )
+
+
 @router.post("/today/action-envelope", response_model=ResultEnvelope)
 def post_control_center_today_action_envelope(
     request: FounderLoopActionEnvelopePromotionRequest,

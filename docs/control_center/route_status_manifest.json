@@ -4,7 +4,7 @@
   "baseline": "v0.102.3 / 0.102.3",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 125,
+  "openapi_path_count": 126,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -538,13 +538,20 @@
       "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "No approval for read-only evidence inspection; mutating evidence generation follows owner routes.",
-      "evidence_audit_output": "Receipt preview refs, event validation refs, audit summaries, metrics refs, Foundation Gate refs, governed Code validation refs, and cross-surface memory intake proposal refs.",
+      "approval_requirement": "No approval for read-only evidence inspection; the productized Evidence Timeline index is backend-owned safe refs only, and mutating evidence generation follows owner routes.",
+      "evidence_audit_output": "Productized safe evidence events grouped by Today item, Action, Chat turn, and Memory candidate: action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded. Shows receipt refs, approval refs as identifiers, idempotency refs, blocked states, and rollback posture without approval authority, rollback execution, action execution, context injection, connector writes, or production authority.",
       "current_backend_routes": [
         {
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/evidence/timeline",
+          "operation_id": "get_control_center_evidence_timeline",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
@@ -1253,13 +1260,20 @@
       "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only evidence inspection.",
-      "evidence_audit_output": "Founder Loop evidence history grammar refs, audit summary refs, and Foundation Gate refs.",
+      "approval_requirement": "None for read-only evidence inspection; Evidence Timeline events are safe refs only and do not approve, execute, roll back, inject context, or grant production authority.",
+      "evidence_audit_output": "Backend-owned Evidence Timeline index with action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded events grouped by Today item, Action, Chat turn, and Memory candidate. Shows receipt refs, approval identifiers, idempotency refs, blocked states, and rollback posture.",
       "backend_routes": [
         {
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/evidence/timeline",
+          "operation_id": "get_control_center_evidence_timeline",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
@@ -1279,7 +1293,7 @@
         }
       ],
       "missing_backend_routes": [
-        "release-evidence-index"
+        "founder-loop-v1-proof-lane-promotion"
       ]
     },
     {

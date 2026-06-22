@@ -54,7 +54,10 @@ handoffs without action execution. FCC-V1-005 Memory Review Decisions is
 complete for backend-owned accept/correct/reject receipts without memory truth
 authority, context injection, CRM/account sync, connector writes, action
 execution, public beta, or production authority; FCC-V1-006 Evidence Timeline
-Productization is the next conveyor milestone.
+Productization is complete for backend-owned productized evidence events without
+approval authority, rollback execution, action execution, context injection,
+connector writes, public beta, or production authority; FCC-V1-007 Promotion And
+Proof Lane is the next conveyor milestone.
 The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: completed Control Center

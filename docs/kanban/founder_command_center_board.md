@@ -97,8 +97,7 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ### FCC-V1-000 through FCC-V1-007 - Founder Loop V1 Productization Conveyor
 
-Status: In progress through completed FCC-V1-005; FCC-V1-006 through
-FCC-V1-007 remain planned.
+Status: In progress through completed FCC-V1-006; FCC-V1-007 remains planned.
 
 Epic: Product/UX, Safety/Permissions, Memory/Knowledge, Business Cofounder
 Workflows
@@ -139,7 +138,12 @@ Milestone order:
   Timeline visibility without memory truth authority, context injection,
   CRM/account sync, connector writes, action execution, public beta, or
   production authority.
-- `FCC-V1-006` Evidence Timeline Productization.
+- `FCC-V1-006` Evidence Timeline Productization: implemented for a
+  backend-owned Evidence Timeline index with productized events grouped by
+  Today item, Action, Chat turn, and Memory candidate; safe refs, receipts,
+  approval identifiers, idempotency refs, blocked states, and rollback posture
+  are visible without approval, rollback execution, action execution, context
+  injection, connector writes, public beta, or production authority.
 - `FCC-V1-007` Promotion And Proof Lane.
 
 Acceptance criteria: Each milestone's detailed goal, tasks, expected routes,
@@ -849,7 +853,7 @@ mutating authority paths without adding routes or authority.
 
 Proof: `docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md`,
 `docs/schemas/api_route_classification.schema.json`,
-`tests/fixtures/api_route_inventory_125.json`,
+`tests/fixtures/api_route_inventory_126.json`,
 `scripts/verify_uaa_p1_080_api_route_classification.py`,
 `tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
 `tests/test_control_center_api_routes.py`, and Control Center API Routes render

@@ -1,0 +1,181 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
+
+from scripts import verify_fcc_v1_006_evidence_timeline_productization as verifier
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.storage import (
+    EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
+    EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
+    FounderLoopEvidenceTimelineEvent,
+)
+
+
+def _history_answers(ref: str) -> dict:
+    return {
+        key: {
+            "question": question,
+            "answer": answer,
+            "refs": [ref],
+            "status": "present",
+        }
+        for key, question, answer in [
+            ("proposed", "What was proposed?", "A safe-ref proposal was recorded."),
+            ("approved", "What was approved?", "Only identifier refs were recorded."),
+            ("happened", "What happened?", "A receipt ref was captured."),
+            ("changed", "What changed?", "A review projection changed."),
+            ("undoable", "What can be undone?", "Rollback remains inspection-only."),
+            ("stale", "What is stale?", "Refs must be rechecked."),
+            ("blocked", "What remains blocked?", "Execution remains blocked."),
+        ]
+    }
+
+
+def _safe_event(**overrides: object) -> dict:
+    payload: dict[str, object] = {
+        "event_ref": "evidence-event:test-action",
+        "event_type": "action_decision_recorded",
+        "event_type_ref": "evidence-event-type:action_decision_recorded",
+        "group_kind": "action",
+        "group_ref": "founder-action:test",
+        "group_label": "Action decision receipt",
+        "timeline_item_ref": "evidence-timeline:action/founder-action/test",
+        "item_kind": "receipt_audit_rollback_ref",
+        "title": "Action decision",
+        "safe_summary": "Action decision receipt uses safe refs only.",
+        "history_answers": _history_answers("founder-action:test"),
+        "source_refs": ["founder-action:test"],
+        "status_refs": ["status-ref:founder-loop-action-inbox"],
+        "related_route_refs": ["GET /control-center/evidence/timeline"],
+        "receipt_refs": ["receipt:founder-loop-action:test:reject:key"],
+        "approval_refs": ["approval-status:refs-identifiers-only"],
+        "idempotency_refs": ["idempotency-ref:test"],
+        "audit_refs": ["audit:founder-loop-action:test:reject:key"],
+        "rollback_refs": [],
+        "rollback_blockers": ["rollback_execution_not_scoped"],
+        "blocked_states": ["blocked-state:no-action-execution"],
+        "rollback_posture": "rollback_not_applicable_or_not_scoped",
+        "authority_posture": "Evidence event is safe-ref metadata only.",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_evidence_timeline_event_model_accepts_safe_event() -> None:
+    event = FounderLoopEvidenceTimelineEvent(**_safe_event())
+
+    assert event.event_type == "action_decision_recorded"
+    assert event.approval_ref_authority is False
+    assert event.rollback_execution_enabled is False
+    assert event.context_injection_authorized is False
+    assert event.raw_evidence_included is False
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"safe_summary": "raw prompt content should fail"},
+        {"raw_evidence_included": True},
+        {"approval_ref_authority": True},
+        {"rollback_execution_enabled": True},
+        {"memory_truth_authority": True},
+        {"context_injection_authorized": True},
+    ],
+)
+def test_evidence_timeline_event_model_rejects_unsafe_authority(
+    overrides: dict[str, object],
+) -> None:
+    with pytest.raises((ValidationError, ValueError)):
+        FounderLoopEvidenceTimelineEvent(**_safe_event(**overrides))
+
+
+def test_evidence_timeline_route_productizes_founder_loop_receipts(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    client = TestClient(app)
+
+    action_item = client.get("/control-center/actions/inbox").json()["data"]["items"][0]
+    action_response = client.post(
+        f"/control-center/actions/{action_item['item_ref']}/reject",
+        json={
+            "decision_reason_ref": "decision-reason-ref:fcc-v1-006-action",
+            "metadata_refs": ["metadata-ref:fcc-v1-006-action"],
+        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-action"},
+    )
+    assert action_response.status_code == 200
+
+    chat_response = client.post(
+        "/control-center/chat/turns",
+        json={
+            "turn_ref": "chat-turn:fcc-v1-006",
+            "route_ref": "/v1/chat/completions",
+            "model_ref": "model-ref:fcc-v1-006-local",
+            "runtime_truth": "local-chat-route-answered",
+            "auth_truth": "local-bearer-accepted",
+            "tool_denial_truth": "tools-functions-streaming-denied",
+            "safe_summary_ref": "safe-summary-ref:fcc-v1-006-chat",
+            "evidence_refs": ["evidence-ref:fcc-v1-006-chat"],
+        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-chat"},
+    )
+    assert chat_response.status_code == 200
+    handoff_response = client.post(
+        "/control-center/chat/turns/chat-turn:fcc-v1-006/handoff",
+        json={"handoff_target": "actions"},
+        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-handoff"},
+    )
+    assert handoff_response.status_code == 200
+
+    candidate_ref = (
+        client.get("/control-center/memory/review")
+        .json()["data"]["items"][0]["business_memory_candidate_ref"]
+    )
+    memory_response = client.post(
+        f"/control-center/memory/review/{candidate_ref}/reject",
+        json={
+            "reviewer_ref": "actor-ref:fcc-v1-006-memory",
+            "source_refs": ["source-ref:fcc-v1-006-memory"],
+            "evidence_refs": ["evidence-ref:fcc-v1-006-memory"],
+        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-memory"},
+    )
+    assert memory_response.status_code == 200
+
+    response = client.get("/control-center/evidence/timeline")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["operation"] == "control_center_evidence_timeline"
+    assert "safe_refs_only" in body["redactions_applied"]
+
+    data = body["data"]
+    assert data["contract_ref"] == EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF
+    assert data["safe_refs_only"] is True
+    assert data["raw_content_stored"] is False
+    assert data["approval_ref_authority"] is False
+    assert data["rollback_execution_enabled"] is False
+    assert data["context_injection_authorized"] is False
+    assert data["action_execution_enabled"] is False
+    assert data["production_authority_enabled"] is False
+    assert set(data["event_types"]) == set(EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES)
+    for event_type in EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES:
+        assert data["event_type_counts"][event_type] >= 1
+    assert {"today_item", "action", "chat_turn", "memory_candidate"}.issubset(
+        {group["group_kind"] for group in data["groups"]}
+    )
+    assert action_response.json()["data"]["receipt_ref"] in str(data["events"])
+    assert chat_response.json()["data"]["receipt_ref"] in str(data["events"])
+    assert handoff_response.json()["data"]["receipt_ref"] in str(data["events"])
+    assert memory_response.json()["data"]["receipt_ref"] in str(data["events"])
+    assert "raw prompt" not in str(data).lower()
+    assert "provider_payload" not in str(data).lower()
+
+
+def test_fcc_v1_006_verifier_passes_current_repo() -> None:
+    assert verifier.verify() == []

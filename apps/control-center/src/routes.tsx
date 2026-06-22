@@ -204,7 +204,10 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/evidence":
       return (
         <>
-          <EvidenceTimelineSurfacePanel today={data.founderToday} />
+          <EvidenceTimelineSurfacePanel
+            evidence={data.founderEvidenceTimeline}
+            today={data.founderToday}
+          />
           <EvidenceOperatorPanel data={data} />
         </>
       );

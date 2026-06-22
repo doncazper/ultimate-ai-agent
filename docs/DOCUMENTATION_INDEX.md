@@ -53,7 +53,7 @@ verifier, and focused tests. UAA-P1-079 User Intent Understanding V1 completes
 reviewable intent proposals with confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing. UAA-P1-080 API Route
 Classification And Public/Protected Inventory completes typed route
-classification in `/api/manifest`, the frozen 125-route inventory fixture,
+classification in `/api/manifest`, the frozen 126-route inventory fixture,
 route-status manifest alignment, and Control Center API Routes visibility.
 UAA-P1-081 Centralized FastAPI Security Headers completes centralized response
 headers, HTTPS-only HSTS, manifest capability posture, and focused verifier
@@ -107,7 +107,9 @@ with detailed goals, tasks, routes, model fields, storage semantics, UI
 outcomes, proof lanes, and authority boundaries for release surface truth, API
 perimeter, Action decisions, the implemented Today-to-Action vertical loop,
 implemented Chat receipts and handoff, Memory Review accept/correct/reject decisions,
-Evidence Timeline productization, and promotion/proof lanes.
+implemented Evidence Timeline productization
+(`docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`), and
+promotion/proof lanes.
 Every module
 feeds Today, Actions, Evidence, and Memory;
 source provenance, reviewed business memory, Evidence-as-history,

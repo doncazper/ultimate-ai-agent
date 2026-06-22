@@ -68,7 +68,10 @@ action execution, memory writes, model-output authority, connector writes, or
 provider calls. FCC-V1-005 Memory Review Decisions is complete for backend-owned
 accept/correct/reject receipts without memory truth authority, context
 injection, CRM/account sync, connector writes, action execution, public beta, or
-production authority. FCC-V1-006 Evidence Timeline Productization is the next
+production authority. FCC-V1-006 Evidence Timeline Productization is complete
+for backend-owned productized evidence events without approval authority,
+rollback execution, action execution, context injection, connector writes, public
+beta, or production authority. FCC-V1-007 Promotion And Proof Lane is the next
 implementation lane before
 P2/provider, packaging, public distribution, or commercialization expansion.
 

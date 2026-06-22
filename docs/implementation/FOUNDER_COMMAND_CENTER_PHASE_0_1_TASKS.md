@@ -1235,8 +1235,8 @@ PR size: one docs PR, ideally after Tasks 1-4.
 
 Type: staged full-stack productization with docs/test/manifest gates first
 
-Status: FCC-V1-000 through FCC-V1-005 implemented; FCC-V1-006 through
-FCC-V1-007 planned. FCC-V1-001 is contract/verifier coverage for the API
+Status: FCC-V1-000 through FCC-V1-006 implemented; FCC-V1-007 planned.
+FCC-V1-001 is contract/verifier coverage for the API
 perimeter; duplicate replay runtime remains blocked until route-owner receipt
 storage exists outside routes that implement their own receipt-backed replay.
 
@@ -1287,10 +1287,13 @@ Milestones:
   Memory writes, truth authority, context injection, CRM/account sync,
   connector writes, action execution, public beta, and production authority
   remain blocked.
-- `FCC-V1-006` Evidence Timeline Productization: add real evidence event types
-  for action envelopes, action decisions, chat receipts, chat handoffs, and
-  memory review decisions, grouped by Today item, Action, Chat turn, and Memory
-  candidate.
+- `FCC-V1-006` Evidence Timeline Productization: implemented real evidence
+  event types for action envelopes, action decisions, chat receipts, chat
+  handoffs, and memory review decisions, grouped by Today item, Action, Chat
+  turn, and Memory candidate through `GET /control-center/evidence/timeline`.
+  Evidence remains read-only, safe-ref-only, and does not grant approval,
+  rollback execution, action execution, context injection, connector writes,
+  public beta, or production authority.
 - `FCC-V1-007` Promotion And Proof Lane: add the focused Founder Loop V1 proof
   command, pytest lanes, Control Center render coverage, release surface status
   promotion rules, and raw-content leak checks.

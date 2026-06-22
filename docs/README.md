@@ -46,8 +46,11 @@ authority, connector writes, provider calls, or new external authority.
 FCC-V1-005 Memory Review Decisions is complete for backend-owned
 accept/correct/reject receipts without memory truth authority, context
 injection, CRM/account sync, connector writes, action execution, public beta, or
-production authority. The next conveyor milestone is FCC-V1-006 Evidence
-Timeline Productization. The
+production authority. FCC-V1-006 Evidence Timeline Productization is complete
+for a backend-owned safe-ref Evidence Timeline index without approval authority,
+rollback execution, action execution, context injection, connector writes, public
+beta, or production authority. The next conveyor milestone is FCC-V1-007
+Promotion And Proof Lane. The
 sequence is tracked in
 `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`.
 The planned Founder Loop V1 productization conveyor is tracked in
@@ -120,12 +123,13 @@ and completed UAA-P1-087.2b Private Trial Findings Capture And Acceptance
 Ledger, completed UAA-P1-087.2c Private Trial Manual Review Scaffold, and
 completed FCC-V1-000 Control Center Release Surface Manifest, FCC-V1-001
 API Perimeter For Real Mutations, and FCC-V1-002 Action Inbox Backend State
-Machine, completed FCC-V1-003 Founder Loop V1 Vertical Slice, and completed
-FCC-V1-004 Chat Durable Receipt And Handoff, and completed FCC-V1-005 Memory
-Review Decisions. Full UAA-P1-087.2
+Machine, completed FCC-V1-003 Founder Loop V1 Vertical Slice, completed
+FCC-V1-004 Chat Durable Receipt And Handoff, completed FCC-V1-005 Memory
+Review Decisions, and completed FCC-V1-006 Evidence Timeline Productization.
+Full UAA-P1-087.2
 local/private UI tuning and UAA-P1-087.3 private UI trial/native boot planning
 are deferred until the Founder Loop has more real implementation to test. The
-next conveyor milestone is FCC-V1-006. UAA-P1-066
+next conveyor milestone is FCC-V1-007. UAA-P1-066
 remains queued as a strictly read-only Local Model
 Control Center inventory/status support lane.
 `FCC-V1-000` through `FCC-V1-007` are the Founder Loop V1 productization

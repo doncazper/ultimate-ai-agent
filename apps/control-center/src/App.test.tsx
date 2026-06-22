@@ -1342,7 +1342,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("125")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("126")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -1761,10 +1761,10 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /Evidence Timeline/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("storage_backed_redacted_history_grammar_refs"),
+      screen.getByText("implemented_productized_evidence_timeline_safe_refs_only"),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("GET /control-center/today/summary").length,
+      screen.getAllByText("GET /control-center/evidence/timeline").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("Evidence history grammar")).toBeInTheDocument();
     expect(
@@ -1801,24 +1801,19 @@ describe("Web Control Center shell", () => {
 
     for (const marker of [
       "receipt_audit_rollback_ref",
-      "plan_action_envelope_ref",
-      "memory_review_evidence_ref",
-      "source_readiness_evidence_ref",
-      "foundation_gate_latency_ref",
-      "receipt-plan:founder-loop:mock-setup-hardening",
+      "action_envelope_created",
+      "today_item",
+      "evidence-event:action-envelope-created-mock-founder-loop",
+      "action-envelope:plans:founder-loop-mock",
       "audit-plan:founder-loop:mock-setup-hardening",
-      "replay-ref:founder-loop:action-inbox",
-      "rollback-plan:founder-loop:mock-setup-hardening",
-      "receipt-plan:plans-action-envelope:plan-summary-founder-loop-v1",
-      "rollback-plan:plans-action-envelope:plan-summary-founder-loop-v1",
-      "latency-ref:foundation-gate:latest-report",
-      "foundation-gate-ref:latest-report",
+      "idempotency-ref:founder-loop:mock-setup-hardening",
+      "rollback_not_applicable_or_not_scoped",
       "rollback_execution_not_scoped",
       "no_raw_evidence_display",
-      "approval_refs_are_identifiers_only",
-      "foundation_gate_refs_not_production_authority",
-      "latency_refs_not_authority",
-      "connector_source_runtime_blocked",
+      "no_approval_ref_authority",
+      "no_context_injection",
+      "no_action_execution",
+      "no_connector_write",
     ]) {
       expect(screen.getAllByText(marker).length).toBeGreaterThan(0);
     }
@@ -3081,6 +3076,8 @@ function envelopeForReadEndpoint(url: string) {
     },
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
+    [API_ENDPOINTS.founderEvidenceTimeline]:
+      mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderActionsInbox]: mockApiData.founderActionsInbox,
     [API_ENDPOINTS.founderMorningBriefing]:
       mockApiData.founderMorningBriefing,
@@ -3145,8 +3142,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 125,
-      control_center_route_count: 23,
+      route_count: 126,
+      control_center_route_count: 24,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -4604,8 +4601,9 @@ const mockApiData = {
       },
     ],
     evidence_timeline_route_ref: "/evidence",
-    evidence_timeline_backend_route_ref: "GET /control-center/today/summary",
-    evidence_timeline_status: "storage_backed_redacted_history_grammar_refs",
+    evidence_timeline_backend_route_ref: "GET /control-center/evidence/timeline",
+    evidence_timeline_status:
+      "implemented_productized_evidence_timeline_safe_refs_only",
     evidence_timeline_authority_boundary:
       "Evidence Timeline is safe-ref and redacted-summary only. It does not expose private content, grant approval, perform rollback, or confer production authority.",
     evidence_timeline_blocked_states: [

@@ -103,7 +103,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-005 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-006 Evidence Timeline Productization.
+No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-006 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-007 Promotion And Proof Lane.
 ```
 
 ## Ready Next
@@ -325,9 +325,10 @@ Timeline without memory truth authority, context injection, CRM/account sync,
 connector writes, action execution, public beta, or production authority.
 
 FCC-V1-006 Evidence Timeline Productization
-Goal: show actual audit events for action envelope creation, action decisions,
-chat receipts, chat handoffs, and memory review decisions using safe refs and
-redacted summaries only.
+Goal met: Evidence Timeline is backend-owned and shows productized audit
+events for action envelope creation, action decisions, chat receipts, chat
+handoffs, and memory review decisions grouped by Today item, Action, Chat turn,
+and Memory candidate using safe refs and redacted summaries only.
 
 FCC-V1-007 Promotion And Proof Lane
 Goal: add the focused Founder Loop V1 proof command, pytest lanes, frontend

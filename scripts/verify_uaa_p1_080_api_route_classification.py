@@ -35,7 +35,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 65,
     "none": 4,
-    "local_dev_workspace_only": 55,
+    "local_dev_workspace_only": 56,
     "governed_network_read_only": 1,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -78,7 +78,7 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
-        "125",
+        "126",
         "public_metadata",
         "local_readonly",
         "local_sensitive",
@@ -145,7 +145,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     append_route_fixture_mismatches(
         failures,
         manifest,
-        label="tests/fixtures/api_route_inventory_125.json",
+        label="tests/fixtures/api_route_inventory_126.json",
     )
 
     route_status = load_json("docs/control_center/route_status_manifest.json")

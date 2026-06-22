@@ -11,6 +11,8 @@ import type {
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
+  FounderLoopEvidenceTimelineEvent,
+  FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
   FounderLoopMemoryReviewItem,
   FounderLoopMorningBriefing,
@@ -1267,11 +1269,15 @@ function MemoryIntakeProposalCard({
 }
 
 export function EvidenceTimelineSurfacePanel({
+  evidence,
   today,
 }: {
+  evidence?: FounderLoopEvidenceTimelineIndex;
   today: FounderLoopTodaySummary;
 }) {
   const timeline = today.evidence_timeline;
+  const events = evidence?.events ?? [];
+  const groups = evidence?.groups ?? [];
 
   return (
     <section className="page-section" aria-labelledby="evidence-timeline-heading">
@@ -1281,17 +1287,33 @@ export function EvidenceTimelineSurfacePanel({
           <h2 id="evidence-timeline-heading">Evidence Timeline</h2>
         </div>
         <span className="status-pill compact">
-          {today.evidence_timeline_status ?? "storage_backed_redacted_history_grammar_refs"}
+          {evidence?.status ??
+            today.evidence_timeline_status ??
+            "storage_backed_redacted_history_grammar_refs"}
         </span>
       </div>
       <div className="metric-grid">
         <Metric
-          label="Timeline items"
-          value={today.sections.evidence_timeline_count ?? timeline.length}
+          label="Evidence events"
+          value={evidence?.event_count ?? timeline.length}
         />
-        <Metric label="Receipt/audit refs" value={countTimelineRefs(timeline, ["receipt_refs", "audit_refs"])} />
-        <Metric label="Rollback refs" value={countTimelineRefs(timeline, ["rollback_refs"])} />
-        <Metric label="Latency/Gate refs" value={countTimelineRefs(timeline, ["latency_refs", "foundation_gate_refs"])} />
+        <Metric label="Groups" value={evidence?.group_count ?? 0} />
+        <Metric
+          label="Receipt/audit refs"
+          value={
+            evidence
+              ? evidence.receipt_refs.length + countEventRefs(events, ["audit_refs"])
+              : countTimelineRefs(timeline, ["receipt_refs", "audit_refs"])
+          }
+        />
+        <Metric
+          label="Idempotency refs"
+          value={
+            evidence
+              ? evidence.idempotency_refs.length
+              : countTimelineRefs(timeline, ["idempotency_refs"])
+          }
+        />
       </div>
       <div className="panel-grid">
         <article className="status-card">
@@ -1326,17 +1348,27 @@ export function EvidenceTimelineSurfacePanel({
               label="Frontend route"
               value={today.evidence_timeline_route_ref ?? "/evidence"}
             />
+              <DetailTerm
+                label="Backend route"
+                value={
+                  evidence?.route_ref ??
+                  today.evidence_timeline_backend_route_ref ??
+                  "GET /control-center/today/summary"
+                }
+              />
             <DetailTerm
-              label="Backend route"
+              label="Contract ref"
               value={
-                today.evidence_timeline_backend_route_ref ??
-                "GET /control-center/today/summary"
+                evidence?.contract_ref ??
+                today.evidence_timeline_productization_contract_ref ??
+                today.evidence_history_contract_ref
               }
             />
-            <DetailTerm label="Storage ref" value={today.storage_ref} />
+            <DetailTerm label="Storage ref" value={evidence?.storage_ref ?? today.storage_ref} />
             <DetailTerm
               label="Authority boundary"
               value={
+                evidence?.authority_boundary ??
                 today.evidence_timeline_authority_boundary ??
                 "Evidence Timeline is safe-ref and redacted-summary only."
               }
@@ -1360,7 +1392,7 @@ export function EvidenceTimelineSurfacePanel({
           </p>
           <InlineListWithFallback
             emptyLabel="Timeline blockers: evidence remains inspection-only"
-            items={today.evidence_timeline_blocked_states ?? []}
+            items={evidence?.blocked_states ?? today.evidence_timeline_blocked_states ?? []}
           />
         </article>
         <article className="status-card">
@@ -1377,7 +1409,53 @@ export function EvidenceTimelineSurfacePanel({
           </ul>
         </article>
       </div>
-      {timeline.length === 0 ? (
+      {events.length > 0 ? (
+        <div className="compact-stack">
+          {groups.map((group) => {
+            const groupEvents = events.filter(
+              (event) => event.group_ref === group.group_ref,
+            );
+            return (
+              <article className="status-card" key={group.group_ref}>
+                <div className="status-card-header">
+                  <h3>{group.group_label}</h3>
+                  <span>{group.group_kind}</span>
+                </div>
+                <dl className="detail-list">
+                  <DetailTerm label="Group ref" value={group.group_ref} />
+                  <DetailTerm label="Events" value={String(group.event_count)} />
+                  <DetailTerm label="Rollback posture" value={group.rollback_posture} />
+                </dl>
+                <InlineListWithFallback
+                  emptyLabel="Event types: none recorded"
+                  items={group.event_types}
+                />
+                <RefListWithFallback
+                  emptyLabel="Receipt refs: not recorded"
+                  refs={group.receipt_refs}
+                />
+                <RefListWithFallback
+                  emptyLabel="Approval refs: identifiers only or not present"
+                  refs={group.approval_refs}
+                />
+                <RefListWithFallback
+                  emptyLabel="Idempotency refs: not recorded"
+                  refs={group.idempotency_refs}
+                />
+                <InlineListWithFallback
+                  emptyLabel="Group blockers: evidence remains inspection-only"
+                  items={group.blocked_states}
+                />
+                <div className="review-grid">
+                  {groupEvents.map((event) => (
+                    <EvidenceTimelineEventCard event={event} key={event.event_ref} />
+                  ))}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : timeline.length === 0 ? (
         <article className="status-card">
           <div className="status-card-header">
             <h3>No timeline refs</h3>
@@ -1457,6 +1535,7 @@ function countTimelineRefs(
   fields: Array<
     | "receipt_refs"
     | "audit_refs"
+    | "idempotency_refs"
     | "rollback_refs"
     | "latency_refs"
     | "foundation_gate_refs"
@@ -1465,7 +1544,22 @@ function countTimelineRefs(
   return timeline.reduce(
     (count, item) =>
       count +
-      fields.reduce((fieldCount, field) => fieldCount + item[field].length, 0),
+      fields.reduce(
+        (fieldCount, field) => fieldCount + (item[field] ?? []).length,
+        0,
+      ),
+    0,
+  );
+}
+
+function countEventRefs(
+  events: FounderLoopEvidenceTimelineEvent[],
+  fields: Array<"audit_refs">,
+) {
+  return events.reduce(
+    (count, event) =>
+      count +
+      fields.reduce((fieldCount, field) => fieldCount + event[field].length, 0),
     0,
   );
 }
@@ -1488,6 +1582,108 @@ function LoopPanel({
         </a>
       </div>
       <div className="compact-stack">{children}</div>
+    </article>
+  );
+}
+
+function EvidenceTimelineEventCard({
+  event,
+}: {
+  event: FounderLoopEvidenceTimelineEvent;
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>{event.title}</h3>
+        <span>{event.event_type}</span>
+      </div>
+      <p>{event.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Event ref" value={event.event_ref} />
+        <DetailTerm label="Event type ref" value={event.event_type_ref} />
+        <DetailTerm label="Timeline ref" value={event.timeline_item_ref} />
+        <DetailTerm label="Group ref" value={event.group_ref} />
+        <DetailTerm label="Side effect" value={event.item_kind} />
+        <DetailTerm label="Authority posture" value={event.authority_posture} />
+        <DetailTerm label="Rollback posture" value={event.rollback_posture} />
+        <DetailTerm
+          label="Approval ref authority"
+          value={event.approval_ref_authority ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Rollback execution"
+          value={event.rollback_execution_enabled ? "enabled" : "not scoped"}
+        />
+        <DetailTerm
+          label="Memory truth authority"
+          value={event.memory_truth_authority ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={event.context_injection_authorized ? "authorized" : "not authorized"}
+        />
+        <DetailTerm
+          label="Raw evidence included"
+          value={event.raw_evidence_included ? "yes" : "no"}
+        />
+        <DetailTerm label="Redaction" value={event.redaction_status} />
+      </dl>
+      <div>
+        <div className="status-card-header">
+          <h4>History answers</h4>
+          <span>{evidenceHistoryKeys.length}</span>
+        </div>
+        <ul className="ref-list">
+          {evidenceHistoryKeys.map((key) => {
+            const answer = event.history_answers[key];
+            return (
+              <li key={key}>
+                {answer.question}: {answer.answer} ({answer.status})
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <RefListWithFallback
+        emptyLabel="Source refs: missing until evidence binding exists"
+        refs={event.source_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Status refs: missing until status binding exists"
+        refs={event.status_refs ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Route refs: no route binding available"
+        items={event.related_route_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: not available for this event"
+        refs={event.receipt_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Approval refs: identifiers only or not present"
+        refs={event.approval_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Idempotency refs: not available for this event"
+        refs={event.idempotency_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Audit refs: not available for this event"
+        refs={event.audit_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Rollback refs: not available for this event"
+        refs={event.rollback_refs ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Rollback blockers: rollback remains inspection-only"
+        items={event.rollback_blockers ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Event blockers: evidence remains inspection-only"
+        items={event.blocked_states ?? []}
+      />
     </article>
   );
 }
@@ -1573,6 +1769,10 @@ function EvidenceTimelineCard({
       <RefListWithFallback
         emptyLabel="Audit refs: not available for this item"
         refs={item.audit_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Idempotency refs: not available for this item"
+        refs={item.idempotency_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Replay refs: not available for this item"

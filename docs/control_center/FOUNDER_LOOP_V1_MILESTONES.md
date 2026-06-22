@@ -287,6 +287,9 @@ Proof refs:
 
 ## FCC-V1-006 - Evidence Timeline Productization
 
+Status: implemented. Evidence is now the visible proof surface for the new real
+loop via `GET /control-center/evidence/timeline`.
+
 Goal: Evidence becomes the visible proof surface for the new real loop.
 
 Tasks:
@@ -306,8 +309,16 @@ Tasks:
 - Show receipt refs, approval refs, idempotency refs, blocked states, and
   rollback posture.
 
-Definition of done: Evidence Timeline is no longer just posture. It shows the
-actual audit trail for the first real Founder loop.
+Definition of done: met. Evidence Timeline is no longer just posture. It shows
+the actual audit trail for the first real Founder loop as backend-owned safe
+refs only.
+
+Proof:
+
+- `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`
+- `scripts/verify_fcc_v1_006_evidence_timeline_productization.py`
+- `tests/test_fcc_v1_006_evidence_timeline_productization.py`
+- `apps/control-center/src/components/FounderLoopPanels.tsx`
 
 ## FCC-V1-007 - Promotion And Proof Lane
 

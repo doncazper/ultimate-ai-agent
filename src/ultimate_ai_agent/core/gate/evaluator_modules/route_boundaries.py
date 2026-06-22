@@ -2231,6 +2231,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
             "/control-center/chat/turns",
             "/control-center/chat/turns/{turn_ref}/handoff",
             "/control-center/chat/turns/{turn_ref}/receipt",
+            "/control-center/evidence/timeline",
             "/control-center/memory/review",
             "/control-center/morning-briefing/summary",
             "/control-center/storage/status",

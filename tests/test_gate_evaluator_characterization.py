@@ -68,6 +68,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/chat/turns",
         "/control-center/chat/turns/{turn_ref}/handoff",
         "/control-center/chat/turns/{turn_ref}/receipt",
+        "/control-center/evidence/timeline",
         "/control-center/memory/review",
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",

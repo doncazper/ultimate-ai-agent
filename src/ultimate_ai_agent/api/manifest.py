@@ -52,6 +52,7 @@ CAPABILITIES_DECLARED = [
     "control_center_chat_durable_receipts",
     "control_center_chat_reviewable_handoffs",
     "control_center_memory_review_decision_receipts",
+    "control_center_evidence_timeline_productization",
     "control_center_morning_briefing_summary",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
@@ -231,6 +232,7 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/today",
     "/control-center/actions",
     "/control-center/memory",
+    "/control-center/evidence",
     "/control-center/morning-briefing",
     "/control-center/storage",
 )

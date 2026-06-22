@@ -24,6 +24,9 @@ class FounderLoopControlCenterService:
     def today_summary(self) -> dict:
         return self.repository.today_summary()
 
+    def evidence_timeline(self) -> dict:
+        return self.repository.evidence_timeline()
+
     def actions_inbox(self) -> dict:
         return self.repository.actions_inbox()
 

@@ -87,7 +87,9 @@ SCAN_SEQUENCE = [
     ("FCC-V1-001 API perimeter for real mutations scan", "verify_fcc_v1_001_api_perimeter"),
     ("FCC-V1-002 Action Inbox state machine scan", "verify_fcc_v1_002_action_inbox_state_machine"),
     ("FCC-V1-003 Founder Loop vertical slice scan", "verify_fcc_v1_003_founder_loop_vertical_slice"),
-    ("FCC-V1-004 Chat durable receipt and handoff scan", "verify_fcc_v1_004_chat_durable_receipt_handoff"), ("FCC-V1-005 Memory Review decision receipts scan", "verify_fcc_v1_005_memory_review_decisions"),
+    ("FCC-V1-004 Chat durable receipt and handoff scan", "verify_fcc_v1_004_chat_durable_receipt_handoff"),
+    ("FCC-V1-005 Memory Review decision receipts scan", "verify_fcc_v1_005_memory_review_decisions"),
+    ("FCC-V1-006 Evidence Timeline productization scan", "verify_fcc_v1_006_evidence_timeline_productization"),
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("verifier maintainability scan", "verify_verifier_maintainability"),
     ("UAA-P1-071 memory review decision capture scan", "verify_uaa_p1_071_memory_review_decision_capture"),
@@ -1017,15 +1019,12 @@ def verify_m13_web_control_center_frontend_safety() -> None:
         print("FAIL: M13 action preview endpoint should appear exactly once in endpoint declarations")
         sys.exit(1)
     print("OK: M13 Web Control Center frontend is read-only/preview-only with safe dependencies and no tracked build artifacts")
-
 def verify_control_center_frontend_script() -> None:
     print("\n[Verifier] Running Control Center frontend safety verifier...")
     run_cmd([sys.executable, "scripts/verify_control_center_frontend.py"])
-
 def verify_control_center_browser_smoke_readiness_script() -> None:
     print("\n[Verifier] Running Control Center browser smoke readiness verifier...")
     run_cmd([sys.executable, "scripts/verify_control_center_browser_smoke_readiness.py"])
-
 def verify_control_center_release_surface() -> None:
     print("\n[Verifier] Running FCC-V1-000 release surface manifest scan...")
     run_cmd([sys.executable, "scripts/verify_control_center_release_surface.py"])
@@ -1035,15 +1034,16 @@ def verify_fcc_v1_002_action_inbox_state_machine() -> None:
     run_cmd([sys.executable, "scripts/verify_fcc_v1_002_action_inbox_state_machine.py"])
 def verify_fcc_v1_003_founder_loop_vertical_slice() -> None:
     run_cmd([sys.executable, "scripts/verify_fcc_v1_003_founder_loop_vertical_slice.py"])
-def verify_fcc_v1_004_chat_durable_receipt_handoff() -> None: run_cmd([sys.executable, "scripts/verify_fcc_v1_004_chat_durable_receipt_handoff.py"])
+def verify_fcc_v1_004_chat_durable_receipt_handoff() -> None:
+    run_cmd([sys.executable, "scripts/verify_fcc_v1_004_chat_durable_receipt_handoff.py"])
 def verify_fcc_v1_005_memory_review_decisions() -> None: run_cmd([sys.executable, "scripts/verify_fcc_v1_005_memory_review_decisions.py"])
+def verify_fcc_v1_006_evidence_timeline_productization() -> None: run_cmd([sys.executable, "scripts/verify_fcc_v1_006_evidence_timeline_productization.py"])
 def verify_documentation_integrity() -> None:
     print("\n[Verifier] Running documentation integrity scan...")
     run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"])
 def verify_verifier_maintainability() -> None:
     print("\n[Verifier] Running verifier maintainability scan...")
     run_cmd([sys.executable, "scripts/verify_verifier_maintainability.py"])
-
 
 def verify_uaa_p1_071_memory_review_decision_capture() -> None:
     print("\n[Verifier] Running UAA-P1-071 memory review decision capture scan...")

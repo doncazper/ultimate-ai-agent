@@ -2,8 +2,8 @@
   "schema_version": "uaa-verification-milestone-status.v1",
   "active_baseline": "v0.102.3",
   "api_route_inventory": {
-    "fixture_ref": "tests/fixtures/api_route_inventory_125.json",
-    "route_count": 125,
+    "fixture_ref": "tests/fixtures/api_route_inventory_126.json",
+    "route_count": 126,
     "schema_version": "uaa-api-route-inventory.v4"
   },
   "milestones": [
@@ -146,7 +146,7 @@
         "tests/test_fcc_v1_001_api_perimeter.py",
         "tests/test_api_manifest.py",
         "tests/test_api_boundary_enforcement.py",
-        "tests/fixtures/api_route_inventory_125.json"
+        "tests/fixtures/api_route_inventory_126.json"
       ]
     },
     {
@@ -199,6 +199,20 @@
         "tests/test_fcc_v1_005_memory_review_decisions.py",
         "tests/test_control_center_founder_loop_api.py",
         "tests/test_founder_loop_storage_memory_review.py",
+        "apps/control-center/src/components/FounderLoopPanels.tsx",
+        "apps/control-center/src/App.test.tsx"
+      ]
+    },
+    {
+      "id": "FCC-V1-006",
+      "status": "implemented",
+      "goal": "Evidence Timeline exposes backend-owned productized evidence events grouped by Today item, Action, Chat turn, and Memory candidate while remaining read-only, safe-ref-only, and authority-blocked.",
+      "proof_refs": [
+        "scripts/verify_fcc_v1_006_evidence_timeline_productization.py",
+        "docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md",
+        "tests/test_fcc_v1_006_evidence_timeline_productization.py",
+        "tests/test_control_center_founder_loop_api_manifest.py",
+        "tests/test_control_center_api_routes.py",
         "apps/control-center/src/components/FounderLoopPanels.tsx",
         "apps/control-center/src/App.test.tsx"
       ]

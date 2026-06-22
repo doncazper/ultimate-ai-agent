@@ -8,7 +8,7 @@ import sqlite3
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -175,6 +175,25 @@ DEFAULT_FOUNDER_LOOP_STATE_DIR = Path(".uaa") / "founder_loop"
 SAFE_STATUS_REF_CHARS = re.compile(r"[^a-z0-9_.@-]+")
 TODAY_PRODUCT_SPINE_CONTRACT_REF = "contract-ref:today-product-spine:v1"
 EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF = "contract-ref:evidence-history-grammar:v1"
+EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF = (
+    "contract-ref:founder-loop-evidence-timeline-productization:v1"
+)
+EVIDENCE_TIMELINE_PRODUCTIZATION_ROUTE_REFS = (
+    "GET /control-center/evidence/timeline",
+)
+EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES = (
+    "action_envelope_created",
+    "action_decision_recorded",
+    "chat_turn_receipt_recorded",
+    "chat_handoff_created",
+    "memory_review_decision_recorded",
+)
+EVIDENCE_TIMELINE_PRODUCTIZED_GROUP_KINDS = (
+    "today_item",
+    "action",
+    "chat_turn",
+    "memory_candidate",
+)
 TODAY_PRODUCT_SPINE_LOOP_SURFACES = ["Today", "Actions", "Evidence", "Memory"]
 EVIDENCE_HISTORY_GRAMMAR_KEYS = (
     "proposed",
@@ -816,6 +835,7 @@ class FounderLoopEvidenceTimelineItem(BaseModel):
     raw_evidence_included: bool = False
     receipt_refs: list[str] = Field(default_factory=list)
     audit_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
     replay_refs: list[str] = Field(default_factory=list)
     rollback_refs: list[str] = Field(default_factory=list)
     rollback_blockers: list[str] = Field(default_factory=list)
@@ -853,6 +873,7 @@ class FounderLoopEvidenceTimelineItem(BaseModel):
             "status_refs",
             "receipt_refs",
             "audit_refs",
+            "idempotency_refs",
             "replay_refs",
             "rollback_refs",
             "latency_refs",
@@ -863,6 +884,123 @@ class FounderLoopEvidenceTimelineItem(BaseModel):
         for route_ref in self.related_route_refs:
             _validate_safe_text(route_ref, "related_route_ref")
         _validate_safe_payload(self.model_dump(mode="json"), "evidence_timeline_item")
+        return self
+
+
+EvidenceTimelineProductizedEventType = Literal[
+    "action_envelope_created",
+    "action_decision_recorded",
+    "chat_turn_receipt_recorded",
+    "chat_handoff_created",
+    "memory_review_decision_recorded",
+]
+EvidenceTimelineProductizedGroupKind = Literal[
+    "today_item",
+    "action",
+    "chat_turn",
+    "memory_candidate",
+]
+
+
+class FounderLoopEvidenceTimelineEvent(BaseModel):
+    event_ref: str = Field(..., min_length=1)
+    event_type: EvidenceTimelineProductizedEventType
+    event_type_ref: str = Field(..., min_length=1)
+    group_kind: EvidenceTimelineProductizedGroupKind
+    group_ref: str = Field(..., min_length=1)
+    group_label: str = Field(..., min_length=1, max_length=120)
+    timeline_item_ref: str = Field(..., min_length=1)
+    item_kind: str = Field(..., min_length=1, max_length=80)
+    title: str = Field(..., min_length=1, max_length=120)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    history_answers: dict[str, FounderLoopEvidenceHistoryAnswer]
+    source_refs: list[str] = Field(default_factory=list)
+    status_refs: list[str] = Field(default_factory=list)
+    related_route_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    approval_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    rollback_blockers: list[str] = Field(default_factory=list)
+    blocked_states: list[str] = Field(default_factory=list)
+    rollback_posture: str = Field(..., min_length=1, max_length=180)
+    authority_posture: str = Field(..., min_length=1, max_length=240)
+    redaction_status: str = Field(default="redacted_summary_only", min_length=1, max_length=80)
+    raw_evidence_included: bool = False
+    approval_ref_authority: bool = False
+    rollback_execution_enabled: bool = False
+    memory_truth_authority: bool = False
+    context_injection_authorized: bool = False
+    created_at: datetime = Field(default_factory=utc_now)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_record(self) -> "FounderLoopEvidenceTimelineEvent":
+        for ref_value in [
+            self.event_ref,
+            self.event_type_ref,
+            self.group_ref,
+            self.timeline_item_ref,
+        ]:
+            _validate_safe_ref(ref_value, "evidence_timeline_event_ref")
+        if set(self.history_answers) != set(EVIDENCE_HISTORY_GRAMMAR_KEYS):
+            raise ValueError("evidence timeline event must answer every history grammar question")
+        if self.raw_evidence_included:
+            raise ValueError("raw evidence is not allowed")
+        if self.approval_ref_authority:
+            raise ValueError("approval refs are identifiers only")
+        if self.rollback_execution_enabled:
+            raise ValueError("rollback execution is not scoped")
+        if self.memory_truth_authority:
+            raise ValueError("memory evidence is not truth authority")
+        if self.context_injection_authorized:
+            raise ValueError("context injection is not authorized")
+        for field_name in [
+            "source_refs",
+            "status_refs",
+            "receipt_refs",
+            "approval_refs",
+            "idempotency_refs",
+            "audit_refs",
+            "rollback_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        for route_ref in self.related_route_refs:
+            _validate_safe_text(route_ref, "related_route_ref")
+        _validate_safe_payload(self.model_dump(mode="json"), "evidence_timeline_event")
+        return self
+
+
+class FounderLoopEvidenceTimelineGroup(BaseModel):
+    group_ref: str = Field(..., min_length=1)
+    group_kind: EvidenceTimelineProductizedGroupKind
+    group_label: str = Field(..., min_length=1, max_length=120)
+    event_count: int = Field(..., ge=0)
+    event_refs: list[str] = Field(default_factory=list)
+    event_types: list[EvidenceTimelineProductizedEventType] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    approval_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
+    blocked_states: list[str] = Field(default_factory=list)
+    rollback_posture: str = Field(..., min_length=1, max_length=180)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_record(self) -> "FounderLoopEvidenceTimelineGroup":
+        _validate_safe_ref(self.group_ref, "evidence_timeline_group_ref")
+        for field_name in [
+            "event_refs",
+            "receipt_refs",
+            "approval_refs",
+            "idempotency_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        _validate_safe_payload(self.model_dump(mode="json"), "evidence_timeline_group")
         return self
 
 
@@ -903,6 +1041,25 @@ def _json_dumps(value: Any) -> str:
 
 def _timeline_ref(kind: str, source_ref: str) -> str:
     return f"evidence-timeline:{kind}/{source_ref.replace(':', '/')}"
+
+
+def _evidence_event_ref(event_type: str, timeline_item_ref: str) -> str:
+    return _status_ref("evidence-event", f"{event_type}:{timeline_item_ref}")
+
+
+def _first_ref_with_prefix(refs: list[str], prefix: str) -> str | None:
+    for ref in refs:
+        if str(ref).startswith(prefix):
+            return str(ref)
+    return None
+
+
+def _first_ref_or(refs: list[str], fallback: str) -> str:
+    return str(refs[0]) if refs else fallback
+
+
+def _unique_sorted_refs(refs: Any) -> list[str]:
+    return sorted({str(ref) for ref in refs if ref})
 
 
 def _status_ref(prefix: str, value: str) -> str:
@@ -2212,8 +2369,17 @@ class FounderLoopRepository:
             "briefing_items": briefing_items,
             "evidence_timeline": evidence_timeline,
             "evidence_timeline_route_ref": "/evidence",
-            "evidence_timeline_backend_route_ref": "GET /control-center/today/summary",
-            "evidence_timeline_status": "storage_backed_redacted_history_grammar_refs",
+            "evidence_timeline_backend_route_ref": "GET /control-center/evidence/timeline",
+            "evidence_timeline_status": "implemented_productized_evidence_timeline_safe_refs_only",
+            "evidence_timeline_productization_contract_ref": (
+                EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF
+            ),
+            "evidence_timeline_productized_event_types": (
+                list(EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES)
+            ),
+            "evidence_timeline_productized_group_kinds": (
+                list(EVIDENCE_TIMELINE_PRODUCTIZED_GROUP_KINDS)
+            ),
             "evidence_timeline_authority_boundary": (
                 "Evidence Timeline is safe-ref and redacted-summary only. It does "
                 "not expose raw content, grant approval, execute rollback, or confer "
@@ -2237,6 +2403,325 @@ class FounderLoopRepository:
             ],
         }
 
+    def evidence_timeline(self, *, limit: int = 50) -> dict[str, Any]:
+        today = self.today_summary(limit=min(max(int(limit), 6), 50))
+        timeline = list(today["evidence_timeline"])
+        events = self._productized_evidence_events(timeline)
+        groups = self._productized_evidence_groups(events)
+        event_type_counts = {
+            event_type: sum(1 for event in events if event["event_type"] == event_type)
+            for event_type in EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES
+        }
+        return {
+            "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
+            "contract_ref": EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
+            "status": "implemented_productized_evidence_timeline_safe_refs_only",
+            "surface": "Evidence",
+            "route_ref": "GET /control-center/evidence/timeline",
+            "frontend_route_ref": "/evidence",
+            "source_today_route_ref": "GET /control-center/today/summary",
+            "storage_ref": today["storage_ref"],
+            "side_effect_class": "local_dev_workspace_only",
+            "read_only": True,
+            "safe_refs_only": True,
+            "redacted_summaries_only": True,
+            "raw_content_stored": False,
+            "approval_ref_authority": False,
+            "rollback_execution_enabled": False,
+            "memory_truth_authority": False,
+            "context_injection_authorized": False,
+            "action_execution_enabled": False,
+            "connector_write_enabled": False,
+            "production_authority_enabled": False,
+            "event_type_refs": [
+                f"evidence-event-type:{event_type}"
+                for event_type in EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES
+            ],
+            "event_types": list(EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES),
+            "group_kinds": list(EVIDENCE_TIMELINE_PRODUCTIZED_GROUP_KINDS),
+            "event_type_counts": event_type_counts,
+            "event_count": len(events),
+            "group_count": len(groups),
+            "groups": groups,
+            "events": events,
+            "receipt_refs": _unique_sorted_refs(
+                ref for event in events for ref in event.get("receipt_refs", [])
+            ),
+            "approval_refs": _unique_sorted_refs(
+                ref for event in events for ref in event.get("approval_refs", [])
+            ),
+            "idempotency_refs": _unique_sorted_refs(
+                ref for event in events for ref in event.get("idempotency_refs", [])
+            ),
+            "rollback_refs": _unique_sorted_refs(
+                ref for event in events for ref in event.get("rollback_refs", [])
+            ),
+            "blocked_states": [
+                "no_raw_evidence_display",
+                "no_approval_ref_authority",
+                "no_rollback_execution",
+                "no_memory_truth_authority",
+                "no_context_injection",
+                "no_action_execution",
+                "no_connector_write",
+                "no_production_authority",
+            ],
+            "authority_boundary": (
+                "Evidence Timeline is a read-only audit index over safe refs and "
+                "redacted summaries. It does not approve, execute, roll back, "
+                "inject memory into context, treat recall as truth, write "
+                "connectors, or confer production authority."
+            ),
+        }
+
+    def _productized_evidence_events(
+        self,
+        timeline: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        events: list[dict[str, Any]] = []
+        for item in timeline:
+            if item.get("item_kind") == "receipt_audit_rollback_ref":
+                action_envelope_ref = _first_ref_with_prefix(
+                    [*item.get("status_refs", []), *item.get("source_refs", [])],
+                    "action-envelope:",
+                )
+                if action_envelope_ref:
+                    events.append(
+                        self._productized_event(
+                            item=item,
+                            event_type="action_envelope_created",
+                            group_kind="today_item",
+                            group_ref=action_envelope_ref,
+                            group_label="Today-to-Action envelope",
+                        )
+                    )
+                action_source_ref = _first_ref_or(
+                    list(item.get("source_refs") or []),
+                    "founder-action:unknown",
+                )
+                durable_action_receipts = self._action_decision_receipts_for_item_ref(
+                    action_source_ref
+                )
+                recorded_receipt_refs = _unique_sorted_refs(
+                    [
+                        *[
+                            ref
+                            for ref in item.get("receipt_refs", [])
+                            if str(ref).startswith("receipt:founder-loop-action:")
+                        ],
+                        *[
+                            str(receipt.get("receipt_ref"))
+                            for receipt in durable_action_receipts
+                            if receipt.get("receipt_ref")
+                        ],
+                    ]
+                )
+                if recorded_receipt_refs:
+                    recorded_audit_refs = _unique_sorted_refs(
+                        [
+                            *list(item.get("audit_refs") or []),
+                            *[
+                                str(receipt.get("audit_ref"))
+                                for receipt in durable_action_receipts
+                                if receipt.get("audit_ref")
+                            ],
+                        ]
+                    )
+                    recorded_idempotency_refs = _unique_sorted_refs(
+                        [
+                            *list(item.get("idempotency_refs") or []),
+                            *[
+                                str(receipt.get("idempotency_key_ref"))
+                                for receipt in durable_action_receipts
+                                if receipt.get("idempotency_key_ref")
+                            ],
+                        ]
+                    )
+                    recorded_blocked_states = _unique_sorted_refs(
+                        [
+                            *list(item.get("blocked_states") or []),
+                            *[
+                                str(blocked_state)
+                                for receipt in durable_action_receipts
+                                for blocked_state in receipt.get("blocked_state_refs", [])
+                            ],
+                        ]
+                    )
+                    events.append(
+                        self._productized_event(
+                            item={
+                                **item,
+                                "receipt_refs": recorded_receipt_refs,
+                                "audit_refs": recorded_audit_refs,
+                                "idempotency_refs": recorded_idempotency_refs,
+                                "blocked_states": recorded_blocked_states,
+                            },
+                            event_type="action_decision_recorded",
+                            group_kind="action",
+                            group_ref=action_source_ref,
+                            group_label="Action decision receipt",
+                        )
+                    )
+            elif item.get("item_kind") == "chat_local_operator_turn_ref":
+                chat_turn_receipt_refs = [
+                    ref
+                    for ref in item.get("receipt_refs", [])
+                    if str(ref).startswith("receipt:chat-turn:")
+                ]
+                if chat_turn_receipt_refs:
+                    events.append(
+                        self._productized_event(
+                            item={**item, "receipt_refs": chat_turn_receipt_refs},
+                            event_type="chat_turn_receipt_recorded",
+                            group_kind="chat_turn",
+                            group_ref=_first_ref_or(
+                                list(item.get("source_refs") or []),
+                                "chat-turn:unknown",
+                            ),
+                            group_label="Chat turn receipt",
+                        )
+                    )
+                chat_handoff_receipt_refs = [
+                    ref
+                    for ref in item.get("receipt_refs", [])
+                    if str(ref).startswith("receipt:chat-handoff:")
+                ]
+                if chat_handoff_receipt_refs:
+                    events.append(
+                        self._productized_event(
+                            item={**item, "receipt_refs": chat_handoff_receipt_refs},
+                            event_type="chat_handoff_created",
+                            group_kind="chat_turn",
+                            group_ref=_first_ref_or(
+                                list(item.get("source_refs") or []),
+                                "chat-turn:unknown",
+                            ),
+                            group_label="Chat handoff receipt",
+                        )
+                    )
+            elif item.get("item_kind") == "memory_review_evidence_ref":
+                if item.get("receipt_refs"):
+                    events.append(
+                        self._productized_event(
+                            item=item,
+                            event_type="memory_review_decision_recorded",
+                            group_kind="memory_candidate",
+                            group_ref=_first_ref_or(
+                                list(item.get("source_refs") or []),
+                                "memory-review:unknown",
+                            ),
+                            group_label="Memory Review decision receipt",
+                        )
+                    )
+        return events
+
+    def _productized_event(
+        self,
+        *,
+        item: dict[str, Any],
+        event_type: EvidenceTimelineProductizedEventType,
+        group_kind: EvidenceTimelineProductizedGroupKind,
+        group_ref: str,
+        group_label: str,
+    ) -> dict[str, Any]:
+        timeline_item_ref = str(item["timeline_item_ref"])
+        approval_refs = _unique_sorted_refs(
+            item.get("history_answers", {}).get("approved", {}).get("refs", [])
+            if isinstance(item.get("history_answers"), dict)
+            else []
+        )
+        idempotency_refs = _unique_sorted_refs(item.get("idempotency_refs", []))
+        event = FounderLoopEvidenceTimelineEvent(
+            event_ref=_evidence_event_ref(event_type, timeline_item_ref),
+            event_type=event_type,
+            event_type_ref=f"evidence-event-type:{event_type}",
+            group_kind=group_kind,
+            group_ref=group_ref,
+            group_label=group_label,
+            timeline_item_ref=timeline_item_ref,
+            item_kind=str(item["item_kind"]),
+            title=str(item["title"]),
+            safe_summary=str(item["safe_summary"]),
+            history_answers=item["history_answers"],
+            source_refs=list(item.get("source_refs") or []),
+            status_refs=list(item.get("status_refs") or []),
+            related_route_refs=[
+                *list(item.get("related_route_refs") or []),
+                "GET /control-center/evidence/timeline",
+            ],
+            receipt_refs=list(item.get("receipt_refs") or []),
+            approval_refs=approval_refs,
+            idempotency_refs=idempotency_refs,
+            audit_refs=list(item.get("audit_refs") or []),
+            rollback_refs=list(item.get("rollback_refs") or []),
+            rollback_blockers=list(item.get("rollback_blockers") or []),
+            blocked_states=list(item.get("blocked_states") or []),
+            rollback_posture=(
+                "rollback_refs_are_inspection_only_no_rollback_execution"
+                if item.get("rollback_refs")
+                else "rollback_not_applicable_or_not_scoped"
+            ),
+            authority_posture=str(item["authority_posture"]),
+            redaction_status=str(item.get("redaction_status", "redacted_summary_only")),
+            raw_evidence_included=bool(item.get("raw_evidence_included", False)),
+            approval_ref_authority=bool(item.get("approval_ref_authority", False)),
+            rollback_execution_enabled=bool(item.get("rollback_execution_enabled", False)),
+            memory_truth_authority=bool(item.get("memory_truth_authority", False)),
+            context_injection_authorized=bool(
+                item.get("context_injection_authorized", False)
+            ),
+        )
+        return event.model_dump(mode="json")
+
+    def _productized_evidence_groups(
+        self,
+        events: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        groups: dict[str, dict[str, Any]] = {}
+        for event in events:
+            group_ref = str(event["group_ref"])
+            group = groups.setdefault(
+                group_ref,
+                {
+                    "group_ref": group_ref,
+                    "group_kind": event["group_kind"],
+                    "group_label": event["group_label"],
+                    "event_count": 0,
+                    "event_refs": [],
+                    "event_types": [],
+                    "receipt_refs": [],
+                    "approval_refs": [],
+                    "idempotency_refs": [],
+                    "blocked_states": [],
+                    "rollback_posture": "rollback_not_applicable_or_not_scoped",
+                },
+            )
+            group["event_count"] += 1
+            group["event_refs"].append(event["event_ref"])
+            group["event_types"].append(event["event_type"])
+            group["receipt_refs"].extend(event.get("receipt_refs", []))
+            group["approval_refs"].extend(event.get("approval_refs", []))
+            group["idempotency_refs"].extend(event.get("idempotency_refs", []))
+            group["blocked_states"].extend(event.get("blocked_states", []))
+            if event.get("rollback_refs"):
+                group["rollback_posture"] = (
+                    "rollback_refs_are_inspection_only_no_rollback_execution"
+                )
+        return [
+            FounderLoopEvidenceTimelineGroup(
+                **{
+                    **group,
+                    "event_refs": _unique_sorted_refs(group["event_refs"]),
+                    "event_types": sorted(set(group["event_types"])),
+                    "receipt_refs": _unique_sorted_refs(group["receipt_refs"]),
+                    "approval_refs": _unique_sorted_refs(group["approval_refs"]),
+                    "idempotency_refs": _unique_sorted_refs(group["idempotency_refs"]),
+                    "blocked_states": sorted(set(group["blocked_states"])),
+                }
+            ).model_dump(mode="json")
+            for group in groups.values()
+        ]
+
     def _build_evidence_timeline(
         self,
         *,
@@ -2257,6 +2742,9 @@ class FounderLoopRepository:
             action_ref = str(action["item_ref"])
             receipt_refs = list(action.get("receipt_refs") or [])
             audit_refs = list(action.get("audit_refs") or [])
+            idempotency_refs = [
+                str(action["idempotency_key_ref"])
+            ] if action.get("idempotency_key_ref") else []
             rollback_refs = [action["rollback_ref"]] if action.get("rollback_ref") else []
             rollback_blockers = (
                 []
@@ -2362,6 +2850,7 @@ class FounderLoopRepository:
                     ),
                     receipt_refs=receipt_refs,
                     audit_refs=audit_refs,
+                    idempotency_refs=idempotency_refs,
                     replay_refs=["replay-ref:founder-loop:action-inbox"],
                     rollback_refs=rollback_refs,
                     rollback_blockers=rollback_blockers,
@@ -2379,6 +2868,9 @@ class FounderLoopRepository:
         for plan in plans:
             plan_ref = str(plan["plan_ref"])
             expected_receipt_refs = list(plan.get("expected_receipt_refs") or [])
+            idempotency_refs = [
+                str(plan["idempotency_key_ref"])
+            ] if plan.get("idempotency_key_ref") else []
             rollback_refs = [plan["rollback_ref"]] if plan.get("rollback_ref") else []
             plan_stale_ref = _status_ref(
                 "stale-ref",
@@ -2457,6 +2949,7 @@ class FounderLoopRepository:
                     approval_posture=str(plan.get("approval_requirement_ref")),
                     receipt_refs=expected_receipt_refs,
                     audit_refs=[],
+                    idempotency_refs=idempotency_refs,
                     replay_refs=["replay-ref:founder-loop:plan-summary"],
                     rollback_refs=rollback_refs,
                     rollback_blockers=["rollback_execution_not_scoped"],
@@ -2478,6 +2971,11 @@ class FounderLoopRepository:
         ]
         chat_handoff_created_refs = [
             str(receipt["created_ref"]) for receipt in chat_handoff_receipts
+        ]
+        chat_idempotency_refs = [
+            str(receipt["idempotency_key_ref"])
+            for receipt in [*chat_turn_receipts, *chat_handoff_receipts]
+            if receipt.get("idempotency_key_ref")
         ]
         chat_evidence_refs = list(
             dict.fromkeys(
@@ -2585,6 +3083,7 @@ class FounderLoopRepository:
                     for receipt in chat_handoff_receipts
                     if receipt.get("audit_ref")
                 ],
+                idempotency_refs=chat_idempotency_refs,
                 replay_refs=["replay-ref:chat-local-operator:turn"],
                 rollback_refs=[],
                 rollback_blockers=["rollback_execution_not_applicable_no_chat_mutation"],
@@ -3247,6 +3746,11 @@ class FounderLoopRepository:
                 for receipt in decision_receipts
                 if receipt.get("audit_ref")
             ]
+            decision_idempotency_refs = [
+                str(receipt["idempotency_key_ref"])
+                for receipt in decision_receipts
+                if receipt.get("idempotency_key_ref")
+            ]
             decision_evidence_refs = [
                 str(ref)
                 for receipt in decision_receipts
@@ -3366,6 +3870,7 @@ class FounderLoopRepository:
                     approval_posture="memory_review_refs_do_not_authorize_writes",
                     receipt_refs=decision_receipt_refs,
                     audit_refs=decision_audit_refs,
+                    idempotency_refs=decision_idempotency_refs,
                     replay_refs=["replay-ref:founder-loop:memory-review"],
                     rollback_refs=[],
                     rollback_blockers=["memory_write_or_delete_rollback_not_scoped"],
@@ -4676,6 +5181,20 @@ class FounderLoopRepository:
         if not rows:
             raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_RECEIPT_NOT_FOUND")
         return dict(json.loads(str(rows[0]["receipt_json"])))
+
+    def _action_decision_receipts_for_item_ref(self, item_ref: str) -> list[dict[str, Any]]:
+        _validate_safe_ref(item_ref, "item_ref")
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM action_receipts
+            WHERE item_ref = ?
+            ORDER BY created_at ASC
+            LIMIT 50
+            """,
+            (item_ref,),
+        )
+        return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
 
     def _build_action_decision_receipt(
         self,

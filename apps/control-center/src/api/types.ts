@@ -540,6 +540,7 @@ export interface FounderLoopEvidenceTimelineItem {
   raw_evidence_included: boolean;
   receipt_refs: string[];
   audit_refs: string[];
+  idempotency_refs?: string[];
   replay_refs: string[];
   rollback_refs: string[];
   rollback_blockers: string[];
@@ -551,6 +552,103 @@ export interface FounderLoopEvidenceTimelineItem {
   blocked_states: string[];
   next_safe_action: string;
   created_at?: string;
+}
+
+export type FounderLoopEvidenceEventType =
+  | "action_envelope_created"
+  | "action_decision_recorded"
+  | "chat_turn_receipt_recorded"
+  | "chat_handoff_created"
+  | "memory_review_decision_recorded";
+
+export type FounderLoopEvidenceGroupKind =
+  | "today_item"
+  | "action"
+  | "chat_turn"
+  | "memory_candidate";
+
+export interface FounderLoopEvidenceTimelineEvent {
+  event_ref: string;
+  event_type: FounderLoopEvidenceEventType;
+  event_type_ref: string;
+  group_kind: FounderLoopEvidenceGroupKind;
+  group_ref: string;
+  group_label: string;
+  timeline_item_ref: string;
+  item_kind: string;
+  title: string;
+  safe_summary: string;
+  history_answers: FounderLoopEvidenceHistoryAnswers;
+  source_refs: string[];
+  status_refs: string[];
+  related_route_refs: string[];
+  receipt_refs: string[];
+  approval_refs: string[];
+  idempotency_refs: string[];
+  audit_refs: string[];
+  rollback_refs: string[];
+  rollback_blockers: string[];
+  blocked_states: string[];
+  rollback_posture: string;
+  authority_posture: string;
+  redaction_status: string;
+  raw_evidence_included: boolean;
+  approval_ref_authority: boolean;
+  rollback_execution_enabled: boolean;
+  memory_truth_authority: boolean;
+  context_injection_authorized: boolean;
+  created_at?: string;
+}
+
+export interface FounderLoopEvidenceTimelineGroup {
+  group_ref: string;
+  group_kind: FounderLoopEvidenceGroupKind;
+  group_label: string;
+  event_count: number;
+  event_refs: string[];
+  event_types: FounderLoopEvidenceEventType[];
+  receipt_refs: string[];
+  approval_refs: string[];
+  idempotency_refs: string[];
+  blocked_states: string[];
+  rollback_posture: string;
+}
+
+export interface FounderLoopEvidenceTimelineIndex {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  surface: string;
+  route_ref: string;
+  frontend_route_ref: string;
+  source_today_route_ref: string;
+  storage_ref: string;
+  side_effect_class: string;
+  read_only: boolean;
+  safe_refs_only: boolean;
+  redacted_summaries_only: boolean;
+  raw_content_stored: boolean;
+  approval_ref_authority: boolean;
+  rollback_execution_enabled: boolean;
+  memory_truth_authority: boolean;
+  context_injection_authorized: boolean;
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+  event_type_refs: string[];
+  event_types: FounderLoopEvidenceEventType[];
+  group_kinds: FounderLoopEvidenceGroupKind[];
+  event_type_counts: Record<FounderLoopEvidenceEventType, number>;
+  event_count: number;
+  group_count: number;
+  groups: FounderLoopEvidenceTimelineGroup[];
+  events: FounderLoopEvidenceTimelineEvent[];
+  receipt_refs: string[];
+  approval_refs: string[];
+  idempotency_refs: string[];
+  rollback_refs: string[];
+  blocked_states: string[];
+  authority_boundary: string;
 }
 
 export interface FounderLoopEvidenceHistoryQuestion {
@@ -1374,6 +1472,9 @@ export interface FounderLoopTodaySummary {
   evidence_timeline_route_ref?: string;
   evidence_timeline_backend_route_ref?: string;
   evidence_timeline_status?: string;
+  evidence_timeline_productization_contract_ref?: string;
+  evidence_timeline_productized_event_types?: FounderLoopEvidenceEventType[];
+  evidence_timeline_productized_group_kinds?: FounderLoopEvidenceGroupKind[];
   evidence_timeline_authority_boundary?: string;
   evidence_timeline_blocked_states?: string[];
   evidence_refs: string[];
@@ -2378,6 +2479,7 @@ export interface ControlCenterData {
   m39ContextProposals: M39ContextProposalData;
   macosSetupAssistant: MacOSSetupAssistantData;
   founderToday: FounderLoopTodaySummary;
+  founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderActionsInbox: FounderLoopActionsInbox;
   founderMorningBriefing: FounderLoopMorningBriefing;
   founderStorageStatus: FounderLoopStorageStatus;

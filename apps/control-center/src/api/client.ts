@@ -22,6 +22,7 @@ import type {
   FounderLoopActionDecisionRequest,
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionEnvelopePromotionRequest,
+  FounderLoopEvidenceTimelineIndex,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
   MemoryReviewDecisionRequest,
@@ -111,6 +112,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     ),
     readEnvelope<unknown>(API_ENDPOINTS.setupAssistantSummary),
     readEnvelope<FounderLoopTodaySummary>(API_ENDPOINTS.founderTodaySummary),
+    readEnvelope<FounderLoopEvidenceTimelineIndex>(
+      API_ENDPOINTS.founderEvidenceTimeline,
+    ),
     readEnvelope<FounderLoopActionsInbox>(API_ENDPOINTS.founderActionsInbox),
     readEnvelope<FounderLoopMorningBriefing>(
       API_ENDPOINTS.founderMorningBriefing,
@@ -129,9 +133,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.macosSetupAssistant,
   );
   const founderToday = fulfilledValue(results[7]);
-  const founderActionsInbox = fulfilledValue(results[8]);
-  const founderMorningBriefing = fulfilledValue(results[9]);
-  const founderStorageStatus = fulfilledValue(results[10]);
+  const founderEvidenceTimeline = fulfilledValue(results[8]);
+  const founderActionsInbox = fulfilledValue(results[9]);
+  const founderMorningBriefing = fulfilledValue(results[10]);
+  const founderStorageStatus = fulfilledValue(results[11]);
   const fulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
@@ -163,6 +168,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m39ContextProposals: mockControlCenterData.m39ContextProposals,
     macosSetupAssistant: setupAssistant,
     founderToday: founderToday ?? mockControlCenterData.founderToday,
+    founderEvidenceTimeline:
+      founderEvidenceTimeline ?? mockControlCenterData.founderEvidenceTimeline,
     founderActionsInbox:
       founderActionsInbox ?? mockControlCenterData.founderActionsInbox,
     founderMorningBriefing:
