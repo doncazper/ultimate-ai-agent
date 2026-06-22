@@ -20,6 +20,7 @@ FRONTEND_PANEL = ROOT / "apps/control-center/src/components/FounderLoopPanels.ts
 APP_TEST = ROOT / "apps/control-center/src/App.test.tsx"
 ROUTE_STATUS_MANIFEST = ROOT / "docs/control_center/route_status_manifest.json"
 STORAGE_TEST = ROOT / "tests/test_founder_loop_storage.py"
+STORAGE_SAFETY_TEST = ROOT / "tests/test_founder_loop_storage_safety.py"
 API_TEST = ROOT / "tests/test_control_center_founder_loop_api.py"
 ROUTE_TEST = ROOT / "tests/test_control_center_api_routes.py"
 
@@ -207,6 +208,7 @@ def main() -> int:
         APP_TEST,
         ROUTE_STATUS_MANIFEST,
         STORAGE_TEST,
+        STORAGE_SAFETY_TEST,
         API_TEST,
         ROUTE_TEST,
     ]:
@@ -266,7 +268,21 @@ def main() -> int:
             "approval_ref_authority",
             "rollback_execution_enabled",
             "raw_evidence_included",
-            "rejects_authority_creep",
+        ],
+        failures,
+    )
+    _require(
+        STORAGE_SAFETY_TEST,
+        [
+            "test_founder_loop_evidence_timeline_rejects_authority_creep",
+            "pytest.mark.parametrize",
+            "pytest.raises(ValueError)",
+            "FounderLoopEvidenceTimelineItem",
+            "approval_ref_authority",
+            "rollback_execution_enabled",
+            "memory_truth_authority",
+            "context_injection_authorized",
+            "raw_evidence_included",
         ],
         failures,
     )

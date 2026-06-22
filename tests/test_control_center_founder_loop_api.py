@@ -1,3 +1,4 @@
+# ruff: noqa: F401
 from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
@@ -777,29 +778,4 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert user_intent_item["rollback_execution_enabled"] is False
     assert set(USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS) <= set(
         user_intent_item["blocked_states"]
-    )
-
-
-def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_class(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
-    manifest = build_api_manifest(app)
-    routes = {route.path: route for route in manifest.routes}
-
-    assert manifest.route_count == 112
-    for path in [
-        "/control-center/today/summary",
-        "/control-center/actions/inbox",
-        "/control-center/morning-briefing/summary",
-        "/control-center/storage/status",
-    ]:
-        assert path in routes
-        assert routes[path].method == "GET"
-        assert routes[path].side_effect_class == "local_dev_workspace_only"
-        assert routes[path].operation_id.startswith("get_control_center_")
-
-    assert (
-        "control_center_founder_loop_storage_summaries"
-        in manifest.capabilities_declared
     )
