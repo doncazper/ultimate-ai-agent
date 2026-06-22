@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  fetchChatTurnReceipt,
   inspectLocalModelsRoute,
+  recordChatHandoff,
+  recordChatTurnReceipt,
   requestRedactedLocalChatProbe,
 } from "../api/client";
 import { API_ENDPOINTS } from "../api/endpoints";
 import type {
+  ChatHandoffReceipt,
+  ChatHandoffTarget,
+  ChatTurnReceipt,
+  ChatTurnReceiptRequest,
   ControlCenterData,
   LocalModelsInspectionStatus,
   OperatorLoopStepSummary,
@@ -35,11 +42,18 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
   const [probe, setProbe] = useState<
     RedactedLocalChatProbeStatus | undefined
   >();
+  const [chatReceipt, setChatReceipt] = useState<ChatTurnReceipt>();
+  const [handoffReceipt, setHandoffReceipt] = useState<ChatHandoffReceipt>();
   const [probePending, setProbePending] = useState(false);
+  const [receiptPending, setReceiptPending] = useState(false);
+  const [handoffPending, setHandoffPending] =
+    useState<ChatHandoffTarget>();
+  const [receiptError, setReceiptError] = useState<string>();
   const chatStep = useOperatorStep(data, "uaa_v1_chat");
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const selectedModelId = models.selectedModelId ?? DEFAULT_MODEL_ID;
   const canRequestProbe = models.state === "ready" && !probePending;
+  const canRecordHandoff = Boolean(chatReceipt) && handoffPending === undefined;
   const runtimeTruth =
     probe?.runtimeTruth ?? today.chat_local_operator_runtime_truth;
   const authTruth = probe?.authTruth ?? today.chat_local_operator_auth_truth;
@@ -71,10 +85,53 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
       return;
     }
     setProbePending(true);
+    setReceiptError(undefined);
+    setChatReceipt(undefined);
+    setHandoffReceipt(undefined);
     try {
-      setProbe(await requestRedactedLocalChatProbe(selectedModelId));
+      const nextProbe = await requestRedactedLocalChatProbe(selectedModelId);
+      setProbe(nextProbe);
+      if (nextProbe.state === "ready") {
+        setReceiptPending(true);
+        try {
+          const recordedReceipt = await recordChatTurnReceipt(
+            chatTurnReceiptRequestFromProbe(nextProbe),
+          );
+          const confirmedReceipt = await fetchChatTurnReceipt(
+            recordedReceipt.turn_ref,
+          ).catch(() => recordedReceipt);
+          setChatReceipt(confirmedReceipt);
+        } catch (error) {
+          setReceiptError(
+            error instanceof Error
+              ? error.message
+              : "Chat turn receipt was not recorded safely.",
+          );
+        } finally {
+          setReceiptPending(false);
+        }
+      }
     } finally {
       setProbePending(false);
+    }
+  }
+
+  async function handleHandoff(target: ChatHandoffTarget) {
+    if (!chatReceipt || handoffPending !== undefined) {
+      return;
+    }
+    setReceiptError(undefined);
+    setHandoffPending(target);
+    try {
+      setHandoffReceipt(await recordChatHandoff(chatReceipt.turn_ref, target));
+    } catch (error) {
+      setReceiptError(
+        error instanceof Error
+          ? error.message
+          : "Chat handoff receipt was not recorded safely.",
+      );
+    } finally {
+      setHandoffPending(undefined);
     }
   }
 
@@ -84,7 +141,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         eyebrow="Local operator flow"
         heading="Chat Local Operator"
         status={statusLabel(models.state)}
-        summary="Control Center can send a redacted local turn through UAA /v1 and show model, runtime, auth, and tool-denial truth without treating output as authority."
+        summary="Control Center can probe a redacted local turn through UAA /v1, record a durable receipt, and show model, runtime, auth, and tool-denial truth without treating output as authority."
       />
 
       <div className="operator-flow-grid">
@@ -195,6 +252,46 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
             ))}
           </div>
         </article>
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Durable receipt</h3>
+            <span>{today.chat_durable_receipt_status}</span>
+          </div>
+          <dl className="metadata-list">
+            <div>
+              <dt>Contract</dt>
+              <dd>{today.chat_durable_receipt_contract_ref}</dd>
+            </div>
+            <div>
+              <dt>Receipt ref</dt>
+              <dd>{chatReceipt?.receipt_ref ?? "not recorded"}</dd>
+            </div>
+            <div>
+              <dt>Evidence ref</dt>
+              <dd>{chatReceipt?.evidence_ref ?? "not recorded"}</dd>
+            </div>
+            <div>
+              <dt>Action execution</dt>
+              <dd>
+                {chatReceipt?.action_execution_enabled ? "enabled" : "blocked"}
+              </dd>
+            </div>
+            <div>
+              <dt>Memory write</dt>
+              <dd>
+                {chatReceipt?.memory_write_authorized ? "enabled" : "blocked"}
+              </dd>
+            </div>
+          </dl>
+          <div className="note-list" aria-label="Chat durable receipt routes">
+            {today.chat_durable_receipt_route_refs.map((ref) => (
+              <span key={ref}>{ref}</span>
+            ))}
+          </div>
+          {receiptPending ? (
+            <p className="form-message">Recording durable receipt...</p>
+          ) : null}
+        </article>
       </div>
 
       <div
@@ -215,15 +312,129 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
           onClick={() => void handleProbeRequest()}
           type="button"
         >
-          {probePending
-            ? "Sending local turn"
-            : "Send redacted local turn"}
+          {probePending ? "Probing local turn" : "Probe redacted local turn"}
         </button>
       </div>
+
+      <div
+        className="operator-action-panel"
+        aria-label="Chat receipt proposal handoff"
+      >
+        <div>
+          <h3>Reviewable handoff</h3>
+          <p>
+            Handoff records proposal refs for Actions or Plans only. It does not
+            execute work, write memory, or promote model output into authority.
+          </p>
+        </div>
+        <div className="action-button-row">
+          <button
+            className="secondary-button"
+            disabled={!canRecordHandoff}
+            onClick={() => void handleHandoff("actions")}
+            type="button"
+          >
+            {handoffPending === "actions"
+              ? "Recording actions proposal"
+              : "Record actions proposal"}
+          </button>
+          <button
+            className="secondary-button"
+            disabled={!canRecordHandoff}
+            onClick={() => void handleHandoff("plans")}
+            type="button"
+          >
+            {handoffPending === "plans"
+              ? "Recording plans proposal"
+              : "Record plans proposal"}
+          </button>
+        </div>
+      </div>
+
+      {handoffReceipt ? (
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Handoff receipt</h3>
+            <span>{handoffReceipt.handoff_target}</span>
+          </div>
+          <dl className="metadata-list">
+            <div>
+              <dt>Receipt ref</dt>
+              <dd>{handoffReceipt.receipt_ref}</dd>
+            </div>
+            <div>
+              <dt>Handoff ref</dt>
+              <dd>{handoffReceipt.handoff_ref}</dd>
+            </div>
+            <div>
+              <dt>Created ref</dt>
+              <dd>{handoffReceipt.created_ref}</dd>
+            </div>
+            <div>
+              <dt>Audit ref</dt>
+              <dd>{handoffReceipt.audit_ref}</dd>
+            </div>
+            <div>
+              <dt>Action execution</dt>
+              <dd>{handoffReceipt.action_executed ? "enabled" : "blocked"}</dd>
+            </div>
+            <div>
+              <dt>Plan execution</dt>
+              <dd>{handoffReceipt.plan_executed ? "enabled" : "blocked"}</dd>
+            </div>
+            <div>
+              <dt>Memory write</dt>
+              <dd>
+                {handoffReceipt.memory_write_performed ? "enabled" : "blocked"}
+              </dd>
+            </div>
+          </dl>
+        </article>
+      ) : null}
+      {receiptError ? (
+        <p className="form-error" role="alert">
+          {receiptError}
+        </p>
+      ) : null}
 
       <OperatorStepStrip steps={[localModelStep, chatStep]} />
       <OperatorSurfaceStates surface="Chat Local Operator" />
     </section>
+  );
+}
+
+function chatTurnReceiptRequestFromProbe(
+  probe: RedactedLocalChatProbeStatus,
+): ChatTurnReceiptRequest {
+  const safeModelRef = safeOperatorRefSuffix(probe.modelId);
+  return {
+    turn_ref: probe.turnRef,
+    route_ref: probe.routeRef,
+    model_ref: `model-ref:${safeModelRef}`,
+    runtime_truth: probe.runtimeTruth,
+    auth_truth: probe.authTruth,
+    tool_denial_truth: probe.toolDenialTruth,
+    safe_summary_ref: "safe-summary-ref:control-center-chat-probe",
+    evidence_refs: uniqueRefs([
+      "evidence-ref:control-center-chat-probe",
+      ...probe.evidenceRefs,
+    ]),
+    metadata_refs: [`metadata-ref:control-center-chat:${safeModelRef}`],
+  };
+}
+
+function uniqueRefs(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+function safeOperatorRefSuffix(value: string): string {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replaceAll(":", "-")
+      .replace(/[^a-z0-9_.@-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "missing"
   );
 }
 

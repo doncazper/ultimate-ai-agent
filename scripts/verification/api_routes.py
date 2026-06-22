@@ -7,30 +7,32 @@ from typing import Any
 from .repo import load_json
 
 
-ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_118.json"
+ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_121.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 118
+EXPECTED_ROUTE_COUNT = 121
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 115,
+    "protected_local_bearer_required": 118,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 100,
-    "required_before_mutation_authority": 18,
+    "not_required_for_route_classification": 101,
+    "required_before_mutation_authority": 20,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 100,
-    "required_before_mutation_authority": 18,
+    "not_required_for_route_classification": 101,
+    "required_before_mutation_authority": 20,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
-    "not_targeted_for_route": 79,
-    "targeted_local_fixed_window": 39,
+    "not_targeted_for_route": 80,
+    "targeted_local_fixed_window": 41,
 }
 EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/approve"),
     ("POST", "/control-center/actions/{action_id}/defer"),
     ("POST", "/control-center/actions/{action_id}/edit"),
     ("POST", "/control-center/actions/{action_id}/reject"),
+    ("POST", "/control-center/chat/turns"),
+    ("POST", "/control-center/chat/turns/{turn_ref}/handoff"),
     ("POST", "/control-center/today/action-envelope"),
     ("POST", "/files/review/approvals/capture"),
     ("POST", "/integrations/mattermost/events/message"),
@@ -49,6 +51,7 @@ EXPECTED_MUTATING_ROUTES = {
 EXPECTED_RATE_LIMIT_GROUPS = {
     "action_decision",
     "action_preview_proposal",
+    "chat_durable_receipt",
     "local_model_validation",
     "model_chat",
     "task_decomposition",

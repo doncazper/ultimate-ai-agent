@@ -6,6 +6,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
     FounderLoopActionEnvelopePromotionRequest,
 )
+from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
 
@@ -53,6 +54,33 @@ class FounderLoopControlCenterService:
 
     def action_receipt(self, *, action_id: str) -> dict[str, Any] | None:
         return self.repository.latest_action_receipt(action_id)
+
+    def record_chat_turn_receipt(
+        self,
+        *,
+        request: ChatTurnReceiptRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_chat_turn_receipt(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
+    def chat_turn_receipt(self, *, turn_ref: str) -> dict[str, Any] | None:
+        return self.repository.latest_chat_turn_receipt(turn_ref)
+
+    def record_chat_handoff(
+        self,
+        *,
+        turn_ref: str,
+        request: ChatHandoffRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_chat_handoff(
+            turn_ref=turn_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
 
     def morning_briefing_summary(self) -> dict:
         return self.repository.morning_briefing()

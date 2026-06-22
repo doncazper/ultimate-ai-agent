@@ -10,6 +10,8 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   API_ENDPOINTS,
+  chatTurnHandoffEndpoint,
+  chatTurnReceiptEndpoint,
   isAllowedReadEndpoint,
   isPreviewEndpoint,
   READ_ENDPOINTS,
@@ -243,6 +245,200 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+  });
+
+  it("records a Chat durable receipt and reviewable handoff with safe refs only", async () => {
+    const chatReceipt = {
+      contract_ref: "contract-ref:founder-loop-chat-durable-receipt:v1",
+      turn_ref: "chat-turn:local-operator:uaa-llama-cpp-local",
+      route_ref: API_ENDPOINTS.localChatCompletions,
+      model_ref: "model-ref:uaa-llama-cpp-local",
+      runtime_truth: "local-chat-route-answered",
+      auth_truth: "local-bearer-accepted",
+      tool_denial_truth: "tools-functions-streaming-denied",
+      safe_summary_ref: "safe-summary-ref:control-center-chat-probe",
+      handoff_refs: [
+        "handoff-ref:chat-to-actions:uaa-llama-cpp-local",
+        "handoff-ref:chat-to-plans:uaa-llama-cpp-local",
+      ],
+      receipt_ref: "receipt:chat-turn:control-center-test",
+      evidence_ref: "evidence-ref:chat-turn:control-center-test",
+      idempotency_key_ref: "idempotency-ref:control-center-chat-turn:test",
+      payload_fingerprint_ref: "payload-fingerprint:chat-durable-receipt:test",
+      evidence_refs: ["evidence-ref:control-center-chat-probe"],
+      blocked_state_refs: [
+        "blocked-state:no-model-output-authority",
+        "blocked-state:no-tool-execution",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-context-injection",
+        "blocked-state:no-provider-sdk-call",
+        "blocked-state:no-web-fetch",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-approval-grant-capture",
+        "blocked-state:no-production-authority",
+      ],
+      response_visible: false,
+      prompt_body_visible: false,
+      completion_body_visible: false,
+      model_output_authority: false,
+      tool_execution_enabled: false,
+      memory_write_authorized: false,
+      context_injection_authorized: false,
+      provider_sdk_call_enabled: false,
+      web_fetch_enabled: false,
+      connector_write_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      action_execution_enabled: false,
+      approval_grant_capture_enabled: false,
+      production_authority_enabled: false,
+      replayed: false,
+      created_at: "2026-06-22T00:00:00Z",
+    };
+    const handoffReceipt = {
+      contract_ref: "contract-ref:founder-loop-chat-durable-receipt:v1",
+      turn_ref: chatReceipt.turn_ref,
+      handoff_target: "actions",
+      handoff_ref: "handoff-ref:chat-to-actions:control-center-test",
+      created_ref: "founder-action:chat-handoff:control-center-test",
+      receipt_ref: "receipt:chat-handoff:control-center-test",
+      audit_ref: "audit:chat-handoff:control-center-test",
+      evidence_ref: "evidence-ref:chat-handoff:control-center-test",
+      idempotency_key_ref:
+        "idempotency-ref:control-center-chat-handoff:actions:test",
+      payload_fingerprint_ref: "payload-fingerprint:chat-durable-receipt:handoff-test",
+      safe_summary_ref: "safe-summary-ref:chat-handoff:control-center-test",
+      evidence_refs: ["evidence-ref:chat-handoff:control-center-test"],
+      blocked_state_refs: ["blocked-state:no-action-execution"],
+      action_executed: false,
+      plan_executed: false,
+      connector_write_performed: false,
+      memory_write_performed: false,
+      model_output_authority: false,
+      context_injection_authorized: false,
+      production_authority_enabled: false,
+      replayed: false,
+      created_at: "2026-06-22T00:00:00Z",
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.localModels)) {
+        return new Response(
+          JSON.stringify({ data: [{ id: "uaa-llama-cpp-local" }] }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.localChatCompletions)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              id: "chatcmpl-safe-probe",
+              uaa_safety: {
+                tool_executed: false,
+                tools_enabled: false,
+                functions_enabled: false,
+                streaming_enabled: false,
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.controlCenterChatTurns)
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: chatReceipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        !options?.method &&
+        urlText.endsWith(chatTurnReceiptEndpoint(chatReceipt.turn_ref))
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: chatReceipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(chatTurnHandoffEndpoint(chatReceipt.turn_ref))
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: handoffReceipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Probe redacted local turn/i,
+      }),
+    );
+
+    await screen.findByText("receipt:chat-turn:control-center-test");
+    const [, receiptOptions] =
+      fetchMock.mock.calls.find(
+        ([url, options]) =>
+          options?.method === "POST" &&
+          String(url).endsWith(API_ENDPOINTS.controlCenterChatTurns),
+      ) ?? [];
+    expect(receiptOptions?.headers).toMatchObject({
+      "X-UAA-Idempotency-Key": expect.stringMatching(
+        /^idempotency-ref:control-center-chat-turn:/,
+      ),
+    });
+    const receiptBody = JSON.stringify(JSON.parse(String(receiptOptions?.body)));
+    expect(receiptBody).toContain("model-ref:uaa-llama-cpp-local");
+    expect(receiptBody).not.toContain("messages");
+    expect(receiptBody).not.toContain("content");
+    expect(receiptBody).not.toContain("raw");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Record actions proposal/i }),
+    );
+
+    await screen.findByText("receipt:chat-handoff:control-center-test");
+    expect(
+      screen.getByText("founder-action:chat-handoff:control-center-test"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
+    const [, handoffOptions] =
+      fetchMock.mock.calls.find(
+        ([url, options]) =>
+          options?.method === "POST" &&
+          String(url).endsWith(chatTurnHandoffEndpoint(chatReceipt.turn_ref)),
+      ) ?? [];
+    expect(handoffOptions?.headers).toMatchObject({
+      "X-UAA-Idempotency-Key": expect.stringMatching(
+        /^idempotency-ref:control-center-chat-handoff:actions:/,
+      ),
+    });
+    expect(JSON.parse(String(handoffOptions?.body))).toMatchObject({
+      handoff_target: "actions",
+      decision_reason_ref: "decision-reason-ref:control-center-chat-actions",
+    });
   });
 
   it("renders runtime, remote, mobile, and plugin governance panels as safe summaries", async () => {
@@ -1145,7 +1341,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("118")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("121")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -2706,7 +2902,17 @@ describe("Web Control Center shell", () => {
     expect(READ_ENDPOINTS).not.toContain(
       API_ENDPOINTS.runtimeSmokeReportValidate,
     );
+    expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.controlCenterChatTurns);
     expect(API_ENDPOINTS.actionPreview).toBe("/control-center/actions/preview");
+    expect(API_ENDPOINTS.controlCenterChatTurns).toBe(
+      "/control-center/chat/turns",
+    );
+    expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
+      "/control-center/chat/turns/chat-turn%3Atest/receipt",
+    );
+    expect(chatTurnHandoffEndpoint("chat-turn:test")).toBe(
+      "/control-center/chat/turns/chat-turn%3Atest/handoff",
+    );
     expect(API_ENDPOINTS.runtimeSmokeReportValidate).toBe(
       "/runtime/smoke-reports/validate",
     );
@@ -2819,7 +3025,7 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 118,
+      route_count: 121,
       control_center_route_count: 19,
       operation_ids_unique: true,
       execution_routes_present: false,
@@ -3466,6 +3672,18 @@ const mockApiData = {
       "blocked-state:no-approval-grant-capture",
       "blocked-state:no-production-authority",
     ],
+    chat_durable_receipt_contract_ref:
+      "contract-ref:founder-loop-chat-durable-receipt:v1",
+    chat_durable_receipt_route_refs: [
+      "POST /control-center/chat/turns",
+      "GET /control-center/chat/turns/{turn_ref}/receipt",
+      "POST /control-center/chat/turns/{turn_ref}/handoff",
+    ],
+    chat_durable_receipt_status:
+      "implemented_receipt_routes_ready_no_turn_recorded",
+    chat_turn_receipt_refs: [],
+    chat_handoff_receipt_refs: [],
+    chat_handoff_created_refs: [],
     governed_code_workbench_contract_ref:
       "contract-ref:governed-code-workbench:v1",
     governed_code_workbench_status:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -13,12 +14,28 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.chat import (
+    CHAT_DURABLE_RECEIPT_CONTRACT_REF,
+    CHAT_DURABLE_RECEIPT_ROUTE_REFS,
     CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS,
     CHAT_LOCAL_OPERATOR_REQUIRED_TRUTH_FIELDS,
     CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
+    ChatHandoffReceipt,
+    ChatHandoffRequest,
+    ChatTurnReceipt,
+    ChatTurnReceiptRequest,
     build_chat_local_operator_turn_envelope,
+    chat_handoff_audit_ref,
+    chat_handoff_created_ref,
+    chat_handoff_payload_for_fingerprint,
+    chat_handoff_receipt_ref,
     chat_local_operator_authority_posture,
     chat_local_operator_surface_bindings,
+    chat_payload_fingerprint_ref,
+    chat_turn_evidence_ref,
+    chat_turn_handoff_ref,
+    chat_turn_payload_for_fingerprint,
+    chat_turn_receipt_ref,
+    chat_turn_ref_for_request,
 )
 from ultimate_ai_agent.core.code import (
     GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
@@ -1130,6 +1147,12 @@ def _safe_suffix(value: str) -> str:
     return SAFE_STATUS_REF_CHARS.sub("-", value.lower()).strip("-") or "missing"
 
 
+def _short_ref_suffix(value: str, *, prefix_len: int = 48) -> str:
+    suffix = _safe_suffix(value)
+    digest = hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest()[:12]
+    return f"{suffix[:prefix_len].strip('-') or 'ref'}-{digest}"
+
+
 def _memory_review_decision_contract_payload(item: dict[str, Any]) -> dict[str, Any]:
     review_ref = str(item.get("review_ref", "memory-review:missing"))
     suffix = _safe_suffix(review_ref)
@@ -1869,6 +1892,8 @@ class FounderLoopRepository:
             "action_envelope_receipts": self._count("action_envelope_receipts"),
             "action_decision_events": self._count("action_decision_events"),
             "action_receipts": self._count("action_receipts"),
+            "chat_turn_receipts": self._count("chat_turn_receipts"),
+            "chat_handoff_receipts": self._count("chat_handoff_receipts"),
             "briefing_items": self._count("briefing_items"),
             "plan_summaries": self._count("plan_summaries"),
             "memory_review_queue": self._count("memory_review_queue"),
@@ -1900,6 +1925,8 @@ class FounderLoopRepository:
         plans = self.list_plan_summaries(limit=3)
         memory_items = self.list_memory_review_queue(limit=3)
         briefing_items = self.list_briefing_items(limit=3)
+        chat_turn_receipts = self.list_chat_turn_receipts(limit=5)
+        chat_handoff_receipts = self.list_chat_handoff_receipts(limit=5)
         cross_surface_memory_intake_contract = (
             _cross_surface_memory_intake_contract_payload()
         )
@@ -1924,6 +1951,8 @@ class FounderLoopRepository:
                 private_beta_readiness_gate_contract
             ),
             user_intent_understanding_contract=user_intent_understanding_contract,
+            chat_turn_receipts=chat_turn_receipts,
+            chat_handoff_receipts=chat_handoff_receipts,
         )
         next_safe_actions = _next_safe_actions(
             actions=actions,
@@ -2009,6 +2038,22 @@ class FounderLoopRepository:
             **user_intent_understanding_contract,
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
+            "chat_durable_receipt_contract_ref": CHAT_DURABLE_RECEIPT_CONTRACT_REF,
+            "chat_durable_receipt_route_refs": list(CHAT_DURABLE_RECEIPT_ROUTE_REFS),
+            "chat_durable_receipt_status": (
+                "implemented_durable_receipts_and_reviewable_handoffs_execution_blocked"
+                if chat_turn_receipts or chat_handoff_receipts
+                else "implemented_receipt_routes_ready_no_turn_recorded"
+            ),
+            "chat_turn_receipt_refs": [
+                str(receipt["receipt_ref"]) for receipt in chat_turn_receipts
+            ],
+            "chat_handoff_receipt_refs": [
+                str(receipt["receipt_ref"]) for receipt in chat_handoff_receipts
+            ],
+            "chat_handoff_created_refs": [
+                str(receipt["created_ref"]) for receipt in chat_handoff_receipts
+            ],
             "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
             "plans_action_envelope_review_postures": (
                 plans_action_envelope_review_posture_rows()
@@ -2150,6 +2195,8 @@ class FounderLoopRepository:
         memory_to_loop_binding_contract: dict[str, Any],
         private_beta_readiness_gate_contract: dict[str, Any],
         user_intent_understanding_contract: dict[str, Any],
+        chat_turn_receipts: list[dict[str, Any]],
+        chat_handoff_receipts: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         timeline: list[FounderLoopEvidenceTimelineItem] = []
         for action in actions:
@@ -2366,9 +2413,30 @@ class FounderLoopRepository:
                     ),
                     blocked_states=list(plan.get("blocked_state_refs") or []),
                     next_safe_action=str(plan.get("next_step_summary")),
-                )
             )
+        )
         chat_contract = _chat_local_operator_contract_payload()
+        chat_turn_receipt_refs = [
+            str(receipt["receipt_ref"]) for receipt in chat_turn_receipts
+        ]
+        chat_handoff_receipt_refs = [
+            str(receipt["receipt_ref"]) for receipt in chat_handoff_receipts
+        ]
+        chat_handoff_created_refs = [
+            str(receipt["created_ref"]) for receipt in chat_handoff_receipts
+        ]
+        chat_evidence_refs = list(
+            dict.fromkeys(
+                [
+                    *chat_contract["chat_local_operator_safe_evidence_refs"],
+                    *[
+                        str(receipt["evidence_ref"])
+                        for receipt in [*chat_turn_receipts, *chat_handoff_receipts]
+                        if receipt.get("evidence_ref")
+                    ],
+                ]
+            )
+        )
         timeline.append(
             FounderLoopEvidenceTimelineItem(
                 timeline_item_ref=_timeline_ref(
@@ -2399,18 +2467,27 @@ class FounderLoopRepository:
                     ),
                     happened=_history_answer(
                         "happened",
-                        "Only safe route/runtime/auth/tool-denial evidence refs are produced; turn content is withheld from durable history.",
-                        refs=chat_contract["chat_local_operator_safe_evidence_refs"],
-                        status="inspection_only",
+                        "Only safe route/runtime/auth/tool-denial evidence refs and durable receipt refs are produced; turn content is withheld from durable history.",
+                        refs=[*chat_evidence_refs, *chat_turn_receipt_refs],
+                        status=(
+                            "receipt_recorded"
+                            if chat_turn_receipt_refs
+                            else "inspection_only"
+                        ),
                     ),
                     changed=_history_answer(
                         "changed",
-                        "Chat does not mutate Plans, Actions, Memory, connectors, shell, or repo state.",
+                        "Chat handoffs create reviewable Plan or Action refs only; execution, connector, memory, shell, and repo state remain unchanged.",
                         refs=[
                             chat_contract["chat_local_operator_plans_handoff_ref"],
                             chat_contract["chat_local_operator_actions_handoff_ref"],
+                            *chat_handoff_created_refs,
                         ],
-                        status="proposal_refs_only",
+                        status=(
+                            "reviewable_handoff_refs"
+                            if chat_handoff_created_refs
+                            else "proposal_refs_only"
+                        ),
                     ),
                     undoable=_history_answer(
                         "undoable",
@@ -2444,8 +2521,16 @@ class FounderLoopRepository:
                     "model output is not truth, memory, approval, or execution authority."
                 ),
                 approval_posture="approval-status:chat-output-not-authority",
-                receipt_refs=chat_contract["chat_local_operator_safe_evidence_refs"],
-                audit_refs=[],
+                receipt_refs=[
+                    *chat_contract["chat_local_operator_safe_evidence_refs"],
+                    *chat_turn_receipt_refs,
+                    *chat_handoff_receipt_refs,
+                ],
+                audit_refs=[
+                    str(receipt["audit_ref"])
+                    for receipt in chat_handoff_receipts
+                    if receipt.get("audit_ref")
+                ],
                 replay_refs=["replay-ref:chat-local-operator:turn"],
                 rollback_refs=[],
                 rollback_blockers=["rollback_execution_not_applicable_no_chat_mutation"],
@@ -3523,6 +3608,353 @@ class FounderLoopRepository:
             for action in actions
         ]
 
+    def record_chat_turn_receipt(
+        self,
+        *,
+        request: ChatTurnReceiptRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        payload_fingerprint_ref = chat_payload_fingerprint_ref(
+            chat_turn_payload_for_fingerprint(request=request)
+        )
+        replay = self._chat_turn_receipt_replay(idempotency_key_ref)
+        if replay is not None:
+            if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
+                raise FounderLoopStorageDuplicateError(
+                    "FOUNDER_LOOP_CHAT_TURN_IDEMPOTENCY_CONFLICT"
+                )
+            receipt = self._chat_turn_receipt_by_ref(str(replay["receipt_ref"]))
+            return {
+                **receipt,
+                "replayed": True,
+                "safe_summary_ref": "safe-summary-ref:chat-turn-replay",
+            }
+
+        turn_ref = chat_turn_ref_for_request(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+        receipt_ref = chat_turn_receipt_ref(turn_ref, idempotency_key_ref)
+        evidence_ref = chat_turn_evidence_ref(turn_ref)
+        evidence_refs = list(
+            dict.fromkeys(
+                [
+                    "evidence-ref:founder-loop:chat-turn-receipt",
+                    evidence_ref,
+                    *request.evidence_refs,
+                    *request.metadata_refs,
+                ]
+            )
+        )
+        receipt = ChatTurnReceipt(
+            turn_ref=turn_ref,
+            route_ref=request.route_ref,
+            model_ref=request.model_ref,
+            runtime_truth=request.runtime_truth,
+            auth_truth=request.auth_truth,
+            tool_denial_truth=request.tool_denial_truth,
+            safe_summary_ref=request.safe_summary_ref,
+            handoff_refs=[
+                chat_turn_handoff_ref(turn_ref, "actions"),
+                chat_turn_handoff_ref(turn_ref, "plans"),
+            ],
+            receipt_ref=receipt_ref,
+            evidence_ref=evidence_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            evidence_refs=evidence_refs,
+            blocked_state_refs=list(CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS),
+        )
+        receipt_payload = receipt.model_dump(mode="json")
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO chat_turn_receipts (
+                    receipt_ref, turn_ref, receipt_json, created_at
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    receipt.receipt_ref,
+                    receipt.turn_ref,
+                    _json_dumps(receipt_payload),
+                    receipt.created_at,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO chat_turn_receipt_replays (
+                    key_ref, turn_ref, payload_fingerprint_ref, receipt_ref, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    idempotency_key_ref,
+                    receipt.turn_ref,
+                    payload_fingerprint_ref,
+                    receipt.receipt_ref,
+                    receipt.created_at,
+                ),
+            )
+        self.append_log(
+            JsonlLogKind.receipt,
+            {
+                "event_ref": receipt.receipt_ref,
+                "safe_summary": "Chat turn durable receipt recorded as safe refs only.",
+                "evidence_refs": receipt.evidence_refs,
+            },
+        )
+        return receipt_payload
+
+    def latest_chat_turn_receipt(self, turn_ref: str) -> dict[str, Any] | None:
+        _validate_safe_ref(turn_ref, "turn_ref")
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM chat_turn_receipts
+            WHERE turn_ref = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (turn_ref,),
+        )
+        if not rows:
+            return None
+        return dict(json.loads(str(rows[0]["receipt_json"])))
+
+    def record_chat_handoff(
+        self,
+        *,
+        turn_ref: str,
+        request: ChatHandoffRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        _validate_safe_ref(turn_ref, "turn_ref")
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        turn_receipt = self.latest_chat_turn_receipt(turn_ref)
+        if turn_receipt is None:
+            raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_TURN_RECEIPT_NOT_FOUND")
+
+        payload_fingerprint_ref = chat_payload_fingerprint_ref(
+            chat_handoff_payload_for_fingerprint(turn_ref=turn_ref, request=request)
+        )
+        replay = self._chat_handoff_replay(idempotency_key_ref)
+        if replay is not None:
+            if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
+                raise FounderLoopStorageDuplicateError(
+                    "FOUNDER_LOOP_CHAT_HANDOFF_IDEMPOTENCY_CONFLICT"
+                )
+            receipt = self._chat_handoff_receipt_by_ref(str(replay["receipt_ref"]))
+            return {
+                **receipt,
+                "replayed": True,
+                "safe_summary_ref": "safe-summary-ref:chat-handoff-replay",
+            }
+
+        target = request.handoff_target
+        handoff_ref = chat_turn_handoff_ref(turn_ref, target)
+        created_ref = chat_handoff_created_ref(turn_ref, target)
+        receipt_ref = chat_handoff_receipt_ref(turn_ref, target, idempotency_key_ref)
+        audit_ref = chat_handoff_audit_ref(turn_ref, target, idempotency_key_ref)
+        evidence_ref = f"evidence-ref:chat-handoff:{_safe_suffix(target)}:{_safe_suffix(turn_ref)}"
+        evidence_refs = list(
+            dict.fromkeys(
+                [
+                    "evidence-ref:founder-loop:chat-handoff",
+                    str(turn_receipt.get("receipt_ref")),
+                    evidence_ref,
+                    *list(turn_receipt.get("evidence_refs") or []),
+                    *request.metadata_refs,
+                ]
+            )
+        )
+        receipt = ChatHandoffReceipt(
+            turn_ref=turn_ref,
+            handoff_target=target,
+            handoff_ref=handoff_ref,
+            created_ref=created_ref,
+            receipt_ref=receipt_ref,
+            audit_ref=audit_ref,
+            evidence_ref=evidence_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            safe_summary_ref="safe-summary-ref:chat-handoff-review-only",
+            evidence_refs=evidence_refs,
+            blocked_state_refs=list(CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS),
+        )
+        receipt_payload = receipt.model_dump(mode="json")
+        if target == "actions":
+            self._upsert_chat_handoff_action(
+                created_ref=created_ref,
+                receipt=receipt,
+                turn_receipt=turn_receipt,
+                idempotency_key_ref=idempotency_key_ref,
+                evidence_refs=evidence_refs,
+            )
+        else:
+            self._upsert_chat_handoff_plan(
+                created_ref=created_ref,
+                receipt=receipt,
+                turn_receipt=turn_receipt,
+                evidence_refs=evidence_refs,
+            )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO chat_handoff_receipts (
+                    receipt_ref, turn_ref, handoff_target, handoff_ref, created_ref,
+                    receipt_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    receipt.receipt_ref,
+                    receipt.turn_ref,
+                    receipt.handoff_target,
+                    receipt.handoff_ref,
+                    receipt.created_ref,
+                    _json_dumps(receipt_payload),
+                    receipt.created_at,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO chat_handoff_replays (
+                    key_ref, turn_ref, handoff_target, payload_fingerprint_ref,
+                    receipt_ref, handoff_ref, created_ref, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    idempotency_key_ref,
+                    receipt.turn_ref,
+                    receipt.handoff_target,
+                    payload_fingerprint_ref,
+                    receipt.receipt_ref,
+                    receipt.handoff_ref,
+                    receipt.created_ref,
+                    receipt.created_at,
+                ),
+            )
+        self.append_log(
+            JsonlLogKind.receipt,
+            {
+                "event_ref": receipt.receipt_ref,
+                "safe_summary": "Chat handoff receipt recorded as review-only refs.",
+                "evidence_refs": receipt.evidence_refs,
+            },
+        )
+        self.append_log(
+            JsonlLogKind.audit,
+            {
+                "event_ref": receipt.audit_ref,
+                "safe_summary": "Chat handoff audit ref recorded without execution.",
+                "evidence_refs": receipt.evidence_refs,
+            },
+        )
+        return receipt_payload
+
+    def list_chat_turn_receipts(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM chat_turn_receipts
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (self._bounded_limit(limit),),
+        )
+        return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+
+    def list_chat_handoff_receipts(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM chat_handoff_receipts
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (self._bounded_limit(limit),),
+        )
+        return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+
+    def _upsert_chat_handoff_action(
+        self,
+        *,
+        created_ref: str,
+        receipt: ChatHandoffReceipt,
+        turn_receipt: dict[str, Any],
+        idempotency_key_ref: str,
+        evidence_refs: list[str],
+    ) -> None:
+        suffix = _short_ref_suffix(created_ref)
+        self.upsert_action(
+            FounderLoopActionRecord(
+                item_ref=created_ref,
+                title="Action envelope from Chat handoff",
+                safe_summary=(
+                    "Chat safe refs were handed off into a reviewable Action envelope; "
+                    "no action execution occurred."
+                ),
+                surface="Chat",
+                priority="medium",
+                risk_class="medium",
+                status="proposed",
+                side_effect_class="local_dev_workspace_only",
+                authority_boundary=(
+                    "Chat handoff creates reviewable local state only; model output "
+                    "is not approval or execution authority."
+                ),
+                approval_required=True,
+                approval_envelope_ref=f"approval-envelope:chat-handoff:{suffix}",
+                approval_envelope_status="review_ready_exact_scope_required",
+                state_change_contract_ref=CHAT_DURABLE_RECEIPT_CONTRACT_REF,
+                state_change_readiness="chat_handoff_action_envelope_created_no_execution",
+                blocked_state=(
+                    "Action execution, connector writes, memory writes, shell/subprocess "
+                    "work, provider/model calls, and production authority remain blocked."
+                ),
+                evidence_refs=evidence_refs,
+                receipt_refs=[str(turn_receipt.get("receipt_ref")), receipt.receipt_ref],
+                audit_refs=[receipt.audit_ref],
+                idempotency_key_ref=idempotency_key_ref,
+                expires_at="review_required_before_action_decision",
+                stale_state="recheck_chat_receipt_before_action_decision",
+                rollback_ref=f"rollback-plan:chat-handoff:{suffix}",
+                safe_disable_ref=f"safe-disable:chat-handoff:{suffix}",
+                next_safe_action=(
+                    "Review the Chat handoff Action envelope; execution remains blocked."
+                ),
+            )
+        )
+
+    def _upsert_chat_handoff_plan(
+        self,
+        *,
+        created_ref: str,
+        receipt: ChatHandoffReceipt,
+        turn_receipt: dict[str, Any],
+        evidence_refs: list[str],
+    ) -> None:
+        _ = turn_receipt
+        self.upsert_plan(
+            FounderLoopPlanRecord(
+                plan_ref=created_ref,
+                title="Plan proposal from Chat handoff",
+                status="partial_backend_not_product_ready",
+                safe_summary=(
+                    "Chat safe refs were handed off into a reviewable plan proposal; "
+                    "no plan execution occurred."
+                ),
+                next_step_summary=(
+                    "Review the plan proposal and create exact Action envelopes before "
+                    "any mutation is considered."
+                ),
+                evidence_refs=list(dict.fromkeys([*evidence_refs, receipt.receipt_ref])),
+            )
+        )
+
     def promote_today_item_to_action_envelope(
         self,
         *,
@@ -4010,6 +4442,63 @@ class FounderLoopRepository:
                     "evidence_refs": item.get("evidence_refs", []),
                 }
         return None
+
+    def _chat_turn_receipt_replay(self, idempotency_key_ref: str) -> dict[str, Any] | None:
+        rows = self._fetch_all(
+            """
+            SELECT key_ref, turn_ref, payload_fingerprint_ref, receipt_ref, created_at
+            FROM chat_turn_receipt_replays
+            WHERE key_ref = ?
+            LIMIT 1
+            """,
+            (idempotency_key_ref,),
+        )
+        if not rows:
+            return None
+        return dict(rows[0])
+
+    def _chat_handoff_replay(self, idempotency_key_ref: str) -> dict[str, Any] | None:
+        rows = self._fetch_all(
+            """
+            SELECT key_ref, turn_ref, handoff_target, payload_fingerprint_ref,
+                   receipt_ref, handoff_ref, created_ref, created_at
+            FROM chat_handoff_replays
+            WHERE key_ref = ?
+            LIMIT 1
+            """,
+            (idempotency_key_ref,),
+        )
+        if not rows:
+            return None
+        return dict(rows[0])
+
+    def _chat_turn_receipt_by_ref(self, receipt_ref: str) -> dict[str, Any]:
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM chat_turn_receipts
+            WHERE receipt_ref = ?
+            LIMIT 1
+            """,
+            (receipt_ref,),
+        )
+        if not rows:
+            raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_TURN_RECEIPT_NOT_FOUND")
+        return dict(json.loads(str(rows[0]["receipt_json"])))
+
+    def _chat_handoff_receipt_by_ref(self, receipt_ref: str) -> dict[str, Any]:
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM chat_handoff_receipts
+            WHERE receipt_ref = ?
+            LIMIT 1
+            """,
+            (receipt_ref,),
+        )
+        if not rows:
+            raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_HANDOFF_RECEIPT_NOT_FOUND")
+        return dict(json.loads(str(rows[0]["receipt_json"])))
 
     def _action_decision_replay(self, idempotency_key_ref: str) -> dict[str, Any] | None:
         rows = self._fetch_all(
@@ -4666,6 +5155,38 @@ class FounderLoopRepository:
                     payload_fingerprint_ref TEXT NOT NULL,
                     receipt_ref TEXT NOT NULL,
                     decision_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS chat_turn_receipts (
+                    receipt_ref TEXT PRIMARY KEY,
+                    turn_ref TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS chat_turn_receipt_replays (
+                    key_ref TEXT PRIMARY KEY,
+                    turn_ref TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    receipt_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS chat_handoff_receipts (
+                    receipt_ref TEXT PRIMARY KEY,
+                    turn_ref TEXT NOT NULL,
+                    handoff_target TEXT NOT NULL,
+                    handoff_ref TEXT NOT NULL,
+                    created_ref TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS chat_handoff_replays (
+                    key_ref TEXT PRIMARY KEY,
+                    turn_ref TEXT NOT NULL,
+                    handoff_target TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    receipt_ref TEXT NOT NULL,
+                    handoff_ref TEXT NOT NULL,
+                    created_ref TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS plan_summaries (
@@ -5358,6 +5879,8 @@ class FounderLoopRepository:
             "action_inbox",
             "action_receipts",
             "briefing_items",
+            "chat_handoff_receipts",
+            "chat_turn_receipts",
             "plan_summaries",
             "memory_review_queue",
             "idempotency_keys",

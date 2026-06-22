@@ -11,7 +11,7 @@ from ultimate_ai_agent.api.manifest import build_api_manifest, route_side_effect
 ROOT = Path(__file__).resolve().parents[1]
 ROUTE_GROUPING_MAP = ROOT / "docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md"
 ROUTE_STATUS_MANIFEST = ROOT / "docs/control_center/route_status_manifest.json"
-EXPECTED_ROUTE_COUNT = 118
+EXPECTED_ROUTE_COUNT = 121
 
 EVIDENCE_BEHAVIOR_BY_ROUTE_GROUP = {
     "adapter-boundary": "validation decision refs",

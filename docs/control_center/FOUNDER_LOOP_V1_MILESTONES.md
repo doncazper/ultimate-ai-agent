@@ -202,6 +202,12 @@ Proof refs:
 
 ## FCC-V1-004 - Control Center Chat Durable Receipt And Handoff
 
+Status: implemented for durable Chat receipts and reviewable Actions/Plans
+handoffs. The routes, storage, Control Center UI, release-surface refs,
+verifier, and focused tests are present. Handoffs still do not execute work,
+write memory, inject context, call providers, write connectors, grant public
+beta authority, or grant production authority.
+
 Goal: make Chat produce durable operator receipts and reviewable handoffs
 without treating model output as authority.
 
@@ -223,11 +229,18 @@ Tasks:
 - Handoff does not execute work.
 - Update Chat UI so a local turn shows receipt status after submission.
 - Show model/runtime/auth/tool-denial truth.
-- Add "Send to Actions" and "Send to Plans" only when backend handoff is
-  available.
+- Add "Record actions proposal" and "Record plans proposal" only when backend
+  handoff is available.
 
 Definition of done: Control Center Chat can produce a durable safe receipt and
 create reviewable handoff refs, while model output remains non-authoritative.
+
+Proof refs:
+
+- `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`
+- `scripts/verify_fcc_v1_004_chat_durable_receipt_handoff.py`
+- `tests/test_fcc_v1_004_chat_durable_receipt_handoff.py`
+- `apps/control-center/src/components/OperatorFlowPanels.tsx`
 
 ## FCC-V1-005 - Memory Review Decisions
 

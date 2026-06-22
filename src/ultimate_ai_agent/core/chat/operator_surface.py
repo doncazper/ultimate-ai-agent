@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -10,11 +12,21 @@ from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_text,
     validate_task_ref,
 )
+from ultimate_ai_agent.core.time import utc_now
 
 
 CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF = (
     "contract-ref:chat-local-operator-surface:v1"
 )
+CHAT_DURABLE_RECEIPT_CONTRACT_REF = (
+    "contract-ref:founder-loop-chat-durable-receipt:v1"
+)
+CHAT_DURABLE_RECEIPT_ROUTE_REFS = (
+    "POST /control-center/chat/turns",
+    "GET /control-center/chat/turns/{turn_ref}/receipt",
+    "POST /control-center/chat/turns/{turn_ref}/handoff",
+)
+CHAT_HANDOFF_TARGETS = ("actions", "plans")
 CHAT_LOCAL_OPERATOR_REQUIRED_TRUTH_FIELDS = [
     "turn_ref",
     "route_ref",
@@ -139,6 +151,178 @@ class ChatLocalOperatorTurnEnvelope(BaseModel):
         return self
 
 
+class ChatTurnReceiptRequest(BaseModel):
+    turn_ref: str | None = Field(default=None, max_length=200)
+    route_ref: str = Field(default="/v1/chat/completions", min_length=1, max_length=120)
+    model_ref: str = Field(..., min_length=1, max_length=160)
+    runtime_truth: str = Field(..., min_length=1, max_length=80)
+    auth_truth: str = Field(..., min_length=1, max_length=80)
+    tool_denial_truth: str = Field(..., min_length=1, max_length=80)
+    safe_summary_ref: str = Field(
+        default="safe-summary-ref:chat-local-operator-turn",
+        min_length=1,
+        max_length=160,
+    )
+    evidence_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_request(self) -> "ChatTurnReceiptRequest":
+        if self.turn_ref is not None:
+            validate_task_ref(self.turn_ref, "turn_ref")
+        for field_name in ["model_ref", "safe_summary_ref"]:
+            validate_task_ref(getattr(self, field_name), field_name)
+        for field_name in ["route_ref", "runtime_truth", "auth_truth", "tool_denial_truth"]:
+            validate_safe_task_text(getattr(self, field_name), field_name)
+        for field_name in ["evidence_refs", "metadata_refs"]:
+            for ref_value in getattr(self, field_name):
+                validate_task_ref(ref_value, field_name)
+        _validate_no_denied_fragments(self.model_dump(mode="json"))
+        validate_safe_task_payload(self.model_dump(mode="json"), "chat_turn_receipt_request")
+        return self
+
+
+class ChatTurnReceipt(BaseModel):
+    contract_ref: str = CHAT_DURABLE_RECEIPT_CONTRACT_REF
+    turn_ref: str = Field(..., min_length=1)
+    route_ref: str = Field(..., min_length=1)
+    model_ref: str = Field(..., min_length=1)
+    runtime_truth: str = Field(..., min_length=1, max_length=80)
+    auth_truth: str = Field(..., min_length=1, max_length=80)
+    tool_denial_truth: str = Field(..., min_length=1, max_length=80)
+    safe_summary_ref: str = Field(..., min_length=1)
+    handoff_refs: list[str] = Field(default_factory=list, min_length=2)
+    receipt_ref: str = Field(..., min_length=1)
+    evidence_ref: str = Field(..., min_length=1)
+    idempotency_key_ref: str = Field(..., min_length=1)
+    payload_fingerprint_ref: str = Field(..., min_length=1)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    response_visible: bool = False
+    prompt_body_visible: bool = False
+    completion_body_visible: bool = False
+    model_output_authority: bool = False
+    tool_execution_enabled: bool = False
+    memory_write_authorized: bool = False
+    context_injection_authorized: bool = False
+    provider_sdk_call_enabled: bool = False
+    web_fetch_enabled: bool = False
+    connector_write_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    action_execution_enabled: bool = False
+    approval_grant_capture_enabled: bool = False
+    production_authority_enabled: bool = False
+    replayed: bool = False
+    created_at: str = Field(default_factory=lambda: utc_now().isoformat())
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "ChatTurnReceipt":
+        if self.contract_ref != CHAT_DURABLE_RECEIPT_CONTRACT_REF:
+            raise ValueError("unexpected Chat durable receipt contract ref")
+        for field_name in [
+            "contract_ref",
+            "turn_ref",
+            "model_ref",
+            "safe_summary_ref",
+            "receipt_ref",
+            "evidence_ref",
+            "idempotency_key_ref",
+            "payload_fingerprint_ref",
+        ]:
+            validate_task_ref(getattr(self, field_name), field_name)
+        for field_name in ["route_ref", "runtime_truth", "auth_truth", "tool_denial_truth"]:
+            validate_safe_task_text(getattr(self, field_name), field_name)
+        for field_name in ["handoff_refs", "evidence_refs", "blocked_state_refs"]:
+            for ref_value in getattr(self, field_name):
+                validate_task_ref(ref_value, field_name)
+        missing_blockers = set(CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blockers:
+            raise ValueError("Chat turn receipt missing blocked refs")
+        _validate_denied_flags(self)
+        _validate_no_denied_fragments(self.model_dump(mode="json"))
+        validate_safe_task_payload(self.model_dump(mode="json"), "chat_turn_receipt")
+        return self
+
+
+class ChatHandoffRequest(BaseModel):
+    handoff_target: Literal["actions", "plans"]
+    decision_reason_ref: str = Field(
+        default="decision-reason-ref:chat-durable-handoff",
+        min_length=1,
+        max_length=160,
+    )
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_request(self) -> "ChatHandoffRequest":
+        validate_task_ref(self.decision_reason_ref, "decision_reason_ref")
+        for ref_value in self.metadata_refs:
+            validate_task_ref(ref_value, "metadata_refs")
+        _validate_no_denied_fragments(self.model_dump(mode="json"))
+        validate_safe_task_payload(self.model_dump(mode="json"), "chat_handoff_request")
+        return self
+
+
+class ChatHandoffReceipt(BaseModel):
+    contract_ref: str = CHAT_DURABLE_RECEIPT_CONTRACT_REF
+    turn_ref: str = Field(..., min_length=1)
+    handoff_target: Literal["actions", "plans"]
+    handoff_ref: str = Field(..., min_length=1)
+    created_ref: str = Field(..., min_length=1)
+    receipt_ref: str = Field(..., min_length=1)
+    audit_ref: str = Field(..., min_length=1)
+    evidence_ref: str = Field(..., min_length=1)
+    idempotency_key_ref: str = Field(..., min_length=1)
+    payload_fingerprint_ref: str = Field(..., min_length=1)
+    safe_summary_ref: str = Field(..., min_length=1)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    action_executed: bool = False
+    plan_executed: bool = False
+    connector_write_performed: bool = False
+    memory_write_performed: bool = False
+    model_output_authority: bool = False
+    context_injection_authorized: bool = False
+    production_authority_enabled: bool = False
+    replayed: bool = False
+    created_at: str = Field(default_factory=lambda: utc_now().isoformat())
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "ChatHandoffReceipt":
+        if self.contract_ref != CHAT_DURABLE_RECEIPT_CONTRACT_REF:
+            raise ValueError("unexpected Chat durable receipt contract ref")
+        for field_name in [
+            "contract_ref",
+            "turn_ref",
+            "handoff_ref",
+            "created_ref",
+            "receipt_ref",
+            "audit_ref",
+            "evidence_ref",
+            "idempotency_key_ref",
+            "payload_fingerprint_ref",
+            "safe_summary_ref",
+        ]:
+            validate_task_ref(getattr(self, field_name), field_name)
+        for field_name in ["evidence_refs", "blocked_state_refs"]:
+            for ref_value in getattr(self, field_name):
+                validate_task_ref(ref_value, field_name)
+        _validate_denied_flags(self)
+        _validate_no_denied_fragments(self.model_dump(mode="json"))
+        validate_safe_task_payload(self.model_dump(mode="json"), "chat_handoff_receipt")
+        return self
+
+
 def build_chat_local_operator_turn_envelope(
     *,
     model_ref: str,
@@ -165,6 +349,80 @@ def build_chat_local_operator_turn_envelope(
             "tool-denial truth as safe refs; model output is not authority."
         ),
     )
+
+
+def chat_turn_payload_for_fingerprint(
+    *,
+    request: ChatTurnReceiptRequest,
+) -> dict[str, Any]:
+    return request.model_dump(mode="json")
+
+
+def chat_handoff_payload_for_fingerprint(
+    *,
+    turn_ref: str,
+    request: ChatHandoffRequest,
+) -> dict[str, Any]:
+    return {"turn_ref": turn_ref, **request.model_dump(mode="json")}
+
+
+def chat_payload_fingerprint_ref(payload: dict[str, Any]) -> str:
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return f"payload-fingerprint:chat-durable-receipt:{digest}"
+
+
+def chat_turn_ref_for_request(
+    *,
+    request: ChatTurnReceiptRequest,
+    idempotency_key_ref: str,
+) -> str:
+    if request.turn_ref is not None:
+        return request.turn_ref
+    return (
+        "chat-turn:durable:"
+        f"{_safe_suffix(request.model_ref)}:{_safe_suffix(idempotency_key_ref)}"
+    )
+
+
+def chat_turn_receipt_ref(turn_ref: str, idempotency_key_ref: str) -> str:
+    return f"receipt:chat-turn:{_safe_suffix(turn_ref)}:{_safe_suffix(idempotency_key_ref)}"
+
+
+def chat_turn_evidence_ref(turn_ref: str) -> str:
+    return f"evidence-ref:chat-turn:{_safe_suffix(turn_ref)}"
+
+
+def chat_turn_handoff_ref(turn_ref: str, target: str) -> str:
+    return f"handoff-ref:chat-to-{_safe_suffix(target)}:{_safe_suffix(turn_ref)}"
+
+
+def chat_handoff_receipt_ref(
+    turn_ref: str,
+    target: str,
+    idempotency_key_ref: str,
+) -> str:
+    return (
+        "receipt:chat-handoff:"
+        f"{_safe_suffix(turn_ref)}:{_safe_suffix(target)}:{_safe_suffix(idempotency_key_ref)}"
+    )
+
+
+def chat_handoff_audit_ref(
+    turn_ref: str,
+    target: str,
+    idempotency_key_ref: str,
+) -> str:
+    return (
+        "audit:chat-handoff:"
+        f"{_safe_suffix(turn_ref)}:{_safe_suffix(target)}:{_safe_suffix(idempotency_key_ref)}"
+    )
+
+
+def chat_handoff_created_ref(turn_ref: str, target: str) -> str:
+    if target == "actions":
+        return f"founder-action:chat-handoff:{_safe_suffix(turn_ref)}"
+    return f"plan-summary:chat-handoff:{_safe_suffix(turn_ref)}"
 
 
 def chat_local_operator_authority_posture() -> dict[str, bool]:
@@ -203,19 +461,19 @@ def chat_local_operator_surface_bindings() -> list[dict[str, str]]:
         },
         {
             "surface": "Plans",
-            "feed_status": "proposal_handoff_refs_only",
+            "feed_status": "durable_receipt_proposal_handoff_refs",
             "feed_ref": "handoff-ref:chat-to-plans",
             "authority_boundary": "Handoffs are proposal refs only.",
         },
         {
             "surface": "Actions",
-            "feed_status": "proposal_handoff_refs_only",
+            "feed_status": "durable_receipt_proposal_handoff_refs",
             "feed_ref": "handoff-ref:chat-to-actions",
             "authority_boundary": "Handoffs are proposal refs only.",
         },
         {
             "surface": "Evidence",
-            "feed_status": "safe_turn_evidence_refs",
+            "feed_status": "durable_receipt_evidence_refs",
             "feed_ref": "evidence-ref:chat-local-operator",
             "authority_boundary": "Evidence is route/auth/runtime/tool-denial metadata only.",
         },
@@ -251,3 +509,24 @@ def _validate_no_denied_fragments(payload: Any) -> None:
     if isinstance(payload, list):
         for value in payload:
             _validate_no_denied_fragments(value)
+
+
+def _validate_denied_flags(model: BaseModel) -> None:
+    denied_flags = {
+        key: value
+        for key, value in model.model_dump(mode="json").items()
+        if key.endswith("_enabled")
+        or key.endswith("_authorized")
+        or key.endswith("_performed")
+        or key in {
+            "response_visible",
+            "prompt_body_visible",
+            "completion_body_visible",
+            "model_output_authority",
+            "action_executed",
+            "plan_executed",
+        }
+    }
+    enabled = [name for name, value in denied_flags.items() if value is True]
+    if enabled:
+        raise ValueError(f"Chat durable receipt enabled denied authority: {enabled[0]}")

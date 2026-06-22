@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
   setupAssistantSummary: "/control-center/setup-assistant/summary",
   founderTodaySummary: "/control-center/today/summary",
   founderTodayActionEnvelope: "/control-center/today/action-envelope",
+  controlCenterChatTurns: "/control-center/chat/turns",
   founderActionsInbox: "/control-center/actions/inbox",
   founderMorningBriefing: "/control-center/morning-briefing/summary",
   founderStorageStatus: "/control-center/storage/status",
@@ -41,6 +42,14 @@ export function actionDecisionEndpoint(
 
 export function actionReceiptEndpoint(actionId: string): string {
   return `/control-center/actions/${encodeURIComponent(actionRouteId(actionId))}/receipt`;
+}
+
+export function chatTurnReceiptEndpoint(turnRef: string): string {
+  return `/control-center/chat/turns/${encodeURIComponent(turnRef)}/receipt`;
+}
+
+export function chatTurnHandoffEndpoint(turnRef: string): string {
+  return `/control-center/chat/turns/${encodeURIComponent(turnRef)}/handoff`;
 }
 
 export function isActionDecisionEndpoint(endpoint: string): boolean {

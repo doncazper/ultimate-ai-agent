@@ -22,9 +22,19 @@ import type {
   FounderLoopActionDecisionRequest,
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionEnvelopePromotionRequest,
+  ChatHandoffReceipt,
+  ChatHandoffRequest,
+  ChatHandoffTarget,
+  ChatTurnReceipt,
+  ChatTurnReceiptRequest,
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
-import { API_ENDPOINTS, actionDecisionEndpoint } from "./endpoints";
+import {
+  API_ENDPOINTS,
+  actionDecisionEndpoint,
+  chatTurnHandoffEndpoint,
+  chatTurnReceiptEndpoint,
+} from "./endpoints";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 import { sanitizeForDisplay } from "./redaction";
 
@@ -278,6 +288,80 @@ export async function submitTodayActionEnvelope(
   return receipt;
 }
 
+export async function recordChatTurnReceipt(
+  request: ChatTurnReceiptRequest,
+): Promise<ChatTurnReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterChatTurns}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": chatTurnReceiptIdempotencyRef(
+          request.turn_ref ?? request.model_ref,
+        ),
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(response)) as ResultEnvelope<ChatTurnReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(data, "Chat turn receipt was not recorded safely."),
+      ),
+    );
+  }
+  return receipt;
+}
+
+export async function fetchChatTurnReceipt(
+  turnRef: string,
+): Promise<ChatTurnReceipt> {
+  return readEnvelope<ChatTurnReceipt>(chatTurnReceiptEndpoint(turnRef));
+}
+
+export async function recordChatHandoff(
+  turnRef: string,
+  target: ChatHandoffTarget,
+): Promise<ChatHandoffReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const request: ChatHandoffRequest = {
+    handoff_target: target,
+    decision_reason_ref: `decision-reason-ref:control-center-chat-${target}`,
+    metadata_refs: [`metadata-ref:control-center-chat-handoff:${target}`],
+  };
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${chatTurnHandoffEndpoint(turnRef)}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": chatHandoffIdempotencyRef(turnRef, target),
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(response)) as ResultEnvelope<ChatHandoffReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(data, "Chat handoff receipt was not recorded safely."),
+      ),
+    );
+  }
+  return receipt;
+}
+
 function actionDecisionIdempotencyRef(
   actionId: string,
   decision: FounderLoopActionDecisionKind,
@@ -296,6 +380,17 @@ function todayActionEnvelopeIdempotencyRef(todayItemRef: string): string {
     .replace(/[^a-z0-9_.:-]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `idempotency-ref:control-center-today-action:${safeTodayItemRef || "missing"}:${Date.now()}`;
+}
+
+function chatTurnReceiptIdempotencyRef(turnRef: string): string {
+  return `idempotency-ref:control-center-chat-turn:${safeChatSuffix(turnRef)}:${Date.now()}`;
+}
+
+function chatHandoffIdempotencyRef(
+  turnRef: string,
+  target: ChatHandoffTarget,
+): string {
+  return `idempotency-ref:control-center-chat-handoff:${target}:${safeChatSuffix(turnRef)}:${Date.now()}`;
 }
 
 export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {
@@ -616,6 +711,16 @@ function extractErrorMessage(data: unknown, fallback: string): string {
   const detail = record.detail;
   if (typeof detail === "string") {
     return detail;
+  }
+  if (typeof detail === "object" && detail !== null) {
+    const safeMessage = (detail as Record<string, unknown>).safe_message;
+    if (typeof safeMessage === "string") {
+      return safeMessage;
+    }
+    const message = (detail as Record<string, unknown>).message;
+    if (typeof message === "string") {
+      return message;
+    }
   }
   const error = record.error;
   if (typeof error === "object" && error !== null) {

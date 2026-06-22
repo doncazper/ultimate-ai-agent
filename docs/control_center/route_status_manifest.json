@@ -4,7 +4,7 @@
   "baseline": "v0.102.3 / 0.102.3",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 118,
+  "openapi_path_count": 121,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -224,8 +224,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "high",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization only; model output is not authority, memory, approval evidence, or execution permission.",
-      "evidence_audit_output": "UAA-P1-074 safe turn refs, model/runtime/auth/tool-denial truth refs, proposal handoff refs, M167 evidence refs, local model smoke refs, safe failure refs, and latency refs.",
+      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization only; Chat turn and handoff routes require idempotency and durable receipts, while model output remains non-authoritative and no execution permission is granted.",
+      "evidence_audit_output": "UAA-P1-074 safe turn refs, model/runtime/auth/tool-denial truth refs, FCC-V1-004 durable Chat receipt refs, reviewable Actions/Plans handoff refs, M167 evidence refs, local model smoke refs, safe failure refs, and latency refs; no raw chat content. Model output is not authority.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -247,12 +247,31 @@
           "operation_id": "get_runtime_readiness",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/chat/turns",
+          "operation_id": "post_control_center_chat_turns",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/chat/turns/{turn_ref}/receipt",
+          "operation_id": "get_control_center_chat_turns_turn_ref_receipt",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/chat/turns/{turn_ref}/handoff",
+          "operation_id": "post_control_center_chat_turns_turn_ref_handoff",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [
-        "chat-receipt-summary",
-        "tools-functions-streaming-denial-summary",
-        "governed-chat-handoff-workflow"
+        "tools-functions-streaming-denial-summary"
       ]
     },
     {
@@ -881,8 +900,8 @@
       "side_effect_class": "local_ui_state_only",
       "risk_class": "high",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization are required before any chat loop can be product-ready. Model output is not authority.",
-      "evidence_audit_output": "UAA-P1-074 safe turn refs, model/runtime/auth/tool-denial truth refs, proposal handoff refs, and blocked authority refs.",
+      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization are required before any chat loop can be product-ready. Chat receipt and handoff routes require idempotency. Model output is not authority.",
+      "evidence_audit_output": "UAA-P1-074 safe turn refs, model/runtime/auth/tool-denial truth refs, FCC-V1-004 durable receipt refs, reviewable Actions/Plans handoff refs, and blocked authority refs.",
       "backend_routes": [
         {
           "method": "POST",
@@ -897,12 +916,31 @@
           "operation_id": "get_control_center_today_summary",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/chat/turns",
+          "operation_id": "post_control_center_chat_turns",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/chat/turns/{turn_ref}/receipt",
+          "operation_id": "get_control_center_chat_turns_turn_ref_receipt",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/chat/turns/{turn_ref}/handoff",
+          "operation_id": "post_control_center_chat_turns_turn_ref_handoff",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [
-        "chat-receipt-summary",
-        "tools-functions-streaming-denial-summary",
-        "governed-chat-handoff-workflow"
+        "tools-functions-streaming-denial-summary"
       ]
     },
     {

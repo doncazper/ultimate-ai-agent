@@ -13,6 +13,9 @@ The runtime gate applies to selected route groups:
 - `model_chat`
 - `task_decomposition`
 - `action_preview_proposal`
+- `action_decision`
+- `today_to_action_envelope`
+- `chat_durable_receipt`
 - `local_model_validation`
 
 When a targeted local fixed-window limit is reached, the API returns a redacted
@@ -64,7 +67,7 @@ multi-user fairness system.
 - `tests/test_api_manifest.py`
 - `tests/test_api_route_inventory_fixture.py`
 - `tests/test_api_cors.py`
-- `tests/fixtures/api_route_inventory_118.json`
+- `tests/fixtures/api_route_inventory_121.json`
 - `docs/schemas/api_targeted_rate_limits.schema.json`
 - `scripts/verify_uaa_p1_085_targeted_rate_limits.py`
 - `docs/api/openapi_contract.md`

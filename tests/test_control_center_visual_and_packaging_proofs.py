@@ -22,7 +22,7 @@ def test_local_runtime_packaging_proof_summary_shape_is_safe() -> None:
         "distribution_claims_allowed": False,
         "route_manifest": {
             "endpoint_ref": "local-loopback-api-manifest",
-            "route_count": 118,
+            "route_count": 121,
         },
         "screenshot_proof": {
             "safe_evidence_ref": "packaging-proof:screenshot-capture",

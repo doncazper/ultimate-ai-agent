@@ -97,7 +97,7 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ### FCC-V1-000 through FCC-V1-007 - Founder Loop V1 Productization Conveyor
 
-Status: In progress through completed FCC-V1-003; FCC-V1-004 through
+Status: In progress through completed FCC-V1-004; FCC-V1-005 through
 FCC-V1-007 remain planned.
 
 Epic: Product/UX, Safety/Permissions, Memory/Knowledge, Business Cofounder
@@ -128,7 +128,11 @@ Milestone order:
   Today-to-Action envelope receipt loop with exact approval/edit/reject/defer
   receipts, Evidence Timeline update, and CLI inspection parity; action
   execution remains blocked.
-- `FCC-V1-004` Control Center Chat Durable Receipt And Handoff.
+- `FCC-V1-004` Control Center Chat Durable Receipt And Handoff: implemented
+  for durable safe Chat turn receipts and reviewable Actions/Plans handoff
+  receipts; model output, action/plan execution, memory writes, connector
+  writes, provider calls, public beta authority, and production authority
+  remain blocked.
 - `FCC-V1-005` Memory Review Decisions.
 - `FCC-V1-006` Evidence Timeline Productization.
 - `FCC-V1-007` Promotion And Proof Lane.
@@ -840,7 +844,7 @@ mutating authority paths without adding routes or authority.
 
 Proof: `docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md`,
 `docs/schemas/api_route_classification.schema.json`,
-`tests/fixtures/api_route_inventory_118.json`,
+`tests/fixtures/api_route_inventory_121.json`,
 `scripts/verify_uaa_p1_080_api_route_classification.py`,
 `tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
 `tests/test_control_center_api_routes.py`, and Control Center API Routes render

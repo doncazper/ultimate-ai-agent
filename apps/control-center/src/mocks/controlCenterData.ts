@@ -111,6 +111,8 @@ const plansActionEnvelopeRequiredBlockedRefs = [
 
 const chatLocalOperatorContractRef =
   "contract-ref:chat-local-operator-surface:v1";
+const chatDurableReceiptContractRef =
+  "contract-ref:founder-loop-chat-durable-receipt:v1";
 
 const chatLocalOperatorRequiredTruthFields = [
   "turn_ref",
@@ -172,19 +174,19 @@ const chatLocalOperatorSurfaceBindings = [
   },
   {
     surface: "Plans",
-    feed_status: "proposal_handoff_refs_only",
+    feed_status: "durable_receipt_proposal_handoff_refs",
     feed_ref: "handoff-ref:chat-to-plans",
     authority_boundary: "Handoffs are proposal refs only.",
   },
   {
     surface: "Actions",
-    feed_status: "proposal_handoff_refs_only",
+    feed_status: "durable_receipt_proposal_handoff_refs",
     feed_ref: "handoff-ref:chat-to-actions",
     authority_boundary: "Handoffs are proposal refs only.",
   },
   {
     surface: "Evidence",
-    feed_status: "safe_turn_evidence_refs",
+    feed_status: "durable_receipt_evidence_refs",
     feed_ref: "evidence-ref:chat-local-operator",
     authority_boundary: "Evidence is route/auth/runtime/tool-denial metadata only.",
   },
@@ -1529,7 +1531,7 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
     api_summary: {
-      route_count: 118,
+      route_count: 121,
       control_center_route_count: 19,
       operation_ids_unique: true,
       execution_routes_present: false,
@@ -3509,6 +3511,17 @@ export const mockControlCenterData: ControlCenterData = {
     chat_local_operator_surface_bindings: chatLocalOperatorSurfaceBindings,
     chat_local_operator_authority_posture: chatLocalOperatorAuthorityPosture,
     chat_local_operator_blocked_state_refs: chatLocalOperatorBlockedRefs,
+    chat_durable_receipt_contract_ref: chatDurableReceiptContractRef,
+    chat_durable_receipt_route_refs: [
+      "POST /control-center/chat/turns",
+      "GET /control-center/chat/turns/{turn_ref}/receipt",
+      "POST /control-center/chat/turns/{turn_ref}/handoff",
+    ],
+    chat_durable_receipt_status:
+      "implemented_receipt_routes_ready_no_turn_recorded",
+    chat_turn_receipt_refs: [],
+    chat_handoff_receipt_refs: [],
+    chat_handoff_created_refs: [],
     governed_code_workbench_contract_ref: governedCodeWorkbenchContractRef,
     governed_code_workbench_status:
       "implemented_reviewable_repo_local_diff_contract_apply_blocked",

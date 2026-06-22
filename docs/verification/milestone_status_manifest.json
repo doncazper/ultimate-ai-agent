@@ -2,8 +2,8 @@
   "schema_version": "uaa-verification-milestone-status.v1",
   "active_baseline": "v0.102.3",
   "api_route_inventory": {
-    "fixture_ref": "tests/fixtures/api_route_inventory_118.json",
-    "route_count": 118,
+    "fixture_ref": "tests/fixtures/api_route_inventory_121.json",
+    "route_count": 121,
     "schema_version": "uaa-api-route-inventory.v4"
   },
   "milestones": [
@@ -146,7 +146,7 @@
         "tests/test_fcc_v1_001_api_perimeter.py",
         "tests/test_api_manifest.py",
         "tests/test_api_boundary_enforcement.py",
-        "tests/fixtures/api_route_inventory_118.json"
+        "tests/fixtures/api_route_inventory_121.json"
       ]
     },
     {
@@ -174,6 +174,18 @@
         "scripts/dev/uaa_founder_loop.py",
         "tests/test_control_center_founder_loop_api.py",
         "tests/test_founder_loop_storage.py",
+        "apps/control-center/src/App.test.tsx"
+      ]
+    },
+    {
+      "id": "FCC-V1-004",
+      "status": "implemented",
+      "goal": "Chat records durable safe turn receipts and reviewable Actions/Plans handoff receipts without treating model output as authority, executing work, writing memory, or granting external authority.",
+      "proof_refs": [
+        "scripts/verify_fcc_v1_004_chat_durable_receipt_handoff.py",
+        "docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md",
+        "tests/test_fcc_v1_004_chat_durable_receipt_handoff.py",
+        "apps/control-center/src/components/OperatorFlowPanels.tsx",
         "apps/control-center/src/App.test.tsx"
       ]
     }

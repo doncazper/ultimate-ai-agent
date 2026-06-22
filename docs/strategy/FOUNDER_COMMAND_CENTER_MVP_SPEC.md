@@ -62,7 +62,10 @@ Center receipt visibility. It does not execute approved actions or grant
 connector, shell/subprocess, provider/model, memory-write, public beta, or
 production authority. FCC-V1-003 Founder Loop V1 Vertical Slice is complete
 for the first Today-to-Action receipt loop without action execution. FCC-V1-004
-Control Center Chat Durable Receipt And Handoff is the next implementation
+Control Center Chat Durable Receipt And Handoff is complete for durable safe
+Chat turn receipts and reviewable Actions/Plans handoff receipts without
+action execution, memory writes, model-output authority, connector writes, or
+provider calls. FCC-V1-005 Memory Review Decisions is the next implementation
 lane before
 P2/provider, packaging, public distribution, or commercialization expansion.
 

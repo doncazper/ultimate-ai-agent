@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `118`, generated from the FastAPI application and
+Current OpenAPI path count: `121`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -64,8 +64,9 @@ Current boundary summary:
   authority claims.
 - UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
   decomposition, action preview/proposal, Action Inbox decisions, Today to
-  Action envelope promotion, and local model validation route groups. It does
-  not add auth, distributed quota, dependencies, billing, or production
+  Action envelope promotion, Chat durable receipt/handoff routes, and local
+  model validation route groups. It does not add auth, distributed quota,
+  dependencies, billing, or production
   authority.
 - FCC-V1-001 consumes UAA-P1-080 through UAA-P1-086 for the Founder Loop
   mutation perimeter. Duplicate replay behavior is defined as a future
@@ -106,11 +107,14 @@ Current boundary summary:
   credentials or cookies, grant model-output authority, or perform unapproved
   connector writes.
 - `GET /control-center/today/summary`, `GET /control-center/actions/inbox`,
+  `POST /control-center/chat/turns`,
+  `GET /control-center/chat/turns/{turn_ref}/receipt`,
+  `POST /control-center/chat/turns/{turn_ref}/handoff`,
   `GET /control-center/morning-briefing/summary`, and
   `GET /control-center/storage/status` expose storage-backed Founder Loop
-  summaries with safe refs and bounded summaries only. They do not grant
-  action execution, connector writes, provider calls, email/calendar reads, or
-  notification delivery.
+  summaries and Chat receipt/handoff refs with safe refs and bounded summaries
+  only. They do not grant action execution, connector writes, provider calls,
+  memory writes, email/calendar reads, or notification delivery.
 - Route metadata must keep side-effect classes and public/protected route
   classification explicit.
 

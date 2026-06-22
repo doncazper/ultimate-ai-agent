@@ -57,7 +57,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 118
+    assert manifest.route_count == 121
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",

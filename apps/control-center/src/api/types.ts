@@ -204,6 +204,85 @@ export interface FounderLoopActionEnvelopePromotionReceipt {
   created_at: string;
 }
 
+export type ChatHandoffTarget = "actions" | "plans";
+
+export interface ChatTurnReceiptRequest {
+  turn_ref?: string;
+  route_ref: string;
+  model_ref: string;
+  runtime_truth: string;
+  auth_truth: string;
+  tool_denial_truth: string;
+  safe_summary_ref: string;
+  evidence_refs?: string[];
+  metadata_refs?: string[];
+}
+
+export interface ChatTurnReceipt {
+  contract_ref: string;
+  turn_ref: string;
+  route_ref: string;
+  model_ref: string;
+  runtime_truth: string;
+  auth_truth: string;
+  tool_denial_truth: string;
+  safe_summary_ref: string;
+  handoff_refs: string[];
+  receipt_ref: string;
+  evidence_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  response_visible: boolean;
+  prompt_body_visible: boolean;
+  completion_body_visible: boolean;
+  model_output_authority: boolean;
+  tool_execution_enabled: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  provider_sdk_call_enabled: boolean;
+  web_fetch_enabled: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  action_execution_enabled: boolean;
+  approval_grant_capture_enabled: boolean;
+  production_authority_enabled: boolean;
+  replayed: boolean;
+  created_at: string;
+}
+
+export interface ChatHandoffRequest {
+  handoff_target: ChatHandoffTarget;
+  decision_reason_ref: string;
+  metadata_refs?: string[];
+}
+
+export interface ChatHandoffReceipt {
+  contract_ref: string;
+  turn_ref: string;
+  handoff_target: ChatHandoffTarget;
+  handoff_ref: string;
+  created_ref: string;
+  receipt_ref: string;
+  audit_ref: string;
+  evidence_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  safe_summary_ref: string;
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  action_executed: boolean;
+  plan_executed: boolean;
+  connector_write_performed: boolean;
+  memory_write_performed: boolean;
+  model_output_authority: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+  replayed: boolean;
+  created_at: string;
+}
+
 export interface FounderLoopPlanSummary {
   plan_ref: string;
   title: string;
@@ -1160,6 +1239,12 @@ export interface FounderLoopTodaySummary {
   chat_local_operator_surface_bindings: FounderLoopChatOperatorSurfaceBinding[];
   chat_local_operator_authority_posture: FounderLoopChatOperatorAuthorityPosture;
   chat_local_operator_blocked_state_refs: string[];
+  chat_durable_receipt_contract_ref: string;
+  chat_durable_receipt_route_refs: string[];
+  chat_durable_receipt_status: string;
+  chat_turn_receipt_refs: string[];
+  chat_handoff_receipt_refs: string[];
+  chat_handoff_created_refs: string[];
   governed_code_workbench_contract_ref: string;
   governed_code_workbench_status: string;
   governed_code_workbench_proposal_ref: string;

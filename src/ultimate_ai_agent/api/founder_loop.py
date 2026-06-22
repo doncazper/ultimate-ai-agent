@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
     FounderLoopActionEnvelopePromotionRequest,
 )
+from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.storage import (
     FounderLoopStorageDuplicateError,
@@ -107,6 +108,151 @@ def post_control_center_today_action_envelope(
         trace_id="founder-loop:today-action-envelope",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:today-action-envelope"}],
+        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+    )
+
+
+@router.post("/chat/turns", response_model=ResultEnvelope)
+def post_control_center_chat_turn_receipt(
+    request: ChatTurnReceiptRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().record_chat_turn_receipt(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_CHAT_TURN_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Chat turn idempotency key already exists with different "
+                    "safe receipt payload refs."
+                ),
+            },
+        ) from exc
+    except (FounderLoopStorageError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_CHAT_TURN_RECEIPT_ERROR",
+                "safe_message": "The Chat turn receipt could not be recorded safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_chat_turn_receipt",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:chat-turn-receipt",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-turn-receipt"}],
+        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+    )
+
+
+@router.get("/chat/turns/{turn_ref}/receipt", response_model=ResultEnvelope)
+def get_control_center_chat_turn_receipt(turn_ref: str) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().chat_turn_receipt(turn_ref=turn_ref)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_CHAT_TURN_REF_UNSAFE",
+                "safe_message": "The Chat turn ref could not be inspected safely.",
+            },
+        ) from exc
+    if data is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "FOUNDER_LOOP_CHAT_TURN_RECEIPT_NOT_FOUND",
+                "safe_message": "No Chat turn receipt exists for this safe turn ref.",
+            },
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_chat_turn_receipt",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:chat-turn-receipt",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-turn-receipt"}],
+        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+    )
+
+
+@router.post("/chat/turns/{turn_ref}/handoff", response_model=ResultEnvelope)
+def post_control_center_chat_handoff(
+    turn_ref: str,
+    request: ChatHandoffRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().record_chat_handoff(
+            turn_ref=turn_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_CHAT_HANDOFF_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Chat handoff idempotency key already exists with different "
+                    "safe handoff payload refs."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_CHAT_HANDOFF_ERROR"
+        status_code = 404 if code == "FOUNDER_LOOP_CHAT_TURN_RECEIPT_NOT_FOUND" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": code,
+                "safe_message": "The Chat handoff could not be recorded safely.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_CHAT_HANDOFF_UNSAFE_INPUT",
+                "safe_message": "The Chat handoff request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_chat_handoff",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:chat-handoff",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-handoff"}],
         redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
     )
 
@@ -315,7 +461,7 @@ def _idempotency_key_ref(
             status_code=428,
             detail={
                 "code": "API_IDEMPOTENCY_REQUIRED",
-                "safe_message": "Action decision routes require an idempotency key.",
+                "safe_message": "Mutating Control Center routes require an idempotency key.",
             },
         )
     return value

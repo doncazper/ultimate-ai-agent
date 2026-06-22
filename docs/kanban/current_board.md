@@ -103,7 +103,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-003 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-004 Control Center Chat Durable Receipt And Handoff.
+No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-004 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-005 Memory Review Decisions.
 ```
 
 ## Ready Next
@@ -312,8 +312,9 @@ and be inspected through the repo-local CLI path. Approved actions still do not
 execute.
 
 FCC-V1-004 Control Center Chat Durable Receipt And Handoff
-Goal: record safe Chat turn receipts and reviewable handoff refs to Actions or
-Plans without treating model output as truth, approval, memory, or execution
+Goal met: safe Chat turn receipts and reviewable handoff refs to Actions or
+Plans are backend-owned, idempotent, receipt-backed, and visible in Control
+Center without treating model output as truth, approval, memory, or execution
 authority.
 
 FCC-V1-005 Memory Review Decisions

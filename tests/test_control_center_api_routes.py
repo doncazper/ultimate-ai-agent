@@ -247,8 +247,8 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/observability/session-events" in paths
     assert "/observability/client-errors" in paths
     assert "/integrations/mattermost/events/message" in paths
-    assert len(paths) == 118
-    assert len(operation_ids) == len(set(operation_ids)) == 118
+    assert len(paths) == 121
+    assert len(operation_ids) == len(set(operation_ids)) == 121
 
 
 def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
@@ -257,7 +257,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 118 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 121 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
@@ -324,7 +324,7 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     assert manifest["operator_readiness_taxonomy_ref"] == (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     )
-    assert manifest["openapi_path_count"] == 118
+    assert manifest["openapi_path_count"] == 121
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {

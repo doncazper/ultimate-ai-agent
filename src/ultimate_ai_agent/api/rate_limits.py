@@ -19,6 +19,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "task_decomposition": {"max_requests": 120, "window_seconds": 60},
     "action_preview_proposal": {"max_requests": 120, "window_seconds": 60},
     "today_to_action_envelope": {"max_requests": 60, "window_seconds": 60},
+    "chat_durable_receipt": {"max_requests": 60, "window_seconds": 60},
     "action_decision": {"max_requests": 60, "window_seconds": 60},
     "local_model_validation": {"max_requests": 120, "window_seconds": 60},
 }
@@ -64,6 +65,9 @@ LOCAL_MODEL_VALIDATION_PATHS = {
 ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
 TODAY_TO_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
+}
+CHAT_DURABLE_RECEIPT_PATHS = {
+    "/control-center/chat/turns",
 }
 
 
@@ -118,6 +122,14 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "action_preview_proposal"
     if normalized_method == "POST" and path in TODAY_TO_ACTION_ENVELOPE_PATHS:
         return "today_to_action_envelope"
+    if normalized_method == "POST" and (
+        path in CHAT_DURABLE_RECEIPT_PATHS
+        or (
+            path.startswith("/control-center/chat/turns/")
+            and path.endswith("/handoff")
+        )
+    ):
+        return "chat_durable_receipt"
     if (
         normalized_method == "POST"
         and path.startswith("/control-center/actions/")

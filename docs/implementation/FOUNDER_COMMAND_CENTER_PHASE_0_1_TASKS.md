@@ -1235,7 +1235,7 @@ PR size: one docs PR, ideally after Tasks 1-4.
 
 Type: staged full-stack productization with docs/test/manifest gates first
 
-Status: FCC-V1-000 through FCC-V1-003 implemented; FCC-V1-004 through
+Status: FCC-V1-000 through FCC-V1-004 implemented; FCC-V1-005 through
 FCC-V1-007 planned. FCC-V1-001 is contract/verifier coverage for the API
 perimeter; duplicate replay runtime remains blocked until route-owner receipt
 storage exists outside routes that implement their own receipt-backed replay.
@@ -1270,9 +1270,11 @@ Milestones:
   inspection parity. Implemented for the first receipt-bearing vertical slice;
   action execution, connector writes, memory writes, provider/model calls,
   shell/subprocess work, public beta, and production authority remain blocked.
-- `FCC-V1-004` Control Center Chat Durable Receipt And Handoff: add safe
-  `ChatTurnReceipt` records and reviewable handoff refs to Actions or Plans
-  without treating model output as authority.
+- `FCC-V1-004` Control Center Chat Durable Receipt And Handoff: implemented
+  safe `ChatTurnReceipt` records and reviewable handoff receipts to Actions or
+  Plans without treating model output as authority, executing work, writing
+  memory, calling providers, writing connectors, or granting production
+  authority.
 - `FCC-V1-005` Memory Review Decisions: add `MemoryReviewDecision` with
   `candidate_ref`, `decision`, `corrected_summary_ref`, `source_refs`,
   `evidence_refs`, `reviewer_ref`, `receipt_ref`, `idempotency_ref`, and

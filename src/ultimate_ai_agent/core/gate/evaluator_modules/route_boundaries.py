@@ -2210,11 +2210,20 @@ FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES = frozenset(
         "/control-center/today/action-envelope",
     }
 )
+FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES = frozenset(
+    {
+        "/control-center/chat/turns",
+        "/control-center/chat/turns/{turn_ref}/handoff",
+    }
+)
 FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     frozenset(
         {
             "/control-center/actions/inbox",
             "/control-center/actions/{action_id}/receipt",
+            "/control-center/chat/turns",
+            "/control-center/chat/turns/{turn_ref}/handoff",
+            "/control-center/chat/turns/{turn_ref}/receipt",
             "/control-center/morning-briefing/summary",
             "/control-center/storage/status",
             "/control-center/today/summary",
@@ -2222,6 +2231,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     )
     | FOUNDER_LOOP_ACTION_DECISION_ROUTES
     | FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES
+    | FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES
 )
 MATTERMOST_AGENT_ROOMS_ROUTES = {
     "/integrations/mattermost/audit",
