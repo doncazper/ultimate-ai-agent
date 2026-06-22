@@ -513,6 +513,202 @@ const memoryToLoopAuthorityPosture = {
   production_authority_enabled: false,
 };
 
+const privateBetaReadinessContractRef =
+  "contract-ref:private-beta-readiness-gate:v1";
+
+const privateBetaReadinessRequiredSurfaces = [
+  "Today",
+  "Morning Briefing",
+  "Action Inbox",
+  "Memory Review",
+  "Evidence Timeline",
+  "Chat/Plans Handoff",
+  "Governed Code",
+  "CRM-Lite Follow-Ups",
+];
+
+const privateBetaReadinessAcceptanceStates = [
+  "pass",
+  "fail",
+  "skipped",
+  "blocked",
+  "partial",
+  "mock_only",
+  "accepted_failure",
+];
+
+const privateBetaReadinessStateDefinitions =
+  privateBetaReadinessAcceptanceStates.map((state) => ({
+    state,
+    terminal: ["pass", "fail", "accepted_failure"].includes(state),
+    definition: `${state} is a distinct private beta-test evidence state.`,
+  }));
+
+const privateBetaReadinessRequiredRefFields = [
+  "criterion_ref",
+  "surface",
+  "gate_state",
+  "safe_summary",
+  "evidence_refs",
+  "required_contract_refs",
+  "acceptance_refs",
+  "missing_evidence_refs",
+  "blocked_state_refs",
+  "next_safe_action",
+];
+
+const privateBetaReadinessBlockedRefs = [
+  "blocked-state:no-public-beta",
+  "blocked-state:no-public-distribution",
+  "blocked-state:no-production-readiness-claim",
+  "blocked-state:no-production-authority",
+  "blocked-state:no-broad-autonomy",
+  "blocked-state:no-connector-write",
+  "blocked-state:no-provider-model-authority",
+  "blocked-state:no-unrestricted-shell",
+  "blocked-state:no-shell-subprocess-execution",
+  "blocked-state:no-remote-execution",
+  "blocked-state:no-account-sync",
+  "blocked-state:no-crm-write",
+  "blocked-state:no-memory-write",
+  "blocked-state:no-automatic-memory-write",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-approval-grant-capture",
+  "blocked-state:no-action-execution",
+  "blocked-state:no-code-apply-execution",
+];
+
+const privateBetaReadinessAuthorityPosture = {
+  local_private_only: true,
+  safe_refs_only: true,
+  review_required: true,
+  evidence_required: true,
+  redaction_required: true,
+  private_beta_execution_authorized: false,
+  public_beta_claim_enabled: false,
+  public_distribution_claim_enabled: false,
+  production_readiness_claim_enabled: false,
+  production_authority_enabled: false,
+  broad_autonomy_enabled: false,
+  connector_write_enabled: false,
+  provider_model_authority_allowed: false,
+  unrestricted_shell_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  remote_execution_enabled: false,
+  account_sync_enabled: false,
+  crm_write_enabled: false,
+  memory_write_authorized: false,
+  automatic_memory_write_authorized: false,
+  context_injection_authorized: false,
+  approval_grant_capture_enabled: false,
+  action_execution_enabled: false,
+  code_apply_execution_enabled: false,
+};
+
+const privateBetaReadinessStateBySurface: Record<string, string> = {
+  Today: "partial",
+  "Morning Briefing": "mock_only",
+  "Action Inbox": "partial",
+  "Memory Review": "partial",
+  "Evidence Timeline": "partial",
+  "Chat/Plans Handoff": "partial",
+  "Governed Code": "partial",
+  "CRM-Lite Follow-Ups": "blocked",
+};
+
+const privateBetaReadinessContractBySurface: Record<string, string[]> = {
+  Today: [
+    "contract-ref:today-product-spine:v1",
+    "contract-ref:evidence-history-grammar:v1",
+  ],
+  "Morning Briefing": [
+    "contract-ref:morning-briefing-source-readiness-missing",
+  ],
+  "Action Inbox": [
+    "contract-ref:plans-action-envelope:v1",
+    memoryToLoopBindingContractRef,
+  ],
+  "Memory Review": [
+    "contract-ref:memory-review-decision:v1",
+    "contract-ref:business-memory-quality-controls:v1",
+    crossSurfaceMemoryIntakeContractRef,
+  ],
+  "Evidence Timeline": ["contract-ref:evidence-history-grammar:v1"],
+  "Chat/Plans Handoff": [
+    chatLocalOperatorContractRef,
+    "contract-ref:plans-action-envelope:v1",
+  ],
+  "Governed Code": [governedCodeWorkbenchContractRef],
+  "CRM-Lite Follow-Ups": [
+    "contract-ref:business-memory-quality-controls:v1",
+    memoryToLoopBindingContractRef,
+  ],
+};
+
+const privateBetaReadinessCriteria = privateBetaReadinessRequiredSurfaces.map(
+  (surface) => {
+    const surfaceSlug = surface.toLowerCase().replaceAll("/", "-").replaceAll(" ", "-");
+    const gateState = privateBetaReadinessStateBySurface[surface];
+    return {
+      contract_ref: privateBetaReadinessContractRef,
+      criterion_ref: `private-beta-readiness-criterion:${surfaceSlug}`,
+      surface,
+      gate_state: gateState,
+      safe_summary: `${surface} has private local beta-test evidence posture as safe refs; broader authority remains blocked.`,
+      evidence_refs: [`evidence-ref:private-beta:${surfaceSlug}`],
+      required_contract_refs: privateBetaReadinessContractBySurface[surface],
+      acceptance_refs: [`acceptance-ref:private-beta:${surfaceSlug}:${gateState}`],
+      missing_evidence_refs: [
+        `missing-evidence-ref:private-beta:${surfaceSlug}:rehearsal`,
+      ],
+      blocked_state_refs: privateBetaReadinessBlockedRefs,
+      next_safe_action:
+        "Collect local operator review evidence and keep blocked authority refs visible before any readiness claim.",
+      local_private_only: true,
+      safe_refs_only: true,
+      review_required: true,
+      evidence_required: true,
+      redaction_required: true,
+      public_beta_claim_enabled: false,
+      public_distribution_claim_enabled: false,
+      production_readiness_claim_enabled: false,
+      production_authority_enabled: false,
+      broad_autonomy_enabled: false,
+      connector_write_enabled: false,
+      provider_model_authority_allowed: false,
+      unrestricted_shell_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      remote_execution_enabled: false,
+      account_sync_enabled: false,
+      crm_write_enabled: false,
+      memory_write_authorized: false,
+      automatic_memory_write_authorized: false,
+      context_injection_authorized: false,
+      approval_grant_capture_enabled: false,
+      action_execution_enabled: false,
+      code_apply_execution_enabled: false,
+    };
+  },
+);
+
+const privateBetaReadinessSurfaceBindings =
+  privateBetaReadinessRequiredSurfaces.map((surface) => ({
+    surface,
+    feed_status: `private_beta_readiness_${privateBetaReadinessStateBySurface[surface]}`,
+    feed_ref: `private-beta-readiness:${surface
+      .toLowerCase()
+      .replaceAll("/", "-")
+      .replaceAll(" ", "-")}`,
+    authority_boundary:
+      "Private beta readiness evidence is local safe-ref metadata only.",
+  }));
+
+const privateBetaReadinessMissingEvidenceRefs = [
+  "missing-evidence-ref:private-beta:run-rehearsal-receipts",
+  "missing-evidence-ref:private-beta:operator-review-notes",
+  "missing-evidence-ref:private-beta:api-perimeter-hardening",
+];
+
 const memoryCandidateRefs = [
   "business-memory-candidate:preference:memory-review-founder-loop-preferences",
 ];
@@ -2989,6 +3185,42 @@ export const mockControlCenterData: ControlCenterData = {
     memory_to_loop_weekly_review_refs: memoryToLoopWeeklyReviewRefs,
     weekly_ceo_review_summary: weeklyCeoReviewSummary,
     memory_to_loop_blocked_state_refs: memoryToLoopBlockedRefs,
+    private_beta_readiness_contract_ref: privateBetaReadinessContractRef,
+    private_beta_readiness_status:
+      "implemented_private_beta_readiness_gate_authority_blocked",
+    private_beta_readiness_overall_state: "partial",
+    private_beta_readiness_evidence_packet_ref:
+      "evidence-packet:private-beta-readiness:local-founder-loop",
+    private_beta_readiness_window_ref: "readiness-window:local-private-beta",
+    private_beta_readiness_required_surfaces:
+      privateBetaReadinessRequiredSurfaces,
+    private_beta_readiness_acceptance_states:
+      privateBetaReadinessAcceptanceStates,
+    private_beta_readiness_acceptance_state_definitions:
+      privateBetaReadinessStateDefinitions,
+    private_beta_readiness_required_ref_fields:
+      privateBetaReadinessRequiredRefFields,
+    private_beta_readiness_required_blocked_refs:
+      privateBetaReadinessBlockedRefs,
+    private_beta_readiness_criterion_count:
+      privateBetaReadinessCriteria.length,
+    private_beta_readiness_criteria: privateBetaReadinessCriteria,
+    private_beta_readiness_surface_bindings:
+      privateBetaReadinessSurfaceBindings,
+    private_beta_readiness_authority_posture:
+      privateBetaReadinessAuthorityPosture,
+    private_beta_readiness_blocked_state_refs:
+      privateBetaReadinessBlockedRefs,
+    private_beta_readiness_missing_evidence_refs:
+      privateBetaReadinessMissingEvidenceRefs,
+    private_beta_readiness_next_safe_action:
+      "Run a local private beta rehearsal against safe refs, then record pass/fail/blocked evidence before any broader readiness claim.",
+    private_beta_readiness_local_private_only: true,
+    private_beta_readiness_safe_refs_only: true,
+    private_beta_readiness_review_required: true,
+    private_beta_readiness_evidence_required: true,
+    private_beta_readiness_redaction_required: true,
+    private_beta_readiness_execution_authorized: false,
     chat_local_operator_contract_ref: chatLocalOperatorContractRef,
     chat_local_operator_status: "implemented_local_turn_truth_surface",
     chat_local_operator_turn_ref: "chat-turn:local-operator:local-chat-gateway",
@@ -3749,6 +3981,58 @@ export const mockControlCenterData: ControlCenterData = {
           "Review memory-derived Action proposal refs before any later state-change or memory-write milestone.",
       },
       {
+        timeline_item_ref:
+          "evidence-timeline:private-beta/contract-ref/private-beta-readiness-gate/v1",
+        item_kind: "private_beta_readiness_gate_ref",
+        title: "Private beta-readiness gate",
+        safe_summary:
+          "Private local beta-test readiness is represented as acceptance-state evidence for the founder loop surfaces; broader authority remains blocked.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers(privateBetaReadinessContractRef),
+        source_refs: privateBetaReadinessCriteria.map(
+          (criterion) => criterion.criterion_ref,
+        ),
+        status_refs: [
+          privateBetaReadinessContractRef,
+          "evidence-packet:private-beta-readiness:local-founder-loop",
+          "readiness-window:local-private-beta",
+        ],
+        related_route_refs: [
+          "GET /control-center/today/summary",
+          "GET /control-center/actions/inbox",
+          "/today",
+          "/evidence",
+          "/memory",
+        ],
+        side_effect_class: "local_dev_workspace_only",
+        authority_posture:
+          "Private beta-readiness evidence is local safe-ref metadata only; it does not open public beta, distribution, production readiness, writes, execution, provider authority, or Code apply.",
+        approval_posture: "approval-status:private-beta-gate-not-authority",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
+        receipt_refs: [],
+        audit_refs: privateBetaReadinessCriteria.flatMap(
+          (criterion) => criterion.evidence_refs,
+        ),
+        replay_refs: ["replay-ref:private-beta-readiness:local-rehearsal"],
+        rollback_refs: [],
+        rollback_blockers: [
+          "private_beta_readiness_gate_no_mutation_to_rollback",
+        ],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_readiness_gate_after_each_local_rehearsal",
+        missing_evidence_posture:
+          "private_beta_rehearsal_receipts_missing_until_recorded",
+        blocked_states: privateBetaReadinessBlockedRefs,
+        next_safe_action:
+          "Run a local private beta rehearsal against safe refs, then record pass/fail/blocked evidence before any broader readiness claim.",
+      },
+      {
         timeline_item_ref: "evidence-timeline:memory/memory-review/founder-loop-preferences",
         item_kind: "memory_review_evidence_ref",
         title: "Founder Loop memory review",
@@ -4005,6 +4289,15 @@ export const mockControlCenterData: ControlCenterData = {
     memory_to_loop_authority_posture: memoryToLoopAuthorityPosture,
     memory_to_loop_blocked_state_refs: memoryToLoopBlockedRefs,
     weekly_ceo_review_summary: weeklyCeoReviewSummary,
+    private_beta_readiness_contract_ref: privateBetaReadinessContractRef,
+    private_beta_readiness_status:
+      "implemented_private_beta_readiness_gate_authority_blocked",
+    private_beta_readiness_overall_state: "partial",
+    private_beta_readiness_criteria: privateBetaReadinessCriteria,
+    private_beta_readiness_authority_posture:
+      privateBetaReadinessAuthorityPosture,
+    private_beta_readiness_blocked_state_refs:
+      privateBetaReadinessBlockedRefs,
     disabled_state_label: "Exact backend approval contract required",
     evidence_refs: ["evidence-ref:founder-loop:mock-action-inbox"],
     blocked_states: [

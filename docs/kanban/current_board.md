@@ -58,9 +58,10 @@ Capture. UAA-P1-072 completed Business Memory And Memory Quality Controls.
 UAA-P1-073 completed Plans To Reviewable Action Envelopes. The active product
 path now marks UAA-P1-074 Chat Local Operator Surface, UAA-P1-075 Governed
 Code Workbench V1, and UAA-P1-076 Cross-Surface Memory Intake complete, then
-marks UAA-P1-077 Memory-To-Loop Binding complete and promotes UAA-P1-078
-Private Beta-Readiness Gate as Ready Next, with UAA-P1-066 kept queued as a
-strictly read-only Local Model Control Center inventory/status support lane.
+marks UAA-P1-077 Memory-To-Loop Binding complete, marks UAA-P1-078 Private
+Beta-Readiness Gate complete, and promotes UAA-P1-079 User Intent
+Understanding V1 as Ready Next, with UAA-P1-066 kept queued as a strictly
+read-only Local Model Control Center inventory/status support lane.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -90,19 +91,19 @@ Gate = required acceptance evidence before Done
 
 ```text
 No active build item is in progress. The next documented milestone is
-UAA-P1-078 Private Beta-Readiness Gate.
+UAA-P1-079 User Intent Understanding V1.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-078 Private Beta-Readiness Gate
-Goal: define local/private beta-test acceptance evidence for Morning Briefing,
-Action Inbox, Memory Review, Evidence Timeline, safe local Chat/Plans handoff,
-governed Code proposal refs, and CRM-lite follow-ups without public beta or
-distribution claims.
-Scope: evidence/readiness gate only. No public beta, production readiness,
-connector writes, broad autonomy, or production authority.
+UAA-P1-079 User Intent Understanding V1
+Goal: add a reviewable intent proposal contract with confidence, source refs,
+ambiguity posture, and ask/act/defer routing after the memory-first loop has
+reviewable evidence.
+Scope: intent classification/proposal only. No hidden authority, action
+execution, automatic memory writes, connector writes, broad autonomy, provider
+authority, or production authority.
 
 UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
 Goal: queued support lane for a strictly read-only Control Center model
@@ -127,7 +128,10 @@ contract, UAA-P1-070 completed the Memory Source And Provenance Model,
 UAA-P1-071 completed Memory Review Decision Capture, UAA-P1-072 completed
 Business Memory And Memory Quality Controls, UAA-P1-073 completed Plans To
 Reviewable Action Envelopes, UAA-P1-074 completed Chat Local Operator Surface,
-and UAA-P1-075 completed Governed Code Workbench V1.
+UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076 completed
+Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding,
+UAA-P1-078 completed the Private Beta-Readiness Gate, and UAA-P1-079 is the
+current Ready Next user intent understanding lane.
 UAA-P1-066 remains queued behind or alongside that path as read-only local model
 status support. Later Local Model Manager lifecycle,
 switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
@@ -164,12 +168,6 @@ Goal: bind memory proposals from Today, Chat, Plans, Actions, Evidence, local
 coding summaries, and manual external-assistant review imports while denying
 provider calls, account fetch, browser import, shell history import, and
 context injection.
-
-UAA-P1-078 Private Beta-Readiness Gate
-Goal: define local/private beta-test acceptance evidence for Morning Briefing,
-Action Inbox, Memory Review, Evidence Timeline, safe local Chat/Plans handoff,
-governed Code proposal refs, and CRM-lite follow-ups without public beta or
-distribution claims.
 
 UAA-P1-079 User Intent Understanding V1
 Goal: later, after the loop has reviewed memory/evidence/action/chat/code
@@ -392,16 +390,17 @@ UAA-P1-071 completed memory review decision capture, UAA-P1-072 completed
 business memory and memory quality controls, UAA-P1-073 completed Plans to
 reviewable Action envelopes, UAA-P1-074 completed Chat local operator surface,
 UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076 completed
-Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding, and
-UAA-P1-078 is the current Ready Next private beta-readiness gate.
+Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding,
+UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079 is the
+current Ready Next user intent understanding lane.
 
 UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 Gate met: Active docs, roadmap, current board, Founder Command Center board,
 product truth, strategy/task docs, and the Codex prompt library identify Today
 as the product spine, memory as the reviewed differentiator, UAA-P1-068 as
 completed Today Product Spine Contract work, and the conveyor that now has
-UAA-P1-073, UAA-P1-074, UAA-P1-075, UAA-P1-076, and UAA-P1-077 complete with
-UAA-P1-078 Ready Next.
+UAA-P1-073, UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077, and UAA-P1-078
+complete with UAA-P1-079 Ready Next.
 UAA-P1-066
 remains queued as read-only local model support.
 `docs/codex/CODEX_EXECUTION_PROMPTS.md` records the
@@ -450,7 +449,8 @@ completed business memory and memory quality controls, UAA-P1-073 completed
 Plans to reviewable Action envelopes, UAA-P1-074 completed Chat local operator
 surface, UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076
 completed Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop
-Binding, and UAA-P1-078 is the current Ready Next private beta-readiness gate.
+Binding, UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079
+is the current Ready Next user intent understanding lane.
 
 UAA-P1-070 Memory Source And Provenance Model
 Gate met: `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`
@@ -472,8 +472,9 @@ capture, UAA-P1-072 completed business memory and memory quality controls, and
 UAA-P1-073 completed Plans to reviewable Action envelopes. UAA-P1-074
 completed Chat local operator surface, UAA-P1-075 completed Governed Code
 Workbench V1, UAA-P1-076 completed Cross-Surface Memory Intake, UAA-P1-077
-completed Memory-To-Loop Binding, and UAA-P1-078 is the current Ready Next
-private beta-readiness gate.
+completed Memory-To-Loop Binding, UAA-P1-078 completed the private
+beta-readiness gate, and UAA-P1-079 is the current Ready Next user intent
+understanding lane.
 
 UAA-P1-071 Memory Review Decision Capture
 Gate met: `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`
@@ -496,8 +497,9 @@ readiness, or production authority. UAA-P1-072 completed business memory and
 memory quality controls, and UAA-P1-073 completed Plans to reviewable Action
 envelopes. UAA-P1-074 completed Chat local operator surface, UAA-P1-075
 completed Governed Code Workbench V1, UAA-P1-076 completed Cross-Surface
-Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding, and UAA-P1-078 is
-the current Ready Next private beta-readiness gate.
+Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding, UAA-P1-078
+completed the private beta-readiness gate, and UAA-P1-079 is the current Ready
+Next user intent understanding lane.
 
 UAA-P1-072 Business Memory And Memory Quality Controls
 Gate met: `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`
@@ -519,8 +521,8 @@ distribution, production readiness, or production authority. UAA-P1-073
 completed Plans to reviewable Action envelopes. UAA-P1-074 completed Chat
 local operator surface, UAA-P1-075 completed Governed Code Workbench V1, and
 UAA-P1-076 completed Cross-Surface Memory Intake, UAA-P1-077 completed
-Memory-To-Loop Binding, and UAA-P1-078 is the current Ready Next private
-beta-readiness gate.
+Memory-To-Loop Binding, UAA-P1-078 completed the private beta-readiness gate,
+and UAA-P1-079 is the current Ready Next user intent understanding lane.
 
 UAA-P1-073 Plans To Reviewable Action Envelopes
 Gate met: `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`
@@ -542,8 +544,8 @@ context injection, raw private evidence, public beta, public distribution,
 production readiness, or production authority. UAA-P1-074 completed Chat local
 operator surface, UAA-P1-075 completed Governed Code Workbench V1, and
 UAA-P1-076 completed Cross-Surface Memory Intake, UAA-P1-077 completed
-Memory-To-Loop Binding, and UAA-P1-078 is the current Ready Next private
-beta-readiness gate.
+Memory-To-Loop Binding, UAA-P1-078 completed the private beta-readiness gate,
+and UAA-P1-079 is the current Ready Next user intent understanding lane.
 
 UAA-P1-074 Chat Local Operator Surface
 Gate met: `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`
@@ -563,7 +565,8 @@ connector write, shell/subprocess execution, action execution, approval grant
 capture, public beta, public distribution, production readiness, or production
 authority. UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076
 completed Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop
-Binding, and UAA-P1-078 is the current Ready Next private beta-readiness gate.
+Binding, UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079
+is the current Ready Next user intent understanding lane.
 
 UAA-P1-075 Governed Code Workbench V1
 Gate met: `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md` defines
@@ -583,7 +586,8 @@ shell, shell/subprocess execution, remote execution, broad coding-agent
 autonomy, provider SDK call, web fetch, connector write, diff body storage,
 memory write, hidden context injection, public beta, public distribution,
 production readiness, or production authority. UAA-P1-077 is now complete and
-UAA-P1-078 is the current Ready Next private beta-readiness gate.
+UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079 is the
+current Ready Next user intent understanding lane.
 
 UAA-P1-076 Cross-Surface Memory Intake
 Gate met: `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`
@@ -603,8 +607,8 @@ no new route, OpenAPI operation, side-effect class, provider call, account
 fetch, browser import, shell history import, source import, automatic memory
 write, accepted recall, context injection, connector runtime, public beta,
 public distribution, production readiness, or production authority. UAA-P1-077
-is complete and UAA-P1-078 is the current Ready Next private beta-readiness
-gate.
+is complete, UAA-P1-078 completed the private beta-readiness gate, and
+UAA-P1-079 is the current Ready Next user intent understanding lane.
 
 UAA-P1-077 Memory-To-Loop Binding
 Gate met: `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md` defines
@@ -623,8 +627,31 @@ Evidence Timeline includes `memory_to_loop_binding_ref`.
 no new route, OpenAPI operation, side-effect class, memory write, automatic
 recall, context injection, approval grant capture, action execution, connector
 write, account sync, public beta, public distribution, production readiness, or
-production authority. UAA-P1-078 is the current Ready Next private
-beta-readiness gate.
+production authority. UAA-P1-078 completed the private beta-readiness gate,
+and UAA-P1-079 is the current Ready Next user intent understanding lane.
+
+UAA-P1-078 Private Beta-Readiness Gate
+Gate met: `docs/control_center/UAA_P1_078_PRIVATE_BETA_READINESS_GATE.md`
+defines `contract-ref:private-beta-readiness-gate:v1`; `core.readiness`
+exposes the local/private readiness gate, acceptance states, criteria, blocked
+refs, and authority posture; `GET /control-center/today/summary` exposes
+private beta-readiness refs across Today, Morning Briefing, Action Inbox,
+Memory Review, Evidence Timeline, Chat/Plans Handoff, Governed Code, and
+CRM-lite follow-ups; `/actions` exposes the read-only action criterion; and
+Evidence Timeline includes `private_beta_readiness_gate_ref`.
+`docs/schemas/private_beta_readiness_gate.schema.json`,
+`scripts/verify_uaa_p1_078_private_beta_readiness_gate.py`,
+`tests/test_uaa_p1_078_private_beta_readiness_gate.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`, and
+`apps/control-center/src/App.test.tsx` bind the contract. This milestone adds
+no new route, OpenAPI operation, side-effect class, public beta, public
+distribution, production readiness, broad autonomy, connector write,
+provider/model authority, unrestricted shell, shell/subprocess execution,
+remote execution, account sync, CRM write, memory write, automatic memory
+write, context injection, approval grant capture, action execution, Code apply,
+or production authority. UAA-P1-079 is the current Ready Next user intent
+understanding lane.
 
 UAA-P1-080 through UAA-P1-086 API Boundary Hardening Lane
 Status: planned/queued, not implemented. Preserves existing UAA-P1-073 through

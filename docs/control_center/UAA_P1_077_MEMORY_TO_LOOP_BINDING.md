@@ -189,5 +189,6 @@ Required proof:
 
 ## Next Milestone
 
-UAA-P1-078 Private Beta-Readiness Gate is next unless hardening finds that
-UAA-P1-077 needs an incremental follow-up such as UAA-P1-077.1.
+UAA-P1-078 Private Beta-Readiness Gate is complete. UAA-P1-079 User Intent
+Understanding V1 is next unless hardening finds that UAA-P1-078 needs an
+incremental follow-up such as UAA-P1-078.1.

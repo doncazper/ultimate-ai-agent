@@ -158,6 +158,68 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         </article>
         <article className="status-card">
           <div className="status-card-header">
+            <h3>Private beta-readiness gate</h3>
+            <span>{today.private_beta_readiness_overall_state}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.private_beta_readiness_contract_ref}
+            />
+            <DetailTerm
+              label="Evidence packet"
+              value={today.private_beta_readiness_evidence_packet_ref}
+            />
+            <DetailTerm
+              label="Criteria"
+              value={String(today.private_beta_readiness_criterion_count)}
+            />
+            <DetailTerm
+              label="Local/private only"
+              value={today.private_beta_readiness_local_private_only ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Execution"
+              value={
+                today.private_beta_readiness_execution_authorized
+                  ? "authorized"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Public beta"
+              value={
+                today.private_beta_readiness_authority_posture
+                  .public_beta_claim_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <InlineListWithFallback
+            emptyLabel="Acceptance states: missing"
+            items={today.private_beta_readiness_acceptance_states}
+          />
+          <div className="status-card-header">
+            <h3>Beta-test criteria</h3>
+            <span>{today.private_beta_readiness_criteria.length}</span>
+          </div>
+          <ul className="ref-list">
+            {today.private_beta_readiness_criteria.map((criterion) => (
+              <li key={criterion.criterion_ref}>
+                {criterion.surface}: {criterion.gate_state};{" "}
+                {criterion.next_safe_action}
+              </li>
+            ))}
+          </ul>
+          <RefListWithFallback
+            emptyLabel="Missing evidence: none"
+            refs={today.private_beta_readiness_missing_evidence_refs}
+          />
+          <RefList refs={today.private_beta_readiness_required_blocked_refs} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
             <h3>Weekly CEO Review</h3>
             <span>{today.weekly_ceo_review_summary.weekly_review_ref}</span>
           </div>
@@ -493,6 +555,43 @@ export function ActionInboxSurfacePanel({
           refs={(inbox.memory_derived_action_proposals ?? []).map(
             (proposal) => proposal.proposal_ref,
           )}
+        />
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Beta-readiness action gate</h3>
+          <span>{inbox.private_beta_readiness_overall_state ?? "partial"}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract ref"
+            value={inbox.private_beta_readiness_contract_ref ?? "missing"}
+          />
+          <DetailTerm
+            label="Criteria"
+            value={String(inbox.private_beta_readiness_criteria?.length ?? 0)}
+          />
+          <DetailTerm
+            label="Action execution"
+            value={
+              inbox.private_beta_readiness_authority_posture?.action_execution_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Public beta"
+            value={
+              inbox.private_beta_readiness_authority_posture
+                ?.public_beta_claim_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="Beta-readiness blockers: missing"
+          refs={inbox.private_beta_readiness_blocked_state_refs ?? []}
         />
       </article>
       <div className="review-grid">

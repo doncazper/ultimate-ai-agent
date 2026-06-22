@@ -764,6 +764,83 @@ export interface FounderLoopWeeklyCeoReviewSummary {
   next_safe_action: string;
 }
 
+export interface FounderLoopPrivateBetaReadinessCriterion {
+  contract_ref: string;
+  criterion_ref: string;
+  surface: string;
+  gate_state: string;
+  safe_summary: string;
+  evidence_refs: string[];
+  required_contract_refs: string[];
+  acceptance_refs: string[];
+  missing_evidence_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+  local_private_only: boolean;
+  safe_refs_only: boolean;
+  review_required: boolean;
+  evidence_required: boolean;
+  redaction_required: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_readiness_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+  broad_autonomy_enabled: boolean;
+  connector_write_enabled: boolean;
+  provider_model_authority_allowed: boolean;
+  unrestricted_shell_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  remote_execution_enabled: boolean;
+  account_sync_enabled: boolean;
+  crm_write_enabled: boolean;
+  memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  approval_grant_capture_enabled: boolean;
+  action_execution_enabled: boolean;
+  code_apply_execution_enabled: boolean;
+}
+
+export interface FounderLoopPrivateBetaReadinessStateDefinition {
+  state: string;
+  terminal: boolean;
+  definition: string;
+}
+
+export interface FounderLoopPrivateBetaReadinessSurfaceBinding {
+  surface: string;
+  feed_status: string;
+  feed_ref: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopPrivateBetaReadinessAuthorityPosture {
+  local_private_only: boolean;
+  safe_refs_only: boolean;
+  review_required: boolean;
+  evidence_required: boolean;
+  redaction_required: boolean;
+  private_beta_execution_authorized: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_readiness_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+  broad_autonomy_enabled: boolean;
+  connector_write_enabled: boolean;
+  provider_model_authority_allowed: boolean;
+  unrestricted_shell_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  remote_execution_enabled: boolean;
+  account_sync_enabled: boolean;
+  crm_write_enabled: boolean;
+  memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  approval_grant_capture_enabled: boolean;
+  action_execution_enabled: boolean;
+  code_apply_execution_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -876,6 +953,29 @@ export interface FounderLoopTodaySummary {
   memory_to_loop_weekly_review_refs: string[];
   weekly_ceo_review_summary: FounderLoopWeeklyCeoReviewSummary;
   memory_to_loop_blocked_state_refs: string[];
+  private_beta_readiness_contract_ref: string;
+  private_beta_readiness_status: string;
+  private_beta_readiness_overall_state: string;
+  private_beta_readiness_evidence_packet_ref: string;
+  private_beta_readiness_window_ref: string;
+  private_beta_readiness_required_surfaces: string[];
+  private_beta_readiness_acceptance_states: string[];
+  private_beta_readiness_acceptance_state_definitions: FounderLoopPrivateBetaReadinessStateDefinition[];
+  private_beta_readiness_required_ref_fields: string[];
+  private_beta_readiness_required_blocked_refs: string[];
+  private_beta_readiness_criterion_count: number;
+  private_beta_readiness_criteria: FounderLoopPrivateBetaReadinessCriterion[];
+  private_beta_readiness_surface_bindings: FounderLoopPrivateBetaReadinessSurfaceBinding[];
+  private_beta_readiness_authority_posture: FounderLoopPrivateBetaReadinessAuthorityPosture;
+  private_beta_readiness_blocked_state_refs: string[];
+  private_beta_readiness_missing_evidence_refs: string[];
+  private_beta_readiness_next_safe_action: string;
+  private_beta_readiness_local_private_only: boolean;
+  private_beta_readiness_safe_refs_only: boolean;
+  private_beta_readiness_review_required: boolean;
+  private_beta_readiness_evidence_required: boolean;
+  private_beta_readiness_redaction_required: boolean;
+  private_beta_readiness_execution_authorized: boolean;
   chat_local_operator_contract_ref: string;
   chat_local_operator_status: string;
   chat_local_operator_turn_ref: string;
@@ -977,6 +1077,12 @@ export interface FounderLoopActionsInbox {
   memory_to_loop_authority_posture?: FounderLoopMemoryToLoopAuthorityPosture;
   memory_to_loop_blocked_state_refs?: string[];
   weekly_ceo_review_summary?: FounderLoopWeeklyCeoReviewSummary;
+  private_beta_readiness_contract_ref?: string;
+  private_beta_readiness_status?: string;
+  private_beta_readiness_overall_state?: string;
+  private_beta_readiness_criteria?: FounderLoopPrivateBetaReadinessCriterion[];
+  private_beta_readiness_authority_posture?: FounderLoopPrivateBetaReadinessAuthorityPosture;
+  private_beta_readiness_blocked_state_refs?: string[];
   disabled_state_label: string;
   evidence_refs: string[];
   blocked_states: string[];

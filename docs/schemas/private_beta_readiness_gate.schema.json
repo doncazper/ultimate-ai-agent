@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/private_beta_readiness_gate.schema.json",
+  "title": "UAA-P1-078 Private Beta Readiness Gate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "private_beta_readiness_contract_ref",
+    "private_beta_readiness_status",
+    "private_beta_readiness_overall_state",
+    "private_beta_readiness_evidence_packet_ref",
+    "private_beta_readiness_window_ref",
+    "private_beta_readiness_required_surfaces",
+    "private_beta_readiness_acceptance_states",
+    "private_beta_readiness_acceptance_state_definitions",
+    "private_beta_readiness_required_ref_fields",
+    "private_beta_readiness_required_blocked_refs",
+    "private_beta_readiness_criterion_count",
+    "private_beta_readiness_criteria",
+    "private_beta_readiness_surface_bindings",
+    "private_beta_readiness_authority_posture",
+    "private_beta_readiness_blocked_state_refs",
+    "private_beta_readiness_missing_evidence_refs",
+    "private_beta_readiness_next_safe_action",
+    "private_beta_readiness_local_private_only",
+    "private_beta_readiness_safe_refs_only",
+    "private_beta_readiness_review_required",
+    "private_beta_readiness_evidence_required",
+    "private_beta_readiness_redaction_required",
+    "private_beta_readiness_execution_authorized"
+  ],
+  "properties": {
+    "private_beta_readiness_contract_ref": {
+      "const": "contract-ref:private-beta-readiness-gate:v1"
+    },
+    "private_beta_readiness_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "private_beta_readiness_overall_state": {
+      "enum": [
+        "pass",
+        "fail",
+        "skipped",
+        "blocked",
+        "partial",
+        "mock_only",
+        "accepted_failure"
+      ]
+    },
+    "private_beta_readiness_evidence_packet_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "private_beta_readiness_window_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "private_beta_readiness_required_surfaces": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 8,
+      "uniqueItems": true
+    },
+    "private_beta_readiness_acceptance_states": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "pass",
+          "fail",
+          "skipped",
+          "blocked",
+          "partial",
+          "mock_only",
+          "accepted_failure"
+        ]
+      },
+      "minItems": 7,
+      "uniqueItems": true
+    },
+    "private_beta_readiness_acceptance_state_definitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["state", "terminal", "definition"],
+        "properties": {
+          "state": { "type": "string", "minLength": 1 },
+          "terminal": { "type": "boolean" },
+          "definition": { "type": "string", "minLength": 1 }
+        }
+      },
+      "minItems": 7
+    },
+    "private_beta_readiness_required_ref_fields": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 10,
+      "uniqueItems": true
+    },
+    "private_beta_readiness_required_blocked_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 18,
+      "uniqueItems": true
+    },
+    "private_beta_readiness_criterion_count": {
+      "type": "integer",
+      "minimum": 8
+    },
+    "private_beta_readiness_criteria": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/criterion" },
+      "minItems": 8
+    },
+    "private_beta_readiness_surface_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "feed_status",
+          "feed_ref",
+          "authority_boundary"
+        ],
+        "properties": {
+          "surface": { "type": "string", "minLength": 1 },
+          "feed_status": { "type": "string", "minLength": 1 },
+          "feed_ref": { "type": "string", "minLength": 1 },
+          "authority_boundary": { "type": "string", "minLength": 1 }
+        }
+      },
+      "minItems": 8
+    },
+    "private_beta_readiness_authority_posture": {
+      "$ref": "#/$defs/authorityPosture"
+    },
+    "private_beta_readiness_blocked_state_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 18,
+      "uniqueItems": true
+    },
+    "private_beta_readiness_missing_evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "private_beta_readiness_next_safe_action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "private_beta_readiness_local_private_only": { "const": true },
+    "private_beta_readiness_safe_refs_only": { "const": true },
+    "private_beta_readiness_review_required": { "const": true },
+    "private_beta_readiness_evidence_required": { "const": true },
+    "private_beta_readiness_redaction_required": { "const": true },
+    "private_beta_readiness_execution_authorized": { "const": false }
+  },
+  "$defs": {
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_ref",
+        "criterion_ref",
+        "surface",
+        "gate_state",
+        "safe_summary",
+        "evidence_refs",
+        "required_contract_refs",
+        "acceptance_refs",
+        "missing_evidence_refs",
+        "blocked_state_refs",
+        "next_safe_action",
+        "local_private_only",
+        "safe_refs_only",
+        "review_required",
+        "evidence_required",
+        "redaction_required",
+        "public_beta_claim_enabled",
+        "public_distribution_claim_enabled",
+        "production_readiness_claim_enabled",
+        "production_authority_enabled",
+        "broad_autonomy_enabled",
+        "connector_write_enabled",
+        "provider_model_authority_allowed",
+        "unrestricted_shell_enabled",
+        "shell_subprocess_execution_enabled",
+        "remote_execution_enabled",
+        "account_sync_enabled",
+        "crm_write_enabled",
+        "memory_write_authorized",
+        "automatic_memory_write_authorized",
+        "context_injection_authorized",
+        "approval_grant_capture_enabled",
+        "action_execution_enabled",
+        "code_apply_execution_enabled"
+      ],
+      "properties": {
+        "contract_ref": {
+          "const": "contract-ref:private-beta-readiness-gate:v1"
+        },
+        "criterion_ref": { "type": "string", "minLength": 1 },
+        "surface": { "type": "string", "minLength": 1 },
+        "gate_state": {
+          "enum": [
+            "pass",
+            "fail",
+            "skipped",
+            "blocked",
+            "partial",
+            "mock_only",
+            "accepted_failure"
+          ]
+        },
+        "safe_summary": { "type": "string", "minLength": 1 },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "required_contract_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "acceptance_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "missing_evidence_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "blocked_state_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 18
+        },
+        "next_safe_action": { "type": "string", "minLength": 1 },
+        "local_private_only": { "const": true },
+        "safe_refs_only": { "const": true },
+        "review_required": { "const": true },
+        "evidence_required": { "const": true },
+        "redaction_required": { "const": true },
+        "public_beta_claim_enabled": { "const": false },
+        "public_distribution_claim_enabled": { "const": false },
+        "production_readiness_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false },
+        "broad_autonomy_enabled": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "provider_model_authority_allowed": { "const": false },
+        "unrestricted_shell_enabled": { "const": false },
+        "shell_subprocess_execution_enabled": { "const": false },
+        "remote_execution_enabled": { "const": false },
+        "account_sync_enabled": { "const": false },
+        "crm_write_enabled": { "const": false },
+        "memory_write_authorized": { "const": false },
+        "automatic_memory_write_authorized": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "code_apply_execution_enabled": { "const": false }
+      }
+    },
+    "authorityPosture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_private_only",
+        "safe_refs_only",
+        "review_required",
+        "evidence_required",
+        "redaction_required",
+        "private_beta_execution_authorized",
+        "public_beta_claim_enabled",
+        "public_distribution_claim_enabled",
+        "production_readiness_claim_enabled",
+        "production_authority_enabled",
+        "broad_autonomy_enabled",
+        "connector_write_enabled",
+        "provider_model_authority_allowed",
+        "unrestricted_shell_enabled",
+        "shell_subprocess_execution_enabled",
+        "remote_execution_enabled",
+        "account_sync_enabled",
+        "crm_write_enabled",
+        "memory_write_authorized",
+        "automatic_memory_write_authorized",
+        "context_injection_authorized",
+        "approval_grant_capture_enabled",
+        "action_execution_enabled",
+        "code_apply_execution_enabled"
+      ],
+      "properties": {
+        "local_private_only": { "const": true },
+        "safe_refs_only": { "const": true },
+        "review_required": { "const": true },
+        "evidence_required": { "const": true },
+        "redaction_required": { "const": true },
+        "private_beta_execution_authorized": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "public_distribution_claim_enabled": { "const": false },
+        "production_readiness_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false },
+        "broad_autonomy_enabled": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "provider_model_authority_allowed": { "const": false },
+        "unrestricted_shell_enabled": { "const": false },
+        "shell_subprocess_execution_enabled": { "const": false },
+        "remote_execution_enabled": { "const": false },
+        "account_sync_enabled": { "const": false },
+        "crm_write_enabled": { "const": false },
+        "memory_write_authorized": { "const": false },
+        "automatic_memory_write_authorized": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "code_apply_execution_enabled": { "const": false }
+      }
+    }
+  }
+}

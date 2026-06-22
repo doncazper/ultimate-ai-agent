@@ -87,6 +87,15 @@ from ultimate_ai_agent.core.planning.action_envelopes import (
     plans_action_envelope_review_posture_rows,
     plans_action_envelope_surface_bindings,
 )
+from ultimate_ai_agent.core.readiness import (
+    PRIVATE_BETA_READINESS_CONTRACT_REF,
+    PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS,
+    PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS,
+    PRIVATE_BETA_READINESS_REQUIRED_SURFACES,
+    build_private_beta_readiness_gate,
+    private_beta_readiness_authority_posture,
+    private_beta_readiness_surface_bindings,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -243,6 +252,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             "GET /control-center/today/summary",
             "evidence-ref:founder-loop:today-summary",
+            PRIVATE_BETA_READINESS_CONTRACT_REF,
         ],
         "standalone_complete_allowed": False,
     },
@@ -258,6 +268,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             "GET /control-center/actions/inbox",
             "evidence-ref:founder-loop:action-inbox",
+            "private-beta-readiness:action-inbox",
         ],
         "standalone_complete_allowed": False,
     },
@@ -291,6 +302,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
             CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
             MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
+            "private-beta-readiness:memory-review",
         ],
         "standalone_complete_allowed": False,
     },
@@ -306,6 +318,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             "GET /control-center/today/summary",
             EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
+            "private-beta-readiness:evidence-timeline",
         ],
         "standalone_complete_allowed": False,
     },
@@ -321,6 +334,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             "GET /control-center/morning-briefing/summary",
             "contract-ref:calendar-read-only-missing",
+            "private-beta-readiness:morning-briefing",
         ],
         "standalone_complete_allowed": False,
     },
@@ -336,6 +350,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
             "/v1/chat/completions",
+            "private-beta-readiness:chat-plans-handoff",
         ],
         "standalone_complete_allowed": False,
     },
@@ -348,7 +363,25 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             "diff_validation_evidence_ref",
             "memory_candidate_or_blocked_state",
         ],
-        "current_feed_refs": [GOVERNED_CODE_WORKBENCH_CONTRACT_REF],
+        "current_feed_refs": [
+            GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
+            "private-beta-readiness:governed-code",
+        ],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "Private Beta Readiness",
+        "status": "implemented_local_readiness_gate_authority_blocked",
+        "required_loop_outputs": [
+            "today_readiness_state",
+            "action_inbox_acceptance_state",
+            "evidence_history_state",
+            "memory_review_and_crm_lite_follow_up_state",
+        ],
+        "current_feed_refs": [
+            PRIVATE_BETA_READINESS_CONTRACT_REF,
+            "evidence-packet:private-beta-readiness:local-founder-loop",
+        ],
         "standalone_complete_allowed": False,
     },
 ]
@@ -1643,6 +1676,52 @@ def _memory_to_loop_binding_contract_payload(
     }
 
 
+def _private_beta_readiness_gate_contract_payload() -> dict[str, Any]:
+    gate = build_private_beta_readiness_gate()
+    payload = gate.model_dump(mode="json")
+    return {
+        "private_beta_readiness_contract_ref": payload["contract_ref"],
+        "private_beta_readiness_status": payload["status"],
+        "private_beta_readiness_overall_state": payload["overall_gate_state"],
+        "private_beta_readiness_evidence_packet_ref": payload["evidence_packet_ref"],
+        "private_beta_readiness_window_ref": payload["readiness_window_ref"],
+        "private_beta_readiness_required_surfaces": (
+            PRIVATE_BETA_READINESS_REQUIRED_SURFACES
+        ),
+        "private_beta_readiness_acceptance_states": payload["acceptance_states"],
+        "private_beta_readiness_acceptance_state_definitions": payload[
+            "acceptance_state_definitions"
+        ],
+        "private_beta_readiness_required_ref_fields": (
+            PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS
+        ),
+        "private_beta_readiness_required_blocked_refs": (
+            PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS
+        ),
+        "private_beta_readiness_criterion_count": len(payload["criteria"]),
+        "private_beta_readiness_criteria": payload["criteria"],
+        "private_beta_readiness_surface_bindings": (
+            private_beta_readiness_surface_bindings()
+        ),
+        "private_beta_readiness_authority_posture": (
+            private_beta_readiness_authority_posture()
+        ),
+        "private_beta_readiness_blocked_state_refs": payload["blocked_state_refs"],
+        "private_beta_readiness_missing_evidence_refs": (
+            payload["missing_evidence_refs"]
+        ),
+        "private_beta_readiness_next_safe_action": payload["next_safe_action"],
+        "private_beta_readiness_local_private_only": payload["local_private_only"],
+        "private_beta_readiness_safe_refs_only": payload["safe_refs_only"],
+        "private_beta_readiness_review_required": payload["review_required"],
+        "private_beta_readiness_evidence_required": payload["evidence_required"],
+        "private_beta_readiness_redaction_required": payload["redaction_required"],
+        "private_beta_readiness_execution_authorized": (
+            payload["private_beta_execution_authorized"]
+        ),
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1700,6 +1779,9 @@ class FounderLoopRepository:
             memory_items=memory_items,
             cross_surface_memory_intake_contract=cross_surface_memory_intake_contract,
         )
+        private_beta_readiness_gate_contract = (
+            _private_beta_readiness_gate_contract_payload()
+        )
         evidence_timeline = self._build_evidence_timeline(
             actions=actions,
             plans=plans,
@@ -1707,6 +1789,9 @@ class FounderLoopRepository:
             briefing_items=briefing_items,
             cross_surface_memory_intake_contract=cross_surface_memory_intake_contract,
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
+            private_beta_readiness_gate_contract=(
+                private_beta_readiness_gate_contract
+            ),
         )
         next_safe_actions = _next_safe_actions(
             actions=actions,
@@ -1788,6 +1873,7 @@ class FounderLoopRepository:
             ),
             **cross_surface_memory_intake_contract,
             **memory_to_loop_binding_contract,
+            **private_beta_readiness_gate_contract,
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
             "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
@@ -1927,6 +2013,7 @@ class FounderLoopRepository:
         briefing_items: list[dict[str, Any]],
         cross_surface_memory_intake_contract: dict[str, Any],
         memory_to_loop_binding_contract: dict[str, Any],
+        private_beta_readiness_gate_contract: dict[str, Any],
     ) -> list[dict[str, Any]]:
         timeline: list[FounderLoopEvidenceTimelineItem] = []
         for action in actions:
@@ -2170,7 +2257,7 @@ class FounderLoopRepository:
                     ),
                     approved=_history_answer(
                         "approved",
-                        "No model output, tool use, memory write, approval grant, or action execution is approved by Chat output.",
+                        "No model output, tool use, memory write, approval grant, or action execution authority is approved by Chat output.",
                         refs=["approval-status:chat-output-not-authority"],
                         status="blocked",
                     ),
@@ -2264,7 +2351,7 @@ class FounderLoopRepository:
                     ),
                     approved=_history_answer(
                         "approved",
-                        "No apply approval or grant capture is approved by this contract; approval refs remain identifiers only.",
+                        "No Code apply authority, approval grant authority, or grant capture authority is approved by this contract; approval refs remain identifiers only.",
                         refs=[
                             code_contract[
                                 "governed_code_workbench_approval_requirement_ref"
@@ -2407,7 +2494,7 @@ class FounderLoopRepository:
                     ),
                     approved=_history_answer(
                         "approved",
-                        "No memory write, automatic intake, context injection, provider call, account fetch, browser import, or shell-history import is approved.",
+                        "No memory write authority, automatic intake authority, context injection authority, provider call authority, account fetch authority, browser import authority, or shell-history import authority is approved.",
                         refs=CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
                         status="blocked",
                     ),
@@ -2597,6 +2684,141 @@ class FounderLoopRepository:
                     "Review memory-derived Action proposal refs before any later "
                     "state-change or memory-write milestone."
                 ),
+            )
+        )
+        private_beta_criteria = list(
+            private_beta_readiness_gate_contract[
+                "private_beta_readiness_criteria"
+            ]
+        )
+        private_beta_criterion_refs = [
+            str(criterion["criterion_ref"]) for criterion in private_beta_criteria
+        ]
+        private_beta_evidence_refs = [
+            ref
+            for criterion in private_beta_criteria
+            for ref in criterion.get("evidence_refs", [])
+        ]
+        private_beta_missing_refs = [
+            *list(
+                private_beta_readiness_gate_contract[
+                    "private_beta_readiness_missing_evidence_refs"
+                ]
+            ),
+            *[
+                ref
+                for criterion in private_beta_criteria
+                for ref in criterion.get("missing_evidence_refs", [])
+            ],
+        ]
+        timeline.append(
+            FounderLoopEvidenceTimelineItem(
+                timeline_item_ref=_timeline_ref(
+                    "private-beta",
+                    private_beta_readiness_gate_contract[
+                        "private_beta_readiness_contract_ref"
+                    ],
+                ),
+                item_kind="private_beta_readiness_gate_ref",
+                title="Private beta-readiness gate",
+                safe_summary=(
+                    "Private local beta-test readiness is represented as "
+                    "acceptance-state evidence for the founder loop surfaces; "
+                    "public beta, distribution, production authority, writes, "
+                    "execution, and Code apply remain blocked."
+                ),
+                history_answers=_history_answers(
+                    proposed=_history_answer(
+                        "proposed",
+                        "A private local beta-test acceptance gate was proposed for the Founder Loop surfaces as safe refs only.",
+                        refs=[
+                            PRIVATE_BETA_READINESS_CONTRACT_REF,
+                            *private_beta_criterion_refs,
+                        ],
+                    ),
+                    approved=_history_answer(
+                        "approved",
+                        "Only the readiness evidence gate is accepted; no public beta authority, distribution authority, production readiness authority, write authority, execution authority, or broad autonomy authority is approved.",
+                        refs=private_beta_readiness_gate_contract[
+                            "private_beta_readiness_required_blocked_refs"
+                        ],
+                        status="blocked",
+                    ),
+                    happened=_history_answer(
+                        "happened",
+                        "Readiness criteria, acceptance states, missing evidence refs, and blocked authority refs were produced for review.",
+                        refs=private_beta_evidence_refs,
+                        status="safe_refs_only",
+                    ),
+                    changed=_history_answer(
+                        "changed",
+                        "No connector, account, CRM, memory, action, Code apply, provider, shell, remote, or production state changed.",
+                        refs=["change-status:no-private-beta-runtime-change"],
+                        status="not_applicable",
+                    ),
+                    undoable=_history_answer(
+                        "undoable",
+                        "There is no rollback execution because the gate is read-only readiness metadata.",
+                        refs=["rollback-status:private-beta-gate-no-mutation"],
+                        status="not_applicable",
+                    ),
+                    stale=_history_answer(
+                        "stale",
+                        "Readiness refs must be rechecked after each local rehearsal or API perimeter hardening milestone.",
+                        refs=private_beta_missing_refs,
+                        status="recheck_required",
+                    ),
+                    blocked=_history_answer(
+                        "blocked",
+                        "Public beta, public distribution, production readiness, broad autonomy, connector writes, model/provider authority, unrestricted shell, remote execution, account sync, CRM writes, memory writes, context injection, action execution, approval grant capture, and Code apply remain blocked.",
+                        refs=private_beta_readiness_gate_contract[
+                            "private_beta_readiness_blocked_state_refs"
+                        ],
+                        status="blocked",
+                    ),
+                ),
+                source_refs=private_beta_criterion_refs,
+                status_refs=[
+                    PRIVATE_BETA_READINESS_CONTRACT_REF,
+                    private_beta_readiness_gate_contract[
+                        "private_beta_readiness_evidence_packet_ref"
+                    ],
+                    private_beta_readiness_gate_contract[
+                        "private_beta_readiness_window_ref"
+                    ],
+                ],
+                related_route_refs=[
+                    "GET /control-center/today/summary",
+                    "GET /control-center/actions/inbox",
+                    "/today",
+                    "/evidence",
+                    "/memory",
+                ],
+                side_effect_class="local_dev_workspace_only",
+                authority_posture=(
+                    "Private beta-readiness evidence is local safe-ref metadata "
+                    "only; it does not open public beta, distribution, production "
+                    "readiness, writes, execution, provider authority, or Code apply."
+                ),
+                approval_posture="approval-status:private-beta-gate-not-authority",
+                receipt_refs=[],
+                audit_refs=private_beta_evidence_refs,
+                replay_refs=["replay-ref:private-beta-readiness:local-rehearsal"],
+                rollback_refs=[],
+                rollback_blockers=[
+                    "private_beta_readiness_gate_no_mutation_to_rollback"
+                ],
+                redaction_status="redacted_summary_only",
+                stale_state="recheck_readiness_gate_after_each_local_rehearsal",
+                missing_evidence_posture=(
+                    "private_beta_rehearsal_receipts_missing_until_recorded"
+                ),
+                blocked_states=private_beta_readiness_gate_contract[
+                    "private_beta_readiness_blocked_state_refs"
+                ],
+                next_safe_action=private_beta_readiness_gate_contract[
+                    "private_beta_readiness_next_safe_action"
+                ],
             )
         )
         for item in memory_items:
@@ -2886,6 +3108,9 @@ class FounderLoopRepository:
                 _cross_surface_memory_intake_contract_payload()
             ),
         )
+        private_beta_readiness_gate_contract = (
+            _private_beta_readiness_gate_contract_payload()
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_review_queue",
@@ -2919,6 +3144,7 @@ class FounderLoopRepository:
                 plans_action_envelope_authority_posture()
             ),
             **memory_to_loop_binding_contract,
+            **private_beta_readiness_gate_contract,
             "disabled_state_label": "Exact backend approval contract required",
             "evidence_refs": ["evidence-ref:founder-loop:action-inbox"],
             "blocked_states": [

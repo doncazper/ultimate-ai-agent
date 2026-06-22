@@ -20,6 +20,13 @@ from ultimate_ai_agent.core.memory import (
     MEMORY_TO_LOOP_REQUIRED_REF_FIELDS,
     MEMORY_TO_LOOP_REQUIRED_SURFACES,
 )
+from ultimate_ai_agent.core.readiness import (
+    PRIVATE_BETA_READINESS_ACCEPTANCE_STATES,
+    PRIVATE_BETA_READINESS_CONTRACT_REF,
+    PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS,
+    PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS,
+    PRIVATE_BETA_READINESS_REQUIRED_SURFACES,
+)
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
@@ -231,6 +238,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "Morning Briefing",
         "Chat",
         "Code",
+        "Private Beta Readiness",
     } <= set(module_feeds)
     for feed in module_feeds.values():
         assert feed["standalone_complete_allowed"] is False
@@ -255,6 +263,18 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert (
         MEMORY_TO_LOOP_BINDING_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
+    )
+    assert (
+        PRIVATE_BETA_READINESS_CONTRACT_REF
+        in module_feeds["Today"]["current_feed_refs"]
+    )
+    assert (
+        module_feeds["Private Beta Readiness"]["status"]
+        == "implemented_local_readiness_gate_authority_blocked"
+    )
+    assert (
+        PRIVATE_BETA_READINESS_CONTRACT_REF
+        in module_feeds["Private Beta Readiness"]["current_feed_refs"]
     )
     assert (
         module_feeds["Chat"]["status"] == "implemented_local_operator_surface_contract"
@@ -379,6 +399,47 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert today["memory_to_loop_authority_posture"]["automatic_recall_enabled"] is False
     assert today["memory_to_loop_authority_posture"]["context_injection_authorized"] is False
     assert today["memory_to_loop_authority_posture"]["action_execution_enabled"] is False
+    assert today["private_beta_readiness_contract_ref"] == (
+        PRIVATE_BETA_READINESS_CONTRACT_REF
+    )
+    assert today["private_beta_readiness_overall_state"] == "partial"
+    assert today["private_beta_readiness_required_surfaces"] == (
+        PRIVATE_BETA_READINESS_REQUIRED_SURFACES
+    )
+    assert today["private_beta_readiness_acceptance_states"] == (
+        PRIVATE_BETA_READINESS_ACCEPTANCE_STATES
+    )
+    assert today["private_beta_readiness_required_ref_fields"] == (
+        PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS
+    )
+    assert set(PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS) <= set(
+        today["private_beta_readiness_blocked_state_refs"]
+    )
+    assert today["private_beta_readiness_criterion_count"] == len(
+        PRIVATE_BETA_READINESS_REQUIRED_SURFACES
+    )
+    assert {
+        criterion["surface"]
+        for criterion in today["private_beta_readiness_criteria"]
+    } == set(PRIVATE_BETA_READINESS_REQUIRED_SURFACES)
+    assert {
+        criterion["gate_state"]
+        for criterion in today["private_beta_readiness_criteria"]
+    } >= {"partial", "mock_only", "blocked"}
+    assert (
+        today["private_beta_readiness_authority_posture"][
+            "public_beta_claim_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["private_beta_readiness_authority_posture"][
+            "connector_write_enabled"
+        ]
+        is False
+    )
+    assert today["private_beta_readiness_execution_authorized"] is False
+    assert today["private_beta_readiness_missing_evidence_refs"]
     assert today["module_completion_contract"] == {
         "visibility_requirement": (
             "Module state must be visible in Today, Actions, Evidence, and "
@@ -725,6 +786,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "governed_code_workbench_proposal_ref" in timeline_kinds
     assert "cross_surface_memory_intake_proposal_ref" in timeline_kinds
     assert "memory_to_loop_binding_ref" in timeline_kinds
+    assert "private_beta_readiness_gate_ref" in timeline_kinds
     assert "memory_review_evidence_ref" in timeline_kinds
     assert "source_readiness_evidence_ref" in timeline_kinds
     assert "foundation_gate_latency_ref" in timeline_kinds
@@ -872,6 +934,22 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert memory_loop_item["context_injection_authorized"] is False
     assert memory_loop_item["approval_ref_authority"] is False
     assert memory_loop_item["rollback_execution_enabled"] is False
+
+    private_beta_item = next(
+        item
+        for item in today["evidence_timeline"]
+        if item["item_kind"] == "private_beta_readiness_gate_ref"
+    )
+    assert PRIVATE_BETA_READINESS_CONTRACT_REF in private_beta_item["status_refs"]
+    assert private_beta_item["history_answers"]["approved"]["status"] == "blocked"
+    assert private_beta_item["history_answers"]["blocked"]["status"] == "blocked"
+    assert private_beta_item["approval_ref_authority"] is False
+    assert private_beta_item["memory_truth_authority"] is False
+    assert private_beta_item["context_injection_authorized"] is False
+    assert private_beta_item["rollback_execution_enabled"] is False
+    assert set(PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS) <= set(
+        private_beta_item["blocked_states"]
+    )
 
     memory_timeline_item = next(
         item for item in timeline if item["item_kind"] == "memory_review_evidence_ref"

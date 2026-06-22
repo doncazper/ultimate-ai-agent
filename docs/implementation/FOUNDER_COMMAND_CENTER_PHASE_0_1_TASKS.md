@@ -670,6 +670,8 @@ PR size: complete as one read-only UI/API binding PR after Tasks 9a-9i.
 
 ## Task 9k - UAA-P1-078 Private Beta-Readiness Gate
 
+Status: Done.
+
 Type: docs/test/release-evidence planning first
 
 New authority: no public beta, distribution, or production claim.
@@ -687,11 +689,15 @@ Acceptance criteria:
 
 Tests to add/update:
 
+- `docs/control_center/UAA_P1_078_PRIVATE_BETA_READINESS_GATE.md`.
+- `docs/schemas/private_beta_readiness_gate.schema.json`.
+- `scripts/verify_uaa_p1_078_private_beta_readiness_gate.py`.
+- `tests/test_uaa_p1_078_private_beta_readiness_gate.py`.
+- Founder Loop storage/API tests.
+- Control Center render tests.
 - Documentation integrity.
-- Product truth verifier.
-- Focused Founder Loop tests after implementation.
 
-PR size: one docs/test planning PR, then implementation evidence PRs later.
+PR size: completed as one read-only contract/UI/test evidence slice.
 
 ## Task 9l - UAA-P1-079 User Intent Understanding V1
 
@@ -713,7 +719,7 @@ Tests to add/update:
 - Ambiguity and ask-rather-than-act tests.
 - Documentation integrity.
 
-PR size: later contract PR only after UAA-P1-078 evidence exists.
+PR size: next contract PR after UAA-P1-078 evidence.
 
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 

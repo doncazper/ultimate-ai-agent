@@ -90,6 +90,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-075 governed Code workbench scan", "verify_uaa_p1_075_governed_code_workbench"),
     ("UAA-P1-076 cross-surface memory intake scan", "verify_uaa_p1_076_cross_surface_memory_intake"),
     ("UAA-P1-077 memory-to-loop binding scan", "verify_uaa_p1_077_memory_to_loop_binding"),
+    ("UAA-P1-078 private beta-readiness gate scan", "verify_uaa_p1_078_private_beta_readiness_gate"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
@@ -1040,6 +1041,16 @@ def verify_uaa_p1_076_cross_surface_memory_intake() -> None:
 def verify_uaa_p1_077_memory_to_loop_binding() -> None:
     print("\n[Verifier] Running UAA-P1-077 memory-to-loop binding scan...")
     run_cmd([sys.executable, "scripts/verify_uaa_p1_077_memory_to_loop_binding.py"])
+
+
+def verify_uaa_p1_078_private_beta_readiness_gate() -> None:
+    print("\n[Verifier] Running UAA-P1-078 private beta-readiness gate scan...")
+    run_cmd(
+        [
+            sys.executable,
+            "scripts/verify_uaa_p1_078_private_beta_readiness_gate.py",
+        ]
+    )
 
 
 def verify_no_openwebui_runtime_or_config_implementation() -> None:

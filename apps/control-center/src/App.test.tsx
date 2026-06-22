@@ -128,6 +128,15 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Loop items").nextElementSibling).toHaveTextContent("4");
     expect(screen.getByText("Memory-derived actions").nextElementSibling).toHaveTextContent("1");
     expect(screen.getByText("Accepted recall").nextElementSibling).toHaveTextContent("display-only");
+    expect(screen.getByRole("heading", { name: /Private beta-readiness gate/i })).toBeInTheDocument();
+    expect(screen.getAllByText("contract-ref:private-beta-readiness-gate:v1").length).toBeGreaterThan(0);
+    expect(screen.getByText("Evidence packet").nextElementSibling).toHaveTextContent(
+      "evidence-packet:private-beta-readiness:local-founder-loop",
+    );
+    expect(screen.getByText("Public beta").nextElementSibling).toHaveTextContent("blocked");
+    expect(screen.getByRole("heading", { name: /Beta-test criteria/i })).toBeInTheDocument();
+    expect(screen.getByText(/CRM-Lite Follow-Ups: blocked/i)).toBeInTheDocument();
+    expect(screen.getAllByText("blocked-state:no-public-beta").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Weekly CEO Review/i })).toBeInTheDocument();
     expect(
       screen.getAllByText("weekly-review-ref:memory-to-loop-binding").length,

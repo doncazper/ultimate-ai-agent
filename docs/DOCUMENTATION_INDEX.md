@@ -45,7 +45,10 @@ refs from Today, Chat, Plans, Actions, Evidence, local coding, and manual
 external-assistant review imports; UAA-P1-077 Memory-To-Loop Binding completes
 read-only loop refs, memory-derived Action proposals, Evidence Timeline
 history, Memory Review visibility, and Weekly CEO Review rollup metadata;
-UAA-P1-078 Private Beta-Readiness Gate is the current Ready Next product lane.
+UAA-P1-078 Private Beta-Readiness Gate completes local/private beta-test
+acceptance evidence states, Today/Actions/Evidence visibility, a schema,
+verifier, and focused tests. UAA-P1-079 User Intent Understanding V1 is the
+current Ready Next product lane.
 Every module
 feeds Today, Actions, Evidence, and Memory;
 source provenance, reviewed business memory, Evidence-as-history,

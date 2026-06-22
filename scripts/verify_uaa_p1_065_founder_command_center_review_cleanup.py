@@ -155,7 +155,7 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
             "UAA-P1-067 completed",
             "UAA-P1-068 completed",
             "UAA-P1-069 completed",
-            "UAA-P1-070 is the current Ready Next",
+            "UAA-P1-079 is the current Ready Next",
             "This milestone adds no backend route",
             "UAA-P1-066 remains queued",
         ],
@@ -189,7 +189,7 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
             "completed UAA-P1-067",
             "completed UAA-P1-068",
             "completed UAA-P1-069",
-            "Ready Next UAA-P1-070",
+            "Ready Next UAA-P1-079",
         ],
         DOCS_INDEX: [SCOPE_REF],
         RECOMMENDATION_LOG: [

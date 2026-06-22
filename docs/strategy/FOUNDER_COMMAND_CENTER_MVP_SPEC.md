@@ -23,7 +23,9 @@ UAA-P1-075 Governed Code Workbench V1 is implemented as a governed repo-local
 Code proposal and Evidence Timeline metadata slice. UAA-P1-076 Cross-Surface
 Memory Intake is implemented as a review-only proposal/intake slice. UAA-P1-077
 Memory-To-Loop Binding is implemented as a read-only loop-binding slice.
-UAA-P1-078 Private Beta-Readiness Gate is the next incomplete lane.
+UAA-P1-078 Private Beta-Readiness Gate is implemented as a local/private
+beta-test acceptance evidence gate. UAA-P1-079 User Intent Understanding V1 is
+the next incomplete lane.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -58,12 +60,21 @@ UAA-P1-078 Private Beta-Readiness Gate is the next incomplete lane.
    Today, Chat, Plans, Actions, Evidence, local coding summaries, and manual
    external-assistant review imports without automatic memory writes or context
    injection.
-10. Memory-to-loop binding: Ready Next. Make Today, Action Inbox, Evidence
+10. Memory-to-loop binding: implemented. Today, Action Inbox, Evidence
    Timeline, and Weekly CEO Review show memory candidates, accepted recall
    refs, corrections, rejected items, follow-up commitments, stale-state
    posture, and missing-evidence blockers without write or context-injection
    authority.
-11. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,
+11. Private beta-readiness gate: implemented. Local/private beta-test
+   acceptance evidence distinguishes pass, fail, skipped, blocked, partial,
+   mock-only, and accepted-failure states for Morning Briefing, Action Inbox,
+   Memory Review, Evidence Timeline, Chat/Plans handoff, governed Code
+   proposal refs, and CRM-lite follow-ups without public beta, distribution, or
+   production readiness claims.
+12. User intent understanding: Ready Next. Add reviewable intent proposals with
+   confidence, source refs, ambiguity posture, and ask/act/defer routing
+   without hidden authority or action execution.
+13. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,
    loop binding, or beta-readiness claims, classify routes as
    `public_metadata`, `local_readonly`, `local_sensitive`, or
    `mutating_requires_authority`; plan centralized security headers, explicit
@@ -71,7 +82,7 @@ UAA-P1-078 Private Beta-Readiness Gate is the next incomplete lane.
    mutating-route idempotency enforcement, targeted rate limits, and OpenAPI/API
    manifest/route inventory checks. This is not enterprise auth and does not
    add runtime authority.
-11. Local Control Center macOS-first Setup Assistant hardening: tighten
+14. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.
 12. First product loop readability: make Today, Plans, Actions, Memory,

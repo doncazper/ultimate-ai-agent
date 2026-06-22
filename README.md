@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-078 Ready Next: Private Beta-Readiness Gate** |
+| Current lane | **UAA-P1-079 Ready Next: User Intent Understanding V1** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -67,7 +67,11 @@ Timeline, Memory Review, and Weekly CEO Review; accepted recall remains
 display-only, memory-derived actions remain approval-bound proposals, and
 memory writes, context injection, execution, connector writes, account sync,
 public beta, distribution, and production authority remain blocked. UAA-P1-078
-Private Beta-Readiness Gate is now Ready Next.
+Private Beta-Readiness Gate is complete with a read-only local/private
+beta-test readiness evidence gate across Today, Morning Briefing, Action
+Inbox, Memory Review, Evidence Timeline, Chat/Plans Handoff, Governed Code,
+and CRM-lite follow-ups. UAA-P1-079 User Intent Understanding V1 is now Ready
+Next.
 UAA-P1-066 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane.
 

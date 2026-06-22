@@ -21,6 +21,13 @@ from ultimate_ai_agent.core.memory import (
     MEMORY_TO_LOOP_REQUIRED_REF_FIELDS,
     MEMORY_TO_LOOP_REQUIRED_SURFACES,
 )
+from ultimate_ai_agent.core.readiness import (
+    PRIVATE_BETA_READINESS_ACCEPTANCE_STATES,
+    PRIVATE_BETA_READINESS_CONTRACT_REF,
+    PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS,
+    PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS,
+    PRIVATE_BETA_READINESS_REQUIRED_SURFACES,
+)
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
@@ -67,6 +74,12 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert "GET /control-center/storage/status" in inbox["read_only_route_refs"]
     assert "capability-ref:local-approval-authority" in inbox["local_prerequisite_refs"]
     assert "no_approval_grant_capture_route" in inbox["blocked_states"]
+    assert inbox["private_beta_readiness_contract_ref"] == (
+        PRIVATE_BETA_READINESS_CONTRACT_REF
+    )
+    assert inbox["private_beta_readiness_authority_posture"][
+        "action_execution_enabled"
+    ] is False
 
     setup_item = next(
         item
@@ -397,6 +410,33 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     )
     assert today["memory_to_loop_authority_posture"]["automatic_recall_enabled"] is False
     assert today["memory_to_loop_authority_posture"]["action_execution_enabled"] is False
+    assert today["private_beta_readiness_contract_ref"] == (
+        PRIVATE_BETA_READINESS_CONTRACT_REF
+    )
+    assert today["private_beta_readiness_required_surfaces"] == (
+        PRIVATE_BETA_READINESS_REQUIRED_SURFACES
+    )
+    assert today["private_beta_readiness_acceptance_states"] == (
+        PRIVATE_BETA_READINESS_ACCEPTANCE_STATES
+    )
+    assert today["private_beta_readiness_required_ref_fields"] == (
+        PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS
+    )
+    assert set(PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS) <= set(
+        today["private_beta_readiness_blocked_state_refs"]
+    )
+    assert today["private_beta_readiness_criteria"]
+    assert (
+        today["private_beta_readiness_authority_posture"][
+            "public_beta_claim_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["private_beta_readiness_authority_posture"]["remote_execution_enabled"]
+        is False
+    )
+    assert today["private_beta_readiness_execution_authorized"] is False
     assert today["plan_action_state"]["execution_authorized"] is False
     assert today["plan_action_state"]["mutating_controls_enabled"] is False
     assert (
@@ -653,6 +693,20 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert memory_loop_item["rollback_execution_enabled"] is False
     assert set(MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS) <= set(
         memory_loop_item["blocked_states"]
+    )
+    private_beta_item = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "private_beta_readiness_gate_ref"
+    )
+    assert PRIVATE_BETA_READINESS_CONTRACT_REF in private_beta_item["status_refs"]
+    assert private_beta_item["history_answers"]["approved"]["status"] == "blocked"
+    assert private_beta_item["approval_ref_authority"] is False
+    assert private_beta_item["rollback_execution_enabled"] is False
+    assert private_beta_item["memory_truth_authority"] is False
+    assert private_beta_item["context_injection_authorized"] is False
+    assert set(PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS) <= set(
+        private_beta_item["blocked_states"]
     )
 
 

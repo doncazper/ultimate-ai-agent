@@ -26,9 +26,12 @@ Cross-Surface Memory Intake with review-only memory proposals from Today, Chat,
 Plans, Actions, Evidence, local coding, and manual external-assistant review
 imports. UAA-P1-077 completes Memory-To-Loop Binding with read-only loop refs,
 memory-derived Action proposals, Evidence Timeline history, Memory Review
-visibility, and Weekly CEO Review rollup metadata. The active product path now
-promotes UAA-P1-078 Private Beta-Readiness Gate. No public beta, distribution,
-production readiness, or production authority claim is granted.
+visibility, and Weekly CEO Review rollup metadata. UAA-P1-078 completes the
+Private Beta-Readiness Gate with local/private beta-test acceptance evidence
+states, a schema, verifier, focused tests, Today/Actions/Evidence visibility,
+and blocked authority refs. The active product path now promotes UAA-P1-079
+User Intent Understanding V1. No public beta, distribution, production
+readiness, or production authority claim is granted.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.
