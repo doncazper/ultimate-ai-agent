@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-079 Ready Next: User Intent Understanding V1** |
+| Current lane | **UAA-P1-079 Complete: User Intent Understanding V1; UAA-P1-080 Planned API Boundary Hardening** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -70,8 +70,11 @@ public beta, distribution, and production authority remain blocked. UAA-P1-078
 Private Beta-Readiness Gate is complete with a read-only local/private
 beta-test readiness evidence gate across Today, Morning Briefing, Action
 Inbox, Memory Review, Evidence Timeline, Chat/Plans Handoff, Governed Code,
-and CRM-lite follow-ups. UAA-P1-079 User Intent Understanding V1 is now Ready
-Next.
+and CRM-lite follow-ups. UAA-P1-079 User Intent Understanding V1 is complete
+with reviewable intent proposals, confidence, source refs, evidence refs,
+ambiguity posture, and ask/act/defer routing; low-confidence or conflicting
+intent asks the user rather than acting. UAA-P1-080 through UAA-P1-086 remain
+planned/queued API boundary hardening lanes and grant no new authority here.
 UAA-P1-066 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane.
 

@@ -150,13 +150,12 @@ Regression checks:
 - `make frontend-check`
 - `.venv/bin/python scripts/verify_documentation_integrity.py`
 
-## Next Conveyor Prompt
+## Next Conveyor State
 
-Next milestone: UAA-P1-079 User Intent Understanding V1.
-
-Review the same roadmap, current board, Founder Command Center board,
-implementation task list, and MVP spec before starting. Implement a reviewable
-intent-understanding contract that proposes user intent with confidence, source
-refs, ambiguity posture, and ask/act/defer routing. It must not become hidden
-authority, broad autonomy, action execution, memory write authority, provider
-authority, connector write authority, or production authority.
+UAA-P1-079 User Intent Understanding V1 is complete in the bounded Today-spine
+conveyor. The next documented product lane is UAA-P1-080 API Route
+Classification And Public/Protected Inventory, but it remains planned/queued API
+boundary-hardening work until a separate scoped prompt starts it. It must not
+be treated as route authority, broad autonomy, action execution, memory write
+authority, provider authority, connector write authority, public beta,
+distribution, or production authority.

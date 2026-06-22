@@ -25,7 +25,8 @@ Memory Intake is implemented as a review-only proposal/intake slice. UAA-P1-077
 Memory-To-Loop Binding is implemented as a read-only loop-binding slice.
 UAA-P1-078 Private Beta-Readiness Gate is implemented as a local/private
 beta-test acceptance evidence gate. UAA-P1-079 User Intent Understanding V1 is
-the next incomplete lane.
+implemented as a reviewable intent proposal slice. UAA-P1-080 through
+UAA-P1-086 remain planned/queued API boundary hardening lanes.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -71,9 +72,10 @@ the next incomplete lane.
    Memory Review, Evidence Timeline, Chat/Plans handoff, governed Code
    proposal refs, and CRM-lite follow-ups without public beta, distribution, or
    production readiness claims.
-12. User intent understanding: Ready Next. Add reviewable intent proposals with
-   confidence, source refs, ambiguity posture, and ask/act/defer routing
-   without hidden authority or action execution.
+12. User intent understanding: implemented. Reviewable intent proposals include
+   confidence, source refs, evidence refs, ambiguity posture, and ask/act/defer
+   routing without hidden authority or action execution. Low-confidence or
+   conflicting intent asks the user rather than acting.
 13. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,
    loop binding, or beta-readiness claims, classify routes as
    `public_metadata`, `local_readonly`, `local_sensitive`, or

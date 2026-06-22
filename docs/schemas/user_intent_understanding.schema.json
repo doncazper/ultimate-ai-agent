@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/user_intent_understanding.schema.json",
+  "title": "UAA-P1-079 User Intent Understanding V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "user_intent_understanding_contract_ref",
+    "user_intent_understanding_status",
+    "user_intent_required_surfaces",
+    "user_intent_routing_decisions",
+    "user_intent_required_dependency_refs",
+    "user_intent_required_ref_fields",
+    "user_intent_required_blocked_refs",
+    "user_intent_proposal_count",
+    "user_intent_proposals",
+    "user_intent_surface_bindings",
+    "user_intent_authority_posture",
+    "user_intent_blocked_state_refs",
+    "user_intent_low_confidence_policy_ref",
+    "user_intent_conflict_policy_ref",
+    "user_intent_next_safe_action",
+    "user_intent_review_required",
+    "user_intent_safe_refs_only",
+    "user_intent_evidence_required",
+    "user_intent_low_confidence_asks_user",
+    "user_intent_conflicting_intent_asks_user",
+    "user_intent_hidden_authority_enabled",
+    "user_intent_action_execution_enabled"
+  ],
+  "properties": {
+    "user_intent_understanding_contract_ref": {
+      "const": "contract-ref:user-intent-understanding:v1"
+    },
+    "user_intent_understanding_status": {
+      "const": "implemented_reviewable_intent_proposals_authority_blocked"
+    },
+    "user_intent_required_surfaces": {
+      "type": "array",
+      "items": { "type": "string" },
+      "contains": { "const": "Today" },
+      "minItems": 7
+    },
+    "user_intent_routing_decisions": {
+      "type": "array",
+      "items": { "enum": ["ask", "act", "defer"] },
+      "minItems": 3,
+      "uniqueItems": true
+    },
+    "user_intent_required_dependency_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/safeRef" },
+      "minItems": 5
+    },
+    "user_intent_required_ref_fields": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 14
+    },
+    "user_intent_required_blocked_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/safeRef" },
+      "minItems": 16
+    },
+    "user_intent_proposal_count": { "type": "integer", "minimum": 1 },
+    "user_intent_proposals": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/proposal" },
+      "minItems": 1
+    },
+    "user_intent_surface_bindings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/surfaceBinding" },
+      "minItems": 7
+    },
+    "user_intent_authority_posture": { "$ref": "#/$defs/authorityPosture" },
+    "user_intent_blocked_state_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/safeRef" },
+      "minItems": 16
+    },
+    "user_intent_low_confidence_policy_ref": { "$ref": "#/$defs/safeRef" },
+    "user_intent_conflict_policy_ref": { "$ref": "#/$defs/safeRef" },
+    "user_intent_next_safe_action": { "type": "string", "minLength": 1 },
+    "user_intent_review_required": { "const": true },
+    "user_intent_safe_refs_only": { "const": true },
+    "user_intent_evidence_required": { "const": true },
+    "user_intent_low_confidence_asks_user": { "const": true },
+    "user_intent_conflicting_intent_asks_user": { "const": true },
+    "user_intent_hidden_authority_enabled": { "const": false },
+    "user_intent_action_execution_enabled": { "const": false }
+  },
+  "$defs": {
+    "safeRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_ref",
+        "proposal_ref",
+        "source_surface",
+        "intent_label",
+        "safe_summary",
+        "confidence_score",
+        "confidence_band",
+        "ambiguity_posture",
+        "routing_decision",
+        "route_ref",
+        "source_refs",
+        "evidence_refs",
+        "dependency_refs",
+        "required_contract_refs",
+        "conflict_refs",
+        "ask_user_question_ref",
+        "next_safe_action",
+        "review_required",
+        "safe_refs_only",
+        "evidence_required",
+        "low_confidence_asks_user",
+        "conflicting_intent_asks_user",
+        "hidden_authority_enabled",
+        "acts_without_review",
+        "action_execution_enabled",
+        "approval_grant_capture_enabled",
+        "memory_write_authorized",
+        "automatic_memory_write_authorized",
+        "context_injection_authorized",
+        "tool_execution_enabled",
+        "provider_model_authority_allowed",
+        "connector_write_enabled",
+        "shell_subprocess_execution_enabled",
+        "code_apply_execution_enabled",
+        "broad_autonomy_enabled",
+        "public_beta_claim_enabled",
+        "production_authority_enabled",
+        "blocked_state_refs"
+      ],
+      "properties": {
+        "contract_ref": { "const": "contract-ref:user-intent-understanding:v1" },
+        "proposal_ref": { "$ref": "#/$defs/safeRef" },
+        "source_surface": { "type": "string" },
+        "intent_label": { "type": "string", "minLength": 1 },
+        "safe_summary": { "type": "string", "minLength": 1 },
+        "confidence_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "confidence_band": {
+          "enum": ["high", "medium", "low", "conflicting"]
+        },
+        "ambiguity_posture": {
+          "enum": [
+            "clear",
+            "ambiguous_missing_scope",
+            "ambiguous_conflicting_sources",
+            "low_confidence",
+            "stale_or_missing_evidence"
+          ]
+        },
+        "routing_decision": { "enum": ["ask", "act", "defer"] },
+        "route_ref": { "$ref": "#/$defs/safeRef" },
+        "source_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "minItems": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "minItems": 1
+        },
+        "dependency_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "minItems": 5
+        },
+        "required_contract_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "minItems": 5
+        },
+        "conflict_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" }
+        },
+        "ask_user_question_ref": {
+          "anyOf": [{ "$ref": "#/$defs/safeRef" }, { "type": "null" }]
+        },
+        "next_safe_action": { "type": "string", "minLength": 1 },
+        "review_required": { "const": true },
+        "safe_refs_only": { "const": true },
+        "evidence_required": { "const": true },
+        "low_confidence_asks_user": { "const": true },
+        "conflicting_intent_asks_user": { "const": true },
+        "hidden_authority_enabled": { "const": false },
+        "acts_without_review": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "memory_write_authorized": { "const": false },
+        "automatic_memory_write_authorized": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "tool_execution_enabled": { "const": false },
+        "provider_model_authority_allowed": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "shell_subprocess_execution_enabled": { "const": false },
+        "code_apply_execution_enabled": { "const": false },
+        "broad_autonomy_enabled": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false },
+        "blocked_state_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "minItems": 16
+        }
+      }
+    },
+    "surfaceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface", "feed_status", "feed_ref", "authority_boundary"],
+      "properties": {
+        "surface": { "type": "string" },
+        "feed_status": { "type": "string", "minLength": 1 },
+        "feed_ref": { "$ref": "#/$defs/safeRef" },
+        "authority_boundary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "authorityPosture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_required",
+        "safe_refs_only",
+        "evidence_required",
+        "low_confidence_asks_user",
+        "conflicting_intent_asks_user",
+        "hidden_authority_enabled",
+        "acts_without_review",
+        "action_execution_enabled",
+        "approval_grant_capture_enabled",
+        "memory_write_authorized",
+        "automatic_memory_write_authorized",
+        "context_injection_authorized",
+        "tool_execution_enabled",
+        "provider_model_authority_allowed",
+        "connector_write_enabled",
+        "shell_subprocess_execution_enabled",
+        "code_apply_execution_enabled",
+        "broad_autonomy_enabled",
+        "public_beta_claim_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "review_required": { "const": true },
+        "safe_refs_only": { "const": true },
+        "evidence_required": { "const": true },
+        "low_confidence_asks_user": { "const": true },
+        "conflicting_intent_asks_user": { "const": true },
+        "hidden_authority_enabled": { "const": false },
+        "acts_without_review": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "memory_write_authorized": { "const": false },
+        "automatic_memory_write_authorized": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "tool_execution_enabled": { "const": false },
+        "provider_model_authority_allowed": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "shell_subprocess_execution_enabled": { "const": false },
+        "code_apply_execution_enabled": { "const": false },
+        "broad_autonomy_enabled": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false }
+      }
+    }
+  }
+}

@@ -25,8 +25,8 @@ And Memory Quality Controls. UAA-P1-073 completed Plans To Reviewable Action
 Envelopes. UAA-P1-074 completed Chat Local Operator Surface. UAA-P1-075
 completed Governed Code Workbench V1. UAA-P1-076 completed Cross-Surface
 Memory Intake. UAA-P1-077 completed Memory-To-Loop Binding. UAA-P1-078
-completed the Private Beta-Readiness Gate. The parent board now promotes
-UAA-P1-079 User Intent Understanding V1 as Ready Next.
+completed the Private Beta-Readiness Gate. UAA-P1-079 completed User Intent
+Understanding V1.
 UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
@@ -64,15 +64,14 @@ FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
-UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078.
+UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079.
 
 Candidate-next:
-UAA-P1-079 User Intent Understanding V1.
+UAA-P1-080 API Route Classification And Public/Protected Inventory.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-080, UAA-P1-081, UAA-P1-082,
-UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
+UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
 ```
@@ -149,7 +148,7 @@ spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
 UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
 UAA-P1-071 as complete, UAA-P1-072 as complete, UAA-P1-073 as complete,
 UAA-P1-074 as complete, UAA-P1-075 as complete, UAA-P1-076 as complete,
-UAA-P1-077 as complete, UAA-P1-078 as complete, UAA-P1-079 as Ready Next, and
+UAA-P1-077 as complete, UAA-P1-078 as complete, UAA-P1-079 as complete, and
 UAA-P1-066 as read-only local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
@@ -728,19 +727,26 @@ production authority.
 
 Epic: Intent/Planning, Product/UX, Safety/Permissions
 
-Description: Later, after the loop has reviewed memory, evidence history,
-Action envelopes, Chat receipts, and Code receipts, shape a reviewable intent
-classifier.
+Status: Implemented / ready for review.
+
+Description: After the loop has reviewed memory, evidence history, Action
+envelopes, Chat receipts, and Code receipts, UAA-P1-079 shapes a reviewable
+intent classifier as safe-ref proposal metadata.
 
 Acceptance criteria: Intent proposals include confidence, source refs,
 ambiguity posture, ask/act/defer routing, and evidence refs. Low-confidence or
 conflicting intent asks the user rather than acting.
 
-Required tests/verifiers: intent taxonomy tests, ambiguity tests, product
-language checks, and documentation integrity.
+Proof: `docs/control_center/UAA_P1_079_USER_INTENT_UNDERSTANDING.md`,
+`docs/schemas/user_intent_understanding.schema.json`,
+`scripts/verify_uaa_p1_079_user_intent_understanding.py`,
+`tests/test_uaa_p1_079_user_intent_understanding.py`, Founder Loop
+storage/API tests, and Control Center render tests.
 
 Safety notes: Intent classification is not hidden authority, approval, memory
-truth, or broad autonomy.
+truth, action execution, context injection, Code apply, provider/model
+authority, connector authority, public beta, production authority, or broad
+autonomy.
 
 ### UAA-P1-080 - API Route Classification And Public/Protected Inventory
 

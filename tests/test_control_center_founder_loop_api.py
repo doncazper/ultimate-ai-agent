@@ -21,6 +21,14 @@ from ultimate_ai_agent.core.memory import (
     MEMORY_TO_LOOP_REQUIRED_REF_FIELDS,
     MEMORY_TO_LOOP_REQUIRED_SURFACES,
 )
+from ultimate_ai_agent.core.intent import (
+    USER_INTENT_UNDERSTANDING_CONTRACT_REF,
+    USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_DEPENDENCY_REFS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_REF_FIELDS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_SURFACES,
+    USER_INTENT_UNDERSTANDING_ROUTING_DECISIONS,
+)
 from ultimate_ai_agent.core.readiness import (
     PRIVATE_BETA_READINESS_ACCEPTANCE_STATES,
     PRIVATE_BETA_READINESS_CONTRACT_REF,
@@ -80,6 +88,12 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert inbox["private_beta_readiness_authority_posture"][
         "action_execution_enabled"
     ] is False
+    assert inbox["user_intent_understanding_contract_ref"] == (
+        USER_INTENT_UNDERSTANDING_CONTRACT_REF
+    )
+    assert inbox["user_intent_proposals"]
+    assert inbox["user_intent_authority_posture"]["low_confidence_asks_user"] is True
+    assert inbox["user_intent_authority_posture"]["action_execution_enabled"] is False
 
     setup_item = next(
         item
@@ -284,9 +298,16 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         is False
     )
     module_feeds = {item["module"]: item for item in today["module_feed_contract"]}
-    assert {"Today", "Actions", "Plans", "Memory", "Evidence", "Chat", "Code"} <= set(
-        module_feeds
-    )
+    assert {
+        "Today",
+        "Actions",
+        "Plans",
+        "Memory",
+        "Evidence",
+        "Chat",
+        "Code",
+        "User Intent Understanding",
+    } <= set(module_feeds)
     assert (
         module_feeds["Memory"]["status"]
         == "implemented_review_queue_quality_intake_and_loop_binding_contract"
@@ -302,6 +323,10 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert (
         CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
+    )
+    assert (
+        USER_INTENT_UNDERSTANDING_CONTRACT_REF
+        in module_feeds["User Intent Understanding"]["current_feed_refs"]
     )
     assert (
         MEMORY_TO_LOOP_BINDING_CONTRACT_REF
@@ -437,6 +462,39 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         is False
     )
     assert today["private_beta_readiness_execution_authorized"] is False
+    assert today["user_intent_understanding_contract_ref"] == (
+        USER_INTENT_UNDERSTANDING_CONTRACT_REF
+    )
+    assert today["user_intent_required_surfaces"] == (
+        USER_INTENT_UNDERSTANDING_REQUIRED_SURFACES
+    )
+    assert today["user_intent_routing_decisions"] == (
+        USER_INTENT_UNDERSTANDING_ROUTING_DECISIONS
+    )
+    assert today["user_intent_required_dependency_refs"] == (
+        USER_INTENT_UNDERSTANDING_REQUIRED_DEPENDENCY_REFS
+    )
+    assert today["user_intent_required_ref_fields"] == (
+        USER_INTENT_UNDERSTANDING_REQUIRED_REF_FIELDS
+    )
+    assert set(USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS) <= set(
+        today["user_intent_blocked_state_refs"]
+    )
+    assert today["user_intent_proposals"]
+    assert any(
+        proposal["confidence_band"] == "low"
+        and proposal["routing_decision"] == "ask"
+        and proposal["ask_user_question_ref"]
+        for proposal in today["user_intent_proposals"]
+    )
+    assert any(
+        proposal["confidence_band"] == "conflicting"
+        and proposal["routing_decision"] == "ask"
+        and proposal["conflict_refs"]
+        for proposal in today["user_intent_proposals"]
+    )
+    assert today["user_intent_authority_posture"]["action_execution_enabled"] is False
+    assert today["user_intent_hidden_authority_enabled"] is False
     assert today["plan_action_state"]["execution_authorized"] is False
     assert today["plan_action_state"]["mutating_controls_enabled"] is False
     assert (
@@ -707,6 +765,18 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert private_beta_item["context_injection_authorized"] is False
     assert set(PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS) <= set(
         private_beta_item["blocked_states"]
+    )
+    user_intent_item = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "user_intent_understanding_proposal_ref"
+    )
+    assert USER_INTENT_UNDERSTANDING_CONTRACT_REF in user_intent_item["status_refs"]
+    assert user_intent_item["history_answers"]["approved"]["status"] == "blocked"
+    assert user_intent_item["approval_ref_authority"] is False
+    assert user_intent_item["rollback_execution_enabled"] is False
+    assert set(USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS) <= set(
+        user_intent_item["blocked_states"]
     )
 
 

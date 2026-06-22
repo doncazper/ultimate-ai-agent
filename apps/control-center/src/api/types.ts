@@ -841,6 +841,77 @@ export interface FounderLoopPrivateBetaReadinessAuthorityPosture {
   code_apply_execution_enabled: boolean;
 }
 
+export interface FounderLoopUserIntentProposal {
+  contract_ref: string;
+  proposal_ref: string;
+  source_surface: string;
+  intent_label: string;
+  safe_summary: string;
+  confidence_score: number;
+  confidence_band: string;
+  ambiguity_posture: string;
+  routing_decision: string;
+  route_ref: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  dependency_refs: string[];
+  required_contract_refs: string[];
+  conflict_refs: string[];
+  ask_user_question_ref?: string | null;
+  next_safe_action: string;
+  review_required: boolean;
+  safe_refs_only: boolean;
+  evidence_required: boolean;
+  low_confidence_asks_user: boolean;
+  conflicting_intent_asks_user: boolean;
+  hidden_authority_enabled: boolean;
+  acts_without_review: boolean;
+  action_execution_enabled: boolean;
+  approval_grant_capture_enabled: boolean;
+  memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  tool_execution_enabled: boolean;
+  provider_model_authority_allowed: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  code_apply_execution_enabled: boolean;
+  broad_autonomy_enabled: boolean;
+  public_beta_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+}
+
+export interface FounderLoopUserIntentSurfaceBinding {
+  surface: string;
+  feed_status: string;
+  feed_ref: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopUserIntentAuthorityPosture {
+  review_required: boolean;
+  safe_refs_only: boolean;
+  evidence_required: boolean;
+  low_confidence_asks_user: boolean;
+  conflicting_intent_asks_user: boolean;
+  hidden_authority_enabled: boolean;
+  acts_without_review: boolean;
+  action_execution_enabled: boolean;
+  approval_grant_capture_enabled: boolean;
+  memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  tool_execution_enabled: boolean;
+  provider_model_authority_allowed: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  code_apply_execution_enabled: boolean;
+  broad_autonomy_enabled: boolean;
+  public_beta_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -976,6 +1047,28 @@ export interface FounderLoopTodaySummary {
   private_beta_readiness_evidence_required: boolean;
   private_beta_readiness_redaction_required: boolean;
   private_beta_readiness_execution_authorized: boolean;
+  user_intent_understanding_contract_ref: string;
+  user_intent_understanding_status: string;
+  user_intent_required_surfaces: string[];
+  user_intent_routing_decisions: string[];
+  user_intent_required_dependency_refs: string[];
+  user_intent_required_ref_fields: string[];
+  user_intent_required_blocked_refs: string[];
+  user_intent_proposal_count: number;
+  user_intent_proposals: FounderLoopUserIntentProposal[];
+  user_intent_surface_bindings: FounderLoopUserIntentSurfaceBinding[];
+  user_intent_authority_posture: FounderLoopUserIntentAuthorityPosture;
+  user_intent_blocked_state_refs: string[];
+  user_intent_low_confidence_policy_ref: string;
+  user_intent_conflict_policy_ref: string;
+  user_intent_next_safe_action: string;
+  user_intent_review_required: boolean;
+  user_intent_safe_refs_only: boolean;
+  user_intent_evidence_required: boolean;
+  user_intent_low_confidence_asks_user: boolean;
+  user_intent_conflicting_intent_asks_user: boolean;
+  user_intent_hidden_authority_enabled: boolean;
+  user_intent_action_execution_enabled: boolean;
   chat_local_operator_contract_ref: string;
   chat_local_operator_status: string;
   chat_local_operator_turn_ref: string;
@@ -1083,6 +1176,11 @@ export interface FounderLoopActionsInbox {
   private_beta_readiness_criteria?: FounderLoopPrivateBetaReadinessCriterion[];
   private_beta_readiness_authority_posture?: FounderLoopPrivateBetaReadinessAuthorityPosture;
   private_beta_readiness_blocked_state_refs?: string[];
+  user_intent_understanding_contract_ref?: string;
+  user_intent_understanding_status?: string;
+  user_intent_proposals?: FounderLoopUserIntentProposal[];
+  user_intent_authority_posture?: FounderLoopUserIntentAuthorityPosture;
+  user_intent_blocked_state_refs?: string[];
   disabled_state_label: string;
   evidence_refs: string[];
   blocked_states: string[];

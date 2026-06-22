@@ -703,6 +703,8 @@ PR size: completed as one read-only contract/UI/test evidence slice.
 
 Type: later backend contract/test/docs
 
+Status: Done.
+
 New authority: no.
 
 Acceptance criteria:
@@ -719,7 +721,7 @@ Tests to add/update:
 - Ambiguity and ask-rather-than-act tests.
 - Documentation integrity.
 
-PR size: next contract PR after UAA-P1-078 evidence.
+PR size: completed as one read-only contract/UI/test evidence slice.
 
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 

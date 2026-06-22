@@ -20,6 +20,14 @@ from ultimate_ai_agent.core.memory import (
     MEMORY_TO_LOOP_REQUIRED_REF_FIELDS,
     MEMORY_TO_LOOP_REQUIRED_SURFACES,
 )
+from ultimate_ai_agent.core.intent import (
+    USER_INTENT_UNDERSTANDING_CONTRACT_REF,
+    USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_DEPENDENCY_REFS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_REF_FIELDS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_SURFACES,
+    USER_INTENT_UNDERSTANDING_ROUTING_DECISIONS,
+)
 from ultimate_ai_agent.core.readiness import (
     PRIVATE_BETA_READINESS_ACCEPTANCE_STATES,
     PRIVATE_BETA_READINESS_CONTRACT_REF,
@@ -239,6 +247,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "Chat",
         "Code",
         "Private Beta Readiness",
+        "User Intent Understanding",
     } <= set(module_feeds)
     for feed in module_feeds.values():
         assert feed["standalone_complete_allowed"] is False
@@ -259,6 +268,10 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert (
         CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
+    )
+    assert (
+        USER_INTENT_UNDERSTANDING_CONTRACT_REF
+        in module_feeds["User Intent Understanding"]["current_feed_refs"]
     )
     assert (
         MEMORY_TO_LOOP_BINDING_CONTRACT_REF
@@ -440,6 +453,49 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     )
     assert today["private_beta_readiness_execution_authorized"] is False
     assert today["private_beta_readiness_missing_evidence_refs"]
+    assert today["user_intent_understanding_contract_ref"] == (
+        USER_INTENT_UNDERSTANDING_CONTRACT_REF
+    )
+    assert today["user_intent_required_surfaces"] == (
+        USER_INTENT_UNDERSTANDING_REQUIRED_SURFACES
+    )
+    assert today["user_intent_routing_decisions"] == (
+        USER_INTENT_UNDERSTANDING_ROUTING_DECISIONS
+    )
+    assert today["user_intent_required_dependency_refs"] == (
+        USER_INTENT_UNDERSTANDING_REQUIRED_DEPENDENCY_REFS
+    )
+    assert today["user_intent_required_ref_fields"] == (
+        USER_INTENT_UNDERSTANDING_REQUIRED_REF_FIELDS
+    )
+    assert set(USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS) <= set(
+        today["user_intent_blocked_state_refs"]
+    )
+    assert today["user_intent_proposal_count"] == len(
+        today["user_intent_proposals"]
+    )
+    assert {proposal["routing_decision"] for proposal in today["user_intent_proposals"]} >= {
+        "ask",
+        "act",
+        "defer",
+    }
+    low_or_conflicting = [
+        proposal
+        for proposal in today["user_intent_proposals"]
+        if proposal["confidence_band"] in {"low", "conflicting"}
+    ]
+    assert low_or_conflicting
+    for proposal in low_or_conflicting:
+        assert proposal["routing_decision"] == "ask"
+        assert proposal["ask_user_question_ref"]
+    assert today["user_intent_authority_posture"]["low_confidence_asks_user"] is True
+    assert (
+        today["user_intent_authority_posture"]["conflicting_intent_asks_user"]
+        is True
+    )
+    assert today["user_intent_authority_posture"]["action_execution_enabled"] is False
+    assert today["user_intent_hidden_authority_enabled"] is False
+    assert today["user_intent_action_execution_enabled"] is False
     assert today["module_completion_contract"] == {
         "visibility_requirement": (
             "Module state must be visible in Today, Actions, Evidence, and "
@@ -787,6 +843,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "cross_surface_memory_intake_proposal_ref" in timeline_kinds
     assert "memory_to_loop_binding_ref" in timeline_kinds
     assert "private_beta_readiness_gate_ref" in timeline_kinds
+    assert "user_intent_understanding_proposal_ref" in timeline_kinds
     assert "memory_review_evidence_ref" in timeline_kinds
     assert "source_readiness_evidence_ref" in timeline_kinds
     assert "foundation_gate_latency_ref" in timeline_kinds
@@ -951,6 +1008,22 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         private_beta_item["blocked_states"]
     )
 
+    user_intent_item = next(
+        item
+        for item in today["evidence_timeline"]
+        if item["item_kind"] == "user_intent_understanding_proposal_ref"
+    )
+    assert USER_INTENT_UNDERSTANDING_CONTRACT_REF in user_intent_item["status_refs"]
+    assert user_intent_item["history_answers"]["approved"]["status"] == "blocked"
+    assert user_intent_item["history_answers"]["blocked"]["status"] == "blocked"
+    assert user_intent_item["approval_ref_authority"] is False
+    assert user_intent_item["memory_truth_authority"] is False
+    assert user_intent_item["context_injection_authorized"] is False
+    assert user_intent_item["rollback_execution_enabled"] is False
+    assert set(USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS) <= set(
+        user_intent_item["blocked_states"]
+    )
+
     memory_timeline_item = next(
         item for item in timeline if item["item_kind"] == "memory_review_evidence_ref"
     )
@@ -1032,6 +1105,17 @@ def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path: Path) -> 
     )
 
     inbox = repo.actions_inbox()
+    assert inbox["user_intent_understanding_contract_ref"] == (
+        USER_INTENT_UNDERSTANDING_CONTRACT_REF
+    )
+    assert inbox["user_intent_proposals"]
+    assert (
+        inbox["user_intent_authority_posture"]["low_confidence_asks_user"] is True
+    )
+    assert inbox["user_intent_authority_posture"]["action_execution_enabled"] is False
+    assert set(USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS) <= set(
+        inbox["user_intent_blocked_state_refs"]
+    )
     assert inbox["items"][0]["item_ref"] == "founder-action:test-review"
     assert (
         inbox["items"][0]["approval_envelope_status"] == "missing_until_scoped_contract"

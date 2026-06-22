@@ -42,6 +42,55 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-079 User Intent Understanding Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor after UAA-P1-078, with the user pause
+request treated as a stop-after-clean-milestone boundary.
+
+Recommendation: Complete UAA-P1-079 as a reviewable user-intent understanding
+contract that feeds Today, Actions, Evidence, Memory, Plans, Chat, and Governed
+Code with confidence, source refs, evidence refs, ambiguity posture, and
+ask/act/defer routing.
+
+Next prompt: Start UAA-P1-080 API Route Classification And Public/Protected
+Inventory only under a separately accepted API boundary-hardening prompt after
+reviewing the active roadmap, current board, Founder Command Center board,
+phase tasks, MVP spec, AGENTS.md, process/spec guidance, route inventory,
+OpenAPI/API manifest docs, and existing route status manifest. Keep the scope
+to route classification and inventory truth; do not add route authority,
+connector writes, provider/model authority, action execution, automatic memory
+writes, context injection, public beta, distribution, or production authority.
+
+Decision: Accepted and completed for the UAA-P1-079 contract/read-only
+visibility slice.
+
+Status: completed
+
+Completed: Added `contract-ref:user-intent-understanding:v1`, reviewable intent
+proposal metadata, confidence/source/evidence/ambiguity/routing refs, low
+confidence and conflicting intent ask-user posture, Today/Action/Evidence
+visibility, schema, verifier, focused tests, and active currentness docs.
+
+Not done: No hidden intent authority, action execution, approval grant capture,
+memory write, context injection, connector write, provider/model authority,
+shell/subprocess execution, Code apply execution, public beta, public
+distribution, or production authority.
+
+Evidence: `src/ultimate_ai_agent/core/intent/user_intent.py`,
+`src/ultimate_ai_agent/core/storage/founder_loop.py`,
+`apps/control-center/src/components/FounderLoopPanels.tsx`,
+`apps/control-center/src/api/types.ts`,
+`apps/control-center/src/mocks/controlCenterData.ts`,
+`docs/control_center/UAA_P1_079_USER_INTENT_UNDERSTANDING.md`,
+`docs/schemas/user_intent_understanding.schema.json`,
+`scripts/verify_uaa_p1_079_user_intent_understanding.py`,
+`tests/test_uaa_p1_079_user_intent_understanding.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`, and
+`apps/control-center/src/App.test.tsx`.
+
 ### 2026-06-21 - UAA-P1-078 Private Beta-Readiness Gate Completed
 
 Date: 2026-06-21

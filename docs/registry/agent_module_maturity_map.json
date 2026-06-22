@@ -391,14 +391,15 @@
         "UAA-P1-071 and UAA-P1-072 add review-only decision metadata plus safe-ref CRM-lite business-memory candidate and quality posture on the Today spine.",
         "UAA-P1-076 adds review-only cross-surface intake proposal refs from Today, Chat, Plans, Actions, Evidence, local coding, and manual external-assistant review imports without memory writes or context injection.",
         "UAA-P1-077 binds reviewed memory and intake state into Today, Action Inbox, Evidence Timeline, Memory Review, and Weekly CEO Review as read-only safe refs.",
-        "UAA-P1-078 defines local/private beta-readiness evidence states while keeping memory writes, context injection, action execution, CRM sync, and public beta claims blocked."
+        "UAA-P1-078 defines local/private beta-readiness evidence states while keeping memory writes, context injection, action execution, CRM sync, and public beta claims blocked.",
+        "UAA-P1-079 adds reviewable user intent proposals with confidence, source refs, evidence refs, ambiguity posture, and ask/act/defer routing while keeping hidden intent authority, automatic memory writes, context injection, and action execution blocked."
       ],
       "gaps": [
         "No memory write policy binding, retention/delete/export execution, or context-injection policy.",
         "No mutation-capable quality-control actions for duplicate/conflict/stale records.",
         "No execution-capable memory-derived Action flow, CRM sync, or automatic recall."
       ],
-      "next_checkpoint": "Use UAA-P1-079 to define reviewable intent proposals with confidence, source refs, ambiguity posture, and ask/act/defer routing without hidden authority."
+      "next_checkpoint": "Use UAA-P1-080 only for API route classification and public/protected inventory truth; memory write policy binding, retention/delete/export execution, context injection, and CRM sync remain future scoped work."
     },
     {
       "id": "tool_registry",

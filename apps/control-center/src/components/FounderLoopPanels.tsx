@@ -220,6 +220,71 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         </article>
         <article className="status-card">
           <div className="status-card-header">
+            <h3>User intent understanding</h3>
+            <span>{today.user_intent_understanding_status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.user_intent_understanding_contract_ref}
+            />
+            <DetailTerm
+              label="Proposals"
+              value={String(today.user_intent_proposal_count)}
+            />
+            <DetailTerm
+              label="Low confidence"
+              value={
+                today.user_intent_low_confidence_asks_user
+                  ? "asks user"
+                  : "unsafe"
+              }
+            />
+            <DetailTerm
+              label="Conflicts"
+              value={
+                today.user_intent_conflicting_intent_asks_user
+                  ? "asks user"
+                  : "unsafe"
+              }
+            />
+            <DetailTerm
+              label="Hidden authority"
+              value={
+                today.user_intent_hidden_authority_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Action execution"
+              value={
+                today.user_intent_action_execution_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <InlineListWithFallback
+            emptyLabel="Routing decisions: missing"
+            items={today.user_intent_routing_decisions}
+          />
+          <RefListWithFallback
+            emptyLabel="Intent dependencies: missing"
+            refs={today.user_intent_required_dependency_refs}
+          />
+          <ul className="ref-list">
+            {today.user_intent_proposals.map((proposal) => (
+              <li key={proposal.proposal_ref}>
+                {proposal.intent_label}: {proposal.confidence_band} confidence;{" "}
+                {proposal.ambiguity_posture}; route {proposal.routing_decision}
+              </li>
+            ))}
+          </ul>
+          <RefList refs={today.user_intent_required_blocked_refs} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
             <h3>Weekly CEO Review</h3>
             <span>{today.weekly_ceo_review_summary.weekly_review_ref}</span>
           </div>
@@ -592,6 +657,42 @@ export function ActionInboxSurfacePanel({
         <RefListWithFallback
           emptyLabel="Beta-readiness blockers: missing"
           refs={inbox.private_beta_readiness_blocked_state_refs ?? []}
+        />
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Intent action gate</h3>
+          <span>{inbox.user_intent_understanding_status ?? "missing"}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract ref"
+            value={inbox.user_intent_understanding_contract_ref ?? "missing"}
+          />
+          <DetailTerm
+            label="Proposals"
+            value={String(inbox.user_intent_proposals?.length ?? 0)}
+          />
+          <DetailTerm
+            label="Low confidence"
+            value={
+              inbox.user_intent_authority_posture?.low_confidence_asks_user
+                ? "asks user"
+                : "missing"
+            }
+          />
+          <DetailTerm
+            label="Action execution"
+            value={
+              inbox.user_intent_authority_posture?.action_execution_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="Intent blockers: missing"
+          refs={inbox.user_intent_blocked_state_refs ?? []}
         />
       </article>
       <div className="review-grid">

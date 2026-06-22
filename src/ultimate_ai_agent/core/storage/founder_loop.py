@@ -31,6 +31,17 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.intent import (
+    USER_INTENT_UNDERSTANDING_CONTRACT_REF,
+    USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_DEPENDENCY_REFS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_REF_FIELDS,
+    USER_INTENT_UNDERSTANDING_REQUIRED_SURFACES,
+    USER_INTENT_UNDERSTANDING_ROUTING_DECISIONS,
+    build_user_intent_understanding_contract,
+    user_intent_understanding_authority_posture,
+    user_intent_understanding_surface_bindings,
+)
 from ultimate_ai_agent.core.memory.intake import (
     CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
     CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
@@ -253,6 +264,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             "GET /control-center/today/summary",
             "evidence-ref:founder-loop:today-summary",
             PRIVATE_BETA_READINESS_CONTRACT_REF,
+            USER_INTENT_UNDERSTANDING_CONTRACT_REF,
         ],
         "standalone_complete_allowed": False,
     },
@@ -269,6 +281,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             "GET /control-center/actions/inbox",
             "evidence-ref:founder-loop:action-inbox",
             "private-beta-readiness:action-inbox",
+            "user-intent-understanding:actions",
         ],
         "standalone_complete_allowed": False,
     },
@@ -284,6 +297,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             "status-ref:founder-loop-plan-summary",
             PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+            "user-intent-understanding:plans",
         ],
         "standalone_complete_allowed": False,
     },
@@ -303,6 +317,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
             MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
             "private-beta-readiness:memory-review",
+            "user-intent-understanding:memory-review",
         ],
         "standalone_complete_allowed": False,
     },
@@ -319,6 +334,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             "GET /control-center/today/summary",
             EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
             "private-beta-readiness:evidence-timeline",
+            "user-intent-understanding:evidence-timeline",
         ],
         "standalone_complete_allowed": False,
     },
@@ -351,6 +367,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
             "/v1/chat/completions",
             "private-beta-readiness:chat-plans-handoff",
+            "user-intent-understanding:chat",
         ],
         "standalone_complete_allowed": False,
     },
@@ -366,6 +383,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
             "private-beta-readiness:governed-code",
+            "user-intent-understanding:governed-code",
         ],
         "standalone_complete_allowed": False,
     },
@@ -381,6 +399,22 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             PRIVATE_BETA_READINESS_CONTRACT_REF,
             "evidence-packet:private-beta-readiness:local-founder-loop",
+        ],
+        "standalone_complete_allowed": False,
+    },
+    {
+        "module": "User Intent Understanding",
+        "status": "implemented_reviewable_intent_proposals_authority_blocked",
+        "required_loop_outputs": [
+            "today_intent_proposal_state",
+            "ask_act_defer_action_gate",
+            "evidence_history_dependency_refs",
+            "memory_and_source_ambiguity_posture",
+        ],
+        "current_feed_refs": [
+            USER_INTENT_UNDERSTANDING_CONTRACT_REF,
+            "policy-ref:user-intent:low-confidence-asks-user",
+            "policy-ref:user-intent:conflict-asks-user",
         ],
         "standalone_complete_allowed": False,
     },
@@ -1722,6 +1756,51 @@ def _private_beta_readiness_gate_contract_payload() -> dict[str, Any]:
     }
 
 
+def _user_intent_understanding_contract_payload() -> dict[str, Any]:
+    contract = build_user_intent_understanding_contract()
+    payload = contract.model_dump(mode="json")
+    return {
+        "user_intent_understanding_contract_ref": payload["contract_ref"],
+        "user_intent_understanding_status": payload["status"],
+        "user_intent_required_surfaces": USER_INTENT_UNDERSTANDING_REQUIRED_SURFACES,
+        "user_intent_routing_decisions": USER_INTENT_UNDERSTANDING_ROUTING_DECISIONS,
+        "user_intent_required_dependency_refs": (
+            USER_INTENT_UNDERSTANDING_REQUIRED_DEPENDENCY_REFS
+        ),
+        "user_intent_required_ref_fields": (
+            USER_INTENT_UNDERSTANDING_REQUIRED_REF_FIELDS
+        ),
+        "user_intent_required_blocked_refs": (
+            USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS
+        ),
+        "user_intent_proposal_count": payload["proposal_count"],
+        "user_intent_proposals": payload["proposals"],
+        "user_intent_surface_bindings": user_intent_understanding_surface_bindings(),
+        "user_intent_authority_posture": (
+            user_intent_understanding_authority_posture()
+        ),
+        "user_intent_blocked_state_refs": payload["blocked_state_refs"],
+        "user_intent_low_confidence_policy_ref": payload[
+            "low_confidence_policy_ref"
+        ],
+        "user_intent_conflict_policy_ref": payload["conflict_policy_ref"],
+        "user_intent_next_safe_action": payload["next_safe_action"],
+        "user_intent_review_required": payload["review_required"],
+        "user_intent_safe_refs_only": payload["safe_refs_only"],
+        "user_intent_evidence_required": payload["evidence_required"],
+        "user_intent_low_confidence_asks_user": payload[
+            "low_confidence_asks_user"
+        ],
+        "user_intent_conflicting_intent_asks_user": payload[
+            "conflicting_intent_asks_user"
+        ],
+        "user_intent_hidden_authority_enabled": payload[
+            "hidden_authority_enabled"
+        ],
+        "user_intent_action_execution_enabled": payload["action_execution_enabled"],
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1782,6 +1861,9 @@ class FounderLoopRepository:
         private_beta_readiness_gate_contract = (
             _private_beta_readiness_gate_contract_payload()
         )
+        user_intent_understanding_contract = (
+            _user_intent_understanding_contract_payload()
+        )
         evidence_timeline = self._build_evidence_timeline(
             actions=actions,
             plans=plans,
@@ -1792,6 +1874,7 @@ class FounderLoopRepository:
             private_beta_readiness_gate_contract=(
                 private_beta_readiness_gate_contract
             ),
+            user_intent_understanding_contract=user_intent_understanding_contract,
         )
         next_safe_actions = _next_safe_actions(
             actions=actions,
@@ -1874,6 +1957,7 @@ class FounderLoopRepository:
             **cross_surface_memory_intake_contract,
             **memory_to_loop_binding_contract,
             **private_beta_readiness_gate_contract,
+            **user_intent_understanding_contract,
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
             "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
@@ -2014,6 +2098,7 @@ class FounderLoopRepository:
         cross_surface_memory_intake_contract: dict[str, Any],
         memory_to_loop_binding_contract: dict[str, Any],
         private_beta_readiness_gate_contract: dict[str, Any],
+        user_intent_understanding_contract: dict[str, Any],
     ) -> list[dict[str, Any]]:
         timeline: list[FounderLoopEvidenceTimelineItem] = []
         for action in actions:
@@ -2821,6 +2906,136 @@ class FounderLoopRepository:
                 ],
             )
         )
+        user_intent_proposals = list(
+            user_intent_understanding_contract["user_intent_proposals"]
+        )
+        user_intent_proposal_refs = [
+            str(proposal["proposal_ref"]) for proposal in user_intent_proposals
+        ]
+        user_intent_source_refs = [
+            ref
+            for proposal in user_intent_proposals
+            for ref in proposal.get("source_refs", [])
+        ]
+        user_intent_evidence_refs = [
+            ref
+            for proposal in user_intent_proposals
+            for ref in proposal.get("evidence_refs", [])
+        ]
+        user_intent_conflict_refs = [
+            ref
+            for proposal in user_intent_proposals
+            for ref in proposal.get("conflict_refs", [])
+        ]
+        timeline.append(
+            FounderLoopEvidenceTimelineItem(
+                timeline_item_ref=_timeline_ref(
+                    "user-intent",
+                    user_intent_understanding_contract[
+                        "user_intent_understanding_contract_ref"
+                    ],
+                ),
+                item_kind="user_intent_understanding_proposal_ref",
+                title="User intent understanding",
+                safe_summary=(
+                    "User intent understanding produces reviewable intent "
+                    "proposals with confidence, source refs, ambiguity posture, "
+                    "ask/act/defer routing, and evidence refs only."
+                ),
+                history_answers=_history_answers(
+                    proposed=_history_answer(
+                        "proposed",
+                        "Reviewable user intent proposals were proposed from Today, memory, evidence, Plans, Actions, Chat, and Code safe refs.",
+                        refs=[
+                            USER_INTENT_UNDERSTANDING_CONTRACT_REF,
+                            *user_intent_proposal_refs,
+                        ],
+                    ),
+                    approved=_history_answer(
+                        "approved",
+                        "No hidden intent authority, action execution authority, approval grant authority, memory write authority, context injection authority, tool authority, provider authority, connector authority, shell authority, Code apply authority, broad autonomy authority, public beta authority, or production authority is approved.",
+                        refs=user_intent_understanding_contract[
+                            "user_intent_required_blocked_refs"
+                        ],
+                        status="blocked",
+                    ),
+                    happened=_history_answer(
+                        "happened",
+                        "Only intent proposal metadata, confidence bands, ambiguity posture, ask/act/defer routing refs, and evidence refs were produced.",
+                        refs=user_intent_evidence_refs,
+                        status="safe_refs_only",
+                    ),
+                    changed=_history_answer(
+                        "changed",
+                        "No Action, Plan, Memory, context pack, Chat, Code, connector, model, shell, or production state changed.",
+                        refs=["change-status:no-user-intent-state-change"],
+                        status="not_applicable",
+                    ),
+                    undoable=_history_answer(
+                        "undoable",
+                        "There is no rollback execution because user intent understanding is review-only metadata.",
+                        refs=["rollback-status:user-intent-no-mutation"],
+                        status="not_applicable",
+                    ),
+                    stale=_history_answer(
+                        "stale",
+                        "Intent proposals must be rechecked when memory, evidence, Action envelopes, Chat receipts, or Code receipts change.",
+                        refs=[
+                            "stale-ref:user-intent:memory-evidence-actions-chat-code",
+                            *user_intent_conflict_refs,
+                        ],
+                        status="recheck_required",
+                    ),
+                    blocked=_history_answer(
+                        "blocked",
+                        "Low-confidence and conflicting intent must ask the user; hidden authority, execution, approval capture, memory writes, context injection, tool execution, provider authority, connector writes, shell execution, Code apply, broad autonomy, public beta, and production authority remain blocked.",
+                        refs=user_intent_understanding_contract[
+                            "user_intent_blocked_state_refs"
+                        ],
+                        status="blocked",
+                    ),
+                ),
+                source_refs=user_intent_proposal_refs + user_intent_source_refs,
+                status_refs=[
+                    USER_INTENT_UNDERSTANDING_CONTRACT_REF,
+                    user_intent_understanding_contract[
+                        "user_intent_low_confidence_policy_ref"
+                    ],
+                    user_intent_understanding_contract[
+                        "user_intent_conflict_policy_ref"
+                    ],
+                ],
+                related_route_refs=[
+                    "GET /control-center/today/summary",
+                    "GET /control-center/actions/inbox",
+                    "/today",
+                    "/actions",
+                    "/evidence",
+                    "/memory",
+                ],
+                side_effect_class="local_dev_workspace_only",
+                authority_posture=(
+                    "Intent understanding is review-only safe-ref metadata. "
+                    "Ask/act/defer routing does not execute actions, capture "
+                    "approval, write memory, inject context, run tools, or apply Code."
+                ),
+                approval_posture="approval-status:user-intent-not-authority",
+                receipt_refs=[],
+                audit_refs=user_intent_evidence_refs,
+                replay_refs=["replay-ref:user-intent-understanding:review"],
+                rollback_refs=[],
+                rollback_blockers=["user_intent_no_mutation_to_rollback"],
+                redaction_status="redacted_summary_only",
+                stale_state="recheck_intent_proposals_before_any_routing",
+                missing_evidence_posture="low_confidence_or_conflict_requires_user_question",
+                blocked_states=user_intent_understanding_contract[
+                    "user_intent_blocked_state_refs"
+                ],
+                next_safe_action=user_intent_understanding_contract[
+                    "user_intent_next_safe_action"
+                ],
+            )
+        )
         for item in memory_items:
             review_ref = str(item["review_ref"])
             missing_contract_refs = list(item.get("missing_contract_refs") or [])
@@ -3111,6 +3326,9 @@ class FounderLoopRepository:
         private_beta_readiness_gate_contract = (
             _private_beta_readiness_gate_contract_payload()
         )
+        user_intent_understanding_contract = (
+            _user_intent_understanding_contract_payload()
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_review_queue",
@@ -3145,6 +3363,7 @@ class FounderLoopRepository:
             ),
             **memory_to_loop_binding_contract,
             **private_beta_readiness_gate_contract,
+            **user_intent_understanding_contract,
             "disabled_state_label": "Exact backend approval contract required",
             "evidence_refs": ["evidence-ref:founder-loop:action-inbox"],
             "blocked_states": [

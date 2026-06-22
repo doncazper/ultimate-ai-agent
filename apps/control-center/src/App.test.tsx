@@ -137,6 +137,13 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Beta-test criteria/i })).toBeInTheDocument();
     expect(screen.getByText(/CRM-Lite Follow-Ups: blocked/i)).toBeInTheDocument();
     expect(screen.getAllByText("blocked-state:no-public-beta").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /User intent understanding/i })).toBeInTheDocument();
+    expect(screen.getAllByText("contract-ref:user-intent-understanding:v1").length).toBeGreaterThan(0);
+    expect(screen.getByText("Low confidence").nextElementSibling).toHaveTextContent("asks user");
+    expect(screen.getByText("Hidden authority").nextElementSibling).toHaveTextContent("blocked");
+    expect(screen.getByText(/clarify_chat_to_plan_handoff: low confidence/i)).toBeInTheDocument();
+    expect(screen.getByText(/resolve_conflicting_crm_follow_up: conflicting confidence/i)).toBeInTheDocument();
+    expect(screen.getAllByText("blocked-state:no-hidden-intent-authority").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Weekly CEO Review/i })).toBeInTheDocument();
     expect(
       screen.getAllByText("weekly-review-ref:memory-to-loop-binding").length,

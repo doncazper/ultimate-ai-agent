@@ -368,13 +368,16 @@ conveyor is repo-local process guidance only. It does not grant runtime
 authority, connector authority, provider/model authority, unrestricted shell,
 public beta, public distribution, or production readiness.
 
-Current conveyor status: UAA-P1-067 through UAA-P1-078 are complete. The next
-incomplete documented milestone is UAA-P1-079 User Intent Understanding V1
-unless active docs show a later milestone has already been completed. The
-conveyor auto-advances after each successful milestone commit/push. Do not stop
-after merely recommending the next prompt; create and execute the next milestone
-prompt in the same Codex run until all documented milestones are complete or a
-real blocker/safety split requires stopping.
+Current conveyor status: UAA-P1-067 through UAA-P1-079 are complete when the
+active docs show UAA-P1-079 User Intent Understanding V1 has landed with its
+contract, schema, verifier, tests, Control Center visibility, and pushed commit.
+UAA-P1-080 through UAA-P1-086 are planned/queued API boundary-hardening work and
+are not part of this bounded Today-spine conveyor unless a later accepted prompt
+explicitly starts that lane. The conveyor auto-advances after each successful
+milestone commit/push until UAA-P1-079 is complete, verified, and pushed. Do not
+stop after merely recommending the next prompt; create and execute the next
+milestone prompt in the same Codex run until all conveyor milestones are
+complete or a real blocker/safety split requires stopping.
 
 ```text
 You are working only in doncazper/ultimate-ai-agent.

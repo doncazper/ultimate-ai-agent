@@ -29,9 +29,12 @@ memory-derived Action proposals, Evidence Timeline history, Memory Review
 visibility, and Weekly CEO Review rollup metadata. UAA-P1-078 completes the
 Private Beta-Readiness Gate with local/private beta-test acceptance evidence
 states, a schema, verifier, focused tests, Today/Actions/Evidence visibility,
-and blocked authority refs. The active product path now promotes UAA-P1-079
-User Intent Understanding V1. No public beta, distribution, production
-readiness, or production authority claim is granted.
+and blocked authority refs. UAA-P1-079 completes User Intent Understanding V1
+with reviewable intent proposals, confidence, source refs, evidence refs,
+ambiguity posture, ask/act/defer routing, and ask-user handling for
+low-confidence or conflicting intent. UAA-P1-080 through UAA-P1-086 remain
+planned/queued API boundary hardening lanes. No public beta, distribution,
+production readiness, or production authority claim is granted.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.

@@ -709,6 +709,233 @@ const privateBetaReadinessMissingEvidenceRefs = [
   "missing-evidence-ref:private-beta:api-perimeter-hardening",
 ];
 
+const userIntentUnderstandingContractRef =
+  "contract-ref:user-intent-understanding:v1";
+
+const userIntentRequiredSurfaces = [
+  "Today",
+  "Memory Review",
+  "Evidence Timeline",
+  "Plans",
+  "Actions",
+  "Chat",
+  "Governed Code",
+];
+
+const userIntentRoutingDecisions = ["ask", "act", "defer"];
+
+const userIntentRequiredDependencyRefs = [
+  memoryToLoopBindingContractRef,
+  "contract-ref:evidence-history-grammar:v1",
+  "contract-ref:plans-action-envelope:v1",
+  chatLocalOperatorContractRef,
+  governedCodeWorkbenchContractRef,
+];
+
+const userIntentRequiredRefFields = [
+  "proposal_ref",
+  "source_surface",
+  "intent_label",
+  "confidence_score",
+  "confidence_band",
+  "ambiguity_posture",
+  "routing_decision",
+  "source_refs",
+  "evidence_refs",
+  "dependency_refs",
+  "required_contract_refs",
+  "conflict_refs",
+  "ask_user_question_ref",
+  "next_safe_action",
+];
+
+const userIntentBlockedRefs = [
+  "blocked-state:no-hidden-intent-authority",
+  "blocked-state:low-confidence-must-ask-user",
+  "blocked-state:conflicting-intent-must-ask-user",
+  "blocked-state:no-action-execution",
+  "blocked-state:no-approval-grant-capture",
+  "blocked-state:no-memory-write",
+  "blocked-state:no-automatic-memory-write",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-tool-execution",
+  "blocked-state:no-provider-model-authority",
+  "blocked-state:no-connector-write",
+  "blocked-state:no-shell-subprocess-execution",
+  "blocked-state:no-code-apply-execution",
+  "blocked-state:no-broad-autonomy",
+  "blocked-state:no-public-beta",
+  "blocked-state:no-production-authority",
+];
+
+const userIntentAuthorityPosture = {
+  review_required: true,
+  safe_refs_only: true,
+  evidence_required: true,
+  low_confidence_asks_user: true,
+  conflicting_intent_asks_user: true,
+  hidden_authority_enabled: false,
+  acts_without_review: false,
+  action_execution_enabled: false,
+  approval_grant_capture_enabled: false,
+  memory_write_authorized: false,
+  automatic_memory_write_authorized: false,
+  context_injection_authorized: false,
+  tool_execution_enabled: false,
+  provider_model_authority_allowed: false,
+  connector_write_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  code_apply_execution_enabled: false,
+  broad_autonomy_enabled: false,
+  public_beta_claim_enabled: false,
+  production_authority_enabled: false,
+};
+
+const userIntentProposals = [
+  {
+    contract_ref: userIntentUnderstandingContractRef,
+    proposal_ref: "intent-proposal:today-founder-follow-up-priority",
+    source_surface: "Today",
+    intent_label: "prioritize_founder_follow_up",
+    safe_summary:
+      "Today suggests a founder follow-up should be reviewed against memory commitments and evidence blockers.",
+    confidence_score: 0.72,
+    confidence_band: "medium",
+    ambiguity_posture: "stale_or_missing_evidence",
+    routing_decision: "defer",
+    route_ref: "intent-route:defer-until-evidence-reviewed",
+    source_refs: [
+      "today-ref:founder-loop-summary",
+      "follow-up-ref:actions:founder-action-memory-review-flow",
+    ],
+    evidence_refs: [
+      "evidence-ref:founder-loop:today-summary",
+      "evidence-ref:memory-to-loop-binding:review",
+    ],
+    dependency_refs: userIntentRequiredDependencyRefs,
+    required_contract_refs: userIntentRequiredDependencyRefs,
+    conflict_refs: [],
+    ask_user_question_ref: null,
+    next_safe_action:
+      "Defer action until memory and evidence refs are reviewed in Today.",
+  },
+  {
+    contract_ref: userIntentUnderstandingContractRef,
+    proposal_ref: "intent-proposal:chat-handoff-needs-plan-scope",
+    source_surface: "Chat",
+    intent_label: "clarify_chat_to_plan_handoff",
+    safe_summary:
+      "Chat handoff indicates a possible plan, but the exact scope is missing and should be clarified before any Action envelope.",
+    confidence_score: 0.48,
+    confidence_band: "low",
+    ambiguity_posture: "ambiguous_missing_scope",
+    routing_decision: "ask",
+    route_ref: "intent-route:ask-user-clarifying-question",
+    source_refs: [
+      "chat-turn:local-operator:redacted-founder-loop",
+      "handoff-ref:chat-to-plans:local-operator",
+    ],
+    evidence_refs: [
+      "evidence-ref:chat-local-operator:route-runtime-auth-tool-denial",
+      "evidence-ref:chat-local-operator:handoff",
+    ],
+    dependency_refs: userIntentRequiredDependencyRefs,
+    required_contract_refs: userIntentRequiredDependencyRefs,
+    conflict_refs: [],
+    ask_user_question_ref: "question-ref:intent:chat-plan-scope",
+    next_safe_action:
+      "Ask the user to confirm the intended plan scope before routing.",
+  },
+  {
+    contract_ref: userIntentUnderstandingContractRef,
+    proposal_ref: "intent-proposal:review-setup-hardening-envelope",
+    source_surface: "Actions",
+    intent_label: "review_existing_action_envelope",
+    safe_summary:
+      "Action Inbox evidence supports reviewing an existing setup hardening envelope without granting execution.",
+    confidence_score: 0.86,
+    confidence_band: "high",
+    ambiguity_posture: "clear",
+    routing_decision: "act",
+    route_ref: "intent-route:act-reviewable-envelope-only",
+    source_refs: [
+      "action-envelope:plans:founder-action-setup-assistant-hardening",
+      "approval-envelope:founder-loop:setup-assistant-hardening",
+    ],
+    evidence_refs: [
+      "evidence-ref:founder-loop:action-inbox",
+      "receipt-plan:founder-loop:setup-assistant-hardening",
+    ],
+    dependency_refs: userIntentRequiredDependencyRefs,
+    required_contract_refs: userIntentRequiredDependencyRefs,
+    conflict_refs: [],
+    ask_user_question_ref: null,
+    next_safe_action:
+      "Route to reviewable Action envelope metadata only; keep execution blocked.",
+  },
+  {
+    contract_ref: userIntentUnderstandingContractRef,
+    proposal_ref: "intent-proposal:crm-follow-up-conflict",
+    source_surface: "Memory Review",
+    intent_label: "resolve_conflicting_crm_follow_up",
+    safe_summary:
+      "Memory review and CRM-lite follow-up refs disagree about the next relationship action, so the user must choose the intent.",
+    confidence_score: 0.39,
+    confidence_band: "conflicting",
+    ambiguity_posture: "ambiguous_conflicting_sources",
+    routing_decision: "ask",
+    route_ref: "intent-route:ask-user-conflict-resolution",
+    source_refs: [
+      "memory-review:founder-loop-preferences",
+      "crm-lite-ref:follow-up-candidate",
+    ],
+    evidence_refs: [
+      "evidence-ref:memory-review:founder-loop-preferences",
+      "evidence-ref:business-memory-quality:conflict-check",
+    ],
+    dependency_refs: userIntentRequiredDependencyRefs,
+    required_contract_refs: userIntentRequiredDependencyRefs,
+    conflict_refs: [
+      "conflict-ref:intent:crm-follow-up-next-action",
+      "quality-ref:conflicting",
+    ],
+    ask_user_question_ref: "question-ref:intent:crm-follow-up-conflict",
+    next_safe_action:
+      "Ask the user to resolve the follow-up intent before creating any action.",
+  },
+].map((proposal) => ({
+  ...proposal,
+  review_required: true,
+  safe_refs_only: true,
+  evidence_required: true,
+  low_confidence_asks_user: true,
+  conflicting_intent_asks_user: true,
+  hidden_authority_enabled: false,
+  acts_without_review: false,
+  action_execution_enabled: false,
+  approval_grant_capture_enabled: false,
+  memory_write_authorized: false,
+  automatic_memory_write_authorized: false,
+  context_injection_authorized: false,
+  tool_execution_enabled: false,
+  provider_model_authority_allowed: false,
+  connector_write_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  code_apply_execution_enabled: false,
+  broad_autonomy_enabled: false,
+  public_beta_claim_enabled: false,
+  production_authority_enabled: false,
+  blocked_state_refs: userIntentBlockedRefs,
+}));
+
+const userIntentSurfaceBindings = userIntentRequiredSurfaces.map((surface) => ({
+  surface,
+  feed_status: `user_intent_${surface.toLowerCase().replaceAll(" ", "-")}_review_only`,
+  feed_ref: `user-intent-surface:${surface.toLowerCase().replaceAll(" ", "-")}`,
+  authority_boundary:
+    "Intent proposals are review-only safe refs; routing does not grant execution.",
+}));
+
 const memoryCandidateRefs = [
   "business-memory-candidate:preference:memory-review-founder-loop-preferences",
 ];
@@ -3221,6 +3448,32 @@ export const mockControlCenterData: ControlCenterData = {
     private_beta_readiness_evidence_required: true,
     private_beta_readiness_redaction_required: true,
     private_beta_readiness_execution_authorized: false,
+    user_intent_understanding_contract_ref: userIntentUnderstandingContractRef,
+    user_intent_understanding_status:
+      "implemented_reviewable_intent_proposals_authority_blocked",
+    user_intent_required_surfaces: userIntentRequiredSurfaces,
+    user_intent_routing_decisions: userIntentRoutingDecisions,
+    user_intent_required_dependency_refs: userIntentRequiredDependencyRefs,
+    user_intent_required_ref_fields: userIntentRequiredRefFields,
+    user_intent_required_blocked_refs: userIntentBlockedRefs,
+    user_intent_proposal_count: userIntentProposals.length,
+    user_intent_proposals: userIntentProposals,
+    user_intent_surface_bindings: userIntentSurfaceBindings,
+    user_intent_authority_posture: userIntentAuthorityPosture,
+    user_intent_blocked_state_refs: userIntentBlockedRefs,
+    user_intent_low_confidence_policy_ref:
+      "policy-ref:user-intent:low-confidence-asks-user",
+    user_intent_conflict_policy_ref:
+      "policy-ref:user-intent:conflict-asks-user",
+    user_intent_next_safe_action:
+      "Review intent proposals, ask the user when confidence is low or sources conflict, and route any action-shaped intent into reviewable envelopes only.",
+    user_intent_review_required: true,
+    user_intent_safe_refs_only: true,
+    user_intent_evidence_required: true,
+    user_intent_low_confidence_asks_user: true,
+    user_intent_conflicting_intent_asks_user: true,
+    user_intent_hidden_authority_enabled: false,
+    user_intent_action_execution_enabled: false,
     chat_local_operator_contract_ref: chatLocalOperatorContractRef,
     chat_local_operator_status: "implemented_local_turn_truth_surface",
     chat_local_operator_turn_ref: "chat-turn:local-operator:local-chat-gateway",
@@ -4033,6 +4286,55 @@ export const mockControlCenterData: ControlCenterData = {
           "Run a local private beta rehearsal against safe refs, then record pass/fail/blocked evidence before any broader readiness claim.",
       },
       {
+        timeline_item_ref:
+          "evidence-timeline:user-intent/contract-ref:user-intent-understanding/v1",
+        item_kind: "user_intent_understanding_proposal_ref",
+        title: "User intent understanding",
+        safe_summary:
+          "User intent understanding produces reviewable intent proposals with confidence, source refs, ambiguity posture, ask/act/defer routing, and evidence refs only.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers(userIntentUnderstandingContractRef),
+        source_refs: userIntentProposals.map((proposal) => proposal.proposal_ref),
+        status_refs: [
+          userIntentUnderstandingContractRef,
+          "policy-ref:user-intent:low-confidence-asks-user",
+          "policy-ref:user-intent:conflict-asks-user",
+        ],
+        related_route_refs: [
+          "GET /control-center/today/summary",
+          "GET /control-center/actions/inbox",
+          "/today",
+          "/actions",
+          "/evidence",
+          "/memory",
+        ],
+        side_effect_class: "local_dev_workspace_only",
+        authority_posture:
+          "Intent understanding is review-only safe-ref metadata. Routing does not execute actions, capture approval, write memory, inject context, run tools, or apply Code.",
+        approval_posture: "approval-status:user-intent-not-authority",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
+        receipt_refs: [],
+        audit_refs: userIntentProposals.flatMap(
+          (proposal) => proposal.evidence_refs,
+        ),
+        replay_refs: ["replay-ref:user-intent-understanding:review"],
+        rollback_refs: [],
+        rollback_blockers: ["user_intent_no_mutation_to_rollback"],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_intent_proposals_before_any_routing",
+        missing_evidence_posture:
+          "low_confidence_or_conflict_requires_user_question",
+        blocked_states: userIntentBlockedRefs,
+        next_safe_action:
+          "Review intent proposals, ask the user when confidence is low or sources conflict, and route any action-shaped intent into reviewable envelopes only.",
+      },
+      {
         timeline_item_ref: "evidence-timeline:memory/memory-review/founder-loop-preferences",
         item_kind: "memory_review_evidence_ref",
         title: "Founder Loop memory review",
@@ -4298,6 +4600,12 @@ export const mockControlCenterData: ControlCenterData = {
       privateBetaReadinessAuthorityPosture,
     private_beta_readiness_blocked_state_refs:
       privateBetaReadinessBlockedRefs,
+    user_intent_understanding_contract_ref: userIntentUnderstandingContractRef,
+    user_intent_understanding_status:
+      "implemented_reviewable_intent_proposals_authority_blocked",
+    user_intent_proposals: userIntentProposals,
+    user_intent_authority_posture: userIntentAuthorityPosture,
+    user_intent_blocked_state_refs: userIntentBlockedRefs,
     disabled_state_label: "Exact backend approval contract required",
     evidence_refs: ["evidence-ref:founder-loop:mock-action-inbox"],
     blocked_states: [
