@@ -80,7 +80,7 @@ export const navItems: NavItem[] = [
   { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", role: "supporting" },
   { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", role: "supporting" },
   { path: "/setup", label: "Setup", group: "Review", status: "dry-run", role: "supporting" },
-  { path: "/chat", label: "Chat", group: "Review", status: "blocked", role: "supporting" },
+  { path: "/chat", label: "Chat", group: "Review", status: "local gated", role: "supporting" },
   { path: "/models", label: "Models", group: "Review", status: "partial", role: "supporting" },
   { path: "/approvals", label: "Approvals", group: "Review", status: "summary", role: "supporting" },
   { path: "/files", label: "Files", group: "Review", status: "safe refs", role: "supporting" },

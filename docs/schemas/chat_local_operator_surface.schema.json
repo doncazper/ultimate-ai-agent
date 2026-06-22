@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/chat_local_operator_surface.schema.json",
+  "title": "UAA-P1-074 Chat Local Operator Surface",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "chat_local_operator_contract_ref",
+    "chat_local_operator_status",
+    "chat_local_operator_turn_ref",
+    "chat_local_operator_route_ref",
+    "chat_local_operator_model_ref",
+    "chat_local_operator_runtime_truth",
+    "chat_local_operator_auth_truth",
+    "chat_local_operator_tool_denial_truth",
+    "chat_local_operator_tool_denial_ref",
+    "chat_local_operator_safe_evidence_refs",
+    "chat_local_operator_plans_handoff_ref",
+    "chat_local_operator_actions_handoff_ref",
+    "chat_local_operator_required_truth_fields",
+    "chat_local_operator_required_blocked_refs",
+    "chat_local_operator_surface_bindings",
+    "chat_local_operator_authority_posture",
+    "chat_local_operator_blocked_state_refs"
+  ],
+  "properties": {
+    "chat_local_operator_contract_ref": {
+      "const": "contract-ref:chat-local-operator-surface:v1"
+    },
+    "chat_local_operator_status": {
+      "const": "implemented_local_turn_truth_surface"
+    },
+    "chat_local_operator_turn_ref": { "type": "string" },
+    "chat_local_operator_route_ref": { "const": "/v1/chat/completions" },
+    "chat_local_operator_model_ref": { "type": "string" },
+    "chat_local_operator_runtime_truth": { "type": "string" },
+    "chat_local_operator_auth_truth": { "type": "string" },
+    "chat_local_operator_tool_denial_truth": { "type": "string" },
+    "chat_local_operator_tool_denial_ref": { "type": "string" },
+    "chat_local_operator_safe_evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "chat_local_operator_plans_handoff_ref": { "type": "string" },
+    "chat_local_operator_actions_handoff_ref": { "type": "string" },
+    "chat_local_operator_required_truth_fields": {
+      "type": "array",
+      "minItems": 10,
+      "items": { "type": "string" }
+    },
+    "chat_local_operator_required_blocked_refs": {
+      "type": "array",
+      "minItems": 11,
+      "items": { "type": "string" }
+    },
+    "chat_local_operator_surface_bindings": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "feed_status",
+          "feed_ref",
+          "authority_boundary"
+        ],
+        "properties": {
+          "surface": {
+            "enum": ["Today", "Chat", "Plans", "Actions", "Evidence", "Memory"]
+          },
+          "feed_status": { "type": "string" },
+          "feed_ref": { "type": "string" },
+          "authority_boundary": { "type": "string" }
+        }
+      }
+    },
+    "chat_local_operator_authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "safe_refs_only",
+        "response_visible",
+        "prompt_body_visible",
+        "completion_body_visible",
+        "model_output_authority",
+        "tool_execution_enabled",
+        "memory_write_authorized",
+        "context_injection_authorized",
+        "provider_sdk_call_enabled",
+        "web_fetch_enabled",
+        "connector_write_enabled",
+        "shell_subprocess_execution_enabled",
+        "action_execution_enabled",
+        "approval_grant_capture_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "safe_refs_only": { "const": true },
+        "response_visible": { "const": false },
+        "prompt_body_visible": { "const": false },
+        "completion_body_visible": { "const": false },
+        "model_output_authority": { "const": false },
+        "tool_execution_enabled": { "const": false },
+        "memory_write_authorized": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "provider_sdk_call_enabled": { "const": false },
+        "web_fetch_enabled": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "shell_subprocess_execution_enabled": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "production_authority_enabled": { "const": false }
+      }
+    },
+    "chat_local_operator_blocked_state_refs": {
+      "type": "array",
+      "minItems": 11,
+      "items": { "type": "string" }
+    }
+  }
+}

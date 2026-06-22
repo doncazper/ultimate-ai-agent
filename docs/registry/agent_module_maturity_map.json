@@ -396,7 +396,7 @@
         "No mutation-capable quality-control actions for duplicate/conflict/stale records.",
         "No completed Today/Action/Evidence/Weekly Review binding that makes reviewed memory feel like the full product spine."
       ],
-      "next_checkpoint": "Use UAA-P1-074 through UAA-P1-077 to add Chat/Code handoffs, cross-surface intake, and loop binding before raising maturity."
+      "next_checkpoint": "Use UAA-P1-075 through UAA-P1-077 to add governed Code handoffs, cross-surface intake, and loop binding before raising maturity."
     },
     {
       "id": "tool_registry",

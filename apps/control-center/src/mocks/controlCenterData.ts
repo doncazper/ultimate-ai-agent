@@ -109,6 +109,93 @@ const plansActionEnvelopeRequiredBlockedRefs = [
   "blocked-state:no-production-authority",
 ];
 
+const chatLocalOperatorContractRef =
+  "contract-ref:chat-local-operator-surface:v1";
+
+const chatLocalOperatorRequiredTruthFields = [
+  "turn_ref",
+  "route_ref",
+  "model_ref",
+  "runtime_truth",
+  "auth_truth",
+  "tool_denial_truth",
+  "safe_evidence_refs",
+  "plans_handoff_ref",
+  "actions_handoff_ref",
+  "blocked_state_refs",
+];
+
+const chatLocalOperatorBlockedRefs = [
+  "blocked-state:no-model-output-authority",
+  "blocked-state:no-tool-execution",
+  "blocked-state:no-memory-write",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-provider-sdk-call",
+  "blocked-state:no-web-fetch",
+  "blocked-state:no-connector-write",
+  "blocked-state:no-shell-subprocess-execution",
+  "blocked-state:no-action-execution",
+  "blocked-state:no-approval-grant-capture",
+  "blocked-state:no-production-authority",
+];
+
+const chatLocalOperatorAuthorityPosture = {
+  safe_refs_only: true,
+  response_visible: false,
+  prompt_body_visible: false,
+  completion_body_visible: false,
+  model_output_authority: false,
+  tool_execution_enabled: false,
+  memory_write_authorized: false,
+  context_injection_authorized: false,
+  provider_sdk_call_enabled: false,
+  web_fetch_enabled: false,
+  connector_write_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  action_execution_enabled: false,
+  approval_grant_capture_enabled: false,
+  production_authority_enabled: false,
+};
+
+const chatLocalOperatorSurfaceBindings = [
+  {
+    surface: "Today",
+    feed_status: "implemented_local_operator_turn_truth_refs",
+    feed_ref: chatLocalOperatorContractRef,
+    authority_boundary: "Chat state is safe operator-turn metadata only.",
+  },
+  {
+    surface: "Chat",
+    feed_status: "implemented_local_turn_send_and_truth_surface",
+    feed_ref: "/v1/chat/completions",
+    authority_boundary: "Chat output is not truth, memory, approval, or execution authority.",
+  },
+  {
+    surface: "Plans",
+    feed_status: "proposal_handoff_refs_only",
+    feed_ref: "handoff-ref:chat-to-plans",
+    authority_boundary: "Handoffs are proposal refs only.",
+  },
+  {
+    surface: "Actions",
+    feed_status: "proposal_handoff_refs_only",
+    feed_ref: "handoff-ref:chat-to-actions",
+    authority_boundary: "Handoffs are proposal refs only.",
+  },
+  {
+    surface: "Evidence",
+    feed_status: "safe_turn_evidence_refs",
+    feed_ref: "evidence-ref:chat-local-operator",
+    authority_boundary: "Evidence is route/auth/runtime/tool-denial metadata only.",
+  },
+  {
+    surface: "Memory",
+    feed_status: "blocked_until_cross_surface_memory_intake",
+    feed_ref: "blocked-state:no-chat-memory-write",
+    authority_boundary: "Chat does not write memory or inject context.",
+  },
+];
+
 const plansActionEnvelopeReviewPostures =
   plansActionEnvelopeReviewActions.map((reviewAction) => ({
     review_action: reviewAction,
@@ -772,7 +859,7 @@ export const mockControlCenterData: ControlCenterData = {
       milestone_ref: "UAA-P1-011",
       status: "local_backend_loop_inspectable",
       safe_summary:
-        "First product loop surfaces are wired for local backend inspection; the frontend does not run chat, grant approvals, or execute plans.",
+        "First product loop surfaces are wired for local backend inspection; Chat can send a redacted local turn, but the frontend does not grant approvals, execute tools, write memory, or execute plans.",
       backend_authority: "Python Agent Core and LocalApprovalAuthority remain authoritative.",
       frontend_authority: false,
       production_ready: false,
@@ -856,12 +943,15 @@ export const mockControlCenterData: ControlCenterData = {
         {
           step_id: "uaa_v1_chat",
           label: "Chat through UAA /v1",
-          status: "disabled_by_default",
+          status: "local_operator_surface_gated",
           safe_summary:
-            "Local /v1 model and chat gateways are disabled by default; no model call or prompt probe is performed by the dashboard.",
+            "Chat can send a redacted local turn only through the governed UAA /v1 route when gateway readiness and auth are available.",
           route_refs: ["/v1/chat/completions"],
-          evidence_refs: ["m151_local_test_gateway", "m164_llama_cpp_gateway"],
-          next_safe_action: "enable_reviewed_local_gateway_before_chat_smoke",
+          evidence_refs: [
+            chatLocalOperatorContractRef,
+            "evidence-ref:chat-local-operator:today",
+          ],
+          next_safe_action: "send_redacted_local_turn_after_gateway_readiness",
           authority_boundary: "backend_authority_only",
           frontend_authority: false,
           control_center_mutation_allowed: false,
@@ -1979,14 +2069,17 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         module: "Chat",
-        status: "planned_blocked_until_uaa_p1_074",
+        status: "implemented_local_operator_surface_contract",
         required_loop_outputs: [
           "today_chat_state",
           "plan_or_action_handoff_state",
           "chat_evidence_ref",
           "memory_candidate_or_blocked_state",
         ],
-        current_feed_refs: ["contract-ref:chat-local-operator-surface-missing"],
+        current_feed_refs: [
+          chatLocalOperatorContractRef,
+          "/v1/chat/completions",
+        ],
         standalone_complete_allowed: false,
       },
       {
@@ -2112,7 +2205,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         surface: "Chat",
-        current_status: "planned_blocked_until_uaa_p1_074",
+        current_status: "implemented_local_operator_turn_truth_refs",
         required_history_keys: [
           "proposed",
           "approved",
@@ -2123,7 +2216,7 @@ export const mockControlCenterData: ControlCenterData = {
           "blocked",
         ],
         authority_boundary:
-          "Chat evidence remains blocked until the local operator surface is scoped.",
+          "Chat evidence records route, runtime, auth, tool-denial, and safe handoff refs only; model output remains non-authoritative.",
       },
       {
         surface: "Code",
@@ -2378,6 +2471,29 @@ export const mockControlCenterData: ControlCenterData = {
     },
     business_memory_status:
       "implemented_review_queue_safe_ref_quality_metadata_contract",
+    chat_local_operator_contract_ref: chatLocalOperatorContractRef,
+    chat_local_operator_status: "implemented_local_turn_truth_surface",
+    chat_local_operator_turn_ref: "chat-turn:local-operator:local-chat-gateway",
+    chat_local_operator_route_ref: "/v1/chat/completions",
+    chat_local_operator_model_ref: "model-ref:local-chat-gateway",
+    chat_local_operator_runtime_truth: "runtime-readiness-gated",
+    chat_local_operator_auth_truth: "local-bearer-required",
+    chat_local_operator_tool_denial_truth: "tools-functions-streaming-denied",
+    chat_local_operator_tool_denial_ref:
+      "tool-denial-ref:chat-local-operator:local-chat-gateway",
+    chat_local_operator_safe_evidence_refs: [
+      "evidence-ref:chat-local-operator:today",
+    ],
+    chat_local_operator_plans_handoff_ref:
+      "handoff-ref:chat-to-plans:local-chat-gateway",
+    chat_local_operator_actions_handoff_ref:
+      "handoff-ref:chat-to-actions:local-chat-gateway",
+    chat_local_operator_required_truth_fields:
+      chatLocalOperatorRequiredTruthFields,
+    chat_local_operator_required_blocked_refs: chatLocalOperatorBlockedRefs,
+    chat_local_operator_surface_bindings: chatLocalOperatorSurfaceBindings,
+    chat_local_operator_authority_posture: chatLocalOperatorAuthorityPosture,
+    chat_local_operator_blocked_state_refs: chatLocalOperatorBlockedRefs,
     plans_action_envelope_contract_ref:
       "contract-ref:plans-action-envelope:v1",
     plans_action_envelope_review_postures: plansActionEnvelopeReviewPostures,
@@ -2884,6 +3000,47 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         next_safe_action:
           "Keep the loop storage-backed and review-gated before adding broader runtime surfaces.",
+      },
+      {
+        timeline_item_ref:
+          "evidence-timeline:chat/chat-turn/local-operator/local-chat-gateway",
+        item_kind: "chat_local_operator_turn_ref",
+        title: "Chat local operator surface",
+        safe_summary:
+          "Chat evidence records a redacted local operator turn, route truth, runtime/auth posture, tool-denial posture, and proposal handoff refs only.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers(
+          "chat-turn:local-operator:local-chat-gateway",
+        ),
+        source_refs: ["chat-turn:local-operator:local-chat-gateway"],
+        status_refs: [
+          chatLocalOperatorContractRef,
+          "/v1/chat/completions",
+          "tool-denial-ref:chat-local-operator:local-chat-gateway",
+        ],
+        related_route_refs: ["/chat", "/v1/chat/completions"],
+        side_effect_class: "local_dev_workspace_only",
+        authority_posture:
+          "Chat local operator turn evidence is safe-ref metadata only; model output is not truth, memory, approval, or execution authority.",
+        approval_posture: "approval-status:chat-output-not-authority",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
+        receipt_refs: ["evidence-ref:chat-local-operator:today"],
+        audit_refs: [],
+        replay_refs: ["replay-ref:chat-local-operator:turn"],
+        rollback_refs: [],
+        rollback_blockers: ["rollback_execution_not_applicable_no_chat_mutation"],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_local_gateway_before_each_turn",
+        missing_evidence_posture: "raw_chat_content_intentionally_hidden",
+        blocked_states: chatLocalOperatorBlockedRefs,
+        next_safe_action:
+          "Use Chat handoff refs as proposals only; route any work through Plans or Actions review.",
       },
       {
         timeline_item_ref: "evidence-timeline:memory/memory-review/founder-loop-preferences",

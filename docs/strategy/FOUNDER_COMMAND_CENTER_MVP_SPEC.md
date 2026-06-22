@@ -18,7 +18,8 @@ History Grammar, UAA-P1-070 Memory Source And Provenance Model, UAA-P1-071
 Memory Review Decision Capture, and UAA-P1-072 Business Memory And Memory
 Quality Controls, and UAA-P1-073 Plans To Reviewable Action Envelopes are
 implemented as contract/test/read-only UI slices. UAA-P1-074 Chat Local
-Operator Surface is the next incomplete lane.
+Operator Surface is implemented as a first-party local operator truth slice.
+UAA-P1-075 Governed Code Workbench V1 is the next incomplete lane.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -42,11 +43,11 @@ Operator Surface is the next incomplete lane.
    approve/edit/reject/defer-ready
    envelopes with exact scope, receipts, expiry, idempotency, evidence, and
    rollback/safe-disable posture.
-7. First-party Control Center chat local operator surface: Ready Next. Chat sends a local
+7. First-party Control Center chat local operator surface: implemented. Chat sends a local
    turn through the governed local gateway, shows model/runtime/auth/tool-denial
    truth, produces safe evidence, and hands off to Plans or Actions. OpenWebUI
    remains a secondary local/dev shell, not the product state owner.
-8. Governed Code workbench: repo-local safe diffs, validation proof,
+8. Governed Code workbench: Ready Next. Repo-local safe diffs, validation proof,
    approval-bound apply, rollback, and evidence before broad coding-agent
    autonomy.
 9. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,

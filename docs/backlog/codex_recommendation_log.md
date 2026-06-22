@@ -42,6 +42,51 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-074 Chat Local Operator Surface Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor auto-advance after UAA-P1-073, with the
+explicit rule that next-prompt recommendations are handoffs, not stop signs.
+
+Recommendation: Complete UAA-P1-074 as first-party local Chat operator truth
+over Python core chat contracts plus the existing Today summary and local chat
+gateway, then auto-advance to UAA-P1-075 Governed Code Workbench V1.
+
+Next prompt state:
+
+```text
+Auto-advance into UAA-P1-075 Governed Code Workbench V1 after commit/push.
+Review the active roadmap, current board, Founder Command Center board, phase
+tasks, MVP spec, AGENTS.md, process/spec guidance, and the UAA-P1-068 through
+UAA-P1-074 contract evidence. Make Code narrower than Goat but better governed:
+repo-local safe diffs, validation proof, approval-bound apply, rollback, and
+evidence. Do not add broad coding-agent autonomy, unrestricted shell, remote
+execution, provider authority, connector writes, public beta, public
+distribution, production readiness, or production authority.
+```
+
+Decision: Accepted and completed for the UAA-P1-074 contract slice.
+
+Status: completed
+
+Completed: Added `contract-ref:chat-local-operator-surface:v1`, Chat turn
+truth refs, model/runtime/auth/tool-denial posture, safe evidence refs,
+Plans/Actions proposal handoff refs, blocked authority refs, Today/Evidence
+fields, first-party Control Center Chat operator visibility, schema, verifier,
+focused tests, and active currentness updates that promote UAA-P1-075.
+
+Not done: No provider SDK calls, web fetching, tool execution, automatic memory
+writes, hidden context injection, connector writes, shell/subprocess execution,
+action execution, approval grant capture, public beta, public distribution,
+production readiness, or production authority.
+
+Evidence: `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`,
+`docs/schemas/chat_local_operator_surface.schema.json`,
+`scripts/verify_uaa_p1_074_chat_local_operator_surface.py`,
+`tests/test_uaa_p1_074_chat_local_operator_surface.py`,
+`src/ultimate_ai_agent/core/chat/operator_surface.py`.
+
 ### 2026-06-21 - UAA-P1-073 Plans Action Envelopes Completed
 
 Date: 2026-06-21

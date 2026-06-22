@@ -522,6 +522,31 @@ export interface FounderLoopActionEnvelopeAuthorityPosture {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopChatOperatorSurfaceBinding {
+  surface: string;
+  feed_status: string;
+  feed_ref: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopChatOperatorAuthorityPosture {
+  safe_refs_only: boolean;
+  response_visible: boolean;
+  prompt_body_visible: boolean;
+  completion_body_visible: boolean;
+  model_output_authority: boolean;
+  tool_execution_enabled: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  provider_sdk_call_enabled: boolean;
+  web_fetch_enabled: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  action_execution_enabled: boolean;
+  approval_grant_capture_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -601,6 +626,23 @@ export interface FounderLoopTodaySummary {
   business_memory_surface_bindings: FounderLoopBusinessMemorySurfaceBinding[];
   business_memory_authority_posture: FounderLoopBusinessMemoryAuthorityPosture;
   business_memory_status: string;
+  chat_local_operator_contract_ref: string;
+  chat_local_operator_status: string;
+  chat_local_operator_turn_ref: string;
+  chat_local_operator_route_ref: string;
+  chat_local_operator_model_ref: string;
+  chat_local_operator_runtime_truth: string;
+  chat_local_operator_auth_truth: string;
+  chat_local_operator_tool_denial_truth: string;
+  chat_local_operator_tool_denial_ref: string;
+  chat_local_operator_safe_evidence_refs: string[];
+  chat_local_operator_plans_handoff_ref: string;
+  chat_local_operator_actions_handoff_ref: string;
+  chat_local_operator_required_truth_fields: string[];
+  chat_local_operator_required_blocked_refs: string[];
+  chat_local_operator_surface_bindings: FounderLoopChatOperatorSurfaceBinding[];
+  chat_local_operator_authority_posture: FounderLoopChatOperatorAuthorityPosture;
+  chat_local_operator_blocked_state_refs: string[];
   plans_action_envelope_contract_ref: string;
   plans_action_envelope_review_postures: FounderLoopActionEnvelopeReviewPosture[];
   plans_action_envelope_required_ref_fields: string[];
@@ -1022,7 +1064,28 @@ export interface RedactedLocalChatProbeStatus {
   routeRef: string;
   checkedAt: string;
   safeMessage: string;
+  contractRef: string;
+  turnRef: string;
   modelId: string;
+  runtimeTruth: string;
+  authTruth: string;
+  toolDenialTruth: string;
+  toolDenialRef: string;
+  evidenceRefs: string[];
+  plansHandoffRef: string;
+  actionsHandoffRef: string;
+  blockedStateRefs: string[];
+  modelOutputAuthority: false;
+  toolExecutionEnabled: false;
+  memoryWriteAuthorized: false;
+  contextInjectionAuthorized: false;
+  providerSdkCallEnabled: false;
+  webFetchEnabled: false;
+  connectorWriteEnabled: false;
+  shellSubprocessExecutionEnabled: false;
+  actionExecutionEnabled: false;
+  approvalGrantCaptureEnabled: false;
+  productionAuthorityEnabled: false;
   statusCode?: number;
   durationMs?: number;
   responseVisible: false;

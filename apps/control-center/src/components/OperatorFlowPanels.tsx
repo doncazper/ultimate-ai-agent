@@ -29,6 +29,7 @@ const TASK_DECOMPOSITION_ROUTE_REFS = [
 ];
 
 export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
+  const today = data.founderToday;
   const [models, setModels] =
     useState<LocalModelsInspectionStatus>(initialModelsStatus);
   const [probe, setProbe] = useState<
@@ -39,6 +40,19 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const selectedModelId = models.selectedModelId ?? DEFAULT_MODEL_ID;
   const canRequestProbe = models.state === "ready" && !probePending;
+  const runtimeTruth =
+    probe?.runtimeTruth ?? today.chat_local_operator_runtime_truth;
+  const authTruth = probe?.authTruth ?? today.chat_local_operator_auth_truth;
+  const toolDenialTruth =
+    probe?.toolDenialTruth ?? today.chat_local_operator_tool_denial_truth;
+  const evidenceRefs =
+    probe?.evidenceRefs ?? today.chat_local_operator_safe_evidence_refs;
+  const blockedRefs =
+    probe?.blockedStateRefs ?? today.chat_local_operator_blocked_state_refs;
+  const plansHandoffRef =
+    probe?.plansHandoffRef ?? today.chat_local_operator_plans_handoff_ref;
+  const actionsHandoffRef =
+    probe?.actionsHandoffRef ?? today.chat_local_operator_actions_handoff_ref;
 
   useEffect(() => {
     let cancelled = false;
@@ -68,9 +82,9 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
     <section className="page-section" aria-labelledby="chat-shell-heading">
       <OperatorHeader
         eyebrow="Local operator flow"
-        heading="Chat Shell"
+        heading="Chat Local Operator"
         status={statusLabel(models.state)}
-        summary="Control Center can inspect UAA local gateway readiness and request a redacted readiness exchange only when the local gateway is already configured."
+        summary="Control Center can send a redacted local turn through UAA /v1 and show model, runtime, auth, and tool-denial truth without treating output as authority."
       />
 
       <div className="operator-flow-grid">
@@ -90,7 +104,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
           reasonCodes={models.reasonCodes}
         />
         <StatusPanel
-          title="Local chat boundary"
+          title="Local chat turn"
           state={
             probe?.state ??
             (models.state === "ready" ? "blocked" : models.state)
@@ -101,7 +115,11 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
           }
           details={[
             ["Route", API_ENDPOINTS.localChatCompletions],
+            ["Contract", today.chat_local_operator_contract_ref],
             ["Model ID", selectedModelId],
+            ["Runtime truth", runtimeTruth],
+            ["Auth truth", authTruth],
+            ["Tool denial", toolDenialTruth],
             ["Exchange body shown", "no"],
             ["Completion content shown", "no"],
             [
@@ -113,12 +131,78 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         />
       </div>
 
+      <div className="panel-grid">
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Safe evidence</h3>
+            <span>{today.chat_local_operator_status}</span>
+          </div>
+          <dl className="metadata-list">
+            <div>
+              <dt>Turn ref</dt>
+              <dd>{probe?.turnRef ?? today.chat_local_operator_turn_ref}</dd>
+            </div>
+            <div>
+              <dt>Tool denial ref</dt>
+              <dd>
+                {probe?.toolDenialRef ??
+                  today.chat_local_operator_tool_denial_ref}
+              </dd>
+            </div>
+            <div>
+              <dt>Model output authority</dt>
+              <dd>
+                {today.chat_local_operator_authority_posture
+                  .model_output_authority
+                  ? "enabled"
+                  : "denied"}
+              </dd>
+            </div>
+          </dl>
+          <div className="note-list" aria-label="Chat safe evidence refs">
+            {evidenceRefs.map((ref) => (
+              <span key={ref}>{ref}</span>
+            ))}
+          </div>
+        </article>
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Proposal handoff</h3>
+            <span>safe refs only</span>
+          </div>
+          <dl className="metadata-list">
+            <div>
+              <dt>Plans</dt>
+              <dd>{plansHandoffRef}</dd>
+            </div>
+            <div>
+              <dt>Actions</dt>
+              <dd>{actionsHandoffRef}</dd>
+            </div>
+            <div>
+              <dt>Memory write</dt>
+              <dd>
+                {today.chat_local_operator_authority_posture
+                  .memory_write_authorized
+                  ? "enabled"
+                  : "blocked"}
+              </dd>
+            </div>
+          </dl>
+          <div className="note-list" aria-label="Chat blocked refs">
+            {blockedRefs.slice(0, 6).map((ref) => (
+              <span key={ref}>{ref}</span>
+            ))}
+          </div>
+        </article>
+      </div>
+
       <div
         className="operator-action-panel"
         aria-label="Redacted local chat readiness exchange"
       >
         <div>
-          <h3>Redacted readiness exchange</h3>
+          <h3>Redacted local turn</h3>
           <p>
             This request uses the UAA local chat route only after the model-list
             route answers. The Control Center does not display the exchange text
@@ -132,13 +216,13 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
           type="button"
         >
           {probePending
-            ? "Checking readiness"
-            : "Request redacted readiness exchange"}
+            ? "Sending local turn"
+            : "Send redacted local turn"}
         </button>
       </div>
 
       <OperatorStepStrip steps={[localModelStep, chatStep]} />
-      <OperatorSurfaceStates surface="Chat Shell" />
+      <OperatorSurfaceStates surface="Chat Local Operator" />
     </section>
   );
 }

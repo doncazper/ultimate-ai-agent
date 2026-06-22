@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-074 Ready Next: Chat Local Operator Surface** |
+| Current lane | **UAA-P1-075 Ready Next: Governed Code Workbench V1** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -50,9 +50,12 @@ Center visibility. UAA-P1-073 Plans To Reviewable Action Envelopes is complete
 with approve/edit/reject/defer-ready envelope metadata, exact scope refs,
 side-effect/risk/approval posture, expected receipt refs, rollback and
 safe-disable refs, blocked authority states, and read-only Control Center
-visibility. UAA-P1-074 Chat Local Operator Surface is now Ready Next before
-later governed Code diffs and private local beta-readiness gates can be
-claimed. UAA-P1-066 remains queued as a
+visibility. UAA-P1-074 Chat Local Operator Surface is complete with a
+first-party local operator turn truth surface, model/runtime/auth/tool-denial
+metadata, safe evidence refs, proposal handoff refs, blocked authority states,
+and read-only Control Center visibility. UAA-P1-075 Governed Code Workbench V1
+is now Ready Next before later cross-surface intake, loop binding, and private
+local beta-readiness gates can be claimed. UAA-P1-066 remains queued as a
 strictly read-only Local Model Control Center inventory/status support lane.
 
 Already-pushed tags remain immutable historical records. M150's

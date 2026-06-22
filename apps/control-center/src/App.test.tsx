@@ -127,7 +127,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-action-execution").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Module feed contract/i })).toBeInTheDocument();
-    expect(screen.getByText(/Chat: planned_blocked_until_uaa_p1_074/i)).toBeInTheDocument();
+    expect(screen.getByText(/Chat: implemented_local_operator_surface_contract/i)).toBeInTheDocument();
     expect(screen.getByText(/Code: planned_blocked_until_uaa_p1_075/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Stale-source posture/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
@@ -173,7 +173,7 @@ describe("Web Control Center shell", () => {
       ["/dashboard", /Dashboard overview/i],
       ["/operator-loop", /Operator Loop/i],
       ["/differentiators", /Control Center Differentiators/i],
-      ["/chat", /^Chat Shell$/i],
+      ["/chat", /^Chat Local Operator$/i],
       ["/plans", /^Plans$/i],
       ["/models", /^Models$/i],
       ["/runtime", /Runtime readiness/i],
@@ -385,9 +385,9 @@ describe("Web Control Center shell", () => {
     const requiredSurfaceChecks = [
       {
         path: "/chat",
-        heading: /^Chat Shell$/,
-        stateHeading: /Chat Shell states/i,
-        blocked: /Blocked: dedicated chat shell not implemented/i,
+        heading: /^Chat Local Operator$/,
+        stateHeading: /Chat Local Operator states/i,
+        blocked: /Blocked: local chat authority withheld/i,
         denied: /Denied: model output is not authority/i,
       },
       {
@@ -478,7 +478,7 @@ describe("Web Control Center shell", () => {
     const priorityFlowChecks = [
       {
         path: "/chat",
-        heading: /^Chat Shell$/,
+        heading: /^Chat Local Operator$/,
         marker: /UAA \/v1 model route/i,
         route: API_ENDPOINTS.localChatCompletions,
       },
@@ -521,6 +521,11 @@ describe("Web Control Center shell", () => {
         expect(screen.getAllByText(check.route).length).toBeGreaterThan(0);
       } else {
         expect(screen.getAllByText(check.route).length).toBeGreaterThan(0);
+      }
+      if (check.path === "/chat") {
+        expect(
+          screen.getAllByText("contract-ref:chat-local-operator-surface:v1").length,
+        ).toBeGreaterThan(0);
       }
       expect(
         screen.queryByText(/v0\.43\.0 M39 context proposal surface/i),
@@ -2954,14 +2959,17 @@ const mockApiData = {
       },
       {
         module: "Chat",
-        status: "planned_blocked_until_uaa_p1_074",
+        status: "implemented_local_operator_surface_contract",
         required_loop_outputs: [
           "today_chat_state",
           "plan_or_action_handoff_state",
           "chat_evidence_ref",
           "memory_candidate_or_blocked_state",
         ],
-        current_feed_refs: ["contract-ref:chat-local-operator-surface-missing"],
+        current_feed_refs: [
+          "contract-ref:chat-local-operator-surface:v1",
+          "/v1/chat/completions",
+        ],
         standalone_complete_allowed: false,
       },
       {
@@ -3109,6 +3117,87 @@ const mockApiData = {
     },
     business_memory_status:
       "implemented_review_queue_safe_ref_quality_metadata_contract",
+    chat_local_operator_contract_ref:
+      "contract-ref:chat-local-operator-surface:v1",
+    chat_local_operator_status: "implemented_local_turn_truth_surface",
+    chat_local_operator_turn_ref: "chat-turn:local-operator:local-chat-gateway",
+    chat_local_operator_route_ref: "/v1/chat/completions",
+    chat_local_operator_model_ref: "model-ref:local-chat-gateway",
+    chat_local_operator_runtime_truth: "runtime-readiness-gated",
+    chat_local_operator_auth_truth: "local-bearer-required",
+    chat_local_operator_tool_denial_truth: "tools-functions-streaming-denied",
+    chat_local_operator_tool_denial_ref:
+      "tool-denial-ref:chat-local-operator:local-chat-gateway",
+    chat_local_operator_safe_evidence_refs: [
+      "evidence-ref:chat-local-operator:today",
+    ],
+    chat_local_operator_plans_handoff_ref:
+      "handoff-ref:chat-to-plans:local-chat-gateway",
+    chat_local_operator_actions_handoff_ref:
+      "handoff-ref:chat-to-actions:local-chat-gateway",
+    chat_local_operator_required_truth_fields: [
+      "turn_ref",
+      "route_ref",
+      "model_ref",
+      "runtime_truth",
+      "auth_truth",
+      "tool_denial_truth",
+      "safe_evidence_refs",
+      "plans_handoff_ref",
+      "actions_handoff_ref",
+      "blocked_state_refs",
+    ],
+    chat_local_operator_required_blocked_refs: [
+      "blocked-state:no-model-output-authority",
+      "blocked-state:no-tool-execution",
+      "blocked-state:no-memory-write",
+      "blocked-state:no-context-injection",
+      "blocked-state:no-provider-sdk-call",
+      "blocked-state:no-web-fetch",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-shell-subprocess-execution",
+      "blocked-state:no-action-execution",
+      "blocked-state:no-approval-grant-capture",
+      "blocked-state:no-production-authority",
+    ],
+    chat_local_operator_surface_bindings: [
+      {
+        surface: "Today",
+        feed_status: "implemented_local_operator_turn_truth_refs",
+        feed_ref: "contract-ref:chat-local-operator-surface:v1",
+        authority_boundary: "Chat state is safe operator-turn metadata only.",
+      },
+    ],
+    chat_local_operator_authority_posture: {
+      safe_refs_only: true,
+      response_visible: false,
+      prompt_body_visible: false,
+      completion_body_visible: false,
+      model_output_authority: false,
+      tool_execution_enabled: false,
+      memory_write_authorized: false,
+      context_injection_authorized: false,
+      provider_sdk_call_enabled: false,
+      web_fetch_enabled: false,
+      connector_write_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      action_execution_enabled: false,
+      approval_grant_capture_enabled: false,
+      production_authority_enabled: false,
+    },
+    chat_local_operator_blocked_state_refs: [
+      "blocked-state:no-model-output-authority",
+      "blocked-state:no-tool-execution",
+      "blocked-state:no-memory-write",
+      "blocked-state:no-context-injection",
+      "blocked-state:no-provider-sdk-call",
+      "blocked-state:no-web-fetch",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-shell-subprocess-execution",
+      "blocked-state:no-action-execution",
+      "blocked-state:no-approval-grant-capture",
+      "blocked-state:no-production-authority",
+    ],
     plans_action_envelope_contract_ref:
       "contract-ref:plans-action-envelope:v1",
     plans_action_envelope_review_postures: [

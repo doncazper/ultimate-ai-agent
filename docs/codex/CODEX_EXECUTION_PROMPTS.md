@@ -368,8 +368,8 @@ conveyor is repo-local process guidance only. It does not grant runtime
 authority, connector authority, provider/model authority, unrestricted shell,
 public beta, public distribution, or production readiness.
 
-Current conveyor status: UAA-P1-067 through UAA-P1-073 are complete. The next
-incomplete documented milestone is UAA-P1-074 Chat Local Operator Surface
+Current conveyor status: UAA-P1-067 through UAA-P1-074 are complete. The next
+incomplete documented milestone is UAA-P1-075 Governed Code Workbench V1
 unless active docs show a later milestone has already been completed. The
 conveyor auto-advances after each successful milestone commit/push. Do not stop
 after merely recommending the next prompt; create and execute the next milestone
@@ -718,6 +718,103 @@ Auto-advance:
   UAA-P1-069 Evidence History Grammar prompt in the same run unless blocked.
 - Stop only for an exact blocker, unsafe scope split, failed verification,
   failed push, or user pause/stop.
+```
+
+## 18. UAA-P1-074 Chat Local Operator Surface Prompt
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: execute UAA-P1-074 Chat Local Operator Surface.
+
+Goal: make first-party Control Center Chat a real local operator surface. It
+should send a redacted local turn through the governed local gateway, show
+model/runtime/auth/tool-denial truth, produce safe evidence refs, and hand off
+to Plans or Actions as proposals only.
+
+Read first:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[agents_md_support.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/standards/agents_md_support.md)
+[definition_of_ready.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_ready.md)
+[definition_of_done.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_done.md)
+[PRODUCT_LANGUAGE_RULES.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+[UAA_P1_073_PLANS_ACTION_ENVELOPES.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md)
+
+If present, also read SPECS.md, specs.md, SDLC.md, sdlc.md, and the closest
+task-specific spec, ADR, schema, standards, or process docs discovered with
+rg --files. Treat these documents as contributor guidance, not runtime
+configuration or product authority.
+
+Subagent plan:
+- Use at least one read-only subagent for contract/test gap review if available.
+- Use at least one read-only subagent for adversarial product-language,
+  redaction, and authority review if available.
+- Subagents are advisory. The main Codex run owns integration, verification,
+  commit/push, and auto-advance.
+
+Scope:
+- Existing `/v1/chat/completions` local gateway, existing Control Center Chat
+  panel, existing Today summary route, Founder Loop Evidence Timeline,
+  TypeScript API types/client, docs, schema, focused tests, and verifier.
+- Do not add a provider SDK call, web fetch, tool execution, automatic memory
+  write, hidden context injection, connector write, shell/subprocess execution,
+  action execution, approval grant capture, public beta, public distribution,
+  production readiness, or production authority.
+
+Acceptance criteria:
+- `core.chat` exposes `contract-ref:chat-local-operator-surface:v1`.
+- Today summary exposes Chat local operator contract ref, turn ref, route ref,
+  model ref, runtime truth, auth truth, tool-denial truth, safe evidence refs,
+  Plans handoff ref, Actions handoff ref, surface bindings, blocked-state refs,
+  and denied authority posture.
+- Control Center `/chat` can send a redacted local turn through the local
+  gateway and show route/model/runtime/auth/tool-denial truth without showing
+  completion body content.
+- Chat handoff refs are proposal refs only and do not mutate Plans, Actions, or
+  Memory.
+- Evidence Timeline records Chat local operator history with safe refs and all
+  authority blocked states.
+- OpenWebUI remains a secondary local/dev shell, not product state owner.
+- Active docs mark UAA-P1-074 complete and promote UAA-P1-075 Governed Code
+  Workbench V1 as the next incomplete milestone.
+
+Review/fix:
+- Perform adversarial review for model output becoming implied truth,
+  approval evidence, memory, or execution authority; route/auth/tool-denial
+  truth being hidden; handoff refs becoming mutations; unsafe content leakage;
+  provider/tool/connector/shell authority creep; route/OpenAPI drift; and unsafe
+  beta/production language.
+- Fix P0/P1 issues before hardening.
+
+Hardening:
+- Run PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_uaa_p1_074_chat_local_operator_surface.py
+  tests/test_founder_loop_storage.py
+  tests/test_control_center_founder_loop_api.py
+- Run .venv/bin/python scripts/verify_uaa_p1_074_chat_local_operator_surface.py
+- Run .venv/bin/python -c "import scripts.verify_all as v; v.verify_uaa_p1_074_chat_local_operator_surface()"
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+- Run make frontend-check when frontend files changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-074 plus any conveyor auto-advance fix
+  intentionally made for this run.
+- Commit with message: implement UAA-P1-074 chat local operator surface
+- Push the current branch.
+
+Auto-advance:
+- After commit/push succeeds, immediately create/update and execute the
+  UAA-P1-075 Governed Code Workbench V1 prompt in the same run unless blocked.
+- Do not stop with only a next-prompt recommendation. Stop only for an exact
+  blocker, unsafe scope split, failed verification, failed push, or user
+  pause/stop.
 ```
 
 ## 15. UAA-P1-071 Memory Review Decision Capture Prompt

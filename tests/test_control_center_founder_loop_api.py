@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.chat import CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
@@ -224,7 +225,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert {"Actions", "Plans", "Memory", "Chat", "Code"} <= set(evidence_bindings)
     assert (
         evidence_bindings["Chat"]["current_status"]
-        == "planned_blocked_until_uaa_p1_074"
+        == "implemented_local_operator_turn_truth_refs"
     )
     assert (
         evidence_bindings["Code"]["current_status"]
@@ -275,7 +276,12 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert PLANS_ACTION_ENVELOPE_CONTRACT_REF in module_feeds["Plans"][
         "current_feed_refs"
     ]
-    assert module_feeds["Chat"]["status"] == "planned_blocked_until_uaa_p1_074"
+    assert (
+        module_feeds["Chat"]["status"] == "implemented_local_operator_surface_contract"
+    )
+    assert CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF in module_feeds["Chat"][
+        "current_feed_refs"
+    ]
     assert module_feeds["Code"]["status"] == "planned_blocked_until_uaa_p1_075"
     assert today["plan_action_state"]["execution_authorized"] is False
     assert today["plan_action_state"]["mutating_controls_enabled"] is False

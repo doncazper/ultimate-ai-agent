@@ -542,7 +542,7 @@ execution authority.
 
 Type: backend/local gateway plus first-party Control Center UI display later
 
-Status: Ready Next.
+Status: Done.
 
 New authority: no provider SDK, tool execution, or memory write.
 
@@ -557,16 +557,25 @@ Acceptance criteria:
 
 Tests to add/update:
 
-- Local gateway/API tests.
-- Auth/tool-denial tests.
-- Control Center render tests.
-- Documentation integrity.
+- `tests/test_uaa_p1_074_chat_local_operator_surface.py`.
+- `tests/test_founder_loop_storage.py`.
+- `tests/test_control_center_founder_loop_api.py`.
+- `apps/control-center/src/App.test.tsx`.
+- `scripts/verify_uaa_p1_074_chat_local_operator_surface.py`.
+- `docs/schemas/chat_local_operator_surface.schema.json`.
 
-PR size: split backend and UI if needed.
+Gate met: `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`
+defines the contract on existing Today/Chat/Evidence surfaces without adding
+provider SDK calls, web fetching, tool execution, memory writes, hidden context
+injection, connector writes, shell/subprocess execution, action execution,
+approval grant capture, public beta, public distribution, or production
+authority.
 
 ## Task 9h - UAA-P1-075 Governed Code Workbench V1
 
 Type: backend contract/test plus UI display later
+
+Status: Ready Next.
 
 New authority: no unapproved mutation or unrestricted shell.
 

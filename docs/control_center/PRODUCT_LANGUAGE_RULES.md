@@ -22,6 +22,9 @@ first-party Chat. OpenWebUI is a supported local/dev conversational shell and
 compatibility surface only; copy must not imply that OpenWebUI owns product
 state or is where every UAA workflow will be wired.
 
+Today, Inbox, Plans, Actions, Memory, Evidence, and Settings remain the core
+operator loop surfaces for product-language enforcement.
+
 CLI is a first-class operator surface. Product behavior must not live only in
 React state; UI-only state is limited to presentation concerns such as filters,
 expanded panels, selected tabs, and layout preferences. If the UI can trigger or
@@ -98,9 +101,9 @@ status and keep false/unproven values visibly unclaimed.
 The current Control Center still has blocked, mock-only, local-state-only, and
 partial surfaces. The route status manifest is the current release evidence for
 visible action truth, not evidence that the first operator loop is complete.
-Chat Shell, Models lifecycle controls, and Settings remain blocked, and
-completed product-surface claims remain blocked until later M172 gates add
-reviewed routes, UI, evidence, and rollback proof.
+Chat Local Operator is partial/local-gated, Models lifecycle controls and
+Settings remain blocked, and completed product-surface claims remain blocked
+until later gates add reviewed routes, UI, evidence, and rollback proof.
 
 ## Enforcement
 

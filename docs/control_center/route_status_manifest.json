@@ -163,14 +163,14 @@
       ]
     },
     {
-      "surface": "Chat Shell",
+      "surface": "Chat Local Operator",
       "owner": "local-model-runtime",
       "auth_posture": "local_gateway_bearer_required_disabled_by_default",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "high",
-      "release_status": "blocked_missing_backend",
-      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization only; model output is not authority.",
-      "evidence_audit_output": "M167 evidence refs, local model smoke refs, safe failure refs, and latency refs.",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization only; model output is not authority, memory, approval evidence, or execution permission.",
+      "evidence_audit_output": "UAA-P1-074 safe turn refs, model/runtime/auth/tool-denial truth refs, proposal handoff refs, M167 evidence refs, local model smoke refs, safe failure refs, and latency refs.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -192,9 +192,9 @@
         }
       ],
       "missing_backend_routes": [
-        "control-center-chat-status",
         "chat-receipt-summary",
-        "tools-functions-streaming-denial-summary"
+        "tools-functions-streaming-denial-summary",
+        "governed-chat-handoff-workflow"
       ]
     },
     {
@@ -705,21 +705,34 @@
     },
     {
       "action_id": "navigate-chat-shell",
-      "label": "Navigate Chat Shell",
-      "ui_surface": "Chat Shell",
+      "label": "Navigate Chat Local Operator",
+      "ui_surface": "Chat Local Operator",
       "frontend_route": "/chat",
       "owner": "local-model-runtime",
-      "auth_posture": "blocked_placeholder_only",
+      "auth_posture": "local_gateway_bearer_required_disabled_by_default",
       "side_effect_class": "local_ui_state_only",
       "risk_class": "high",
-      "release_status": "blocked_missing_backend",
-      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization are required before any chat loop can be product-ready.",
-      "evidence_audit_output": "No durable evidence output from the placeholder page.",
-      "backend_routes": [],
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization are required before any chat loop can be product-ready. Model output is not authority.",
+      "evidence_audit_output": "UAA-P1-074 safe turn refs, model/runtime/auth/tool-denial truth refs, proposal handoff refs, and blocked authority refs.",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/v1/chat/completions",
+          "operation_id": "post_v1_chat_completions",
+          "side_effect_class": "local_dev_workspace_only"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
       "missing_backend_routes": [
-        "control-center-chat-status",
         "chat-receipt-summary",
-        "tools-functions-streaming-denial-summary"
+        "tools-functions-streaming-denial-summary",
+        "governed-chat-handoff-workflow"
       ]
     },
     {

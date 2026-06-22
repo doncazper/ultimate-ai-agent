@@ -273,7 +273,7 @@ BROWSER_SMOKE_REPORTING_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING
 BROWSER_SMOKE_TEST = "apps/control-center/src/App.test.tsx"
 AGENTS_DOC = "AGENTS.md"
 REQUIRED_OPERATOR_SHELL_SURFACES = [
-    "Chat Shell",
+    "Chat Local Operator",
     "Plans",
     "Models",
     "Approvals",
@@ -402,7 +402,7 @@ BROWSER_SMOKE_REQUIRED_TEST_FRAGMENTS = [
 OPERATOR_STATE_REQUIRED_COMPONENT_FRAGMENTS = [
     "OperatorSurfaceStates",
     "OperatorSurfacePlaceholderPanel",
-    "Chat Shell",
+    "Chat Local Operator",
     "Plans",
     "Models",
     "Approvals",
@@ -429,7 +429,7 @@ OPERATOR_STATE_REQUIRED_TEST_FRAGMENTS = [
     "/plans",
     "/models",
     "/settings",
-    "Blocked: dedicated chat shell not implemented",
+    "Blocked: local chat authority withheld",
     "Denied: no sensitive evidence display",
     "Denied: no authority toggle",
     "getAllByRole(\"status\")",

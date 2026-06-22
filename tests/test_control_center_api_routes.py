@@ -266,7 +266,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     ) in compact
 
     for surface in [
-        "chat shell",
+        "chat local operator",
         "setup assistant",
         "plans",
         "models",
@@ -416,7 +416,7 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready() ->
     release_available = {"status_available_not_completion", "preview_available_not_execution"}
 
     for surface in [
-        "Chat Shell",
+        "Chat Local Operator",
         "Plans",
         "Models",
         "Approvals",
@@ -428,7 +428,10 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready() ->
         assert surface in surfaces
 
     assert surfaces["Settings"]["release_status"] == "blocked_missing_backend"
-    assert surfaces["Chat Shell"]["release_status"] == "blocked_missing_backend"
+    assert (
+        surfaces["Chat Local Operator"]["release_status"]
+        == "partial_backend_not_product_ready"
+    )
     assert surfaces["Runtime"]["release_status"] == "status_available_not_completion"
 
     for action in actions.values():

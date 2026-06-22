@@ -27,6 +27,21 @@ const API_BASE_POLICY = resolveApiBaseUrl(
   import.meta.env.VITE_UAA_API_BASE_URL,
 );
 const DEFAULT_LOCAL_MODEL_ID = "uaa-llama-cpp-local";
+const CHAT_OPERATOR_CONTRACT_REF =
+  "contract-ref:chat-local-operator-surface:v1";
+const CHAT_OPERATOR_BLOCKED_REFS = [
+  "blocked-state:no-model-output-authority",
+  "blocked-state:no-tool-execution",
+  "blocked-state:no-memory-write",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-provider-sdk-call",
+  "blocked-state:no-web-fetch",
+  "blocked-state:no-connector-write",
+  "blocked-state:no-shell-subprocess-execution",
+  "blocked-state:no-action-execution",
+  "blocked-state:no-approval-grant-capture",
+  "blocked-state:no-production-authority",
+];
 
 async function readEnvelope<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
@@ -247,14 +262,13 @@ export async function requestRedactedLocalChatProbe(
   const startedAt =
     typeof performance !== "undefined" ? performance.now() : Date.now();
   const checkedAt = new Date().toISOString();
+  const base = chatProbeBase(modelId, checkedAt);
   if (!API_BASE_POLICY.allowed) {
     return {
+      ...base,
       state: "blocked",
       routeRef: API_ENDPOINTS.localChatCompletions,
-      checkedAt,
       safeMessage: API_BASE_POLICY.safeMessage,
-      modelId,
-      responseVisible: false,
       reasonCodes: ["LOCAL_API_BASE_BLOCKED"],
     };
   }
@@ -284,19 +298,22 @@ export async function requestRedactedLocalChatProbe(
     if (!response.ok) {
       const failureState = response.status === 401 ? "denied" : "blocked";
       return {
+        ...base,
         state: failureState,
         routeRef: API_ENDPOINTS.localChatCompletions,
-        checkedAt,
         safeMessage: sanitizeForDisplay(
           extractErrorMessage(
             data,
             "Local chat route denied the readiness exchange.",
           ),
         ),
-        modelId,
+        runtimeTruth: "local-chat-route-denied",
+        authTruth:
+          response.status === 401
+            ? "local-bearer-required"
+            : "local-auth-or-runtime-blocked",
         statusCode: response.status,
         durationMs,
-        responseVisible: false,
         reasonCodes: [
           response.status === 401
             ? "LOCAL_CHAT_BEARER_REQUIRED"
@@ -304,30 +321,104 @@ export async function requestRedactedLocalChatProbe(
         ],
       };
     }
+    const safety = extractSafetyRecord(data);
     return {
+      ...base,
       state: "ready",
       routeRef: API_ENDPOINTS.localChatCompletions,
-      checkedAt,
       safeMessage:
         "Local chat completion route answered. The response body is not displayed by Control Center.",
-      modelId,
+      runtimeTruth: "local-chat-route-answered",
+      authTruth: "local-bearer-accepted",
+      toolDenialTruth:
+        safetyFlagIsFalse(safety, ["tool_executed", "tools_enabled"]) &&
+        safetyFlagIsFalse(safety, ["functions_enabled"]) &&
+        safetyFlagIsFalse(safety, ["streaming_enabled"])
+          ? "tools-functions-streaming-denied"
+          : "tool-denial-truth-unavailable",
       statusCode: response.status,
       durationMs,
-      responseVisible: false,
       reasonCodes: ["LOCAL_CHAT_REDACTED_PROBE_READY"],
     };
   } catch {
     return {
+      ...base,
       state: "unavailable",
       routeRef: API_ENDPOINTS.localChatCompletions,
-      checkedAt,
       safeMessage:
         "Local chat route could not be reached safely from Control Center.",
-      modelId,
-      responseVisible: false,
+      runtimeTruth: "local-chat-route-unavailable",
+      authTruth: "auth-not-evaluated",
       reasonCodes: ["LOCAL_CHAT_ROUTE_UNAVAILABLE"],
     };
   }
+}
+
+function chatProbeBase(
+  modelId: string,
+  checkedAt: string,
+): Omit<
+  RedactedLocalChatProbeStatus,
+  "state" | "safeMessage" | "reasonCodes" | "statusCode" | "durationMs"
+> {
+  const safeModelRef = safeChatSuffix(modelId);
+  return {
+    routeRef: API_ENDPOINTS.localChatCompletions,
+    checkedAt,
+    contractRef: CHAT_OPERATOR_CONTRACT_REF,
+    turnRef: `chat-turn:local-operator:${safeModelRef}`,
+    modelId,
+    runtimeTruth: "runtime-not-contacted",
+    authTruth: "auth-not-evaluated",
+    toolDenialTruth: "tools-functions-streaming-denied",
+    toolDenialRef: `tool-denial-ref:chat-local-operator:${safeModelRef}`,
+    evidenceRefs: ["evidence-ref:chat-local-operator:browser-probe"],
+    plansHandoffRef: `handoff-ref:chat-to-plans:${safeModelRef}`,
+    actionsHandoffRef: `handoff-ref:chat-to-actions:${safeModelRef}`,
+    blockedStateRefs: CHAT_OPERATOR_BLOCKED_REFS,
+    modelOutputAuthority: false,
+    toolExecutionEnabled: false,
+    memoryWriteAuthorized: false,
+    contextInjectionAuthorized: false,
+    providerSdkCallEnabled: false,
+    webFetchEnabled: false,
+    connectorWriteEnabled: false,
+    shellSubprocessExecutionEnabled: false,
+    actionExecutionEnabled: false,
+    approvalGrantCaptureEnabled: false,
+    productionAuthorityEnabled: false,
+    responseVisible: false,
+  };
+}
+
+function safeChatSuffix(value: string): string {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replaceAll(":", "-")
+      .replace(/[^a-z0-9_.@-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "missing"
+  );
+}
+
+function extractSafetyRecord(data: unknown): Record<string, unknown> {
+  const candidate = unwrapEnvelope(data);
+  if (typeof candidate !== "object" || candidate === null) {
+    return {};
+  }
+  const record = candidate as Record<string, unknown>;
+  const safety = record.uaa_safety;
+  return typeof safety === "object" && safety !== null
+    ? (safety as Record<string, unknown>)
+    : {};
+}
+
+function safetyFlagIsFalse(
+  safety: Record<string, unknown>,
+  names: string[],
+): boolean {
+  return names.some((name) => safety[name] === false);
 }
 
 function withConnection(

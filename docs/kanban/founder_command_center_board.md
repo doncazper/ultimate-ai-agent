@@ -22,8 +22,8 @@ Contract. UAA-P1-069 completed the Evidence History Grammar contract.
 UAA-P1-070 completed the Memory Source And Provenance Model. UAA-P1-071
 completed Memory Review Decision Capture. UAA-P1-072 completed Business Memory
 And Memory Quality Controls. UAA-P1-073 completed Plans To Reviewable Action
-Envelopes. The parent board now promotes UAA-P1-074 Chat Local Operator
-Surface as Ready Next.
+Envelopes. UAA-P1-074 completed Chat Local Operator Surface. The parent board
+now promotes UAA-P1-075 Governed Code Workbench V1 as Ready Next.
 UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
@@ -60,15 +60,14 @@ Implemented / ready for review:
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
-UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073.
+UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074.
 
 Candidate-next:
-UAA-P1-074 Chat Local Operator Surface.
+UAA-P1-075 Governed Code Workbench V1.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-075, UAA-P1-076, UAA-P1-077,
-UAA-P1-078, UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
+UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
 UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
@@ -76,30 +75,29 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ## Candidate Next
 
-### UAA-P1-074 - Chat Local Operator Surface
+### UAA-P1-075 - Governed Code Workbench V1
 
-Epic: Chat, Local Model, Product/UX
+Epic: Code/Workspace, Evidence/Receipts, Safety/Permissions
 
-Promoted by: UAA-P1-073
+Promoted by: UAA-P1-074
 
-Type: backend/local gateway contract plus first-party Control Center read-only
-truth surface
+Type: backend contract/test plus first-party Control Center read-only display
 
-Description: Chat must send a local turn through the governed local gateway,
-show model/runtime/auth/tool-denial truth, produce safe evidence, and hand off
-to Plans or Actions as proposals only.
+Description: Code should be narrower than Goat but better governed:
+repo-local safe diffs, validation proof, exact approval before apply, atomic
+apply, rollback receipts, and Evidence Timeline binding.
 
-Acceptance criteria: A user can see whether local model runtime, auth, route
-availability, and tool/function denial are true. Model output is not treated as
-truth, memory, approval evidence, or execution authority.
+Acceptance criteria: Code proposals show scope, safe diff summary, validation
+plan, validation result refs, approval requirement, apply receipt, rollback
+receipt, and Evidence history entries.
 
-Required tests/verifiers: local gateway/API tests, Control Center render tests,
-auth/tool-denial tests, evidence-summary tests, documentation integrity, and
-OpenAPI/API manifest checks if route contracts change.
+Required tests/verifiers: file/diff/apply/rollback tests, redaction tests,
+frontend render tests when surfaced, OpenAPI/API manifest tests if routes
+change, and documentation integrity.
 
-Safety notes: No provider SDK calls, web fetching, tool execution, automatic
-memory write, hidden context injection, connector write, shell/subprocess
-execution, public beta, public distribution, or production authority.
+Safety notes: No unapproved mutation, unrestricted shell, remote execution,
+broad coding-agent autonomy, public beta, public distribution, or production
+authority.
 
 ### FCC-P0-002 Follow-Up - Collapse/Organize Control Center Around Core Surfaces
 
@@ -144,7 +142,8 @@ Acceptance evidence: Active docs, roadmap, current board, product truth, MVP
 spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
 UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
 UAA-P1-071 as complete, UAA-P1-072 as complete, UAA-P1-073 as complete,
-UAA-P1-074 as Ready Next, and UAA-P1-066 as read-only local model support.
+UAA-P1-074 as complete, UAA-P1-075 as Ready Next, and UAA-P1-066 as read-only
+local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,
@@ -610,18 +609,27 @@ production authority.
 
 Epic: Chat, Local Model, Product/UX
 
-Description: Chat must send a local turn, show model/runtime/auth/tool-denial
-truth, produce safe evidence, and hand off to Plans or Actions.
+Status: Done.
+
+Description: Chat sends a local turn, shows model/runtime/auth/tool-denial
+truth, produces safe evidence refs, and hands off to Plans or Actions as
+proposals only.
 
 Acceptance criteria: A user can see whether local model runtime, auth, route
 availability, and tool/function denial are true. Model output is not treated as
 truth, memory, approval evidence, or execution authority.
 
-Required tests/verifiers: local gateway/API tests, Control Center render tests,
-auth/tool-denial tests, evidence-summary tests, and documentation integrity.
+Required tests/verifiers: `tests/test_uaa_p1_074_chat_local_operator_surface.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`,
+`apps/control-center/src/App.test.tsx`,
+`scripts/verify_uaa_p1_074_chat_local_operator_surface.py`, and
+`docs/schemas/chat_local_operator_surface.schema.json`.
 
 Safety notes: No provider SDK calls, web fetching, tool execution, automatic
-memory write, hidden context injection, or production authority.
+memory write, hidden context injection, connector write, shell/subprocess
+execution, action execution, approval grant capture, public beta, public
+distribution, or production authority.
 
 ### UAA-P1-075 - Governed Code Workbench V1
 

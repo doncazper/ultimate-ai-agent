@@ -11,6 +11,14 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.chat import (
+    CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS,
+    CHAT_LOCAL_OPERATOR_REQUIRED_TRUTH_FIELDS,
+    CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
+    build_chat_local_operator_turn_envelope,
+    chat_local_operator_authority_posture,
+    chat_local_operator_surface_bindings,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -139,11 +147,11 @@ EVIDENCE_HISTORY_SURFACE_BINDINGS = [
     },
     {
         "surface": "Chat",
-        "current_status": "planned_blocked_until_uaa_p1_074",
+        "current_status": "implemented_local_operator_turn_truth_refs",
         "required_history_keys": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
         "authority_boundary": (
-            "Chat evidence must use the same grammar after a local operator "
-            "surface exists; model output remains non-authoritative."
+            "Chat evidence records route, runtime, auth, tool-denial, and safe "
+            "handoff refs only; model output remains non-authoritative."
         ),
     },
     {
@@ -288,14 +296,17 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
     },
     {
         "module": "Chat",
-        "status": "planned_blocked_until_uaa_p1_074",
+        "status": "implemented_local_operator_surface_contract",
         "required_loop_outputs": [
             "today_chat_state",
             "plan_or_action_handoff_state",
             "chat_evidence_ref",
             "memory_candidate_or_blocked_state",
         ],
-        "current_feed_refs": ["contract-ref:chat-local-operator-surface-missing"],
+        "current_feed_refs": [
+            CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
+            "/v1/chat/completions",
+        ],
         "standalone_complete_allowed": False,
     },
     {
@@ -1287,6 +1298,44 @@ def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _chat_local_operator_contract_payload() -> dict[str, Any]:
+    envelope = build_chat_local_operator_turn_envelope(
+        model_ref="model-ref:local-chat-gateway",
+        runtime_truth="runtime-readiness-gated",
+        auth_truth="local-bearer-required",
+        tool_denial_truth="tools-functions-streaming-denied",
+        safe_evidence_refs=["evidence-ref:chat-local-operator:today"],
+    )
+    payload = envelope.model_dump(mode="json")
+    return {
+        "chat_local_operator_contract_ref": payload["contract_ref"],
+        "chat_local_operator_status": "implemented_local_turn_truth_surface",
+        "chat_local_operator_turn_ref": payload["turn_ref"],
+        "chat_local_operator_route_ref": payload["route_ref"],
+        "chat_local_operator_model_ref": payload["model_ref"],
+        "chat_local_operator_runtime_truth": payload["runtime_truth"],
+        "chat_local_operator_auth_truth": payload["auth_truth"],
+        "chat_local_operator_tool_denial_truth": payload["tool_denial_truth"],
+        "chat_local_operator_tool_denial_ref": payload["tool_denial_ref"],
+        "chat_local_operator_safe_evidence_refs": payload["safe_evidence_refs"],
+        "chat_local_operator_plans_handoff_ref": payload["plans_handoff_ref"],
+        "chat_local_operator_actions_handoff_ref": payload["actions_handoff_ref"],
+        "chat_local_operator_required_truth_fields": (
+            CHAT_LOCAL_OPERATOR_REQUIRED_TRUTH_FIELDS
+        ),
+        "chat_local_operator_required_blocked_refs": (
+            CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS
+        ),
+        "chat_local_operator_surface_bindings": (
+            chat_local_operator_surface_bindings()
+        ),
+        "chat_local_operator_authority_posture": (
+            chat_local_operator_authority_posture()
+        ),
+        "chat_local_operator_blocked_state_refs": payload["blocked_state_refs"],
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1349,6 +1398,7 @@ class FounderLoopRepository:
             memory_items=memory_items,
             briefing_items=briefing_items,
         )
+        chat_local_operator_contract = _chat_local_operator_contract_payload()
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -1419,6 +1469,7 @@ class FounderLoopRepository:
             "business_memory_status": (
                 "implemented_review_queue_safe_ref_quality_metadata_contract"
             ),
+            **chat_local_operator_contract,
             "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
             "plans_action_envelope_review_postures": (
                 plans_action_envelope_review_posture_rows()
@@ -1772,6 +1823,97 @@ class FounderLoopRepository:
                     next_safe_action=str(plan.get("next_step_summary")),
                 )
             )
+        chat_contract = _chat_local_operator_contract_payload()
+        timeline.append(
+            FounderLoopEvidenceTimelineItem(
+                timeline_item_ref=_timeline_ref(
+                    "chat", chat_contract["chat_local_operator_turn_ref"]
+                ),
+                item_kind="chat_local_operator_turn_ref",
+                title="Chat local operator surface",
+                safe_summary=(
+                    "Chat evidence records a redacted local operator turn, route "
+                    "truth, runtime/auth posture, tool-denial posture, and "
+                    "proposal handoff refs only."
+                ),
+                history_answers=_history_answers(
+                    proposed=_history_answer(
+                        "proposed",
+                        "A local Chat operator turn can be sent through the governed local gateway as a redacted readiness/proposal exchange.",
+                        refs=[
+                            chat_contract["chat_local_operator_turn_ref"],
+                            CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
+                            "route-ref:v1-chat-completions",
+                        ],
+                    ),
+                    approved=_history_answer(
+                        "approved",
+                        "No model output, tool use, memory write, approval grant, or action execution is approved by Chat output.",
+                        refs=["approval-status:chat-output-not-authority"],
+                        status="blocked",
+                    ),
+                    happened=_history_answer(
+                        "happened",
+                        "Only safe route/runtime/auth/tool-denial evidence refs are produced; turn content is withheld from durable history.",
+                        refs=chat_contract["chat_local_operator_safe_evidence_refs"],
+                        status="inspection_only",
+                    ),
+                    changed=_history_answer(
+                        "changed",
+                        "Chat does not mutate Plans, Actions, Memory, connectors, shell, or repo state.",
+                        refs=[
+                            chat_contract["chat_local_operator_plans_handoff_ref"],
+                            chat_contract["chat_local_operator_actions_handoff_ref"],
+                        ],
+                        status="proposal_refs_only",
+                    ),
+                    undoable=_history_answer(
+                        "undoable",
+                        "No mutation is performed, so there is no rollback execution from Chat.",
+                        refs=["rollback-status:chat-no-mutation-performed"],
+                        status="not_applicable",
+                    ),
+                    stale=_history_answer(
+                        "stale",
+                        "Runtime, auth, and model readiness must be rechecked before each local turn.",
+                        refs=["stale-ref:chat-local-gateway-recheck-required"],
+                        status="recheck_required",
+                    ),
+                    blocked=_history_answer(
+                        "blocked",
+                        "Tools, memory writes, context injection, provider SDK calls, web fetch, connector writes, shell/subprocess execution, action execution, approval grant capture, and production authority remain blocked.",
+                        refs=chat_contract["chat_local_operator_blocked_state_refs"],
+                        status="blocked",
+                    ),
+                ),
+                source_refs=[chat_contract["chat_local_operator_turn_ref"]],
+                status_refs=[
+                    CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
+                    "route-ref:v1-chat-completions",
+                    chat_contract["chat_local_operator_tool_denial_ref"],
+                ],
+                related_route_refs=["/chat", "/v1/chat/completions"],
+                side_effect_class="local_dev_workspace_only",
+                authority_posture=(
+                    "Chat local operator turn evidence is safe-ref metadata only; "
+                    "model output is not truth, memory, approval, or execution authority."
+                ),
+                approval_posture="approval-status:chat-output-not-authority",
+                receipt_refs=chat_contract["chat_local_operator_safe_evidence_refs"],
+                audit_refs=[],
+                replay_refs=["replay-ref:chat-local-operator:turn"],
+                rollback_refs=[],
+                rollback_blockers=["rollback_execution_not_applicable_no_chat_mutation"],
+                redaction_status="redacted_summary_only",
+                stale_state="recheck_local_gateway_before_each_turn",
+                missing_evidence_posture="raw_chat_content_intentionally_hidden",
+                blocked_states=chat_contract["chat_local_operator_blocked_state_refs"],
+                next_safe_action=(
+                    "Use Chat handoff refs as proposals only; route any work "
+                    "through Plans or Actions review."
+                ),
+            )
+        )
         for item in memory_items:
             review_ref = str(item["review_ref"])
             missing_contract_refs = list(item.get("missing_contract_refs") or [])

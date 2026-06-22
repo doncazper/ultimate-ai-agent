@@ -8,8 +8,9 @@ completed UAA-P1-068 Today Product Spine Contract work, completed UAA-P1-069
 Evidence History Grammar work, completed UAA-P1-070 Memory Source And
 Provenance Model work, completed UAA-P1-071 Memory Review Decision Capture
 work, completed UAA-P1-072 Business Memory And Memory Quality Controls work,
-completed UAA-P1-073 Plans To Reviewable Action Envelopes work, and Ready Next
-UAA-P1-074 Chat Local Operator Surface.
+completed UAA-P1-073 Plans To Reviewable Action Envelopes work, completed
+UAA-P1-074 Chat Local Operator Surface work, and Ready Next UAA-P1-075
+Governed Code Workbench V1.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -55,9 +56,10 @@ Product Spine Contract, completed UAA-P1-069 Evidence History Grammar,
 completed UAA-P1-070 Memory Source And Provenance Model, completed
 UAA-P1-071 Memory Review Decision Capture, completed UAA-P1-072 Business
 Memory And Memory Quality Controls, and completed UAA-P1-073 Plans To
-Reviewable Action Envelopes to UAA-P1-074 Chat Local Operator Surface as Ready
-Next. UAA-P1-066 remains queued as a strictly
-read-only Local Model Control Center inventory/status support lane.
+Reviewable Action Envelopes, and completed UAA-P1-074 Chat Local Operator
+Surface to UAA-P1-075 Governed Code Workbench V1 as Ready Next. UAA-P1-066 remains
+queued as a strictly read-only Local Model Control Center inventory/status
+support lane.
 This sequence makes Today the product spine and keeps memory,
 Evidence, Plans, Chat, Code, and Actions bound to safe refs, review decisions,
 receipts, and rollback posture. It adds no production authority, public beta,

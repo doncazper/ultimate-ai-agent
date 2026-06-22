@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+from ultimate_ai_agent.core.chat import CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
@@ -178,7 +179,8 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     }
     assert {"Actions", "Plans", "Memory", "Chat", "Code"} <= set(surface_bindings)
     assert (
-        surface_bindings["Chat"]["current_status"] == "planned_blocked_until_uaa_p1_074"
+        surface_bindings["Chat"]["current_status"]
+        == "implemented_local_operator_turn_truth_refs"
     )
     assert (
         surface_bindings["Code"]["current_status"] == "planned_blocked_until_uaa_p1_075"
@@ -229,6 +231,12 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         BUSINESS_MEMORY_QUALITY_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
     )
+    assert (
+        module_feeds["Chat"]["status"] == "implemented_local_operator_surface_contract"
+    )
+    assert CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF in module_feeds["Chat"][
+        "current_feed_refs"
+    ]
     assert today["module_completion_contract"] == {
         "visibility_requirement": (
             "Module state must be visible in Today, Actions, Evidence, and "

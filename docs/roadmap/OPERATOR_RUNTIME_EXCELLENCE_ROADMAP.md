@@ -71,7 +71,7 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
-| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Done: Plans To Reviewable Action Envelopes; `UAA-P1-074` Ready Next: Chat Local Operator Surface; then `UAA-P1-075` through `UAA-P1-078` for governed Code workbench, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
+| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Done: Plans To Reviewable Action Envelopes; `UAA-P1-074` Done: Chat Local Operator Surface; `UAA-P1-075` Ready Next: Governed Code Workbench V1; then `UAA-P1-076` through `UAA-P1-078` for cross-surface intake, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, Chat operator truth refs, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
 | Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
 | Harden the browser-facing API perimeter before new authority | `UAA-P1-080` through `UAA-P1-086` planned: route classification, security headers, loopback CORS, local auth gate, idempotency audit, targeted rate limits, and OpenAPI/API manifest enforcement | P1 | Control Center remains local-first while every route gets an explicit public/protected classification and sensitive or mutating paths have auth, approval, idempotency, redaction, and test posture before authority-heavy Plans, Chat, Code, loop-binding, or beta-readiness claims |
@@ -304,7 +304,7 @@ product workflows should be wired.
 
 Required surfaces:
 
-- Chat Shell: first-party Control Center chat operator surface with
+- Chat Local Operator: first-party Control Center chat operator surface with
   model/runtime/auth/tool-denial truth; OpenWebUI remains a separate local/dev
   shell over the same governed gateway.
 - Plans: task decomposition, approval needs, DAG status, and safe execution.
@@ -337,7 +337,7 @@ Tasks:
   `apps/control-center/src/App.test.tsx` with real/mocked/skipped/blocked
   states and explicit blockers for missing prerequisites.
 - `UAA-P1-033` Done: add accessible loading/error/empty/blocked/denied
-  operator states for Chat Shell, Plans, Models, Approvals, Files, Runtime,
+  operator states for Chat Local Operator, Plans, Models, Approvals, Files, Runtime,
   Evidence, and Settings in `apps/control-center/src/components/OperatorSurfaceStates.tsx`,
   `apps/control-center/src/routes.tsx`, `apps/control-center/src/App.test.tsx`,
   and `scripts/verify_control_center_frontend.py`.
@@ -424,13 +424,13 @@ Tasks:
   side-effect class, risk, approval requirement, idempotency, expiry,
   evidence refs, expected receipt refs, rollback/safe-disable posture, and
   blocked-state reasons. Classification/decomposition alone is not enough.
-- `UAA-P1-074` Ready Next: First-party Control Center chat local operator surface: Chat
-  must send a local turn through the governed local gateway, show
-  model/runtime/auth/tool-denial truth, produce safe evidence, and hand off to
-  Plans or Actions without treating model output as authority, truth, memory,
-  or execution permission. OpenWebUI remains a secondary local/dev shell, not
-  the source of product state.
-- `UAA-P1-075` Governed Code workbench v1: Code should be narrower than Goat
+- `UAA-P1-074` Done: First-party Control Center chat local operator surface: Chat
+  sends a local turn through the governed local gateway, shows
+  model/runtime/auth/tool-denial truth, produces safe evidence refs, and hands
+  off to Plans or Actions without treating model output as authority, truth,
+  memory, or execution permission. OpenWebUI remains a secondary local/dev
+  shell, not the source of product state.
+- `UAA-P1-075` Ready Next: Governed Code workbench v1: Code should be narrower than Goat
   but better governed: repo-local safe diffs, validation proof, exact approval
   before apply, atomic apply, rollback receipts, and evidence timeline binding.
   Broad coding-agent autonomy, unrestricted shell, and remote execution remain
@@ -822,10 +822,10 @@ Verification:
   source-missing, and evidence-missing posture.
 - `UAA-P1-073` Done: Plans to reviewable Action envelopes with exact scope,
   approve/edit/reject/defer posture, receipts, and rollback/safe-disable state.
-- `UAA-P1-074` Ready Next: first-party Control Center chat local operator surface
+- `UAA-P1-074` Done: first-party Control Center chat local operator surface
   with turn send, model/runtime/auth/tool-denial truth, safe evidence, and
   handoff to Plans or Actions. OpenWebUI remains a secondary local/dev shell.
-- `UAA-P1-075` Shape: governed Code workbench v1 for repo-local safe diffs,
+- `UAA-P1-075` Ready Next: governed Code workbench v1 for repo-local safe diffs,
   validation proof, approval-bound apply, rollback, and evidence.
 - `UAA-P1-076` Shape: cross-surface memory intake from Today, Chat, Plans,
   Actions, Evidence, local coding summaries, and manual external-assistant

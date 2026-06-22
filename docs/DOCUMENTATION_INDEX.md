@@ -38,8 +38,9 @@ Provenance Model; UAA-P1-071 completes Memory Review Decision Capture;
 UAA-P1-072 Business Memory And Memory Quality Controls completes CRM-lite
 candidate kinds and quality posture; UAA-P1-073 Plans To Reviewable Action
 Envelopes completes reviewable Action envelope posture; UAA-P1-074 Chat Local
-Operator Surface is the current Ready Next product lane. Every module feeds Today,
-Actions, Evidence, and Memory;
+Operator Surface completes first-party local Chat operator truth; UAA-P1-075
+Governed Code Workbench V1 is the current Ready Next product lane. Every module
+feeds Today, Actions, Evidence, and Memory;
 source provenance, reviewed business memory, Evidence-as-history,
 Plans-to-Action envelopes, Chat operator truth, governed Code diffs,
 cross-surface intake, memory quality, and loop binding proceed before broader

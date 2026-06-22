@@ -1,5 +1,5 @@
 type OperatorSurface =
-  | "Chat Shell"
+  | "Chat Local Operator"
   | "Plans"
   | "Models"
   | "Approvals"
@@ -25,12 +25,12 @@ interface SurfaceConfig {
 }
 
 const SURFACE_CONFIGS: Record<OperatorSurface, SurfaceConfig> = {
-  "Chat Shell": {
+  "Chat Local Operator": {
     eyebrow: "Operator surface",
-    heading: "Chat Shell",
-    status: "blocked",
+    heading: "Chat Local Operator",
+    status: "local gateway gated",
     summary:
-      "Dedicated Control Center chat is not enabled. OpenWebUI remains the local shell path, and UAA model output is never authority.",
+      "First-party Chat can send a redacted local turn through UAA /v1 when the local gateway is available; UAA model output is never authority.",
     states: {
       loading: {
         title: "Loading chat readiness",
@@ -49,10 +49,10 @@ const SURFACE_CONFIGS: Record<OperatorSurface, SurfaceConfig> = {
         nextAction: "Use reviewed local smoke evidence before claiming chat readiness.",
       },
       blocked: {
-        title: "Blocked: dedicated chat shell not implemented",
+        title: "Blocked: local chat authority withheld",
         message:
-          "CCC does not provide a chat composer, streaming UI, tool-call UI, or model-output authority.",
-        nextAction: "Use OpenWebUI as the scoped local shell and review UAA /v1 readiness evidence.",
+          "Control Center does not provide streaming UI, tool-call UI, model-output authority, or memory writes.",
+        nextAction: "Review UAA /v1 readiness evidence before sending a redacted local turn.",
       },
       denied: {
         title: "Denied: model output is not authority",

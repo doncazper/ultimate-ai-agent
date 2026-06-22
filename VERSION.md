@@ -18,11 +18,11 @@ history answers with safe refs only. UAA-P1-070 Memory Source And Provenance
 Model, UAA-P1-071 Memory Review Decision Capture, UAA-P1-072 Business Memory
 And Memory Quality Controls, and UAA-P1-073 Plans To Reviewable Action
 Envelopes are complete as contract/test/read-only visibility slices. The active
-product path now promotes UAA-P1-074 Chat Local Operator Surface after
-UAA-P1-073 added approve/edit/reject/defer-ready envelope metadata, exact scope
-refs, expected receipt refs, rollback/safe-disable posture, blocked authority
-states, and read-only Control Center visibility. No public beta, distribution,
-production readiness, or production authority claim is granted.
+product path now promotes UAA-P1-075 Governed Code Workbench V1 after
+UAA-P1-074 added first-party local Chat operator turn truth, safe evidence refs,
+proposal handoff refs, blocked authority states, and read-only Control Center
+visibility. No public beta, distribution, production readiness, or production
+authority claim is granted.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.
