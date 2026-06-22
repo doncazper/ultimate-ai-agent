@@ -89,9 +89,9 @@ validation route groups. `/api/manifest` and the frozen route inventory expose
 `rate_limit_group`. This is not auth, distributed quota, billing, production
 authority, or a public beta claim.
 
-Future UAA-P1-086 route inventory checks must record enforcement coverage in
-OpenAPI/API manifest tests. This future check adds no new runtime authority
-until separately implemented.
+UAA-P1-086 implements route inventory enforcement checks across OpenAPI,
+`/api/manifest`, the frozen fixture, and the Control Center route-status
+manifest. These checks add no new runtime authority.
 
 ## Current route groups
 
@@ -203,5 +203,7 @@ remain approval-bound and blocked from production authority.
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_boundary_enforcement.py
+.venv/bin/python scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_governed_web_evidence.py
 ```

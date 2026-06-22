@@ -86,5 +86,6 @@ def test_verify_all_uses_cached_api_verifier_lane(monkeypatch) -> None:
     run_all_legacy.verify_uaa_p1_083_local_auth_gate()
     run_all_legacy.verify_uaa_p1_084_mutating_route_idempotency()
     run_all_legacy.verify_uaa_p1_085_targeted_rate_limits()
+    run_all_legacy.verify_uaa_p1_086_api_boundary_enforcement_tests()
 
     assert calls == ["lane"]

@@ -739,9 +739,9 @@ Acceptance criteria:
   and Control Center API Routes surface show the classification without adding
   routes, middleware, auth, headers, CORS, idempotency enforcement, rate limits,
   or runtime authority.
-- Public/protected posture remains inventory truth only; P1-083 through P1-086
-  remain planned/queued perimeter-hardening work after P1-081 security headers
-  and P1-082 loopback CORS.
+- Public/protected posture remains inventory truth only in this P1-080
+  milestone; P1-083 through P1-086 are now complete in later perimeter-
+  hardening milestones.
 
 Tests to add/update:
 

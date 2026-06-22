@@ -79,10 +79,10 @@ API boundary hardening:
   decomposition, action preview/proposal, and expensive validation or
   local-model paths. It does not add auth, distributed quota, dependencies,
   billing, or production authority.
-- UAA-P1-086 will add OpenAPI, `/api/manifest`, and route inventory tests for
-  the classification, auth, approval, idempotency, header, CORS, and rate-limit
-  posture. This control is planned and must not be described as implemented
-  until the scoped milestone lands.
+- UAA-P1-086 adds enforcement tests for OpenAPI, `/api/manifest`, and route
+  inventory alignment across classification, auth, approval, idempotency,
+  header, CORS, and rate-limit posture. This does not add routes, middleware,
+  runtime authority, public beta, or production authority.
 
 Forbidden by the current API boundary:
 
@@ -104,6 +104,8 @@ Verification:
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_boundary_enforcement.py
+.venv/bin/python scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_governed_web_evidence.py
 ```
 

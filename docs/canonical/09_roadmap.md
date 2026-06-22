@@ -29,8 +29,9 @@ idempotency header gate over mutating route classifications with no durable
 dedupe or exactly-once execution claim. UAA-P1-085 is complete for targeted
 local fixed-window rate limits over model/chat, task-decomposition, action
 preview/proposal, and expensive validation/local-model paths with no auth,
-distributed quota, dependency, or production authority claim. UAA-P1-086
-remains planned/queued for API boundary enforcement tests, followed by the UAA-P1-087
+distributed quota, dependency, or production authority claim. UAA-P1-086 is
+complete for API boundary enforcement tests without route, middleware, runtime
+authority, public beta, or production authority changes, followed by the UAA-P1-087
 Private Operator Trial And UI Functional Tuning sequence: UAA-P1-087.1 local
 launcher dual-surface boot readiness, UAA-P1-087.2 in-person private UI
 functional tuning, and UAA-P1-087.3 native SwiftUI boot cockpit
@@ -49,8 +50,8 @@ remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane. The product path now runs through UAA-P1-080
 API route classification after UAA-P1-079 added reviewable
 user-intent-understanding and UAA-P1-078 added local/private beta-readiness
-evidence. Rate limits and enforcement tests remain planned next but unscoped by
-this milestone. This path adds no
+evidence. Rate limits and API boundary enforcement tests are complete for the
+scoped API hardening lane. This path adds no
 production authority, public beta, public
 distribution, connector writes, provider/model authority, unrestricted shell,
 automatic memory writes, hidden context injection, or raw private-content

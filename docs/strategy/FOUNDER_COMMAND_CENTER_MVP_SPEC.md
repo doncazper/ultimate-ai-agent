@@ -41,7 +41,7 @@ UAA-P1-085 Targeted Rate Limits For Expensive And Sensitive Routes is
 implemented as targeted local fixed-window protection for model/chat,
 task-decomposition, action preview/proposal, and expensive
 validation/local-model paths with no auth, distributed quota, dependency, or
-production authority claim. UAA-P1-086 remains planned/queued for API boundary
+production authority claim. UAA-P1-086 is complete for API boundary
 enforcement tests. UAA-P1-087 is planned after those gates as an ordered private
 operator trial and UI functional tuning sequence:
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
@@ -130,11 +130,11 @@ manifest, idempotency, CLI/core/API inspection, or redaction gates.
    only. Explicit loopback CORS is implemented for exact local Control Center
    dev/preview origins only, with wildcard CORS and credentials denied. Simple
    local bearer/session protection for sensitive routes, mutating-route
-   idempotency header gating, targeted local fixed-window rate limits, and
-   explicit no-production-authority posture are implemented. OpenAPI/API
-   manifest/route inventory enforcement checks remain planned/queued. This is
-   not enterprise auth, rate limits are not auth, and the lane does not add
-   broad runtime authority.
+   idempotency header gating, targeted local fixed-window rate limits, OpenAPI/
+   API manifest/route inventory enforcement checks, and explicit
+   no-production-authority posture are implemented. This is not enterprise
+   auth, rate limits are not auth, and the lane does not add broad runtime
+   authority.
 14. Private operator trial and UI functional tuning: after UAA-P1-080 through
    UAA-P1-086, first prove local launcher/`.command` dual-surface boot
    readiness for Control Center plus the secondary OpenWebUI shell, then use

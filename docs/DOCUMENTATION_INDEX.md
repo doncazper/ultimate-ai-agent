@@ -70,9 +70,12 @@ or production authority claims. UAA-P1-085 Targeted Rate Limits For Expensive
 And Sensitive Routes completes targeted local fixed-window rate limits for
 model/chat, task-decomposition, action preview/proposal, and expensive
 validation/local-model paths without auth, distributed quota, dependency, or
-production authority claims. UAA-P1-086 remains planned/queued for API
-boundary enforcement tests, followed by the UAA-P1-087 Private Operator Trial And UI Functional
-Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
+production authority claims. UAA-P1-086 API Boundary Enforcement Tests
+completes OpenAPI, API manifest, route inventory fixture, route-status
+manifest, protected-route, idempotency, header, CORS, and rate-limit
+enforcement checks without new runtime authority. It is followed by the
+UAA-P1-087 Private Operator Trial And UI Functional Tuning sequence:
+UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native
 SwiftUI boot cockpit planning/source-only scaffold after the `.command`
 contract is proven.

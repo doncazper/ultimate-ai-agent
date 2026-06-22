@@ -60,6 +60,16 @@
         "scripts/verify_uaa_p1_085_targeted_rate_limits.py",
         "docs/api/UAA_P1_085_TARGETED_RATE_LIMITS.md"
       ]
+    },
+    {
+      "id": "UAA-P1-086",
+      "status": "implemented",
+      "goal": "API boundary enforcement tests protect OpenAPI, API manifest, route inventory, route-status, auth, idempotency, headers, CORS, and rate-limit posture without adding runtime authority.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py",
+        "docs/api/UAA_P1_086_API_BOUNDARY_ENFORCEMENT_TESTS.md",
+        "tests/test_api_boundary_enforcement.py"
+      ]
     }
   ]
 }

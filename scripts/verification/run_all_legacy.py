@@ -100,6 +100,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-083 local auth gate scan", "verify_uaa_p1_083_local_auth_gate"),
     ("UAA-P1-084 mutating-route idempotency scan", "verify_uaa_p1_084_mutating_route_idempotency"),
     ("UAA-P1-085 targeted local rate-limit scan", "verify_uaa_p1_085_targeted_rate_limits"),
+    ("UAA-P1-086 API boundary enforcement scan", "verify_uaa_p1_086_api_boundary_enforcement_tests"),
     ("Computer Use / CUA contract lane scan", "verify_cua_contract_lane"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
@@ -1107,6 +1108,11 @@ def verify_uaa_p1_084_mutating_route_idempotency() -> None:
 
 def verify_uaa_p1_085_targeted_rate_limits() -> None:
     print("\n[Verifier] Running UAA-P1-085 targeted local rate-limit scan...")
+    _run_p1_api_verifier_lane_once()
+
+
+def verify_uaa_p1_086_api_boundary_enforcement_tests() -> None:
+    print("\n[Verifier] Running UAA-P1-086 API boundary enforcement scan...")
     _run_p1_api_verifier_lane_once()
 
 

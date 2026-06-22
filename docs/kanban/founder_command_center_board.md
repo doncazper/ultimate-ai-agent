@@ -141,8 +141,8 @@ documentation integrity, and the planned
 Safety notes: Planning only until separate implementation slices land. No
 runtime model calls, connector writes, shell/subprocess execution, browser
 automation, automatic memory writes, context injection, CRM sync, action
-execution, public beta, public distribution, or production authority is granted
-by this board entry.
+execution, public beta, public distribution, or production authority; this
+board entry grants none of those.
 
 ### UAA-P1-077 - Memory-To-Loop Binding
 
@@ -965,9 +965,11 @@ public beta, distribution, or production readiness.
 
 ### UAA-P1-086 - API Boundary Enforcement Tests
 
+Status: Implemented.
+
 Epic: API Boundary, Tests/Verification
 
-Description: Add OpenAPI, `/api/manifest`, and route inventory checks that
+Description: Added OpenAPI, `/api/manifest`, and route inventory checks that
 enforce route classification, protected-route auth posture, approval posture,
 mutating idempotency posture, security headers, CORS policy, and targeted
 rate-limit posture where scoped.
@@ -976,8 +978,11 @@ Acceptance criteria: Sensitive and mutating routes cannot silently drift outside
 their declared local auth, approval, idempotency, redaction, and browser-hardening
 posture.
 
-Required tests/verifiers: future OpenAPI/API manifest/route inventory tests and
-documentation integrity.
+Required tests/verifiers:
+`tests/test_api_boundary_enforcement.py`,
+`scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py`, the combined
+API verifier lane, OpenAPI/API manifest checks, route inventory fixture checks,
+and documentation integrity.
 
 Safety notes: Enforcement tests do not grant runtime authority; they make missing
 perimeter work visible.

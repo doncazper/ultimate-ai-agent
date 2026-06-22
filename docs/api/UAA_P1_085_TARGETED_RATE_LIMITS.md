@@ -72,6 +72,6 @@ multi-user fairness system.
 
 ## Next
 
-UAA-P1-086 API Boundary Enforcement Tests remains planned/queued. UAA-P1-085
+UAA-P1-086 API Boundary Enforcement Tests is complete. UAA-P1-085
 does not add broad API boundary enforcement-test coverage beyond this scoped
 targeted rate-limit proof.

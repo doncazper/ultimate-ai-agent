@@ -648,9 +648,8 @@ commit. UAA-P1-084 is complete when active docs show the mutating-route
 idempotency header gate has landed with verifier/test evidence and a pushed
 commit. UAA-P1-085 is complete when active docs show targeted local
 fixed-window rate limits have landed with verifier/test evidence and a pushed
-commit. UAA-P1-086 remains planned/queued API boundary-hardening work. If that
-remaining API boundary lane is active, it auto-advances through UAA-P1-086,
-then the
+commit. UAA-P1-086 is complete for API boundary-hardening enforcement tests.
+The conveyor now advances to the
 UAA-P1-087 Private Operator Trial And UI Functional Tuning sequence:
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
 in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot

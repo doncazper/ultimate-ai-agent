@@ -45,6 +45,7 @@ API_VERIFIER_SPECS = (
     ApiVerifierSpec("UAA-P1-083", "scripts.verify_uaa_p1_083_local_auth_gate"),
     ApiVerifierSpec("UAA-P1-084", "scripts.verify_uaa_p1_084_mutating_route_idempotency"),
     ApiVerifierSpec("UAA-P1-085", "scripts.verify_uaa_p1_085_targeted_rate_limits"),
+    ApiVerifierSpec("UAA-P1-086", "scripts.verify_uaa_p1_086_api_boundary_enforcement_tests"),
 )
 
 

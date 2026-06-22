@@ -72,7 +72,8 @@
       "scripts/verify_uaa_p1_082_loopback_cors.py",
       "scripts/verify_uaa_p1_083_local_auth_gate.py",
       "scripts/verify_uaa_p1_084_mutating_route_idempotency.py",
-      "scripts/verify_uaa_p1_085_targeted_rate_limits.py"
+      "scripts/verify_uaa_p1_085_targeted_rate_limits.py",
+      "scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py"
     ]
   },
   "banned_duplicate_helpers": [
@@ -91,6 +92,7 @@
       "scripts/verify_uaa_p1_083_local_auth_gate.py",
       "scripts/verify_uaa_p1_084_mutating_route_idempotency.py",
       "scripts/verify_uaa_p1_085_targeted_rate_limits.py",
+      "scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py",
       "scripts/verification/api_routes.py"
     ],
     "forbidden_patterns": [
