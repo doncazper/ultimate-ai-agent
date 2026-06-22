@@ -4334,7 +4334,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
     readme = read_lower("README.md")
     readme_flat = " ".join(readme.split())
     if (
-        "uaa-p1-075 ready next: governed code workbench v1" not in readme_flat
+        "uaa-p1-076 ready next: cross-surface memory intake" not in readme_flat
         or "uaa-p1-067 completes" not in readme
         or "uaa-p1-068 completes" not in readme
         or "uaa-p1-069 completes" not in readme
@@ -4343,6 +4343,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "uaa-p1-072 business memory and memory quality controls is complete" not in readme_flat
         or "uaa-p1-073 plans to reviewable action envelopes is complete" not in readme_flat
         or "uaa-p1-074 chat local operator surface is complete" not in readme_flat
+        or "uaa-p1-075 governed code workbench v1 is complete" not in readme_flat
         or (
             "uaa-p1-066 remains queued" not in readme
             and "uaa-p1-066\nremains queued" not in readme
@@ -4350,8 +4351,8 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
     ):
         failures.append(
             "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070/"
-            "UAA-P1-071/UAA-P1-072/UAA-P1-073/UAA-P1-074 complete, "
-            "UAA-P1-075 Ready Next, and "
+            "UAA-P1-071/UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075 "
+            "complete, UAA-P1-076 Ready Next, and "
             "UAA-P1-066 queued support"
         )
 
@@ -4367,7 +4368,8 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "completed uaa-p1-072" not in docs_readme_flat
         or "completed uaa-p1-073" not in docs_readme_flat
         or "completed uaa-p1-074" not in docs_readme_flat
-        or "ready next uaa-p1-075" not in docs_readme_flat
+        or "completed uaa-p1-075" not in docs_readme_flat
+        or "ready next uaa-p1-076" not in docs_readme_flat
         or (
             "uaa-p1-066 remains queued" not in docs_readme
             and "uaa-p1-066 remains\nqueued" not in docs_readme
@@ -4376,8 +4378,8 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         failures.append(
             "docs/README.md must identify UAA-P1-065 done, "
             "UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070/UAA-P1-071/"
-            "UAA-P1-072/UAA-P1-073/UAA-P1-074 complete, "
-            "UAA-P1-075 Ready Next, and "
+            "UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075 complete, "
+            "UAA-P1-076 Ready Next, and "
             "UAA-P1-066 queued support"
         )
 
@@ -4871,7 +4873,7 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
     readme = read_lower("README.md")
     readme_flat = " ".join(readme.split())
     if (
-        "uaa-p1-075 ready next: governed code workbench v1" not in readme_flat
+        "uaa-p1-076 ready next: cross-surface memory intake" not in readme_flat
         or "uaa-p1-067 completes" not in readme
         or "uaa-p1-068 completes" not in readme
         or "uaa-p1-069 completes" not in readme
@@ -4880,7 +4882,8 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         or "uaa-p1-072 business memory and memory quality controls is complete" not in readme_flat
         or "uaa-p1-073 plans to reviewable action envelopes is complete" not in readme_flat
         or "uaa-p1-074 chat local operator surface is complete" not in readme_flat
-        or "uaa-p1-075 governed code workbench v1 is now ready next" not in readme_flat
+        or "uaa-p1-075 governed code workbench v1 is complete" not in readme_flat
+        or "uaa-p1-076 cross-surface memory intake is now ready next" not in readme_flat
         or (
             "uaa-p1-066 remains queued" not in readme
             and "uaa-p1-066\nremains queued" not in readme
@@ -4888,8 +4891,8 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
     ):
         failures.append(
             "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070/"
-            "UAA-P1-071/UAA-P1-072/UAA-P1-073/UAA-P1-074 complete, "
-            "UAA-P1-075 Ready Next, and "
+            "UAA-P1-071/UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075 "
+            "complete, UAA-P1-076 Ready Next, and "
             "UAA-P1-066 queued support"
         )
     if "p0-017 adds safe local model operational recovery guidance" not in readme:

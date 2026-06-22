@@ -42,12 +42,12 @@ audits, stale states, rollback posture, and blocked states.
 
 - Actions currently bind the grammar through receipt, audit, replay, rollback,
   stale, and blocker refs.
-- Plans remain partial until UAA-P1-073 Action envelopes.
+- Plans bind the grammar through UAA-P1-073 Action envelopes.
 - Memory uses the grammar as review metadata only; recall is not truth,
   approval, write authority, or context injection.
-- Chat remains blocked until UAA-P1-074 local operator evidence exists.
-- Code remains blocked until UAA-P1-075 governed diff and validation evidence
-  exists.
+- Chat binds the grammar through UAA-P1-074 local operator evidence.
+- Code binds the grammar through UAA-P1-075 governed proposal, validation, and
+  expected receipt evidence; apply remains blocked.
 
 ## Safety
 

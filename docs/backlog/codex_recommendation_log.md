@@ -42,6 +42,53 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-075 Governed Code Workbench Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor auto-advance after UAA-P1-074, with the
+explicit rule that next-prompt recommendations are handoffs, not stop signs.
+
+Recommendation: Complete UAA-P1-075 as a governed repo-local Code proposal
+contract on the Today spine and Evidence Timeline, then auto-advance to
+UAA-P1-076 Cross-Surface Memory Intake.
+
+Next prompt state:
+
+```text
+Auto-advance into UAA-P1-076 Cross-Surface Memory Intake after commit/push.
+Review the active roadmap, current board, Founder Command Center board, phase
+tasks, MVP spec, AGENTS.md, process/spec guidance, and the UAA-P1-068 through
+UAA-P1-075 contract evidence. Bind safe memory proposals from Today, Chat,
+Plans, Actions, Evidence, local coding summaries, and manual external-assistant
+review imports. Do not add provider calls, account fetch, browser import, shell
+history import, raw file import, automatic memory writes, context injection,
+public beta, public distribution, production readiness, or production
+authority.
+```
+
+Decision: Accepted and completed for the UAA-P1-075 contract slice.
+
+Status: completed
+
+Completed: Added `contract-ref:governed-code-workbench:v1`, repo-local proposal
+refs, safe diff summary refs, validation plan/result refs, approval requirement
+refs, expected apply and rollback receipt refs, blocked authority refs,
+Today/Evidence fields, Control Center metadata shape, schema, verifier, focused
+tests, and active currentness updates that promote UAA-P1-076.
+
+Not done: No apply execution, approval grant capture, direct file-write
+runtime, unrestricted shell, shell/subprocess execution, remote execution,
+broad coding-agent autonomy, provider SDK calls, web fetching, connector
+writes, diff body storage, memory writes, hidden context injection, public beta,
+public distribution, production readiness, or production authority.
+
+Evidence: `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`,
+`docs/schemas/governed_code_workbench.schema.json`,
+`scripts/verify_uaa_p1_075_governed_code_workbench.py`,
+`tests/test_uaa_p1_075_governed_code_workbench.py`,
+`src/ultimate_ai_agent/core/code/workbench.py`.
+
 ### 2026-06-21 - UAA-P1-074 Chat Local Operator Surface Completed
 
 Date: 2026-06-21
@@ -60,10 +107,11 @@ Auto-advance into UAA-P1-075 Governed Code Workbench V1 after commit/push.
 Review the active roadmap, current board, Founder Command Center board, phase
 tasks, MVP spec, AGENTS.md, process/spec guidance, and the UAA-P1-068 through
 UAA-P1-074 contract evidence. Make Code narrower than Goat but better governed:
-repo-local safe diffs, validation proof, approval-bound apply, rollback, and
-evidence. Do not add broad coding-agent autonomy, unrestricted shell, remote
-execution, provider authority, connector writes, public beta, public
-distribution, production readiness, or production authority.
+repo-local safe diff summary refs, validation proof refs, approval-bound apply
+posture, rollback receipt posture, and evidence. Do not add broad coding-agent
+autonomy, unrestricted shell, remote execution, provider authority, connector
+writes, public beta, public distribution, production readiness, or production
+authority.
 ```
 
 Decision: Accepted and completed for the UAA-P1-074 contract slice.
@@ -422,9 +470,9 @@ or production claims.
 Decision: Accepted and expanded. The near-term path should make Today the
 product spine and robust reviewed memory the differentiator for a
 founder/operator loop that spans Today, Actions, Evidence, local Chat, Plans,
-governed Code diffs, local coding-session summaries, manual external assistant
-review summaries, read-only calendar/email metadata contracts, and CRM-lite
-business memory.
+governed Code proposal refs, local coding-session summaries, manual external
+assistant review summaries, read-only calendar/email metadata contracts, and
+CRM-lite business memory.
 
 Status: completed
 

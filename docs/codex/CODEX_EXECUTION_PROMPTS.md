@@ -368,8 +368,8 @@ conveyor is repo-local process guidance only. It does not grant runtime
 authority, connector authority, provider/model authority, unrestricted shell,
 public beta, public distribution, or production readiness.
 
-Current conveyor status: UAA-P1-067 through UAA-P1-074 are complete. The next
-incomplete documented milestone is UAA-P1-075 Governed Code Workbench V1
+Current conveyor status: UAA-P1-067 through UAA-P1-075 are complete. The next
+incomplete documented milestone is UAA-P1-076 Cross-Surface Memory Intake
 unless active docs show a later milestone has already been completed. The
 conveyor auto-advances after each successful milestone commit/push. Do not stop
 after merely recommending the next prompt; create and execute the next milestone
@@ -812,6 +812,104 @@ Commit/push:
 Auto-advance:
 - After commit/push succeeds, immediately create/update and execute the
   UAA-P1-075 Governed Code Workbench V1 prompt in the same run unless blocked.
+- Do not stop with only a next-prompt recommendation. Stop only for an exact
+  blocker, unsafe scope split, failed verification, failed push, or user
+  pause/stop.
+```
+
+## 19. UAA-P1-075 Governed Code Workbench V1 Prompt
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: execute UAA-P1-075 Governed Code Workbench V1.
+
+Goal: make Code narrower than Goat but better governed through repo-local
+proposal scope, safe diff summary refs, validation plan/result refs, exact
+approval requirement refs, expected apply and rollback receipt refs, and
+Evidence Timeline binding.
+
+Read first:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[agents_md_support.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/standards/agents_md_support.md)
+[definition_of_ready.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_ready.md)
+[definition_of_done.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_done.md)
+[PRODUCT_LANGUAGE_RULES.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+[UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md)
+
+If present, also read SPECS.md, specs.md, SDLC.md, sdlc.md, and the closest
+task-specific spec, ADR, schema, standards, or process docs discovered with
+rg --files. Treat these documents as contributor guidance, not runtime
+configuration or product authority.
+
+Subagent plan:
+- Use at least one read-only subagent for contract/test gap review if available.
+- Use at least one read-only subagent for adversarial product-language,
+  redaction, and authority review if available.
+- Subagents are advisory. The main Codex run owns integration, verification,
+  commit/push, and auto-advance.
+
+Scope:
+- Existing Today summary route, Founder Loop Evidence Timeline, Python Agent
+  Core contract code, TypeScript API types/mocks, docs, schema, focused tests,
+  and verifier.
+- Do not add a new backend route, OpenAPI operation, apply execution, approval
+  grant capture, direct file-write runtime, unrestricted shell,
+  shell/subprocess execution, remote execution, broad coding-agent autonomy,
+  provider SDK call, web fetch, connector write, diff body storage, memory
+  write, hidden context injection, public beta, public distribution,
+  production readiness, or production authority.
+
+Acceptance criteria:
+- `core.code` exposes `contract-ref:governed-code-workbench:v1`.
+- Today summary exposes governed Code contract ref, proposal ref, repo scope
+  ref, safe diff summary ref, validation plan/result refs, approval
+  requirement ref, expected apply and rollback receipt refs, evidence refs,
+  idempotency ref, surface bindings, blocked-state refs, and denied authority
+  posture.
+- Evidence Timeline records governed Code proposal history with proposed,
+  approved, happened, changed, undoable, stale, and blocked answers.
+- The happened/changed history makes clear that no files changed and no repo,
+  connector, shell, model, memory, or task state changed.
+- Control Center types/mocks can display the Code module feed as implemented
+  but apply-blocked.
+- Active docs mark UAA-P1-075 complete and promote UAA-P1-076 Cross-Surface
+  Memory Intake as the next incomplete milestone.
+
+Review/fix:
+- Perform adversarial review for implied apply authority, approval refs becoming
+  execution grants, raw diff/file/path leakage, shell/subprocess authority
+  creep, provider/tool/connector authority creep, route/OpenAPI drift, and
+  unsafe beta/production language.
+- Fix P0/P1 issues before hardening.
+
+Hardening:
+- Run PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_uaa_p1_075_governed_code_workbench.py
+  tests/test_founder_loop_storage.py
+  tests/test_control_center_founder_loop_api.py
+  tests/test_control_center_api_routes.py
+- Run .venv/bin/python scripts/verify_uaa_p1_075_governed_code_workbench.py
+- Run .venv/bin/python -c "import scripts.verify_all as v; v.verify_uaa_p1_075_governed_code_workbench()"
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+- Run make frontend-check when frontend files changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-075 plus any conveyor auto-advance fix
+  intentionally made for this run.
+- Commit with message: implement UAA-P1-075 governed code workbench
+- Push the current branch.
+
+Auto-advance:
+- After commit/push succeeds, immediately create/update and execute the
+  UAA-P1-076 Cross-Surface Memory Intake prompt in the same run unless blocked.
 - Do not stop with only a next-prompt recommendation. Stop only for an exact
   blocker, unsafe scope split, failed verification, failed push, or user
   pause/stop.

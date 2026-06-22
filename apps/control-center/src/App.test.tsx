@@ -128,7 +128,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("blocked-state:no-action-execution").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Module feed contract/i })).toBeInTheDocument();
     expect(screen.getByText(/Chat: implemented_local_operator_surface_contract/i)).toBeInTheDocument();
-    expect(screen.getByText(/Code: planned_blocked_until_uaa_p1_075/i)).toBeInTheDocument();
+    expect(screen.getByText(/Code: implemented_governed_code_workbench_contract_apply_blocked/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Stale-source posture/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
   });
@@ -2974,14 +2974,14 @@ const mockApiData = {
       },
       {
         module: "Code",
-        status: "planned_blocked_until_uaa_p1_075",
+        status: "implemented_governed_code_workbench_contract_apply_blocked",
         required_loop_outputs: [
           "today_code_state",
           "action_or_apply_blocked_state",
           "diff_validation_evidence_ref",
           "memory_candidate_or_blocked_state",
         ],
-        current_feed_refs: ["contract-ref:governed-code-workbench-missing"],
+        current_feed_refs: ["contract-ref:governed-code-workbench:v1"],
         standalone_complete_allowed: false,
       },
     ],
@@ -3196,6 +3196,108 @@ const mockApiData = {
       "blocked-state:no-shell-subprocess-execution",
       "blocked-state:no-action-execution",
       "blocked-state:no-approval-grant-capture",
+      "blocked-state:no-production-authority",
+    ],
+    governed_code_workbench_contract_ref:
+      "contract-ref:governed-code-workbench:v1",
+    governed_code_workbench_status:
+      "implemented_reviewable_repo_local_diff_contract_apply_blocked",
+    governed_code_workbench_proposal_ref:
+      "code-proposal:founder-loop-safe-diff",
+    governed_code_workbench_repo_scope_ref:
+      "repo-scope:governed-code:code-proposal-founder-loop-safe-diff",
+    governed_code_workbench_safe_diff_summary_ref:
+      "diff-summary-ref:governed-code:code-proposal-founder-loop-safe-diff",
+    governed_code_workbench_validation_plan_ref:
+      "validation-plan-ref:governed-code:code-proposal-founder-loop-safe-diff",
+    governed_code_workbench_validation_result_refs: [
+      "validation-result-ref:governed-code:not-run",
+    ],
+    governed_code_workbench_approval_requirement_ref:
+      "approval-requirement:governed-code:code-proposal-founder-loop-safe-diff",
+    governed_code_workbench_expected_apply_receipt_ref:
+      "receipt-plan:governed-code-apply:code-proposal-founder-loop-safe-diff",
+    governed_code_workbench_expected_rollback_receipt_ref:
+      "rollback-receipt-plan:governed-code:code-proposal-founder-loop-safe-diff",
+    governed_code_workbench_evidence_refs: [
+      "evidence-ref:governed-code:today",
+    ],
+    governed_code_workbench_idempotency_key_ref:
+      "idempotency-ref:governed-code:code-proposal-founder-loop-safe-diff",
+    governed_code_workbench_safe_summary:
+      "Governed Code proposal records repo-local scope, safe diff summary, validation plan, approval requirement, expected apply receipt, and rollback receipt refs; apply remains blocked.",
+    governed_code_workbench_validation_plan_summary:
+      "Run focused tests and verifiers before any exact approval-bound apply.",
+    governed_code_workbench_required_ref_fields: [
+      "proposal_ref",
+      "repo_scope_ref",
+      "safe_diff_summary_ref",
+      "validation_plan_ref",
+      "validation_result_refs",
+      "approval_requirement_ref",
+      "expected_apply_receipt_ref",
+      "expected_rollback_receipt_ref",
+      "evidence_refs",
+      "idempotency_key_ref",
+      "blocked_state_refs",
+    ],
+    governed_code_workbench_required_blocked_refs: [
+      "blocked-state:no-unapproved-mutation",
+      "blocked-state:no-apply-execution",
+      "blocked-state:no-approval-grant-capture",
+      "blocked-state:no-unrestricted-shell",
+      "blocked-state:no-shell-subprocess-execution",
+      "blocked-state:no-remote-execution",
+      "blocked-state:no-broad-coding-agent-autonomy",
+      "blocked-state:no-provider-sdk-call",
+      "blocked-state:no-web-fetch",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-diff-body-storage",
+      "blocked-state:no-production-authority",
+    ],
+    governed_code_workbench_surface_bindings: [
+      {
+        surface: "Today",
+        feed_status: "implemented_governed_code_proposal_refs",
+        feed_ref: "contract-ref:governed-code-workbench:v1",
+        authority_boundary: "Code state is safe proposal metadata only.",
+      },
+    ],
+    governed_code_workbench_authority_posture: {
+      safe_refs_only: true,
+      repo_local_scope_required: true,
+      safe_diff_summary_only: true,
+      validation_required_before_apply: true,
+      approval_required_before_apply: true,
+      atomic_apply_required: true,
+      rollback_receipt_required: true,
+      audit_required: true,
+      redaction_required: true,
+      apply_execution_enabled: false,
+      approval_grant_capture_enabled: false,
+      direct_file_write_enabled: false,
+      unrestricted_shell_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      remote_execution_enabled: false,
+      broad_coding_agent_autonomy_enabled: false,
+      provider_sdk_call_enabled: false,
+      web_fetch_enabled: false,
+      connector_write_enabled: false,
+      diff_body_storage_enabled: false,
+      production_authority_enabled: false,
+    },
+    governed_code_workbench_blocked_state_refs: [
+      "blocked-state:no-unapproved-mutation",
+      "blocked-state:no-apply-execution",
+      "blocked-state:no-approval-grant-capture",
+      "blocked-state:no-unrestricted-shell",
+      "blocked-state:no-shell-subprocess-execution",
+      "blocked-state:no-remote-execution",
+      "blocked-state:no-broad-coding-agent-autonomy",
+      "blocked-state:no-provider-sdk-call",
+      "blocked-state:no-web-fetch",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-diff-body-storage",
       "blocked-state:no-production-authority",
     ],
     plans_action_envelope_contract_ref:

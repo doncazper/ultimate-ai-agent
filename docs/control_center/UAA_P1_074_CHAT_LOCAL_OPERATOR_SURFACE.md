@@ -115,5 +115,6 @@ Required proof:
 
 ## Next Milestone
 
-UAA-P1-075 Governed Code Workbench V1 is next unless hardening finds that
-UAA-P1-074 needs an incremental follow-up such as UAA-P1-074.1.
+UAA-P1-075 Governed Code Workbench V1 is complete. UAA-P1-076 Cross-Surface
+Memory Intake is next unless hardening finds that UAA-P1-075 needs an
+incremental follow-up such as UAA-P1-075.1.

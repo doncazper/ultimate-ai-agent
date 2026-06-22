@@ -547,6 +547,37 @@ export interface FounderLoopChatOperatorAuthorityPosture {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopGovernedCodeWorkbenchSurfaceBinding {
+  surface: string;
+  feed_status: string;
+  feed_ref: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopGovernedCodeWorkbenchAuthorityPosture {
+  safe_refs_only: boolean;
+  repo_local_scope_required: boolean;
+  safe_diff_summary_only: boolean;
+  validation_required_before_apply: boolean;
+  approval_required_before_apply: boolean;
+  atomic_apply_required: boolean;
+  rollback_receipt_required: boolean;
+  audit_required: boolean;
+  redaction_required: boolean;
+  apply_execution_enabled: boolean;
+  approval_grant_capture_enabled: boolean;
+  direct_file_write_enabled: boolean;
+  unrestricted_shell_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  remote_execution_enabled: boolean;
+  broad_coding_agent_autonomy_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  web_fetch_enabled: boolean;
+  connector_write_enabled: boolean;
+  diff_body_storage_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -643,6 +674,25 @@ export interface FounderLoopTodaySummary {
   chat_local_operator_surface_bindings: FounderLoopChatOperatorSurfaceBinding[];
   chat_local_operator_authority_posture: FounderLoopChatOperatorAuthorityPosture;
   chat_local_operator_blocked_state_refs: string[];
+  governed_code_workbench_contract_ref: string;
+  governed_code_workbench_status: string;
+  governed_code_workbench_proposal_ref: string;
+  governed_code_workbench_repo_scope_ref: string;
+  governed_code_workbench_safe_diff_summary_ref: string;
+  governed_code_workbench_validation_plan_ref: string;
+  governed_code_workbench_validation_result_refs: string[];
+  governed_code_workbench_approval_requirement_ref: string;
+  governed_code_workbench_expected_apply_receipt_ref: string;
+  governed_code_workbench_expected_rollback_receipt_ref: string;
+  governed_code_workbench_evidence_refs: string[];
+  governed_code_workbench_idempotency_key_ref: string;
+  governed_code_workbench_safe_summary: string;
+  governed_code_workbench_validation_plan_summary: string;
+  governed_code_workbench_required_ref_fields: string[];
+  governed_code_workbench_required_blocked_refs: string[];
+  governed_code_workbench_surface_bindings: FounderLoopGovernedCodeWorkbenchSurfaceBinding[];
+  governed_code_workbench_authority_posture: FounderLoopGovernedCodeWorkbenchAuthorityPosture;
+  governed_code_workbench_blocked_state_refs: string[];
   plans_action_envelope_contract_ref: string;
   plans_action_envelope_review_postures: FounderLoopActionEnvelopeReviewPosture[];
   plans_action_envelope_required_ref_fields: string[];

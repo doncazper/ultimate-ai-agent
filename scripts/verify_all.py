@@ -87,6 +87,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-072 business memory quality controls scan", "verify_uaa_p1_072_business_memory_quality_controls"),
     ("UAA-P1-073 Plans Action envelopes scan", "verify_uaa_p1_073_plans_action_envelopes"),
     ("UAA-P1-074 Chat local operator scan", "verify_uaa_p1_074_chat_local_operator_surface"),
+    ("UAA-P1-075 governed Code workbench scan", "verify_uaa_p1_075_governed_code_workbench"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
@@ -1022,6 +1023,11 @@ def verify_uaa_p1_073_plans_action_envelopes() -> None:
 def verify_uaa_p1_074_chat_local_operator_surface() -> None:
     print("\n[Verifier] Running UAA-P1-074 Chat local operator scan...")
     run_cmd([sys.executable, "scripts/verify_uaa_p1_074_chat_local_operator_surface.py"])
+
+
+def verify_uaa_p1_075_governed_code_workbench() -> None:
+    print("\n[Verifier] Running UAA-P1-075 governed Code workbench scan...")
+    run_cmd([sys.executable, "scripts/verify_uaa_p1_075_governed_code_workbench.py"])
 
 
 def verify_no_openwebui_runtime_or_config_implementation() -> None:

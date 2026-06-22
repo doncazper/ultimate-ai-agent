@@ -5,6 +5,11 @@ from fastapi.testclient import TestClient
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.chat import CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF
+from ultimate_ai_agent.core.code import (
+    GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
+    GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS,
+    GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS,
+)
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
@@ -229,7 +234,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     )
     assert (
         evidence_bindings["Code"]["current_status"]
-        == "planned_blocked_until_uaa_p1_075"
+        == "implemented_governed_diff_validation_refs"
     )
     assert today["required_loop_surfaces"] == [
         "Today",
@@ -282,7 +287,49 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF in module_feeds["Chat"][
         "current_feed_refs"
     ]
-    assert module_feeds["Code"]["status"] == "planned_blocked_until_uaa_p1_075"
+    assert module_feeds["Code"]["status"] == (
+        "implemented_governed_code_workbench_contract_apply_blocked"
+    )
+    assert GOVERNED_CODE_WORKBENCH_CONTRACT_REF in module_feeds["Code"][
+        "current_feed_refs"
+    ]
+    assert (
+        today["governed_code_workbench_contract_ref"]
+        == GOVERNED_CODE_WORKBENCH_CONTRACT_REF
+    )
+    assert today["governed_code_workbench_status"] == (
+        "implemented_reviewable_repo_local_diff_contract_apply_blocked"
+    )
+    assert today["governed_code_workbench_required_ref_fields"] == (
+        GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS
+    )
+    assert set(GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS) <= set(
+        today["governed_code_workbench_blocked_state_refs"]
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "apply_execution_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "approval_grant_capture_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "shell_subprocess_execution_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "production_authority_enabled"
+        ]
+        is False
+    )
     assert today["plan_action_state"]["execution_authorized"] is False
     assert today["plan_action_state"]["mutating_controls_enabled"] is False
     assert (
@@ -482,6 +529,31 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert (
         "blocked-state:no-approval-grant-capture"
         in plan_history_item["blocked_states"]
+    )
+
+    code_history_item = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "governed_code_workbench_proposal_ref"
+    )
+    assert GOVERNED_CODE_WORKBENCH_CONTRACT_REF in code_history_item["status_refs"]
+    assert (
+        today["governed_code_workbench_safe_diff_summary_ref"]
+        in code_history_item["status_refs"]
+    )
+    assert (
+        today["governed_code_workbench_expected_apply_receipt_ref"]
+        in code_history_item["receipt_refs"]
+    )
+    assert (
+        "no files were changed"
+        in code_history_item["history_answers"]["happened"]["answer"]
+    )
+    assert code_history_item["history_answers"]["approved"]["status"] == "blocked"
+    assert code_history_item["approval_ref_authority"] is False
+    assert code_history_item["rollback_execution_enabled"] is False
+    assert set(GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS) <= set(
+        code_history_item["blocked_states"]
     )
 
 

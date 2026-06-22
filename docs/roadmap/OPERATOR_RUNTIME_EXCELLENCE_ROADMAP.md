@@ -71,7 +71,7 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
-| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Done: Plans To Reviewable Action Envelopes; `UAA-P1-074` Done: Chat Local Operator Surface; `UAA-P1-075` Ready Next: Governed Code Workbench V1; then `UAA-P1-076` through `UAA-P1-078` for cross-surface intake, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, Chat operator truth refs, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
+| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Done: Plans To Reviewable Action Envelopes; `UAA-P1-074` Done: Chat Local Operator Surface; `UAA-P1-075` Done: Governed Code Workbench V1; `UAA-P1-076` Ready Next: Cross-Surface Memory Intake; then `UAA-P1-077` through `UAA-P1-078` for loop binding and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, Chat operator truth refs, governed Code proposal refs, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
 | Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
 | Harden the browser-facing API perimeter before new authority | `UAA-P1-080` through `UAA-P1-086` planned: route classification, security headers, loopback CORS, local auth gate, idempotency audit, targeted rate limits, and OpenAPI/API manifest enforcement | P1 | Control Center remains local-first while every route gets an explicit public/protected classification and sensitive or mutating paths have auth, approval, idempotency, redaction, and test posture before authority-heavy Plans, Chat, Code, loop-binding, or beta-readiness claims |
@@ -430,12 +430,13 @@ Tasks:
   off to Plans or Actions without treating model output as authority, truth,
   memory, or execution permission. OpenWebUI remains a secondary local/dev
   shell, not the source of product state.
-- `UAA-P1-075` Ready Next: Governed Code workbench v1: Code should be narrower than Goat
-  but better governed: repo-local safe diffs, validation proof, exact approval
-  before apply, atomic apply, rollback receipts, and evidence timeline binding.
-  Broad coding-agent autonomy, unrestricted shell, and remote execution remain
+- `UAA-P1-075` Done: Governed Code workbench v1: Code is narrower than Goat
+  but better governed through repo-local proposal scope, safe diff summary refs,
+  validation plan/result refs, exact approval requirement refs, expected apply
+  and rollback receipt refs, and Evidence Timeline binding. Apply execution,
+  broad coding-agent autonomy, unrestricted shell, and remote execution remain
   blocked.
-- `UAA-P1-076` Cross-surface memory intake: bind safe memory candidates from
+- `UAA-P1-076` Ready Next: Cross-surface memory intake: bind safe memory candidates from
   Today, Chat, Plans, Actions, Evidence, local coding summaries, and manual
   external-assistant review imports. This is intake/proposal only; it must not
   call providers, fetch accounts, import browser state, read shell history, or
@@ -446,9 +447,9 @@ Tasks:
   blockers in human-readable form.
 - `UAA-P1-078` Private beta-readiness gate: define local/private beta-test
   acceptance evidence for Morning Briefing, Action Inbox, Memory Review,
-  Evidence Timeline, safe local Chat/Plans handoff, governed Code diffs, and
-  CRM-lite follow-ups. This gate is not public beta, public distribution,
-  production readiness, or broad autonomy.
+  Evidence Timeline, safe local Chat/Plans handoff, governed Code proposal
+  refs, and CRM-lite follow-ups. This gate is not public beta, public
+  distribution, production readiness, or broad autonomy.
 - `UAA-P1-079` Later intent understanding v1: only after the above loop has
   reviewed memory, evidence history, action envelopes, and Chat/Code receipts,
   add a reviewable intent classifier that proposes user intent with confidence,
@@ -479,8 +480,9 @@ Acceptance:
   posture, exact scope, receipts, and rollback/safe-disable posture.
 - Chat shows local model/runtime/auth/tool-denial truth, produces evidence, and
   hands off to Plans or Actions without granting authority.
-- Code work stays repo-local and governed by safe diffs, validation proof,
-  approval-bound apply, rollback, and evidence.
+- Code work stays repo-local and governed by safe diff summary refs,
+  validation proof refs, approval-bound apply posture, rollback receipt
+  posture, and evidence.
 - A user can import or summarize external assistant review output as safe
   memory candidates without treating external output as truth or authority.
 - Local coding and Chat surfaces can create memory proposals with source/evidence
@@ -825,9 +827,10 @@ Verification:
 - `UAA-P1-074` Done: first-party Control Center chat local operator surface
   with turn send, model/runtime/auth/tool-denial truth, safe evidence, and
   handoff to Plans or Actions. OpenWebUI remains a secondary local/dev shell.
-- `UAA-P1-075` Ready Next: governed Code workbench v1 for repo-local safe diffs,
-  validation proof, approval-bound apply, rollback, and evidence.
-- `UAA-P1-076` Shape: cross-surface memory intake from Today, Chat, Plans,
+- `UAA-P1-075` Done: governed Code workbench v1 for repo-local safe diff summary
+  refs, validation proof refs, approval-bound apply posture, rollback receipt
+  posture, and evidence.
+- `UAA-P1-076` Ready Next: cross-surface memory intake from Today, Chat, Plans,
   Actions, Evidence, local coding summaries, and manual external-assistant
   review imports.
 - `UAA-P1-077` Shape: bind memory state into Today, Action Inbox, Evidence
@@ -903,7 +906,7 @@ An item is Done only when:
 | Evidence history | receipts and audit refs | human-readable proposed/approved/happened/changed/undoable history | P0 |
 | Plans to Actions | decomposition/classification | approve/edit/reject/defer Action envelopes with exact scope and receipts | P0 |
 | Chat operator surface | readiness/probe shell | local turn send, model/runtime/auth/tool-denial truth, safe evidence, handoff to Plans/Actions | P0 |
-| Governed Code workbench | safe file contracts and previews | repo-local safe diffs, validation proof, approval-bound apply, rollback, evidence | P0/P1 |
+| Governed Code workbench | safe file contracts and previews | repo-local safe diff summary refs, validation proof refs, approval-bound apply posture, rollback receipt posture, evidence | P0/P1 |
 | Local model product loop | strong contracts, partial live lane | real redacted E2E proof supporting local Chat/Code | P0/P1 |
 | Operator UI | small Control Center | focused memory-first product shell | P0 |
 | Durable runtime | contracts and local pieces | restart-safe run spine | P1 |
@@ -938,8 +941,8 @@ product:
 7. Use Chat as a real local operator surface: send a turn, see
    model/runtime/auth/tool-denial truth, produce safe evidence, and hand off to
    Plans or Actions.
-8. Use governed Code for repo-local safe diffs with validation proof,
-   approval-bound apply, rollback, and evidence.
+8. Use governed Code for repo-local safe diff summary refs with validation proof
+   refs, approval-bound apply posture, rollback receipt posture, and evidence.
 9. Inspect Evidence Timeline and Weekly CEO Review summaries showing what was
    proposed, approved, blocked, corrected, remembered, rejected, changed, or
    stale.

@@ -573,9 +573,9 @@ authority.
 
 ## Task 9h - UAA-P1-075 Governed Code Workbench V1
 
-Type: backend contract/test plus UI display later
+Type: backend contract/test plus Control Center metadata shape
 
-Status: Ready Next.
+Status: Done.
 
 New authority: no unapproved mutation or unrestricted shell.
 
@@ -591,16 +591,27 @@ Acceptance criteria:
 
 Tests to add/update:
 
-- File/diff/apply/rollback tests.
+- `tests/test_uaa_p1_075_governed_code_workbench.py`.
+- `tests/test_founder_loop_storage.py`.
+- `tests/test_control_center_founder_loop_api.py`.
+- `apps/control-center/src/App.test.tsx`.
 - Redaction tests.
-- OpenAPI/API manifest tests if routes change.
-- Frontend render tests when surfaced.
+- `scripts/verify_uaa_p1_075_governed_code_workbench.py`.
+- `docs/schemas/governed_code_workbench.schema.json`.
 
-PR size: split contract, apply, and UI if needed.
+Gate met: `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`
+defines the contract on the existing Today/Evidence surfaces without adding
+apply execution, approval grant capture, direct file-write runtime,
+unrestricted shell, shell/subprocess execution, remote execution, broad
+coding-agent autonomy, provider SDK calls, web fetching, connector writes,
+diff body storage, memory writes, hidden context injection, public beta, public
+distribution, or production authority.
 
 ## Task 9i - UAA-P1-076 Cross-Surface Memory Intake
 
 Type: full-stack read-only/proposal
+
+Status: Ready Next.
 
 New authority: no.
 

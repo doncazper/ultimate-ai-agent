@@ -57,7 +57,8 @@ Source And Provenance Model. UAA-P1-071 completed Memory Review Decision
 Capture. UAA-P1-072 completed Business Memory And Memory Quality Controls.
 UAA-P1-073 completed Plans To Reviewable Action Envelopes. The active product
 path now marks UAA-P1-074 Chat Local Operator Surface complete and promotes
-UAA-P1-075 Governed Code Workbench V1 as Ready Next, with UAA-P1-066 kept queued as a
+UAA-P1-075 Governed Code Workbench V1 complete and promotes UAA-P1-076
+Cross-Surface Memory Intake as Ready Next, with UAA-P1-066 kept queued as a
 strictly read-only Local Model Control Center inventory/status support lane.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
@@ -88,18 +89,18 @@ Gate = required acceptance evidence before Done
 
 ```text
 No active build item is in progress. The next documented milestone is
-UAA-P1-075 Governed Code Workbench V1.
+UAA-P1-076 Cross-Surface Memory Intake.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-075 Governed Code Workbench V1
-Goal: support repo-local safe diffs, validation proof, approval-bound apply,
-rollback, and evidence before broad coding-agent autonomy.
-Scope: contract/test/read-only Control Center visibility first. No unapproved
-mutation, unrestricted shell, remote execution, provider authority, connector
-write, public beta, public distribution, or production authority.
+UAA-P1-076 Cross-Surface Memory Intake
+Goal: bind memory proposals from Today, Chat, Plans, Actions, Evidence, local
+coding summaries, and manual external-assistant review imports.
+Scope: proposal/intake only. No provider calls, account fetch, browser import,
+shell history import, raw file import, automatic memory write, context
+injection, public beta, public distribution, or production authority.
 
 UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
 Goal: queued support lane for a strictly read-only Control Center model
@@ -123,8 +124,8 @@ product-spine contract. UAA-P1-069 completed the Evidence History Grammar
 contract, UAA-P1-070 completed the Memory Source And Provenance Model,
 UAA-P1-071 completed Memory Review Decision Capture, UAA-P1-072 completed
 Business Memory And Memory Quality Controls, UAA-P1-073 completed Plans To
-Reviewable Action Envelopes, and UAA-P1-074 is queued first as the Ready Next
-Chat Local Operator Surface model.
+Reviewable Action Envelopes, UAA-P1-074 completed Chat Local Operator Surface,
+and UAA-P1-075 completed Governed Code Workbench V1.
 UAA-P1-066 remains queued behind or alongside that path as read-only local model
 status support. Later Local Model Manager lifecycle,
 switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
@@ -156,10 +157,6 @@ Goal: send a local chat turn, show model/runtime/auth/tool-denial truth,
 produce safe evidence, and hand off to Plans or Actions without granting model
 output authority.
 
-UAA-P1-075 Governed Code Workbench V1
-Goal: support repo-local safe diffs, validation proof, approval-bound apply,
-rollback, and evidence before broad coding-agent autonomy.
-
 UAA-P1-076 Cross-Surface Memory Intake
 Goal: bind memory proposals from Today, Chat, Plans, Actions, Evidence, local
 coding summaries, and manual external-assistant review imports while denying
@@ -174,7 +171,7 @@ follow-up commitments, and blockers in human-readable form.
 UAA-P1-078 Private Beta-Readiness Gate
 Goal: define local/private beta-test acceptance evidence for Morning Briefing,
 Action Inbox, Memory Review, Evidence Timeline, safe local Chat/Plans handoff,
-governed Code diffs, and CRM-lite follow-ups without public beta or
+governed Code proposal refs, and CRM-lite follow-ups without public beta or
 distribution claims.
 
 UAA-P1-079 User Intent Understanding V1
@@ -397,14 +394,16 @@ grammar, UAA-P1-070 completed the memory source/provenance model,
 UAA-P1-071 completed memory review decision capture, UAA-P1-072 completed
 business memory and memory quality controls, UAA-P1-073 completed Plans to
 reviewable Action envelopes, UAA-P1-074 completed Chat local operator surface,
-and UAA-P1-075 is the current Ready Next governed Code workbench milestone.
+UAA-P1-075 completed Governed Code Workbench V1, and UAA-P1-076 is the current
+Ready Next cross-surface memory intake milestone.
 
 UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 Gate met: Active docs, roadmap, current board, Founder Command Center board,
 product truth, strategy/task docs, and the Codex prompt library identify Today
 as the product spine, memory as the reviewed differentiator, UAA-P1-068 as
 completed Today Product Spine Contract work, and the conveyor that now has
-UAA-P1-073 and UAA-P1-074 complete with UAA-P1-075 Ready Next. UAA-P1-066
+UAA-P1-073, UAA-P1-074, and UAA-P1-075 complete with UAA-P1-076 Ready Next.
+UAA-P1-066
 remains queued as read-only local model support.
 `docs/codex/CODEX_EXECUTION_PROMPTS.md` records the
 milestone conveyor from UAA-P1-067 through UAA-P1-079 with review/fix,
@@ -450,8 +449,8 @@ production authority. UAA-P1-070 completed the memory source/provenance
 milestone, UAA-P1-071 completed memory review decision capture, UAA-P1-072
 completed business memory and memory quality controls, UAA-P1-073 completed
 Plans to reviewable Action envelopes, UAA-P1-074 completed Chat local operator
-surface, and UAA-P1-075 is the current Ready Next governed Code workbench
-milestone.
+surface, UAA-P1-075 completed Governed Code Workbench V1, and UAA-P1-076 is
+the current Ready Next cross-surface memory intake milestone.
 
 UAA-P1-070 Memory Source And Provenance Model
 Gate met: `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`
@@ -471,8 +470,9 @@ injection, raw private evidence, public beta, public distribution, production
 readiness, or production authority. UAA-P1-071 completed memory review decision
 capture, UAA-P1-072 completed business memory and memory quality controls, and
 UAA-P1-073 completed Plans to reviewable Action envelopes. UAA-P1-074
-completed Chat local operator surface, and UAA-P1-075 is the current Ready Next
-governed Code workbench milestone.
+completed Chat local operator surface, UAA-P1-075 completed Governed Code
+Workbench V1, and UAA-P1-076 is the current Ready Next cross-surface memory
+intake milestone.
 
 UAA-P1-071 Memory Review Decision Capture
 Gate met: `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`
@@ -493,8 +493,9 @@ account auth, model/provider authority, automatic memory write, hidden context
 injection, raw private evidence, public beta, public distribution, production
 readiness, or production authority. UAA-P1-072 completed business memory and
 memory quality controls, and UAA-P1-073 completed Plans to reviewable Action
-envelopes. UAA-P1-074 completed Chat local operator surface, and UAA-P1-075 is
-the current Ready Next governed Code workbench milestone.
+envelopes. UAA-P1-074 completed Chat local operator surface, UAA-P1-075
+completed Governed Code Workbench V1, and UAA-P1-076 is the current Ready Next
+cross-surface memory intake milestone.
 
 UAA-P1-072 Business Memory And Memory Quality Controls
 Gate met: `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`
@@ -514,8 +515,8 @@ connector runtime, account auth, model/provider authority, automatic memory
 write, hidden context injection, raw private evidence, public beta, public
 distribution, production readiness, or production authority. UAA-P1-073
 completed Plans to reviewable Action envelopes. UAA-P1-074 completed Chat
-local operator surface, and UAA-P1-075 is the current Ready Next governed Code
-workbench milestone.
+local operator surface, UAA-P1-075 completed Governed Code Workbench V1, and
+UAA-P1-076 is the current Ready Next cross-surface memory intake milestone.
 
 UAA-P1-073 Plans To Reviewable Action Envelopes
 Gate met: `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`
@@ -535,8 +536,8 @@ mutation, action execution, approval grant capture, connector write,
 shell/subprocess execution, model/provider authority, memory write, hidden
 context injection, raw private evidence, public beta, public distribution,
 production readiness, or production authority. UAA-P1-074 completed Chat local
-operator surface, and UAA-P1-075 is the current Ready Next governed Code
-workbench milestone.
+operator surface, UAA-P1-075 completed Governed Code Workbench V1, and
+UAA-P1-076 is the current Ready Next cross-surface memory intake milestone.
 
 UAA-P1-074 Chat Local Operator Surface
 Gate met: `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`
@@ -554,8 +555,28 @@ no new route, OpenAPI operation, side-effect class, backend mutation, provider
 SDK call, web fetch, tool execution, memory write, hidden context injection,
 connector write, shell/subprocess execution, action execution, approval grant
 capture, public beta, public distribution, production readiness, or production
-authority. UAA-P1-075 is the current Ready Next governed Code workbench
-milestone.
+authority. UAA-P1-075 completed Governed Code Workbench V1, and UAA-P1-076 is
+the current Ready Next cross-surface memory intake milestone.
+
+UAA-P1-075 Governed Code Workbench V1
+Gate met: `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md` defines
+`contract-ref:governed-code-workbench:v1`; `core.code` exposes the governed
+Code proposal model; `GET /control-center/today/summary` exposes repo-local
+proposal refs, safe diff summary refs, validation plan/result refs, approval
+requirement refs, expected apply and rollback receipt refs, surface bindings,
+blocked-state refs, and denied authority flags. `docs/schemas/governed_code_workbench.schema.json`,
+`scripts/verify_uaa_p1_075_governed_code_workbench.py`,
+`tests/test_uaa_p1_075_governed_code_workbench.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`, and
+`apps/control-center/src/App.test.tsx` bind the contract. This milestone adds
+no new route, OpenAPI operation, side-effect class, backend mutation, apply
+execution, approval grant capture, direct file-write runtime, unrestricted
+shell, shell/subprocess execution, remote execution, broad coding-agent
+autonomy, provider SDK call, web fetch, connector write, diff body storage,
+memory write, hidden context injection, public beta, public distribution,
+production readiness, or production authority. UAA-P1-076 is the current Ready
+Next cross-surface memory intake milestone.
 
 UAA-P1-080 through UAA-P1-086 API Boundary Hardening Lane
 Status: planned/queued, not implemented. Preserves existing UAA-P1-073 through

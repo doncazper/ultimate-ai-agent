@@ -19,7 +19,9 @@ Memory Review Decision Capture, and UAA-P1-072 Business Memory And Memory
 Quality Controls, and UAA-P1-073 Plans To Reviewable Action Envelopes are
 implemented as contract/test/read-only UI slices. UAA-P1-074 Chat Local
 Operator Surface is implemented as a first-party local operator truth slice.
-UAA-P1-075 Governed Code Workbench V1 is the next incomplete lane.
+UAA-P1-075 Governed Code Workbench V1 is implemented as a governed repo-local
+Code proposal and Evidence Timeline metadata slice. UAA-P1-076 Cross-Surface
+Memory Intake is the next incomplete lane.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -47,10 +49,14 @@ UAA-P1-075 Governed Code Workbench V1 is the next incomplete lane.
    turn through the governed local gateway, shows model/runtime/auth/tool-denial
    truth, produces safe evidence, and hands off to Plans or Actions. OpenWebUI
    remains a secondary local/dev shell, not the product state owner.
-8. Governed Code workbench: Ready Next. Repo-local safe diffs, validation proof,
-   approval-bound apply, rollback, and evidence before broad coding-agent
-   autonomy.
-9. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,
+8. Governed Code workbench: implemented. Repo-local safe diff summary refs,
+   validation proof refs, approval-bound apply posture, rollback receipt
+   posture, and evidence before broad coding-agent autonomy.
+9. Cross-surface memory intake: Ready Next. Bind safe memory proposals from
+   Today, Chat, Plans, Actions, Evidence, local coding summaries, and manual
+   external-assistant review imports without automatic memory writes or context
+   injection.
+10. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,
    loop binding, or beta-readiness claims, classify routes as
    `public_metadata`, `local_readonly`, `local_sensitive`, or
    `mutating_requires_authority`; plan centralized security headers, explicit
@@ -58,17 +64,17 @@ UAA-P1-075 Governed Code Workbench V1 is the next incomplete lane.
    mutating-route idempotency enforcement, targeted rate limits, and OpenAPI/API
    manifest/route inventory checks. This is not enterprise auth and does not
    add runtime authority.
-10. Local Control Center macOS-first Setup Assistant hardening: tighten
+11. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.
-11. First product loop readability: make Today, Plans, Actions, Memory,
+12. First product loop readability: make Today, Plans, Actions, Memory,
    Evidence, and Settings easier to scan without adding route authority.
-12. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
+13. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
    class, approval requirement, expiry, idempotency, evidence, and rollback
    posture before any approve affordance is wired.
-13. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
+14. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
-14. Read-only email/calendar integration contracts: metadata-only calendar/email
+15. Read-only email/calendar integration contracts: metadata-only calendar/email
    contracts are implemented as contract-only source-readiness support, and the
    draft-only email response proposal contract is implemented as contract-only
    proposal posture. Connector runtime, draft UI, account auth, and send/write

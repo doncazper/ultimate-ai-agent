@@ -30,8 +30,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only summary; any mutation requires exact LocalApprovalAuthority scope, idempotency, rollback, audit, and receipt refs. UAA-P1-073 approval refs remain identifiers only.",
-      "evidence_audit_output": "Storage-backed safe refs and bounded summaries for Today, action inbox, plan, memory-review, briefing state, and UAA-P1-073 Action envelope posture; no raw prompts, raw responses, raw paths, raw logs, or credential material.",
+      "approval_requirement": "None for read-only summary; any mutation requires exact LocalApprovalAuthority scope, idempotency, rollback, audit, and receipt refs. UAA-P1-073 approval refs and UAA-P1-075 Code approval refs remain identifiers only.",
+      "evidence_audit_output": "Storage-backed safe refs and bounded summaries for Today, action inbox, plan, memory-review, briefing state, UAA-P1-073 Action envelope posture, UAA-P1-074 Chat local operator truth, and UAA-P1-075 governed Code proposal metadata; no raw prompts, raw responses, raw paths, raw logs, raw diff bodies, or credential material.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -49,7 +49,8 @@
       "missing_backend_routes": [
         "today-action-mutation-contract",
         "calendar-read-only-contract",
-        "email-read-only-contract"
+        "email-read-only-contract",
+        "cross-surface-memory-intake-binding"
       ]
     },
     {

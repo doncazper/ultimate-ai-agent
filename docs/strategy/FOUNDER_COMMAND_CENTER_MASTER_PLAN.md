@@ -335,9 +335,9 @@ Goal: complete the private local beta-test loop around reviewed memory.
   and rollback refs.
 - Memory Review Inbox supports accept, correct, reject, defer, merge,
   supersede, and forget-request posture through reviewed contracts.
-- Governed Code workbench supports repo-local safe diffs, validation proof,
-  approval-bound apply, rollback, and evidence before broad coding-agent
-  autonomy.
+- Governed Code workbench supports repo-local safe diff summary refs,
+  validation proof refs, approval-bound apply posture, rollback receipt
+  posture, and evidence before broad coding-agent autonomy.
 - Cross-surface memory intake binds Today, Chat, Plans, Actions, Evidence, and
   local coding summaries as safe proposals only.
 - External assistant review summaries and local coding/chat summaries can be

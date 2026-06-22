@@ -4,6 +4,11 @@ import json
 import pytest
 
 from ultimate_ai_agent.core.chat import CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF
+from ultimate_ai_agent.core.code import (
+    GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
+    GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS,
+    GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS,
+)
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
@@ -183,7 +188,8 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         == "implemented_local_operator_turn_truth_refs"
     )
     assert (
-        surface_bindings["Code"]["current_status"] == "planned_blocked_until_uaa_p1_075"
+        surface_bindings["Code"]["current_status"]
+        == "implemented_governed_diff_validation_refs"
     )
     assert today["required_loop_surfaces"] == [
         "Today",
@@ -237,6 +243,62 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF in module_feeds["Chat"][
         "current_feed_refs"
     ]
+    assert (
+        module_feeds["Code"]["status"]
+        == "implemented_governed_code_workbench_contract_apply_blocked"
+    )
+    assert GOVERNED_CODE_WORKBENCH_CONTRACT_REF in module_feeds["Code"][
+        "current_feed_refs"
+    ]
+    assert (
+        today["governed_code_workbench_contract_ref"]
+        == GOVERNED_CODE_WORKBENCH_CONTRACT_REF
+    )
+    assert today["governed_code_workbench_status"] == (
+        "implemented_reviewable_repo_local_diff_contract_apply_blocked"
+    )
+    assert today["governed_code_workbench_required_ref_fields"] == (
+        GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS
+    )
+    assert set(GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS) <= set(
+        today["governed_code_workbench_blocked_state_refs"]
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "apply_execution_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "approval_grant_capture_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "unrestricted_shell_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "remote_execution_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["governed_code_workbench_authority_posture"][
+            "diff_body_storage_enabled"
+        ]
+        is False
+    )
+    assert {
+        binding["surface"]
+        for binding in today["governed_code_workbench_surface_bindings"]
+    } == {"Today", "Code", "Actions", "Evidence", "Memory"}
+    assert today["governed_code_workbench_safe_summary"]
+    assert today["governed_code_workbench_validation_plan_summary"]
     assert today["module_completion_contract"] == {
         "visibility_requirement": (
             "Module state must be visible in Today, Actions, Evidence, and "
@@ -580,6 +642,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     timeline_kinds = {item["item_kind"] for item in timeline}
     assert "receipt_audit_rollback_ref" in timeline_kinds
     assert "plan_action_envelope_ref" in timeline_kinds
+    assert "governed_code_workbench_proposal_ref" in timeline_kinds
     assert "memory_review_evidence_ref" in timeline_kinds
     assert "source_readiness_evidence_ref" in timeline_kinds
     assert "foundation_gate_latency_ref" in timeline_kinds
@@ -658,6 +721,41 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert (
         "blocked-state:no-action-execution"
         in plan_timeline_item["blocked_states"]
+    )
+
+    code_timeline_item = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "governed_code_workbench_proposal_ref"
+    )
+    assert GOVERNED_CODE_WORKBENCH_CONTRACT_REF in code_timeline_item["status_refs"]
+    assert (
+        today["governed_code_workbench_safe_diff_summary_ref"]
+        in code_timeline_item["status_refs"]
+    )
+    assert (
+        today["governed_code_workbench_expected_apply_receipt_ref"]
+        in code_timeline_item["receipt_refs"]
+    )
+    assert (
+        today["governed_code_workbench_expected_rollback_receipt_ref"]
+        in code_timeline_item["rollback_refs"]
+    )
+    assert (
+        code_timeline_item["history_answers"]["approved"]["status"] == "blocked"
+    )
+    assert (
+        code_timeline_item["history_answers"]["changed"]["status"]
+        == "not_applicable"
+    )
+    assert "no files were changed" in (
+        code_timeline_item["history_answers"]["happened"]["answer"]
+    )
+    assert code_timeline_item["raw_evidence_included"] is False
+    assert code_timeline_item["approval_ref_authority"] is False
+    assert code_timeline_item["rollback_execution_enabled"] is False
+    assert set(GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS) <= set(
+        code_timeline_item["blocked_states"]
     )
 
     memory_timeline_item = next(

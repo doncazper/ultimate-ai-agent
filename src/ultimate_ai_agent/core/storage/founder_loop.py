@@ -19,6 +19,14 @@ from ultimate_ai_agent.core.chat import (
     chat_local_operator_authority_posture,
     chat_local_operator_surface_bindings,
 )
+from ultimate_ai_agent.core.code import (
+    GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
+    GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS,
+    GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS,
+    build_governed_code_workbench_proposal,
+    governed_code_workbench_authority_posture,
+    governed_code_workbench_surface_bindings,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -156,12 +164,12 @@ EVIDENCE_HISTORY_SURFACE_BINDINGS = [
     },
     {
         "surface": "Code",
-        "current_status": "planned_blocked_until_uaa_p1_075",
+        "current_status": "implemented_governed_diff_validation_refs",
         "required_history_keys": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
         "authority_boundary": (
-            "Code evidence must use the same grammar for diffs, validation, "
-            "apply posture, rollback posture, and blockers; unrestricted shell "
-            "or broad coding autonomy is not scoped."
+            "Code evidence uses repo-local proposal scope, safe diff summary, "
+            "validation, apply posture, rollback posture, and blockers; "
+            "unrestricted shell or broad coding autonomy is not scoped."
         ),
     },
 ]
@@ -311,14 +319,14 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
     },
     {
         "module": "Code",
-        "status": "planned_blocked_until_uaa_p1_075",
+        "status": "implemented_governed_code_workbench_contract_apply_blocked",
         "required_loop_outputs": [
             "today_code_state",
             "action_or_apply_blocked_state",
             "diff_validation_evidence_ref",
             "memory_candidate_or_blocked_state",
         ],
-        "current_feed_refs": ["contract-ref:governed-code-workbench-missing"],
+        "current_feed_refs": [GOVERNED_CODE_WORKBENCH_CONTRACT_REF],
         "standalone_complete_allowed": False,
     },
 ]
@@ -1336,6 +1344,58 @@ def _chat_local_operator_contract_payload() -> dict[str, Any]:
     }
 
 
+def _governed_code_workbench_contract_payload() -> dict[str, Any]:
+    proposal = build_governed_code_workbench_proposal()
+    payload = proposal.model_dump(mode="json")
+    return {
+        "governed_code_workbench_contract_ref": payload["contract_ref"],
+        "governed_code_workbench_status": (
+            "implemented_reviewable_repo_local_diff_contract_apply_blocked"
+        ),
+        "governed_code_workbench_proposal_ref": payload["proposal_ref"],
+        "governed_code_workbench_repo_scope_ref": payload["repo_scope_ref"],
+        "governed_code_workbench_safe_diff_summary_ref": (
+            payload["safe_diff_summary_ref"]
+        ),
+        "governed_code_workbench_validation_plan_ref": (
+            payload["validation_plan_ref"]
+        ),
+        "governed_code_workbench_validation_result_refs": (
+            payload["validation_result_refs"]
+        ),
+        "governed_code_workbench_approval_requirement_ref": (
+            payload["approval_requirement_ref"]
+        ),
+        "governed_code_workbench_expected_apply_receipt_ref": (
+            payload["expected_apply_receipt_ref"]
+        ),
+        "governed_code_workbench_expected_rollback_receipt_ref": (
+            payload["expected_rollback_receipt_ref"]
+        ),
+        "governed_code_workbench_evidence_refs": payload["evidence_refs"],
+        "governed_code_workbench_idempotency_key_ref": (
+            payload["idempotency_key_ref"]
+        ),
+        "governed_code_workbench_safe_summary": payload["safe_summary"],
+        "governed_code_workbench_validation_plan_summary": (
+            payload["validation_plan_summary"]
+        ),
+        "governed_code_workbench_required_ref_fields": (
+            GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS
+        ),
+        "governed_code_workbench_required_blocked_refs": (
+            GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS
+        ),
+        "governed_code_workbench_surface_bindings": (
+            governed_code_workbench_surface_bindings()
+        ),
+        "governed_code_workbench_authority_posture": (
+            governed_code_workbench_authority_posture()
+        ),
+        "governed_code_workbench_blocked_state_refs": payload["blocked_state_refs"],
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1399,6 +1459,7 @@ class FounderLoopRepository:
             briefing_items=briefing_items,
         )
         chat_local_operator_contract = _chat_local_operator_contract_payload()
+        governed_code_workbench_contract = _governed_code_workbench_contract_payload()
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -1470,6 +1531,7 @@ class FounderLoopRepository:
                 "implemented_review_queue_safe_ref_quality_metadata_contract"
             ),
             **chat_local_operator_contract,
+            **governed_code_workbench_contract,
             "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
             "plans_action_envelope_review_postures": (
                 plans_action_envelope_review_posture_rows()
@@ -1911,6 +1973,129 @@ class FounderLoopRepository:
                 next_safe_action=(
                     "Use Chat handoff refs as proposals only; route any work "
                     "through Plans or Actions review."
+                ),
+            )
+        )
+        code_contract = _governed_code_workbench_contract_payload()
+        timeline.append(
+            FounderLoopEvidenceTimelineItem(
+                timeline_item_ref=_timeline_ref(
+                    "code", code_contract["governed_code_workbench_proposal_ref"]
+                ),
+                item_kind="governed_code_workbench_proposal_ref",
+                title="Governed Code workbench",
+                safe_summary=(
+                    "Code evidence records repo-local proposal scope, safe diff "
+                    "summary refs, validation plan refs, expected apply and "
+                    "rollback receipt refs, and blocked mutation posture only."
+                ),
+                history_answers=_history_answers(
+                    proposed=_history_answer(
+                        "proposed",
+                        "A governed Code proposal can be represented as repo-local safe refs with a validation plan.",
+                        refs=[
+                            code_contract["governed_code_workbench_proposal_ref"],
+                            GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
+                            code_contract["governed_code_workbench_repo_scope_ref"],
+                            code_contract[
+                                "governed_code_workbench_safe_diff_summary_ref"
+                            ],
+                        ],
+                    ),
+                    approved=_history_answer(
+                        "approved",
+                        "No apply approval or grant capture is approved by this contract; approval refs remain identifiers only.",
+                        refs=[
+                            code_contract[
+                                "governed_code_workbench_approval_requirement_ref"
+                            ],
+                            "approval-status:code-apply-not-authorized",
+                        ],
+                        status="blocked",
+                    ),
+                    happened=_history_answer(
+                        "happened",
+                        "Only safe Code workbench metadata was produced; no files were changed.",
+                        refs=code_contract[
+                            "governed_code_workbench_validation_result_refs"
+                        ],
+                        status="inspection_only",
+                    ),
+                    changed=_history_answer(
+                        "changed",
+                        "No repo, connector, shell, model, memory, or task state changed.",
+                        refs=["change-status:no-code-apply-performed"],
+                        status="not_applicable",
+                    ),
+                    undoable=_history_answer(
+                        "undoable",
+                        "Rollback receipt refs describe required undo evidence posture only and do not execute rollback.",
+                        refs=[
+                            code_contract[
+                                "governed_code_workbench_expected_rollback_receipt_ref"
+                            ]
+                        ],
+                        status="posture_only",
+                    ),
+                    stale=_history_answer(
+                        "stale",
+                        "Code proposals, validation refs, and approval scope must be rechecked before any future mutation.",
+                        refs=["stale-ref:governed-code-recheck-required"],
+                        status="recheck_required",
+                    ),
+                    blocked=_history_answer(
+                        "blocked",
+                        "Apply execution, approval grant capture, unrestricted shell, subprocess execution, remote execution, provider calls, web fetch, connector writes, diff body storage, and production authority remain blocked.",
+                        refs=code_contract[
+                            "governed_code_workbench_blocked_state_refs"
+                        ],
+                        status="blocked",
+                    ),
+                ),
+                source_refs=[
+                    code_contract["governed_code_workbench_proposal_ref"],
+                    code_contract["governed_code_workbench_repo_scope_ref"],
+                ],
+                status_refs=[
+                    GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
+                    code_contract["governed_code_workbench_safe_diff_summary_ref"],
+                    code_contract["governed_code_workbench_validation_plan_ref"],
+                    code_contract[
+                        "governed_code_workbench_expected_apply_receipt_ref"
+                    ],
+                ],
+                related_route_refs=["/code", "GET /control-center/today/summary"],
+                side_effect_class="local_dev_workspace_only",
+                authority_posture=(
+                    "Governed Code workbench evidence is proposal metadata only; "
+                    "repo mutations require a later exact approval-bound apply contract."
+                ),
+                approval_posture=code_contract[
+                    "governed_code_workbench_approval_requirement_ref"
+                ],
+                receipt_refs=[
+                    code_contract["governed_code_workbench_expected_apply_receipt_ref"],
+                    code_contract[
+                        "governed_code_workbench_expected_rollback_receipt_ref"
+                    ],
+                ],
+                audit_refs=code_contract["governed_code_workbench_evidence_refs"],
+                replay_refs=["replay-ref:governed-code:proposal-review"],
+                rollback_refs=[
+                    code_contract[
+                        "governed_code_workbench_expected_rollback_receipt_ref"
+                    ]
+                ],
+                rollback_blockers=["rollback_execution_not_scoped_for_code"],
+                redaction_status="redacted_summary_only",
+                stale_state="recheck_code_proposal_before_any_apply",
+                missing_evidence_posture="apply_receipt_missing_until_scoped_contract",
+                blocked_states=code_contract[
+                    "governed_code_workbench_blocked_state_refs"
+                ],
+                next_safe_action=(
+                    "Review safe proposal refs and validation posture; require a "
+                    "later exact approval-bound apply contract before mutation."
                 ),
             )
         )

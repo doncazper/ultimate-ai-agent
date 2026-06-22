@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/governed_code_workbench.schema.json",
+  "title": "UAA-P1-075 Governed Code Workbench",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "governed_code_workbench_contract_ref",
+    "governed_code_workbench_status",
+    "governed_code_workbench_proposal_ref",
+    "governed_code_workbench_repo_scope_ref",
+    "governed_code_workbench_safe_diff_summary_ref",
+    "governed_code_workbench_validation_plan_ref",
+    "governed_code_workbench_validation_result_refs",
+    "governed_code_workbench_approval_requirement_ref",
+    "governed_code_workbench_expected_apply_receipt_ref",
+    "governed_code_workbench_expected_rollback_receipt_ref",
+    "governed_code_workbench_evidence_refs",
+    "governed_code_workbench_idempotency_key_ref",
+    "governed_code_workbench_safe_summary",
+    "governed_code_workbench_validation_plan_summary",
+    "governed_code_workbench_required_ref_fields",
+    "governed_code_workbench_required_blocked_refs",
+    "governed_code_workbench_surface_bindings",
+    "governed_code_workbench_authority_posture",
+    "governed_code_workbench_blocked_state_refs"
+  ],
+  "properties": {
+    "governed_code_workbench_contract_ref": {
+      "const": "contract-ref:governed-code-workbench:v1"
+    },
+    "governed_code_workbench_status": {
+      "const": "implemented_reviewable_repo_local_diff_contract_apply_blocked"
+    },
+    "governed_code_workbench_proposal_ref": { "type": "string" },
+    "governed_code_workbench_repo_scope_ref": { "type": "string" },
+    "governed_code_workbench_safe_diff_summary_ref": { "type": "string" },
+    "governed_code_workbench_validation_plan_ref": { "type": "string" },
+    "governed_code_workbench_validation_result_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "governed_code_workbench_approval_requirement_ref": { "type": "string" },
+    "governed_code_workbench_expected_apply_receipt_ref": {
+      "type": "string"
+    },
+    "governed_code_workbench_expected_rollback_receipt_ref": {
+      "type": "string"
+    },
+    "governed_code_workbench_evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "governed_code_workbench_idempotency_key_ref": { "type": "string" },
+    "governed_code_workbench_safe_summary": { "type": "string" },
+    "governed_code_workbench_validation_plan_summary": { "type": "string" },
+    "governed_code_workbench_required_ref_fields": {
+      "type": "array",
+      "minItems": 11,
+      "items": { "type": "string" }
+    },
+    "governed_code_workbench_required_blocked_refs": {
+      "type": "array",
+      "minItems": 12,
+      "items": { "type": "string" }
+    },
+    "governed_code_workbench_surface_bindings": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "feed_status",
+          "feed_ref",
+          "authority_boundary"
+        ],
+        "properties": {
+          "surface": {
+            "enum": ["Today", "Code", "Actions", "Evidence", "Memory"]
+          },
+          "feed_status": { "type": "string" },
+          "feed_ref": { "type": "string" },
+          "authority_boundary": { "type": "string" }
+        }
+      }
+    },
+    "governed_code_workbench_authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "safe_refs_only",
+        "repo_local_scope_required",
+        "safe_diff_summary_only",
+        "validation_required_before_apply",
+        "approval_required_before_apply",
+        "atomic_apply_required",
+        "rollback_receipt_required",
+        "audit_required",
+        "redaction_required",
+        "apply_execution_enabled",
+        "approval_grant_capture_enabled",
+        "direct_file_write_enabled",
+        "unrestricted_shell_enabled",
+        "shell_subprocess_execution_enabled",
+        "remote_execution_enabled",
+        "broad_coding_agent_autonomy_enabled",
+        "provider_sdk_call_enabled",
+        "web_fetch_enabled",
+        "connector_write_enabled",
+        "diff_body_storage_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "safe_refs_only": { "const": true },
+        "repo_local_scope_required": { "const": true },
+        "safe_diff_summary_only": { "const": true },
+        "validation_required_before_apply": { "const": true },
+        "approval_required_before_apply": { "const": true },
+        "atomic_apply_required": { "const": true },
+        "rollback_receipt_required": { "const": true },
+        "audit_required": { "const": true },
+        "redaction_required": { "const": true },
+        "apply_execution_enabled": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "direct_file_write_enabled": { "const": false },
+        "unrestricted_shell_enabled": { "const": false },
+        "shell_subprocess_execution_enabled": { "const": false },
+        "remote_execution_enabled": { "const": false },
+        "broad_coding_agent_autonomy_enabled": { "const": false },
+        "provider_sdk_call_enabled": { "const": false },
+        "web_fetch_enabled": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "diff_body_storage_enabled": { "const": false },
+        "production_authority_enabled": { "const": false }
+      }
+    },
+    "governed_code_workbench_blocked_state_refs": {
+      "type": "array",
+      "minItems": 12,
+      "items": { "type": "string" }
+    }
+  }
+}

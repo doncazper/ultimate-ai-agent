@@ -23,7 +23,8 @@ UAA-P1-070 completed the Memory Source And Provenance Model. UAA-P1-071
 completed Memory Review Decision Capture. UAA-P1-072 completed Business Memory
 And Memory Quality Controls. UAA-P1-073 completed Plans To Reviewable Action
 Envelopes. UAA-P1-074 completed Chat Local Operator Surface. The parent board
-now promotes UAA-P1-075 Governed Code Workbench V1 as Ready Next.
+now marks UAA-P1-075 Governed Code Workbench V1 complete and promotes
+UAA-P1-076 Cross-Surface Memory Intake as Ready Next.
 UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
@@ -60,14 +61,15 @@ Implemented / ready for review:
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
-UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074.
+UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
+UAA-P1-075.
 
 Candidate-next:
-UAA-P1-075 Governed Code Workbench V1.
+UAA-P1-076 Cross-Surface Memory Intake.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
+UAA-P1-077, UAA-P1-078, UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
 UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
@@ -75,29 +77,28 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ## Candidate Next
 
-### UAA-P1-075 - Governed Code Workbench V1
+### UAA-P1-076 - Cross-Surface Memory Intake
 
-Epic: Code/Workspace, Evidence/Receipts, Safety/Permissions
+Epic: Memory/Knowledge, Product/UX
 
-Promoted by: UAA-P1-074
+Promoted by: UAA-P1-075
 
-Type: backend contract/test plus first-party Control Center read-only display
+Type: full-stack read-only/proposal
 
-Description: Code should be narrower than Goat but better governed:
-repo-local safe diffs, validation proof, exact approval before apply, atomic
-apply, rollback receipts, and Evidence Timeline binding.
+Description: Bind memory proposals from Today, Chat, Plans, Actions, Evidence,
+local coding summaries, and manual external-assistant review imports.
 
-Acceptance criteria: Code proposals show scope, safe diff summary, validation
-plan, validation result refs, approval requirement, apply receipt, rollback
-receipt, and Evidence history entries.
+Acceptance criteria: Each intake path produces bounded safe summaries,
+source/evidence refs, missing-evidence posture, confidence posture, and next
+safe action labels. External assistant output is treated as untrusted review
+input, not truth or authority.
 
-Required tests/verifiers: file/diff/apply/rollback tests, redaction tests,
-frontend render tests when surfaced, OpenAPI/API manifest tests if routes
-change, and documentation integrity.
+Required tests/verifiers: cross-surface fixture tests and Control Center render
+tests for proposed candidates.
 
-Safety notes: No unapproved mutation, unrestricted shell, remote execution,
-broad coding-agent autonomy, public beta, public distribution, or production
-authority.
+Safety notes: No automatic import from ChatGPT, browser state, local shell
+history, raw files, provider calls, account fetch, automatic memory write,
+context injection, public beta, public distribution, or production authority.
 
 ### FCC-P0-002 Follow-Up - Collapse/Organize Control Center Around Core Surfaces
 
@@ -142,8 +143,8 @@ Acceptance evidence: Active docs, roadmap, current board, product truth, MVP
 spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
 UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
 UAA-P1-071 as complete, UAA-P1-072 as complete, UAA-P1-073 as complete,
-UAA-P1-074 as complete, UAA-P1-075 as Ready Next, and UAA-P1-066 as read-only
-local model support.
+UAA-P1-074 as complete, UAA-P1-075 as complete, UAA-P1-076 as Ready Next, and
+UAA-P1-066 as read-only local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,
@@ -636,12 +637,13 @@ distribution, or production authority.
 Epic: Code/Workspace, Evidence/Receipts, Safety/Permissions
 
 Description: Build a narrow, better-governed code path before chasing broad
-coding-agent autonomy: repo-local safe diffs, validation proof, exact approval
-before apply, atomic apply, rollback receipts, and evidence timeline binding.
+coding-agent autonomy: repo-local safe diff summary refs, validation proof
+refs, exact approval requirement refs, expected apply and rollback receipt
+refs, and evidence timeline binding.
 
-Acceptance criteria: Code proposals show scope, diff summary, validation plan,
-validation result refs, approval requirement, apply receipt, rollback receipt,
-and Evidence history entries.
+Acceptance criteria: Code proposals show scope, safe diff summary ref,
+validation plan, validation result refs, approval requirement, expected apply
+receipt, expected rollback receipt, and Evidence history entries.
 
 Required tests/verifiers: file/diff/apply/rollback tests, redaction tests,
 frontend render tests when surfaced, OpenAPI/API manifest tests if routes
@@ -692,7 +694,7 @@ Epic: Testing/Evals, Product/UX, Safety/Permissions
 
 Description: Define the local/private beta-test acceptance gate for Morning
 Briefing, Action Inbox, Memory Review, Evidence Timeline, safe local
-Chat/Plans handoff, governed Code diffs, and CRM-lite follow-ups.
+Chat/Plans handoff, governed Code proposal refs, and CRM-lite follow-ups.
 
 Acceptance criteria: Beta-readiness evidence distinguishes pass, fail, skipped,
 blocked, partial, mock-only, and accepted-failure states; no public beta,
