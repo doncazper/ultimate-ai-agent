@@ -8,6 +8,8 @@ from fastapi.routing import APIRoute
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import (
     ApiManifest,
+    ApiRouteApprovalPosture,
+    ApiRouteAuthPosture,
     ApiRouteClassification,
     ApiRouteIdempotencyPosture,
     ApiRouteInventoryItem,
@@ -269,6 +271,8 @@ API_MANIFEST_CACHEABLE_FIELDS = (
     "routes",
     "route_classification_vocabulary",
     "route_classification_summary",
+    "route_auth_posture_summary",
+    "route_approval_posture_summary",
     "idempotency_audit_policy_ref",
     "route_idempotency_posture_summary",
     "rate_limit_policy_ref",
@@ -294,6 +298,8 @@ API_MANIFEST_CACHE_INVALIDATION_RULES = (
     "active_baseline_change",
     "route_path_method_operation_tag_summary_change",
     "route_classification_logic_change",
+    "route_auth_posture_logic_change",
+    "route_approval_posture_logic_change",
     "route_idempotency_posture_logic_change",
     "route_rate_limit_posture_logic_change",
     "capabilities_declared_change",
@@ -394,6 +400,22 @@ def route_classification_for_path(
     )
 
 
+def route_auth_posture(
+    route_classification: ApiRouteClassification,
+) -> ApiRouteAuthPosture:
+    if route_classification == ApiRouteClassification.public_metadata:
+        return ApiRouteAuthPosture.public_metadata_no_auth
+    return ApiRouteAuthPosture.protected_local_bearer_required
+
+
+def route_approval_posture(
+    route_classification: ApiRouteClassification,
+) -> ApiRouteApprovalPosture:
+    if route_classification == ApiRouteClassification.mutating_requires_authority:
+        return ApiRouteApprovalPosture.required_before_mutation_authority
+    return ApiRouteApprovalPosture.not_required_for_route_classification
+
+
 def iter_api_routes(routes: list[Any]) -> list[APIRoute]:
     api_routes: list[APIRoute] = []
     for route in routes:
@@ -420,6 +442,8 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                 route.path,
                 side_effect_class,
             )
+            auth_posture = route_auth_posture(route_classification)
+            approval_posture = route_approval_posture(route_classification)
             (
                 idempotency_required,
                 idempotency_posture,
@@ -444,6 +468,8 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                     side_effect_class=side_effect_class,
                     route_classification=route_classification,
                     protected_route=route_classification != ApiRouteClassification.public_metadata,
+                    auth_posture=auth_posture,
+                    approval_posture=approval_posture,
                     classification_reason=classification_reason,
                     idempotency_required=idempotency_required,
                     idempotency_posture=idempotency_posture,
@@ -543,12 +569,16 @@ def _get_api_manifest_static_cache_entry(app: FastAPI) -> _ApiManifestStaticCach
 def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) -> ApiManifest:
     static = _get_api_manifest_static_cache_entry(app)
     classification_summary = {classification.value: 0 for classification in ROUTE_CLASSIFICATION_VOCABULARY}
+    auth_posture_summary = {posture.value: 0 for posture in ApiRouteAuthPosture}
+    approval_posture_summary = {posture.value: 0 for posture in ApiRouteApprovalPosture}
     idempotency_summary = {
         posture.value: 0 for posture in ApiRouteIdempotencyPosture
     }
     rate_limit_summary = {posture.value: 0 for posture in ApiRouteRateLimitPosture}
     for route in static.routes:
         classification_summary[str(route.route_classification)] += 1
+        auth_posture_summary[str(route.auth_posture)] += 1
+        approval_posture_summary[str(route.approval_posture)] += 1
         idempotency_summary[str(route.idempotency_posture)] += 1
         rate_limit_summary[str(route.rate_limit_posture)] += 1
     return ApiManifest(
@@ -563,6 +593,8 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
             classification.value for classification in ROUTE_CLASSIFICATION_VOCABULARY
         ],
         route_classification_summary=classification_summary,
+        route_auth_posture_summary=auth_posture_summary,
+        route_approval_posture_summary=approval_posture_summary,
         idempotency_audit_policy_ref=API_IDEMPOTENCY_AUDIT_POLICY_REF,
         route_idempotency_posture_summary=idempotency_summary,
         rate_limit_policy_ref=API_TARGETED_RATE_LIMIT_POLICY_REF,

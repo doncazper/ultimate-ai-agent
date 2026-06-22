@@ -162,11 +162,12 @@ remaining gaps before broader product-readiness claims are:
    beta-readiness claims can advance on later workflow evidence.
 9. Continue the FCC-V1 Founder Loop V1 conveyor before promoting the first
    product loop to `ship`: FCC-V1-000 release surface manifest is complete,
-   while API perimeter for real mutations, Action Inbox approve/edit/reject/
-   defer backend decisions, Today item to Action envelope to exact approval to
-   durable receipt to Evidence update, Chat durable receipt and handoff, Memory
-   Review accept/correct/reject backend decisions, Evidence Timeline
-   productization, and proof-lane promotion remain ahead.
+   FCC-V1-001 API perimeter contract/verifier coverage is complete, and
+   Action Inbox approve/edit/reject/defer backend decisions, Today item to
+   Action envelope to exact approval to durable receipt to Evidence update,
+   Chat durable receipt and handoff, Memory Review accept/correct/reject
+   backend decisions, Evidence Timeline productization, and proof-lane
+   promotion remain ahead.
 
 These remaining gaps are release blockers for M172 product-readiness claims.
 

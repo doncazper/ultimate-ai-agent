@@ -57,5 +57,7 @@ UAA-P1-087.2 manual UI testing and does not answer the UAA-P1-087.2c manual
 review scaffold. Those answers remain pending until a later local/manual
 review milestone records accepted or revised findings.
 
-The next Founder Loop V1 conveyor milestone is FCC-V1-001, API Perimeter For
-Real Mutations.
+FCC-V1-001 API Perimeter For Real Mutations is complete as contract/verifier
+coverage. Duplicate replay runtime remains blocked until route-owner receipt
+storage exists. The next Founder Loop V1 conveyor milestone is FCC-V1-002,
+Action Inbox Backend State Machine.

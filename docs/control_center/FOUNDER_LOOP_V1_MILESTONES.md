@@ -84,6 +84,10 @@ silent drift.
 
 ## FCC-V1-001 - API Perimeter For Real Mutations
 
+Status: Implemented as contract/verifier coverage. Duplicate replay behavior
+is defined as a future route-owner receipt-storage contract; runtime replay is
+not implemented by this milestone.
+
 Goal: finish the safety perimeter required before Action, Memory, or Chat
 mutations become real.
 
@@ -106,7 +110,8 @@ Tasks:
 - Make tests fail if a new mutating route lacks the required metadata.
 
 Definition of done: no new Founder Loop mutation can land without idempotency,
-route classification, auth posture, tests, and manifest visibility.
+route classification, auth posture, approval posture, tests, and manifest
+visibility.
 
 ## FCC-V1-002 - Action Inbox Backend State Machine
 

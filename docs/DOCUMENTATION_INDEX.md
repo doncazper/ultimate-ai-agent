@@ -12,9 +12,9 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_3.md`, `docs/release_notes/checkpoint_m168.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
-| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`, `docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md`, `docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md`, `docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md` |
+| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/founder_loop_api_perimeter_manifest.json`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`, `docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md`, `docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md`, `docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
-| API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
+| API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md` |
 | Verification maintainability | `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
@@ -73,7 +73,11 @@ validation/local-model paths without auth, distributed quota, dependency, or
 production authority claims. UAA-P1-086 API Boundary Enforcement Tests
 completes OpenAPI, API manifest, route inventory fixture, route-status
 manifest, protected-route, idempotency, header, CORS, and rate-limit
-enforcement checks without new runtime authority. UAA-P1-087.1 Local Launcher
+enforcement checks without new runtime authority. FCC-V1-001 API Perimeter For
+Real Mutations completes manifest-visible auth and approval posture,
+Founder Loop mutation perimeter manifest coverage, a verifier, and focused
+tests while keeping duplicate replay runtime blocked until route-owner receipt
+storage exists. UAA-P1-087.1 Local Launcher
 Dual-Surface Boot Readiness completes the `trial-boot` launcher contract,
 Control Center-first boot, secondary OpenWebUI blocked states, status/stop
 coverage, and safe launcher log refs without new runtime authority. It is
@@ -127,6 +131,8 @@ docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md
 docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md
 docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md
 docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md
+docs/control_center/founder_loop_api_perimeter_manifest.json
+docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md
 docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md
 docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md
 docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md
@@ -154,6 +160,7 @@ docs/schemas/business_memory_quality_controls.schema.json
 docs/schemas/plans_action_envelopes.schema.json
 docs/schemas/api_local_auth_gate.schema.json
 docs/schemas/api_mutating_route_idempotency_audit.schema.json
+docs/schemas/founder_loop_api_perimeter.schema.json
 ```
 
 ## Historical Currentness Repairs

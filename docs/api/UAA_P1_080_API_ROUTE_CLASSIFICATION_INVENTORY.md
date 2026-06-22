@@ -33,6 +33,10 @@ The OpenAPI path count remains `112`. Stable paths, methods, operation IDs,
 tags, summaries, side-effect classes, `requires_auth_future=True`, and
 `blocked_from_production=True` remain preserved.
 
+FCC-V1-001 later extends the same route inventory projection with
+manifest-visible `auth_posture` and `approval_posture` fields. That extension
+does not change UAA-P1-080 route behavior.
+
 ## Non-Goals
 
 No middleware is added by UAA-P1-080. No auth, session gate, CORS, security

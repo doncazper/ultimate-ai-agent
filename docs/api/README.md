@@ -33,6 +33,7 @@ docs/api/UAA_P1_082_EXPLICIT_LOOPBACK_CORS_ALLOWLIST.md
 docs/api/UAA_P1_083_LOCAL_BEARER_SESSION_GATE.md
 docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
+docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md
 docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md
 docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md
 ```
@@ -42,6 +43,10 @@ Current boundary summary:
 - `/api/manifest` publishes typed route metadata, generated route count, and
   UAA-P1-080 route classification as `public_metadata`, `local_readonly`,
   `local_sensitive`, or `mutating_requires_authority`.
+- FCC-V1-001 adds route-level `auth_posture` and `approval_posture` metadata
+  plus summary counts to `/api/manifest` and the frozen route inventory. This
+  is contract/verifier visibility only, not production auth or runtime
+  approval authority.
 - UAA-P1-081 adds centralized FastAPI response security headers with
   HTTPS-only HSTS and no auth, CORS, rate-limit, or production authority claim.
 - UAA-P1-082 adds an explicit local Control Center loopback CORS allowlist with
@@ -60,6 +65,10 @@ Current boundary summary:
   decomposition, action preview/proposal, and local model validation route
   groups. It does not add auth, distributed quota, dependencies, billing, or
   production authority.
+- FCC-V1-001 consumes UAA-P1-080 through UAA-P1-086 for the Founder Loop
+  mutation perimeter. Duplicate replay behavior is defined as a future
+  route-owner requirement and remains blocked until append-first receipt
+  storage exists for the route.
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.

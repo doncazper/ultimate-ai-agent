@@ -1,0 +1,315 @@
+{
+  "schema_version": "uaa-founder-loop-api-perimeter.v1",
+  "status": "implemented_contract_and_verifier_no_runtime_authority",
+  "milestone_ref": "FCC-V1-001",
+  "api_manifest_ref": "/api/manifest",
+  "openapi_contract_ref": "docs/api/openapi_contract.md",
+  "route_inventory_ref": "tests/fixtures/api_route_inventory_112.json",
+  "release_surface_manifest_ref": "docs/control_center/release_surface_manifest.json",
+  "runtime_authority_added": false,
+  "routes_added": false,
+  "durable_replay_runtime_added": false,
+  "public_beta_claim_enabled": false,
+  "production_readiness_claim_enabled": false,
+  "manual_review_completion_claimed": false,
+  "manual_review_status": "deferred_until_later_local_review",
+  "rate_limits_are_auth": false,
+  "required_route_posture_fields": [
+    "route_classification",
+    "side_effect_class",
+    "auth_posture",
+    "approval_posture",
+    "idempotency_posture",
+    "rate_limit_posture"
+  ],
+  "duplicate_replay_contract": {
+    "current_runtime_status": "blocked_until_route_owner_append_first_receipts",
+    "same_key_same_payload": "required_future_return_prior_receipt",
+    "same_key_conflicting_payload": "required_future_reject_conflict",
+    "evidence_requirement_ref": "receipt-backed append-first route-owner storage"
+  },
+  "current_mutating_route_count": 13,
+  "current_mutating_routes": [
+    {
+      "method": "POST",
+      "path": "/files/review/approvals/capture",
+      "operation_id": "post_files_review_approvals_capture",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "action_preview_proposal"
+    },
+    {
+      "method": "POST",
+      "path": "/integrations/mattermost/events/message",
+      "operation_id": "post_integrations_mattermost_events_message",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_group": null
+    },
+    {
+      "method": "POST",
+      "path": "/integrations/mattermost/roles/bind",
+      "operation_id": "post_integrations_mattermost_roles_bind",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_group": null
+    },
+    {
+      "method": "POST",
+      "path": "/integrations/mattermost/roles/unbind",
+      "operation_id": "post_integrations_mattermost_roles_unbind",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_group": null
+    },
+    {
+      "method": "POST",
+      "path": "/kernel/tasks/run",
+      "operation_id": "post_kernel_tasks_run",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_group": null
+    },
+    {
+      "method": "POST",
+      "path": "/task-decomposition/approval-requests",
+      "operation_id": "post_task_decomposition_approval_requests",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "task_decomposition"
+    },
+    {
+      "method": "POST",
+      "path": "/task-decomposition/approvals/grants/capture",
+      "operation_id": "post_task_decomposition_approvals_grants_capture",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "task_decomposition"
+    },
+    {
+      "method": "POST",
+      "path": "/task-decomposition/approvals/revoke",
+      "operation_id": "post_task_decomposition_approvals_revoke",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "task_decomposition"
+    },
+    {
+      "method": "POST",
+      "path": "/task-decomposition/capabilities/register",
+      "operation_id": "post_task_decomposition_capabilities_register",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "task_decomposition"
+    },
+    {
+      "method": "POST",
+      "path": "/task-decomposition/examples/init",
+      "operation_id": "post_task_decomposition_examples_init",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "task_decomposition"
+    },
+    {
+      "method": "POST",
+      "path": "/task-decomposition/plans/execute",
+      "operation_id": "post_task_decomposition_plans_execute",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "task_decomposition"
+    },
+    {
+      "method": "POST",
+      "path": "/task-decomposition/run",
+      "operation_id": "post_task_decomposition_run",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "task_decomposition"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "operation_id": "post_v1_chat_completions",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "model_chat"
+    }
+  ],
+  "founder_loop_mutation_families": [
+    {
+      "family_ref": "today_to_action_envelope",
+      "status": "planned",
+      "required_manifest_posture": [
+        "route_classification",
+        "side_effect_class",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_posture",
+        "rate_limit_posture"
+      ],
+      "duplicate_replay_required_before_runtime": true,
+      "receipt_requirement_ref": "future-action-envelope-receipt"
+    },
+    {
+      "family_ref": "action_decision",
+      "status": "blocked_until_route_owner_storage",
+      "required_manifest_posture": [
+        "route_classification",
+        "side_effect_class",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_posture",
+        "rate_limit_posture"
+      ],
+      "duplicate_replay_required_before_runtime": true,
+      "receipt_requirement_ref": "future-action-decision-receipt"
+    },
+    {
+      "family_ref": "chat_receipt_handoff",
+      "status": "planned",
+      "required_manifest_posture": [
+        "route_classification",
+        "side_effect_class",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_posture",
+        "rate_limit_posture"
+      ],
+      "duplicate_replay_required_before_runtime": true,
+      "receipt_requirement_ref": "future-chat-turn-or-handoff-receipt"
+    },
+    {
+      "family_ref": "memory_review_decision",
+      "status": "blocked_until_route_owner_storage",
+      "required_manifest_posture": [
+        "route_classification",
+        "side_effect_class",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_posture",
+        "rate_limit_posture"
+      ],
+      "duplicate_replay_required_before_runtime": true,
+      "receipt_requirement_ref": "future-memory-review-decision-receipt"
+    },
+    {
+      "family_ref": "evidence_timeline_mutation",
+      "status": "planned",
+      "required_manifest_posture": [
+        "route_classification",
+        "side_effect_class",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_posture",
+        "rate_limit_posture"
+      ],
+      "duplicate_replay_required_before_runtime": true,
+      "receipt_requirement_ref": "future-evidence-timeline-receipt"
+    },
+    {
+      "family_ref": "file_proposal_or_approval_capture",
+      "status": "blocked_until_route_owner_storage",
+      "required_manifest_posture": [
+        "route_classification",
+        "side_effect_class",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_posture",
+        "rate_limit_posture"
+      ],
+      "duplicate_replay_required_before_runtime": true,
+      "receipt_requirement_ref": "future-file-proposal-or-approval-receipt"
+    }
+  ],
+  "proof_lanes": [
+    "scripts/verify_fcc_v1_001_api_perimeter.py",
+    "tests/test_fcc_v1_001_api_perimeter.py",
+    "scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py",
+    "tests/test_api_boundary_enforcement.py",
+    "tests/test_api_manifest.py",
+    "tests/test_api_route_inventory_fixture.py"
+  ],
+  "blocked_capabilities": [
+    "durable_duplicate_replay_runtime",
+    "exactly_once_execution_claim",
+    "action_execution_without_exact_approval",
+    "memory_write_without_review_decision",
+    "connector_write",
+    "production_auth",
+    "public_beta_claim",
+    "production_readiness_claim"
+  ],
+  "evidence_refs": [
+    "docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md",
+    "docs/control_center/founder_loop_api_perimeter_manifest.json",
+    "docs/schemas/founder_loop_api_perimeter.schema.json",
+    "src/ultimate_ai_agent/api/manifest.py",
+    "src/ultimate_ai_agent/api/contracts.py",
+    "tests/fixtures/api_route_inventory_112.json"
+  ]
+}

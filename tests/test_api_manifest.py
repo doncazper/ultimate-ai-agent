@@ -15,6 +15,8 @@ from ultimate_ai_agent.api.manifest import (
 )
 from ultimate_ai_agent.api.openapi import forbidden_raw_provider_schema_fields, forbidden_raw_secret_schema_fields
 from scripts.verification.api_routes import (
+    EXPECTED_APPROVAL_POSTURE_SUMMARY,
+    EXPECTED_AUTH_POSTURE_SUMMARY,
     EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY,
     EXPECTED_RATE_LIMIT_POSTURE_SUMMARY,
 )
@@ -101,6 +103,8 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         manifest["route_classification_vocabulary"]
     )
     assert sum(manifest["route_classification_summary"].values()) == manifest["route_count"]
+    assert manifest["route_auth_posture_summary"] == EXPECTED_AUTH_POSTURE_SUMMARY
+    assert manifest["route_approval_posture_summary"] == EXPECTED_APPROVAL_POSTURE_SUMMARY
     assert manifest["idempotency_audit_policy_ref"] == "idempotency:p1-084:mutating-routes:v1"
     assert manifest["route_idempotency_posture_summary"] == EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY
     assert manifest["rate_limit_policy_ref"] == "rate-limit:p1-085:targeted-local:v1"
@@ -112,6 +116,24 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert all(route["classification_reason"] for route in manifest["routes"])
     assert all(
         route["protected_route"] is (route["route_classification"] != "public_metadata")
+        for route in manifest["routes"]
+    )
+    assert all(
+        route["auth_posture"]
+        == (
+            "public_metadata_no_auth"
+            if route["route_classification"] == "public_metadata"
+            else "protected_local_bearer_required"
+        )
+        for route in manifest["routes"]
+    )
+    assert all(
+        route["approval_posture"]
+        == (
+            "required_before_mutation_authority"
+            if route["route_classification"] == "mutating_requires_authority"
+            else "not_required_for_route_classification"
+        )
         for route in manifest["routes"]
     )
     assert all(
@@ -238,6 +260,8 @@ def test_api_manifest_static_cache_policy_excludes_authority_and_private_state()
         API_MANIFEST_CACHE_INVALIDATION_RULES
     )
     assert "route_classification_logic_change" in API_MANIFEST_CACHE_INVALIDATION_RULES
+    assert "route_auth_posture_logic_change" in API_MANIFEST_CACHE_INVALIDATION_RULES
+    assert "route_approval_posture_logic_change" in API_MANIFEST_CACHE_INVALIDATION_RULES
     assert policy["authority_decisions_cached"] is False
     assert policy["policy_decisions_cached"] is False
     assert policy["approval_decisions_cached"] is False

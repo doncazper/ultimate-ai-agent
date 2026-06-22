@@ -61,15 +61,19 @@ FCC-V1-000 completes the Control Center release surface manifest with route
 status truth, schema, verifier, focused tests, and conservative promotion
 rules for visible Control Center routes without adding backend routes or
 runtime authority.
+FCC-V1-001 completes API perimeter contract/verifier coverage for real
+mutations with manifest-visible auth, approval, idempotency, and rate-limit
+posture. Duplicate replay runtime remains blocked until route-owner receipt
+storage exists.
 No public beta, distribution, production readiness, or production authority
 claim is granted.
 The planned Founder Loop V1 productization conveyor is now recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
-`FCC-V1-007`. It carries the detailed goals for the completed release surface
-manifest, API perimeter for real mutations, Action Inbox backend decisions, first
+`FCC-V1-007`. It carries the detailed goals for completed release surface
+manifest and API perimeter coverage, then Action Inbox backend decisions, first
 Today-to-Action vertical loop, Chat durable receipts and handoff, Memory Review
 accept/correct/reject backend decisions, Evidence Timeline productization, and
-promotion/proof lane. This is planning and task-shaping only; it grants no new
+promotion/proof lane. This is contract and task-shaping only; it grants no new
 routes, controls, runtime calls, connector writes, memory writes, context
 injection, beta, distribution, or production authority.
 Already-pushed tags remain immutable historical internal milestone tags. Beta

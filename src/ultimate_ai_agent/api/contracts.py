@@ -18,6 +18,16 @@ class ApiRouteClassification(str, Enum):
     mutating_requires_authority = "mutating_requires_authority"
 
 
+class ApiRouteAuthPosture(str, Enum):
+    public_metadata_no_auth = "public_metadata_no_auth"
+    protected_local_bearer_required = "protected_local_bearer_required"
+
+
+class ApiRouteApprovalPosture(str, Enum):
+    not_required_for_route_classification = "not_required_for_route_classification"
+    required_before_mutation_authority = "required_before_mutation_authority"
+
+
 class ApiRouteIdempotencyPosture(str, Enum):
     not_required_for_route_classification = "not_required_for_route_classification"
     required_before_mutation_authority = "required_before_mutation_authority"
@@ -38,6 +48,8 @@ class ApiRouteInventoryItem(BaseModel):
     side_effect_class: ApiRouteSideEffectClass
     route_classification: ApiRouteClassification
     protected_route: bool
+    auth_posture: ApiRouteAuthPosture
+    approval_posture: ApiRouteApprovalPosture
     classification_reason: str = Field(..., min_length=1)
     idempotency_required: bool
     idempotency_posture: ApiRouteIdempotencyPosture
@@ -64,6 +76,8 @@ class ApiManifest(BaseModel):
     routes: List[ApiRouteInventoryItem] = Field(default_factory=list)
     route_classification_vocabulary: List[ApiRouteClassification] = Field(default_factory=list)
     route_classification_summary: dict[str, int] = Field(default_factory=dict)
+    route_auth_posture_summary: dict[str, int] = Field(default_factory=dict)
+    route_approval_posture_summary: dict[str, int] = Field(default_factory=dict)
     idempotency_audit_policy_ref: Optional[str] = None
     route_idempotency_posture_summary: dict[str, int] = Field(default_factory=dict)
     rate_limit_policy_ref: Optional[str] = None

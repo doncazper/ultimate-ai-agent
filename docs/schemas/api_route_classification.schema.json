@@ -8,6 +8,8 @@
     "route_count",
     "route_classification_vocabulary",
     "route_classification_summary",
+    "route_auth_posture_summary",
+    "route_approval_posture_summary",
     "route_idempotency_posture_summary",
     "idempotency_audit_policy_ref",
     "route_rate_limit_posture_summary",
@@ -17,7 +19,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "uaa-api-route-inventory.v3"
+      "const": "uaa-api-route-inventory.v4"
     },
     "route_count": {
       "const": 112
@@ -61,6 +63,42 @@
         "mutating_requires_authority": {
           "type": "integer",
           "minimum": 0
+        }
+      }
+    },
+    "route_auth_posture_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "public_metadata_no_auth",
+        "protected_local_bearer_required"
+      ],
+      "properties": {
+        "public_metadata_no_auth": {
+          "type": "integer",
+          "const": 3
+        },
+        "protected_local_bearer_required": {
+          "type": "integer",
+          "const": 109
+        }
+      }
+    },
+    "route_approval_posture_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "not_required_for_route_classification",
+        "required_before_mutation_authority"
+      ],
+      "properties": {
+        "not_required_for_route_classification": {
+          "type": "integer",
+          "const": 99
+        },
+        "required_before_mutation_authority": {
+          "type": "integer",
+          "const": 13
         }
       }
     },
@@ -118,6 +156,8 @@
           "operation_id",
           "path",
           "route_classification",
+          "auth_posture",
+          "approval_posture",
           "idempotency_required",
           "idempotency_posture",
           "idempotency_policy_ref",
@@ -167,6 +207,18 @@
               "local_readonly",
               "local_sensitive",
               "mutating_requires_authority"
+            ]
+          },
+          "auth_posture": {
+            "enum": [
+              "public_metadata_no_auth",
+              "protected_local_bearer_required"
+            ]
+          },
+          "approval_posture": {
+            "enum": [
+              "not_required_for_route_classification",
+              "required_before_mutation_authority"
             ]
           },
           "idempotency_required": {

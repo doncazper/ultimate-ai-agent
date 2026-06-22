@@ -20,6 +20,9 @@ The verifier and focused tests enforce that:
   `auth:p1-083:local-protected-routes:v1` local bearer gate.
 - Mutating routes keep exact authority posture, idempotency requirement, and
   `idempotency:p1-084:mutating-routes:v1`.
+- FCC-V1-001 extends the same enforcement lane so every route exposes
+  `auth_posture` and `approval_posture` in `/api/manifest` and the frozen
+  route inventory.
 - Targeted expensive or sensitive routes keep
   `rate-limit:p1-085:targeted-local:v1` and valid rate-limit groups.
 - Security headers apply to success and boundary-failure responses.

@@ -3,6 +3,8 @@ from __future__ import annotations
 from scripts import verify_uaa_p1_086_api_boundary_enforcement_tests as p1_086
 from scripts.verification import api_lane
 from scripts.verification.api_routes import (
+    EXPECTED_APPROVAL_POSTURE_SUMMARY,
+    EXPECTED_AUTH_POSTURE_SUMMARY,
     EXPECTED_MUTATING_ROUTES,
     EXPECTED_RATE_LIMIT_GROUPS,
     projected_routes,
@@ -60,12 +62,24 @@ def test_protected_mutating_and_targeted_routes_keep_enforcement_posture() -> No
         assert route["protected_route"] is (route["route_classification"] != "public_metadata")
         assert route["requires_auth_future"] is True
         assert route["blocked_from_production"] is True
+        assert route["auth_posture"] == (
+            "public_metadata_no_auth"
+            if route["route_classification"] == "public_metadata"
+            else "protected_local_bearer_required"
+        )
+        assert route["approval_posture"] == (
+            "required_before_mutation_authority"
+            if route["route_classification"] == "mutating_requires_authority"
+            else "not_required_for_route_classification"
+        )
         if route["route_classification"] == "mutating_requires_authority":
             assert route["idempotency_required"] is True
             assert route["idempotency_policy_ref"] == API_IDEMPOTENCY_AUDIT_POLICY_REF
             assert "authority" in route["classification_reason"]
         if route["rate_limit_targeted"]:
             assert route["rate_limit_policy_ref"] == API_TARGETED_RATE_LIMIT_POLICY_REF
+    assert context.manifest["route_auth_posture_summary"] == EXPECTED_AUTH_POSTURE_SUMMARY
+    assert context.manifest["route_approval_posture_summary"] == EXPECTED_APPROVAL_POSTURE_SUMMARY
 
 
 def test_route_status_manifest_matches_manifest_route_posture() -> None:

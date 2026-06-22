@@ -19,6 +19,7 @@ Contract rules:
 - API validation errors must be sanitized and must not echo raw invalid input
   values or secret-like field values.
 - Route metadata must preserve explicit side-effect classes.
+- Route metadata must preserve explicit auth posture and approval posture.
 - UAA-P1-080 route classification classifies every route as one of
   `public_metadata`, `local_readonly`, `local_sensitive`, or
   `mutating_requires_authority`. This classification vocabulary is now an
@@ -83,6 +84,11 @@ API boundary hardening:
   inventory alignment across classification, auth, approval, idempotency,
   header, CORS, and rate-limit posture. This does not add routes, middleware,
   runtime authority, public beta, or production authority.
+- FCC-V1-001 adds manifest-visible `auth_posture` and `approval_posture`
+  fields plus summary counts for every route, updates the frozen route
+  inventory fixture to `uaa-api-route-inventory.v4`, and adds a Founder Loop
+  mutation perimeter verifier. Duplicate replay is a future route-owner
+  receipt-storage requirement, not current runtime replay.
 
 Forbidden by the current API boundary:
 
@@ -106,6 +112,7 @@ PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_boundary_enforcement.py
 .venv/bin/python scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py
+.venv/bin/python scripts/verify_fcc_v1_001_api_perimeter.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_governed_web_evidence.py
 ```
 

@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/founder_loop_api_perimeter.schema.json",
+  "title": "FCC-V1-001 Founder Loop API perimeter manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "milestone_ref",
+    "api_manifest_ref",
+    "openapi_contract_ref",
+    "route_inventory_ref",
+    "release_surface_manifest_ref",
+    "runtime_authority_added",
+    "routes_added",
+    "durable_replay_runtime_added",
+    "public_beta_claim_enabled",
+    "production_readiness_claim_enabled",
+    "manual_review_completion_claimed",
+    "manual_review_status",
+    "rate_limits_are_auth",
+    "required_route_posture_fields",
+    "duplicate_replay_contract",
+    "current_mutating_route_count",
+    "current_mutating_routes",
+    "founder_loop_mutation_families",
+    "proof_lanes",
+    "blocked_capabilities",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa-founder-loop-api-perimeter.v1"
+    },
+    "status": {
+      "const": "implemented_contract_and_verifier_no_runtime_authority"
+    },
+    "milestone_ref": {
+      "const": "FCC-V1-001"
+    },
+    "api_manifest_ref": {
+      "const": "/api/manifest"
+    },
+    "openapi_contract_ref": {
+      "const": "docs/api/openapi_contract.md"
+    },
+    "route_inventory_ref": {
+      "const": "tests/fixtures/api_route_inventory_112.json"
+    },
+    "release_surface_manifest_ref": {
+      "const": "docs/control_center/release_surface_manifest.json"
+    },
+    "runtime_authority_added": {
+      "const": false
+    },
+    "routes_added": {
+      "const": false
+    },
+    "durable_replay_runtime_added": {
+      "const": false
+    },
+    "public_beta_claim_enabled": {
+      "const": false
+    },
+    "production_readiness_claim_enabled": {
+      "const": false
+    },
+    "manual_review_completion_claimed": {
+      "const": false
+    },
+    "manual_review_status": {
+      "const": "deferred_until_later_local_review"
+    },
+    "rate_limits_are_auth": {
+      "const": false
+    },
+    "required_route_posture_fields": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "route_classification",
+          "side_effect_class",
+          "auth_posture",
+          "approval_posture",
+          "idempotency_posture",
+          "rate_limit_posture"
+        ]
+      },
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true
+    },
+    "duplicate_replay_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_runtime_status",
+        "same_key_same_payload",
+        "same_key_conflicting_payload",
+        "evidence_requirement_ref"
+      ],
+      "properties": {
+        "current_runtime_status": {
+          "const": "blocked_until_route_owner_append_first_receipts"
+        },
+        "same_key_same_payload": {
+          "const": "required_future_return_prior_receipt"
+        },
+        "same_key_conflicting_payload": {
+          "const": "required_future_reject_conflict"
+        },
+        "evidence_requirement_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "current_mutating_route_count": {
+      "const": 13
+    },
+    "current_mutating_routes": {
+      "type": "array",
+      "minItems": 13,
+      "maxItems": 13,
+      "items": {
+        "$ref": "#/$defs/mutating_route"
+      }
+    },
+    "founder_loop_mutation_families": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/mutation_family"
+      },
+      "uniqueItems": true
+    },
+    "proof_lanes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "scripts/verify_fcc_v1_001_api_perimeter.py",
+          "tests/test_fcc_v1_001_api_perimeter.py",
+          "scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py",
+          "tests/test_api_boundary_enforcement.py",
+          "tests/test_api_manifest.py",
+          "tests/test_api_route_inventory_fixture.py"
+        ]
+      },
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true
+    },
+    "blocked_capabilities": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "durable_duplicate_replay_runtime",
+          "exactly_once_execution_claim",
+          "action_execution_without_exact_approval",
+          "memory_write_without_review_decision",
+          "connector_write",
+          "production_auth",
+          "public_beta_claim",
+          "production_readiness_claim"
+        ]
+      },
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md",
+          "docs/control_center/founder_loop_api_perimeter_manifest.json",
+          "docs/schemas/founder_loop_api_perimeter.schema.json",
+          "src/ultimate_ai_agent/api/manifest.py",
+          "src/ultimate_ai_agent/api/contracts.py",
+          "tests/fixtures/api_route_inventory_112.json"
+        ]
+      },
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "mutating_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "path",
+        "operation_id",
+        "side_effect_class",
+        "route_classification",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_posture",
+        "idempotency_policy_ref",
+        "rate_limit_posture",
+        "rate_limit_group"
+      ],
+      "properties": {
+        "method": {
+          "const": "POST"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "side_effect_class": {
+          "const": "local_dev_workspace_only"
+        },
+        "route_classification": {
+          "const": "mutating_requires_authority"
+        },
+        "auth_posture": {
+          "const": "protected_local_bearer_required"
+        },
+        "approval_posture": {
+          "const": "required_before_mutation_authority"
+        },
+        "idempotency_posture": {
+          "const": "required_before_mutation_authority"
+        },
+        "idempotency_policy_ref": {
+          "const": "idempotency:p1-084:mutating-routes:v1"
+        },
+        "rate_limit_posture": {
+          "enum": [
+            "targeted_local_fixed_window",
+            "not_targeted_for_route"
+          ]
+        },
+        "rate_limit_group": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "mutation_family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family_ref",
+        "status",
+        "required_manifest_posture",
+        "duplicate_replay_required_before_runtime",
+        "receipt_requirement_ref"
+      ],
+      "properties": {
+        "family_ref": {
+          "enum": [
+            "today_to_action_envelope",
+            "action_decision",
+            "chat_receipt_handoff",
+            "memory_review_decision",
+            "evidence_timeline_mutation",
+            "file_proposal_or_approval_capture"
+          ]
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "blocked_until_route_owner_storage"
+          ]
+        },
+        "required_manifest_posture": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "route_classification",
+              "side_effect_class",
+              "auth_posture",
+              "approval_posture",
+              "idempotency_posture",
+              "rate_limit_posture"
+            ]
+          },
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "duplicate_replay_required_before_runtime": {
+          "const": true
+        },
+        "receipt_requirement_ref": {
+          "enum": [
+            "future-action-envelope-receipt",
+            "future-action-decision-receipt",
+            "future-chat-turn-or-handoff-receipt",
+            "future-memory-review-decision-receipt",
+            "future-evidence-timeline-receipt",
+            "future-file-proposal-or-approval-receipt"
+          ]
+        }
+      }
+    }
+  }
+}

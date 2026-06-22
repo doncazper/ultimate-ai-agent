@@ -15,9 +15,9 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **FCC-V1-000 Complete: Control Center Release Surface Manifest; FCC-V1-001 Next: API Perimeter For Real Mutations; UAA-P1-087.2 Private UI Testing Deferred** |
+| Current lane | **FCC-V1-001 Complete: API Perimeter For Real Mutations; FCC-V1-002 Next: Action Inbox Backend State Machine; UAA-P1-087.2 Private UI Testing Deferred** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
-| Founder Loop V1 conveyor | **FCC-V1-000 complete; FCC-V1-001 through FCC-V1-007 planned: API perimeter, Action decisions, vertical loop, Chat receipts/handoff, Memory decisions, Evidence productization, and proof-lane promotion** |
+| Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-001 complete; FCC-V1-002 through FCC-V1-007 planned: Action decisions, vertical loop, Chat receipts/handoff, Memory decisions, Evidence productization, and proof-lane promotion** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | API boundary | FastAPI route contract with **112** OpenAPI paths |
@@ -122,9 +122,11 @@ FCC-V1-000 Control Center Release Surface Manifest is complete with a
 route-status schema, manifest, verifier, focused tests, and conservative
 `ship`/`partial`/`blocked`/`experimental` truth for every visible Control
 Center route. It adds no backend route or runtime authority and does not answer
-deferred UAA-P1-087.2 manual-review questions. The conveyor now advances to
-FCC-V1-001 API Perimeter For Real Mutations. These planning entries grant no
-new authority here.
+deferred UAA-P1-087.2 manual-review questions. FCC-V1-001 API Perimeter For
+Real Mutations is complete as contract and verifier coverage, with duplicate
+replay runtime still blocked until route-owner receipt storage exists. The
+conveyor now advances to FCC-V1-002 Action Inbox Backend State Machine. These
+planning entries grant no new authority here.
 The planned Founder Loop V1 productization conveyor is recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`: completed Control Center release surface manifest, API perimeter

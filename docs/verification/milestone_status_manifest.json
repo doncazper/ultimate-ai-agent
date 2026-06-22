@@ -4,7 +4,7 @@
   "api_route_inventory": {
     "fixture_ref": "tests/fixtures/api_route_inventory_112.json",
     "route_count": 112,
-    "schema_version": "uaa-api-route-inventory.v3"
+    "schema_version": "uaa-api-route-inventory.v4"
   },
   "milestones": [
     {
@@ -132,6 +132,21 @@
         "docs/schemas/control_center_release_surface.schema.json",
         "tests/test_control_center_release_surface_manifest.py",
         "apps/control-center/src/routes.tsx"
+      ]
+    },
+    {
+      "id": "FCC-V1-001",
+      "status": "implemented",
+      "goal": "Founder Loop mutation routes are gated by API manifest auth, approval, idempotency, rate-limit, route-inventory, and verifier posture before real Action, Memory, or Chat mutations land; duplicate replay runtime remains blocked until route-owner receipt storage exists.",
+      "proof_refs": [
+        "scripts/verify_fcc_v1_001_api_perimeter.py",
+        "docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md",
+        "docs/control_center/founder_loop_api_perimeter_manifest.json",
+        "docs/schemas/founder_loop_api_perimeter.schema.json",
+        "tests/test_fcc_v1_001_api_perimeter.py",
+        "tests/test_api_manifest.py",
+        "tests/test_api_boundary_enforcement.py",
+        "tests/fixtures/api_route_inventory_112.json"
       ]
     }
   ]

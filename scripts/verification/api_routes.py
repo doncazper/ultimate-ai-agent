@@ -8,8 +8,16 @@ from .repo import load_json
 
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_112.json"
-ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v3"
+ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
 EXPECTED_ROUTE_COUNT = 112
+EXPECTED_AUTH_POSTURE_SUMMARY = {
+    "public_metadata_no_auth": 3,
+    "protected_local_bearer_required": 109,
+}
+EXPECTED_APPROVAL_POSTURE_SUMMARY = {
+    "not_required_for_route_classification": 99,
+    "required_before_mutation_authority": 13,
+}
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 99,
     "required_before_mutation_authority": 13,
@@ -47,6 +55,8 @@ ROUTE_PROJECTION_FIELDS = (
     "summary",
     "side_effect_class",
     "route_classification",
+    "auth_posture",
+    "approval_posture",
     "idempotency_required",
     "idempotency_posture",
     "idempotency_policy_ref",
@@ -104,6 +114,8 @@ def append_route_fixture_mismatches(
     for key in [
         "route_classification_vocabulary",
         "route_classification_summary",
+        "route_auth_posture_summary",
+        "route_approval_posture_summary",
         "route_idempotency_posture_summary",
         "idempotency_audit_policy_ref",
         "route_rate_limit_posture_summary",

@@ -6,6 +6,7 @@ from ultimate_ai_agent.api.route_registration import register_router_once
 from scripts.verification import api_lane
 from scripts.verification.api_routes import (
     EXPECTED_ROUTE_COUNT,
+    ROUTE_FIXTURE_SCHEMA_VERSION,
     projected_routes,
     route_fixture,
 )
@@ -15,10 +16,12 @@ def test_frozen_api_route_inventory_matches_current_contract() -> None:
     fixture = route_fixture()
     manifest = api_lane.default_api_verifier_context().manifest
 
-    assert fixture["schema_version"] == "uaa-api-route-inventory.v3"
+    assert fixture["schema_version"] == ROUTE_FIXTURE_SCHEMA_VERSION
     assert fixture["route_count"] == EXPECTED_ROUTE_COUNT
     assert fixture["route_classification_vocabulary"] == manifest["route_classification_vocabulary"]
     assert fixture["route_classification_summary"] == manifest["route_classification_summary"]
+    assert fixture["route_auth_posture_summary"] == manifest["route_auth_posture_summary"]
+    assert fixture["route_approval_posture_summary"] == manifest["route_approval_posture_summary"]
     assert fixture["route_idempotency_posture_summary"] == manifest["route_idempotency_posture_summary"]
     assert fixture["idempotency_audit_policy_ref"] == manifest["idempotency_audit_policy_ref"]
     assert fixture["route_rate_limit_posture_summary"] == manifest["route_rate_limit_posture_summary"]

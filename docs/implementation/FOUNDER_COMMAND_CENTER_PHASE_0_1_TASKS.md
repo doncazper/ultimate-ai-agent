@@ -1235,7 +1235,10 @@ PR size: one docs PR, ideally after Tasks 1-4.
 
 Type: staged full-stack productization with docs/test/manifest gates first
 
-Status: FCC-V1-000 implemented; FCC-V1-001 through FCC-V1-007 planned.
+Status: FCC-V1-000 through FCC-V1-001 implemented; FCC-V1-002 through
+FCC-V1-007 planned. FCC-V1-001 is contract/verifier coverage for the API
+perimeter; duplicate replay runtime remains blocked until route-owner receipt
+storage exists.
 
 New authority: no authority from this planning entry. Each implementation slice
 must separately scope its route, storage, approval, idempotency, evidence,

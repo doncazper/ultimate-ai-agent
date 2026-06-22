@@ -64,10 +64,10 @@ V1 complete, and marks UAA-P1-080 API Route Classification And
 Public/Protected Inventory complete, and marks UAA-P1-081 Centralized FastAPI
 Security Headers complete, and marks UAA-P1-082 Explicit Loopback CORS
 Allowlist complete, and marks UAA-P1-083 Local Bearer Or Session Gate For
-Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. UAA-P1-087.2c is complete for the unanswered manual review scaffold. FCC-V1-000 is complete for Control Center release-surface truth, manifest/schema, verifier, and focused tests. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are deferred until more Founder Loop implementation exists.
+Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. UAA-P1-087.2c is complete for the unanswered manual review scaffold. FCC-V1-000 is complete for Control Center release-surface truth, manifest/schema, verifier, and focused tests. FCC-V1-001 is complete for API perimeter contract/verifier coverage with duplicate replay runtime still blocked until route-owner receipt storage exists. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are deferred until more Founder Loop implementation exists.
 The planned FCC-V1 Founder Loop V1 conveyor keeps the productization lane
 running through `FCC-V1-000` through `FCC-V1-007`: completed release surface
-manifest, API perimeter for real mutations, Action Inbox backend state machine, first
+manifest and API perimeter for real mutations, Action Inbox backend state machine, first
 Today-to-Action vertical loop, Chat durable receipt and handoff, Memory Review
 accept/correct/reject backend decisions, Evidence Timeline productization, and
 promotion/proof lanes. Detailed goals, routes, model fields, storage
@@ -103,7 +103,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-001 API Perimeter For Real Mutations.
+No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-001 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-002 Action Inbox Backend State Machine.
 ```
 
 ## Ready Next
@@ -290,9 +290,12 @@ refs, and owner. No route is promoted to `ship` by this milestone, and no
 backend route or runtime authority is added.
 
 FCC-V1-001 API Perimeter For Real Mutations
-Goal: require idempotency, route classification, auth posture, approval
-posture, rate-limit posture, tests, and manifest visibility before any new
-Founder Loop mutation lands.
+Goal met: `/api/manifest`, the frozen API route inventory, the Founder Loop
+API perimeter manifest, and verifier coverage require route classification,
+side-effect class, auth posture, approval posture, idempotency posture,
+rate-limit posture, tests, and manifest visibility before any new Founder Loop
+mutation lands. Duplicate replay behavior is defined as a future route-owner
+receipt-storage contract and is not implemented as runtime replay.
 
 FCC-V1-002 Action Inbox Backend State Machine
 Goal: make approve, edit, reject, and defer backend-owned Action decisions

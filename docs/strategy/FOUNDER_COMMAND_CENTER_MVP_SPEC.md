@@ -52,7 +52,10 @@ planning/source-only scaffold are deferred until more Founder Loop
 implementation exists. FCC-V1-000 Control Center Release Surface Manifest is
 complete for release-status truth, manifest/schema, verifier, and focused
 tests without backend route or runtime authority changes. FCC-V1-001 API
-Perimeter For Real Mutations is the next implementation lane before
+Perimeter For Real Mutations is complete as contract/verifier coverage with
+duplicate replay runtime still blocked until route-owner receipt storage
+exists. FCC-V1-002 Action Inbox Backend State Machine is the next
+implementation lane before
 P2/provider, packaging, public distribution, or commercialization expansion.
 
 Founder Loop V1 productization is now tracked as `FCC-V1-000` through

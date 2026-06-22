@@ -18,6 +18,8 @@ Each route declares:
 - `validation_only`
 - `side_effect_class`
 - `route_classification`
+- `auth_posture`
+- `approval_posture`
 - `idempotency_required`
 - `idempotency_posture`
 - `idempotency_policy_ref`
@@ -33,7 +35,8 @@ UAA-P1-080 classification adds a public/protected route inventory view using:
 
 This vocabulary is implemented in `/api/manifest` and the frozen route
 inventory fixture. Current route metadata also exposes side-effect classes,
-idempotency posture, auth posture, and blocked-from-production posture.
+auth posture, approval posture, idempotency posture, rate-limit posture, and
+blocked-from-production posture.
 
 Current route classification summary:
 
@@ -92,6 +95,14 @@ authority, or a public beta claim.
 UAA-P1-086 implements route inventory enforcement checks across OpenAPI,
 `/api/manifest`, the frozen fixture, and the Control Center route-status
 manifest. These checks add no new runtime authority.
+
+FCC-V1-001 updates the frozen route inventory fixture to
+`uaa-api-route-inventory.v4` and makes `auth_posture` plus `approval_posture`
+manifest-visible for every route. Mutating routes must expose local bearer
+auth posture, approval-before-mutation posture, idempotency posture, and
+rate-limit posture before real Founder Loop mutation routes can land.
+Duplicate replay behavior is a required future route-owner contract and is not
+implemented by the current API boundary.
 
 ## Current route groups
 

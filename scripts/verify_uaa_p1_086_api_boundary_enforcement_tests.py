@@ -27,6 +27,8 @@ from scripts.verification.api_lane import (  # noqa: E402
     default_api_verifier_context,
 )
 from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_APPROVAL_POSTURE_SUMMARY,
+    EXPECTED_AUTH_POSTURE_SUMMARY,
     EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY,
     EXPECTED_MUTATING_ROUTES,
     EXPECTED_RATE_LIMIT_GROUPS,
@@ -140,6 +142,10 @@ def _append_manifest_route_posture_failures(
     context: ApiVerifierContext,
 ) -> None:
     manifest = context.manifest
+    if manifest.get("route_auth_posture_summary") != EXPECTED_AUTH_POSTURE_SUMMARY:
+        failures.append("/api/manifest auth posture summary drifted")
+    if manifest.get("route_approval_posture_summary") != EXPECTED_APPROVAL_POSTURE_SUMMARY:
+        failures.append("/api/manifest approval posture summary drifted")
     if manifest.get("route_idempotency_posture_summary") != EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY:
         failures.append("/api/manifest idempotency posture summary drifted")
     if manifest.get("route_rate_limit_posture_summary") != EXPECTED_RATE_LIMIT_POSTURE_SUMMARY:
@@ -192,6 +198,20 @@ def _append_manifest_route_posture_failures(
         expected_protected = route["route_classification"] != "public_metadata"
         if route["protected_route"] is not expected_protected:
             failures.append(f"{key[0]} {key[1]} protected-route posture drifted")
+        expected_auth_posture = (
+            "public_metadata_no_auth"
+            if route["route_classification"] == "public_metadata"
+            else "protected_local_bearer_required"
+        )
+        if route.get("auth_posture") != expected_auth_posture:
+            failures.append(f"{key[0]} {key[1]} auth posture drifted")
+        expected_approval_posture = (
+            "required_before_mutation_authority"
+            if route["route_classification"] == "mutating_requires_authority"
+            else "not_required_for_route_classification"
+        )
+        if route.get("approval_posture") != expected_approval_posture:
+            failures.append(f"{key[0]} {key[1]} approval posture drifted")
         if route["requires_auth_future"] is not True:
             failures.append(f"{key[0]} {key[1]} requires_auth_future drifted")
         if route["blocked_from_production"] is not True:
