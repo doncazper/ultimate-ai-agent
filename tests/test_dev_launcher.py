@@ -239,9 +239,9 @@ def test_macos_launcher_content_is_relative_and_safe() -> None:
 
     content = launcher.render_macos_launcher()
 
-    assert "./scripts/dev/uaa start" in content
-    assert "./scripts/dev/uaa ui" in content
+    assert "./scripts/dev/uaa trial-boot" in content
     assert "./scripts/dev/uaa status" in content
+    assert "./scripts/dev/uaa openwebui status" in content
     assert "/Users/" not in content
     assert "sudo" not in content
     assert "launchctl" not in content
@@ -320,13 +320,126 @@ def test_launcher_local_model_inspect_reports_missing_ref_without_crashing(
     assert data["reason_code"] == "model_ref_not_found"
 
 
-def test_launch_ui_parser_defaults_to_designated_openwebui() -> None:
+def test_launch_ui_parser_defaults_to_control_center() -> None:
     launcher = load_launcher()
 
     args = launcher.parse_args(["launch-ui"])
 
     assert args.command == "launch-ui"
-    assert args.target == "openwebui"
+    assert args.target == "control-center"
+
+
+def test_trial_boot_parser_is_registered() -> None:
+    launcher = load_launcher()
+
+    args = launcher.parse_args(["trial-boot"])
+
+    assert args.command == "trial-boot"
+
+
+def test_trial_boot_opens_control_center_before_secondary_openwebui(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    launcher = load_launcher()
+    launched: list[str] = []
+
+    def fake_launch_ui(root: Path, target: str = launcher.DESIGNATED_UI_TARGET) -> int:
+        launched.append(target)
+        return 0
+
+    monkeypatch.setattr(launcher, "command_launch_ui", fake_launch_ui)
+    monkeypatch.setattr(launcher, "command_status", lambda root: 0)
+    monkeypatch.setattr(launcher, "command_openwebui_status", lambda root: 0)
+
+    code = launcher.command_trial_boot(ROOT)
+    output = capsys.readouterr().out
+
+    assert code == 0
+    assert launched == ["control-center", "openwebui"]
+    assert "Control Center is the first-party product surface" in output
+    assert "secondary local shell" in output
+
+
+def test_trial_boot_reports_blocked_secondary_without_installing(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    launcher = load_launcher()
+
+    def fake_launch_ui(root: Path, target: str = launcher.DESIGNATED_UI_TARGET) -> int:
+        return 1 if target == "openwebui" else 0
+
+    monkeypatch.setattr(launcher, "command_launch_ui", fake_launch_ui)
+    monkeypatch.setattr(launcher, "command_status", lambda root: 0)
+    monkeypatch.setattr(launcher, "command_openwebui_status", lambda root: 0)
+
+    code = launcher.command_trial_boot(ROOT)
+    output = capsys.readouterr().out
+
+    assert code == 1
+    assert "Secondary OpenWebUI shell is blocked or degraded" in output
+    assert "primary_ready_secondary_blocked" in output
+    assert "No packages were installed and no images were pulled" in output
+
+
+def test_service_identity_requires_uaa_backend_manifest_and_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    service = launcher.service_config(ROOT, "backend")
+    statuses = {
+        f"{launcher.BACKEND_URL}/api/manifest": 200,
+        f"{launcher.BACKEND_URL}/version": 200,
+    }
+
+    monkeypatch.setattr(launcher, "url_status", lambda url, **kwargs: statuses.get(url))
+
+    assert launcher.service_identity_ready(service) is True
+    statuses[f"{launcher.BACKEND_URL}/api/manifest"] = 404
+    assert launcher.service_identity_ready(service) is False
+
+
+def test_service_identity_requires_control_center_html(monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = load_launcher()
+    service = launcher.service_config(ROOT, "frontend")
+
+    monkeypatch.setattr(
+        launcher,
+        "url_text",
+        lambda url, **kwargs: (200, "<title>Ultimate AI Agent Control Center</title>"),
+    )
+    assert launcher.service_identity_ready(service) is True
+
+    monkeypatch.setattr(launcher, "url_text", lambda url, **kwargs: (200, "<title>Other</title>"))
+    assert launcher.service_identity_ready(service) is False
+
+
+def test_start_service_blocks_unverified_port_occupant(monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = load_launcher()
+    service = launcher.service_config(ROOT, "backend")
+
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda pid_path: "missing")
+    monkeypatch.setattr(launcher, "is_port_open", lambda host, port: True)
+    monkeypatch.setattr(launcher, "service_identity_ready", lambda service: False)
+
+    result = launcher.start_service(ROOT, service)
+
+    assert "backend: blocked" in result
+    assert "occupied by an unverified local process" in result
+
+
+def test_start_service_reuses_verified_uaa_port_occupant(monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = load_launcher()
+    service = launcher.service_config(ROOT, "backend")
+
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda pid_path: "missing")
+    monkeypatch.setattr(launcher, "is_port_open", lambda host, port: True)
+    monkeypatch.setattr(launcher, "service_identity_ready", lambda service: True)
+
+    result = launcher.start_service(ROOT, service)
+
+    assert "already UAA-ready" in result
 
 
 def test_launch_ui_openwebui_refuses_missing_image(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -397,6 +510,92 @@ def test_shell_wrapper_exists_and_is_executable() -> None:
     assert WRAPPER_PATH.exists()
     mode = WRAPPER_PATH.stat().st_mode
     assert mode & stat.S_IXUSR
+
+
+def test_status_includes_openwebui_and_safe_log_refs(capsys: pytest.CaptureFixture[str]) -> None:
+    launcher = load_launcher()
+
+    code = launcher.command_status(ROOT)
+    output = capsys.readouterr().out
+
+    assert code == 0
+    assert "backend:" in output
+    assert "frontend:" in output
+    assert "openwebui:" in output
+    assert "log_ref=launcher-log:backend" in output
+    assert "log_ref=launcher-log:frontend" in output
+    assert "log_ref=launcher-log:openwebui" in output
+
+
+def test_stop_includes_openwebui_before_frontend_and_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = load_launcher()
+    stopped: list[str] = []
+
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(launcher, "command_openwebui_stop", lambda root: stopped.append("openwebui") or 0)
+    monkeypatch.setattr(
+        launcher,
+        "stop_service",
+        lambda service, root=None: stopped.append(service.name) or f"{service.name}: stopped",
+    )
+
+    code = launcher.command_stop(ROOT)
+
+    assert code == 0
+    assert stopped == ["openwebui", "frontend", "backend"]
+
+
+def test_openwebui_stop_removes_only_named_local_container(monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = load_launcher()
+    docker_calls: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(command: list[str], **kwargs: object) -> Result:
+        docker_calls.append(command)
+        return Result()
+
+    monkeypatch.setattr(launcher, "stop_service", lambda service, root=None: "openwebui: stopped")
+    monkeypatch.setattr(launcher, "docker_engine_status", lambda timeout_seconds=1.5: (True, "Docker ready"))
+    monkeypatch.setattr(launcher, "_developer_tool", lambda command: f"/tmp/{command}")
+    monkeypatch.setattr(launcher.subprocess, "run", fake_run)
+
+    code = launcher.command_openwebui_stop(ROOT)
+
+    assert code == 0
+    assert docker_calls == [["/tmp/docker", "rm", "-f", launcher.OPENWEBUI_CONTAINER_NAME]]
+
+
+def test_stop_service_discards_untrusted_pid_metadata(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    launcher = load_launcher()
+    service = launcher.Service(
+        name="backend",
+        url=launcher.BACKEND_URL,
+        health_url=f"{launcher.BACKEND_URL}/health",
+        pid_file=tmp_path / "backend.pid",
+        log_file=tmp_path / "backend.log",
+        metadata_file=tmp_path / "backend.json",
+        cwd=tmp_path,
+        command=["python", "-m", "ultimate_ai_agent.api.app"],
+    )
+    service.pid_file.write_text("123", encoding="utf-8")
+    service.metadata_file.write_text("{}", encoding="utf-8")
+    kill_calls: list[tuple[int, int]] = []
+
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda pid_path: "running")
+    monkeypatch.setattr(launcher, "read_pid_file", lambda pid_path: 123)
+    monkeypatch.setattr(launcher, "metadata_matches_service", lambda service, pid: False)
+    monkeypatch.setattr(launcher.os, "killpg", lambda pid, signal: kill_calls.append((pid, signal)))
+
+    result = launcher.stop_service(service, root=tmp_path)
+
+    assert result == "backend: removed untrusted pid file"
+    assert not service.pid_file.exists()
+    assert not service.metadata_file.exists()
+    assert kill_calls == []
 
 
 def test_launcher_runtime_state_is_gitignored() -> None:

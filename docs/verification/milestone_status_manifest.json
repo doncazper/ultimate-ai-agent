@@ -70,6 +70,17 @@
         "docs/api/UAA_P1_086_API_BOUNDARY_ENFORCEMENT_TESTS.md",
         "tests/test_api_boundary_enforcement.py"
       ]
+    },
+    {
+      "id": "UAA-P1-087.1",
+      "status": "implemented",
+      "goal": "Local launcher and macOS .command boot Control Center first and OpenWebUI second with readiness, stop, safe log refs, blocked-state guidance, and no new runtime authority.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_087_1_local_launcher_boot_readiness.py",
+        "docs/macos/UAA_P1_087_1_LOCAL_LAUNCHER_DUAL_SURFACE_BOOT_READINESS.md",
+        "tests/test_uaa_p1_087_1_local_launcher_boot_readiness.py",
+        "tests/test_dev_launcher.py"
+      ]
     }
   ]
 }

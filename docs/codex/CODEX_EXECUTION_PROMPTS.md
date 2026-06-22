@@ -648,14 +648,13 @@ commit. UAA-P1-084 is complete when active docs show the mutating-route
 idempotency header gate has landed with verifier/test evidence and a pushed
 commit. UAA-P1-085 is complete when active docs show targeted local
 fixed-window rate limits have landed with verifier/test evidence and a pushed
-commit. UAA-P1-086 is complete for API boundary-hardening enforcement tests.
-The conveyor now advances to the
-UAA-P1-087 Private Operator Trial And UI Functional Tuning sequence:
-UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
-in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
-cockpit planning/source-only scaffold after the `.command` contract is proven,
-before moving to P2/provider, packaging, public distribution, or
-commercialization work. The planned FCC-V1 productization lane then continues
+commit. UAA-P1-086 is complete for API boundary-hardening enforcement tests,
+and UAA-P1-087.1 is complete for local launcher dual-surface boot readiness.
+The conveyor now advances to UAA-P1-087.2 in-person private UI functional
+tuning, then UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only
+scaffold after the `.command` contract is proven, before moving to P2/provider,
+packaging, public distribution, or commercialization work. The planned FCC-V1
+productization lane then continues
 through FCC-V1-000 Control Center Release Surface Manifest, FCC-V1-001 API
 Perimeter For Real Mutations, FCC-V1-002 Action Inbox Backend State Machine,
 FCC-V1-003 Founder Loop V1 Vertical Slice, FCC-V1-004 Chat Durable Receipt And

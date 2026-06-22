@@ -998,9 +998,10 @@ public distribution, or commercialization shaping.
 
 Sub-milestone order:
 
-- `UAA-P1-087.1` Local Launcher Dual-Surface Boot Readiness: prove the existing
-  launcher and macOS `.command` path can start Control Center and the secondary
-  OpenWebUI shell with truthful readiness, stop, log-ref, and blocked states.
+- `UAA-P1-087.1` Local Launcher Dual-Surface Boot Readiness: implemented. The
+  existing launcher and macOS `.command` path start Control Center first and
+  OpenWebUI as the secondary shell with truthful readiness, stop, safe log-ref,
+  and blocked states.
 - `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: run founder
   testing through the proven boot path and capture manual smoke evidence,
   friction notes, copy/UI tasks, and core loop gaps.

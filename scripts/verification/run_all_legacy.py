@@ -101,6 +101,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-084 mutating-route idempotency scan", "verify_uaa_p1_084_mutating_route_idempotency"),
     ("UAA-P1-085 targeted local rate-limit scan", "verify_uaa_p1_085_targeted_rate_limits"),
     ("UAA-P1-086 API boundary enforcement scan", "verify_uaa_p1_086_api_boundary_enforcement_tests"),
+    ("UAA-P1-087.1 local launcher dual-surface boot scan", "verify_uaa_p1_087_1_local_launcher_boot_readiness"),
     ("Computer Use / CUA contract lane scan", "verify_cua_contract_lane"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
@@ -1116,6 +1117,11 @@ def verify_uaa_p1_086_api_boundary_enforcement_tests() -> None:
     _run_p1_api_verifier_lane_once()
 
 
+def verify_uaa_p1_087_1_local_launcher_boot_readiness() -> None:
+    print("\n[Verifier] Running UAA-P1-087.1 local launcher dual-surface boot scan...")
+    run_cmd([sys.executable, "scripts/verify_uaa_p1_087_1_local_launcher_boot_readiness.py"])
+
+
 def verify_cua_contract_lane() -> None:
     print("\n[Verifier] Running Computer Use / CUA contract lane scan...")
     run_cmd([sys.executable, "scripts/verify_cua_contract_lane.py"])
@@ -1124,7 +1130,7 @@ def verify_cua_contract_lane() -> None:
 def _run_p1_api_verifier_lane_once() -> None:
     global _P1_API_VERIFIER_LANE_RAN
     if _P1_API_VERIFIER_LANE_RAN:
-        print("OK: UAA-P1-080 through UAA-P1-085 already passed in cached API verifier lane")
+        print("OK: UAA-P1-080 through UAA-P1-086 already passed in cached API verifier lane")
         return
     from scripts.verification.api_lane import run_api_verifier_lane
 
@@ -29508,7 +29514,12 @@ def verify_local_developer_launcher_safety() -> None:
         sys.exit(1)
 
     macos_content = module.render_macos_launcher()
-    for required in ["./scripts/dev/uaa doctor", "./scripts/dev/uaa start", "./scripts/dev/uaa ui"]:
+    for required in [
+        "./scripts/dev/uaa doctor",
+        "./scripts/dev/uaa trial-boot",
+        "./scripts/dev/uaa status",
+        "./scripts/dev/uaa openwebui status",
+    ]:
         if required not in macos_content:
             print(f"FAIL: macOS launcher template missing command: {required}")
             sys.exit(1)

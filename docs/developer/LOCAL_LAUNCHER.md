@@ -15,6 +15,7 @@ From the repository root:
 ```bash
 ./scripts/dev/uaa doctor
 ./scripts/dev/uaa start
+./scripts/dev/uaa trial-boot
 ./scripts/dev/uaa ui
 ./scripts/dev/uaa status
 ./scripts/dev/uaa logs
@@ -22,12 +23,14 @@ From the repository root:
 ```
 
 The launcher starts the existing FastAPI backend and CCC Web Control Center
-development server:
+development server. For private operator trial boot, Control Center is the
+first-party product surface and OpenWebUI is the secondary local shell.
 
 | Service | URL | Command family |
 |---|---|---|
 | Backend API | `http://127.0.0.1:8000` | `.venv/bin/python -m uvicorn ultimate_ai_agent.api.app:app` |
 | Control Center | `http://127.0.0.1:5173` | `npm run dev` inside `apps/control-center/` |
+| OpenWebUI local shell | `http://127.0.0.1:3000` | pinned Docker image, started only when already present locally |
 
 Both services bind to localhost only. The launcher refuses non-loopback hosts
 and never binds to `0.0.0.0`.
@@ -38,8 +41,9 @@ and never binds to `0.0.0.0`.
 |---|---|
 | `uaa doctor` | Checks local prerequisites, package scripts, and port state. |
 | `uaa start` | Starts the backend and Control Center if they are not already running. |
+| `uaa trial-boot` | Opens Control Center first, then opens OpenWebUI as the secondary local shell when prerequisites are ready. |
 | `uaa ui` | Opens the Control Center URL in the default browser. |
-| `uaa status` | Prints service status, PIDs, URLs, and log locations. |
+| `uaa status` | Prints backend, Control Center, and OpenWebUI service status, PIDs, URLs, safe log refs, and log locations. |
 | `uaa logs` | Prints recent launcher logs. |
 | `uaa logs --follow` | Follows launcher logs until Ctrl-C. |
 | `uaa stop` | Stops only processes whose PID files were created by this launcher. |
@@ -92,10 +96,13 @@ Or create one on the current user's Desktop:
 Double-click behavior:
 
 1. Runs `./scripts/dev/uaa doctor`.
-2. Starts local backend and Control Center services if needed.
-3. Opens the Control Center in the default browser.
-4. Prints status and log locations.
-5. Keeps the terminal window open until a key is pressed.
+2. Runs `./scripts/dev/uaa trial-boot`.
+3. Opens Control Center first as the first-party product surface.
+4. Opens OpenWebUI as the secondary local shell when Docker, the pinned local
+   image, and the UAA local gateway are ready.
+5. Prints status, OpenWebUI status, safe log refs, blocked-state guidance, and
+   log locations.
+6. Keeps the terminal window open until a key is pressed.
 
 The generated `.command` file is not a signed app, launch daemon, installer, or
 background service. Remove it like any ordinary local file.
@@ -103,6 +110,10 @@ background service. Remove it like any ordinary local file.
 ## Safety Boundary
 
 The launcher adds no agent capability and no production authority.
+
+No packages are installed and no images are pulled by `uaa trial-boot`.
+If Control Center is ready but OpenWebUI is blocked, the launcher reports the
+state `primary_ready_secondary_blocked`.
 
 It does not add:
 

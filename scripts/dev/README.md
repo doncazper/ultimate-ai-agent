@@ -19,6 +19,7 @@ authority.
 ./scripts/dev/uaa restart
 ./scripts/dev/uaa setup
 ./scripts/dev/uaa setup install --target openwebui
+./scripts/dev/uaa trial-boot
 ./scripts/dev/uaa launch-ui
 ```
 
@@ -97,25 +98,36 @@ docker image rm ghcr.io/open-webui/open-webui@sha256:7f1b0a1a50cfbac23da3b16f96b
 
 ## Designated UI Launcher
 
-Use the one-command launcher for the designated UI. The current target is
-OpenWebUI:
+Use the private operator trial boot for the dual-surface local path. It opens
+the first-party Control Center first, then opens OpenWebUI as a secondary local
+shell only when prerequisites are ready:
+
+```bash
+uaa trial-boot
+```
+
+Use the one-command launcher for the designated UI. The current default target
+is Control Center:
 
 ```bash
 uaa launch-ui
 ```
 
-`uaa launch-ui` starts or reuses the local backend and OpenWebUI, verifies the
-local `/v1` gateway, opens `http://127.0.0.1:3000`, and keeps the launch
-localhost-only. It does not install packages, download models, pull Docker
-images, or collect credentials; if the OpenWebUI image is not already present
-locally, it fails closed and points you to
-`uaa setup install --target openwebui`.
+`uaa launch-ui` starts or reuses the local backend and Control Center, verifies
+that the occupied ports are UAA-owned, opens `http://127.0.0.1:5173`, and keeps
+the launch localhost-only. It does not install packages, download models, pull
+Docker images, or collect credentials.
 
-The Control Center can still be launched explicitly:
+OpenWebUI can still be launched explicitly as the secondary local shell:
 
 ```bash
-uaa launch-ui --target control-center
+uaa launch-ui --target openwebui
 ```
+
+That path verifies the local `/v1` gateway, opens `http://127.0.0.1:3000`, and
+fails closed if the OpenWebUI image is not already present locally. It points to
+`uaa setup install --target openwebui` for the separate approval-bound image
+pull path.
 
 Optional M151 local OpenWebUI test shell commands:
 

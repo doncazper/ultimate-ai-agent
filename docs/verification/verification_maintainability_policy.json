@@ -19,11 +19,11 @@
       ],
       "allowlist": {
         "scripts/verification/run_all_legacy.py": {
-          "max_lines": 30237,
+          "max_lines": 30244,
           "reason": "Frozen compatibility body moved out of scripts/verify_all.py; future static scans must move to small modules."
         },
         "scripts/verification/documentation_integrity/legacy.py": {
-          "max_lines": 21945,
+          "max_lines": 21946,
           "reason": "Frozen compatibility body moved out of scripts/verify_documentation_integrity.py; future doc checks must be data-driven or modular."
         }
       }

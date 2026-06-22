@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-086 Complete: API Boundary Enforcement Tests; UAA-P1-087 Planned Private Operator Trial/UI Tuning** |
+| Current lane | **UAA-P1-087.1 Complete: Local Launcher Dual-Surface Boot Readiness; UAA-P1-087.2 Planned Private UI Functional Tuning** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 planned: release surface manifest, API perimeter, Action decisions, vertical loop, Chat receipts/handoff, Memory decisions, Evidence productization, and proof-lane promotion** |
 | Latest repository checkpoint | **checkpoint-m168** |
@@ -98,12 +98,15 @@ verifier/tests. UAA-P1-086 API Boundary Enforcement Tests is complete with
 OpenAPI, `/api/manifest`, route inventory fixture, route-status manifest,
 protected-route, idempotency, header, CORS, and rate-limit enforcement checks
 without adding routes, middleware, runtime authority, public beta, or
-production authority. It is followed by the UAA-P1-087 Private Operator Trial
-And UI Functional Tuning sequence: UAA-P1-087.1 local launcher dual-surface
-boot readiness,
-UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native
-SwiftUI boot cockpit planning/source-only scaffold after the `.command`
-contract is proven. These planning entries grant no new authority here.
+production authority. UAA-P1-087.1 Local Launcher Dual-Surface Boot Readiness
+is complete with `./scripts/dev/uaa trial-boot`, macOS `.command` binding,
+Control Center-first boot, secondary OpenWebUI blocked-state guidance,
+backend/frontend/OpenWebUI status, stop coverage, and safe launcher log refs.
+It installs no packages, pulls no images, and adds no runtime authority. It is
+followed by UAA-P1-087.2 in-person private UI functional tuning and
+UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold after
+the private tuning evidence is accepted. These planning entries grant no new
+authority here.
 The planned Founder Loop V1 productization conveyor is recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`: Control Center release surface manifest, API perimeter for real

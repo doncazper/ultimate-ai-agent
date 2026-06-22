@@ -31,11 +31,10 @@ local fixed-window rate limits over model/chat, task-decomposition, action
 preview/proposal, and expensive validation/local-model paths with no auth,
 distributed quota, dependency, or production authority claim. UAA-P1-086 is
 complete for API boundary enforcement tests without route, middleware, runtime
-authority, public beta, or production authority changes, followed by the UAA-P1-087
-Private Operator Trial And UI Functional Tuning sequence: UAA-P1-087.1 local
-launcher dual-surface boot readiness, UAA-P1-087.2 in-person private UI
-functional tuning, and UAA-P1-087.3 native SwiftUI boot cockpit
-planning/source-only scaffold after the `.command` contract is proven.
+authority, public beta, or production authority changes. UAA-P1-087.1 is
+complete for local launcher dual-surface boot readiness; UAA-P1-087.2
+in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot
+cockpit planning/source-only scaffold remain next.
 The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: Control Center release

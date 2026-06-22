@@ -8,12 +8,12 @@ later native app work for the first boot-readiness step.
 
 ## Sequence
 
-1. `UAA-P1-087.1` Local Launcher Dual-Surface Boot Readiness.
-   Harden the existing repo-local launcher and clickable macOS `.command` path
-   so a private operator can boot the backend, Control Center, and OpenWebUI
-   local shell with clear readiness, stop, log-ref, and blocked-state guidance.
-   Control Center opens as the first-party product surface; OpenWebUI may open
-   beside it as the secondary local chat shell.
+1. `UAA-P1-087.1` Local Launcher Dual-Surface Boot Readiness is implemented.
+   The existing repo-local launcher and clickable macOS `.command` path now
+   boot the backend, Control Center, and OpenWebUI local shell with clear
+   readiness, stop, log-ref, and blocked-state guidance. Control Center opens
+   as the first-party product surface; OpenWebUI may open beside it as the
+   secondary local chat shell when prerequisites are ready.
 2. `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning.
    Use the real local boot flow to run hands-on founder testing and record
    friction, manual smoke evidence, UI/copy tasks, blocked-state confusion,

@@ -73,12 +73,13 @@ validation/local-model paths without auth, distributed quota, dependency, or
 production authority claims. UAA-P1-086 API Boundary Enforcement Tests
 completes OpenAPI, API manifest, route inventory fixture, route-status
 manifest, protected-route, idempotency, header, CORS, and rate-limit
-enforcement checks without new runtime authority. It is followed by the
-UAA-P1-087 Private Operator Trial And UI Functional Tuning sequence:
-UAA-P1-087.1 local launcher dual-surface boot readiness,
-UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native
-SwiftUI boot cockpit planning/source-only scaffold after the `.command`
-contract is proven.
+enforcement checks without new runtime authority. UAA-P1-087.1 Local Launcher
+Dual-Surface Boot Readiness completes the `trial-boot` launcher contract,
+Control Center-first boot, secondary OpenWebUI blocked states, status/stop
+coverage, and safe launcher log refs without new runtime authority. It is
+followed by UAA-P1-087.2 in-person private UI functional tuning and
+UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold after
+private tuning evidence is accepted.
 The planned `FCC-V1-000` through `FCC-V1-007` Founder Loop V1 productization
 conveyor is recorded in `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`
 with detailed goals, tasks, routes, model fields, storage semantics, UI

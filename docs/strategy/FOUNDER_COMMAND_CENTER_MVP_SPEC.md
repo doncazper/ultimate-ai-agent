@@ -42,13 +42,11 @@ implemented as targeted local fixed-window protection for model/chat,
 task-decomposition, action preview/proposal, and expensive
 validation/local-model paths with no auth, distributed quota, dependency, or
 production authority claim. UAA-P1-086 is complete for API boundary
-enforcement tests. UAA-P1-087 is planned after those gates as an ordered private
-operator trial and UI functional tuning sequence:
-UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
-in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
-cockpit planning/source-only scaffold after the `.command` contract is proven.
-This remains the breakpoint before P2/provider, packaging, public distribution,
-or commercialization expansion.
+enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface
+boot readiness. UAA-P1-087.2 in-person private UI functional tuning and
+UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold remain
+the next private-trial sequence before P2/provider, packaging, public
+distribution, or commercialization expansion.
 
 Founder Loop V1 productization is now tracked as `FCC-V1-000` through
 `FCC-V1-007` in
@@ -136,8 +134,8 @@ manifest, idempotency, CLI/core/API inspection, or redaction gates.
    auth, rate limits are not auth, and the lane does not add broad runtime
    authority.
 14. Private operator trial and UI functional tuning: after UAA-P1-080 through
-   UAA-P1-086, first prove local launcher/`.command` dual-surface boot
-   readiness for Control Center plus the secondary OpenWebUI shell, then use
+   UAA-P1-086, UAA-P1-087.1 proves local launcher/`.command` dual-surface boot
+   readiness for Control Center plus the secondary OpenWebUI shell. Next use
    local/in-person testing to tune Today, Actions, Memory, Evidence, Chat
    handoff, blocked-state language, and CRM-lite follow-up flow, and only then
    plan/source-scaffold a native SwiftUI boot cockpit over the proven launcher

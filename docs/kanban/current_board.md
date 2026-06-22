@@ -64,10 +64,9 @@ V1 complete, and marks UAA-P1-080 API Route Classification And
 Public/Protected Inventory complete, and marks UAA-P1-081 Centralized FastAPI
 Security Headers complete, and marks UAA-P1-082 Explicit Loopback CORS
 Allowlist complete, and marks UAA-P1-083 Local Bearer Or Session Gate For
-Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests, followed by the ordered
-UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
-in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
-cockpit planning/source-only scaffold before P2/provider, packaging, or
+Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness, followed by
+UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native
+SwiftUI boot cockpit planning/source-only scaffold before P2/provider, packaging, or
 commercialization work.
 The planned FCC-V1 Founder Loop V1 conveyor then keeps the productization lane
 running through `FCC-V1-000` through `FCC-V1-007`: release surface manifest,
@@ -107,7 +106,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-086 are complete. The next planned/queued lane is UAA-P1-087.1 Local Launcher Dual-Surface Boot Readiness.
+No active build item is in progress. UAA-P1-067 through UAA-P1-087.1 are complete. The next planned/queued lane is UAA-P1-087.2 In-Person Private Operator UI Functional Tuning.
 ```
 
 ## Ready Next
@@ -243,10 +242,11 @@ and CRM-lite flow until the product loop is usable before P2/provider,
 packaging, or commercialization expansion.
 
 UAA-P1-087.1 Local Launcher Dual-Surface Boot Readiness
-Goal: after UAA-P1-086, harden the existing local launcher and macOS
-`.command` path so the private operator can boot Control Center and the
-secondary OpenWebUI shell with clear readiness, stop, log-ref, and blocked
-states before UI tuning starts.
+Status: Implemented.
+Goal met: after UAA-P1-086, the existing local launcher and macOS `.command`
+path can boot Control Center first and OpenWebUI as a secondary shell with
+clear readiness, stop, safe log-ref, and blocked states before UI tuning
+starts.
 
 UAA-P1-087.2 In-Person Private Operator UI Functional Tuning
 Goal: use the proven local boot path for founder testing and record manual
@@ -763,10 +763,10 @@ durable idempotency dedupe, distributed quota, public beta, public
 distribution, production readiness, or production authority.
 
 UAA-P1-087 Private Operator Trial And UI Functional Tuning
-Status: planned/queued after UAA-P1-086. Runs as UAA-P1-087.1 launcher/
-`.command` dual-surface boot readiness, UAA-P1-087.2 in-person private UI
-functional tuning, and UAA-P1-087.3 native SwiftUI boot cockpit
-planning/source-only scaffold after the launcher contract is proven. This is
+Status: implemented through UAA-P1-087.1. Next planned/queued step is
+UAA-P1-087.2 in-person private UI functional tuning, followed by UAA-P1-087.3
+native SwiftUI boot cockpit planning/source-only scaffold after tuning evidence
+is accepted. This is
 the breakpoint before moving to P2/provider, packaging, public distribution,
 or commercialization shaping, and it grants no connector writes, action
 execution, memory writes, provider/model authority, public beta,

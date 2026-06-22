@@ -808,17 +808,20 @@ PR size: completed as one API middleware/docs/test evidence slice.
 
 Type: local trial/test/docs/UI tuning
 
-Status: Planned after UAA-P1-086.
+Status: Implemented through UAA-P1-087.1; planned for UAA-P1-087.2 and
+UAA-P1-087.3 after the proven local boot path.
 
 New authority: no.
 
 Sub-milestone order:
 
-- `UAA-P1-087.1` Local Launcher Dual-Surface Boot Readiness: docs and later
-  implementation should harden the existing repo-local launcher and clickable
-  macOS `.command` path before native app work. The boot flow should make
-  backend, Control Center, OpenWebUI local shell, gateway readiness,
-  stop/log-ref posture, missing image, and blocked states obvious.
+- `UAA-P1-087.1` Local Launcher Dual-Surface Boot Readiness: implemented. The
+  existing repo-local launcher and clickable macOS `.command` path now run
+  `trial-boot`, open Control Center first, attempt OpenWebUI only as the
+  secondary local shell, verify UAA-owned readiness before reusing ports, expose
+  stop/log-ref posture, and report blocked states such as
+  `primary_ready_secondary_blocked` without installing packages or pulling
+  images.
 - `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: use the
   proven local boot path for hands-on founder testing and capture friction,
   manual smoke evidence, UI/copy tasks, Today/Actions/Memory/Evidence/Chat
@@ -845,14 +848,14 @@ Acceptance criteria:
 
 Tests to add/update:
 
-- Manual smoke checklist artifact.
+- UAA-P1-087.1 launcher/verifier tests for local boot readiness.
+- Manual smoke checklist artifact for UAA-P1-087.2.
 - Control Center render/frontend checks for tuned flows.
 - Product-language checks.
 - Documentation integrity.
 
-PR size: split into UAA-P1-087.1, UAA-P1-087.2, and UAA-P1-087.3 unless the
-conveyor proves a smaller docs-only slice can safely land the sequencing in
-one patch.
+PR size: UAA-P1-087.1 landed as the launcher boot-readiness slice; split
+UAA-P1-087.2 and UAA-P1-087.3 into their own follow-up patches.
 
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 

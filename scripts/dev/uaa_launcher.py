@@ -38,8 +38,9 @@ OPENWEBUI_IMAGE_DIGEST = "sha256:7f1b0a1a50cfbac23da3b16f96bc968fd757b26dc9e54e9
 OPENWEBUI_IMAGE = f"{OPENWEBUI_IMAGE_REPOSITORY}@{OPENWEBUI_IMAGE_DIGEST}"
 OPENWEBUI_MODEL_ID = "uaa-safe-local"
 OPENWEBUI_GATEWAY_FOR_CONTAINER = "http://host.docker.internal:8000/v1"
-DESIGNATED_UI_TARGET = "openwebui"
+DESIGNATED_UI_TARGET = "control-center"
 UI_TARGETS = ("control-center", "openwebui")
+PRIMARY_READY_SECONDARY_BLOCKED = "primary_ready_secondary_blocked"
 UAA_OPENWEBUI_TEST_GATEWAY_ENV = "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED"
 UAA_OPENWEBUI_TEST_GATEWAY_VALUE = "uaa-local-test"
 UAA_LLAMA_CPP_GATEWAY_ENV = "UAA_LLAMA_CPP_GATEWAY_ENABLED"
@@ -415,6 +416,36 @@ def url_status(url: str, headers: dict[str, str] | None = None, timeout: float =
         return None
 
 
+def url_text(
+    url: str,
+    headers: dict[str, str] | None = None,
+    timeout: float = 2.0,
+) -> tuple[int | None, str]:
+    try:
+        request = urllib.request.Request(url, headers=headers or {})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read(4096).decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        return exc.code, ""
+    except (OSError, urllib.error.URLError):
+        return None, ""
+
+
+def service_identity_ready(service: Service) -> bool:
+    if service.name == "backend":
+        return (
+            url_status(f"{BACKEND_URL}/api/manifest") == 200
+            and url_status(f"{BACKEND_URL}/version") == 200
+        )
+    if service.name == "frontend":
+        status, body = url_text(FRONTEND_URL)
+        return status == 200 and "Ultimate AI Agent Control Center" in body
+    if service.name == "openwebui":
+        pid = read_pid_file(service.pid_file)
+        return pid is not None and metadata_matches_service(service, pid)
+    return False
+
+
 def check_doctor(root: Path) -> tuple[list[str], list[str]]:
     ok: list[str] = []
     failures: list[str] = []
@@ -625,12 +656,19 @@ def start_service(root: Path, service: Service) -> str:
     if state == "running":
         return f"{service.name}: already running (pid {read_pid_file(service.pid_file)})"
 
-    if service.name == "backend" and is_port_open(BACKEND_HOST, BACKEND_PORT):
-        return f"{service.name}: {service.url} is already responding; not starting a duplicate"
-    if service.name == "frontend" and is_port_open(FRONTEND_HOST, FRONTEND_PORT):
-        return f"{service.name}: {service.url} is already responding; not starting a duplicate"
-    if service.name == "openwebui" and is_port_open(OPENWEBUI_HOST, OPENWEBUI_PORT):
-        return f"{service.name}: {service.url} is already responding; not starting a duplicate"
+    service_ports = {
+        "backend": (BACKEND_HOST, BACKEND_PORT),
+        "frontend": (FRONTEND_HOST, FRONTEND_PORT),
+        "openwebui": (OPENWEBUI_HOST, OPENWEBUI_PORT),
+    }
+    host, port = service_ports[service.name]
+    if is_port_open(host, port):
+        if service_identity_ready(service):
+            return f"{service.name}: {service.url} is already UAA-ready; not starting a duplicate"
+        return (
+            f"{service.name}: blocked; {service.url} is occupied by an unverified "
+            "local process; not starting a duplicate"
+        )
 
     if service.name == "backend" and not Path(service.command[0]).exists():
         record_launcher_event(
@@ -786,12 +824,19 @@ def stop_service(service: Service, root: Path | None = None) -> str:
 
 
 def status_for_service(service: Service) -> str:
+    log_ref = f"launcher-log:{service.name}"
     state = cleanup_stale_pid(service.pid_file)
     if state == "running":
-        return f"{service.name}: running pid={read_pid_file(service.pid_file)} url={service.url} log={service.log_file}"
+        return (
+            f"{service.name}: running pid={read_pid_file(service.pid_file)} "
+            f"url={service.url} log_ref={log_ref} log={service.log_file}"
+        )
     if state == "removed_stale":
-        return f"{service.name}: not running (removed stale pid file) log={service.log_file}"
-    return f"{service.name}: not running url={service.url} log={service.log_file}"
+        return (
+            f"{service.name}: not running (removed stale pid file) "
+            f"log_ref={log_ref} log={service.log_file}"
+        )
+    return f"{service.name}: not running url={service.url} log_ref={log_ref} log={service.log_file}"
 
 
 def _zsh_single_quote(value: Path) -> str:
@@ -818,14 +863,19 @@ if [ "$DOCTOR_STATUS" -ne 0 ]; then
   exit "$DOCTOR_STATUS"
 fi
 
-./scripts/dev/uaa start
-./scripts/dev/uaa ui
+./scripts/dev/uaa trial-boot
+BOOT_STATUS=$?
 ./scripts/dev/uaa status
+./scripts/dev/uaa openwebui status
 
 echo
 echo "Logs are under .uaa/dev/logs/"
+if [ "$BOOT_STATUS" -ne 0 ]; then
+  echo "Trial boot reached a blocked or degraded state. See the status lines above."
+fi
 echo "Press any key to close..."
 read -k 1
+exit "$BOOT_STATUS"
 """.format(repo_cd=repo_cd)
 
 
@@ -864,11 +914,14 @@ def command_start(root: Path) -> int:
         lifecycle_state="requested",
         reason_codes=["LAUNCHER_START_REQUESTED"],
     )
+    blocked = False
     for name in ["backend", "frontend"]:
-        print(start_service(root, service_config(root, name)))
+        result = start_service(root, service_config(root, name))
+        print(result)
+        blocked = blocked or ": blocked;" in result
     print(f"\nControl Center: {FRONTEND_URL}")
     print(f"Logs: {root / STATE_DIR / 'logs'}")
-    return 0
+    return 1 if blocked else 0
 
 
 def command_ui(root: Path) -> int:
@@ -892,6 +945,27 @@ def command_launch_ui(root: Path, target: str = DESIGNATED_UI_TARGET) -> int:
     if target == "openwebui":
         return command_launch_openwebui(root)
     raise ValueError(f"Unknown UI target: {target}")
+
+
+def command_trial_boot(root: Path) -> int:
+    print("Ultimate AI Agent private operator trial boot")
+    print("Control Center is the first-party product surface.")
+    print("OpenWebUI is the secondary local shell and may remain blocked until prerequisites are ready.")
+    print()
+    control_center_code = command_launch_ui(root, target="control-center")
+    if control_center_code:
+        return control_center_code
+    openwebui_code = command_launch_ui(root, target="openwebui")
+    print()
+    print("Readiness summary:")
+    command_status(root)
+    command_openwebui_status(root)
+    if openwebui_code:
+        print()
+        print("Secondary OpenWebUI shell is blocked or degraded; Control Center remains the primary surface.")
+        print(f"Boot state: {PRIMARY_READY_SECONDARY_BLOCKED}")
+        print("No packages were installed and no images were pulled by uaa trial-boot.")
+    return openwebui_code
 
 
 def command_launch_openwebui(root: Path) -> int:
@@ -929,7 +1003,10 @@ def command_launch_openwebui(root: Path) -> int:
         print("Restart the backend with the matching local gateway environment, then retry uaa launch-ui.")
         return 1
 
-    print(start_service(root, service_config(root, "openwebui")))
+    openwebui_result = start_service(root, service_config(root, "openwebui"))
+    print(openwebui_result)
+    if ": blocked;" in openwebui_result:
+        return 1
     webbrowser.open(OPENWEBUI_URL)
     print(f"\nOpened designated UI: {OPENWEBUI_URL}")
     print(f"Gateway mode: {gateway_mode}")
@@ -941,7 +1018,7 @@ def command_launch_openwebui(root: Path) -> int:
 def command_status(root: Path) -> int:
     version = _read_version(root)
     print(f"Ultimate AI Agent version: {version}")
-    for name in ["backend", "frontend"]:
+    for name in ["backend", "frontend", "openwebui"]:
         print(status_for_service(service_config(root, name)))
     return 0
 
@@ -965,7 +1042,10 @@ def command_openwebui_start(root: Path) -> int:
     if not gateway_key:
         print(f"{UAA_LLAMA_CPP_GATEWAY_KEY_ENV} must be set before starting OpenWebUI in llama.cpp gateway mode")
         return 1
-    print(start_service(root, service))
+    result = start_service(root, service)
+    print(result)
+    if ": blocked;" in result:
+        return 1
     print(f"\nOpenWebUI: {OPENWEBUI_URL}")
     print(f"UAA gateway for OpenWebUI: {OPENWEBUI_GATEWAY_FOR_CONTAINER}")
     print(f"Gateway mode: {gateway_mode}")
@@ -1076,6 +1156,7 @@ def command_stop(root: Path) -> int:
         lifecycle_state="requested",
         reason_codes=["LAUNCHER_STOP_REQUESTED"],
     )
+    command_openwebui_stop(root)
     for name in ["frontend", "backend"]:
         print(stop_service(service_config(root, name), root=root))
     return 0
@@ -1094,7 +1175,7 @@ def _read_version(root: Path) -> str:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="uaa", description="Local Ultimate AI Agent developer launcher")
     subparsers = parser.add_subparsers(dest="command")
-    for command in ["doctor", "start", "ui", "status", "stop", "restart", "help"]:
+    for command in ["doctor", "start", "ui", "trial-boot", "status", "stop", "restart", "help"]:
         subparsers.add_parser(command)
     launch_ui_parser = subparsers.add_parser("launch-ui")
     launch_ui_parser.add_argument("--target", choices=UI_TARGETS, default=DESIGNATED_UI_TARGET)
@@ -1146,6 +1227,7 @@ def main(argv: list[str] | None = None) -> int:
                 "status",
                 "logs",
                 "launch-ui",
+                "trial-boot",
                 "local-model",
                 "openwebui",
                 "setup",
@@ -1164,6 +1246,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_ui(root)
         if command == "launch-ui":
             return command_launch_ui(root, target=args.target)
+        if command == "trial-boot":
+            return command_trial_boot(root)
         if command == "status":
             return command_status(root)
         if command == "logs":
