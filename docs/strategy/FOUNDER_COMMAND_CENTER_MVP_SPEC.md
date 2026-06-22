@@ -43,7 +43,8 @@ task-decomposition, action preview/proposal, and expensive
 validation/local-model paths with no auth, distributed quota, dependency, or
 production authority claim. UAA-P1-086 is complete for API boundary
 enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface
-boot readiness. UAA-P1-087.2 in-person private UI functional tuning and
+boot readiness. UAA-P1-087.2a private trial packet and read-only tuning surface
+is complete. Full UAA-P1-087.2 in-person private UI functional tuning and
 UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold remain
 the next private-trial sequence before P2/provider, packaging, public
 distribution, or commercialization expansion.
@@ -135,13 +136,14 @@ manifest, idempotency, CLI/core/API inspection, or redaction gates.
    authority.
 14. Private operator trial and UI functional tuning: after UAA-P1-080 through
    UAA-P1-086, UAA-P1-087.1 proves local launcher/`.command` dual-surface boot
-   readiness for Control Center plus the secondary OpenWebUI shell. Next use
-   local/in-person testing to tune Today, Actions, Memory, Evidence, Chat
-   handoff, blocked-state language, and CRM-lite follow-up flow, and only then
-   plan/source-scaffold a native SwiftUI boot cockpit over the proven launcher
-   contract. Produce manual smoke evidence, friction notes, and UI/copy tasks
-   before any P2/provider, packaging, public distribution, or commercialization
-   lane.
+   readiness for Control Center plus the secondary OpenWebUI shell, and
+   UAA-P1-087.2a adds the safe-ref-only private trial packet/read-only tuning
+   surface. Next use local/in-person testing to tune Today, Actions, Memory,
+   Evidence, Chat handoff, blocked-state language, and CRM-lite follow-up flow,
+   and only then plan/source-scaffold a native SwiftUI boot cockpit over the
+   proven launcher contract. Produce accepted/revised manual smoke evidence,
+   friction notes, and UI/copy tasks before any P2/provider, packaging, public
+   distribution, or commercialization lane.
 15. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.

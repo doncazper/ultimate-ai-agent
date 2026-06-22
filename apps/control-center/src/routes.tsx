@@ -34,6 +34,7 @@ import {
   SettingsOperatorPanel,
 } from "./components/OperatorFlowPanels";
 import { OperatorLoopPanel } from "./components/OperatorLoopPanel";
+import { PrivateOperatorTrialPanel } from "./components/PrivateOperatorTrialPanel";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
 import {
@@ -78,6 +79,7 @@ export const navItems: NavItem[] = [
   { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "blocked", role: "primary" },
   { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", role: "supporting" },
+  { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a packet", role: "supporting" },
   { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", role: "supporting" },
   { path: "/setup", label: "Setup", group: "Review", status: "dry-run", role: "supporting" },
   { path: "/chat", label: "Chat", group: "Review", status: "local gated", role: "supporting" },
@@ -158,6 +160,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return <ActionInboxSurfacePanel inbox={data.founderActionsInbox} />;
     case "/briefing":
       return <MorningBriefingPanel briefing={data.founderMorningBriefing} />;
+    case "/private-trial":
+      return <PrivateOperatorTrialPanel />;
     case "/storage":
       return <FounderLoopStoragePanel storage={data.founderStorageStatus} />;
     case "/setup":

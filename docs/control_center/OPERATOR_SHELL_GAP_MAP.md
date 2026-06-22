@@ -20,6 +20,11 @@ Settings, Models, and future first-party Chat. OpenWebUI remains a supported
 local/dev conversational shell and compatibility surface for governed `/v1`
 smoke, llama.cpp shell testing, and developer chat. OpenWebUI must not become
 the source of product state or the destination for wiring every UAA workflow.
+`/private-trial` is the UAA-P1-087.2a read-only packet surface only; it records
+safe manual smoke checklist refs, friction refs, UI/copy task refs, core-loop
+gap refs, and blocked authority refs without backend routes or runtime
+authority. Full UAA-P1-087.2 private UI tuning remains planned until
+local/private acceptance findings are recorded.
 
 API boundary hardening gap: because Control Center is browser-facing,
 UAA-P1-080 now makes public/protected route posture explicit before

@@ -82,6 +82,7 @@ describe("Web Control Center shell", () => {
         "Setup",
         "Dashboard",
         "Operator Loop",
+        "Trial Packet",
         "Runtime",
         "API Routes",
         "Differentiators",
@@ -199,6 +200,7 @@ describe("Web Control Center shell", () => {
       ["/inbox", /^Inbox$/i],
       ["/actions", /^Actions$/i],
       ["/briefing", /Morning Briefing/i],
+      ["/private-trial", /Private Operator Trial/i],
       ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
       ["/operator-loop", /Operator Loop/i],
@@ -297,6 +299,38 @@ describe("Web Control Center shell", () => {
     ]) {
       expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
     }
+  });
+
+  it("renders Private Trial packet as local safe refs without full beta claims", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/private-trial");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Private Operator Trial/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("local/private only")).toBeInTheDocument();
+    expect(screen.getByText("milestone:uaa-p1-087.2a")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Full UAA-P1-087.2 still needs local\/private acceptance findings/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:private-operator-ui-functional-tuning:v1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("launcher-command:uaa-trial-boot")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Authority boundary/i })).toBeInTheDocument();
+    expect(screen.getByText("blocked-state:no-public-beta")).toBeInTheDocument();
+    expect(screen.getByText("blocked-state:no-production-authority")).toBeInTheDocument();
+    expect(screen.getByText("blocked-state:openwebui-secondary-only")).toBeInTheDocument();
+    expect(screen.getByText("private-trial-check:local-boot")).toBeInTheDocument();
+    expect(screen.getByText("private-trial-check:crm-lite-follow-ups")).toBeInTheDocument();
+    expect(screen.getAllByText("friction-ref:private-trial:blocked-state-language").length).toBeGreaterThan(0);
+    expect(screen.getByText("gap-ref:private-trial:crm-lite-local-follow-up-store")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders Action Inbox approval-envelope posture without mutation controls", async () => {

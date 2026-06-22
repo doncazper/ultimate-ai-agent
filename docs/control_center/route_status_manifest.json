@@ -611,6 +611,24 @@
       ]
     },
     {
+      "action_id": "navigate-private-trial-packet",
+      "label": "Navigate Trial Packet",
+      "ui_surface": "Private Trial Packet",
+      "frontend_route": "/private-trial",
+      "owner": "founder-loop",
+      "auth_posture": "frontend_packet_only_safe_refs",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "local_ui_state_only_not_evidence",
+      "approval_requirement": "No approval for the read-only packet route; full UAA-P1-087.2 trial findings and any future tuning changes require a later scoped milestone.",
+      "evidence_audit_output": "UAA-P1-087.2a safe refs for manual smoke checklist state, friction refs, UI/copy task refs, core-loop gap refs, and blocked authority refs only; no backend route, action execution, connector write, memory write, public beta, distribution, production readiness, or production authority.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "full-private-ui-tuning-acceptance-evidence",
+        "accepted-ui-copy-task-ledger"
+      ]
+    },
+    {
       "action_id": "navigate-storage-status",
       "label": "Navigate Storage",
       "ui_surface": "Today",

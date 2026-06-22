@@ -10,6 +10,14 @@ from .private_beta import (
     private_beta_readiness_authority_posture,
     private_beta_readiness_surface_bindings,
 )
+from .private_operator_trial import (
+    PRIVATE_OPERATOR_TRIAL_CONTRACT_REF,
+    PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS,
+    PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES,
+    PrivateOperatorTrialChecklistItem,
+    PrivateOperatorTrialPacket,
+    build_private_operator_trial_packet,
+)
 
 __all__ = [
     "PRIVATE_BETA_READINESS_ACCEPTANCE_STATES",
@@ -19,7 +27,13 @@ __all__ = [
     "PRIVATE_BETA_READINESS_REQUIRED_SURFACES",
     "PrivateBetaReadinessCriterion",
     "PrivateBetaReadinessGate",
+    "PRIVATE_OPERATOR_TRIAL_CONTRACT_REF",
+    "PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS",
+    "PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES",
+    "PrivateOperatorTrialChecklistItem",
+    "PrivateOperatorTrialPacket",
     "build_private_beta_readiness_gate",
+    "build_private_operator_trial_packet",
     "private_beta_readiness_authority_posture",
     "private_beta_readiness_surface_bindings",
 ]

@@ -808,8 +808,8 @@ PR size: completed as one API middleware/docs/test evidence slice.
 
 Type: local trial/test/docs/UI tuning
 
-Status: Implemented through UAA-P1-087.1; planned for UAA-P1-087.2 and
-UAA-P1-087.3 after the proven local boot path.
+Status: Implemented through UAA-P1-087.2a; planned for full UAA-P1-087.2 and
+UAA-P1-087.3 after the proven local boot path and packet surface.
 
 New authority: no.
 
@@ -822,10 +822,15 @@ Sub-milestone order:
   stop/log-ref posture, and report blocked states such as
   `primary_ready_secondary_blocked` without installing packages or pulling
   images.
+- `UAA-P1-087.2a` Private Trial Packet And UI Tuning Surface: implemented. The
+  safe-ref-only packet and read-only `/private-trial` surface record manual
+  smoke checklist refs, friction refs, UI/copy task refs, core-loop gap refs,
+  and blocked authority refs for full private UI tuning without adding backend
+  routes or runtime authority.
 - `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: use the
-  proven local boot path for hands-on founder testing and capture friction,
-  manual smoke evidence, UI/copy tasks, Today/Actions/Memory/Evidence/Chat
-  handoff gaps, and CRM-lite follow-up gaps.
+  proven local boot path and 087.2a packet for hands-on founder testing and
+  capture accepted/revised friction, manual smoke evidence, UI/copy tasks,
+  Today/Actions/Memory/Evidence/Chat handoff gaps, and CRM-lite follow-up gaps.
 - `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold:
   after the `.command` boot contract is proven and UI tuning evidence exists,
   plan/source-scaffold a native macOS boot cockpit over fixed launcher
@@ -849,13 +854,15 @@ Acceptance criteria:
 Tests to add/update:
 
 - UAA-P1-087.1 launcher/verifier tests for local boot readiness.
-- Manual smoke checklist artifact for UAA-P1-087.2.
+- UAA-P1-087.2a packet/verifier tests and read-only Control Center render test.
+- Manual smoke checklist acceptance artifact for full UAA-P1-087.2.
 - Control Center render/frontend checks for tuned flows.
 - Product-language checks.
 - Documentation integrity.
 
-PR size: UAA-P1-087.1 landed as the launcher boot-readiness slice; split
-UAA-P1-087.2 and UAA-P1-087.3 into their own follow-up patches.
+PR size: UAA-P1-087.1 landed as the launcher boot-readiness slice; UAA-P1-087.2a
+lands as the packet/surface slice; keep full UAA-P1-087.2 and UAA-P1-087.3 in
+their own follow-up patches.
 
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 

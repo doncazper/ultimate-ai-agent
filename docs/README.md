@@ -20,10 +20,11 @@ Allowlist work, and completed UAA-P1-083 Local Bearer Or Session Gate For
 Sensitive Routes work, and completed UAA-P1-084 Mutating Route Idempotency
 Enforcement Audit work, completed UAA-P1-085 Targeted Rate Limits For
 Expensive And Sensitive Routes work, completed UAA-P1-086 API Boundary
-Enforcement Tests work, and completed UAA-P1-087.1 Local Launcher Dual-Surface
-Boot Readiness work. It is followed by UAA-P1-087.2 in-person private UI
-functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit
-planning/source-only scaffold after private tuning evidence is accepted. The
+Enforcement Tests work, completed UAA-P1-087.1 Local Launcher Dual-Surface
+Boot Readiness work, and completed UAA-P1-087.2a Private Trial Packet And UI
+Tuning Surface work. Full UAA-P1-087.2 in-person private UI functional tuning
+remains planned until local/private acceptance findings are recorded, followed
+by UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold. The
 sequence is tracked in
 `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`.
 The planned Founder Loop V1 productization conveyor is tracked in
@@ -90,9 +91,10 @@ Explicit Loopback CORS Allowlist, and completed UAA-P1-083 Local Bearer Or
 Session Gate For Sensitive Routes, and completed UAA-P1-084 Mutating Route
 Idempotency Enforcement Audit, completed UAA-P1-085 Targeted Rate Limits
 For Expensive And Sensitive Routes, completed UAA-P1-086 API Boundary
-Enforcement Tests, and completed UAA-P1-087.1 Local Launcher Dual-Surface Boot
-Readiness. It is followed by the ordered UAA-P1-087.2 and UAA-P1-087.3
-private UI trial/native boot planning sequence. UAA-P1-066
+Enforcement Tests, completed UAA-P1-087.1 Local Launcher Dual-Surface Boot
+Readiness, and completed UAA-P1-087.2a Private Trial Packet And UI Tuning
+Surface. It is followed by full UAA-P1-087.2 local/private UI tuning and
+UAA-P1-087.3 private UI trial/native boot planning sequence. UAA-P1-066
 remains queued as a strictly read-only Local Model
 Control Center inventory/status support lane.
 `FCC-V1-000` through `FCC-V1-007` are the planned Founder Loop V1

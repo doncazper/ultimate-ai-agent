@@ -1,0 +1,112 @@
+{
+  "contract_ref": "contract-ref:private-operator-ui-functional-tuning:v1",
+  "milestone_ref": "milestone:uaa-p1-087.2a",
+  "status": "implemented_private_trial_packet_ui_surface_authority_blocked",
+  "trial_scope_ref": "trial-scope:private-operator-ui-functional-tuning",
+  "boot_command_ref": "launcher-command:uaa-trial-boot",
+  "checklist_items": [
+    {
+      "item_ref": "private-trial-check:local-boot",
+      "surface": "Local Boot",
+      "trial_state": "pass",
+      "safe_summary": "The repo-local trial boot path opens Control Center first and keeps OpenWebUI secondary or blocked.",
+      "evidence_refs": ["evidence-ref:private-trial:local-boot"],
+      "friction_refs": ["friction-ref:private-trial:local-boot"],
+      "ui_copy_task_refs": ["ui-copy-task:private-trial:local-boot"],
+      "next_safe_action": "Confirm launcher status, log refs, and secondary-shell blocked state before trial use."
+    },
+    {
+      "item_ref": "private-trial-check:today",
+      "surface": "Today",
+      "trial_state": "partial",
+      "safe_summary": "Today exposes product spine, action, memory, evidence, intent, and readiness refs in one surface.",
+      "evidence_refs": ["evidence-ref:private-trial:today"],
+      "friction_refs": ["friction-ref:private-trial:today"],
+      "ui_copy_task_refs": ["ui-copy-task:private-trial:today"],
+      "next_safe_action": "Use trial findings to reduce scanning friction before broader product claims."
+    },
+    {
+      "item_ref": "private-trial-check:actions",
+      "surface": "Actions",
+      "trial_state": "partial",
+      "safe_summary": "Actions shows reviewable envelopes and memory-derived proposals while mutation remains disabled.",
+      "evidence_refs": ["evidence-ref:private-trial:actions"],
+      "friction_refs": ["friction-ref:private-trial:actions"],
+      "ui_copy_task_refs": ["ui-copy-task:private-trial:actions"],
+      "next_safe_action": "Keep approve/edit/reject/defer as next backend-owned receipt work."
+    },
+    {
+      "item_ref": "private-trial-check:memory",
+      "surface": "Memory",
+      "trial_state": "partial",
+      "safe_summary": "Memory shows source, provenance, quality, decision, intake, and loop refs without writes.",
+      "evidence_refs": ["evidence-ref:private-trial:memory"],
+      "friction_refs": ["friction-ref:private-trial:memory"],
+      "ui_copy_task_refs": ["ui-copy-task:private-trial:memory"],
+      "next_safe_action": "Focus the next memory work on real review decisions and durable receipts."
+    },
+    {
+      "item_ref": "private-trial-check:evidence",
+      "surface": "Evidence",
+      "trial_state": "partial",
+      "safe_summary": "Evidence reads as history with proposed, approved, happened, changed, undoable, stale, and blocked refs.",
+      "evidence_refs": ["evidence-ref:private-trial:evidence"],
+      "friction_refs": ["friction-ref:private-trial:evidence"],
+      "ui_copy_task_refs": ["ui-copy-task:private-trial:evidence"],
+      "next_safe_action": "Keep evidence summaries compact enough for repeated operator review."
+    },
+    {
+      "item_ref": "private-trial-check:chat-plans-handoff",
+      "surface": "Chat/Plans Handoff",
+      "trial_state": "blocked",
+      "safe_summary": "Chat and Plans handoff proof remains local-gated and review-only; output is not authority.",
+      "evidence_refs": ["evidence-ref:private-trial:chat-plans-handoff"],
+      "friction_refs": ["friction-ref:private-trial:chat-plans-handoff"],
+      "ui_copy_task_refs": ["ui-copy-task:private-trial:chat-plans-handoff"],
+      "next_safe_action": "Do not promote Chat until durable receipts and handoff refs are real."
+    },
+    {
+      "item_ref": "private-trial-check:blocked-state-language",
+      "surface": "Blocked State Language",
+      "trial_state": "partial",
+      "safe_summary": "Blocked-state labels are visible, but trial copy still needs consistency review across core surfaces.",
+      "evidence_refs": ["evidence-ref:private-trial:blocked-state-language"],
+      "friction_refs": ["friction-ref:private-trial:blocked-state-language"],
+      "ui_copy_task_refs": ["ui-copy-task:private-trial:blocked-state-language"],
+      "next_safe_action": "Tune copy toward next safe action instead of compliance-only wording."
+    },
+    {
+      "item_ref": "private-trial-check:crm-lite-follow-ups",
+      "surface": "CRM-Lite Follow-Ups",
+      "trial_state": "blocked",
+      "safe_summary": "CRM-lite follow-ups appear as safe memory/action refs only; local business state is not implemented.",
+      "evidence_refs": ["evidence-ref:private-trial:crm-lite-follow-ups"],
+      "friction_refs": ["friction-ref:private-trial:crm-lite-follow-ups"],
+      "ui_copy_task_refs": ["ui-copy-task:private-trial:crm-lite-follow-ups"],
+      "next_safe_action": "Plan local CRM-lite records after memory review and action receipts are durable."
+    }
+  ],
+  "friction_finding_refs": [
+    "friction-ref:private-trial:blocked-state-language",
+    "friction-ref:private-trial:chat-plan-handoff-proof",
+    "friction-ref:private-trial:crm-lite-follow-up-gap"
+  ],
+  "ui_copy_task_refs": [
+    "ui-copy-task:private-trial:show-first-party-surface",
+    "ui-copy-task:private-trial:name-secondary-openwebui",
+    "ui-copy-task:private-trial:surface-next-safe-action"
+  ],
+  "core_loop_gap_refs": [
+    "gap-ref:private-trial:memory-decision-execution",
+    "gap-ref:private-trial:action-decision-receipts",
+    "gap-ref:private-trial:first-party-chat-receipts",
+    "gap-ref:private-trial:crm-lite-local-follow-up-store"
+  ],
+  "evidence_refs": [
+    "evidence-ref:private-trial:launcher-boot-readiness",
+    "evidence-ref:private-trial:control-center-render-smoke",
+    "evidence-ref:private-trial:manual-smoke-checklist",
+    "evidence-ref:private-trial:ui-copy-task-ledger"
+  ],
+  "next_safe_action": "Use the private-trial packet to run local/private UI tuning for acceptance review, then keep UAA-P1-087.3 source-only until native boot cockpit scope is accepted."
+}

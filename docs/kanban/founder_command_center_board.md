@@ -83,8 +83,7 @@ FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 FCC-V1-000 through FCC-V1-007 Founder Loop V1 productization conveyor.
 
 Blocked / future:
-UAA-P1-086, UAA-P1-087,
-UAA-P1-087.1, UAA-P1-087.2, UAA-P1-087.3,
+UAA-P1-087.2, UAA-P1-087.3,
 FCC-V1-000, FCC-V1-001, FCC-V1-002, FCC-V1-003, FCC-V1-004,
 FCC-V1-005, FCC-V1-006, FCC-V1-007,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
@@ -1002,6 +1001,10 @@ Sub-milestone order:
   existing launcher and macOS `.command` path start Control Center first and
   OpenWebUI as the secondary shell with truthful readiness, stop, safe log-ref,
   and blocked states.
+- `UAA-P1-087.2a` Private Trial Packet And UI Tuning Surface: implemented. The
+  safe-ref-only packet and read-only `/private-trial` surface collect manual
+  smoke checklist refs, friction refs, UI/copy task refs, core-loop gap refs,
+  and blocked authority refs for the full private trial.
 - `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: run founder
   testing through the proven boot path and capture manual smoke evidence,
   friction notes, copy/UI tasks, and core loop gaps.

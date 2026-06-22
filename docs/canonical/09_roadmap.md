@@ -32,9 +32,11 @@ preview/proposal, and expensive validation/local-model paths with no auth,
 distributed quota, dependency, or production authority claim. UAA-P1-086 is
 complete for API boundary enforcement tests without route, middleware, runtime
 authority, public beta, or production authority changes. UAA-P1-087.1 is
-complete for local launcher dual-surface boot readiness; UAA-P1-087.2
-in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot
-cockpit planning/source-only scaffold remain next.
+complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is
+complete for the private trial packet and read-only Control Center tuning
+surface only; full UAA-P1-087.2 in-person private UI functional tuning and
+UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold remain
+next.
 The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: Control Center release
