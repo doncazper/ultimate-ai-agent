@@ -25,7 +25,10 @@ M164_TEST_GATEWAY_KEY = "test-llama-cpp-local"
 
 
 def _headers() -> dict[str, Any]:
-    return {"Authorization": f"Bearer {M164_TEST_GATEWAY_KEY}"}
+    return {
+        "Authorization": f"Bearer {M164_TEST_GATEWAY_KEY}",
+        "X-UAA-Idempotency-Key": "idempotency:m164-llama-cpp",
+    }
 
 
 def _enable_gateway(monkeypatch: pytest.MonkeyPatch) -> None:

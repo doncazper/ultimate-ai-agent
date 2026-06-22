@@ -42,13 +42,24 @@ completes explicit local Control Center loopback CORS allowlisting with no
 wildcard CORS, no CORS credentials, and no auth claim. UAA-P1-083 completes a
 configured local bearer gate for non-public route classifications with public
 metadata routes left open and no enterprise/OAuth/password-flow claim.
-UAA-P1-084 through UAA-P1-086 remain planned/queued API
+UAA-P1-084 completes a runtime idempotency header gate for
+`mutating_requires_authority` routes with no durable dedupe or exactly-once
+execution claim. UAA-P1-085 through UAA-P1-086 remain planned/queued API
 boundary hardening lanes, followed by the UAA-P1-087 Private Operator Trial
 And UI Functional Tuning sequence: UAA-P1-087.1 local launcher dual-surface
 boot readiness, UAA-P1-087.2 in-person private UI functional tuning, and
 UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold after
 the `.command` contract is proven. No public beta, distribution,
 production readiness, or production authority claim is granted.
+The planned Founder Loop V1 productization conveyor is now recorded in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
+`FCC-V1-007`. It carries the detailed goals for the release surface manifest,
+API perimeter for real mutations, Action Inbox backend decisions, first
+Today-to-Action vertical loop, Chat durable receipts and handoff, Memory Review
+accept/correct/reject backend decisions, Evidence Timeline productization, and
+promotion/proof lane. This is planning and task-shaping only; it grants no new
+routes, controls, runtime calls, connector writes, memory writes, context
+injection, beta, distribution, or production authority.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.

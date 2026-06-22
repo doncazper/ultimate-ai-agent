@@ -34,14 +34,41 @@ Loopback CORS Allowlist is implemented as exact local Control Center CORS
 browser hardening with no auth claim. UAA-P1-083 Local Bearer Or Session Gate
 For Sensitive Routes is implemented as a configured local protected-route
 bearer gate with no enterprise/OAuth/password-flow or production authority
-claim. UAA-P1-084 through UAA-P1-086 remain planned/queued API boundary
-hardening lanes. UAA-P1-087 is planned after those gates as an ordered private
+claim. UAA-P1-084 Mutating Route Idempotency Enforcement Audit is implemented
+as a runtime idempotency header gate for mutating route classifications with no
+durable dedupe, exactly-once execution, or production authority claim.
+UAA-P1-085 through UAA-P1-086 remain planned/queued API boundary hardening
+lanes. UAA-P1-087 is planned after those gates as an ordered private
 operator trial and UI functional tuning sequence:
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
 in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
 cockpit planning/source-only scaffold after the `.command` contract is proven.
 This remains the breakpoint before P2/provider, packaging, public distribution,
 or commercialization expansion.
+
+Founder Loop V1 productization is now tracked as `FCC-V1-000` through
+`FCC-V1-007` in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`. That conveyor records the
+detailed goals, tasks, routes, model fields, storage semantics, UI outcomes,
+proof lanes, and authority boundaries for:
+
+- Control Center release surface manifest.
+- API perimeter for real mutations.
+- Action Inbox backend state machine for approve/edit/reject/defer with
+  backend receipts.
+- Today item to Action envelope to exact approval to durable receipt to
+  Evidence Timeline update.
+- Control Center Chat durable receipt and reviewable handoff.
+- Memory Review accept/correct/reject backend decisions with
+  `MemoryReviewDecision` fields, append-first storage, preserved rejected
+  decisions, safe corrected-summary refs, and receipt/evidence binding.
+- Evidence Timeline productization.
+- Promotion and proof lanes that keep route status at `partial`, `blocked`, or
+  `experimental` until proof exists.
+
+This conveyor should continue until all `FCC-V1` tasks are complete, adding
+scoped follow-up slices if needed rather than skipping receipt, evidence,
+manifest, idempotency, CLI/core/API inspection, or redaction gates.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -99,10 +126,10 @@ or commercialization expansion.
    only. Explicit loopback CORS is implemented for exact local Control Center
    dev/preview origins only, with wildcard CORS and credentials denied. Simple
    local bearer/session protection for sensitive routes, mutating-route
-   idempotency enforcement, targeted rate limits, and OpenAPI/API
-   manifest/route inventory enforcement checks remain planned/queued. This is
-   not enterprise auth and
-   does not add runtime authority.
+   idempotency header gating, and explicit no-production-authority posture are
+   implemented. Targeted rate limits and OpenAPI/API manifest/route inventory
+   enforcement checks remain planned/queued. This is not enterprise auth and
+   does not add broad runtime authority.
 14. Private operator trial and UI functional tuning: after UAA-P1-080 through
    UAA-P1-086, first prove local launcher/`.command` dual-surface boot
    readiness for Control Center plus the secondary OpenWebUI shell, then use
@@ -137,9 +164,9 @@ Current partial API coverage is limited to OpenAPI/API manifest metadata,
 side-effect classes, route-status auth posture, bearer-gated local `/v1`
 planning, and idempotency concepts in durable run/action contracts. Centralized
 security headers, explicit loopback CORS, and route-wide public/protected
-classification are implemented. A broad local bearer/session gate, mutating-
-route idempotency enforcement, targeted rate limits, and enforcement tests
-remain future scoped work.
+classification, local protected-route bearer gating, and mutating-route
+idempotency header gating are implemented. Targeted rate limits and enforcement
+tests remain future scoped work.
 
 UI direction: Control Center / Founder Command Center is the proprietary
 primary product UI for the loop. OpenWebUI remains a supported local/dev

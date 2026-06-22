@@ -49840,7 +49840,11 @@ class FoundationGateEvaluator:
             with tempfile.TemporaryDirectory(prefix="uaa-gate-v0292-kernel-") as probe_dir:
                 probe_root = Path(probe_dir)
                 payload = kernel_payload(probe_root, "approval_test_gate")
-                response = client.post("/kernel/tasks/run", json=payload)
+                response = client.post(
+                    "/kernel/tasks/run",
+                    headers={"X-UAA-Idempotency-Key": "idempotency:foundation-gate-v0292-kernel"},
+                    json=payload,
+                )
                 if response.status_code != 200:
                     failures.append(f"kernel API dry-run probe returned HTTP {response.status_code}")
                 else:

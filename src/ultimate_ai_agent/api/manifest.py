@@ -9,8 +9,13 @@ from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import (
     ApiManifest,
     ApiRouteClassification,
+    ApiRouteIdempotencyPosture,
     ApiRouteInventoryItem,
     ApiRouteSideEffectClass,
+)
+from ultimate_ai_agent.api.idempotency import (
+    API_IDEMPOTENCY_AUDIT_POLICY_REF,
+    route_idempotency_posture,
 )
 
 
@@ -20,6 +25,7 @@ CAPABILITIES_DECLARED = [
     "centralized_fastapi_security_headers",
     "explicit_loopback_cors_allowlist",
     "local_protected_route_bearer_gate",
+    "mutating_route_idempotency_audit",
     "typed_validation_routes",
     "foundation_gate_reporting",
     "local_dev_approval_validation",
@@ -81,6 +87,10 @@ CAPABILITIES_BLOCKED = [
     "local_protected_route_gate_as_oauth",
     "local_protected_route_gate_as_password_flow",
     "local_protected_route_gate_as_production_authority",
+    "idempotency_audit_as_exactly_once_execution",
+    "idempotency_audit_as_durable_dedupe_store",
+    "idempotency_audit_as_mutation_authority",
+    "idempotency_audit_as_production_authority",
     "plugin_enablement_routes",
     "control_center_execution",
     "control_center_plugin_enablement",
@@ -271,6 +281,7 @@ API_MANIFEST_CACHE_INVALIDATION_RULES = (
     "active_baseline_change",
     "route_path_method_operation_tag_summary_change",
     "route_classification_logic_change",
+    "route_idempotency_posture_logic_change",
     "capabilities_declared_change",
     "capabilities_blocked_change",
     "manual_cache_clear",
@@ -395,6 +406,12 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                 route.path,
                 side_effect_class,
             )
+            (
+                idempotency_required,
+                idempotency_posture,
+                idempotency_policy_ref,
+                idempotency_reason,
+            ) = route_idempotency_posture(route_classification)
             items.append(
                 ApiRouteInventoryItem(
                     path=route.path,
@@ -407,6 +424,10 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                     route_classification=route_classification,
                     protected_route=route_classification != ApiRouteClassification.public_metadata,
                     classification_reason=classification_reason,
+                    idempotency_required=idempotency_required,
+                    idempotency_posture=idempotency_posture,
+                    idempotency_policy_ref=idempotency_policy_ref,
+                    idempotency_reason=idempotency_reason,
                 )
             )
     return sorted(items, key=lambda item: (item.path, item.method))
@@ -496,8 +517,12 @@ def _get_api_manifest_static_cache_entry(app: FastAPI) -> _ApiManifestStaticCach
 def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) -> ApiManifest:
     static = _get_api_manifest_static_cache_entry(app)
     classification_summary = {classification.value: 0 for classification in ROUTE_CLASSIFICATION_VOCABULARY}
+    idempotency_summary = {
+        posture.value: 0 for posture in ApiRouteIdempotencyPosture
+    }
     for route in static.routes:
         classification_summary[str(route.route_classification)] += 1
+        idempotency_summary[str(route.idempotency_posture)] += 1
     return ApiManifest(
         title=static.title,
         api_version=static.api_version,
@@ -510,6 +535,8 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
             classification.value for classification in ROUTE_CLASSIFICATION_VOCABULARY
         ],
         route_classification_summary=classification_summary,
+        idempotency_audit_policy_ref=API_IDEMPOTENCY_AUDIT_POLICY_REF,
+        route_idempotency_posture_summary=idempotency_summary,
         foundation_gate_status=foundation_gate_status,
         capabilities_declared=list(static.capabilities_declared),
         capabilities_blocked=list(static.capabilities_blocked),

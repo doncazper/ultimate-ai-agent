@@ -6,6 +6,7 @@ from ultimate_ai_agent.api.app import app
 
 
 client = TestClient(app)
+IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:file-review-api"}
 
 
 def _payload(**overrides: Any) -> Any:
@@ -26,7 +27,11 @@ def _payload(**overrides: Any) -> Any:
 
 
 def test_file_review_approval_capture_route_persists_review_only_record() -> None:
-    response = client.post("/files/review/approvals/capture", json=_payload())
+    response = client.post(
+        "/files/review/approvals/capture",
+        headers=IDEMPOTENCY_HEADERS,
+        json=_payload(),
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -46,6 +51,7 @@ def test_file_review_approval_capture_route_persists_review_only_record() -> Non
 def test_file_review_approval_capture_route_rejects_raw_content_extra() -> None:
     response = client.post(
         "/files/review/approvals/capture",
+        headers=IDEMPOTENCY_HEADERS,
         json=_payload(raw_content="raw secret text"),
     )
 

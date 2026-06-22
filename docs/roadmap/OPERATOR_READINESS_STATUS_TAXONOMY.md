@@ -44,6 +44,16 @@ Control Center route status manifest values map to the canonical statuses:
 | `local_ui_state_only_not_evidence` | `local_ui_state_only` |
 | `blocked_missing_backend` | `blocked` |
 
+The planned FCC-V1 release surface manifest uses a narrower route-promotion
+vocabulary:
+
+| Release surface value | Canonical status |
+|---|---|
+| `ship` | `shipped` for the exact route behavior only; not public release or production readiness. |
+| `partial` | `partial` |
+| `blocked` | `blocked` |
+| `experimental` | `needs_review` or `partial`, depending on the proof lane. |
+
 Release verification and release evidence packet values map to readiness
 language this way:
 

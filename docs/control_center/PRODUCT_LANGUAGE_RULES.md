@@ -104,6 +104,12 @@ visible action truth, not evidence that the first operator loop is complete.
 Chat Local Operator is partial/local-gated, Models lifecycle controls and
 Settings remain blocked, and completed product-surface claims remain blocked
 until later gates add reviewed routes, UI, evidence, and rollback proof.
+The planned FCC-V1 conveyor in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` is the required proof path
+before copy may describe Action Inbox decisions, Chat receipt/handoff, Memory
+Review accept/correct/reject, or Evidence Timeline updates as shipped product
+behavior. Until then, those flows must remain described as planned, partial,
+blocked, or review-only according to their actual implementation evidence.
 
 ## Enforcement
 

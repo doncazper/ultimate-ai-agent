@@ -4334,7 +4334,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
     readme = read_lower("README.md")
     readme_flat = " ".join(readme.split())
     if (
-        "uaa-p1-083 complete: local protected-route bearer gate" not in readme_flat
+        "uaa-p1-084 complete: mutating route idempotency gate" not in readme_flat
         or "uaa-p1-067 completes" not in readme
         or "uaa-p1-068 completes" not in readme
         or "uaa-p1-069 completes" not in readme
@@ -4352,14 +4352,17 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "uaa-p1-081 centralized fastapi security headers is complete" not in readme_flat
         or "uaa-p1-082 explicit loopback cors allowlist is complete" not in readme_flat
         or "uaa-p1-083 local bearer or session gate for sensitive routes is complete" not in readme_flat
-        or "uaa-p1-084 through uaa-p1-086 remain planned/queued" not in readme_flat
+        or "uaa-p1-084 mutating route idempotency enforcement audit is complete" not in readme_flat
+        or "uaa-p1-084 complete: mutating route idempotency gate" not in readme_flat
+        or "uaa-p1-085 through uaa-p1-086 remain planned/queued" not in readme_flat
         or "uaa-p1-066 remains queued" not in readme_flat
     ):
         failures.append(
             "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070/"
             "UAA-P1-071/UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075/"
             "UAA-P1-076/UAA-P1-077/UAA-P1-078/UAA-P1-079/UAA-P1-080/"
-            "UAA-P1-081/UAA-P1-082/UAA-P1-083 complete, UAA-P1-084 through UAA-P1-086 planned/queued, "
+            "UAA-P1-081/UAA-P1-082/UAA-P1-083/UAA-P1-084 complete, "
+            "UAA-P1-085 through UAA-P1-086 planned/queued, "
             "and UAA-P1-066 queued support"
         )
 
@@ -4384,15 +4387,17 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "completed uaa-p1-081" not in docs_readme_flat
         or "completed uaa-p1-082" not in docs_readme_flat
         or "completed uaa-p1-083" not in docs_readme_flat
-        or "uaa-p1-084 through uaa-p1-086 remain planned/queued" not in docs_readme_flat
+        or "completed uaa-p1-084" not in docs_readme_flat
+        or "uaa-p1-085 through uaa-p1-086 remain planned/queued" not in docs_readme_flat
         or "uaa-p1-066 remains queued" not in docs_readme_flat
     ):
         failures.append(
             "docs/README.md must identify UAA-P1-065 done, "
             "UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070/UAA-P1-071/"
             "UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075/UAA-P1-076/"
-            "UAA-P1-077/UAA-P1-078/UAA-P1-079/UAA-P1-080/UAA-P1-081/UAA-P1-082/UAA-P1-083 complete, "
-            "UAA-P1-084 through UAA-P1-086 planned/queued, and UAA-P1-066 "
+            "UAA-P1-077/UAA-P1-078/UAA-P1-079/UAA-P1-080/UAA-P1-081/"
+            "UAA-P1-082/UAA-P1-083/UAA-P1-084 complete, "
+            "UAA-P1-085 through UAA-P1-086 planned/queued, and UAA-P1-066 "
             "queued support"
         )
 
@@ -4886,7 +4891,7 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
     readme = read_lower("README.md")
     readme_flat = " ".join(readme.split())
     if (
-        "uaa-p1-083 complete: local protected-route bearer gate" not in readme_flat
+        "uaa-p1-084 complete: mutating route idempotency gate" not in readme_flat
         or "uaa-p1-067 completes" not in readme
         or "uaa-p1-068 completes" not in readme
         or "uaa-p1-069 completes" not in readme
@@ -4904,14 +4909,17 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         or "uaa-p1-081 centralized fastapi security headers is complete" not in readme_flat
         or "uaa-p1-082 explicit loopback cors allowlist is complete" not in readme_flat
         or "uaa-p1-083 local bearer or session gate for sensitive routes is complete" not in readme_flat
-        or "uaa-p1-084 through uaa-p1-086 remain planned/queued" not in readme_flat
+        or "uaa-p1-084 mutating route idempotency enforcement audit is complete" not in readme_flat
+        or "uaa-p1-084 complete: mutating route idempotency gate" not in readme_flat
+        or "uaa-p1-085 through uaa-p1-086 remain planned/queued" not in readme_flat
         or "uaa-p1-066 remains queued" not in readme_flat
     ):
         failures.append(
             "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070/"
             "UAA-P1-071/UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075/"
             "UAA-P1-076/UAA-P1-077/UAA-P1-078/UAA-P1-079/UAA-P1-080/"
-            "UAA-P1-081/UAA-P1-082/UAA-P1-083 complete, UAA-P1-084 through UAA-P1-086 planned/queued, "
+            "UAA-P1-081/UAA-P1-082/UAA-P1-083/UAA-P1-084 complete, "
+            "UAA-P1-085 through UAA-P1-086 planned/queued, "
             "and UAA-P1-066 queued support"
         )
     if "p0-017 adds safe local model operational recovery guidance" not in readme:

@@ -70,8 +70,11 @@ API boundary hardening:
   `mutating_requires_authority`. The gate is enabled by
   `UAA_API_LOCAL_AUTH_ENABLED=1` or a configured `UAA_API_LOCAL_BEARER`; it is
   not enterprise auth, multi-user auth, OAuth, roles, or a password flow.
-- UAA-P1-084 will audit mutating routes so every mutation requires an
-  idempotency key or scoped idempotency ref before authority is claimed.
+- UAA-P1-084 adds a runtime boundary check for routes classified as
+  `mutating_requires_authority`: requests must carry
+  `X-UAA-Idempotency-Key` or `X-UAA-Idempotency-Ref` before the mutating
+  handler can run. It does not add durable idempotency storage, replay
+  execution, mutation authority, or production authority.
 - UAA-P1-085 will add targeted rate limits for model/chat, task decomposition,
   action preview/proposal, and expensive validation or local-model paths.
 - UAA-P1-086 will add OpenAPI, `/api/manifest`, and route inventory tests for

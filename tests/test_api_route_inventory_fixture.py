@@ -24,15 +24,20 @@ def test_frozen_api_route_inventory_matches_current_contract() -> None:
             "summary": route["summary"],
             "side_effect_class": route["side_effect_class"],
             "route_classification": route["route_classification"],
+            "idempotency_required": route["idempotency_required"],
+            "idempotency_posture": route["idempotency_posture"],
+            "idempotency_policy_ref": route["idempotency_policy_ref"],
         }
         for route in manifest["routes"]
     ]
     current_routes.sort(key=lambda item: (item["path"], item["method"]))
 
-    assert fixture["schema_version"] == "uaa-api-route-inventory.v1"
+    assert fixture["schema_version"] == "uaa-api-route-inventory.v2"
     assert fixture["route_count"] == 112
     assert fixture["route_classification_vocabulary"] == manifest["route_classification_vocabulary"]
     assert fixture["route_classification_summary"] == manifest["route_classification_summary"]
+    assert fixture["route_idempotency_posture_summary"] == manifest["route_idempotency_posture_summary"]
+    assert fixture["idempotency_audit_policy_ref"] == manifest["idempotency_audit_policy_ref"]
     assert fixture["routes"] == current_routes
 
 

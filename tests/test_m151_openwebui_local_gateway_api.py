@@ -21,7 +21,10 @@ client = TestClient(app)
 
 
 def _auth_headers() -> dict[str, str]:
-    return {"Authorization": f"Bearer {DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY}"}
+    return {
+        "Authorization": f"Bearer {DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY}",
+        "X-UAA-Idempotency-Key": "idempotency:m151-openwebui",
+    }
 
 
 def test_m151_models_endpoint_is_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:

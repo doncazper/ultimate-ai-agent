@@ -30,10 +30,12 @@ P1-080 route classification as `public_metadata`, `local_readonly`,
 response security headers, disabled-by-default bearer-gated local `/v1`
 behavior, UAA-P1-082 explicit loopback CORS allowlist, UAA-P1-083 configured
 local protected-route bearer gate, and idempotency concepts in durable
-run/action planning. Missing controls remain planned in UAA-P1-084 through
-UAA-P1-086: mutating-route idempotency enforcement audit; targeted rate limits;
-and OpenAPI/API manifest/route inventory enforcement tests. CORS is browser
-hardening, not auth, and this gap map does not implement those later controls.
+run/action planning. UAA-P1-084 now adds a mutating-route idempotency header
+gate without durable dedupe, exactly-once execution, replay execution, rate
+limits, mutation authority, or production authority. Missing controls remain
+planned in UAA-P1-085 through UAA-P1-086: targeted rate limits and OpenAPI/API
+manifest/route inventory enforcement tests. CORS is browser hardening, not
+auth, and this gap map does not implement those later controls.
 
 CLI is a first-class operator surface. The Control Center may expose a workflow
 only as a shell over the same Python core/API contract that can be inspected or
@@ -111,6 +113,13 @@ and redacted evidence before they can be treated as operator-relevant product
 behavior. A React-only implementation is local presentation state, not product
 workflow completion evidence.
 
+The planned FCC-V1 conveyor in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` is the active gap-closure
+path for converting posture into one receipt-bearing Founder loop. Until those
+milestones land, `/actions`, `/chat`, `/memory`, and `/evidence` remain partial
+for real backend-owned decisions, durable receipts, handoff refs, and actual
+Evidence Timeline updates.
+
 ## First Product Loop Gaps
 
 UAA-P1-011 now has a readable Control Center proof chain for runtime health,
@@ -138,11 +147,17 @@ remaining gaps before broader product-readiness claims are:
 7. Continue expanding Evidence views beyond the FCC-P1-006 timeline only after
    durable run, evidence-index, rollback-status, and latency-report contracts
    are scoped.
-8. Complete the UAA-P1-084 through UAA-P1-086 remaining API boundary
+8. Complete the UAA-P1-085 through UAA-P1-086 remaining API boundary
    hardening lane before claiming authority-heavy Plans, Chat, Code,
-   loop-binding, or private beta-readiness: mutating-route idempotency audit,
-   targeted rate limits, and OpenAPI/API
-   manifest enforcement tests.
+   loop-binding, or private beta-readiness: targeted rate limits and
+   OpenAPI/API manifest enforcement tests.
+9. Complete the FCC-V1 Founder Loop V1 conveyor before promoting the first
+   product loop to `ship`: release surface manifest, API perimeter for real
+   mutations, Action Inbox approve/edit/reject/defer backend decisions, Today
+   item to Action envelope to exact approval to durable receipt to Evidence
+   update, Chat durable receipt and handoff, Memory Review accept/correct/
+   reject backend decisions, Evidence Timeline productization, and proof-lane
+   promotion.
 
 These remaining gaps are release blockers for M172 product-readiness claims.
 

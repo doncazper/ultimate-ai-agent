@@ -28,6 +28,7 @@ material.
 | Metric | Definition | Why it matters | Safety requirement |
 |---|---|---|---|
 | Useful actions completed per day | Count of reviewed useful outcomes with safe evidence refs. | Measures real work, not surface area. | Count only redacted summaries and refs. |
+| Founder Loop V1 receipt carry-through | Count of Today items that become Action envelopes, receive approve/edit/reject/defer decisions, produce durable receipts, and update Evidence Timeline. | Measures whether the first real loop exists end to end before broader expansion. | Use only backend-owned state, receipt refs, idempotency refs, and redacted evidence refs. |
 | Primary loop quality before new surfaces | Reviewed quality of Today, Inbox, Plans, Actions, Memory, Evidence, and Settings before adding net-new surfaces. | Prevents breadth from masquerading as product progress. | Safe summaries and refs only. |
 | User-approved action rate | Approved exact-scoped action proposals divided by total eligible proposals. | Shows whether proposals are useful and trusted. | Approval refs are identifiers only; no raw content. |
 | Time saved per day | User-entered or inferred safe estimate attached to reviewed outcomes. | Captures perceived leverage. | No private calendars/messages required for MVP. |

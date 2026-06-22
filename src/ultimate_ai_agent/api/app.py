@@ -14,11 +14,19 @@ from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiManifest
 from ultimate_ai_agent.api.cors import configure_loopback_cors
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
+from ultimate_ai_agent.api.idempotency import (
+    API_IDEMPOTENCY_AUDIT_POLICY_REF,
+    idempotency_header_failure,
+)
 from ultimate_ai_agent.api.local_auth import (
     LOCAL_API_AUTH_POLICY_REF,
     local_api_auth_failure,
 )
-from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.api.manifest import (
+    build_api_manifest,
+    route_classification_for_path,
+    route_side_effect_class,
+)
 from ultimate_ai_agent.api.mattermost import register_mattermost_routes
 from ultimate_ai_agent.api.openapi import configure_openapi_contract
 from ultimate_ai_agent.api.routes.system_service import register_system_routes
@@ -544,6 +552,32 @@ async def session_log_api_middleware(request: Request, call_next: Any) -> Any:
             error_code=error_code,
             error_summary=error_summary,
         )
+
+
+@app.middleware("http")
+async def api_idempotency_gate_middleware(request: Request, call_next: Any) -> Any:
+    if request.method.upper() in {"OPTIONS", "HEAD"}:
+        return await call_next(request)
+    side_effect_class = route_side_effect_class(request.url.path)
+    route_classification, _reason = route_classification_for_path(
+        request.method,
+        request.url.path,
+        side_effect_class,
+    )
+    failure = idempotency_header_failure(
+        request.headers,
+        route_classification=route_classification,
+    )
+    if failure is not None:
+        return JSONResponse(
+            status_code=failure.status_code,
+            content={
+                "detail": failure.safe_message,
+                "code": failure.code,
+                "policy_ref": API_IDEMPOTENCY_AUDIT_POLICY_REF,
+            },
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")

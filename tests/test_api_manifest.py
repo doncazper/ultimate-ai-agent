@@ -34,6 +34,7 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "centralized_fastapi_security_headers" in manifest["capabilities_declared"]
     assert "explicit_loopback_cors_allowlist" in manifest["capabilities_declared"]
     assert "local_protected_route_bearer_gate" in manifest["capabilities_declared"]
+    assert "mutating_route_idempotency_audit" in manifest["capabilities_declared"]
     assert "security_headers_as_authentication" in manifest["capabilities_blocked"]
     assert "security_headers_as_cors_policy" in manifest["capabilities_blocked"]
     assert "security_headers_as_rate_limits" in manifest["capabilities_blocked"]
@@ -45,6 +46,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "local_protected_route_gate_as_oauth" in manifest["capabilities_blocked"]
     assert "local_protected_route_gate_as_password_flow" in manifest["capabilities_blocked"]
     assert "local_protected_route_gate_as_production_authority" in manifest["capabilities_blocked"]
+    assert "idempotency_audit_as_exactly_once_execution" in manifest["capabilities_blocked"]
+    assert "idempotency_audit_as_durable_dedupe_store" in manifest["capabilities_blocked"]
+    assert "idempotency_audit_as_mutation_authority" in manifest["capabilities_blocked"]
+    assert "idempotency_audit_as_production_authority" in manifest["capabilities_blocked"]
     assert "local_loopback_gateway_explicit_bearer_required" in manifest["capabilities_declared"]
     assert "local_loopback_gateway_allowlisted_response_shape" in manifest["capabilities_declared"]
     assert "file_api_safe_tree_preview_refs" in manifest["capabilities_declared"]
@@ -88,6 +93,11 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         manifest["route_classification_vocabulary"]
     )
     assert sum(manifest["route_classification_summary"].values()) == manifest["route_count"]
+    assert manifest["idempotency_audit_policy_ref"] == "idempotency:p1-084:mutating-routes:v1"
+    assert manifest["route_idempotency_posture_summary"] == {
+        "not_required_for_route_classification": 99,
+        "required_before_mutation_authority": 13,
+    }
     assert all(
         route["route_classification"] in manifest["route_classification_vocabulary"]
         for route in manifest["routes"]
@@ -95,6 +105,11 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert all(route["classification_reason"] for route in manifest["routes"])
     assert all(
         route["protected_route"] is (route["route_classification"] != "public_metadata")
+        for route in manifest["routes"]
+    )
+    assert all(
+        route["idempotency_required"]
+        is (route["route_classification"] == "mutating_requires_authority")
         for route in manifest["routes"]
     )
     routes_by_path = {route["path"]: route for route in manifest["routes"]}
@@ -113,6 +128,15 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert routes_by_path["/task-decomposition/approvals/grants/capture"][
         "route_classification"
     ] == "mutating_requires_authority"
+    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
+        "idempotency_posture"
+    ] == "required_before_mutation_authority"
+    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
+        "idempotency_policy_ref"
+    ] == "idempotency:p1-084:mutating-routes:v1"
+    assert routes_by_path["/files/tree/preview"]["idempotency_posture"] == (
+        "not_required_for_route_classification"
+    )
     assert routes_by_path["/v1/chat/completions"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/tree/preview"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/read/preview"]["side_effect_class"] == "local_dev_workspace_only"

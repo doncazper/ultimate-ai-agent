@@ -31,6 +31,7 @@ docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md
 docs/api/UAA_P1_081_CENTRALIZED_FASTAPI_SECURITY_HEADERS.md
 docs/api/UAA_P1_082_EXPLICIT_LOOPBACK_CORS_ALLOWLIST.md
 docs/api/UAA_P1_083_LOCAL_BEARER_SESSION_GATE.md
+docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md
 docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md
@@ -50,6 +51,11 @@ Current boundary summary:
   classifications while keeping `GET /health`, `GET /version`,
   `GET /api/manifest`, and `GET /openapi.json` public metadata. It is not
   enterprise auth, OAuth, a password flow, or production authority.
+- UAA-P1-084 adds a runtime idempotency header gate for
+  `mutating_requires_authority` routes. It requires `X-UAA-Idempotency-Key` or
+  `X-UAA-Idempotency-Ref` before mutating handlers run, without durable dedupe,
+  exactly-once execution, rate-limit, mutation authority, or production
+  authority claims.
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.

@@ -18,6 +18,11 @@ class ApiRouteClassification(str, Enum):
     mutating_requires_authority = "mutating_requires_authority"
 
 
+class ApiRouteIdempotencyPosture(str, Enum):
+    not_required_for_route_classification = "not_required_for_route_classification"
+    required_before_mutation_authority = "required_before_mutation_authority"
+
+
 class ApiRouteInventoryItem(BaseModel):
     path: str = Field(..., min_length=1)
     method: str = Field(..., min_length=1)
@@ -29,6 +34,10 @@ class ApiRouteInventoryItem(BaseModel):
     route_classification: ApiRouteClassification
     protected_route: bool
     classification_reason: str = Field(..., min_length=1)
+    idempotency_required: bool
+    idempotency_posture: ApiRouteIdempotencyPosture
+    idempotency_policy_ref: Optional[str] = None
+    idempotency_reason: str = Field(..., min_length=1)
     requires_auth_future: bool = True
     blocked_from_production: bool = True
 
@@ -45,6 +54,8 @@ class ApiManifest(BaseModel):
     routes: List[ApiRouteInventoryItem] = Field(default_factory=list)
     route_classification_vocabulary: List[ApiRouteClassification] = Field(default_factory=list)
     route_classification_summary: dict[str, int] = Field(default_factory=dict)
+    idempotency_audit_policy_ref: Optional[str] = None
+    route_idempotency_posture_summary: dict[str, int] = Field(default_factory=dict)
     foundation_gate_status: Optional[str] = None
     capabilities_declared: List[str] = Field(default_factory=list)
     capabilities_blocked: List[str] = Field(default_factory=list)

@@ -160,7 +160,7 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
             "UAA-P1-081 is complete",
             "UAA-P1-082 is complete",
             "UAA-P1-083 is complete",
-            "UAA-P1-084 remains planned/queued",
+            "UAA-P1-084 is complete",
             "This milestone adds no backend route",
             "UAA-P1-066 remains queued",
         ],

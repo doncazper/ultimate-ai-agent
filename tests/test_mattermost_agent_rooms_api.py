@@ -16,7 +16,10 @@ client = TestClient(app)
 
 
 def _headers() -> dict[str, Any]:
-    return {"Authorization": "Bearer local-mattermost"}
+    return {
+        "Authorization": "Bearer local-mattermost",
+        "X-UAA-Idempotency-Key": "idempotency:mattermost-api",
+    }
 
 
 def _enable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, reply: bool = True, auto_create: bool = False) -> None:

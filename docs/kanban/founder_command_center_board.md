@@ -31,6 +31,15 @@ UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
 
+The planned Founder Loop V1 conveyor is `FCC-V1-000` through `FCC-V1-007`.
+It is the next productization spine for release surface truth, API perimeter
+for real mutations, backend-owned Action decisions, the first Today-to-Action
+receipt loop, Chat receipts and handoff, Memory Review accept/correct/reject
+backend decisions, Evidence Timeline productization, and proof-lane promotion.
+The detailed milestone goals, routes, fields, storage semantics, UI outcomes,
+and authority boundaries live in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`.
+
 Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
 and new runtime authority lanes are not allowed to displace this sequence
 without a separate scoped dependency, safety boundary, tests, and verifier plan.
@@ -65,20 +74,74 @@ FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
-UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083.
+UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084.
 
 Candidate-next:
-UAA-P1-084 Mutating Route Idempotency Enforcement Audit.
+UAA-P1-085 Targeted Rate Limits For Expensive And Sensitive Routes.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
+FCC-V1-000 through FCC-V1-007 Founder Loop V1 productization conveyor.
 
 Blocked / future:
-UAA-P1-084, UAA-P1-085, UAA-P1-086, UAA-P1-087,
+UAA-P1-085, UAA-P1-086, UAA-P1-087,
 UAA-P1-087.1, UAA-P1-087.2, UAA-P1-087.3,
+FCC-V1-000, FCC-V1-001, FCC-V1-002, FCC-V1-003, FCC-V1-004,
+FCC-V1-005, FCC-V1-006, FCC-V1-007,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
 ```
 
 ## Candidate Next
+
+### FCC-V1-000 through FCC-V1-007 - Founder Loop V1 Productization Conveyor
+
+Status: Planned.
+
+Epic: Product/UX, Safety/Permissions, Memory/Knowledge, Business Cofounder
+Workflows
+
+Promoted by: Founder Loop V1 planning update.
+
+Type: staged full-stack productization with docs/test/manifest gates first.
+
+Description: Carry the product loop from truthful route status to one real
+receipt-bearing Founder loop: Today item to Action envelope, exact approval,
+durable receipt, and Evidence Timeline update. The conveyor also makes Control
+Center Chat produce durable receipts and handoff refs, makes Action Inbox
+approve/edit/reject/defer decisions backend-owned, makes Memory Review
+accept/correct/reject backend-owned, productizes Evidence Timeline events, and
+promotes only routes that pass proof lanes.
+
+Milestone order:
+
+- `FCC-V1-000` Control Center Release Surface Manifest.
+- `FCC-V1-001` API Perimeter For Real Mutations.
+- `FCC-V1-002` Action Inbox Backend State Machine.
+- `FCC-V1-003` Founder Loop V1 Vertical Slice.
+- `FCC-V1-004` Control Center Chat Durable Receipt And Handoff.
+- `FCC-V1-005` Memory Review Decisions.
+- `FCC-V1-006` Evidence Timeline Productization.
+- `FCC-V1-007` Promotion And Proof Lane.
+
+Acceptance criteria: Each milestone's detailed goal, tasks, expected routes,
+model fields, storage behavior, UI result, proof lane, and authority boundary
+are recorded in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`. The conveyor does not
+stop until route truth, idempotency, backend-owned decisions, durable receipts,
+Evidence Timeline updates, CLI/repo-local inspection parity, frontend
+rendering, and raw-content leak checks exist for the scoped Founder Loop V1
+behavior.
+
+Required tests/verifiers: release surface verifier, OpenAPI/API manifest
+checks, focused Action lifecycle tests, Chat receipt/handoff tests, Memory
+decision tests, Evidence Timeline tests, Control Center route/render tests,
+documentation integrity, and the planned
+`scripts/verify_founder_loop_v1.py` proof command.
+
+Safety notes: Planning only until separate implementation slices land. No
+runtime model calls, connector writes, shell/subprocess execution, browser
+automation, automatic memory writes, context injection, CRM sync, action
+execution, public beta, public distribution, or production authority is granted
+by this board entry.
 
 ### UAA-P1-077 - Memory-To-Loop Binding
 
@@ -852,6 +915,8 @@ readiness, or production authority is added by this implementation.
 
 ### UAA-P1-084 - Mutating Route Idempotency Enforcement Audit
 
+Status: Implemented / ready for review.
+
 Epic: API Boundary, Durability/Safety
 
 Description: Audit every mutating route and require an idempotency key or scoped
@@ -860,11 +925,16 @@ idempotency ref aligned with UAA's durable run and action-envelope safety model.
 Acceptance criteria: Mutating routes cannot claim authority without
 idempotency, audit, approval, receipt, and rollback/safe-disable posture.
 
-Required tests/verifiers: future mutating-route idempotency tests and route
-inventory checks.
+Required tests/verifiers: `tests/test_api_idempotency_audit.py`,
+`tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
+`tests/test_api_cors.py`,
+`scripts/verify_uaa_p1_084_mutating_route_idempotency.py`, OpenAPI/API
+manifest checks, and docs integrity.
 
-Safety notes: Existing idempotency primitives remain partial coverage; this
-entry does not implement new runtime enforcement.
+Safety notes: Implemented as a runtime idempotency header gate before mutating
+handler execution only. It does not add durable dedupe, exactly-once execution,
+replay execution, rate limits, mutation authority, public beta, distribution,
+production readiness, or production authority.
 
 ### UAA-P1-085 - Targeted Rate Limits For Expensive And Sensitive Routes
 

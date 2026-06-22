@@ -8,12 +8,14 @@
     "route_count",
     "route_classification_vocabulary",
     "route_classification_summary",
+    "route_idempotency_posture_summary",
+    "idempotency_audit_policy_ref",
     "routes",
     "schema_version"
   ],
   "properties": {
     "schema_version": {
-      "const": "uaa-api-route-inventory.v1"
+      "const": "uaa-api-route-inventory.v2"
     },
     "route_count": {
       "const": 112
@@ -60,6 +62,27 @@
         }
       }
     },
+    "route_idempotency_posture_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "not_required_for_route_classification",
+        "required_before_mutation_authority"
+      ],
+      "properties": {
+        "not_required_for_route_classification": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_before_mutation_authority": {
+          "type": "integer",
+          "const": 13
+        }
+      }
+    },
+    "idempotency_audit_policy_ref": {
+      "const": "idempotency:p1-084:mutating-routes:v1"
+    },
     "routes": {
       "type": "array",
       "minItems": 112,
@@ -72,6 +95,9 @@
           "operation_id",
           "path",
           "route_classification",
+          "idempotency_required",
+          "idempotency_posture",
+          "idempotency_policy_ref",
           "side_effect_class",
           "summary",
           "tags"
@@ -114,6 +140,21 @@
               "local_readonly",
               "local_sensitive",
               "mutating_requires_authority"
+            ]
+          },
+          "idempotency_required": {
+            "type": "boolean"
+          },
+          "idempotency_posture": {
+            "enum": [
+              "not_required_for_route_classification",
+              "required_before_mutation_authority"
+            ]
+          },
+          "idempotency_policy_ref": {
+            "type": [
+              "string",
+              "null"
             ]
           }
         }

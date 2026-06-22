@@ -24,20 +24,30 @@ rate-limit authority. UAA-P1-082 is complete for explicit local Control Center
 loopback CORS allowlisting with no wildcard CORS, CORS credentials, or auth
 claim. UAA-P1-083 is complete for a configured local bearer gate over
 non-public route classifications with public metadata routes left open and no
-enterprise/OAuth/password-flow claim. UAA-P1-084 through UAA-P1-086 remain
-planned/queued API
-boundary hardening lanes, followed by the UAA-P1-087
+enterprise/OAuth/password-flow claim. UAA-P1-084 is complete for a runtime
+idempotency header gate over mutating route classifications with no durable
+dedupe or exactly-once execution claim. UAA-P1-085 through UAA-P1-086 remain
+planned/queued API boundary hardening lanes, followed by the UAA-P1-087
 Private Operator Trial And UI Functional Tuning sequence: UAA-P1-087.1 local
 launcher dual-surface boot readiness, UAA-P1-087.2 in-person private UI
 functional tuning, and UAA-P1-087.3 native SwiftUI boot cockpit
 planning/source-only scaffold after the `.command` contract is proven.
+The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
+`FCC-V1-007`, recorded in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: Control Center release
+surface manifest, API perimeter for real mutations, Action Inbox backend state
+machine, Today-to-Action vertical slice, Chat durable receipts and handoff,
+Memory Review accept/correct/reject backend decisions, Evidence Timeline
+productization, and promotion/proof lanes. The conveyor keeps running through
+those milestones before broader P2/provider, packaging, public distribution, or
+commercialization expansion displaces the first receipt-bearing Founder loop.
 UAA-P1-066
 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane. The product path now runs through UAA-P1-080
 API route classification after UAA-P1-079 added reviewable
 user-intent-understanding and UAA-P1-078 added local/private beta-readiness
-evidence. Idempotency, rate limits, and enforcement tests remain planned next
-but unscoped by this milestone. This path adds no
+evidence. Rate limits and enforcement tests remain planned next but unscoped by
+this milestone. This path adds no
 production authority, public beta, public
 distribution, connector writes, provider/model authority, unrestricted shell,
 automatic memory writes, hidden context injection, or raw private-content

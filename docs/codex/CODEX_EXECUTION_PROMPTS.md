@@ -629,9 +629,9 @@ reasons, setup authority boundaries preserved, route/operation ID impact,
 side-effect class impact, and remaining blocked items.
 ```
 
-## 10. Today-Spine Milestone Conveyor Prompt
+## 10. Today-Spine And Founder Loop V1 Milestone Conveyor Prompt
 
-Use this prompt to run the UAA-P1-067 through UAA-P1-080 conveyor. The
+Use this prompt to run the UAA-P1-067 through FCC-V1-007 conveyor. The
 conveyor is repo-local process guidance only. It does not grant runtime
 authority, connector authority, provider/model authority, unrestricted shell,
 public beta, public distribution, or production readiness.
@@ -644,16 +644,25 @@ complete when active docs show centralized FastAPI security headers and
 explicit loopback CORS allowlisting have landed with verifier/test evidence and
 pushed commits. UAA-P1-083 is complete when active docs show the local
 protected-route bearer gate has landed with verifier/test evidence and a pushed
-commit. UAA-P1-084 through UAA-P1-086 remain planned/queued API
+commit. UAA-P1-084 is complete when active docs show the mutating-route
+idempotency header gate has landed with verifier/test evidence and a pushed
+commit. UAA-P1-085 through UAA-P1-086 remain planned/queued API
 boundary-hardening work. If that remaining API boundary lane is active, it
-auto-advances in order through UAA-P1-084, UAA-P1-085, UAA-P1-086,
+auto-advances in order through UAA-P1-085, UAA-P1-086,
 then the
 UAA-P1-087 Private Operator Trial And UI Functional Tuning sequence:
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
 in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
 cockpit planning/source-only scaffold after the `.command` contract is proven,
 before moving to P2/provider, packaging, public distribution, or
-commercialization work. The conveyor
+commercialization work. The planned FCC-V1 productization lane then continues
+through FCC-V1-000 Control Center Release Surface Manifest, FCC-V1-001 API
+Perimeter For Real Mutations, FCC-V1-002 Action Inbox Backend State Machine,
+FCC-V1-003 Founder Loop V1 Vertical Slice, FCC-V1-004 Chat Durable Receipt And
+Handoff, FCC-V1-005 Memory Review Decisions, FCC-V1-006 Evidence Timeline
+Productization, and FCC-V1-007 Promotion And Proof Lane before broader
+P2/provider, packaging, public distribution, or commercialization expansion.
+The conveyor
 auto-advances after each successful milestone commit/push until the active
 bounded sequence is complete, verified, and pushed. Do not stop after merely
 recommending the next prompt; create and execute the next milestone prompt in
@@ -678,12 +687,19 @@ UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then UAA-P1-087.1,
 UAA-P1-087.2, and UAA-P1-087.3. Stop after UAA-P1-087.3 is complete and
 verified unless active docs explicitly document the next lane.
 
+If active docs show the Founder Loop V1 productization lane is accepted, use
+this extension order after UAA-P1-087.3 or the current prerequisite breakpoint:
+FCC-V1-000, FCC-V1-001, FCC-V1-002, FCC-V1-003, FCC-V1-004, FCC-V1-005,
+FCC-V1-006, and FCC-V1-007. Stop only after FCC-V1-007 is complete and
+verified, or when a real blocker or safety split prevents safe continuation.
+
 Review the following documents first:
 [OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
 [current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
 [founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
 [FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
 [FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[FOUNDER_LOOP_V1_MILESTONES.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md)
 
 Also review repo process/spec guidance before choosing scope:
 [AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
@@ -801,6 +817,8 @@ Execution workflow:
    - all milestones through UAA-P1-079 are complete and verified for the
      Today-spine conveyor, or all milestones through UAA-P1-087.3 are complete
      and verified when the API boundary/private-operator-trial lane is active,
+     or all milestones through FCC-V1-007 are complete and verified when the
+     Founder Loop V1 productization lane is active,
    - the next slice is too large or unsafe and needs an incremental prompt that
      cannot be executed safely in the same run,
    - verification, push, dependencies, or repo state blocks progress, or

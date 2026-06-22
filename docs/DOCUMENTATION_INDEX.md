@@ -12,7 +12,7 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_3.md`, `docs/release_notes/checkpoint_m168.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
-| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md` |
+| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
@@ -61,12 +61,22 @@ allowlisting without wildcard CORS, CORS credentials, or auth claims.
 UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes completes a
 configured local bearer gate for non-public route classifications without
 enterprise auth, OAuth, password flow, idempotency, rate-limit, or production
-authority claims. UAA-P1-084 through UAA-P1-086 remain planned/queued API boundary hardening
-lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
+authority claims. UAA-P1-084 Mutating Route Idempotency Enforcement Audit
+completes a runtime idempotency header gate for mutating route classifications
+without durable dedupe, exactly-once execution, rate-limit, mutation authority,
+or production authority claims. UAA-P1-085 through UAA-P1-086 remain
+planned/queued API boundary hardening lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
 Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native
 SwiftUI boot cockpit planning/source-only scaffold after the `.command`
 contract is proven.
+The planned `FCC-V1-000` through `FCC-V1-007` Founder Loop V1 productization
+conveyor is recorded in `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`
+with detailed goals, tasks, routes, model fields, storage semantics, UI
+outcomes, proof lanes, and authority boundaries for release surface truth, API
+perimeter, Action decisions, Today-to-Action vertical loop, Chat receipts and
+handoff, Memory Review accept/correct/reject decisions, Evidence Timeline
+productization, and promotion/proof lanes.
 Every module
 feeds Today, Actions, Evidence, and Memory;
 source provenance, reviewed business memory, Evidence-as-history,
@@ -86,6 +96,7 @@ docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md
 docs/kanban/founder_command_center_board.md
 docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md
 docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md
+docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md
 docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md
 docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md
 docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md
@@ -97,6 +108,7 @@ docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md
 docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md
 docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md
 docs/api/UAA_P1_083_LOCAL_BEARER_SESSION_GATE.md
+docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md
 docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md
 docs/metrics/NORTH_STAR_METRICS.md
 docs/codex/CODEX_EXECUTION_PROMPTS.md
@@ -111,6 +123,7 @@ docs/schemas/memory_review_decision_capture.schema.json
 docs/schemas/business_memory_quality_controls.schema.json
 docs/schemas/plans_action_envelopes.schema.json
 docs/schemas/api_local_auth_gate.schema.json
+docs/schemas/api_mutating_route_idempotency_audit.schema.json
 ```
 
 ## Historical Currentness Repairs

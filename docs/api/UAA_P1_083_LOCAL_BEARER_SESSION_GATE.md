@@ -70,7 +70,7 @@ security certification.
 
 ## Next
 
-UAA-P1-084 Mutating Route Idempotency Enforcement Audit remains planned/queued.
-The local bearer gate does not add idempotency enforcement, targeted rate
-limits, or API boundary enforcement-test coverage beyond this scoped P1-083
-proof.
+UAA-P1-084 Mutating Route Idempotency Enforcement Audit is implemented as a
+separate boundary gate. The local bearer gate does not add durable idempotency
+storage, targeted rate limits, or API boundary enforcement-test coverage beyond
+this scoped P1-083 proof.

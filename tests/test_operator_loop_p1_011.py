@@ -38,8 +38,14 @@ def test_uaa_p1_011_first_product_loop_is_locally_inspectable(monkeypatch: pytes
     )
     monkeypatch.setattr(api_app, "_task_decomposition_service", TaskDecompositionService(registry_store=store))
     client = TestClient(api_app.app)
-    task_headers = {"Authorization": f"Bearer {TASK_BEARER}"}
-    model_headers = {"Authorization": f"Bearer {DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY}"}
+    task_headers = {
+        "Authorization": f"Bearer {TASK_BEARER}",
+        "X-UAA-Idempotency-Key": "idempotency:operator-loop-task",
+    }
+    model_headers = {
+        "Authorization": f"Bearer {DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY}",
+        "X-UAA-Idempotency-Key": "idempotency:operator-loop-model",
+    }
 
     health = client.get("/health")
     assert health.status_code == 200

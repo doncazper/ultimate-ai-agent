@@ -15,8 +15,9 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-083 Complete: Local Protected-Route Bearer Gate; UAA-P1-084 Planned Idempotency Audit** |
+| Current lane | **UAA-P1-084 Complete: Mutating Route Idempotency Gate; UAA-P1-085 Planned Targeted Rate Limits** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
+| Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 planned: release surface manifest, API perimeter, Action decisions, vertical loop, Chat receipts/handoff, Memory decisions, Evidence productization, and proof-lane promotion** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | API boundary | FastAPI route contract with **112** OpenAPI paths |
@@ -86,12 +87,25 @@ capability posture, and focused verifier/tests. UAA-P1-083 Local Bearer Or
 Session Gate For Sensitive Routes is complete with a configured local bearer
 gate for non-public route classifications, public metadata routes left open,
 no enterprise/OAuth/password-flow claim, and focused verifier/tests. UAA-P1-084
-through UAA-P1-086 remain planned/queued API boundary hardening
-lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
+Mutating Route Idempotency Enforcement Audit is complete with a runtime
+idempotency header gate for `mutating_requires_authority` routes, no durable
+dedupe or exactly-once execution claim, and focused verifier/tests. UAA-P1-085
+through UAA-P1-086 remain planned/queued API boundary hardening lanes,
+followed by the UAA-P1-087 Private Operator Trial And UI Functional
 Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native
 SwiftUI boot cockpit planning/source-only scaffold after the `.command`
 contract is proven. These planning entries grant no new authority here.
+The planned Founder Loop V1 productization conveyor is recorded in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
+`FCC-V1-007`: Control Center release surface manifest, API perimeter for real
+mutations, Action Inbox backend state machine, Today-to-Action vertical slice,
+Chat durable receipt and handoff, Memory Review accept/correct/reject backend
+decisions, Evidence Timeline productization, and promotion/proof lanes. These
+milestones define goals, routes, model fields, storage semantics, UI outcomes,
+proof commands, and authority boundaries; they do not add routes, controls,
+runtime calls, connector writes, memory writes, context injection, public beta,
+distribution, or production authority by themselves.
 UAA-P1-066 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane.
 

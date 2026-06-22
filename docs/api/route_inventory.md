@@ -17,6 +17,10 @@ Each route declares:
 - `summary`
 - `validation_only`
 - `side_effect_class`
+- `route_classification`
+- `idempotency_required`
+- `idempotency_posture`
+- `idempotency_policy_ref`
 - `requires_auth_future`
 - `blocked_from_production`
 
@@ -29,7 +33,7 @@ UAA-P1-080 classification adds a public/protected route inventory view using:
 
 This vocabulary is implemented in `/api/manifest` and the frozen route
 inventory fixture. Current route metadata also exposes side-effect classes,
-auth posture, and blocked-from-production posture.
+idempotency posture, auth posture, and blocked-from-production posture.
 
 Current route classification summary:
 
@@ -70,11 +74,18 @@ route classifications. `GET /health`, `GET /version`, `GET /api/manifest`, and
 configured local bearer when the gate is enabled. This is not enterprise auth,
 OAuth, a password flow, production authority, or a public beta claim.
 
-Future UAA-P1-084 through UAA-P1-086 route inventory checks must record:
-idempotency key or scoped idempotency ref posture for mutating routes, targeted
-rate-limit posture for expensive/sensitive paths, and enforcement coverage in
-OpenAPI/API manifest tests. These future checks add no rate limits,
-dependencies, or runtime authority until separately implemented.
+UAA-P1-084 implements mutating-route idempotency enforcement audit posture.
+Routes classified as `mutating_requires_authority` now require
+`X-UAA-Idempotency-Key` or `X-UAA-Idempotency-Ref` before the mutating handler
+can run. `/api/manifest` and the frozen route inventory expose
+`idempotency_required`, `idempotency_posture`, and `idempotency_policy_ref`.
+This is not durable dedupe storage, exactly-once execution, replay execution,
+mutation authority, production authority, or a public beta claim.
+
+Future UAA-P1-085 through UAA-P1-086 route inventory checks must record:
+targeted rate-limit posture for expensive/sensitive paths and enforcement
+coverage in OpenAPI/API manifest tests. These future checks add no rate
+limits, dependencies, or runtime authority until separately implemented.
 
 ## Current route groups
 

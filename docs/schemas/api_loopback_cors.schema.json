@@ -64,11 +64,13 @@
         "enum": [
           "Authorization",
           "Content-Type",
+          "X-UAA-Idempotency-Key",
+          "X-UAA-Idempotency-Ref",
           "X-Requested-With"
         ]
       },
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 5,
+      "maxItems": 5,
       "uniqueItems": true
     },
     "allow_credentials": {

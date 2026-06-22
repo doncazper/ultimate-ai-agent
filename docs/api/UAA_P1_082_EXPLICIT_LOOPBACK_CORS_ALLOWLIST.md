@@ -21,9 +21,11 @@ origins:
 - `http://[::1]:4173`
 
 Allowed browser methods are `GET` and `POST`. Allowed request headers are
-`Authorization`, `Content-Type`, and `X-Requested-With`. `Authorization` is
-allowed only so the UAA-P1-083 local bearer can cross the exact loopback browser
-boundary; CORS credentials are disabled. Wildcard CORS remains denied.
+`Authorization`, `Content-Type`, `X-UAA-Idempotency-Key`,
+`X-UAA-Idempotency-Ref`, and `X-Requested-With`. `Authorization` is allowed
+only so the UAA-P1-083 local bearer can cross the exact loopback browser
+boundary; the idempotency headers are allowed only for the UAA-P1-084 mutating
+route gate. CORS credentials are disabled. Wildcard CORS remains denied.
 
 Allowed origins receive an exact `Access-Control-Allow-Origin` match. Disallowed
 external, LAN, wrong-port, wildcard, and `null` origins do not receive CORS
@@ -55,5 +57,7 @@ approval authority, rate limiting, or a production-readiness claim.
 
 ## Next
 
-UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes remains
-planned/queued. CORS must not be treated as the auth boundary for those routes.
+UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes and UAA-P1-084
+Mutating Route Idempotency Enforcement Audit are implemented as separate
+boundary gates. CORS must not be treated as the auth or idempotency boundary for
+those routes.

@@ -59,7 +59,8 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/route_inventory.md": [
         "UAA-P1-083 implements local protected-route bearer gate posture",
-        "Future UAA-P1-084 through UAA-P1-086",
+        "UAA-P1-084 implements mutating-route idempotency enforcement audit posture",
+        "Future UAA-P1-085 through UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [

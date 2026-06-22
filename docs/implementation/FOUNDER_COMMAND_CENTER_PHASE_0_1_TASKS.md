@@ -1199,3 +1199,67 @@ Likely files touched:
 - `docs/testing/`
 
 PR size: one docs PR, ideally after Tasks 1-4.
+
+## Founder Loop V1 Conveyor - FCC-V1-000 through FCC-V1-007
+
+Type: staged full-stack productization with docs/test/manifest gates first
+
+Status: planned.
+
+New authority: no authority from this planning entry. Each implementation slice
+must separately scope its route, storage, approval, idempotency, evidence,
+rollback/safe-disable, frontend, CLI/core/API inspection, and test behavior.
+
+Source of detailed goals:
+
+- `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`
+
+Milestones:
+
+- `FCC-V1-000` Control Center Release Surface Manifest: create the
+  `ship`/`partial`/`blocked`/`experimental` manifest for every visible Control
+  Center route, human-readable release surface docs, and drift verifier.
+- `FCC-V1-001` API Perimeter For Real Mutations: finish idempotency,
+  route-classification, auth, approval, rate-limit, manifest, and enforcement
+  posture before any Founder Loop mutation lands.
+- `FCC-V1-002` Action Inbox Backend State Machine: make approve, edit, reject,
+  and defer backend-owned Action decisions with append-first storage,
+  `LocalApprovalAuthority` validation where required, idempotency, receipts,
+  replay markers, and Control Center receipt visibility.
+- `FCC-V1-003` Founder Loop V1 Vertical Slice: promote one Today item into an
+  Action envelope, capture exact approval/edit/reject/defer decision, create a
+  durable receipt, update Evidence Timeline, and provide CLI/repo-local
+  inspection parity.
+- `FCC-V1-004` Control Center Chat Durable Receipt And Handoff: add safe
+  `ChatTurnReceipt` records and reviewable handoff refs to Actions or Plans
+  without treating model output as authority.
+- `FCC-V1-005` Memory Review Decisions: add `MemoryReviewDecision` with
+  `candidate_ref`, `decision`, `corrected_summary_ref`, `source_refs`,
+  `evidence_refs`, `reviewer_ref`, `receipt_ref`, `idempotency_ref`, and
+  `blocked_state_refs`; store accept/correct/reject append-first; preserve
+  rejected decisions; store correction summaries as redacted safe refs only;
+  expose backend routes for review, accept, correct, and reject; show real UI
+  controls, receipt refs, and Evidence Timeline entries.
+- `FCC-V1-006` Evidence Timeline Productization: add real evidence event types
+  for action envelopes, action decisions, chat receipts, chat handoffs, and
+  memory review decisions, grouped by Today item, Action, Chat turn, and Memory
+  candidate.
+- `FCC-V1-007` Promotion And Proof Lane: add the focused Founder Loop V1 proof
+  command, pytest lanes, Control Center render coverage, release surface status
+  promotion rules, and raw-content leak checks.
+
+Definition of done:
+
+- A reviewer can follow the first real Founder loop from Today item to Action
+  envelope to exact decision to durable receipt to Evidence Timeline update.
+- Action Inbox decisions are no longer UI-only.
+- Control Center Chat produces durable safe receipts and reviewable handoff
+  refs.
+- Memory Review accept/correct/reject decisions are backend-owned,
+  receipt-backed, evidence-visible, and do not grant context injection.
+- Every visible route remains `partial`, `blocked`, or `experimental` until
+  its release surface proof lane can promote it to `ship`.
+- The conveyor keeps running until all `FCC-V1-000` through `FCC-V1-007` tasks
+  are complete, with smaller follow-up slices added when needed rather than
+  skipping manifest, idempotency, receipt, evidence, CLI/core/API inspection,
+  or redaction gates.

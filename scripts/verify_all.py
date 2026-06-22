@@ -96,6 +96,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-081 FastAPI security headers scan", "verify_uaa_p1_081_fastapi_security_headers"),
     ("UAA-P1-082 loopback CORS scan", "verify_uaa_p1_082_loopback_cors"),
     ("UAA-P1-083 local auth gate scan", "verify_uaa_p1_083_local_auth_gate"),
+    ("UAA-P1-084 mutating-route idempotency scan", "verify_uaa_p1_084_mutating_route_idempotency"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
@@ -29523,7 +29524,11 @@ def verify_v0292_local_dev_api_hardening() -> None:
             probe_root = Path(probe_dir)
             payload = kernel_request(probe_root).model_dump(mode="json")
             payload["approval_ref"] = "approval_test_verify"
-            response = client.post("/kernel/tasks/run", json=payload)
+            response = client.post(
+                "/kernel/tasks/run",
+                headers={"X-UAA-Idempotency-Key": "idempotency:verify-v0292-kernel"},
+                json=payload,
+            )
             if response.status_code != 200:
                 print(f"FAIL: kernel task API probe returned HTTP {response.status_code}")
                 sys.exit(1)

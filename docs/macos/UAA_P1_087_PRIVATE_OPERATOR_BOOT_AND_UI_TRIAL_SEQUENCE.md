@@ -50,6 +50,13 @@ Not allowed by this docs-only sequence:
 After `UAA-P1-086`, run `UAA-P1-087` through these sub-milestones in order.
 Do not jump to `UAA-P1-087.3` until `UAA-P1-087.1` has proven the launcher
 contract and `UAA-P1-087.2` has produced usable private-trial findings.
+The next planned productization conveyor is `FCC-V1-000` through
+`FCC-V1-007`, recorded in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, so private boot/UI trial
+work should feed the release surface manifest, backend-owned decisions,
+durable receipts, Evidence Timeline updates, and proof-lane promotion rather
+than broad P2/provider, packaging, public distribution, or commercialization
+expansion.
 
 If a sub-milestone is too large, split it as `UAA-P1-087.1a`,
 `UAA-P1-087.1b`, and so on, but keep the `.command`/launcher boot path before
