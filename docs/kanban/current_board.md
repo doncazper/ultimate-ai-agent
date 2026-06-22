@@ -444,9 +444,10 @@ UAA-P1-073, UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077, and UAA-P1-078
 complete through UAA-P1-082 with UAA-P1-083 planned/queued.
 UAA-P1-066
 remains queued as read-only local model support.
-`docs/codex/CODEX_EXECUTION_PROMPTS.md` records the
+`docs/codex/CODEX_EXECUTION_PROMPTS.md` records the product-loop
 milestone conveyor from UAA-P1-067 through UAA-P1-079 with review/fix,
-hardening, commit/push, and next-prompt mechanics. This milestone adds no
+hardening, commit/push, and next-prompt mechanics; the API hardening lane from
+UAA-P1-080 through UAA-P1-086 is tracked separately. This milestone adds no
 backend route, OpenAPI operation, Control Center implementation, frontend
 mutation control, connector runtime, model/provider call, web fetch,
 shell/subprocess behavior, automatic memory write, context injection, public
