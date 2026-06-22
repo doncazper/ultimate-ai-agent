@@ -313,11 +313,23 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("milestone:uaa-p1-087.2a")).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Full UAA-P1-087.2 still needs local\/private acceptance findings/i,
+        /Full UAA-P1-087.2 still needs accepted or revised local\/private findings/i,
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:private-operator-ui-functional-tuning:v1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("milestone:uaa-p1-087.2b")).toBeInTheDocument();
+    expect(
+      screen.getByText("ledger-ref:private-operator-trial-acceptance:v1"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Acceptance ledger/i })).toBeInTheDocument();
+    expect(screen.getByText("operator_review_ready")).toBeInTheDocument();
+    expect(screen.getByText("manual-smoke-step:private-trial:boot-control-center")).toBeInTheDocument();
+    expect(screen.getByText("acceptance-question:private-trial:memory-confidence")).toBeInTheDocument();
+    expect(screen.getByText("tuning-decision:private-trial:pending-memory-review-emphasis")).toBeInTheDocument();
+    expect(
+      screen.getByText("finding-ref:private-trial:pending:crm-lite-follow-ups"),
     ).toBeInTheDocument();
     expect(screen.getByText("launcher-command:uaa-trial-boot")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Authority boundary/i })).toBeInTheDocument();

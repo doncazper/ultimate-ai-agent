@@ -32,6 +32,23 @@ PrivateOperatorTrialState = Literal[
     "needs_operator_review",
 ]
 
+PrivateOperatorTrialRunState = Literal[
+    "not_started",
+    "operator_review_ready",
+    "in_review",
+    "accepted_with_changes",
+    "needs_revision",
+    "blocked",
+]
+
+PrivateOperatorTrialReviewState = Literal[
+    "pending_operator_review",
+    "accepted",
+    "revised",
+    "blocked",
+    "needs_follow_up",
+]
+
 PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES: list[PrivateOperatorTrialSurface] = [
     "Local Boot",
     "Today",
@@ -262,6 +279,156 @@ class PrivateOperatorTrialPacket(BaseModel):
         return self
 
 
+class PrivateOperatorTrialSurfaceReview(BaseModel):
+    review_ref: str = Field(..., min_length=1)
+    surface: PrivateOperatorTrialSurface
+    review_state: PrivateOperatorTrialReviewState
+    reviewer_ref: str = Field(..., min_length=1)
+    finding_refs: list[str] = Field(default_factory=list, min_length=1)
+    friction_refs: list[str] = Field(default_factory=list)
+    ui_copy_task_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    blocker_refs: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=240)
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_surface_review(self) -> "PrivateOperatorTrialSurfaceReview":
+        for field_name in ["review_ref", "reviewer_ref"]:
+            _safe_ref(getattr(self, field_name), field_name)
+        for field_name in [
+            "finding_refs",
+            "friction_refs",
+            "ui_copy_task_refs",
+            "evidence_refs",
+            "blocker_refs",
+        ]:
+            _safe_refs(getattr(self, field_name), field_name)
+        for field_name in [
+            "surface",
+            "review_state",
+            "next_safe_action",
+        ]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        if not self.local_private_only:
+            raise ValueError("private trial surface review must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("private trial surface review must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("private trial surface review requires manual review")
+        for flag in _DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by private trial surface review")
+        return self
+
+
+class PrivateOperatorTrialAcceptanceLedger(BaseModel):
+    ledger_ref: str = "ledger-ref:private-operator-trial-acceptance:v1"
+    contract_ref: str = PRIVATE_OPERATOR_TRIAL_CONTRACT_REF
+    milestone_ref: str = "milestone:uaa-p1-087.2b"
+    status: str = "implemented_private_trial_acceptance_ledger_authority_blocked"
+    source_packet_ref: str = "packet-ref:private-operator-trial:v1"
+    trial_run_state: PrivateOperatorTrialRunState = "operator_review_ready"
+    surface_reviews: list[PrivateOperatorTrialSurfaceReview] = Field(
+        default_factory=list, min_length=1
+    )
+    manual_smoke_step_refs: list[str] = Field(default_factory=list, min_length=1)
+    acceptance_question_refs: list[str] = Field(default_factory=list, min_length=1)
+    tuning_decision_refs: list[str] = Field(default_factory=list, min_length=1)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS)
+    )
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    next_safe_action: str = (
+        "Run local/private operator review against this ledger, record accepted or "
+        "revised safe refs, then complete full UAA-P1-087.2 only after findings exist."
+    )
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_acceptance_ledger(self) -> "PrivateOperatorTrialAcceptanceLedger":
+        if self.contract_ref != PRIVATE_OPERATOR_TRIAL_CONTRACT_REF:
+            raise ValueError("private trial acceptance ledger contract ref drifted")
+        for field_name in [
+            "ledger_ref",
+            "contract_ref",
+            "milestone_ref",
+            "source_packet_ref",
+        ]:
+            _safe_ref(getattr(self, field_name), field_name)
+        for field_name in ["status", "trial_run_state", "next_safe_action"]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        for field_name in [
+            "manual_smoke_step_refs",
+            "acceptance_question_refs",
+            "tuning_decision_refs",
+            "blocked_state_refs",
+            "evidence_refs",
+        ]:
+            _safe_refs(getattr(self, field_name), field_name)
+        if {review.surface for review in self.surface_reviews} != set(
+            PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES
+        ):
+            raise ValueError("private trial acceptance ledger missing required surfaces")
+        missing_blocked = set(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blocked:
+            raise ValueError("private trial acceptance ledger missing blocked refs")
+        if not self.local_private_only:
+            raise ValueError("private trial acceptance ledger must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("private trial acceptance ledger must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("private trial acceptance ledger requires manual review")
+        for flag in _DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(
+                    f"{flag} is denied by private trial acceptance ledger"
+                )
+        return self
+
+
 def build_private_operator_trial_packet() -> PrivateOperatorTrialPacket:
     return PrivateOperatorTrialPacket(
         checklist_items=_checklist_items(),
@@ -286,6 +453,38 @@ def build_private_operator_trial_packet() -> PrivateOperatorTrialPacket:
             "evidence-ref:private-trial:control-center-render-smoke",
             "evidence-ref:private-trial:manual-smoke-checklist",
             "evidence-ref:private-trial:ui-copy-task-ledger",
+        ],
+    )
+
+
+def build_private_operator_trial_acceptance_ledger() -> PrivateOperatorTrialAcceptanceLedger:
+    return PrivateOperatorTrialAcceptanceLedger(
+        surface_reviews=_surface_reviews(),
+        manual_smoke_step_refs=[
+            "manual-smoke-step:private-trial:boot-control-center",
+            "manual-smoke-step:private-trial:review-today-spine",
+            "manual-smoke-step:private-trial:review-actions-memory-evidence",
+            "manual-smoke-step:private-trial:review-chat-plans-handoff",
+            "manual-smoke-step:private-trial:record-blocked-follow-ups",
+        ],
+        acceptance_question_refs=[
+            "acceptance-question:private-trial:first-screen-orientation",
+            "acceptance-question:private-trial:today-scan-friction",
+            "acceptance-question:private-trial:memory-confidence",
+            "acceptance-question:private-trial:action-review-clarity",
+            "acceptance-question:private-trial:evidence-history-readability",
+            "acceptance-question:private-trial:blocked-state-next-action",
+        ],
+        tuning_decision_refs=[
+            "tuning-decision:private-trial:pending-copy-trim",
+            "tuning-decision:private-trial:pending-surface-order",
+            "tuning-decision:private-trial:pending-memory-review-emphasis",
+            "tuning-decision:private-trial:pending-crm-lite-positioning",
+        ],
+        evidence_refs=[
+            "evidence-ref:private-trial:acceptance-ledger-v1",
+            "evidence-ref:private-trial:manual-smoke-runbook",
+            "evidence-ref:private-trial:pending-operator-findings",
         ],
     )
 
@@ -357,6 +556,37 @@ def _checklist_items() -> list[PrivateOperatorTrialChecklistItem]:
             )
         )
     return items
+
+
+def _surface_reviews() -> list[PrivateOperatorTrialSurfaceReview]:
+    rows: list[tuple[PrivateOperatorTrialSurface, str]] = [
+        ("Local Boot", "Confirm first-party launch, secondary-shell posture, and safe log refs."),
+        ("Today", "Review whether Today makes the next operator step obvious."),
+        ("Actions", "Review envelope clarity while approve/edit/reject/defer remains blocked."),
+        ("Memory", "Review provenance, quality, and decision refs before memory writes exist."),
+        ("Evidence", "Review whether history reads as proposed, approved, happened, changed, undoable."),
+        ("Chat/Plans Handoff", "Review handoff clarity while Chat output stays non-authoritative."),
+        ("Blocked State Language", "Review blocked copy for next safe action and low friction."),
+        ("CRM-Lite Follow-Ups", "Review follow-up positioning without claiming local CRM state."),
+    ]
+    reviews: list[PrivateOperatorTrialSurfaceReview] = []
+    for surface, next_safe_action in rows:
+        slug = _surface_slug(surface)
+        reviews.append(
+            PrivateOperatorTrialSurfaceReview(
+                review_ref=f"surface-review:private-trial:{slug}",
+                surface=surface,
+                review_state="pending_operator_review",
+                reviewer_ref="operator-ref:local-private-reviewer",
+                finding_refs=[f"finding-ref:private-trial:pending:{slug}"],
+                friction_refs=[f"friction-ref:private-trial:{slug}"],
+                ui_copy_task_refs=[f"ui-copy-task:private-trial:{slug}"],
+                evidence_refs=[f"evidence-ref:private-trial:{slug}"],
+                blocker_refs=[f"blocker-ref:private-trial:{slug}"],
+                next_safe_action=next_safe_action,
+            )
+        )
+    return reviews
 
 
 def _surface_slug(surface: str) -> str:

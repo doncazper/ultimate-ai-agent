@@ -18,12 +18,17 @@ later native app work for the first boot-readiness step.
    It defines the safe-ref-only packet, manual smoke checklist refs, friction
    refs, UI/copy task refs, core-loop gap refs, and read-only Control Center
    `/private-trial` surface that full UAA-P1-087.2 must use.
-3. `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning.
+3. `UAA-P1-087.2b` Private Trial Findings Capture And Acceptance Ledger is
+   implemented. It adds the safe-ref-only acceptance ledger, manual smoke step
+   refs, acceptance question refs, pending tuning decision refs, and read-only
+   Control Center visibility needed before accepted/revised findings can be
+   recorded.
+4. `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning.
    Use the real local boot flow to run hands-on founder testing and record
    friction, manual smoke evidence, UI/copy tasks, blocked-state confusion,
    Today/Actions/Memory/Evidence/Chat handoff issues, and CRM-lite follow-up
    gaps.
-4. `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold.
+5. `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold.
    After the `.command` boot contract is proven, plan and then implement a
    source-only native SwiftUI macOS cockpit over the same fixed launcher
    contracts. This is not a signed installer, LaunchAgent, daemon, public
@@ -54,7 +59,8 @@ Not allowed by this docs-only sequence:
 After `UAA-P1-086`, run `UAA-P1-087` through these sub-milestones in order.
 Do not jump to `UAA-P1-087.3` until `UAA-P1-087.1` has proven the launcher
 contract, `UAA-P1-087.2a` has produced the packet/read-only tuning surface, and
-full `UAA-P1-087.2` has produced accepted or revised private-trial findings.
+`UAA-P1-087.2b` has produced the review ledger. Full `UAA-P1-087.2` still
+requires accepted or revised private-trial findings.
 The next planned productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, so private boot/UI trial
@@ -63,6 +69,6 @@ durable receipts, Evidence Timeline updates, and proof-lane promotion rather
 than broad P2/provider, packaging, public distribution, or commercialization
 expansion.
 
-If full `UAA-P1-087.2` remains too large, split it as `UAA-P1-087.2b`,
-`UAA-P1-087.2c`, and so on, but keep the packet and private trial evidence
-before native SwiftUI.
+If full `UAA-P1-087.2` remains too large, continue splitting it as
+`UAA-P1-087.2c`, `UAA-P1-087.2d`, and so on, but keep the packet, acceptance
+ledger, and private trial evidence before native SwiftUI.

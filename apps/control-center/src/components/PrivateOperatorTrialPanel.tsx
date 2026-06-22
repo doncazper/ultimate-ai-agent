@@ -1,13 +1,30 @@
-import { privateOperatorTrialPacket } from "../mocks/privateOperatorTrialPacket";
+import {
+  privateOperatorTrialAcceptanceLedger,
+  privateOperatorTrialPacket,
+} from "../mocks/privateOperatorTrialPacket";
 
 export function PrivateOperatorTrialPanel() {
   const packet = privateOperatorTrialPacket;
+  const ledger = privateOperatorTrialAcceptanceLedger;
   const counts = packet.checklistItems.reduce(
     (acc, item) => {
       acc[item.trialState] += 1;
       return acc;
     },
     { blocked: 0, needs_operator_review: 0, partial: 0, pass: 0 },
+  );
+  const ledgerCounts = ledger.surfaceReviews.reduce(
+    (acc, review) => {
+      acc[review.reviewState] += 1;
+      return acc;
+    },
+    {
+      accepted: 0,
+      blocked: 0,
+      needs_follow_up: 0,
+      pending_operator_review: 0,
+      revised: 0,
+    },
   );
 
   return (
@@ -24,9 +41,9 @@ export function PrivateOperatorTrialPanel() {
       </div>
       <p className="section-copy">
         UAA-P1-087.2a prepares the local Control Center trial packet as safe
-        refs: boot evidence, manual smoke checklist state, friction findings,
-        UI/copy tasks, and core loop gaps. Full UAA-P1-087.2 still needs
-        local/private acceptance findings.
+        refs. UAA-P1-087.2b adds the acceptance ledger for manual smoke review
+        and pending operator findings. Full UAA-P1-087.2 still needs
+        accepted or revised local/private findings.
       </p>
 
       <div className="metric-grid">
@@ -34,6 +51,7 @@ export function PrivateOperatorTrialPanel() {
         <Metric label="Partial" value={counts.partial} />
         <Metric label="Blocked" value={counts.blocked} />
         <Metric label="Review" value={counts.needs_operator_review} />
+        <Metric label="Pending" value={ledgerCounts.pending_operator_review} />
       </div>
 
       <div className="panel-grid">
@@ -79,6 +97,44 @@ export function PrivateOperatorTrialPanel() {
           </div>
           <RefList refs={packet.uiCopyTaskRefs} />
         </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Acceptance ledger</h3>
+            <span>{ledger.trialRunState}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Ledger ref" value={ledger.ledgerRef} />
+            <DetailTerm label="Milestone" value={ledger.milestoneRef} />
+            <DetailTerm label="Source packet" value={ledger.sourcePacketRef} />
+            <DetailTerm label="Reviewer" value="operator-ref:local-private-reviewer" />
+          </dl>
+          <p>{ledger.nextSafeAction}</p>
+        </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Manual smoke refs</h3>
+            <span>{ledger.manualSmokeStepRefs.length}</span>
+          </div>
+          <RefList refs={ledger.manualSmokeStepRefs} />
+        </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Acceptance questions</h3>
+            <span>{ledger.acceptanceQuestionRefs.length}</span>
+          </div>
+          <RefList refs={ledger.acceptanceQuestionRefs} />
+        </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Tuning decisions</h3>
+            <span>{ledger.tuningDecisionRefs.length}</span>
+          </div>
+          <RefList refs={ledger.tuningDecisionRefs} />
+        </article>
       </div>
 
       <div className="review-grid">
@@ -96,6 +152,24 @@ export function PrivateOperatorTrialPanel() {
             <RefList refs={item.evidenceRefs} />
             <RefList refs={item.frictionRefs} />
             <RefList refs={item.uiCopyTaskRefs} />
+          </article>
+        ))}
+      </div>
+
+      <div className="review-grid">
+        {ledger.surfaceReviews.map((review) => (
+          <article className="review-card" key={review.reviewRef}>
+            <div className="review-card-heading">
+              <h3>{review.surface} acceptance</h3>
+              <span>{review.reviewState}</span>
+            </div>
+            <dl className="detail-list">
+              <DetailTerm label="Review ref" value={review.reviewRef} />
+              <DetailTerm label="Reviewer" value={review.reviewerRef} />
+              <DetailTerm label="Next safe action" value={review.nextSafeAction} />
+            </dl>
+            <RefList refs={review.findingRefs} />
+            <RefList refs={review.blockerRefs} />
           </article>
         ))}
       </div>

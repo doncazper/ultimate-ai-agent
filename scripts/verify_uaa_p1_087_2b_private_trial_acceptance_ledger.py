@@ -20,73 +20,68 @@ from ultimate_ai_agent.core.readiness import (  # noqa: E402
     PRIVATE_OPERATOR_TRIAL_CONTRACT_REF,
     PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS,
     PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES,
-    PrivateOperatorTrialPacket,
-    build_private_operator_trial_packet,
+    PrivateOperatorTrialAcceptanceLedger,
+    build_private_operator_trial_acceptance_ledger,
 )
 
 
 CONTRACT_DOC = (
-    "docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md"
+    "docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md"
 )
-PACKET_JSON = "docs/macos/private_operator_trial_packet_v1.json"
+LEDGER_JSON = "docs/macos/private_operator_trial_acceptance_ledger_v1.json"
 SEQUENCE_DOC = "docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md"
-FRONTEND_ROUTES = "apps/control-center/src/routes.tsx"
 FRONTEND_PANEL = "apps/control-center/src/components/PrivateOperatorTrialPanel.tsx"
 FRONTEND_PACKET = "apps/control-center/src/mocks/privateOperatorTrialPacket.ts"
 APP_TEST = "apps/control-center/src/App.test.tsx"
-FOCUSED_TEST = "tests/test_uaa_p1_087_2a_private_trial_packet.py"
-SUCCESS_MESSAGE = "UAA-P1-087.2a private trial packet verification passed."
+FOCUSED_TEST = "tests/test_uaa_p1_087_2b_private_trial_acceptance_ledger.py"
+SUCCESS_MESSAGE = "UAA-P1-087.2b private trial acceptance ledger verification passed."
 
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
-        "Status: implemented as an incremental local/private trial packet",
-        "UAA-P1-087.2a prepares the full UAA-P1-087.2",
-        "docs/macos/private_operator_trial_packet_v1.json",
-        "The Control Center exposes the packet at `/private-trial`",
-        "Full UAA-P1-087.2 Gate",
-        "UAA-P1-087.2 should remain planned",
+        "Status: implemented as an incremental acceptance ledger",
+        "UAA-P1-087.2b does not complete full UAA-P1-087.2",
+        "docs/macos/private_operator_trial_acceptance_ledger_v1.json",
+        "manual smoke step refs",
+        "pending_operator_review",
         "adds no backend endpoint",
     ],
     SEQUENCE_DOC: [
-        "`UAA-P1-087.2` In-Person Private Operator UI Functional Tuning",
-        "Do not jump to `UAA-P1-087.3`",
-    ],
-    FRONTEND_ROUTES: [
-        'path: "/private-trial"',
-        'label: "Trial Packet"',
-        'status: "087.2a/2b packet"',
-        "<PrivateOperatorTrialPanel />",
+        "`UAA-P1-087.2b` Private Trial Findings Capture And Acceptance Ledger",
+        "Full `UAA-P1-087.2` still requires accepted or revised private-trial findings",
     ],
     FRONTEND_PANEL: [
-        "UAA-P1-087.2a prepares",
-        "Full UAA-P1-087.2 still needs accepted or revised local/private findings.",
-        "adds no backend route",
-        "connector write",
-        "blockedStateRefs",
+        "UAA-P1-087.2b adds the acceptance ledger",
+        "Acceptance ledger",
+        "manualSmokeStepRefs",
+        "surfaceReviews",
+        "pending_operator_review",
     ],
     FRONTEND_PACKET: [
-        PRIVATE_OPERATOR_TRIAL_CONTRACT_REF,
-        "milestone:uaa-p1-087.2a",
-        "private-trial-check:local-boot",
-        "private-trial-check:crm-lite-follow-ups",
-        "blocked-state:openwebui-secondary-only",
+        "milestone:uaa-p1-087.2b",
+        "ledger-ref:private-operator-trial-acceptance:v1",
+        "manual-smoke-step:private-trial:boot-control-center",
+        "acceptance-question:private-trial:memory-confidence",
+        "tuning-decision:private-trial:pending-memory-review-emphasis",
+        "finding-ref:private-trial:pending:crm-lite-follow-ups",
     ],
     APP_TEST: [
-        '"/private-trial"',
-        "Private Operator Trial",
-        "milestone:uaa-p1-087.2a",
+        "milestone:uaa-p1-087.2b",
+        "ledger-ref:private-operator-trial-acceptance:v1",
+        "manual-smoke-step:private-trial:boot-control-center",
+        "acceptance-question:private-trial:memory-confidence",
         "Full UAA-P1-087.2 still needs accepted or revised local\\/private findings",
     ],
     FOCUSED_TEST: [
-        "test_private_operator_trial_packet_defines_safe_checklist",
-        "test_private_operator_trial_rejects_authority_creep_and_unsafe_text",
-        "test_p1_087_2a_verifier_flags_full_087_2_completion_claim",
+        "test_private_operator_trial_acceptance_ledger_defines_pending_reviews",
+        "test_private_operator_trial_acceptance_ledger_rejects_authority_creep",
+        "test_p1_087_2b_verifier_flags_full_087_2_completion_claim",
     ],
 }
 
 FORBIDDEN_CLAIMS = [
     "public beta is ready",
     "private beta is ready",
+    "private beta ready",
     "public release ready",
     "production authority is granted",
     "production ready",
@@ -112,6 +107,8 @@ FORBIDDEN_RUNTIME_SNIPPETS = [
     "connector.write",
     "memory_write(",
     "execute_action",
+    "onClick",
+    "fetch(",
 ]
 
 ACTIVE_TRUTH_DOCS = [
@@ -131,41 +128,47 @@ ACTIVE_TRUTH_DOCS = [
 
 def verify(
     *,
-    packet_text: str | None = None,
+    ledger_text: str | None = None,
     active_doc_text: dict[str, str] | None = None,
     check_files: bool = True,
 ) -> list[str]:
     failures: list[str] = []
-    _append_packet_failures(failures, packet_text)
+    _append_ledger_failures(failures, ledger_text)
     if check_files:
         _append_static_file_failures(failures)
     _append_completion_claim_failures(failures, active_doc_text)
     return failures
 
 
-def _append_packet_failures(failures: list[str], packet_text: str | None) -> None:
+def _append_ledger_failures(failures: list[str], ledger_text: str | None) -> None:
     try:
-        raw = packet_text if packet_text is not None else read_text(PACKET_JSON)
-        packet = PrivateOperatorTrialPacket.model_validate_json(raw)
+        raw = ledger_text if ledger_text is not None else read_text(LEDGER_JSON)
+        ledger = PrivateOperatorTrialAcceptanceLedger.model_validate_json(raw)
     except Exception as exc:  # noqa: BLE001
-        failures.append(f"private trial packet failed validation: {exc}")
+        failures.append(f"private trial acceptance ledger failed validation: {exc}")
         return
 
-    built = build_private_operator_trial_packet()
-    if packet.contract_ref != PRIVATE_OPERATOR_TRIAL_CONTRACT_REF:
-        failures.append("private trial packet contract ref drifted")
-    if packet.milestone_ref != "milestone:uaa-p1-087.2a":
-        failures.append("private trial packet must be incremental UAA-P1-087.2a")
-    if packet.status != built.status:
-        failures.append("private trial packet status drifted from builder")
-    if {item.surface for item in packet.checklist_items} != set(
+    built = build_private_operator_trial_acceptance_ledger()
+    if ledger.contract_ref != PRIVATE_OPERATOR_TRIAL_CONTRACT_REF:
+        failures.append("private trial acceptance ledger contract ref drifted")
+    if ledger.milestone_ref != "milestone:uaa-p1-087.2b":
+        failures.append("private trial acceptance ledger must be incremental UAA-P1-087.2b")
+    if ledger.status != built.status:
+        failures.append("private trial acceptance ledger status drifted from builder")
+    if ledger.trial_run_state != "operator_review_ready":
+        failures.append("private trial acceptance ledger must be operator-review ready")
+    if {review.surface for review in ledger.surface_reviews} != set(
         PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES
     ):
-        failures.append("private trial packet missing required checklist surfaces")
+        failures.append("private trial acceptance ledger missing required surfaces")
+    if {review.review_state for review in ledger.surface_reviews} != {
+        "pending_operator_review"
+    }:
+        failures.append("private trial acceptance ledger must not claim accepted findings")
     if set(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS) - set(
-        packet.blocked_state_refs
+        ledger.blocked_state_refs
     ):
-        failures.append("private trial packet missing required blocked refs")
+        failures.append("private trial acceptance ledger missing required blocked refs")
     for field_name in [
         "public_beta_claim_enabled",
         "public_distribution_claim_enabled",
@@ -178,14 +181,19 @@ def _append_packet_failures(failures: list[str], packet_text: str | None) -> Non
         "runtime_authority_added",
         "backend_route_added",
     ]:
-        if getattr(packet, field_name) is not False:
-            failures.append(f"private trial packet enables denied flag {field_name}")
+        if getattr(ledger, field_name) is not False:
+            failures.append(
+                f"private trial acceptance ledger enables denied flag {field_name}"
+            )
 
-    serialized = json.dumps(packet.model_dump(mode="json"), sort_keys=True).lower()
+    serialized = json.dumps(ledger.model_dump(mode="json"), sort_keys=True).lower()
     for forbidden in [
         "raw prompt",
         "raw response",
         "provider payload",
+        "raw screenshot",
+        "raw ocr",
+        "raw log",
         "api key",
         "authorization",
         "password",
@@ -195,17 +203,19 @@ def _append_packet_failures(failures: list[str], packet_text: str | None) -> Non
         "/etc/",
     ]:
         if forbidden in serialized:
-            failures.append(f"private trial packet contains unsafe marker {forbidden!r}")
+            failures.append(
+                f"private trial acceptance ledger contains unsafe marker {forbidden!r}"
+            )
 
 
 def _append_static_file_failures(failures: list[str]) -> None:
     append_missing_doc_snippets(failures, REQUIRED_DOC_SNIPPETS)
     append_forbidden_claims(
         failures,
-        [CONTRACT_DOC, PACKET_JSON, FRONTEND_PANEL, FRONTEND_PACKET],
+        [CONTRACT_DOC, LEDGER_JSON, FRONTEND_PANEL, FRONTEND_PACKET],
         FORBIDDEN_CLAIMS,
     )
-    for path in [FRONTEND_PANEL, FRONTEND_PACKET, FRONTEND_ROUTES]:
+    for path in [FRONTEND_PANEL, FRONTEND_PACKET]:
         text = read_text(path)
         for forbidden in FORBIDDEN_RUNTIME_SNIPPETS:
             if forbidden in text:
@@ -215,7 +225,7 @@ def _append_static_file_failures(failures: list[str]) -> None:
         for path in (ROOT / "src/ultimate_ai_agent/api").rglob("*.py")
     )
     if "private-trial" in api_source or "private_operator_trial" in api_source:
-        failures.append("P1-087.2a must not add a backend private-trial route")
+        failures.append("P1-087.2b must not add a backend private-trial route")
 
 
 def _append_completion_claim_failures(
@@ -240,7 +250,7 @@ def _append_completion_claim_failures(
         for pattern in full_completion_patterns:
             if pattern.search(lowered):
                 failures.append(
-                    f"{path} claims full UAA-P1-087.2 completion; only UAA-P1-087.2a is allowed"
+                    f"{path} claims full UAA-P1-087.2 completion; only incremental UAA-P1-087.2a/2b is allowed"
                 )
                 break
 

@@ -94,6 +94,19 @@
         "apps/control-center/src/components/PrivateOperatorTrialPanel.tsx",
         "apps/control-center/src/App.test.tsx"
       ]
+    },
+    {
+      "id": "UAA-P1-087.2b",
+      "status": "implemented",
+      "goal": "Private trial acceptance ledger and read-only Control Center visibility record pending manual smoke, acceptance question, tuning decision, finding, and blocked-authority refs without claiming full UAA-P1-087.2 completion.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_087_2b_private_trial_acceptance_ledger.py",
+        "docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md",
+        "docs/macos/private_operator_trial_acceptance_ledger_v1.json",
+        "tests/test_uaa_p1_087_2b_private_trial_acceptance_ledger.py",
+        "apps/control-center/src/components/PrivateOperatorTrialPanel.tsx",
+        "apps/control-center/src/App.test.tsx"
+      ]
     }
   ]
 }

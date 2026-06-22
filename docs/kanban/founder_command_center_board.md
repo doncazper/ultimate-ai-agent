@@ -1005,6 +1005,11 @@ Sub-milestone order:
   safe-ref-only packet and read-only `/private-trial` surface collect manual
   smoke checklist refs, friction refs, UI/copy task refs, core-loop gap refs,
   and blocked authority refs for the full private trial.
+- `UAA-P1-087.2b` Private Trial Findings Capture And Acceptance Ledger:
+  implemented. The safe-ref-only acceptance ledger and read-only
+  `/private-trial` visibility collect manual smoke step refs, pending surface
+  review refs, acceptance question refs, tuning decision refs, and blocked
+  authority refs before accepted/revised findings exist.
 - `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: run founder
   testing through the proven boot path and capture manual smoke evidence,
   friction notes, copy/UI tasks, and core loop gaps.

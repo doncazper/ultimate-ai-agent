@@ -24,6 +24,46 @@ export type PrivateOperatorTrialPacket = {
   nextSafeAction: string;
 };
 
+export type PrivateOperatorTrialSurfaceReview = {
+  reviewRef: string;
+  surface: string;
+  reviewState:
+    | "pending_operator_review"
+    | "accepted"
+    | "revised"
+    | "blocked"
+    | "needs_follow_up";
+  reviewerRef: string;
+  findingRefs: string[];
+  frictionRefs: string[];
+  uiCopyTaskRefs: string[];
+  evidenceRefs: string[];
+  blockerRefs: string[];
+  nextSafeAction: string;
+};
+
+export type PrivateOperatorTrialAcceptanceLedger = {
+  ledgerRef: string;
+  contractRef: string;
+  milestoneRef: string;
+  status: string;
+  sourcePacketRef: string;
+  trialRunState:
+    | "not_started"
+    | "operator_review_ready"
+    | "in_review"
+    | "accepted_with_changes"
+    | "needs_revision"
+    | "blocked";
+  surfaceReviews: PrivateOperatorTrialSurfaceReview[];
+  manualSmokeStepRefs: string[];
+  acceptanceQuestionRefs: string[];
+  tuningDecisionRefs: string[];
+  evidenceRefs: string[];
+  blockedStateRefs: string[];
+  nextSafeAction: string;
+};
+
 export const privateOperatorTrialPacket: PrivateOperatorTrialPacket = {
   contractRef: "contract-ref:private-operator-ui-functional-tuning:v1",
   milestoneRef: "milestone:uaa-p1-087.2a",
@@ -169,4 +209,146 @@ export const privateOperatorTrialPacket: PrivateOperatorTrialPacket = {
   ],
   nextSafeAction:
     "Use the private-trial packet to run local/private UI tuning for acceptance review, then keep UAA-P1-087.3 source-only until native boot cockpit scope is accepted.",
+};
+
+export const privateOperatorTrialAcceptanceLedger: PrivateOperatorTrialAcceptanceLedger = {
+  ledgerRef: "ledger-ref:private-operator-trial-acceptance:v1",
+  contractRef: "contract-ref:private-operator-ui-functional-tuning:v1",
+  milestoneRef: "milestone:uaa-p1-087.2b",
+  status: "implemented_private_trial_acceptance_ledger_authority_blocked",
+  sourcePacketRef: "packet-ref:private-operator-trial:v1",
+  trialRunState: "operator_review_ready",
+  surfaceReviews: [
+    {
+      reviewRef: "surface-review:private-trial:local-boot",
+      surface: "Local Boot",
+      reviewState: "pending_operator_review",
+      reviewerRef: "operator-ref:local-private-reviewer",
+      findingRefs: ["finding-ref:private-trial:pending:local-boot"],
+      frictionRefs: ["friction-ref:private-trial:local-boot"],
+      uiCopyTaskRefs: ["ui-copy-task:private-trial:local-boot"],
+      evidenceRefs: ["evidence-ref:private-trial:local-boot"],
+      blockerRefs: ["blocker-ref:private-trial:local-boot"],
+      nextSafeAction:
+        "Confirm first-party launch, secondary-shell posture, and safe log refs.",
+    },
+    {
+      reviewRef: "surface-review:private-trial:today",
+      surface: "Today",
+      reviewState: "pending_operator_review",
+      reviewerRef: "operator-ref:local-private-reviewer",
+      findingRefs: ["finding-ref:private-trial:pending:today"],
+      frictionRefs: ["friction-ref:private-trial:today"],
+      uiCopyTaskRefs: ["ui-copy-task:private-trial:today"],
+      evidenceRefs: ["evidence-ref:private-trial:today"],
+      blockerRefs: ["blocker-ref:private-trial:today"],
+      nextSafeAction: "Review whether Today makes the next operator step obvious.",
+    },
+    {
+      reviewRef: "surface-review:private-trial:actions",
+      surface: "Actions",
+      reviewState: "pending_operator_review",
+      reviewerRef: "operator-ref:local-private-reviewer",
+      findingRefs: ["finding-ref:private-trial:pending:actions"],
+      frictionRefs: ["friction-ref:private-trial:actions"],
+      uiCopyTaskRefs: ["ui-copy-task:private-trial:actions"],
+      evidenceRefs: ["evidence-ref:private-trial:actions"],
+      blockerRefs: ["blocker-ref:private-trial:actions"],
+      nextSafeAction:
+        "Review envelope clarity while approve/edit/reject/defer remains blocked.",
+    },
+    {
+      reviewRef: "surface-review:private-trial:memory",
+      surface: "Memory",
+      reviewState: "pending_operator_review",
+      reviewerRef: "operator-ref:local-private-reviewer",
+      findingRefs: ["finding-ref:private-trial:pending:memory"],
+      frictionRefs: ["friction-ref:private-trial:memory"],
+      uiCopyTaskRefs: ["ui-copy-task:private-trial:memory"],
+      evidenceRefs: ["evidence-ref:private-trial:memory"],
+      blockerRefs: ["blocker-ref:private-trial:memory"],
+      nextSafeAction:
+        "Review provenance, quality, and decision refs before memory writes exist.",
+    },
+    {
+      reviewRef: "surface-review:private-trial:evidence",
+      surface: "Evidence",
+      reviewState: "pending_operator_review",
+      reviewerRef: "operator-ref:local-private-reviewer",
+      findingRefs: ["finding-ref:private-trial:pending:evidence"],
+      frictionRefs: ["friction-ref:private-trial:evidence"],
+      uiCopyTaskRefs: ["ui-copy-task:private-trial:evidence"],
+      evidenceRefs: ["evidence-ref:private-trial:evidence"],
+      blockerRefs: ["blocker-ref:private-trial:evidence"],
+      nextSafeAction:
+        "Review whether history reads as proposed, approved, happened, changed, undoable.",
+    },
+    {
+      reviewRef: "surface-review:private-trial:chat-plans-handoff",
+      surface: "Chat/Plans Handoff",
+      reviewState: "pending_operator_review",
+      reviewerRef: "operator-ref:local-private-reviewer",
+      findingRefs: ["finding-ref:private-trial:pending:chat-plans-handoff"],
+      frictionRefs: ["friction-ref:private-trial:chat-plans-handoff"],
+      uiCopyTaskRefs: ["ui-copy-task:private-trial:chat-plans-handoff"],
+      evidenceRefs: ["evidence-ref:private-trial:chat-plans-handoff"],
+      blockerRefs: ["blocker-ref:private-trial:chat-plans-handoff"],
+      nextSafeAction:
+        "Review handoff clarity while Chat output stays non-authoritative.",
+    },
+    {
+      reviewRef: "surface-review:private-trial:blocked-state-language",
+      surface: "Blocked State Language",
+      reviewState: "pending_operator_review",
+      reviewerRef: "operator-ref:local-private-reviewer",
+      findingRefs: ["finding-ref:private-trial:pending:blocked-state-language"],
+      frictionRefs: ["friction-ref:private-trial:blocked-state-language"],
+      uiCopyTaskRefs: ["ui-copy-task:private-trial:blocked-state-language"],
+      evidenceRefs: ["evidence-ref:private-trial:blocked-state-language"],
+      blockerRefs: ["blocker-ref:private-trial:blocked-state-language"],
+      nextSafeAction: "Review blocked copy for next safe action and low friction.",
+    },
+    {
+      reviewRef: "surface-review:private-trial:crm-lite-follow-ups",
+      surface: "CRM-Lite Follow-Ups",
+      reviewState: "pending_operator_review",
+      reviewerRef: "operator-ref:local-private-reviewer",
+      findingRefs: ["finding-ref:private-trial:pending:crm-lite-follow-ups"],
+      frictionRefs: ["friction-ref:private-trial:crm-lite-follow-ups"],
+      uiCopyTaskRefs: ["ui-copy-task:private-trial:crm-lite-follow-ups"],
+      evidenceRefs: ["evidence-ref:private-trial:crm-lite-follow-ups"],
+      blockerRefs: ["blocker-ref:private-trial:crm-lite-follow-ups"],
+      nextSafeAction:
+        "Review follow-up positioning without claiming local CRM state.",
+    },
+  ],
+  manualSmokeStepRefs: [
+    "manual-smoke-step:private-trial:boot-control-center",
+    "manual-smoke-step:private-trial:review-today-spine",
+    "manual-smoke-step:private-trial:review-actions-memory-evidence",
+    "manual-smoke-step:private-trial:review-chat-plans-handoff",
+    "manual-smoke-step:private-trial:record-blocked-follow-ups",
+  ],
+  acceptanceQuestionRefs: [
+    "acceptance-question:private-trial:first-screen-orientation",
+    "acceptance-question:private-trial:today-scan-friction",
+    "acceptance-question:private-trial:memory-confidence",
+    "acceptance-question:private-trial:action-review-clarity",
+    "acceptance-question:private-trial:evidence-history-readability",
+    "acceptance-question:private-trial:blocked-state-next-action",
+  ],
+  tuningDecisionRefs: [
+    "tuning-decision:private-trial:pending-copy-trim",
+    "tuning-decision:private-trial:pending-surface-order",
+    "tuning-decision:private-trial:pending-memory-review-emphasis",
+    "tuning-decision:private-trial:pending-crm-lite-positioning",
+  ],
+  evidenceRefs: [
+    "evidence-ref:private-trial:acceptance-ledger-v1",
+    "evidence-ref:private-trial:manual-smoke-runbook",
+    "evidence-ref:private-trial:pending-operator-findings",
+  ],
+  blockedStateRefs: privateOperatorTrialPacket.blockedStateRefs,
+  nextSafeAction:
+    "Run local/private operator review against this ledger, record accepted or revised safe refs, then complete full UAA-P1-087.2 only after findings exist.",
 };

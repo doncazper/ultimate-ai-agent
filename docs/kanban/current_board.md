@@ -64,7 +64,7 @@ V1 complete, and marks UAA-P1-080 API Route Classification And
 Public/Protected Inventory complete, and marks UAA-P1-081 Centralized FastAPI
 Security Headers complete, and marks UAA-P1-082 Explicit Loopback CORS
 Allowlist complete, and marks UAA-P1-083 Local Bearer Or Session Gate For
-Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold remain next before P2/provider, packaging, or commercialization work.
+Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold remain next before P2/provider, packaging, or commercialization work.
 The planned FCC-V1 Founder Loop V1 conveyor then keeps the productization lane
 running through `FCC-V1-000` through `FCC-V1-007`: release surface manifest,
 API perimeter for real mutations, Action Inbox backend state machine, first
@@ -103,7 +103,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-087.2a are complete. The next planned/queued lane is full UAA-P1-087.2 In-Person Private Operator UI Functional Tuning.
+No active build item is in progress. UAA-P1-067 through UAA-P1-087.2b are complete. The next planned/queued lane is full UAA-P1-087.2 In-Person Private Operator UI Functional Tuning.
 ```
 
 ## Ready Next
@@ -251,6 +251,14 @@ Goal met: the local/private trial packet and read-only `/private-trial` surface
 record safe manual smoke checklist refs, friction refs, UI/copy task refs,
 core-loop gap refs, and blocked authority refs without adding backend routes or
 runtime authority.
+
+UAA-P1-087.2b Private Trial Findings Capture And Acceptance Ledger
+Status: Implemented.
+Goal met: the local/private acceptance ledger and read-only `/private-trial`
+visibility record safe manual smoke step refs, pending surface review refs,
+acceptance question refs, tuning decision refs, finding refs, and blocked
+authority refs without claiming accepted findings, adding backend routes, or
+adding runtime authority.
 
 UAA-P1-087.2 In-Person Private Operator UI Functional Tuning
 Goal: use the proven local boot path for founder testing and record manual
@@ -767,7 +775,7 @@ durable idempotency dedupe, distributed quota, public beta, public
 distribution, production readiness, or production authority.
 
 UAA-P1-087 Private Operator Trial And UI Functional Tuning
-Status: implemented through UAA-P1-087.2a. Next planned/queued step is full
+Status: implemented through UAA-P1-087.2b. Next planned/queued step is full
 UAA-P1-087.2 in-person private UI functional tuning, followed by UAA-P1-087.3
 native SwiftUI boot cockpit planning/source-only scaffold after tuning evidence
 is accepted. This is

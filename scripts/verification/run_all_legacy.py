@@ -103,6 +103,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-086 API boundary enforcement scan", "verify_uaa_p1_086_api_boundary_enforcement_tests"),
     ("UAA-P1-087.1 local launcher dual-surface boot scan", "verify_uaa_p1_087_1_local_launcher_boot_readiness"),
     ("UAA-P1-087.2a private trial packet scan", "verify_uaa_p1_087_2a_private_trial_packet"),
+    ("UAA-P1-087.2b private trial acceptance ledger scan", "verify_uaa_p1_087_2b_private_trial_acceptance_ledger"),
     ("Computer Use / CUA contract lane scan", "verify_cua_contract_lane"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
@@ -1126,6 +1127,11 @@ def verify_uaa_p1_087_1_local_launcher_boot_readiness() -> None:
 def verify_uaa_p1_087_2a_private_trial_packet() -> None:
     print("\n[Verifier] Running UAA-P1-087.2a private trial packet scan...")
     run_cmd([sys.executable, "scripts/verify_uaa_p1_087_2a_private_trial_packet.py"])
+
+
+def verify_uaa_p1_087_2b_private_trial_acceptance_ledger() -> None:
+    print("\n[Verifier] Running UAA-P1-087.2b private trial acceptance ledger scan...")
+    run_cmd([sys.executable, "scripts/verify_uaa_p1_087_2b_private_trial_acceptance_ledger.py"])
 
 
 def verify_cua_contract_lane() -> None:

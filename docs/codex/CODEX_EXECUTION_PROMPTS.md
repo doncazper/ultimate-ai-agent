@@ -651,11 +651,12 @@ fixed-window rate limits have landed with verifier/test evidence and a pushed
 commit. UAA-P1-086 is complete for API boundary-hardening enforcement tests,
 UAA-P1-087.1 is complete for local launcher dual-surface boot readiness, and
 UAA-P1-087.2a is complete for the private trial packet/read-only tuning
-surface. The conveyor now advances to full UAA-P1-087.2 in-person private UI
-functional tuning, then UAA-P1-087.3 native SwiftUI boot cockpit
-planning/source-only scaffold after accepted or revised local/private findings
-exist, before moving to P2/provider, packaging, public distribution, or
-commercialization work. The planned FCC-V1
+surface, and UAA-P1-087.2b is complete for the private trial findings capture
+and acceptance ledger. The conveyor now advances to full UAA-P1-087.2
+in-person private UI functional tuning, then UAA-P1-087.3 native SwiftUI boot
+cockpit planning/source-only scaffold after accepted or revised local/private
+findings exist, before moving to P2/provider, packaging, public distribution,
+or commercialization work. The planned FCC-V1
 productization lane then continues
 through FCC-V1-000 Control Center Release Surface Manifest, FCC-V1-001 API
 Perimeter For Real Mutations, FCC-V1-002 Action Inbox Backend State Machine,
@@ -685,8 +686,9 @@ UAA-P1-079 unless the active roadmap explicitly documents them.
 If a later accepted prompt starts the API Boundary Hardening Lane, use this
 extension order after UAA-P1-079: UAA-P1-080, UAA-P1-081, UAA-P1-082,
 UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then UAA-P1-087.1,
-UAA-P1-087.2a, full UAA-P1-087.2, and UAA-P1-087.3. Stop after UAA-P1-087.3 is complete and
-verified unless active docs explicitly document the next lane.
+UAA-P1-087.2a, UAA-P1-087.2b, full UAA-P1-087.2, and UAA-P1-087.3. Stop after
+UAA-P1-087.3 is complete and verified unless active docs explicitly document
+the next lane.
 
 If active docs show the Founder Loop V1 productization lane is accepted, use
 this extension order after UAA-P1-087.3 or the current prerequisite breakpoint:

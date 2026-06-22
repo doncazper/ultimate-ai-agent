@@ -808,8 +808,9 @@ PR size: completed as one API middleware/docs/test evidence slice.
 
 Type: local trial/test/docs/UI tuning
 
-Status: Implemented through UAA-P1-087.2a; planned for full UAA-P1-087.2 and
-UAA-P1-087.3 after the proven local boot path and packet surface.
+Status: Implemented through UAA-P1-087.2b; planned for full UAA-P1-087.2 and
+UAA-P1-087.3 after the proven local boot path, packet surface, and acceptance
+ledger.
 
 New authority: no.
 
@@ -827,10 +828,17 @@ Sub-milestone order:
   smoke checklist refs, friction refs, UI/copy task refs, core-loop gap refs,
   and blocked authority refs for full private UI tuning without adding backend
   routes or runtime authority.
+- `UAA-P1-087.2b` Private Trial Findings Capture And Acceptance Ledger:
+  implemented. The safe-ref-only acceptance ledger and read-only
+  `/private-trial` visibility record manual smoke step refs, pending surface
+  review refs, acceptance question refs, tuning decision refs, finding refs,
+  and blocked authority refs without claiming accepted findings, adding backend
+  routes, or adding runtime authority.
 - `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: use the
-  proven local boot path and 087.2a packet for hands-on founder testing and
-  capture accepted/revised friction, manual smoke evidence, UI/copy tasks,
-  Today/Actions/Memory/Evidence/Chat handoff gaps, and CRM-lite follow-up gaps.
+  proven local boot path, 087.2a packet, and 087.2b acceptance ledger for
+  hands-on founder testing and capture accepted/revised friction, manual smoke
+  evidence, UI/copy tasks, Today/Actions/Memory/Evidence/Chat handoff gaps, and
+  CRM-lite follow-up gaps.
 - `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold:
   after the `.command` boot contract is proven and UI tuning evidence exists,
   plan/source-scaffold a native macOS boot cockpit over fixed launcher
@@ -855,14 +863,16 @@ Tests to add/update:
 
 - UAA-P1-087.1 launcher/verifier tests for local boot readiness.
 - UAA-P1-087.2a packet/verifier tests and read-only Control Center render test.
+- UAA-P1-087.2b acceptance-ledger/verifier tests and read-only Control Center
+  render test.
 - Manual smoke checklist acceptance artifact for full UAA-P1-087.2.
 - Control Center render/frontend checks for tuned flows.
 - Product-language checks.
 - Documentation integrity.
 
 PR size: UAA-P1-087.1 landed as the launcher boot-readiness slice; UAA-P1-087.2a
-lands as the packet/surface slice; keep full UAA-P1-087.2 and UAA-P1-087.3 in
-their own follow-up patches.
+lands as the packet/surface slice; UAA-P1-087.2b lands as the acceptance-ledger
+slice; keep full UAA-P1-087.2 and UAA-P1-087.3 in their own follow-up patches.
 
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 

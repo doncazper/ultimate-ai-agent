@@ -4357,6 +4357,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "uaa-p1-086 api boundary enforcement tests is complete" not in readme_flat
         or "uaa-p1-087.1 local launcher dual-surface boot readiness is complete" not in readme_flat
         or "uaa-p1-087.2a private trial packet and ui tuning surface is complete" not in readme_flat
+        or "uaa-p1-087.2b private trial findings capture and acceptance ledger is complete" not in readme_flat
         or "uaa-p1-066 remains queued" not in readme_flat
     ):
         failures.append(
@@ -4364,7 +4365,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
             "UAA-P1-071/UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075/"
             "UAA-P1-076/UAA-P1-077/UAA-P1-078/UAA-P1-079/UAA-P1-080/"
             "UAA-P1-081/UAA-P1-082/UAA-P1-083/UAA-P1-084/UAA-P1-085/"
-            "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a complete, "
+            "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a/UAA-P1-087.2b complete, "
             "and UAA-P1-066 queued support"
         )
 
@@ -4394,6 +4395,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "completed uaa-p1-086" not in docs_readme_flat
         or "completed uaa-p1-087.1" not in docs_readme_flat
         or "completed uaa-p1-087.2a" not in docs_readme_flat
+        or "completed uaa-p1-087.2b" not in docs_readme_flat
         or "uaa-p1-066 remains queued" not in docs_readme_flat
     ):
         failures.append(
@@ -4402,7 +4404,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
             "UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075/UAA-P1-076/"
             "UAA-P1-077/UAA-P1-078/UAA-P1-079/UAA-P1-080/UAA-P1-081/"
             "UAA-P1-082/UAA-P1-083/UAA-P1-084/UAA-P1-085/"
-            "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a complete, and UAA-P1-066 "
+            "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a/UAA-P1-087.2b complete, and UAA-P1-066 "
             "queued support"
         )
 
@@ -4919,6 +4921,7 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         or "uaa-p1-086 api boundary enforcement tests is complete" not in readme_flat
         or "uaa-p1-087.1 local launcher dual-surface boot readiness is complete" not in readme_flat
         or "uaa-p1-087.2a private trial packet and ui tuning surface is complete" not in readme_flat
+        or "uaa-p1-087.2b private trial findings capture and acceptance ledger is complete" not in readme_flat
         or "uaa-p1-066 remains queued" not in readme_flat
     ):
         failures.append(
@@ -4926,7 +4929,7 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
             "UAA-P1-071/UAA-P1-072/UAA-P1-073/UAA-P1-074/UAA-P1-075/"
             "UAA-P1-076/UAA-P1-077/UAA-P1-078/UAA-P1-079/UAA-P1-080/"
             "UAA-P1-081/UAA-P1-082/UAA-P1-083/UAA-P1-084/UAA-P1-085/"
-            "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a complete, "
+            "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a/UAA-P1-087.2b complete, "
             "and UAA-P1-066 queued support"
         )
     if "p0-017 adds safe local model operational recovery guidance" not in readme:

@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-087.1 Complete: Local Launcher Dual-Surface Boot Readiness; UAA-P1-087.2a Complete: Private Trial Packet And UI Tuning Surface; UAA-P1-087.2 Planned Private UI Functional Tuning** |
+| Current lane | **UAA-P1-087.1 Complete: Local Launcher Dual-Surface Boot Readiness; UAA-P1-087.2a Complete: Private Trial Packet And UI Tuning Surface; UAA-P1-087.2b Complete: Private Trial Findings Capture And Acceptance Ledger; UAA-P1-087.2 Planned Private UI Functional Tuning** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 planned: release surface manifest, API perimeter, Action decisions, vertical loop, Chat receipts/handoff, Memory decisions, Evidence productization, and proof-lane promotion** |
 | Latest repository checkpoint | **checkpoint-m168** |
@@ -105,12 +105,15 @@ backend/frontend/OpenWebUI status, stop coverage, and safe launcher log refs.
 UAA-P1-087.2a Private Trial Packet And UI Tuning Surface is complete with a
 safe-ref-only trial packet, read-only Control Center `/private-trial` surface,
 manual smoke checklist refs, friction refs, UI/copy task refs, and blocked
-authority refs. These slices install no packages, pull no images, add no
-backend route, and add no runtime authority. Full UAA-P1-087.2 in-person
-private UI functional tuning remains planned until local/private acceptance
-findings are recorded, followed by UAA-P1-087.3 native SwiftUI boot cockpit
-planning/source-only scaffold. These planning entries grant no new authority
-here.
+authority refs. UAA-P1-087.2b Private Trial Findings Capture And Acceptance
+Ledger is complete with a safe-ref-only acceptance ledger, manual smoke step
+refs, pending operator review findings, acceptance question refs, tuning
+decision refs, and read-only Control Center visibility. These slices install no
+packages, pull no images, add no backend route, and add no runtime authority.
+Full UAA-P1-087.2 in-person private UI functional tuning remains planned until
+accepted or revised local/private findings are recorded, followed by
+UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold. These
+planning entries grant no new authority here.
 The planned Founder Loop V1 productization conveyor is recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`: Control Center release surface manifest, API perimeter for real
