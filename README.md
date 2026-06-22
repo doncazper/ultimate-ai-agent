@@ -13,19 +13,19 @@ runner.
 
 | Field | Current state |
 |---|---|
-| Active baseline | **v0.102.3** / `0.102.3` |
+| Active baseline | **v0.103.0** / `0.103.0` |
 | Active program | **Operator Runtime Excellence** |
 | Current lane | **No active build item: FCC-V1-007 proof lane complete; UAA-P1-087.2 Private UI Testing Deferred** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 complete for the bounded proofed route-surface lane** |
-| Latest repository checkpoint | **checkpoint-m168** |
+| Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | API boundary | FastAPI route contract with **126** OpenAPI paths |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 
-The active product/package baseline is `v0.102.3` / `0.102.3`.
-`checkpoint-m168` is the latest accepted repository checkpoint and repairs
+The active product/package baseline is `v0.103.0` / `0.103.0`.
+`checkpoint-m169` is the latest accepted repository checkpoint and repairs
 currentness across README, roadmap, board, checkpoint references, product truth,
 and route-count references. The M160-M167 local model lane remains scoped to
 local llama.cpp/OpenWebUI readiness evidence. M166 is the exact-scope local
@@ -170,8 +170,8 @@ is not the active package baseline.
 Current archived release packet refs:
 
 ```text
-docs/archive/releases/v0_102_3/README_IMPORT.md
-docs/archive/releases/v0_102_3/master_plan.md
+docs/archive/releases/v0_103_0/README_IMPORT.md
+docs/archive/releases/v0_103_0/master_plan.md
 ```
 
 ## Operating Model
@@ -297,7 +297,7 @@ distribution, hosted production support, or signed installer readiness.
 | Current roadmap | [docs/canonical/09_roadmap.md](docs/canonical/09_roadmap.md) |
 | Operator Runtime Excellence | [roadmap](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md), [current board](docs/kanban/current_board.md) |
 | Operator Excellence catch-up loop | [loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
-| Current release | [v0.102.3 notes](docs/release_notes/v0_102_3.md), [checkpoint M168](docs/release_notes/checkpoint_m168.md) |
+| Current release | [v0.103.0 notes](docs/release_notes/v0_103_0.md), [checkpoint M169](docs/release_notes/checkpoint_m169.md) |
 
 Historical docs live under [docs/archive](docs/archive/README.md). They are
 audit artifacts, not current implementation claims.
@@ -306,7 +306,7 @@ audit artifacts, not current implementation claims.
 
 These M34-M60 labels remain active audit anchors. They are historical milestone
 markers, not the current package baseline; the current baseline remains
-v0.102.3.
+v0.103.0.
 
 | Release | Milestone |
 |---|---|

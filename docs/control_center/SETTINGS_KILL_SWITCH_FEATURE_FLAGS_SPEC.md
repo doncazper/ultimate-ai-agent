@@ -1,7 +1,7 @@
 # Settings Kill-Switch And Feature-Flag Spec
 
 Status: FCC-P1-011 spec foundation
-Baseline: v0.102.3 / 0.102.3
+Baseline: v0.103.0 / 0.103.0
 Scope: Founder Command Center Settings posture, feature-flag vocabulary,
 kill-switch posture, scoped permission-mode vocabulary, and future Settings
 contract requirements

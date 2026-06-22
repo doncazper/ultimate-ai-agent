@@ -1,13 +1,12 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.102.3**
+Current active baseline: **v0.103.0**
 
-v0.102.3 is the incremental Founder Command Center strategy-spine hardening
-baseline. It keeps the repository contract-first, review-gated, local-first,
-disabled by default, and non-production by default while aligning the
-macOS-of-agents strategy docs, first product-loop lane, planning-only
-permission vocabulary, memory direction, first-party integration direction,
-Codex prompts, north-star metrics, and release currentness metadata.
+v0.103.0 is the Founder Loop V1 currentness, branch-hygiene, and baseline
+consolidation release. It keeps the repository contract-first, review-gated,
+local-first, disabled by default, and non-production by default while making
+the completed bounded FCC-V1 proof-lane conveyor, current API boundary,
+current docs, branch state, and release truth read as one accepted baseline.
 UAA-P1-067 completes the Today-Spine Founder Command Center beta-readiness
 planning/currentness pass and records the milestone conveyor without adding
 runtime authority. UAA-P1-068 completes the Today Product Spine Contract on the
@@ -105,22 +104,25 @@ Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.
 
-Latest accepted checkpoint tag: **checkpoint-m168**.
+Latest accepted checkpoint tag: **checkpoint-m169**.
 The latest accepted local model lane checkpoint tags remain **checkpoint-m166**
 and **checkpoint-m167**. Those post-M150 checkpoints extend the scoped local
 model lane through the M166 production-readiness gate and M167 live-evidence
 hardening. The active Operator Runtime Excellence Program starts at M168 with
-currentness/product truth repair and is now consolidated under the v0.102.3 / 0.102.3
-product/package baseline.
+currentness/product truth repair; M169 records the repo-currentness,
+documentation, canonical-doc, GitHub, and branch-hygiene consolidation now
+accepted under the v0.103.0 / 0.103.0 product/package baseline.
 
-v0.102.3 consolidates the current README, roadmap/status docs, release-truth
+v0.103.0 consolidates the current README, roadmap/status docs, release-truth
 packet, public security posture, API route currentness docs, Founder Command
-Center strategy spine, and Control Center operator-shell gap map under one
-active baseline. It adds no dependency, backend route, Control Center control,
-native macOS app work, installer authority, provider/model call,
-shell/subprocess execution, unrestricted network access, browser automation,
-tool execution authority, connector runtime, connector write, memory write,
-context injection, beta release, public distribution, or production authority.
+Center strategy spine, Control Center operator-shell gap map, and branch
+hygiene under one active baseline. It confirms `main` is current with only the
+PR #35 and PR #36 branches outstanding. It adds no dependency, backend route,
+Control Center control, native macOS app work, installer authority,
+provider/model call, shell/subprocess execution, unrestricted network access,
+browser automation, tool execution authority, connector runtime, connector
+write, memory write, context injection, beta release, public distribution, or
+production authority.
 
 M150 is contract-only, review-only, alpha-target-only, deterministic,
 local-only, safe-ref-only, disabled by default, route-free, and no-effect. It

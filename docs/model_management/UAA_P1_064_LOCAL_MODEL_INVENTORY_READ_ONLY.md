@@ -1,7 +1,7 @@
 # UAA-P1-064 Local Model Inventory Read-Only Backend + CLI
 
 Status: Implemented
-Baseline: v0.102.3
+Baseline: v0.103.0
 Parent lane: M170 Local Model Manager
 Predecessor: UAA-P1-062 Local Model Manager Shape
 Decision date: 2026-06-21

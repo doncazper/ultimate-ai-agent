@@ -13,7 +13,7 @@ frontend controls, dependencies, model/provider calls, shell/subprocess
 execution, unrestricted browsing, connector writes, plugin runtime import,
 mobile control, memory writes, context injection, public distribution, public
 beta, or production authority. It is subordinate to the current repository
-baseline truth and the latest accepted repository checkpoint `checkpoint-m168`.
+baseline truth and the latest accepted repository checkpoint `checkpoint-m169`.
 
 ## Executive Thesis
 

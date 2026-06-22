@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.102.3**
+Current active baseline: **v0.103.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -9,7 +9,7 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Area | Canonical entry |
 |---|---|
 | GitHub landing page | `README.md` |
-| Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_3.md`, `docs/release_notes/checkpoint_m168.md` |
+| Version and baseline | `VERSION.md`, `docs/release_notes/v0_103_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/founder_loop_api_perimeter_manifest.json`, `docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`, `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`, `docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md`, `docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md`, `docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md` |
@@ -218,11 +218,11 @@ docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/kanban/current_board.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/archive/README.md
-docs/archive/releases/v0_102_3/README_IMPORT.md
-docs/archive/releases/v0_102_3/master_plan.md
-docs/release_notes/v0_102_3.md
-docs/implementation/foundation_gate_implementation_plan_v0_102_3.md
-docs/release_notes/checkpoint_m168.md
+docs/archive/releases/v0_103_0/README_IMPORT.md
+docs/archive/releases/v0_103_0/master_plan.md
+docs/release_notes/v0_103_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_103_0.md
+docs/release_notes/checkpoint_m169.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
 docs/truth/GOVERNED_WEB_EVIDENCE.md
@@ -1184,7 +1184,7 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.102.3 is the current active package baseline for the
+active M34-M60 sequence. v0.103.0 is the current active package baseline for the
 accepted Operator Runtime Excellence currentness and production-readiness
 documentation repair lane through P2 read-only ecosystem inspection,
 activation-record contracts, and MCP/A2A compatibility watchlist planning.
@@ -1271,7 +1271,7 @@ future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_102_3.md`
+Current release notes: `docs/release_notes/v0_103_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

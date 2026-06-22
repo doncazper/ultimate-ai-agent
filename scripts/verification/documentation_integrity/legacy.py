@@ -1092,7 +1092,7 @@ RELEASE_FACING_SECURITY_DOCS = [
     "docs/security/SECURITY_TRIAGE_RUNBOOK.md",
     "docs/release_notes/v0_102_2.md",
     "docs/release_notes/v1_2_0_alpha.md",
-    "docs/release_notes/checkpoint_m168.md",
+    "docs/release_notes/checkpoint_m169.md",
     "docs/release_notes/checkpoint_m166.md",
     "docs/release_notes/checkpoint_m167.md",
 ]
@@ -1723,10 +1723,10 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
     required_current_fragments = {
         "active docs must mention Operator Runtime Excellence": "operator runtime excellence",
         "active docs must mention M168 currentness": "m168",
-        "active docs must mention checkpoint-m168": "checkpoint-m168",
+        "active docs must mention checkpoint-m169": "checkpoint-m169",
         "active docs must mention checkpoint-m166": "checkpoint-m166",
         "active docs must mention checkpoint-m167": "checkpoint-m167",
-        "active docs must preserve v0.102.3 baseline": "v0.102.3",
+        "active docs must preserve v0.103.0 baseline": "v0.103.0",
         "active docs must link Operator Runtime roadmap": (
             "docs/roadmap/operator_runtime_excellence_roadmap.md"
         ),
@@ -1806,9 +1806,9 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
 
     product_truth_required = {
         "product truth packet must identify UAA-P0-002": "task: uaa-p0-002",
-        "product truth packet must preserve active baseline": "baseline: v0.102.3 / 0.102.3",
+        "product truth packet must preserve active baseline": "baseline: v0.103.0 / 0.103.0",
         "product truth packet must list accepted repository checkpoint": (
-            "accepted repository checkpoint: checkpoint-m168"
+            "accepted repository checkpoint: checkpoint-m169"
         ),
         "product truth packet must list accepted local model checkpoints": (
             "accepted local model lane checkpoints: checkpoint-m166, checkpoint-m167"
@@ -1948,7 +1948,7 @@ def _verify_public_security_posture(root: Path) -> list[str]:
     security_required = {
         "SECURITY.md must identify UAA-P0-003": "program task: uaa-p0-003",
         "SECURITY.md must list supported versions": "## supported versions",
-        "SECURITY.md must preserve active baseline": "v0.102.3",
+        "SECURITY.md must preserve active baseline": "v0.103.0",
         "SECURITY.md must mention checkpoint-m166": "checkpoint-m166",
         "SECURITY.md must mention checkpoint-m167": "checkpoint-m167",
         "SECURITY.md must describe private reporting": "github private vulnerability reporting",
@@ -4990,7 +4990,7 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         "gap map must identify UAA-P0-007": (
             "status: active uaa-p0-007 operator-shell gap map"
         ),
-        "gap map must preserve baseline": "baseline: v0.102.3 / 0.102.3",
+        "gap map must preserve baseline": "baseline: v0.103.0 / 0.103.0",
         "gap map must cite M172": (
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),

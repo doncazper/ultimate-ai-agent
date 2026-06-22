@@ -2,7 +2,7 @@
 
 Status: contract-only implementation support for FCC-P1-007, FCC-P1-008, and
 FCC-P1-009
-Baseline: v0.102.3 / 0.102.3
+Baseline: v0.103.0 / 0.103.0
 
 FCC-P1-007 and FCC-P1-008 define paired Founder Command Center source-readiness
 contracts for calendar and email metadata. FCC-P1-009 adds a draft-only email

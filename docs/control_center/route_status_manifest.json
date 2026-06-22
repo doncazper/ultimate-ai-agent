@@ -1,7 +1,7 @@
 {
   "schema_version": "uaa-control-center-route-status.v1",
   "status": "active UAA-P1-030 route status manifest",
-  "baseline": "v0.102.3 / 0.102.3",
+  "baseline": "v0.103.0 / 0.103.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
   "openapi_path_count": 126,

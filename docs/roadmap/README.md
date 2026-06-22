@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v0.102.3 plus accepted checkpoint-m168 and active Operator Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
+Current through: v0.103.0 plus accepted checkpoint-m169 and active Operator Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap sources of truth:
@@ -48,9 +48,9 @@ Post-M150 accepted checkpoint note: M151 is the Local OpenWebUI Test Shell
 milestone. M152-M159 define the local model management contract lane, M160-M165
 complete the scoped local model live lane, M166 is the exact-scope local model
 production-readiness gate, and M167 hardens that gate with reviewed live
-evidence. The latest accepted repository checkpoint tag is `checkpoint-m168`;
+evidence. The latest accepted repository checkpoint tag is `checkpoint-m169`;
 the latest accepted local model lane checkpoint tags remain `checkpoint-m166`
-and `checkpoint-m167`. The product/package baseline is v0.102.3 / 0.102.3.
+and `checkpoint-m167`. The product/package baseline is v0.103.0 / 0.103.0.
 
 Active program note: M168 starts the Operator Runtime Excellence currentness and
 product-truth lane; P0 repair work through UAA-P0-017 adds public security
@@ -64,6 +64,14 @@ tool execution, shell/subprocess execution, unrestricted network or browser
 automation, connector writes, plugin runtime import, mobile control, memory
 write, context injection, external distribution, beta release, or production
 authority.
+
+M169 records the v0.103.0 currentness, documentation, canonical-doc,
+GitHub/branch-hygiene, and baseline consolidation pass. It accepts the bounded
+FCC-V1 proof-lane conveyor as complete through FCC-V1-007, keeps full
+UAA-P1-087.2 and broader product-readiness claims deferred, and confirms only
+PR #35 and PR #36 remain as open non-merged branches. It adds no runtime
+authority, backend route, dependency, provider/model call, connector behavior,
+public beta, public distribution, or production authority.
 
 Documentation organization and historical-roadmap handling rules live in
 `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`.

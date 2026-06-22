@@ -1,7 +1,7 @@
 # UAA-P1-020 PolicyEngine Consolidation Map
 
 Status: active gated foundation map
-Baseline: v0.102.3 / 0.102.3
+Baseline: v0.103.0 / 0.103.0
 Scope: documentation and authority inventory only
 
 This map identifies current policy and approval decision paths before any

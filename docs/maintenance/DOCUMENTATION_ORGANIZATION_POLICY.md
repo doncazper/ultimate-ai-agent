@@ -1,7 +1,7 @@
 # Documentation Organization Policy
 
 Status: active
-Current through: v0.102.3 plus completed FCC-V1-007
+Current through: v0.103.0 plus completed FCC-V1-007
 Purpose: Keep active documentation current while preserving historical release artifacts safely.
 
 ## Root Directory Policy

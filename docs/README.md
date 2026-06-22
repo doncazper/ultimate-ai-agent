@@ -1,7 +1,7 @@
 # Ultimate AI Agent Docs
 
 Status: active
-Current through: v0.102.3 plus accepted checkpoint-m168, completed
+Current through: v0.103.0 plus accepted checkpoint-m169, completed
 UAA-P1-065 Founder Command Center review cleanup, completed UAA-P1-067
 Today-Spine Founder Command Center beta-readiness planning/currentness work,
 completed UAA-P1-068 Today Product Spine Contract work, completed UAA-P1-069
@@ -73,7 +73,7 @@ current implementation claims.
 
 | Need | Start with |
 |---|---|
-| Current repository story | `README.md`, `VERSION.md`, `docs/release_notes/v0_102_3.md` |
+| Current repository story | `README.md`, `VERSION.md`, `docs/release_notes/v0_103_0.md` |
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
@@ -87,18 +87,18 @@ current implementation claims.
 
 ## Current Baseline Packet
 
-The product/package baseline is `v0.102.3` / `0.102.3`. The latest accepted
-repository checkpoint tag is `checkpoint-m168`. The latest accepted local model
+The product/package baseline is `v0.103.0` / `0.103.0`. The latest accepted
+repository checkpoint tag is `checkpoint-m169`. The latest accepted local model
 lane checkpoint tags remain `checkpoint-m166` and `checkpoint-m167`.
 
 Current release and checkpoint refs:
 
 ```text
-docs/archive/releases/v0_102_3/README_IMPORT.md
-docs/archive/releases/v0_102_3/master_plan.md
-docs/release_notes/v0_102_3.md
-docs/implementation/foundation_gate_implementation_plan_v0_102_3.md
-docs/release_notes/checkpoint_m168.md
+docs/archive/releases/v0_103_0/README_IMPORT.md
+docs/archive/releases/v0_103_0/master_plan.md
+docs/release_notes/v0_103_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_103_0.md
+docs/release_notes/checkpoint_m169.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
 ```

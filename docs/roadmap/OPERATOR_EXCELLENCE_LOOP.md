@@ -1,7 +1,7 @@
 # Operator Excellence Catch-Up and Surpass Loop
 
 Status: active planning and review loop
-Baseline: v0.102.3 / 0.102.3
+Baseline: v0.103.0 / 0.103.0
 Source roadmap: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`
 Current board: `docs/kanban/current_board.md`
 Recommendation log: `docs/backlog/codex_recommendation_log.md`

@@ -1,7 +1,7 @@
 # UAA-P1-062 Local Model Manager / Memory-Aware Runtime Control
 
 Status: docs-only lane shape
-Baseline: v0.102.3 / 0.102.3
+Baseline: v0.103.0 / 0.103.0
 Parent roadmap: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M170
 
 UAA-P1-062 shapes the governed Local Model Manager lane. It does not implement

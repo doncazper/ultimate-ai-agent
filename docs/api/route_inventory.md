@@ -1,6 +1,6 @@
 # Route Inventory
 
-Current active baseline: **v0.102.3**
+Current active baseline: **v0.103.0**
 
 Current OpenAPI path count: `126`.
 

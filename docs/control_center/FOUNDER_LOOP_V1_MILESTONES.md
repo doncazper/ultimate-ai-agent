@@ -1,7 +1,7 @@
 # Founder Loop V1 Milestone Conveyor
 
 Status: completed bounded productization milestone record
-Baseline: v0.102.3 / 0.102.3
+Baseline: v0.103.0 / 0.103.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`
 Related boards: `docs/kanban/current_board.md`,
 `docs/kanban/founder_command_center_board.md`

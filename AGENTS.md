@@ -1,6 +1,6 @@
 # Ultimate AI Agent Workspace Standards
 
-Active baseline: v0.102.3. Package version: 0.102.3.
+Active baseline: v0.103.0. Package version: 0.103.0.
 
 Ultimate AI Agent is a local-first governed agent foundation plus an emerging
 Control Center/operator cockpit. Treat this repository as a contract-first
