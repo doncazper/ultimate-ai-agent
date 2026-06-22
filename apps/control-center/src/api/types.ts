@@ -186,6 +186,38 @@ export interface FounderLoopMemoryReviewItem {
   memory_delete_authorized: boolean;
   memory_export_authorized: boolean;
   retention_execution_authorized: boolean;
+  business_memory_quality_contract_ref: string;
+  business_memory_candidate_ref: string;
+  business_memory_candidate_kind: string;
+  business_memory_candidate_kind_ref: string;
+  business_memory_source_provenance_contract_ref: string;
+  business_memory_source_kind: string;
+  business_memory_source_trust_posture: string;
+  business_memory_redaction_status: string;
+  business_memory_quality_state_refs: string[];
+  business_memory_quality_posture: string;
+  business_memory_review_state: string;
+  business_memory_correction_path: string;
+  business_memory_stale_state: string;
+  business_memory_retention_posture: string;
+  business_memory_delete_posture: string;
+  business_memory_export_posture: string;
+  business_memory_related_entity_refs: string[];
+  business_memory_duplicate_of_refs: string[];
+  business_memory_conflict_with_refs: string[];
+  business_memory_blocker_refs: string[];
+  business_memory_surface_refs: string[];
+  business_memory_next_safe_action: string;
+  business_memory_safe_refs_only: boolean;
+  business_memory_review_required_before_recall: boolean;
+  business_memory_accepted_as_recall: boolean;
+  business_memory_write_authorized: boolean;
+  business_memory_delete_authorized: boolean;
+  business_memory_export_authorized: boolean;
+  business_memory_crm_write_authorized: boolean;
+  business_memory_account_sync_authorized: boolean;
+  business_memory_context_injection_authorized: boolean;
+  business_memory_authority_boundary: string;
   created_at?: string;
 }
 
@@ -338,6 +370,63 @@ export interface FounderLoopMemoryReviewDecisionAuthorityPosture {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopBusinessMemoryCandidateKind {
+  candidate_kind: string;
+  candidate_kind_ref: string;
+  review_required: boolean;
+  safe_summary_only: boolean;
+  source_refs_required: boolean;
+  provenance_refs_required: boolean;
+  evidence_refs_required: boolean;
+  quality_posture_required: boolean;
+  correction_path_required: boolean;
+  retention_delete_export_posture_required: boolean;
+  crm_write_authorized: boolean;
+  account_sync_authorized: boolean;
+  context_injection_authorized: boolean;
+  accepted_as_recall: boolean;
+}
+
+export interface FounderLoopBusinessMemoryQualityState {
+  quality_state: string;
+  quality_state_ref: string;
+  blocks_unreviewed_recall: boolean;
+  requires_operator_review: boolean;
+  requires_safe_refs: boolean;
+  requires_correction_path: boolean;
+  is_blocking_posture: boolean;
+  authorizes_memory_write: boolean;
+  authorizes_crm_write: boolean;
+  authorizes_context_injection: boolean;
+}
+
+export interface FounderLoopBusinessMemorySurfaceBinding {
+  surface: string;
+  feed_status: string;
+  feed_ref: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopBusinessMemoryAuthorityPosture {
+  safe_refs_only: boolean;
+  review_required_before_recall: boolean;
+  memory_write_authorized: boolean;
+  memory_delete_authorized: boolean;
+  memory_export_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  external_crm_write_authorized: boolean;
+  account_sync_authorized: boolean;
+  connector_runtime_enabled: boolean;
+  account_auth_enabled: boolean;
+  provider_or_model_authority_allowed: boolean;
+  source_truth_authority: boolean;
+  accepted_as_recall: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -406,6 +495,13 @@ export interface FounderLoopTodaySummary {
   memory_review_decision_states: FounderLoopMemoryReviewDecisionState[];
   memory_review_decision_required_ref_fields: string[];
   memory_review_decision_authority_posture: FounderLoopMemoryReviewDecisionAuthorityPosture;
+  business_memory_quality_contract_ref: string;
+  business_memory_candidate_kinds: FounderLoopBusinessMemoryCandidateKind[];
+  business_memory_quality_states: FounderLoopBusinessMemoryQualityState[];
+  business_memory_required_ref_fields: string[];
+  business_memory_surface_bindings: FounderLoopBusinessMemorySurfaceBinding[];
+  business_memory_authority_posture: FounderLoopBusinessMemoryAuthorityPosture;
+  business_memory_status: string;
   priority_refs: string[];
   blocker_refs: string[];
   follow_up_refs: string[];

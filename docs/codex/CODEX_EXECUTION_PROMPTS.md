@@ -812,6 +812,104 @@ Auto-advance:
   pause/stop.
 ```
 
+## 16. UAA-P1-072 Business Memory And Memory Quality Controls Prompt
+
+```text
+review the following documents:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+
+Implement UAA-P1-072 - Business Memory And Memory Quality Controls.
+
+Also read AGENTS.md. If present, read SPECS.md, specs.md, SDLC.md, sdlc.md,
+and the closest task-specific spec, ADR, schema, standards, or process docs
+discovered with rg --files. Treat these as contributor guidance, not runtime
+configuration or product authority.
+
+Subagent plan:
+- Use at least one read-only subagent for core-memory quality-contract review.
+- Use at least one read-only subagent for adversarial product-language,
+  redaction, mutation-authority, source/provenance, and UI affordance review.
+- Subagents are advisory. The main Codex run owns integration, verification,
+  commit/push, and auto-advance.
+
+Scope:
+- Python core business-memory quality contract, existing
+  `GET /control-center/today/summary` memory review payload, TypeScript API
+  types, read-only Memory surface visibility, docs, schema, focused tests, and
+  verifier.
+- Candidate kinds: profile, project, relationship, organization, deal,
+  opportunity, promise, follow_up, preference, decision, and commitment.
+- Quality states: duplicate, conflict, stale_expired, low_confidence,
+  source_missing, evidence_missing, blocked, and reviewed.
+- Business memory must feed Today, Action Inbox, Evidence Timeline, and Weekly
+  CEO Review as safe refs only.
+- Do not add a new route, operation ID, side-effect class, backend mutation,
+  memory write/delete/export, reviewed-recall promotion, hidden context
+  injection, accept/correct/reject/defer/merge/supersede/forget action buttons,
+  quality-control action buttons, connector runtime, account auth, external CRM
+  writes, account sync, provider/model calls, browser import, external assistant
+  import, public beta, public distribution, production readiness, or production
+  authority.
+
+Acceptance criteria:
+- `core.memory` exposes `contract-ref:business-memory-quality-controls:v1`.
+- Today summary exposes business memory contract ref, candidate kind rows,
+  quality state rows, required refs, surface bindings, authority posture, and
+  per-memory-candidate quality metadata.
+- Memory Review items show candidate kind, quality posture, correction path,
+  stale-state posture, retention/delete/export posture, related safe entity
+  refs, surface refs, blocker refs, and evidence refs.
+- Duplicate, conflict, stale/expired, low-confidence, source-missing,
+  evidence-missing, blocked, and reviewed posture are visible without treating
+  memory as truth or recall authority.
+- All write/delete/export/context-injection/external-CRM/account-sync/
+  connector/account/model/provider/public-beta/public-distribution/production
+  flags remain denied.
+- The Control Center renders business memory metadata read-only and does not
+  add mutation controls.
+- Active docs mark UAA-P1-072 complete and promote UAA-P1-073 Plans To
+  Reviewable Action Envelopes as the next incomplete milestone.
+
+Review/fix:
+- Perform adversarial review for quality labels becoming implied memory writes,
+  reviewed labels becoming truth/recall authority, duplicate/conflict states
+  losing correction path, source/evidence-missing posture bypassing safe refs,
+  hidden context injection, external CRM/account-sync authority creep,
+  connector/account/model authority creep, UI mutation affordances, and unsafe
+  beta/production language.
+- Fix P0/P1 issues before hardening.
+
+Hardening:
+- Run PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_uaa_p1_072_business_memory_quality_controls.py
+  tests/test_founder_loop_storage.py
+  tests/test_control_center_founder_loop_api.py
+- Run .venv/bin/python scripts/verify_uaa_p1_072_business_memory_quality_controls.py
+- Run .venv/bin/python scripts/verify_uaa_p1_071_memory_review_decision_capture.py
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+- Run make frontend-check when frontend files changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-072 plus any conveyor auto-advance fix
+  intentionally made for this run.
+- Commit with message: implement UAA-P1-072 business memory quality controls
+- Push the current branch.
+
+Auto-advance:
+- After commit/push succeeds, immediately create/update and execute the
+  UAA-P1-073 Plans To Reviewable Action Envelopes prompt in the same run unless
+  blocked.
+- Do not stop with only a next-prompt recommendation. Stop only for an exact
+  blocker, unsafe scope split, failed verification, failed push, or user
+  pause/stop.
+```
+
 ## 12. UAA-P1-069 Evidence History Grammar Prompt
 
 ```text

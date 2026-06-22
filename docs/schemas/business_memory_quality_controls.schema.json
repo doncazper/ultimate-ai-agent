@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/business_memory_quality_controls.schema.json",
+  "title": "UAA-P1-072 Business Memory Quality Controls",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "business_memory_quality_contract_ref",
+    "business_memory_candidate_kinds",
+    "business_memory_quality_states",
+    "business_memory_required_ref_fields",
+    "business_memory_surface_bindings",
+    "business_memory_authority_posture",
+    "business_memory_status",
+    "memory_review_queue"
+  ],
+  "properties": {
+    "business_memory_quality_contract_ref": {
+      "const": "contract-ref:business-memory-quality-controls:v1"
+    },
+    "business_memory_candidate_kinds": {
+      "type": "array",
+      "minItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_kind",
+          "candidate_kind_ref",
+          "review_required",
+          "safe_summary_only",
+          "source_refs_required",
+          "provenance_refs_required",
+          "evidence_refs_required",
+          "quality_posture_required",
+          "correction_path_required",
+          "retention_delete_export_posture_required",
+          "crm_write_authorized",
+          "account_sync_authorized",
+          "context_injection_authorized",
+          "accepted_as_recall"
+        ],
+        "properties": {
+          "candidate_kind": {
+            "enum": [
+              "profile",
+              "project",
+              "relationship",
+              "organization",
+              "deal",
+              "opportunity",
+              "promise",
+              "follow_up",
+              "preference",
+              "decision",
+              "commitment"
+            ]
+          },
+          "candidate_kind_ref": { "type": "string" },
+          "review_required": { "const": true },
+          "safe_summary_only": { "const": true },
+          "source_refs_required": { "const": true },
+          "provenance_refs_required": { "const": true },
+          "evidence_refs_required": { "const": true },
+          "quality_posture_required": { "const": true },
+          "correction_path_required": { "const": true },
+          "retention_delete_export_posture_required": { "const": true },
+          "crm_write_authorized": { "const": false },
+          "account_sync_authorized": { "const": false },
+          "context_injection_authorized": { "const": false },
+          "accepted_as_recall": { "const": false }
+        }
+      }
+    },
+    "business_memory_quality_states": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "quality_state",
+          "quality_state_ref",
+          "blocks_unreviewed_recall",
+          "requires_operator_review",
+          "requires_safe_refs",
+          "requires_correction_path",
+          "is_blocking_posture",
+          "authorizes_memory_write",
+          "authorizes_crm_write",
+          "authorizes_context_injection"
+        ],
+        "properties": {
+          "quality_state": {
+            "enum": [
+              "duplicate",
+              "conflict",
+              "stale_expired",
+              "low_confidence",
+              "source_missing",
+              "evidence_missing",
+              "blocked",
+              "reviewed"
+            ]
+          },
+          "quality_state_ref": { "type": "string" },
+          "blocks_unreviewed_recall": { "const": true },
+          "requires_operator_review": { "const": true },
+          "requires_safe_refs": { "const": true },
+          "requires_correction_path": { "type": "boolean" },
+          "is_blocking_posture": { "type": "boolean" },
+          "authorizes_memory_write": { "const": false },
+          "authorizes_crm_write": { "const": false },
+          "authorizes_context_injection": { "const": false }
+        }
+      }
+    },
+    "business_memory_required_ref_fields": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "business_memory_surface_bindings": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "feed_status",
+          "feed_ref",
+          "authority_boundary"
+        ],
+        "properties": {
+          "surface": {
+            "enum": [
+              "Today",
+              "Action Inbox",
+              "Evidence Timeline",
+              "Weekly CEO Review"
+            ]
+          },
+          "feed_status": { "type": "string" },
+          "feed_ref": { "type": "string" },
+          "authority_boundary": { "type": "string" }
+        }
+      }
+    },
+    "business_memory_authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "safe_refs_only",
+        "review_required_before_recall",
+        "memory_write_authorized",
+        "memory_delete_authorized",
+        "memory_export_authorized",
+        "automatic_memory_write_authorized",
+        "context_injection_authorized",
+        "external_crm_write_authorized",
+        "account_sync_authorized",
+        "connector_runtime_enabled",
+        "account_auth_enabled",
+        "provider_or_model_authority_allowed",
+        "source_truth_authority",
+        "accepted_as_recall",
+        "public_beta_claim_enabled",
+        "public_distribution_claim_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "safe_refs_only": { "const": true },
+        "review_required_before_recall": { "const": true },
+        "memory_write_authorized": { "const": false },
+        "memory_delete_authorized": { "const": false },
+        "memory_export_authorized": { "const": false },
+        "automatic_memory_write_authorized": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "external_crm_write_authorized": { "const": false },
+        "account_sync_authorized": { "const": false },
+        "connector_runtime_enabled": { "const": false },
+        "account_auth_enabled": { "const": false },
+        "provider_or_model_authority_allowed": { "const": false },
+        "source_truth_authority": { "const": false },
+        "accepted_as_recall": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "public_distribution_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false }
+      }
+    },
+    "business_memory_status": {
+      "const": "implemented_review_queue_safe_ref_quality_metadata_contract"
+    },
+    "memory_review_queue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "business_memory_quality_contract_ref",
+          "business_memory_candidate_ref",
+          "business_memory_candidate_kind",
+          "business_memory_source_provenance_contract_ref",
+          "business_memory_source_kind",
+          "business_memory_source_trust_posture",
+          "business_memory_redaction_status",
+          "business_memory_quality_state_refs",
+          "business_memory_blocker_refs",
+          "business_memory_safe_refs_only",
+          "business_memory_review_required_before_recall",
+          "business_memory_accepted_as_recall",
+          "business_memory_crm_write_authorized",
+          "business_memory_account_sync_authorized",
+          "business_memory_context_injection_authorized"
+        ],
+        "properties": {
+          "business_memory_quality_contract_ref": {
+            "const": "contract-ref:business-memory-quality-controls:v1"
+          },
+          "business_memory_candidate_ref": { "type": "string" },
+          "business_memory_candidate_kind": { "type": "string" },
+          "business_memory_source_provenance_contract_ref": {
+            "const": "contract-ref:memory-source-provenance:v1"
+          },
+          "business_memory_source_kind": { "type": "string" },
+          "business_memory_source_trust_posture": {
+            "const": "untrusted_until_reviewed"
+          },
+          "business_memory_redaction_status": {
+            "const": "redacted_summary_only"
+          },
+          "business_memory_quality_state_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "business_memory_blocker_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "business_memory_safe_refs_only": { "const": true },
+          "business_memory_review_required_before_recall": { "const": true },
+          "business_memory_accepted_as_recall": { "const": false },
+          "business_memory_crm_write_authorized": { "const": false },
+          "business_memory_account_sync_authorized": { "const": false },
+          "business_memory_context_injection_authorized": { "const": false }
+        }
+      }
+    }
+  }
+}

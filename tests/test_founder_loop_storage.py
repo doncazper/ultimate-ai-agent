@@ -4,6 +4,7 @@ import json
 import pytest
 
 from ultimate_ai_agent.core.storage import (
+    BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
     FOUNDER_LOOP_SCHEMA_VERSION,
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
@@ -61,7 +62,9 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert status["counts"]["action_inbox"] >= 1
     assert today["status"] == "storage_backed_partial_loop"
     assert today["product_spine_contract_ref"] == TODAY_PRODUCT_SPINE_CONTRACT_REF
-    assert today["evidence_history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF
+    assert (
+        today["evidence_history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF
+    )
     assert (
         today["memory_source_provenance_contract_ref"]
         == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
@@ -69,6 +72,10 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert (
         today["memory_review_decision_contract_ref"]
         == MEMORY_REVIEW_DECISION_CONTRACT_REF
+    )
+    assert (
+        today["business_memory_quality_contract_ref"]
+        == BUSINESS_MEMORY_QUALITY_CONTRACT_REF
     )
     assert today["memory_source_required_kinds"] == [
         "manual_note",
@@ -94,11 +101,17 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         assert source_policy["connector_runtime_allowed"] is False
         assert source_policy["provider_or_model_authority_allowed"] is False
         assert source_policy["account_auth_allowed"] is False
-    assert today["memory_source_review_posture"]["review_required_before_recall"] is True
+    assert (
+        today["memory_source_review_posture"]["review_required_before_recall"] is True
+    )
     assert today["memory_source_review_posture"]["connector_runtime_enabled"] is False
     assert today["memory_source_review_posture"]["account_auth_enabled"] is False
-    assert today["memory_source_review_posture"]["production_authority_enabled"] is False
-    assert [row["decision_state"] for row in today["memory_review_decision_states"]] == [
+    assert (
+        today["memory_source_review_posture"]["production_authority_enabled"] is False
+    )
+    assert [
+        row["decision_state"] for row in today["memory_review_decision_states"]
+    ] == [
         "accept",
         "correct",
         "reject",
@@ -124,8 +137,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         is False
     )
     assert (
-        today["memory_review_decision_authority_posture"]["accepted_as_recall"]
-        is False
+        today["memory_review_decision_authority_posture"]["accepted_as_recall"] is False
     )
     assert set(today["evidence_history_required_states"]) == HISTORY_KEYS
     assert {
@@ -134,17 +146,14 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         if item["required"] is True
     } == HISTORY_KEYS
     surface_bindings = {
-        item["surface"]: item
-        for item in today["evidence_history_surface_bindings"]
+        item["surface"]: item for item in today["evidence_history_surface_bindings"]
     }
     assert {"Actions", "Plans", "Memory", "Chat", "Code"} <= set(surface_bindings)
     assert (
-        surface_bindings["Chat"]["current_status"]
-        == "planned_blocked_until_uaa_p1_074"
+        surface_bindings["Chat"]["current_status"] == "planned_blocked_until_uaa_p1_074"
     )
     assert (
-        surface_bindings["Code"]["current_status"]
-        == "planned_blocked_until_uaa_p1_075"
+        surface_bindings["Code"]["current_status"] == "planned_blocked_until_uaa_p1_075"
     )
     assert today["required_loop_surfaces"] == [
         "Today",
@@ -165,10 +174,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "stale_source_posture",
         "next_safe_actions",
     }
-    module_feeds = {
-        item["module"]: item
-        for item in today["module_feed_contract"]
-    }
+    module_feeds = {item["module"]: item for item in today["module_feed_contract"]}
     assert {
         "Today",
         "Actions",
@@ -185,10 +191,14 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         assert feed["current_feed_refs"]
     assert (
         module_feeds["Memory"]["status"]
-        == "implemented_review_queue_decision_metadata_contract"
+        == "implemented_review_queue_decision_and_quality_metadata_contract"
     )
     assert (
         MEMORY_REVIEW_DECISION_CONTRACT_REF
+        in module_feeds["Memory"]["current_feed_refs"]
+    )
+    assert (
+        BUSINESS_MEMORY_QUALITY_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
     )
     assert today["module_completion_contract"] == {
@@ -243,10 +253,11 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "no_notification_delivery" in briefing["blocked_states"]
     assert today["memory_review_route_ref"] == "/memory"
     assert (
-        today["memory_review_backend_route_ref"]
-        == "GET /control-center/today/summary"
+        today["memory_review_backend_route_ref"] == "GET /control-center/today/summary"
     )
-    assert today["memory_review_status"] == "storage_backed_review_queue"
+    assert today["memory_review_status"] == (
+        "storage_backed_review_queue_with_business_quality_metadata"
+    )
     assert today["memory_write_enabled"] is False
     assert today["memory_delete_enabled"] is False
     assert today["context_injection_enabled"] is False
@@ -258,8 +269,15 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "contract-ref:memory-retention-delete-missing"
         in today["memory_review_missing_contract_refs"]
     )
+    assert (
+        "contract-ref:business-memory-quality-controls-missing"
+        not in (today["memory_review_missing_contract_refs"])
+    )
     assert "no_memory_write" in today["memory_review_blocked_states"]
     assert "no_context_injection" in today["memory_review_blocked_states"]
+    assert "no_external_crm_write" in today["memory_review_blocked_states"]
+    assert "no_account_sync" in today["memory_review_blocked_states"]
+    assert "no_automatic_recall" in today["memory_review_blocked_states"]
     assert "no_model_provider_authority" in today["memory_review_blocked_states"]
     assert today["evidence_timeline_route_ref"] == "/evidence"
     assert (
@@ -270,13 +288,15 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         today["evidence_timeline_status"]
         == "storage_backed_redacted_history_grammar_refs"
     )
-    assert "safe-ref and redacted-summary only" in (
-        today["evidence_timeline_authority_boundary"]
+    assert (
+        "safe-ref and redacted-summary only"
+        in (today["evidence_timeline_authority_boundary"])
     )
     assert "no_raw_evidence_display" in today["evidence_timeline_blocked_states"]
     assert "no_rollback_execution" in today["evidence_timeline_blocked_states"]
-    assert "approval_refs_are_identifiers_only" in (
-        today["evidence_timeline_blocked_states"]
+    assert (
+        "approval_refs_are_identifiers_only"
+        in (today["evidence_timeline_blocked_states"])
     )
     assert today["sections"]["evidence_timeline_count"] == len(
         today["evidence_timeline"]
@@ -308,8 +328,14 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         approval_item["idempotency_key_ref"]
         == "idempotency-ref:founder-loop:setup-assistant-hardening"
     )
-    assert approval_item["rollback_ref"] == "rollback-plan:founder-loop:setup-assistant-hardening"
-    assert approval_item["safe_disable_ref"] == "safe-disable:founder-loop:setup-assistant-hardening"
+    assert (
+        approval_item["rollback_ref"]
+        == "rollback-plan:founder-loop:setup-assistant-hardening"
+    )
+    assert (
+        approval_item["safe_disable_ref"]
+        == "safe-disable:founder-loop:setup-assistant-hardening"
+    )
     assert "scoped state-change milestone" in approval_item["next_safe_action"]
 
     briefing_item = next(
@@ -320,7 +346,10 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert briefing_item["priority"] == "high"
     assert briefing_item["source_readiness"] == "local_status_refs_only"
     assert briefing_item["source_refs"] == ["source-ref:control-center-route-status"]
-    assert "contract-ref:calendar-read-only-missing" in briefing_item["missing_contract_refs"]
+    assert (
+        "contract-ref:calendar-read-only-missing"
+        in briefing_item["missing_contract_refs"]
+    )
     assert "no_background_refresh" in briefing_item["blocked_states"]
     assert briefing_item["stale_state"] == "recheck_route_status_before_briefing_use"
     assert "source evidence is bound" in briefing_item["evidence_gap"]
@@ -331,7 +360,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         for item in today["memory_review_queue"]
         if item["review_ref"] == "memory-review:founder-loop-preferences"
     )
-    assert memory_item["candidate_kind"] == "operator_preference"
+    assert memory_item["candidate_kind"] == "preference"
     assert memory_item["priority"] == "high"
     assert memory_item["review_state"] == "review_needed"
     assert memory_item["side_effect_class"] == "local_dev_workspace_only"
@@ -342,9 +371,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert memory_item["provenance_refs"] == [
         "provenance-ref:manual-note:founder-loop-preferences"
     ]
-    assert memory_item["source_refs"] == [
-        "source-ref:manual-note:founder-loop-storage"
-    ]
+    assert memory_item["source_refs"] == ["source-ref:manual-note:founder-loop-storage"]
     assert memory_item["source_policy_ref"] == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
     assert memory_item["source_kind"] == "manual_note"
     assert memory_item["source_kind_ref"] == "memory-source-kind:manual-note"
@@ -372,7 +399,9 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "supersede",
         "forget_request",
     ]
-    assert memory_item["decision_capture_status"] == "review_needed_no_decision_captured"
+    assert (
+        memory_item["decision_capture_status"] == "review_needed_no_decision_captured"
+    )
     assert memory_item["decision_actor_ref"] == (
         "actor-ref:local-operator-review-required"
     )
@@ -386,14 +415,47 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert memory_item["memory_delete_authorized"] is False
     assert memory_item["memory_export_authorized"] is False
     assert memory_item["retention_execution_authorized"] is False
+    assert (
+        memory_item["business_memory_quality_contract_ref"]
+        == BUSINESS_MEMORY_QUALITY_CONTRACT_REF
+    )
+    assert memory_item["business_memory_candidate_kind"] == "preference"
+    assert memory_item["business_memory_source_provenance_contract_ref"] == (
+        MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+    )
+    assert memory_item["business_memory_source_kind"] == "manual_note"
+    assert memory_item["business_memory_source_trust_posture"] == (
+        "untrusted_until_reviewed"
+    )
+    assert memory_item["business_memory_redaction_status"] == "redacted_summary_only"
+    assert memory_item["business_memory_quality_state_refs"] == [
+        "business-memory-quality:blocked",
+        "business-memory-quality:low-confidence",
+    ]
+    assert memory_item["business_memory_safe_refs_only"] is True
+    assert memory_item["business_memory_review_required_before_recall"] is True
+    assert memory_item["business_memory_accepted_as_recall"] is False
+    assert memory_item["business_memory_crm_write_authorized"] is False
+    assert memory_item["business_memory_account_sync_authorized"] is False
+    assert memory_item["business_memory_context_injection_authorized"] is False
+    assert "blocked-state:no-connector-runtime" in (
+        memory_item["business_memory_blocker_refs"]
+    )
+    assert "blocked-state:no-model-provider-authority" in (
+        memory_item["business_memory_blocker_refs"]
+    )
     assert memory_item["decision_audit_refs"]
     assert memory_item["decision_receipt_refs"]
     assert "blocked-state:no-memory-write" in memory_item["decision_blocked_state_refs"]
-    assert "blocked-state:no-memory-delete" in memory_item["decision_blocked_state_refs"]
-    assert "blocked-state:no-memory-export" in memory_item["decision_blocked_state_refs"]
+    assert (
+        "blocked-state:no-memory-delete" in memory_item["decision_blocked_state_refs"]
+    )
+    assert (
+        "blocked-state:no-memory-export" in memory_item["decision_blocked_state_refs"]
+    )
     assert (
         "contract-ref:business-memory-quality-controls-missing"
-        in memory_item["missing_contract_refs"]
+        not in (memory_item["missing_contract_refs"])
     )
     assert (
         memory_item["correction_posture"]
@@ -446,65 +508,68 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "rollback-plan:founder-loop:setup-assistant-hardening"
     ]
     assert action_timeline_item["redaction_status"] == "redacted_summary_only"
-    assert "GET /control-center/actions/inbox" in (
-        action_timeline_item["related_route_refs"]
+    assert (
+        "GET /control-center/actions/inbox"
+        in (action_timeline_item["related_route_refs"])
     )
     assert "mutation stays blocked" in action_timeline_item["safe_summary"]
     assert (
-        action_timeline_item["history_answers"]["approved"]["status"]
-        == "posture_only"
-    )
-    assert "identifiers, not authority" in (
-        action_timeline_item["history_answers"]["approved"]["answer"]
+        action_timeline_item["history_answers"]["approved"]["status"] == "posture_only"
     )
     assert (
-        action_timeline_item["history_answers"]["undoable"]["status"]
-        == "posture_only"
+        "identifiers, not authority"
+        in (action_timeline_item["history_answers"]["approved"]["answer"])
     )
-    assert "do not execute rollback" in (
-        action_timeline_item["history_answers"]["undoable"]["answer"]
+    assert (
+        action_timeline_item["history_answers"]["undoable"]["status"] == "posture_only"
+    )
+    assert (
+        "do not execute rollback"
+        in (action_timeline_item["history_answers"]["undoable"]["answer"])
     )
 
     memory_timeline_item = next(
-        item
-        for item in timeline
-        if item["item_kind"] == "memory_review_evidence_ref"
+        item for item in timeline if item["item_kind"] == "memory_review_evidence_ref"
     )
     assert memory_timeline_item["approval_posture"] == (
         "memory_review_refs_do_not_authorize_writes"
     )
     assert "Memory is not truth" in memory_timeline_item["safe_summary"]
     assert memory_timeline_item["history_answers"]["approved"]["status"] == "blocked"
-    assert "No memory write" in memory_timeline_item["history_answers"]["approved"]["answer"]
+    assert (
+        "No memory write"
+        in memory_timeline_item["history_answers"]["approved"]["answer"]
+    )
     assert memory_timeline_item["memory_truth_authority"] is False
     assert memory_timeline_item["context_injection_authorized"] is False
-    assert "memory_write_or_delete_rollback_not_scoped" in (
-        memory_timeline_item["rollback_blockers"]
+    assert (
+        "memory_write_or_delete_rollback_not_scoped"
+        in (memory_timeline_item["rollback_blockers"])
     )
 
     foundation_timeline_item = next(
-        item
-        for item in timeline
-        if item["item_kind"] == "foundation_gate_latency_ref"
+        item for item in timeline if item["item_kind"] == "foundation_gate_latency_ref"
     )
     assert foundation_timeline_item["foundation_gate_refs"] == [
         "foundation-gate-ref:latest-report"
     ]
-    assert "latency-ref:foundation-gate:latest-report" in (
-        foundation_timeline_item["latency_refs"]
+    assert (
+        "latency-ref:foundation-gate:latest-report"
+        in (foundation_timeline_item["latency_refs"])
     )
-    assert "foundation_gate_refs_not_production_authority" in (
-        foundation_timeline_item["blocked_states"]
+    assert (
+        "foundation_gate_refs_not_production_authority"
+        in (foundation_timeline_item["blocked_states"])
     )
     assert foundation_timeline_item["rollback_blockers"] == [
         "rollback_execution_not_scoped"
     ]
     assert (
-        foundation_timeline_item["history_answers"]["approved"]["status"]
-        == "blocked"
+        foundation_timeline_item["history_answers"]["approved"]["status"] == "blocked"
     )
-    assert "No production" in (
-        foundation_timeline_item["history_answers"]["approved"]["answer"]
+    assert (
+        "No production"
+        in (foundation_timeline_item["history_answers"]["approved"]["answer"])
     )
 
     serialized = json.dumps(
@@ -545,8 +610,13 @@ def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path: Path) -> 
 
     inbox = repo.actions_inbox()
     assert inbox["items"][0]["item_ref"] == "founder-action:test-review"
-    assert inbox["items"][0]["approval_envelope_status"] == "missing_until_scoped_contract"
-    assert inbox["items"][0]["state_change_readiness"] == "blocked_missing_backend_contract"
+    assert (
+        inbox["items"][0]["approval_envelope_status"] == "missing_until_scoped_contract"
+    )
+    assert (
+        inbox["items"][0]["state_change_readiness"]
+        == "blocked_missing_backend_contract"
+    )
     assert inbox["items"][0]["receipt_refs"] == []
     assert inbox["items"][0]["audit_refs"] == []
     assert inbox["items"][0]["idempotency_key_ref"] is None
@@ -562,7 +632,9 @@ def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path: Path) -> 
         )
 
 
-def test_founder_loop_briefing_defaults_are_blocked_and_read_only(tmp_path: Path) -> None:
+def test_founder_loop_briefing_defaults_are_blocked_and_read_only(
+    tmp_path: Path,
+) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
 
     repo.upsert_briefing_item(
@@ -607,8 +679,9 @@ def test_founder_loop_memory_review_defaults_are_review_only(tmp_path: Path) -> 
     assert today["memory_write_enabled"] is False
     assert today["memory_delete_enabled"] is False
     assert today["context_injection_enabled"] is False
-    assert "contract-ref:context-injection-missing" in (
-        today["memory_review_missing_contract_refs"]
+    assert (
+        "contract-ref:context-injection-missing"
+        in (today["memory_review_missing_contract_refs"])
     )
     assert "no_background_sync" in today["memory_review_blocked_states"]
     assert item["review_ref"] == "memory-review:test-review"
@@ -635,8 +708,7 @@ def test_founder_loop_memory_review_defaults_are_review_only(tmp_path: Path) -> 
     assert item["memory_export_authorized"] is False
     assert item["missing_contract_refs"] == []
     assert (
-        item["correction_posture"]
-        == "correction_requires_scoped_memory_write_contract"
+        item["correction_posture"] == "correction_requires_scoped_memory_write_contract"
     )
     assert item["rejection_posture"] == "rejection_is_review_state_only"
     assert item["retention_posture"] == "retention_policy_not_bound"

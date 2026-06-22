@@ -1,4 +1,9 @@
-from ultimate_ai_agent.core.memory.decisions import MemoryExportDecision, MemoryReadDecision, MemorySearchResult, MemoryWriteDecision
+from ultimate_ai_agent.core.memory.decisions import (
+    MemoryExportDecision,
+    MemoryReadDecision,
+    MemorySearchResult,
+    MemoryWriteDecision,
+)
 from ultimate_ai_agent.core.memory.enums import (
     MemoryAuthorityLevel,
     MemoryAuthority,
@@ -30,6 +35,25 @@ from ultimate_ai_agent.core.memory.fcc_relationship_memory_schema import (
     build_fcc_relationship_memory_candidate,
     validate_fcc_relationship_memory_candidate,
 )
+from ultimate_ai_agent.core.memory.business_memory import (
+    BUSINESS_MEMORY_CANDIDATE_KINDS,
+    BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
+    BUSINESS_MEMORY_QUALITY_STATES,
+    BUSINESS_MEMORY_REQUIRED_BLOCKED_STATE_REFS,
+    BUSINESS_MEMORY_REQUIRED_REF_FIELDS,
+    BUSINESS_MEMORY_SURFACES,
+    BusinessMemoryCandidateKind,
+    BusinessMemoryQualityEnvelope,
+    BusinessMemoryQualityState,
+    build_business_memory_quality_envelope,
+    business_memory_authority_posture,
+    business_memory_candidate_kind_rows,
+    business_memory_candidate_ref,
+    business_memory_quality_ref,
+    business_memory_quality_state_rows,
+    business_memory_surface_bindings,
+    validate_business_memory_quality_envelope,
+)
 from ultimate_ai_agent.core.memory.local_store import LocalMemoryStore
 from ultimate_ai_agent.core.memory.manifests import (
     MemoryProviderManifest,
@@ -50,8 +74,14 @@ from ultimate_ai_agent.core.memory.records import (
     MemoryRecord,
     MemorySourceRef,
 )
-from ultimate_ai_agent.core.memory.redaction import memory_contains_secret, redact_memory_content
-from ultimate_ai_agent.core.memory.requests import MemoryReadRequest, MemoryWriteRequest as LegacyMemoryWriteRequest
+from ultimate_ai_agent.core.memory.redaction import (
+    memory_contains_secret,
+    redact_memory_content,
+)
+from ultimate_ai_agent.core.memory.requests import (
+    MemoryReadRequest,
+    MemoryWriteRequest as LegacyMemoryWriteRequest,
+)
 from ultimate_ai_agent.core.memory.review_decisions import (
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS,
@@ -101,6 +131,15 @@ __all__ = [
     "MemoryProvenance",
     "MemoryReadDecision",
     "MemoryReadRequest",
+    "BUSINESS_MEMORY_CANDIDATE_KINDS",
+    "BUSINESS_MEMORY_QUALITY_CONTRACT_REF",
+    "BUSINESS_MEMORY_QUALITY_STATES",
+    "BUSINESS_MEMORY_REQUIRED_BLOCKED_STATE_REFS",
+    "BUSINESS_MEMORY_REQUIRED_REF_FIELDS",
+    "BUSINESS_MEMORY_SURFACES",
+    "BusinessMemoryCandidateKind",
+    "BusinessMemoryQualityEnvelope",
+    "BusinessMemoryQualityState",
     "MEMORY_REVIEW_DECISION_CONTRACT_REF",
     "MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS",
     "MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS",
@@ -140,10 +179,17 @@ __all__ = [
     "FCCRelationshipMemoryCandidate",
     "FCCRelationshipMemoryCandidateKind",
     "FCCRelationshipMemoryReviewState",
+    "build_business_memory_quality_envelope",
     "build_fcc_relationship_memory_candidate",
     "build_default_memory_provider_manifest",
     "build_memory_review_decision_envelope",
     "build_memory_source_provenance_ref",
+    "business_memory_authority_posture",
+    "business_memory_candidate_kind_rows",
+    "business_memory_candidate_ref",
+    "business_memory_quality_ref",
+    "business_memory_quality_state_rows",
+    "business_memory_surface_bindings",
     "memory_review_decision_authority_posture",
     "memory_review_decision_state_rows",
     "memory_source_provenance_policy_rows",
@@ -151,6 +197,7 @@ __all__ = [
     "memory_contains_secret",
     "redact_memory_content",
     "validate_fcc_relationship_memory_candidate",
+    "validate_business_memory_quality_envelope",
     "validate_memory_record",
     "validate_memory_review_decision_envelope",
     "validate_memory_source_provenance_ref",

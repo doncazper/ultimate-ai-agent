@@ -1,4 +1,5 @@
 from ultimate_ai_agent.core.storage.founder_loop import (
+    BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
     FOUNDER_LOOP_SCHEMA_VERSION,
     FOUNDER_LOOP_STATE_DIR_ENV,
@@ -12,6 +13,7 @@ from ultimate_ai_agent.core.storage.founder_loop import (
 )
 
 __all__ = [
+    "BUSINESS_MEMORY_QUALITY_CONTRACT_REF",
     "EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF",
     "FOUNDER_LOOP_SCHEMA_VERSION",
     "FOUNDER_LOOP_STATE_DIR_ENV",

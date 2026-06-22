@@ -23,6 +23,17 @@ from ultimate_ai_agent.core.memory.source_provenance import (
     memory_source_provenance_policy_rows,
     memory_source_provenance_review_posture,
 )
+from ultimate_ai_agent.core.memory.business_memory import (
+    BUSINESS_MEMORY_CANDIDATE_KINDS,
+    BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
+    BUSINESS_MEMORY_REQUIRED_REF_FIELDS,
+    business_memory_authority_posture,
+    business_memory_candidate_kind_rows,
+    business_memory_candidate_ref,
+    business_memory_quality_ref,
+    business_memory_quality_state_rows,
+    business_memory_surface_bindings,
+)
 from ultimate_ai_agent.core.memory.review_decisions import (
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS,
@@ -220,7 +231,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
     },
     {
         "module": "Memory",
-        "status": "implemented_review_queue_decision_metadata_contract",
+        "status": "implemented_review_queue_decision_and_quality_metadata_contract",
         "required_loop_outputs": [
             "today_memory_review_count",
             "action_or_follow_up_candidate",
@@ -230,6 +241,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         "current_feed_refs": [
             "status-ref:founder-loop-memory-review",
             MEMORY_REVIEW_DECISION_CONTRACT_REF,
+            BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
         ],
         "standalone_complete_allowed": False,
     },
@@ -516,6 +528,10 @@ class FounderLoopMemoryReviewRecord(BaseModel):
     @model_validator(mode="after")
     def validate_safe_record(self) -> "FounderLoopMemoryReviewRecord":
         _validate_safe_ref(self.review_ref, "review_ref")
+        if self.candidate_kind not in BUSINESS_MEMORY_CANDIDATE_KINDS:
+            raise ValueError(
+                "memory review candidate_kind is not a supported business memory kind"
+            )
         for field_name in [
             "provenance_refs",
             "source_refs",
@@ -1008,6 +1024,107 @@ def _memory_review_decision_contract_payload(item: dict[str, Any]) -> dict[str, 
     }
 
 
+def _business_memory_quality_contract_payload(item: dict[str, Any]) -> dict[str, Any]:
+    review_ref = str(item.get("review_ref", "memory-review:missing"))
+    suffix = _safe_suffix(review_ref)
+    candidate_kind = str(item.get("candidate_kind", "preference"))
+    if candidate_kind not in BUSINESS_MEMORY_CANDIDATE_KINDS:
+        candidate_kind = "preference"
+    quality_state_refs = [
+        business_memory_quality_ref("low_confidence"),
+        business_memory_quality_ref("blocked"),
+    ]
+    if str(item.get("review_state", "")) == "reviewed":
+        quality_state_refs = [business_memory_quality_ref("reviewed")]
+    if not item.get("source_refs"):
+        quality_state_refs.append(business_memory_quality_ref("source_missing"))
+    if not item.get("evidence_refs"):
+        quality_state_refs.append(business_memory_quality_ref("evidence_missing"))
+    related_entity_refs = [
+        f"business-memory-entity:{candidate_kind.replace('_', '-')}:{suffix}"
+    ]
+    source_policy = _memory_source_policy_for(item)
+    return {
+        "business_memory_quality_contract_ref": BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
+        "business_memory_candidate_ref": business_memory_candidate_ref(
+            candidate_kind,
+            suffix,
+        ),
+        "business_memory_candidate_kind": candidate_kind,
+        "business_memory_candidate_kind_ref": (
+            f"business-memory-kind:{candidate_kind.replace('_', '-')}"
+        ),
+        "business_memory_source_provenance_contract_ref": (
+            MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+        ),
+        "business_memory_source_kind": source_policy["source_kind"],
+        "business_memory_source_trust_posture": MEMORY_SOURCE_PROVENANCE_TRUST_POSTURE,
+        "business_memory_redaction_status": "redacted_summary_only",
+        "business_memory_quality_state_refs": sorted(set(quality_state_refs)),
+        "business_memory_quality_posture": "review_required_quality_blocked",
+        "business_memory_review_state": str(item.get("review_state", "review_needed")),
+        "business_memory_correction_path": str(
+            item.get(
+                "correction_posture",
+                "correction_requires_scoped_memory_write_contract",
+            )
+        ),
+        "business_memory_stale_state": str(
+            item.get("stale_state", "recheck_source_refs_before_memory_use")
+        ),
+        "business_memory_retention_posture": str(
+            item.get("retention_posture", "retention_policy_not_bound")
+        ),
+        "business_memory_delete_posture": str(
+            item.get("delete_posture", "delete_execution_not_scoped")
+        ),
+        "business_memory_export_posture": "export_execution_not_scoped",
+        "business_memory_related_entity_refs": related_entity_refs,
+        "business_memory_duplicate_of_refs": [],
+        "business_memory_conflict_with_refs": [],
+        "business_memory_blocker_refs": [
+            "blocked-state:no-memory-write",
+            "blocked-state:no-memory-delete",
+            "blocked-state:no-memory-export",
+            "blocked-state:no-context-injection",
+            "blocked-state:no-external-crm-write",
+            "blocked-state:no-account-sync",
+            "blocked-state:no-automatic-recall",
+            "blocked-state:no-connector-runtime",
+            "blocked-state:no-account-auth",
+            "blocked-state:no-model-provider-authority",
+            "blocked-state:no-source-truth-authority",
+            "blocked-state:no-raw-source-display",
+            "blocked-state:no-public-beta-or-distribution",
+            "blocked-state:no-production-authority",
+        ],
+        "business_memory_surface_refs": [
+            "today-ref:memory-review-business-quality",
+            "action-inbox-ref:memory-follow-up-candidates",
+            "evidence-ref:memory-business-quality-history",
+            "weekly-review-ref:business-memory-carry-forward",
+        ],
+        "business_memory_next_safe_action": (
+            "Review quality posture and safe refs; keep memory writes, CRM sync, "
+            "and context injection blocked until scoped policy milestones exist."
+        ),
+        "business_memory_safe_refs_only": True,
+        "business_memory_review_required_before_recall": True,
+        "business_memory_accepted_as_recall": False,
+        "business_memory_write_authorized": False,
+        "business_memory_delete_authorized": False,
+        "business_memory_export_authorized": False,
+        "business_memory_crm_write_authorized": False,
+        "business_memory_account_sync_authorized": False,
+        "business_memory_context_injection_authorized": False,
+        "business_memory_authority_boundary": (
+            "Business memory quality is review metadata only; external CRM writes, "
+            "account sync, automatic recall, memory mutation, and context injection "
+            "remain unscoped."
+        ),
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1127,6 +1244,19 @@ class FounderLoopRepository:
             "memory_review_decision_authority_posture": (
                 memory_review_decision_authority_posture()
             ),
+            "business_memory_quality_contract_ref": (
+                BUSINESS_MEMORY_QUALITY_CONTRACT_REF
+            ),
+            "business_memory_candidate_kinds": business_memory_candidate_kind_rows(),
+            "business_memory_quality_states": business_memory_quality_state_rows(),
+            "business_memory_required_ref_fields": (
+                BUSINESS_MEMORY_REQUIRED_REF_FIELDS
+            ),
+            "business_memory_surface_bindings": business_memory_surface_bindings(),
+            "business_memory_authority_posture": business_memory_authority_posture(),
+            "business_memory_status": (
+                "implemented_review_queue_safe_ref_quality_metadata_contract"
+            ),
             "priority_refs": _priority_refs(actions, briefing_items),
             "blocker_refs": _blocked_state_refs(actions, memory_items, briefing_items),
             "follow_up_refs": [
@@ -1173,7 +1303,9 @@ class FounderLoopRepository:
             "memory_review_queue": memory_items,
             "memory_review_route_ref": "/memory",
             "memory_review_backend_route_ref": "GET /control-center/today/summary",
-            "memory_review_status": "storage_backed_review_queue",
+            "memory_review_status": (
+                "storage_backed_review_queue_with_business_quality_metadata"
+            ),
             "memory_review_authority_boundary": (
                 "Review-only memory candidates; recall is not truth, and writes, "
                 "deletes, context injection, connector writes, model/provider calls, "
@@ -1185,14 +1317,17 @@ class FounderLoopRepository:
             "memory_review_missing_contract_refs": [
                 "contract-ref:memory-write-policy-binding-missing",
                 "contract-ref:memory-retention-delete-missing",
-                "contract-ref:business-memory-quality-controls-missing",
                 "contract-ref:context-injection-missing",
             ],
             "memory_review_blocked_states": [
                 "no_memory_write",
                 "no_context_injection",
                 "no_memory_delete",
+                "no_memory_export",
                 "no_raw_source_display",
+                "no_external_crm_write",
+                "no_account_sync",
+                "no_automatic_recall",
                 "no_connector_write",
                 "no_model_provider_authority",
                 "no_background_sync",
@@ -1836,6 +1971,7 @@ class FounderLoopRepository:
                 **item,
                 **_memory_source_contract_payload(item),
                 **_memory_review_decision_contract_payload(item),
+                **_business_memory_quality_contract_payload(item),
             }
             for item in items
         ]
@@ -2431,7 +2567,7 @@ class FounderLoopRepository:
                         "Memory remains a review queue with safe summaries; recall is not treated "
                         "as truth or execution authority."
                     ),
-                    candidate_kind="operator_preference",
+                    candidate_kind="preference",
                     priority="high",
                     status="review_needed",
                     review_state="review_needed",
@@ -2446,7 +2582,6 @@ class FounderLoopRepository:
                     missing_contract_refs=[
                         "contract-ref:memory-write-policy-binding-missing",
                         "contract-ref:memory-retention-delete-missing",
-                        "contract-ref:business-memory-quality-controls-missing",
                         "contract-ref:context-injection-missing",
                     ],
                     correction_posture="correction_requires_scoped_memory_write_contract",
@@ -2459,7 +2594,11 @@ class FounderLoopRepository:
                         "no_memory_write",
                         "no_context_injection",
                         "no_memory_delete",
+                        "no_memory_export",
                         "no_raw_source_display",
+                        "no_external_crm_write",
+                        "no_account_sync",
+                        "no_automatic_recall",
                         "no_connector_write",
                         "no_model_provider_authority",
                         "no_background_sync",
@@ -2632,7 +2771,7 @@ class FounderLoopRepository:
         self._update_memory_review_contract_metadata(
             "memory-review:founder-loop-preferences",
             {
-                "candidate_kind": "operator_preference",
+                "candidate_kind": "preference",
                 "priority": "high",
                 "review_state": "review_needed",
                 "side_effect_class": "local_dev_workspace_only",
@@ -2647,7 +2786,6 @@ class FounderLoopRepository:
                 "missing_contract_refs": [
                     "contract-ref:memory-write-policy-binding-missing",
                     "contract-ref:memory-retention-delete-missing",
-                    "contract-ref:business-memory-quality-controls-missing",
                     "contract-ref:context-injection-missing",
                 ],
                 "correction_posture": "correction_requires_scoped_memory_write_contract",
@@ -2660,7 +2798,11 @@ class FounderLoopRepository:
                     "no_memory_write",
                     "no_context_injection",
                     "no_memory_delete",
+                    "no_memory_export",
                     "no_raw_source_display",
+                    "no_external_crm_write",
+                    "no_account_sync",
+                    "no_automatic_recall",
                     "no_connector_write",
                     "no_model_provider_authority",
                     "no_background_sync",

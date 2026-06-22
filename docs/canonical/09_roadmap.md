@@ -10,12 +10,12 @@ Current planning overlay: the active product/package baseline is v0.102.3 /
 beta-readiness planning/currentness, UAA-P1-068 is complete for the Today
 Product Spine Contract, UAA-P1-069 is complete for the Evidence History
 Grammar, UAA-P1-070 is complete for the Memory Source And Provenance Model,
-UAA-P1-071 is complete for Memory Review Decision Capture, UAA-P1-072 is the
-Ready Next Business Memory And Memory Quality Controls lane, and UAA-P1-066
+UAA-P1-071 is complete for Memory Review Decision Capture, UAA-P1-072 is
+complete for Business Memory And Memory Quality Controls, UAA-P1-073 is the
+Ready Next Plans To Reviewable Action Envelopes lane, and UAA-P1-066
 remains queued as a strictly read-only Local Model Control Center
-inventory/status support lane. The product path runs through UAA-P1-072 to
-UAA-P1-078: business/CRM-lite memory, memory quality controls,
-Plans-to-Action envelopes, Chat operator
+inventory/status support lane. The product path runs through UAA-P1-073 to
+UAA-P1-078: Plans-to-Action envelopes, Chat operator
 truth, governed Code diffs, cross-surface intake,
 Today/Action/Evidence/Memory binding, and private local beta-readiness
 evidence. UAA-P1-079 is the later user-intent-understanding lane after that

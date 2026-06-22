@@ -20,8 +20,9 @@ UAA-P1-067 completed the Today-spine, memory-first beta-readiness
 planning/currentness path. UAA-P1-068 completed the Today Product Spine
 Contract. UAA-P1-069 completed the Evidence History Grammar contract.
 UAA-P1-070 completed the Memory Source And Provenance Model. UAA-P1-071
-completed Memory Review Decision Capture. The parent board now promotes
-UAA-P1-072 Business Memory And Memory Quality Controls as Ready Next.
+completed Memory Review Decision Capture. UAA-P1-072 completed Business Memory
+And Memory Quality Controls. The parent board now promotes UAA-P1-073 Plans To
+Reviewable Action Envelopes as Ready Next.
 UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
@@ -58,14 +59,14 @@ Implemented / ready for review:
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
-UAA-P1-070, UAA-P1-071.
+UAA-P1-070, UAA-P1-071, UAA-P1-072.
 
 Candidate-next:
-UAA-P1-072 Business Memory And Memory Quality Controls.
+UAA-P1-073 Plans To Reviewable Action Envelopes.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-073, UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077,
+UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077,
 UAA-P1-078, UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
 UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
@@ -74,31 +75,30 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ## Candidate Next
 
-### UAA-P1-072 - Business Memory And Memory Quality Controls
+### UAA-P1-073 - Plans To Reviewable Action Envelopes
 
-Epic: Memory/Knowledge, Business Cofounder Workflows
+Epic: Plans/Actions, Safety/Permissions
 
-Promoted by: UAA-P1-071
+Promoted by: UAA-P1-072
 
 Type: contract/docs/test first
 
-Description: Shape reviewed candidate kinds for profile, project,
-relationship, organization, deal/opportunity, promise, follow-up, preference,
-decision, and commitment memory, plus dedupe, conflict, stale/expired,
-low-confidence, source-missing, and evidence-missing posture.
+Description: Plans must produce approve/edit/reject/defer-ready Action
+envelopes with exact scope, side-effect class, risk, approval requirement,
+idempotency, expiry, evidence refs, expected receipt refs, rollback or
+safe-disable posture, and blocked-state reasons.
 
-Acceptance criteria: Business memory shows provenance, review state,
-correction path, stale-state posture, retention/delete/export posture, quality
-posture, and evidence refs. It feeds Today, Action Inbox, Evidence Timeline,
-and Weekly CEO Review without external CRM writes or account sync.
+Acceptance criteria: Classification and decomposition alone are not enough.
+The user can inspect reviewable envelopes and see approve/edit/reject/defer
+posture without granting action execution authority.
 
-Required tests/verifiers: memory schema tests, raw-content denial tests, memory
-quality tests, Founder Loop storage/API tests if surfaced, frontend tests when
-rendered, and documentation integrity.
+Required tests/verifiers: Action envelope contract tests, storage/API tests,
+frontend read-only render tests, raw-content denial tests, and documentation
+integrity.
 
-Safety notes: No provider calls, browser import, connector runtime, account
-auth, account sync, automatic memory write, hidden context injection, CRM write,
-or production authority.
+Safety notes: No action execution, approval grant capture, connector writes,
+shell/subprocess execution, model/provider authority, public beta, public
+distribution, or production authority.
 
 ### FCC-P0-002 Follow-Up - Collapse/Organize Control Center Around Core Surfaces
 
@@ -142,8 +142,8 @@ authority expansion.
 Acceptance evidence: Active docs, roadmap, current board, product truth, MVP
 spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
 UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
-UAA-P1-071 as complete, UAA-P1-072 as Ready Next, and UAA-P1-066 as read-only
-local model support.
+UAA-P1-071 as complete, UAA-P1-072 as complete, UAA-P1-073 as Ready Next, and
+UAA-P1-066 as read-only local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,
@@ -561,6 +561,8 @@ connector writes, model/provider authority, or hidden memory writes.
 
 Epic: Memory/Knowledge, Business Cofounder Workflows
 
+Status: implemented / ready for review.
+
 Description: Shape reviewed candidate kinds for profile, project,
 relationship, organization, deal/opportunity, promise, follow-up, preference,
 decision, and commitment memory, plus dedupe, conflict, stale/expired,
@@ -572,10 +574,12 @@ posture, and evidence refs. It feeds Today, Action Inbox, Evidence Timeline,
 and Weekly CEO Review without external CRM writes or account sync.
 
 Required tests/verifiers: memory schema tests, raw-content denial tests,
-memory quality tests, and documentation integrity.
+memory quality tests, frontend render tests, and documentation integrity. Bound
+by `scripts/verify_uaa_p1_072_business_memory_quality_controls.py`.
 
 Safety notes: Local CRM-lite only. No connector writes, hidden sync, account
-auth, raw private-content display, or production authority.
+auth, external CRM writes, account sync, raw private-content display, or
+production authority.
 
 ### UAA-P1-073 - Plans To Reviewable Action Envelopes
 

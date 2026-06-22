@@ -42,6 +42,55 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-072 Business Memory Quality Controls Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor auto-advance after UAA-P1-071, with the
+explicit rule that next-prompt recommendations are handoffs, not stop signs.
+
+Recommendation: Complete UAA-P1-072 as safe-ref CRM-lite business memory
+candidate and quality metadata over Python core memory plus the existing Today
+summary route, then auto-advance to UAA-P1-073 Plans To Reviewable Action
+Envelopes.
+
+Next prompt state:
+
+```text
+Auto-advance into UAA-P1-073 Plans To Reviewable Action Envelopes after
+commit/push. Review the active roadmap, current board, Founder Command Center
+board, phase tasks, MVP spec, AGENTS.md, process/spec guidance, and the
+UAA-P1-068 through UAA-P1-072 contract evidence. Make Plans produce
+approve/edit/reject/defer-ready Action envelopes with exact scope, side-effect
+class, risk, approval requirement, idempotency, expiry, evidence refs, expected
+receipt refs, rollback/safe-disable posture, and blocked-state reasons. Do not
+add action execution, approval grant capture, connector writes, shell/subprocess
+execution, provider/model authority, public beta, public distribution,
+production readiness, or production authority.
+```
+
+Decision: Accepted and completed for the UAA-P1-072 contract slice.
+
+Status: completed
+
+Completed: Added `contract-ref:business-memory-quality-controls:v1`, CRM-lite
+candidate kinds, duplicate/conflict/stale/low-confidence/source/evidence
+quality states, safe-ref business-memory envelopes, Today summary fields,
+per-memory-review quality metadata, read-only Memory surface visibility,
+schema, verifier, focused tests, and active currentness updates that promote
+UAA-P1-073.
+
+Not done: No memory write/delete/export, external CRM write, account sync,
+automatic recall, connector runtime, account auth, provider/model call, hidden
+context injection, quality-control action controls, public beta, public
+distribution, production readiness, or production authority.
+
+Evidence: `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`,
+`docs/schemas/business_memory_quality_controls.schema.json`,
+`scripts/verify_uaa_p1_072_business_memory_quality_controls.py`,
+`tests/test_uaa_p1_072_business_memory_quality_controls.py`,
+`src/ultimate_ai_agent/core/memory/business_memory.py`.
+
 ### 2026-06-21 - UAA-P1-071 Memory Review Decision Capture Completed
 
 Date: 2026-06-21

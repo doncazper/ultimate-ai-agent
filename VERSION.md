@@ -17,8 +17,10 @@ Grammar contract for proposed/approved/happened/changed/undoable/stale/blocked
 history answers with safe refs only. UAA-P1-070 Memory Source And Provenance
 Model and UAA-P1-071 Memory Review Decision Capture are complete as
 contract/test/read-only visibility slices. The active product path now promotes
-UAA-P1-072 Business Memory And Memory Quality Controls before broader authority
-expansion. No public beta, distribution, production readiness, or production
+UAA-P1-073 Plans To Reviewable Action Envelopes after UAA-P1-072 Business
+Memory And Memory Quality Controls completed CRM-lite candidate kinds, quality
+posture, safe refs, and read-only Control Center visibility. No public beta,
+distribution, production readiness, or production
 authority claim is granted.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is

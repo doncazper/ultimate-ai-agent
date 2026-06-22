@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-072 Ready Next: Business Memory And Memory Quality Controls** |
+| Current lane | **UAA-P1-073 Ready Next: Plans To Reviewable Action Envelopes** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -43,9 +43,12 @@ complete with core memory provenance contracts, safe source refs,
 review-required posture, and denied authority flags. UAA-P1-071 Memory Review
 Decision Capture is complete with review-only decision metadata, blocked
 write/delete/export posture, and read-only Control Center visibility. UAA-P1-072
-Business Memory And Memory Quality Controls is now Ready Next before later
-Plans-to-Action envelopes, Chat operator truth, governed Code diffs, and private
-local beta-readiness gates can be claimed. UAA-P1-066 remains queued as a
+Business Memory And Memory Quality Controls is complete with CRM-lite candidate
+kinds, duplicate/conflict/stale/low-confidence/source/evidence quality posture,
+safe-ref Today/Action/Evidence/Weekly Review binding, and read-only Control
+Center visibility. UAA-P1-073 Plans To Reviewable Action Envelopes is now Ready
+Next before later Chat operator truth, governed Code diffs, and private local
+beta-readiness gates can be claimed. UAA-P1-066 remains queued as a
 strictly read-only Local Model Control Center inventory/status support lane.
 
 Already-pushed tags remain immutable historical records. M150's

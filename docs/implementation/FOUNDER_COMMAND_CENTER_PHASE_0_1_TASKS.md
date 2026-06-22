@@ -480,7 +480,7 @@ PR size: split contract and UI if needed.
 
 ## Task 9e - UAA-P1-072 Business Memory And Memory Quality Controls
 
-Status: ready next.
+Status: implemented / ready for review.
 
 Type: backend contract/test plus UI display later
 
@@ -501,6 +501,8 @@ Tests to add/update:
 - Memory quality contract tests.
 - Raw-content denial tests.
 - Control Center render tests when surfaced.
+- Bound verifier:
+  `scripts/verify_uaa_p1_072_business_memory_quality_controls.py`.
 
 PR size: split contract and UI if needed.
 

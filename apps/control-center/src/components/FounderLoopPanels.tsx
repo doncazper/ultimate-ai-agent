@@ -523,6 +523,73 @@ export function MemoryReviewSurfacePanel({
             )}
           />
         </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Business memory</h3>
+            <span>{today.business_memory_quality_states.length}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.business_memory_quality_contract_ref}
+            />
+            <DetailTerm
+              label="Status"
+              value={today.business_memory_status}
+            />
+            <DetailTerm
+              label="Review before recall"
+              value={
+                today.business_memory_authority_posture
+                  .review_required_before_recall
+                  ? "required"
+                  : "missing"
+              }
+            />
+            <DetailTerm
+              label="CRM writes"
+              value={
+                today.business_memory_authority_posture
+                  .external_crm_write_authorized
+                  ? "enabled"
+                  : "disabled"
+              }
+            />
+            <DetailTerm
+              label="Account sync"
+              value={
+                today.business_memory_authority_posture.account_sync_authorized
+                  ? "enabled"
+                  : "disabled"
+              }
+            />
+            <DetailTerm
+              label="Accepted as recall"
+              value={
+                today.business_memory_authority_posture.accepted_as_recall
+                  ? "yes"
+                  : "no"
+              }
+            />
+          </dl>
+          <InlineListWithFallback
+            emptyLabel="Business memory kinds: missing"
+            items={today.business_memory_candidate_kinds.map(
+              (kind) => kind.candidate_kind,
+            )}
+          />
+          <InlineListWithFallback
+            emptyLabel="Quality states: missing"
+            items={today.business_memory_quality_states.map(
+              (state) => state.quality_state,
+            )}
+          />
+          <RefList
+            refs={today.business_memory_surface_bindings.map(
+              (binding) => binding.feed_ref,
+            )}
+          />
+        </article>
       </div>
       <div className="review-grid">
         {today.memory_review_queue.map((item) => (
@@ -1028,6 +1095,11 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
     item.source_trust_posture ?? "untrusted_until_reviewed";
   const decisionCaptureStatus =
     item.decision_capture_status ?? "review_needed_no_decision_captured";
+  const businessQualityPosture =
+    item.business_memory_quality_posture ?? "review_required_quality_blocked";
+  const businessAuthorityBoundary =
+    item.business_memory_authority_boundary ??
+    "Business memory quality is review metadata only; external CRM writes, account sync, automatic recall, memory mutation, and context injection remain unscoped.";
   const nextSafeAction =
     item.next_safe_action ??
     "Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.";
@@ -1042,6 +1114,30 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
       <dl className="detail-list">
         <DetailTerm label="Review ref" value={item.review_ref} />
         <DetailTerm label="Candidate kind" value={candidateKind} />
+        <DetailTerm
+          label="Business candidate"
+          value={item.business_memory_candidate_ref}
+        />
+        <DetailTerm
+          label="Business quality"
+          value={businessQualityPosture}
+        />
+        <DetailTerm
+          label="Business review"
+          value={item.business_memory_review_state}
+        />
+        <DetailTerm
+          label="Business source"
+          value={item.business_memory_source_kind}
+        />
+        <DetailTerm
+          label="Business source trust"
+          value={item.business_memory_source_trust_posture}
+        />
+        <DetailTerm
+          label="Business redaction"
+          value={item.business_memory_redaction_status}
+        />
         <DetailTerm label="Source kind" value={sourceKind} />
         <DetailTerm label="Source trust" value={sourceTrustPosture} />
         <DetailTerm label="Decision capture" value={decisionCaptureStatus} />
@@ -1066,6 +1162,18 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
           label="Export authority"
           value={item.memory_export_authorized ? "yes" : "no"}
         />
+        <DetailTerm
+          label="CRM write authority"
+          value={item.business_memory_crm_write_authorized ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Account sync authority"
+          value={item.business_memory_account_sync_authorized ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Business recall"
+          value={item.business_memory_accepted_as_recall ? "yes" : "no"}
+        />
         <DetailTerm label="Source ref status" value={item.source_refs_status} />
         <DetailTerm
           label="Provenance ref status"
@@ -1088,10 +1196,38 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
         <DetailTerm label="Rejection posture" value={rejectionPosture} />
         <DetailTerm label="Retention posture" value={retentionPosture} />
         <DetailTerm label="Delete posture" value={deletePosture} />
+        <DetailTerm
+          label="Export posture"
+          value={item.business_memory_export_posture}
+        />
         <DetailTerm label="Confidence posture" value={confidencePosture} />
         <DetailTerm label="Stale-state posture" value={staleState} />
+        <DetailTerm
+          label="Business boundary"
+          value={businessAuthorityBoundary}
+        />
         <DetailTerm label="Next safe action" value={nextSafeAction} />
+        <DetailTerm
+          label="Business next action"
+          value={item.business_memory_next_safe_action}
+        />
       </dl>
+      <RefListWithFallback
+        emptyLabel="Business quality refs: missing"
+        refs={item.business_memory_quality_state_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Business related refs: missing"
+        refs={item.business_memory_related_entity_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Business surface refs: missing"
+        refs={item.business_memory_surface_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Business blocker refs: memory and CRM mutation remain unscoped"
+        refs={item.business_memory_blocker_refs ?? []}
+      />
       <RefListWithFallback
         emptyLabel="Provenance refs: missing until memory review contract"
         refs={item.provenance_refs ?? []}

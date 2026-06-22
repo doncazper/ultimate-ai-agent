@@ -71,7 +71,7 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
-| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Ready Next: Business Memory And Memory Quality Controls; then `UAA-P1-073` through `UAA-P1-078` for Plans-to-Action envelopes, Chat operator surface, governed Code workbench, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
+| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Ready Next: Plans To Reviewable Action Envelopes; then `UAA-P1-074` through `UAA-P1-078` for Chat operator surface, governed Code workbench, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
 | Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
 | Harden the browser-facing API perimeter before new authority | `UAA-P1-080` through `UAA-P1-086` planned: route classification, security headers, loopback CORS, local auth gate, idempotency audit, targeted rate limits, and OpenAPI/API manifest enforcement | P1 | Control Center remains local-first while every route gets an explicit public/protected classification and sensitive or mutating paths have auth, approval, idempotency, redaction, and test posture before authority-heavy Plans, Chat, Code, loop-binding, or beta-readiness claims |
@@ -413,13 +413,13 @@ Tasks:
   source refs, provenance refs, evidence refs, stale-state posture, retention
   posture, audit refs, receipt refs, blocked-state refs, source provenance
   binding, and review-only denied authority flags.
-- `UAA-P1-072` Ready Next: Business memory and memory quality controls: add profile, project,
+- `UAA-P1-072` Done: Business memory and memory quality controls: add profile, project,
   relationship, organization, deal/opportunity, promise, follow-up, decision,
   preference, and commitment candidate kinds with provenance, review posture,
   dedupe, conflict, stale/expired, low-confidence, source-missing, and
   evidence-missing posture. External CRM writes and account sync remain out of
   scope.
-- `UAA-P1-073` Plans to reviewable Action envelopes: Plans must produce
+- `UAA-P1-073` Ready Next: Plans to reviewable Action envelopes: Plans must produce
   approve/edit/reject/defer-ready Action envelopes with exact scope,
   side-effect class, risk, approval requirement, idempotency, expiry,
   evidence refs, expected receipt refs, rollback/safe-disable posture, and
@@ -817,10 +817,10 @@ Verification:
   actions, evidence refs, and read-only calendar/email metadata refs.
 - `UAA-P1-071` Done: Memory Review decision capture for accept, correct,
   reject, defer, merge, supersede, and forget-request posture.
-- `UAA-P1-072` Ready Next: business memory and memory quality controls for CRM-lite
+- `UAA-P1-072` Done: business memory and memory quality controls for CRM-lite
   candidate kinds, dedupe, conflicts, stale state, low confidence,
   source-missing, and evidence-missing posture.
-- `UAA-P1-073` Shape: Plans to reviewable Action envelopes with exact scope,
+- `UAA-P1-073` Ready Next: Plans to reviewable Action envelopes with exact scope,
   approve/edit/reject/defer posture, receipts, and rollback/safe-disable state.
 - `UAA-P1-074` Shape: first-party Control Center chat local operator surface
   with turn send, model/runtime/auth/tool-denial truth, safe evidence, and

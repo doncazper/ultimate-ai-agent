@@ -54,8 +54,9 @@ recorded the milestone conveyor. UAA-P1-068 completed the Today Product Spine
 Contract on the existing Today summary route. UAA-P1-069 completed the Evidence
 History Grammar contract on that same route. UAA-P1-070 completed the Memory
 Source And Provenance Model. UAA-P1-071 completed Memory Review Decision
-Capture. The active product path now promotes UAA-P1-072 Business Memory And
-Memory Quality Controls as Ready Next, with UAA-P1-066 kept queued as a
+Capture. UAA-P1-072 completed Business Memory And Memory Quality Controls. The
+active product path now promotes UAA-P1-073 Plans To Reviewable Action
+Envelopes as Ready Next, with UAA-P1-066 kept queued as a
 strictly read-only Local Model Control Center inventory/status support lane.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
@@ -86,22 +87,21 @@ Gate = required acceptance evidence before Done
 
 ```text
 No active build item is in progress. The next documented milestone is
-UAA-P1-072 Business Memory And Memory Quality Controls.
+UAA-P1-073 Plans To Reviewable Action Envelopes.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-072 Business Memory And Memory Quality Controls
-Goal: define CRM-lite business memory candidate kinds and quality posture before
-any memory is treated as useful reviewed recall.
-Scope: profile, project, relationship, organization, deal/opportunity, promise,
-follow-up, preference, decision, and commitment candidate kinds; duplicate,
-conflict, stale/expired, low-confidence, source-missing, evidence-missing,
-blocked, and reviewed memory posture; safe refs into Today, Action Inbox,
-Evidence Timeline, and Weekly CEO Review. No connector writes, account sync,
-automatic memory write, hidden context injection, provider/model authority,
-public beta, public distribution, or production authority.
+UAA-P1-073 Plans To Reviewable Action Envelopes
+Goal: make Plans produce approve/edit/reject/defer-ready Action envelopes with
+exact scope, side-effect class, risk, approval requirement, idempotency, expiry,
+evidence refs, expected receipt refs, rollback/safe-disable posture, and
+blocked-state reasons.
+Scope: contract/test/read-only Control Center visibility first. No action
+execution, approval grant capture, connector write, shell/subprocess execution,
+model/provider authority, public beta, public distribution, or production
+authority.
 
 UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
 Goal: queued support lane for a strictly read-only Control Center model
@@ -146,11 +146,6 @@ UAA-P2-056 Extension trust product surface
 Goal: surface static package review, provenance, hash refs, declared
 capabilities, requested grants, activation/revocation state, and risk flags
 without runtime import or execution.
-
-UAA-P1-072 Business Memory And Memory Quality Controls
-Goal: shape CRM-lite business memory candidates and quality posture for dedupe,
-conflict, stale/expired, low-confidence, source-missing, and evidence-missing
-states before any memory is treated as useful recall.
 
 UAA-P1-073 Plans To Reviewable Action Envelopes
 Goal: make Plans produce approve/edit/reject/defer-ready Action envelopes with
@@ -399,15 +394,16 @@ read-only local model status support lane, while UAA-P1-067 completed the
 Today-spine, memory-first planning/currentness path, UAA-P1-068 completed the
 Today product-spine contract, UAA-P1-069 completed the evidence history
 grammar, UAA-P1-070 completed the memory source/provenance model,
-UAA-P1-071 completed memory review decision capture, and UAA-P1-072 is the
-current Ready Next business memory and memory quality controls milestone.
+UAA-P1-071 completed memory review decision capture, UAA-P1-072 completed
+business memory and memory quality controls, and UAA-P1-073 is the current Ready
+Next Plans to reviewable Action envelopes milestone.
 
 UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 Gate met: Active docs, roadmap, current board, Founder Command Center board,
 product truth, strategy/task docs, and the Codex prompt library identify Today
 as the product spine, memory as the reviewed differentiator, UAA-P1-068 as
 completed Today Product Spine Contract work, and the conveyor that now has
-UAA-P1-071 complete and UAA-P1-072 Ready Next. UAA-P1-066 remains queued as
+UAA-P1-072 complete and UAA-P1-073 Ready Next. UAA-P1-066 remains queued as
 read-only local model support.
 `docs/codex/CODEX_EXECUTION_PROMPTS.md` records the
 milestone conveyor from UAA-P1-067 through UAA-P1-079 with review/fix,
@@ -450,9 +446,9 @@ runtime, account auth, automatic refresh, model/provider authority, automatic
 memory write, context injection, raw private evidence, rollback execution,
 approval grant, public beta, public distribution, production readiness, or
 production authority. UAA-P1-070 completed the memory source/provenance
-milestone, UAA-P1-071 completed memory review decision capture, and UAA-P1-072
-is the current Ready Next business memory and memory quality controls
-milestone.
+milestone, UAA-P1-071 completed memory review decision capture, UAA-P1-072
+completed business memory and memory quality controls, and UAA-P1-073 is the
+current Ready Next Plans to reviewable Action envelopes milestone.
 
 UAA-P1-070 Memory Source And Provenance Model
 Gate met: `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`
@@ -470,8 +466,9 @@ class, backend mutation, memory write/delete/export, connector runtime, account
 auth, model/provider authority, automatic memory write, hidden context
 injection, raw private evidence, public beta, public distribution, production
 readiness, or production authority. UAA-P1-071 completed memory review decision
-capture and UAA-P1-072 is the current Ready Next business memory and memory
-quality controls milestone.
+capture, UAA-P1-072 completed business memory and memory quality controls, and
+UAA-P1-073 is the current Ready Next Plans to reviewable Action envelopes
+milestone.
 
 UAA-P1-071 Memory Review Decision Capture
 Gate met: `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`
@@ -490,8 +487,28 @@ This milestone adds no new route, OpenAPI operation, side-effect class, backend
 mutation, memory write/delete/export, retention execution, connector runtime,
 account auth, model/provider authority, automatic memory write, hidden context
 injection, raw private evidence, public beta, public distribution, production
-readiness, or production authority. UAA-P1-072 is the current Ready Next
-business memory and memory quality controls milestone.
+readiness, or production authority. UAA-P1-072 completed business memory and
+memory quality controls, and UAA-P1-073 is the current Ready Next Plans to
+reviewable Action envelopes milestone.
+
+UAA-P1-072 Business Memory And Memory Quality Controls
+Gate met: `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`
+defines `contract-ref:business-memory-quality-controls:v1`; `core.memory`
+exposes business memory candidate kinds, quality states, safe-ref envelopes,
+surface bindings, and denied authority posture; `GET /control-center/today/summary`
+exposes candidate kinds, quality states, required refs, surface bindings,
+authority posture, and per-memory-review quality metadata. `docs/schemas/business_memory_quality_controls.schema.json`,
+`scripts/verify_uaa_p1_072_business_memory_quality_controls.py`,
+`tests/test_uaa_p1_072_business_memory_quality_controls.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`, and
+`apps/control-center/src/components/FounderLoopPanels.tsx` bind the contract.
+This milestone adds no new route, OpenAPI operation, side-effect class, backend
+mutation, memory write/delete/export, external CRM write, account sync,
+connector runtime, account auth, model/provider authority, automatic memory
+write, hidden context injection, raw private evidence, public beta, public
+distribution, production readiness, or production authority. UAA-P1-073 is the
+current Ready Next Plans to reviewable Action envelopes milestone.
 
 UAA-P1-080 through UAA-P1-086 API Boundary Hardening Lane
 Status: planned/queued, not implemented. Preserves existing UAA-P1-073 through

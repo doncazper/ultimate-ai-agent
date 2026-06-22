@@ -350,7 +350,7 @@
       "status": "present_bounded_local",
       "maturity": "constrained_local_runtime",
       "maturity_score": 4,
-      "summary": "UAA has governed memory records, write policy, local in-memory and SQLite-backed stores, source refs, provenance, recall metadata, redaction, retention/delete/export contracts, supersession, relationship/follow-up candidate schema, and Founder Loop memory review storage. It is not yet the robust Founder Command Center memory advantage because cross-surface intake, review decision capture, business-memory quality controls, and Today/Action/Evidence binding are still planned.",
+      "summary": "UAA has governed memory records, write policy, local in-memory and SQLite-backed stores, source refs, provenance, recall metadata, redaction, retention/delete/export contracts, supersession, relationship/follow-up candidate schema, Founder Loop memory review storage, review-only decision metadata, and business-memory quality metadata. It is not yet the robust Founder Command Center memory advantage because cross-surface intake, memory write policy binding, retention/delete/export execution, context-injection policy, and full Today/Action/Evidence/Weekly Review binding are still planned.",
       "primary_paths": [
         "src/ultimate_ai_agent/core/memory/provider.py",
         "src/ultimate_ai_agent/core/memory/local_store.py",
@@ -358,6 +358,8 @@
         "src/ultimate_ai_agent/core/memory/records.py",
         "src/ultimate_ai_agent/core/memory/policy.py",
         "src/ultimate_ai_agent/core/memory/fcc_relationship_memory_schema.py",
+        "src/ultimate_ai_agent/core/memory/review_decisions.py",
+        "src/ultimate_ai_agent/core/memory/business_memory.py",
         "src/ultimate_ai_agent/core/storage/founder_loop.py"
       ],
       "supporting_paths": [
@@ -366,6 +368,8 @@
         "docs/memory/MEMORY_REVIEW_AND_PROVENANCE.md",
         "docs/memory/MEMORY_RETENTION_DELETE_EXPORT.md",
         "docs/memory/MEMORY_CONFLICT_AND_STALENESS.md",
+        "docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md",
+        "docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md",
         "docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md",
         "docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md"
       ],
@@ -377,19 +381,22 @@
         "tests/test_memory_supersession.py",
         "tests/test_memory_redaction.py",
         "tests/test_fcc_p1_010_relationship_memory_schema.py",
+        "tests/test_uaa_p1_071_memory_review_decision_capture.py",
+        "tests/test_uaa_p1_072_business_memory_quality_controls.py",
         "tests/test_founder_loop_storage.py"
       ],
       "evidence": [
         "M24 memory provider contracts and local stores are tested with source refs, review states, retention posture, redaction, and forbidden raw-content boundaries.",
-        "Founder Loop storage and relationship/follow-up candidate tests prove a bounded Memory Review substrate, not automatic memory authority."
+        "Founder Loop storage and relationship/follow-up candidate tests prove a bounded Memory Review substrate, not automatic memory authority.",
+        "UAA-P1-071 and UAA-P1-072 add review-only decision metadata plus safe-ref CRM-lite business-memory candidate and quality posture on the Today spine."
       ],
       "gaps": [
-        "No persisted accept/correct/reject/defer/merge/supersede/forget-request decision capture for Memory Review.",
         "No cross-surface intake from local chat, local coding summaries, manual external-assistant review summaries, plans, actions, calendar/email metadata refs, and evidence timeline refs.",
-        "No full CRM-lite business-memory quality layer for people, projects, organizations, opportunities, promises, follow-ups, decisions, preferences, conflicts, and stale records.",
-        "No completed Today/Action/Evidence/Weekly Review binding that makes reviewed memory feel like the product spine."
+        "No memory write policy binding, retention/delete/export execution, or context-injection policy.",
+        "No mutation-capable quality-control actions for duplicate/conflict/stale records.",
+        "No completed Today/Action/Evidence/Weekly Review binding that makes reviewed memory feel like the full product spine."
       ],
-      "next_checkpoint": "Use UAA-P1-072 through UAA-P1-077 to add business memory, quality controls, cross-surface intake, and loop binding before raising maturity."
+      "next_checkpoint": "Use UAA-P1-073 through UAA-P1-077 to add reviewable Action envelopes, Chat/Code handoffs, cross-surface intake, and loop binding before raising maturity."
     },
     {
       "id": "tool_registry",

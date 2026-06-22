@@ -1866,7 +1866,11 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("GET /control-center/today/summary"),
     ).toBeInTheDocument();
-    expect(screen.getByText("storage_backed_review_queue")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "storage_backed_review_queue_with_business_quality_metadata",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("founder-loop-storage:mock-local-sqlite-jsonl"),
     ).toBeInTheDocument();
@@ -1890,7 +1894,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("memory-review:founder-loop-preferences"),
     ).toBeInTheDocument();
-    expect(screen.getByText("operator_preference")).toBeInTheDocument();
+    expect(screen.getAllByText("preference").length).toBeGreaterThan(0);
     expect(screen.getAllByText("review_needed").length).toBeGreaterThan(0);
     expect(
       screen.getByText("correction_requires_scoped_memory_write_contract"),
@@ -1915,15 +1919,19 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("contract-ref:memory-retention-delete-missing").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("contract-ref:business-memory-quality-controls-missing").length,
-    ).toBeGreaterThan(0);
+      screen.queryByText("contract-ref:business-memory-quality-controls-missing"),
+    ).not.toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:context-injection-missing").length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("no_memory_write").length).toBeGreaterThan(0);
     expect(screen.getAllByText("no_context_injection").length).toBeGreaterThan(0);
     expect(screen.getAllByText("no_memory_delete").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_memory_export").length).toBeGreaterThan(0);
     expect(screen.getAllByText("no_raw_source_display").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_external_crm_write").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_account_sync").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_automatic_recall").length).toBeGreaterThan(0);
     expect(screen.getAllByText("no_connector_write").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("no_model_provider_authority").length,
@@ -1937,6 +1945,23 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("review_needed_no_decision_captured").length).toBeGreaterThan(0);
     expect(screen.getAllByText("actor-ref:local-operator-review-required").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-memory-write").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Business memory/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:business-memory-quality-controls:v1").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("business-memory-quality:blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("business-memory-quality:low-confidence").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("business-memory-candidate:preference:memory-review-founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("manual_note").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("untrusted_until_reviewed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("redacted_summary_only").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-external-crm-write").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-account-sync").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-connector-runtime").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-model-provider-authority").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("weekly-review-ref:business-memory-carry-forward").length).toBeGreaterThan(0);
 
     for (const label of [
       /^accept$/i,
@@ -1952,6 +1977,13 @@ describe("Web Control Center shell", () => {
       /^defer$/i,
       /^run$/i,
       /^sync$/i,
+      /^crm sync$/i,
+      /^dedupe$/i,
+      /^resolve conflict$/i,
+      /^mark reviewed$/i,
+      /^promote to recall$/i,
+      /^import$/i,
+      /^quality control$/i,
       /^export$/i,
       /^save$/i,
       /learn this/i,
@@ -2862,7 +2894,7 @@ const mockApiData = {
       },
       {
         module: "Memory",
-        status: "implemented_review_queue_decision_metadata_contract",
+        status: "implemented_review_queue_decision_and_quality_metadata_contract",
         required_loop_outputs: [
           "today_memory_review_count",
           "action_or_follow_up_candidate",
@@ -2872,6 +2904,7 @@ const mockApiData = {
         current_feed_refs: [
           "status-ref:founder-loop-memory-review",
           "contract-ref:memory-review-decision:v1",
+          "contract-ref:business-memory-quality-controls:v1",
         ],
         standalone_complete_allowed: false,
       },
@@ -2945,6 +2978,123 @@ const mockApiData = {
         "cli_or_repo_local_inspection_path",
       ],
     },
+    business_memory_quality_contract_ref:
+      "contract-ref:business-memory-quality-controls:v1",
+    business_memory_candidate_kinds: [
+      "profile",
+      "project",
+      "relationship",
+      "organization",
+      "deal",
+      "opportunity",
+      "promise",
+      "follow_up",
+      "preference",
+      "decision",
+      "commitment",
+    ].map((candidateKind) => ({
+      candidate_kind: candidateKind,
+      candidate_kind_ref: `business-memory-kind:${candidateKind.replaceAll("_", "-")}`,
+      review_required: true,
+      safe_summary_only: true,
+      source_refs_required: true,
+      provenance_refs_required: true,
+      evidence_refs_required: true,
+      quality_posture_required: true,
+      correction_path_required: true,
+      retention_delete_export_posture_required: true,
+      crm_write_authorized: false,
+      account_sync_authorized: false,
+      context_injection_authorized: false,
+      accepted_as_recall: false,
+    })),
+    business_memory_quality_states: [
+      "duplicate",
+      "conflict",
+      "stale_expired",
+      "low_confidence",
+      "source_missing",
+      "evidence_missing",
+      "blocked",
+      "reviewed",
+    ].map((qualityState) => ({
+      quality_state: qualityState,
+      quality_state_ref: `business-memory-quality:${qualityState.replaceAll("_", "-")}`,
+      blocks_unreviewed_recall: true,
+      requires_operator_review: true,
+      requires_safe_refs: true,
+      requires_correction_path: [
+        "duplicate",
+        "conflict",
+        "stale_expired",
+        "low_confidence",
+      ].includes(qualityState),
+      is_blocking_posture: qualityState !== "reviewed",
+      authorizes_memory_write: false,
+      authorizes_crm_write: false,
+      authorizes_context_injection: false,
+    })),
+    business_memory_required_ref_fields: [
+      "review_ref",
+      "candidate_ref",
+      "source_refs",
+      "provenance_refs",
+      "evidence_refs",
+      "quality_state_refs",
+      "related_entity_refs",
+      "blocker_refs",
+    ],
+    business_memory_surface_bindings: [
+      {
+        surface: "Today",
+        feed_status: "implemented_safe_ref_quality_summary",
+        feed_ref: "today-ref:memory-review-business-quality",
+        authority_boundary:
+          "Quality posture can create blockers and follow-up refs only.",
+      },
+      {
+        surface: "Action Inbox",
+        feed_status: "implemented_follow_up_candidate_refs_only",
+        feed_ref: "action-inbox-ref:memory-follow-up-candidates",
+        authority_boundary:
+          "Promises and follow-ups are review candidates, not execution tasks.",
+      },
+      {
+        surface: "Evidence Timeline",
+        feed_status: "implemented_history_refs_only",
+        feed_ref: "evidence-ref:memory-business-quality-history",
+        authority_boundary:
+          "Quality changes must read as history with safe refs only.",
+      },
+      {
+        surface: "Weekly CEO Review",
+        feed_status: "implemented_carry_forward_refs_only",
+        feed_ref: "weekly-review-ref:business-memory-carry-forward",
+        authority_boundary:
+          "Weekly review can carry decisions and blockers, not sync accounts.",
+      },
+    ],
+    business_memory_authority_posture: {
+      safe_refs_only: true,
+      review_required_before_recall: true,
+      memory_write_authorized: false,
+      memory_delete_authorized: false,
+      memory_export_authorized: false,
+      automatic_memory_write_authorized: false,
+      context_injection_authorized: false,
+      external_crm_write_authorized: false,
+      account_sync_authorized: false,
+      connector_runtime_enabled: false,
+      account_auth_enabled: false,
+      provider_or_model_authority_allowed: false,
+      source_truth_authority: false,
+      accepted_as_recall: false,
+      public_beta_claim_enabled: false,
+      public_distribution_claim_enabled: false,
+      production_authority_enabled: false,
+    },
+    business_memory_status:
+      "implemented_review_queue_safe_ref_quality_metadata_contract",
     priority_refs: [
       "priority-ref:action:high:founder-action-test",
       "priority-ref:briefing:medium:briefing-test",
@@ -3040,7 +3190,7 @@ const mockApiData = {
         review_ref: "memory-review:test",
         title: "Memory review",
         safe_summary: "Bounded memory summary.",
-        candidate_kind: "operator_preference",
+        candidate_kind: "preference",
         priority: "high",
         status: "review_needed",
         review_state: "review_needed",
@@ -3052,7 +3202,6 @@ const mockApiData = {
         missing_contract_refs: [
           "contract-ref:memory-write-policy-binding-missing",
           "contract-ref:memory-retention-delete-missing",
-          "contract-ref:business-memory-quality-controls-missing",
           "contract-ref:context-injection-missing",
         ],
         correction_posture: "correction_requires_scoped_memory_write_contract",
@@ -3065,7 +3214,11 @@ const mockApiData = {
           "no_memory_write",
           "no_context_injection",
           "no_memory_delete",
+          "no_memory_export",
           "no_raw_source_display",
+          "no_external_crm_write",
+          "no_account_sync",
+          "no_automatic_recall",
           "no_connector_write",
           "no_model_provider_authority",
           "no_background_sync",
@@ -3149,11 +3302,75 @@ const mockApiData = {
         memory_delete_authorized: false,
         memory_export_authorized: false,
         retention_execution_authorized: false,
+        business_memory_quality_contract_ref:
+          "contract-ref:business-memory-quality-controls:v1",
+        business_memory_candidate_ref:
+          "business-memory-candidate:preference:memory-review-test",
+        business_memory_candidate_kind: "preference",
+        business_memory_candidate_kind_ref: "business-memory-kind:preference",
+        business_memory_source_provenance_contract_ref:
+          "contract-ref:memory-source-provenance:v1",
+        business_memory_source_kind: "manual_note",
+        business_memory_source_trust_posture: "untrusted_until_reviewed",
+        business_memory_redaction_status: "redacted_summary_only",
+        business_memory_quality_state_refs: [
+          "business-memory-quality:blocked",
+          "business-memory-quality:low-confidence",
+        ],
+        business_memory_quality_posture: "review_required_quality_blocked",
+        business_memory_review_state: "review_needed",
+        business_memory_correction_path:
+          "correction_requires_scoped_memory_write_contract",
+        business_memory_stale_state: "recheck_source_refs_before_memory_use",
+        business_memory_retention_posture: "retention_policy_not_bound",
+        business_memory_delete_posture: "delete_execution_not_scoped",
+        business_memory_export_posture: "export_execution_not_scoped",
+        business_memory_related_entity_refs: [
+          "business-memory-entity:preference:memory-review-test",
+        ],
+        business_memory_duplicate_of_refs: [],
+        business_memory_conflict_with_refs: [],
+        business_memory_blocker_refs: [
+          "blocked-state:no-memory-write",
+          "blocked-state:no-memory-delete",
+          "blocked-state:no-memory-export",
+          "blocked-state:no-context-injection",
+          "blocked-state:no-external-crm-write",
+          "blocked-state:no-account-sync",
+          "blocked-state:no-automatic-recall",
+          "blocked-state:no-connector-runtime",
+          "blocked-state:no-account-auth",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-source-truth-authority",
+          "blocked-state:no-raw-source-display",
+          "blocked-state:no-public-beta-or-distribution",
+          "blocked-state:no-production-authority",
+        ],
+        business_memory_surface_refs: [
+          "today-ref:memory-review-business-quality",
+          "action-inbox-ref:memory-follow-up-candidates",
+          "evidence-ref:memory-business-quality-history",
+          "weekly-review-ref:business-memory-carry-forward",
+        ],
+        business_memory_next_safe_action:
+          "Review quality posture and safe refs; keep memory writes, CRM sync, and context injection blocked until scoped policy milestones exist.",
+        business_memory_safe_refs_only: true,
+        business_memory_review_required_before_recall: true,
+        business_memory_accepted_as_recall: false,
+        business_memory_write_authorized: false,
+        business_memory_delete_authorized: false,
+        business_memory_export_authorized: false,
+        business_memory_crm_write_authorized: false,
+        business_memory_account_sync_authorized: false,
+        business_memory_context_injection_authorized: false,
+        business_memory_authority_boundary:
+          "Business memory quality is review metadata only; external CRM writes, account sync, automatic recall, memory mutation, and context injection remain unscoped.",
       },
     ],
     memory_review_route_ref: "/memory",
     memory_review_backend_route_ref: "GET /control-center/today/summary",
-    memory_review_status: "storage_backed_review_queue",
+    memory_review_status:
+      "storage_backed_review_queue_with_business_quality_metadata",
     memory_review_authority_boundary:
       "Review-only memory candidates; recall is not truth, and writes, deletes, context injection, connector writes, model/provider calls, and background sync are unscoped.",
     memory_write_enabled: false,
@@ -3162,14 +3379,17 @@ const mockApiData = {
     memory_review_missing_contract_refs: [
       "contract-ref:memory-write-policy-binding-missing",
       "contract-ref:memory-retention-delete-missing",
-      "contract-ref:business-memory-quality-controls-missing",
       "contract-ref:context-injection-missing",
     ],
     memory_review_blocked_states: [
       "no_memory_write",
       "no_context_injection",
       "no_memory_delete",
+      "no_memory_export",
       "no_raw_source_display",
+      "no_external_crm_write",
+      "no_account_sync",
+      "no_automatic_recall",
       "no_connector_write",
       "no_model_provider_authority",
       "no_background_sync",
@@ -3270,7 +3490,7 @@ const mockApiData = {
           "status-ref:founder-loop-memory-review",
           "contract-ref:memory-write-policy-binding-missing",
           "contract-ref:memory-retention-delete-missing",
-          "contract-ref:business-memory-quality-controls-missing",
+          "contract-ref:business-memory-quality-controls:v1",
           "contract-ref:context-injection-missing",
         ],
         related_route_refs: ["GET /control-center/today/summary", "/memory"],
