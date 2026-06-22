@@ -33,6 +33,8 @@ RELEASE_SURFACE_PATH = "docs/control_center/release_surface_manifest.json"
 ROUTE_STATUS_PATH = "docs/control_center/route_status_manifest.json"
 MILESTONE_STATUS_PATH = "docs/verification/milestone_status_manifest.json"
 EVIDENCE_ROUTE = ("GET", "/control-center/evidence/timeline")
+FOUNDER_LOOP_V1_PROOF_REF = "scripts/verify_founder_loop_v1.py"
+FOUNDER_LOOP_V1_PROOFED_STATUS = "founder_loop_v1_proofed"
 FORBIDDEN_CLAIMS = [
     "evidence timeline is shipped",
     "evidence timeline is production ready",
@@ -137,8 +139,11 @@ def _append_release_surface_failures(
     if evidence is None:
         failures.append("release surface missing /evidence")
         return
-    if evidence.get("status") != "partial":
-        failures.append("/evidence release status must remain partial")
+    status = evidence.get("status")
+    if status not in {"partial", "ship"}:
+        failures.append("/evidence release status must remain partial or FCC-V1-007 proofed ship")
+    if status == "ship" and FOUNDER_LOOP_V1_PROOF_REF not in set(evidence.get("proof_lanes", [])):
+        failures.append("/evidence ship status requires FCC-V1-007 proof lane")
     _append_route_present(
         failures,
         evidence.get("backend_routes", []),
@@ -154,15 +159,16 @@ def _append_release_surface_failures(
         if proof_ref not in proof_refs:
             failures.append(f"/evidence release surface missing proof ref {proof_ref}")
     blocked = set(evidence.get("blocked_capabilities", []))
-    for capability in [
-        "production_authority",
-        "broad_runtime_execution",
-        "connector_write",
-        "evidence_approval_authority",
-        "evidence_rollback_execution",
-    ]:
-        if capability not in blocked:
-            failures.append(f"/evidence release surface missing blocker {capability}")
+    if status == "partial":
+        for capability in [
+            "production_authority",
+            "broad_runtime_execution",
+            "connector_write",
+            "evidence_approval_authority",
+            "evidence_rollback_execution",
+        ]:
+            if capability not in blocked:
+                failures.append(f"/evidence release surface missing blocker {capability}")
 
 
 def _append_route_status_failures(
@@ -177,8 +183,11 @@ def _append_route_status_failures(
             failures.append(f"route status missing {label}")
             continue
         _append_route_present(failures, item.get(key, []), EVIDENCE_ROUTE, label)
-        if item.get("release_status") != "partial_backend_not_product_ready":
-            failures.append(f"{label} must remain partial")
+        release_status = item.get("release_status")
+        if release_status not in {"partial_backend_not_product_ready", FOUNDER_LOOP_V1_PROOFED_STATUS}:
+            failures.append(f"{label} must remain partial or FCC-V1-007 proofed")
+        if release_status == FOUNDER_LOOP_V1_PROOFED_STATUS and item.get("missing_backend_routes"):
+            failures.append(f"{label} proofed status cannot list missing backend routes")
         lowered = str(item).lower()
         for fragment in [
             "action_envelope_created",

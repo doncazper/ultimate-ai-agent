@@ -185,6 +185,9 @@ def test_fcc_v1_002_verifier_flags_release_overclaim() -> None:
     actions["status"] = "ship"
     actions["blocked_capabilities"] = []
     actions["approval_required"] = False
+    actions["proof_lanes"] = [
+        proof for proof in actions["proof_lanes"] if proof != verifier.FOUNDER_LOOP_V1_PROOF_REF
+    ]
 
     failures = verifier.verify(
         release_surface=release_surface,
@@ -192,6 +195,5 @@ def test_fcc_v1_002_verifier_flags_release_overclaim() -> None:
         check_api_behavior=False,
     )
 
-    assert any("/actions release status must remain partial" in failure for failure in failures)
+    assert any("/actions ship status requires FCC-V1-007 proof lane" in failure for failure in failures)
     assert any("must require approval posture" in failure for failure in failures)
-    assert any("missing blocked capability" in failure for failure in failures)

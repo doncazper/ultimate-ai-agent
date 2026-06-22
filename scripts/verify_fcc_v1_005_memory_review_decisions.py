@@ -32,6 +32,8 @@ RELEASE_SURFACE_PATH = "docs/control_center/release_surface_manifest.json"
 ROUTE_STATUS_PATH = "docs/control_center/route_status_manifest.json"
 MILESTONE_STATUS_PATH = "docs/verification/milestone_status_manifest.json"
 MEMORY_REVIEW_GET_ROUTE = ("GET", "/control-center/memory/review")
+FOUNDER_LOOP_V1_PROOF_REF = "scripts/verify_founder_loop_v1.py"
+FOUNDER_LOOP_V1_PROOFED_STATUS = "founder_loop_v1_proofed"
 MEMORY_REVIEW_DECISION_ROUTES = {
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"): {
         "operation_id": "post_control_center_memory_review_candidate_ref_accept",
@@ -170,8 +172,11 @@ def _append_release_surface_failures(
     if memory is None:
         failures.append("release surface missing /memory")
         return
-    if memory.get("status") != "partial":
-        failures.append("/memory release status must remain partial")
+    status = memory.get("status")
+    if status not in {"partial", "ship"}:
+        failures.append("/memory release status must remain partial or FCC-V1-007 proofed ship")
+    if status == "ship" and FOUNDER_LOOP_V1_PROOF_REF not in set(memory.get("proof_lanes", [])):
+        failures.append("/memory ship status requires FCC-V1-007 proof lane")
     for route in ROUTES:
         _append_route_present(failures, memory.get("backend_routes", []), route, "/memory")
     proof_refs = set(memory.get("proof_lanes", []))
@@ -183,16 +188,17 @@ def _append_release_surface_failures(
         if proof_ref not in proof_refs:
             failures.append(f"/memory release surface missing proof ref {proof_ref}")
     blocked = set(memory.get("blocked_capabilities", []))
-    for capability in [
-        "memory_context_injection",
-        "memory_truth_authority",
-        "memory_connector_write",
-        "memory_external_crm_sync",
-        "memory_action_execution",
-        "production_authority",
-    ]:
-        if capability not in blocked:
-            failures.append(f"/memory release surface missing blocked capability {capability}")
+    if status == "partial":
+        for capability in [
+            "memory_context_injection",
+            "memory_truth_authority",
+            "memory_connector_write",
+            "memory_external_crm_sync",
+            "memory_action_execution",
+            "production_authority",
+        ]:
+            if capability not in blocked:
+                failures.append(f"/memory release surface missing blocked capability {capability}")
 
 
 def _append_route_status_failures(
@@ -208,8 +214,11 @@ def _append_route_status_failures(
             continue
         for route in ROUTES:
             _append_route_present(failures, item.get(key, []), route, label)
-        if item.get("release_status") != "partial_backend_not_product_ready":
-            failures.append(f"{label} must remain partial")
+        release_status = item.get("release_status")
+        if release_status not in {"partial_backend_not_product_ready", FOUNDER_LOOP_V1_PROOFED_STATUS}:
+            failures.append(f"{label} must remain partial or FCC-V1-007 proofed")
+        if release_status == FOUNDER_LOOP_V1_PROOFED_STATUS and item.get("missing_backend_routes"):
+            failures.append(f"{label} proofed status cannot list missing backend routes")
         lowered = str(item).lower()
         for fragment in ["receipt", "idempotency", "context injection", "crm sync"]:
             if fragment not in lowered:

@@ -52,6 +52,7 @@ ROUTE_STATUS_TAXONOMY_MAP = {
     "status_available_not_completion": "status_only",
     "preview_available_not_execution": "preview_only",
     "partial_backend_not_product_ready": "partial",
+    "founder_loop_v1_proofed": "shipped",
     "mock_only_not_product_ready": "mock_only",
     "local_ui_state_only_not_evidence": "local_ui_state_only",
     "blocked_missing_backend": "blocked",

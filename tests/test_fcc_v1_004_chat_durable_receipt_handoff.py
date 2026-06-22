@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from scripts.verification.repo import load_json
 from scripts.verify_fcc_v1_004_chat_durable_receipt_handoff import (
+    FOUNDER_LOOP_V1_PROOF_REF,
     RELEASE_SURFACE_PATH,
     ROUTE_STATUS_PATH,
     MILESTONE_STATUS_PATH,
@@ -132,6 +133,9 @@ def test_verifier_flags_chat_release_overclaim() -> None:
     release_surface = deepcopy(load_json(RELEASE_SURFACE_PATH))
     chat = next(route for route in release_surface["routes"] if route["path"] == "/chat")
     chat["status"] = "ship"
+    chat["proof_lanes"] = [
+        proof for proof in chat["proof_lanes"] if proof != FOUNDER_LOOP_V1_PROOF_REF
+    ]
 
     failures = verify(
         release_surface=release_surface,
@@ -141,4 +145,4 @@ def test_verifier_flags_chat_release_overclaim() -> None:
         check_files=False,
     )
 
-    assert "/chat release status must remain partial" in failures
+    assert "/chat ship status requires FCC-V1-007 proof lane" in failures

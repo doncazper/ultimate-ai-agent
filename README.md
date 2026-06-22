@@ -15,9 +15,9 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **FCC-V1-006 Complete: Evidence Timeline Productization; FCC-V1-007 Next: Promotion And Proof Lane; UAA-P1-087.2 Private UI Testing Deferred** |
+| Current lane | **FCC-V1-007 Complete: Founder Loop V1 proofed route surfaces; UAA-P1-087.2 Private UI Testing Deferred** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
-| Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-006 complete; FCC-V1-007 planned: proof-lane promotion** |
+| Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 complete for the bounded proofed route-surface lane** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | API boundary | FastAPI route contract with **126** OpenAPI paths |
@@ -149,13 +149,13 @@ preserved rejected candidates, corrected-summary refs only, and Evidence
 Timeline visibility. It does not make memory or sources truth, write memory,
 inject context, sync CRM/accounts, write connectors, execute actions, grant
 public beta authority, or grant production authority.
-The planned Founder Loop V1 productization conveyor is recorded in
+The completed bounded Founder Loop V1 productization conveyor is recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`: completed Control Center release surface manifest, API perimeter
 for real mutations, Action Inbox backend state machine, Today-to-Action
 vertical slice, Chat durable receipt and handoff, and Memory Review decision
-receipts, followed by planned Evidence Timeline productization and
-promotion/proof lanes. These
+receipts, Evidence Timeline productization, and promotion/proof lane for
+`/actions`, `/chat`, `/memory`, and `/evidence` route surfaces only. These
 milestones define goals, routes, model fields, storage semantics, UI outcomes,
 proof commands, and authority boundaries; they do not add routes, controls,
 runtime calls, connector writes, memory writes, context injection, public beta,

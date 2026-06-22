@@ -322,6 +322,8 @@ Proof:
 
 ## FCC-V1-007 - Promotion And Proof Lane
 
+Status: Implemented.
+
 Goal: promote only the routes that actually became real.
 
 Tasks:
@@ -348,6 +350,26 @@ PYTHONPATH=src .venv/bin/python scripts/verify_founder_loop_v1.py
 - Keep `/inbox`, `/settings`, and model lifecycle surfaces `blocked` or
   `partial` unless separately implemented.
 
-Definition of done: the proof lane can distinguish real shipped routes from
-partial, blocked, or experimental surfaces, and promotion cannot happen without
+Target definition of done: the proof lane can distinguish proofed route
+surfaces from partial, blocked, or experimental surfaces, and promotion cannot happen without
 manifest, route metadata, receipt, evidence, frontend, and redaction proof.
+
+Definition of done: met. `/actions`, `/chat`, `/memory`, and `/evidence` use
+`founder_loop_v1_proofed` route-status truth and `ship` release-surface truth
+for their exact receipt-backed route behavior only. `/today` remains partial,
+and `/inbox`, `/settings`, and model lifecycle surfaces remain blocked or
+partial.
+
+Proof:
+
+- `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`
+- `scripts/verify_founder_loop_v1.py`
+- `tests/test_founder_loop_v1_proof_lane.py`
+- `docs/control_center/release_surface_manifest.json`
+- `docs/control_center/route_status_manifest.json`
+- `apps/control-center/src/routes.tsx`
+
+Still denied: action execution, handoff execution, context injection, automatic
+memory writes, memory truth authority, connector writes, CRM/account sync,
+provider/model authority, shell/subprocess authority, public beta, public
+release, and production authority.

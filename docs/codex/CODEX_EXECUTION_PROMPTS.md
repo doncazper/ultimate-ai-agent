@@ -659,12 +659,12 @@ deferred until more Founder Loop implementation exists and accepted or revised
 local/private findings can be recorded later. FCC-V1-000 Control Center
 Release Surface Manifest is complete for route-status truth, manifest/schema,
 verifier, and focused tests without adding backend routes or runtime authority.
-The conveyor now advances through the remaining FCC-V1 productization lane:
-FCC-V1-001 API Perimeter For Real Mutations, FCC-V1-002 Action Inbox Backend State Machine,
-FCC-V1-003 Founder Loop V1 Vertical Slice, FCC-V1-004 Chat Durable Receipt And
-Handoff, FCC-V1-005 Memory Review Decisions, FCC-V1-006 Evidence Timeline
-Productization, and FCC-V1-007 Promotion And Proof Lane before broader
-P2/provider, packaging, public distribution, or commercialization expansion.
+FCC-V1-001 through FCC-V1-007 are complete for API perimeter posture, Action
+Inbox backend decisions, Founder Loop V1 vertical slice, Chat durable receipt
+and handoff, Memory Review decisions, Evidence Timeline productization, and
+exact proofed route-surface promotion of `/actions`, `/chat`, `/memory`, and
+`/evidence` only. Broader P2/provider, packaging, public distribution, and
+commercialization expansion remain outside this bounded conveyor.
 The conveyor
 auto-advances after each successful milestone commit/push until the active
 bounded sequence is complete, verified, and pushed. Do not stop after merely
@@ -691,11 +691,12 @@ UAA-P1-087.2a, UAA-P1-087.2b, and UAA-P1-087.2c. Treat full UAA-P1-087.2 and
 UAA-P1-087.3 as deferred unless active docs later promote them with enough
 Founder Loop implementation evidence for manual review.
 
-If active docs show the Founder Loop V1 productization lane is accepted, use
+If active docs show the Founder Loop V1 productization lane is incomplete, use
 this extension order after UAA-P1-087.2c or the current prerequisite breakpoint:
 FCC-V1-000, FCC-V1-001, FCC-V1-002, FCC-V1-003, FCC-V1-004, FCC-V1-005,
-FCC-V1-006, and FCC-V1-007. Stop only after FCC-V1-007 is complete and
-verified, or when a real blocker or safety split prevents safe continuation.
+FCC-V1-006, and FCC-V1-007. In the current active docs this bounded lane is
+complete through FCC-V1-007, so do not restart it unless a later scoped follow-up
+milestone is documented.
 
 Review the following documents first:
 [OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
@@ -822,7 +823,8 @@ Execution workflow:
      Today-spine conveyor, or all milestones through UAA-P1-087.3 are complete
      and verified when the API boundary/private-operator-trial lane is active,
      or all milestones through FCC-V1-007 are complete and verified when the
-     Founder Loop V1 productization lane is active,
+     Founder Loop V1 productization lane is active, as they are in the current
+     active docs,
    - the next slice is too large or unsafe and needs an incremental prompt that
      cannot be executed safely in the same run,
    - verification, push, dependencies, or repo state blocks progress, or

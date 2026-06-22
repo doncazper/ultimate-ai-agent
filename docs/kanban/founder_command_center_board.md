@@ -97,7 +97,7 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ### FCC-V1-000 through FCC-V1-007 - Founder Loop V1 Productization Conveyor
 
-Status: In progress through completed FCC-V1-006; FCC-V1-007 remains planned.
+Status: Complete through FCC-V1-007 for the bounded Founder Loop V1 conveyor.
 
 Epic: Product/UX, Safety/Permissions, Memory/Knowledge, Business Cofounder
 Workflows
@@ -144,7 +144,7 @@ Milestone order:
   approval identifiers, idempotency refs, blocked states, and rollback posture
   are visible without approval, rollback execution, action execution, context
   injection, connector writes, public beta, or production authority.
-- `FCC-V1-007` Promotion And Proof Lane.
+- `FCC-V1-007` Promotion And Proof Lane: implemented for `founder_loop_v1_proofed` route-surface promotion of `/actions`, `/chat`, `/memory`, and `/evidence` only.
 
 Acceptance criteria: Each milestone's detailed goal, tasks, expected routes,
 model fields, storage behavior, UI result, proof lane, and authority boundary
@@ -159,7 +159,7 @@ Required tests/verifiers: release surface verifier, OpenAPI/API manifest
 checks, focused Action lifecycle tests, Chat receipt/handoff tests, Memory
 decision tests, Evidence Timeline tests, Control Center route/render tests,
 documentation integrity, and the planned
-`scripts/verify_founder_loop_v1.py` proof command.
+`scripts/verify_founder_loop_v1.py` proof command, implemented for the bounded route-surface proof lane.
 
 Safety notes: Planning only until separate implementation slices land. No
 runtime model calls, connector writes, shell/subprocess execution, browser

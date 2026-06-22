@@ -29,6 +29,7 @@ ROUTE_STATUS_TO_RELEASE_STATUS = {
     "status_available_not_completion": "partial",
     "preview_available_not_execution": "experimental",
     "partial_backend_not_product_ready": "partial",
+    "founder_loop_v1_proofed": "ship",
     "mock_only_not_product_ready": "experimental",
     "local_ui_state_only_not_evidence": "experimental",
     "blocked_missing_backend": "blocked",

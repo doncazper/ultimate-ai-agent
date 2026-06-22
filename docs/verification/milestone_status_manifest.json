@@ -216,6 +216,18 @@
         "apps/control-center/src/components/FounderLoopPanels.tsx",
         "apps/control-center/src/App.test.tsx"
       ]
+    },
+    {
+      "id": "FCC-V1-007",
+      "status": "implemented",
+      "proof_refs": [
+        "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
+        "scripts/verify_founder_loop_v1.py",
+        "tests/test_founder_loop_v1_proof_lane.py",
+        "docs/control_center/release_surface_manifest.json",
+        "docs/control_center/route_status_manifest.json",
+        "apps/control-center/src/routes.tsx"
+      ]
     }
   ]
 }

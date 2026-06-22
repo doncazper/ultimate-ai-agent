@@ -1235,7 +1235,7 @@ PR size: one docs PR, ideally after Tasks 1-4.
 
 Type: staged full-stack productization with docs/test/manifest gates first
 
-Status: FCC-V1-000 through FCC-V1-006 implemented; FCC-V1-007 planned.
+Status: FCC-V1-000 through FCC-V1-007 implemented for the bounded Founder Loop V1 conveyor.
 FCC-V1-001 is contract/verifier coverage for the API
 perimeter; duplicate replay runtime remains blocked until route-owner receipt
 storage exists outside routes that implement their own receipt-backed replay.
@@ -1294,9 +1294,11 @@ Milestones:
   Evidence remains read-only, safe-ref-only, and does not grant approval,
   rollback execution, action execution, context injection, connector writes,
   public beta, or production authority.
-- `FCC-V1-007` Promotion And Proof Lane: add the focused Founder Loop V1 proof
-  command, pytest lanes, Control Center render coverage, release surface status
-  promotion rules, and raw-content leak checks.
+- `FCC-V1-007` Promotion And Proof Lane: implemented for the focused Founder
+  Loop V1 proof command, pytest lane, Control Center route/render status
+  alignment, release surface status promotion rules, and raw-content leak
+  checks before `/actions`, `/chat`, `/memory`, and `/evidence` use `ship` for
+  exact proofed route-surface behavior only.
 
 Definition of done:
 
@@ -1307,9 +1309,10 @@ Definition of done:
   refs.
 - Memory Review accept/correct/reject decisions are backend-owned,
   receipt-backed, evidence-visible, and do not grant context injection.
-- Every visible route remains `partial`, `blocked`, or `experimental` until
-  its release surface proof lane can promote it to `ship`.
-- The conveyor keeps running until all `FCC-V1-000` through `FCC-V1-007` tasks
+- Unproofed visible routes remain `partial`, `blocked`, or `experimental`;
+  FCC-V1-007 promotes only `/actions`, `/chat`, `/memory`, and `/evidence` to
+  `ship` for exact proofed route-surface behavior.
+- The bounded conveyor is complete after all `FCC-V1-000` through `FCC-V1-007` tasks
   are complete, with smaller follow-up slices added when needed rather than
   skipping manifest, idempotency, receipt, evidence, CLI/core/API inspection,
   or redaction gates.

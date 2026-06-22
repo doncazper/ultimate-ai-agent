@@ -33,6 +33,8 @@ ROUTE_STATUS_PATH = "docs/control_center/route_status_manifest.json"
 PRODUCT_TRUTH_PATH = "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
 MILESTONE_STATUS_PATH = "docs/verification/milestone_status_manifest.json"
 ACTION_UI_PATH = "apps/control-center/src/components/FounderLoopPanels.tsx"
+FOUNDER_LOOP_V1_PROOF_REF = "scripts/verify_founder_loop_v1.py"
+FOUNDER_LOOP_V1_PROOFED_STATUS = "founder_loop_v1_proofed"
 ACTION_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/approve"): (
         "post_control_center_actions_action_id_approve",
@@ -155,19 +157,23 @@ def _append_release_surface_failures(
     if actions is None:
         failures.append("release surface missing /actions route")
         return
-    if actions.get("status") != "partial":
-        failures.append("/actions release status must remain partial")
+    status = actions.get("status")
+    if status not in {"partial", "ship"}:
+        failures.append("/actions release status must remain partial or FCC-V1-007 proofed ship")
+    if status == "ship" and FOUNDER_LOOP_V1_PROOF_REF not in set(actions.get("proof_lanes", [])):
+        failures.append("/actions ship status requires FCC-V1-007 proof lane")
     if actions.get("approval_required") is not True:
         failures.append("/actions must require approval posture for mutating decision routes")
     _append_backend_route_set_failures(failures, actions.get("backend_routes", []), "release surface")
     blocked = set(actions.get("blocked_capabilities", []))
-    for required in {
-        "missing_backend:action-execution-contract",
-        "production_authority",
-        "connector_write",
-    }:
-        if required not in blocked:
-            failures.append(f"/actions release surface missing blocked capability {required}")
+    if status == "partial":
+        for required in {
+            "missing_backend:action-execution-contract",
+            "production_authority",
+            "connector_write",
+        }:
+            if required not in blocked:
+                failures.append(f"/actions release surface missing blocked capability {required}")
 
 
 def _append_route_status_failures(
@@ -195,8 +201,11 @@ def _append_route_status_failures(
         if item is None:
             failures.append(f"missing Action Inbox {label}")
             continue
-        if item.get("release_status") != "partial_backend_not_product_ready":
-            failures.append(f"Action Inbox {label} must remain partial")
+        release_status = item.get("release_status")
+        if release_status not in {"partial_backend_not_product_ready", FOUNDER_LOOP_V1_PROOFED_STATUS}:
+            failures.append(f"Action Inbox {label} must remain partial or FCC-V1-007 proofed")
+        if release_status == FOUNDER_LOOP_V1_PROOFED_STATUS and item.get("missing_backend_routes"):
+            failures.append(f"Action Inbox {label} proofed status cannot list missing backend routes")
         _append_backend_route_set_failures(failures, item.get(key, []), label)
 
 

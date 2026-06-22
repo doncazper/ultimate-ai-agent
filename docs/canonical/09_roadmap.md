@@ -57,16 +57,17 @@ execution, public beta, or production authority; FCC-V1-006 Evidence Timeline
 Productization is complete for backend-owned productized evidence events without
 approval authority, rollback execution, action execution, context injection,
 connector writes, public beta, or production authority; FCC-V1-007 Promotion And
-Proof Lane is the next conveyor milestone.
-The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
+Proof Lane is complete for proofed `/actions`, `/chat`, `/memory`, and
+`/evidence` route surfaces only.
+The completed bounded Founder Loop V1 productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: completed Control Center
 release surface manifest, API perimeter for real mutations, completed Action
 Inbox backend state machine, Today-to-Action vertical slice, Chat durable receipts
 and handoff, Memory Review accept/correct/reject backend decisions, Evidence
-Timeline productization, and promotion/proof lanes. The conveyor keeps running through
-those milestones before broader P2/provider, packaging, public distribution, or
-commercialization expansion displaces the first receipt-bearing Founder loop.
+Timeline productization, and promotion/proof lane. Broader P2/provider,
+packaging, public distribution, and commercialization expansion remain outside
+this route-surface proof lane.
 UAA-P1-066
 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane. The product path now runs through UAA-P1-080

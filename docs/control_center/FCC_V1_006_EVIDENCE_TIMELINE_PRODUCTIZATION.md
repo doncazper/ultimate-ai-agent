@@ -44,4 +44,5 @@ Proof:
 
 Next:
 
-- `FCC-V1-007` Promotion And Proof Lane remains planned next.
+- `FCC-V1-007` Promotion And Proof Lane is implemented in
+  `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`.

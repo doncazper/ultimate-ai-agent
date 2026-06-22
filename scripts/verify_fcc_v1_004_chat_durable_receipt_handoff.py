@@ -32,6 +32,8 @@ MILESTONE_STATUS_PATH = "docs/verification/milestone_status_manifest.json"
 CHAT_TURN_ROUTE = ("POST", "/control-center/chat/turns")
 CHAT_RECEIPT_ROUTE = ("GET", "/control-center/chat/turns/{turn_ref}/receipt")
 CHAT_HANDOFF_ROUTE = ("POST", "/control-center/chat/turns/{turn_ref}/handoff")
+FOUNDER_LOOP_V1_PROOF_REF = "scripts/verify_founder_loop_v1.py"
+FOUNDER_LOOP_V1_PROOFED_STATUS = "founder_loop_v1_proofed"
 ROUTES = {
     CHAT_TURN_ROUTE: {
         "operation_id": "post_control_center_chat_turns",
@@ -171,8 +173,11 @@ def _append_release_surface_failures(
     if chat is None:
         failures.append("release surface missing /chat")
         return
-    if chat.get("status") != "partial":
-        failures.append("/chat release status must remain partial")
+    status = chat.get("status")
+    if status not in {"partial", "ship"}:
+        failures.append("/chat release status must remain partial or FCC-V1-007 proofed ship")
+    if status == "ship" and FOUNDER_LOOP_V1_PROOF_REF not in set(chat.get("proof_lanes", [])):
+        failures.append("/chat ship status requires FCC-V1-007 proof lane")
     for route in ROUTES:
         _append_route_present(failures, chat.get("backend_routes", []), route, "/chat")
     proof_refs = set(chat.get("proof_lanes", []))
@@ -183,16 +188,17 @@ def _append_release_surface_failures(
         if proof_ref not in proof_refs:
             failures.append(f"/chat release surface missing proof ref {proof_ref}")
     blocked = set(chat.get("blocked_capabilities", []))
-    for capability in [
-        "chat_model_output_authority",
-        "chat_handoff_execution",
-        "memory_write",
-        "plan_execution",
-        "action_execution",
-        "production_authority",
-    ]:
-        if capability not in blocked:
-            failures.append(f"/chat release surface missing blocked capability {capability}")
+    if status == "partial":
+        for capability in [
+            "chat_model_output_authority",
+            "chat_handoff_execution",
+            "memory_write",
+            "plan_execution",
+            "action_execution",
+            "production_authority",
+        ]:
+            if capability not in blocked:
+                failures.append(f"/chat release surface missing blocked capability {capability}")
 
 
 def _append_route_status_failures(
@@ -208,8 +214,11 @@ def _append_route_status_failures(
             continue
         for route in ROUTES:
             _append_route_present(failures, item.get(key, []), route, label)
-        if item.get("release_status") != "partial_backend_not_product_ready":
-            failures.append(f"{label} must remain partial")
+        release_status = item.get("release_status")
+        if release_status not in {"partial_backend_not_product_ready", FOUNDER_LOOP_V1_PROOFED_STATUS}:
+            failures.append(f"{label} must remain partial or FCC-V1-007 proofed")
+        if release_status == FOUNDER_LOOP_V1_PROOFED_STATUS and item.get("missing_backend_routes"):
+            failures.append(f"{label} proofed status cannot list missing backend routes")
         lowered = str(item).lower()
         for fragment in ["durable", "handoff", "model output is not authority"]:
             if fragment not in lowered:

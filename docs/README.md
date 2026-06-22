@@ -49,16 +49,20 @@ injection, CRM/account sync, connector writes, action execution, public beta, or
 production authority. FCC-V1-006 Evidence Timeline Productization is complete
 for a backend-owned safe-ref Evidence Timeline index without approval authority,
 rollback execution, action execution, context injection, connector writes, public
-beta, or production authority. The next conveyor milestone is FCC-V1-007
-Promotion And Proof Lane. The
+beta, or production authority. FCC-V1-007 Promotion And Proof Lane is complete
+for `founder_loop_v1_proofed` promotion of `/actions`, `/chat`, `/memory`, and
+`/evidence` route surfaces only, with `/today` partial and `/inbox`, `/settings`,
+and `/models` still blocked or partial; it adds no action execution, context
+injection, connector writes, public beta, public release, or production
+authority. The
 sequence is tracked in
 `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`.
 The planned Founder Loop V1 productization conveyor is tracked in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` with detailed goals for
 `FCC-V1-000` through `FCC-V1-007`: completed release surface manifest, API
-perimeter, Action Inbox backend decisions, and Today-to-Action vertical loop,
-then Chat durable receipts and handoff, Memory Review accept/correct/reject decisions, Evidence
-Timeline productization, and promotion/proof lanes.
+perimeter, Action Inbox backend decisions, Today-to-Action vertical loop,
+Chat durable receipts and handoff, Memory Review accept/correct/reject
+decisions, Evidence Timeline productization, and promotion/proof lane.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,

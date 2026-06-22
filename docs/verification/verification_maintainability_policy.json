@@ -11,7 +11,8 @@
     "verifier_modules": {
       "max_lines": 700,
       "paths": [
-        "scripts/verify_cua_contract_lane.py"
+        "scripts/verify_cua_contract_lane.py",
+        "scripts/verify_founder_loop_v1.py"
       ],
       "globs": [
         "scripts/verify_uaa_p1_0*.py",

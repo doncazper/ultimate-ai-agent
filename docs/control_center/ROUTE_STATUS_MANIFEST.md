@@ -50,13 +50,15 @@ runtime authority.
 | `status_available_not_completion` | The visible action can display local status or route inventory, but it is not completion evidence. |
 | `preview_available_not_execution` | The visible action can request a policy preview, but it cannot execute, grant, dispatch, or enable anything. |
 | `partial_backend_not_product_ready` | Some backend routes exist, but the product loop or UI binding is incomplete. |
+| `founder_loop_v1_proofed` | The exact Founder Loop V1 route behavior is backend-owned, receipt-backed, evidence-visible, and proofed; this is not public release or production readiness. |
 | `mock_only_not_product_ready` | The visible surface is backed by mock or planning data only. |
 | `local_ui_state_only_not_evidence` | The visible action changes local UI state only and does not create release evidence. |
 | `blocked_missing_backend` | Required backend route(s), authority binding, or evidence output are missing. |
 
 These manifest values map to the canonical operator-readiness statuses in
 `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md`: `status_only`,
-`preview_only`, `partial`, `mock_only`, `local_ui_state_only`, and `blocked`.
+`preview_only`, `partial`, `shipped`, `mock_only`, `local_ui_state_only`, and
+`blocked`.
 
 No status in this manifest means public release readiness, broad autonomy,
 production runtime authority, model/provider authority, shell authority,

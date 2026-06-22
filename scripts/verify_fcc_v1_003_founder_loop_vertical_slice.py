@@ -39,6 +39,8 @@ MILESTONE_STATUS_PATH = "docs/verification/milestone_status_manifest.json"
 CLI_PATH = "scripts/dev/uaa_founder_loop.py"
 TODAY_ITEM_REF = "briefing:storage-state-first-loop"
 TODAY_ROUTE = ("POST", "/control-center/today/action-envelope")
+FOUNDER_LOOP_V1_PROOF_REF = "scripts/verify_founder_loop_v1.py"
+FOUNDER_LOOP_V1_PROOFED_STATUS = "founder_loop_v1_proofed"
 FORBIDDEN_CLAIMS = [
     "action execution enabled",
     "approved actions execute",
@@ -129,8 +131,14 @@ def _append_release_surface_failures(
         if item is None:
             failures.append(f"release surface missing {label}")
             continue
-        if item.get("status") != "partial":
-            failures.append(f"{label} release status must remain partial")
+        if label == "/today" and item.get("status") != "partial":
+            failures.append("/today release status must remain partial")
+        if label == "/actions":
+            status = item.get("status")
+            if status not in {"partial", "ship"}:
+                failures.append("/actions release status must remain partial or FCC-V1-007 proofed ship")
+            if status == "ship" and FOUNDER_LOOP_V1_PROOF_REF not in set(item.get("proof_lanes", [])):
+                failures.append("/actions ship status requires FCC-V1-007 proof lane")
         _append_route_present(failures, item.get("backend_routes", []), TODAY_ROUTE, label)
     if today and "missing_backend:today-action-mutation-contract" in set(
         today.get("blocked_capabilities", [])
@@ -155,7 +163,13 @@ def _append_route_status_failures(
             failures.append(f"route status missing {label}")
             continue
         _append_route_present(failures, item.get(key, []), TODAY_ROUTE, label)
-        if item.get("release_status") != "partial_backend_not_product_ready":
+        release_status = item.get("release_status")
+        if label == "Action Inbox surface":
+            if release_status not in {"partial_backend_not_product_ready", FOUNDER_LOOP_V1_PROOFED_STATUS}:
+                failures.append(f"{label} must remain partial or FCC-V1-007 proofed")
+            if release_status == FOUNDER_LOOP_V1_PROOFED_STATUS and item.get("missing_backend_routes"):
+                failures.append(f"{label} proofed status cannot list missing backend routes")
+        elif release_status != "partial_backend_not_product_ready":
             failures.append(f"{label} must remain partial")
 
 

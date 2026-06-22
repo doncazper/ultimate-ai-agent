@@ -351,6 +351,7 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
         "status_available_not_completion": "status_only",
         "preview_available_not_execution": "preview_only",
         "partial_backend_not_product_ready": "partial",
+        "founder_loop_v1_proofed": "shipped",
         "mock_only_not_product_ready": "mock_only",
         "local_ui_state_only_not_evidence": "local_ui_state_only",
         "blocked_missing_backend": "blocked",
@@ -436,10 +437,8 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready() ->
         assert surface in surfaces
 
     assert surfaces["Settings"]["release_status"] == "blocked_missing_backend"
-    assert (
-        surfaces["Chat Local Operator"]["release_status"]
-        == "partial_backend_not_product_ready"
-    )
+    assert surfaces["Chat Local Operator"]["release_status"] == "founder_loop_v1_proofed"
+    assert surfaces["Evidence"]["release_status"] == "founder_loop_v1_proofed"
     assert surfaces["Runtime"]["release_status"] == "status_available_not_completion"
 
     for action in actions.values():

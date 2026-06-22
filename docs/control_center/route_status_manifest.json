@@ -10,6 +10,7 @@
     "status_available_not_completion",
     "preview_available_not_execution",
     "partial_backend_not_product_ready",
+    "founder_loop_v1_proofed",
     "mock_only_not_product_ready",
     "local_ui_state_only_not_evidence",
     "blocked_missing_backend"
@@ -20,7 +21,8 @@
     "partial_backend_not_product_ready": "partial",
     "mock_only_not_product_ready": "mock_only",
     "local_ui_state_only_not_evidence": "local_ui_state_only",
-    "blocked_missing_backend": "blocked"
+    "blocked_missing_backend": "blocked",
+    "founder_loop_v1_proofed": "shipped"
   },
   "surfaces": [
     {
@@ -85,9 +87,9 @@
       "auth_posture": "protected_local_decision_state",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
-      "release_status": "partial_backend_not_product_ready",
+      "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "Read-only inbox and receipt inspection need no approval; approve validates exact LocalApprovalAuthority scope, while edit/reject/defer require idempotency, audit, and receipt refs. Approval refs remain identifiers until exact scope is validated.",
-      "evidence_audit_output": "Storage-backed action proposal refs, Today-to-Action envelope receipt refs, UAA-P1-073 Action envelope contract refs, exact scope refs, side-effect/risk/approval posture, backend decision receipts, replay/conflict posture, blocked execution states, and evidence refs only.",
+      "evidence_audit_output": "Backend-owned Action Inbox decision receipts are proofed for accept/edit/reject/defer review state, exact approval-scope validation where required, idempotency replay/conflict behavior, durable receipt refs, and Evidence Timeline visibility. The proofed route surface does not execute actions, write connectors, grant broad runtime authority, or make public beta/production claims.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -139,10 +141,7 @@
           "route_classification": "mutating_requires_authority"
         }
       ],
-      "missing_backend_routes": [
-        "today-action-envelope-creation-contract",
-        "action-execution-contract"
-      ]
+      "missing_backend_routes": []
     },
     {
       "surface": "Morning Briefing",
@@ -174,9 +173,9 @@
       "auth_posture": "local_storage_backed_receipt_decisions",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
-      "release_status": "partial_backend_not_product_ready",
+      "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "None for read-only queue inspection; accept, correct, and reject use backend-owned idempotency-required receipt routes. Memory writes, deletes, exports, CRM sync/account sync, connector writes, context injection, truth authority, approval capture, and action execution remain blocked until later exact scoped contracts.",
-      "evidence_audit_output": "Storage-backed memory candidate refs, provenance/source/evidence refs, review state, decision receipt refs, audit refs, idempotency refs, replay/conflict posture, corrected_summary_ref-only correction refs, preserved rejected candidates, blocked states, and next safe action labels.",
+      "evidence_audit_output": "Backend-owned Memory Review accept/correct/reject decision receipts are proofed with idempotency replay/conflict behavior, corrected_summary_ref-only corrections, preserved rejected candidates, and Evidence Timeline visibility. The proofed route surface does not write memory, inject context, treat recall as truth, sync CRM/accounts, write connectors, execute actions, or grant public/production authority.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -207,15 +206,7 @@
           "route_classification": "mutating_requires_authority"
         }
       ],
-      "missing_backend_routes": [
-        "memory-write-policy-binding",
-        "memory-retention-delete-contract",
-        "memory-export-execution-contract",
-        "external-crm-write-sync-contract",
-        "context-injection-contract",
-        "context-retrieval-injection-contract",
-        "connector-write-contract"
-      ]
+      "missing_backend_routes": []
     },
     {
       "surface": "Setup Assistant",
@@ -246,9 +237,9 @@
       "auth_posture": "local_gateway_bearer_required_disabled_by_default",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "high",
-      "release_status": "partial_backend_not_product_ready",
+      "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization only; Chat turn and handoff routes require idempotency and durable receipts, while model output remains non-authoritative and no execution permission is granted.",
-      "evidence_audit_output": "UAA-P1-074 safe turn refs, model/runtime/auth/tool-denial truth refs, FCC-V1-004 durable Chat receipt refs, reviewable Actions/Plans handoff refs, M167 evidence refs, local model smoke refs, safe failure refs, and latency refs; no raw chat content. Model output is not authority.",
+      "evidence_audit_output": "Backend-owned Chat turn receipts and reviewable Actions/Plans handoff receipts are proofed with model/runtime/auth/tool-denial truth refs and Evidence Timeline visibility. Model output is not authority. The proofed route surface does not treat model output as authority, execute handoffs, write memory, execute plans/actions, or grant provider/public/production authority.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -293,9 +284,7 @@
           "route_classification": "mutating_requires_authority"
         }
       ],
-      "missing_backend_routes": [
-        "tools-functions-streaming-denial-summary"
-      ]
+      "missing_backend_routes": []
     },
     {
       "surface": "Plans",
@@ -537,9 +526,9 @@
       "auth_posture": "local_read_only_safe_refs",
       "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
       "risk_class": "medium",
-      "release_status": "partial_backend_not_product_ready",
+      "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "No approval for read-only evidence inspection; the productized Evidence Timeline index is backend-owned safe refs only, and mutating evidence generation follows owner routes.",
-      "evidence_audit_output": "Productized safe evidence events grouped by Today item, Action, Chat turn, and Memory candidate: action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded. Shows receipt refs, approval refs as identifiers, idempotency refs, blocked states, and rollback posture without approval authority, rollback execution, action execution, context injection, connector writes, or production authority.",
+      "evidence_audit_output": "Backend-owned Evidence Timeline route surface is proofed for safe-ref-only events from action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded grouped by Today item, Action, Chat turn, and Memory candidate. The proofed route surface shows receipt refs, approval identifiers, idempotency refs, blocked states, and rollback posture, and remains read-only without approval authority, rollback execution, action execution, context injection, connector writes, or production authority.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -584,11 +573,7 @@
           "route_classification": "local_readonly"
         }
       ],
-      "missing_backend_routes": [
-        "release-evidence-index",
-        "run-receipt-trace",
-        "rollback-status"
-      ]
+      "missing_backend_routes": []
     },
     {
       "surface": "Settings",
@@ -668,9 +653,9 @@
       "auth_posture": "protected_local_decision_state",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
-      "release_status": "partial_backend_not_product_ready",
+      "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "None for read-only action inbox or receipt inspection. Approve validates exact LocalApprovalAuthority scope; edit, reject, and defer require idempotency, audit, and receipt refs. Approval refs remain identifiers until exact scope is validated.",
-      "evidence_audit_output": "Storage-backed action proposal refs, Today-to-Action envelope receipt refs, UAA-P1-073 Action envelope contract refs, exact scope refs, backend decision receipts, replay/conflict posture, receipt/audit/idempotency/rollback posture, blocked execution states, and evidence refs.",
+      "evidence_audit_output": "Proofed Action Inbox route surface with backend-owned decision receipts, exact approval-scope validation where required, idempotency replay/conflict posture, durable receipt refs, and Evidence Timeline visibility; no action execution, connector writes, broad runtime authority, public beta, or production authority.",
       "backend_routes": [
         {
           "method": "GET",
@@ -722,10 +707,7 @@
           "route_classification": "mutating_requires_authority"
         }
       ],
-      "missing_backend_routes": [
-        "today-action-envelope-creation-contract",
-        "action-execution-contract"
-      ]
+      "missing_backend_routes": []
     },
     {
       "action_id": "navigate-morning-briefing",
@@ -929,9 +911,9 @@
       "auth_posture": "local_gateway_bearer_required_disabled_by_default",
       "side_effect_class": "local_ui_state_only",
       "risk_class": "high",
-      "release_status": "partial_backend_not_product_ready",
+      "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "Reviewed local model prerequisites and explicit local gateway authorization are required before any chat loop can be product-ready. Chat receipt and handoff routes require idempotency. Model output is not authority.",
-      "evidence_audit_output": "UAA-P1-074 safe turn refs, model/runtime/auth/tool-denial truth refs, FCC-V1-004 durable receipt refs, reviewable Actions/Plans handoff refs, and blocked authority refs.",
+      "evidence_audit_output": "Proofed Chat route surface with durable turn receipts, Actions/Plans handoff receipts, model/runtime/auth/tool-denial truth refs, and Evidence Timeline visibility; model output is not authority, and no handoff execution, memory write, plan/action execution, provider authority, public beta, or production authority is granted.",
       "backend_routes": [
         {
           "method": "POST",
@@ -969,9 +951,7 @@
           "route_classification": "mutating_requires_authority"
         }
       ],
-      "missing_backend_routes": [
-        "tools-functions-streaming-denial-summary"
-      ]
+      "missing_backend_routes": []
     },
     {
       "action_id": "navigate-plans",
@@ -1259,9 +1239,9 @@
       "auth_posture": "mock_plus_partial_backend",
       "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
       "risk_class": "medium",
-      "release_status": "partial_backend_not_product_ready",
+      "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "None for read-only evidence inspection; Evidence Timeline events are safe refs only and do not approve, execute, roll back, inject context, or grant production authority.",
-      "evidence_audit_output": "Backend-owned Evidence Timeline index with action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded events grouped by Today item, Action, Chat turn, and Memory candidate. Shows receipt refs, approval identifiers, idempotency refs, blocked states, and rollback posture.",
+      "evidence_audit_output": "Proofed Evidence Timeline route surface with safe-ref-only action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded history plus receipt refs, approval identifiers, idempotency refs, blocked states, and rollback posture; no approval authority, rollback execution, action execution, context injection, connector write, public beta, or production authority.",
       "backend_routes": [
         {
           "method": "GET",
@@ -1292,9 +1272,7 @@
           "route_classification": "local_readonly"
         }
       ],
-      "missing_backend_routes": [
-        "founder-loop-v1-proof-lane-promotion"
-      ]
+      "missing_backend_routes": []
     },
     {
       "action_id": "navigate-files",
@@ -1382,9 +1360,9 @@
       "auth_posture": "local_storage_backed_receipt_decisions",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
-      "release_status": "partial_backend_not_product_ready",
+      "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "None for read-only navigation; accept, correct, and reject controls record idempotency-required backend decision receipts only. Memory writes, CRM sync/account sync, connector writes, context injection, truth authority, and action execution remain blocked.",
-      "evidence_audit_output": "Memory Review shows safe candidate refs, backend decision receipt refs, audit/evidence refs, replay/conflict posture, and blocked-authority state.",
+      "evidence_audit_output": "Proofed Memory Review route surface with backend-owned accept/correct/reject receipts, idempotency replay/conflict posture, corrected_summary_ref-only corrections, preserved rejected candidates, and Evidence Timeline visibility; no memory write, context injection, truth authority, CRM/account sync, connector write, action execution, public beta, or production authority.",
       "backend_routes": [
         {
           "method": "GET",
@@ -1415,14 +1393,7 @@
           "route_classification": "mutating_requires_authority"
         }
       ],
-      "missing_backend_routes": [
-        "memory-write-policy-binding",
-        "memory-retention-delete-contract",
-        "memory-export-execution-contract",
-        "external-crm-write-sync-contract",
-        "context-injection-contract",
-        "connector-write-contract"
-      ]
+      "missing_backend_routes": []
     },
     {
       "action_id": "navigate-local-runtime",

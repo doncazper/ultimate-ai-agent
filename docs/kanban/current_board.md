@@ -103,7 +103,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-006 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-007 Promotion And Proof Lane.
+No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-007 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists and accepted or revised findings can be recorded later.
 ```
 
 ## Ready Next
@@ -331,9 +331,7 @@ handoffs, and memory review decisions grouped by Today item, Action, Chat turn,
 and Memory candidate using safe refs and redacted summaries only.
 
 FCC-V1-007 Promotion And Proof Lane
-Goal: add the focused Founder Loop V1 proof command, pytest lanes, frontend
-route/render coverage, release surface status promotion rules, and raw-content
-leak checks before any route moves to `ship`.
+Goal: complete. Adds the focused Founder Loop V1 proof command, pytest lane, frontend route/render status alignment, release surface status promotion rules, and raw-content leak checks before `/actions`, `/chat`, `/memory`, and `/evidence` use `ship` for exact proofed route-surface behavior only.
 ```
 
 ## QA / Verification

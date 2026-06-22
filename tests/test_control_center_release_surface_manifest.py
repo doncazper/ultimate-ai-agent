@@ -57,6 +57,10 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/today"]["status"] == "partial"
     assert by_path["/inbox"]["status"] == "blocked"
     assert by_path["/private-trial"]["status"] == "experimental"
+    assert by_path["/actions"]["status"] == "ship"
+    assert by_path["/chat"]["status"] == "ship"
+    assert by_path["/memory"]["status"] == "ship"
+    assert by_path["/evidence"]["status"] == "ship"
     assert by_path["/actions"]["approval_required"] is True
     assert any(
         backend["path"] == "/control-center/actions/{action_id}/reject"

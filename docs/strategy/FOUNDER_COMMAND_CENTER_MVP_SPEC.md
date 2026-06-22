@@ -71,9 +71,10 @@ injection, CRM/account sync, connector writes, action execution, public beta, or
 production authority. FCC-V1-006 Evidence Timeline Productization is complete
 for backend-owned productized evidence events without approval authority,
 rollback execution, action execution, context injection, connector writes, public
-beta, or production authority. FCC-V1-007 Promotion And Proof Lane is the next
-implementation lane before
-P2/provider, packaging, public distribution, or commercialization expansion.
+beta, or production authority. FCC-V1-007 Promotion And Proof Lane is complete
+for exact proofed route-surface promotion of `/actions`, `/chat`, `/memory`,
+and `/evidence` only, without action execution, context injection, connector
+writes, public beta, public release, or production authority.
 
 Founder Loop V1 productization is now tracked as `FCC-V1-000` through
 `FCC-V1-007` in
@@ -92,12 +93,13 @@ proof lanes, and authority boundaries for:
   `MemoryReviewDecision` fields, append-first storage, preserved rejected
   decisions, safe corrected-summary refs, and receipt/evidence binding.
 - Evidence Timeline productization.
-- Promotion and proof lanes that keep route status at `partial`, `blocked`, or
-  `experimental` until proof exists.
+- Promotion and proof lanes that keep unproofed route status at `partial`,
+  `blocked`, or `experimental`; only `/actions`, `/chat`, `/memory`, and
+  `/evidence` are promoted for exact proofed route-surface behavior.
 
-This conveyor should continue until all `FCC-V1` tasks are complete, adding
-scoped follow-up slices if needed rather than skipping receipt, evidence,
-manifest, idempotency, CLI/core/API inspection, or redaction gates.
+This bounded conveyor is complete through `FCC-V1-007`; future follow-up slices
+should still avoid skipping receipt, evidence, manifest, idempotency,
+CLI/core/API inspection, or redaction gates.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility

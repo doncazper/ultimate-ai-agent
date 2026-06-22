@@ -90,6 +90,7 @@ SCAN_SEQUENCE = [
     ("FCC-V1-004 Chat durable receipt and handoff scan", "verify_fcc_v1_004_chat_durable_receipt_handoff"),
     ("FCC-V1-005 Memory Review decision receipts scan", "verify_fcc_v1_005_memory_review_decisions"),
     ("FCC-V1-006 Evidence Timeline productization scan", "verify_fcc_v1_006_evidence_timeline_productization"),
+    ("FCC-V1-007 Founder Loop V1 promotion proof scan", "verify_founder_loop_v1"),
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("verifier maintainability scan", "verify_verifier_maintainability"),
     ("UAA-P1-071 memory review decision capture scan", "verify_uaa_p1_071_memory_review_decision_capture"),
@@ -1038,17 +1039,16 @@ def verify_fcc_v1_004_chat_durable_receipt_handoff() -> None:
     run_cmd([sys.executable, "scripts/verify_fcc_v1_004_chat_durable_receipt_handoff.py"])
 def verify_fcc_v1_005_memory_review_decisions() -> None: run_cmd([sys.executable, "scripts/verify_fcc_v1_005_memory_review_decisions.py"])
 def verify_fcc_v1_006_evidence_timeline_productization() -> None: run_cmd([sys.executable, "scripts/verify_fcc_v1_006_evidence_timeline_productization.py"])
+def verify_founder_loop_v1() -> None: run_cmd([sys.executable, "scripts/verify_founder_loop_v1.py"])
 def verify_documentation_integrity() -> None:
     print("\n[Verifier] Running documentation integrity scan...")
     run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"])
 def verify_verifier_maintainability() -> None:
     print("\n[Verifier] Running verifier maintainability scan...")
     run_cmd([sys.executable, "scripts/verify_verifier_maintainability.py"])
-
 def verify_uaa_p1_071_memory_review_decision_capture() -> None:
     print("\n[Verifier] Running UAA-P1-071 memory review decision capture scan...")
     run_cmd([sys.executable, "scripts/verify_uaa_p1_071_memory_review_decision_capture.py"])
-
 def verify_uaa_p1_072_business_memory_quality_controls() -> None:
     print("\n[Verifier] Running UAA-P1-072 business memory quality controls scan...")
     run_cmd([sys.executable, "scripts/verify_uaa_p1_072_business_memory_quality_controls.py"])

@@ -380,7 +380,8 @@ def main() -> int:
             "business_memory_quality_states",
             "business_memory_surface_bindings",
             "business_memory_authority_posture",
-            "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata",
+            "implemented_review_queue_safe_ref_quality_metadata_contract",
+            "storage_backed_review_queue_with_backend_decision_receipts",
         ],
         failures,
     )
