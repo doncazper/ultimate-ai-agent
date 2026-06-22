@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
+    FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
     _historical_openapi_path_set,
     _post_m151_route_boundary_path_set,
@@ -67,6 +68,10 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/chat/turns",
         "/control-center/chat/turns/{turn_ref}/handoff",
         "/control-center/chat/turns/{turn_ref}/receipt",
+        "/control-center/memory/review",
+        "/control-center/memory/review/{candidate_ref}/accept",
+        "/control-center/memory/review/{candidate_ref}/correct",
+        "/control-center/memory/review/{candidate_ref}/reject",
         "/control-center/today/action-envelope",
         "/control-center/morning-briefing/summary",
         "/control-center/storage/status",
@@ -84,6 +89,11 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES == {
         "/control-center/chat/turns",
         "/control-center/chat/turns/{turn_ref}/handoff",
+    }
+    assert FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES == {
+        "/control-center/memory/review/{candidate_ref}/accept",
+        "/control-center/memory/review/{candidate_ref}/correct",
+        "/control-center/memory/review/{candidate_ref}/reject",
     }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
         "control_center_setup_assistant",

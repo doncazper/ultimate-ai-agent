@@ -57,11 +57,12 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 121
+    assert manifest.route_count == 125
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",
         "/control-center/actions/{action_id}/receipt",
+        "/control-center/memory/review",
         "/control-center/morning-briefing/summary",
         "/control-center/storage/status",
     ]:
@@ -85,11 +86,28 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         assert routes[path].idempotency_required is True
         assert routes[path].rate_limit_group == "action_decision"
 
+    for path in [
+        "/control-center/memory/review/{candidate_ref}/accept",
+        "/control-center/memory/review/{candidate_ref}/correct",
+        "/control-center/memory/review/{candidate_ref}/reject",
+    ]:
+        assert path in routes
+        assert routes[path].method == "POST"
+        assert routes[path].side_effect_class == "local_dev_workspace_only"
+        assert routes[path].route_classification == "mutating_requires_authority"
+        assert routes[path].approval_posture == "required_before_mutation_authority"
+        assert routes[path].idempotency_required is True
+        assert routes[path].rate_limit_group == "memory_review_decision"
+
     assert (
         "control_center_founder_loop_storage_summaries"
         in manifest.capabilities_declared
     )
     assert (
         "control_center_action_decision_state_machine"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_review_decision_receipts"
         in manifest.capabilities_declared
     )

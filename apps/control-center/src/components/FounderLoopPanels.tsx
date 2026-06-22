@@ -1,5 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { submitActionDecision, submitTodayActionEnvelope } from "../api/client";
+import {
+  recordMemoryReviewDecision,
+  submitActionDecision,
+  submitTodayActionEnvelope,
+} from "../api/client";
 import type {
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
@@ -13,6 +17,8 @@ import type {
   FounderLoopPlanSummary,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
+  MemoryReviewDecisionKind,
+  MemoryReviewDecisionReceipt,
 } from "../api/types";
 
 const evidenceHistoryKeys = [
@@ -914,9 +920,9 @@ export function MemoryReviewSurfacePanel({
             <span>explicit blockers</span>
           </div>
           <p>
-            Memory review is inspection-only. Accept, correct, reject, retain,
-            delete, write, and context-injection decisions require later scoped
-            contracts.
+            Memory review can record safe accept, correction, and reject
+            receipts. Retain, delete, write, connector sync, action execution,
+            and context injection remain blocked.
           </p>
           <RefList refs={today.memory_review_missing_contract_refs ?? []} />
         </article>
@@ -997,6 +1003,36 @@ export function MemoryReviewSurfacePanel({
             items={today.memory_review_decision_states.map(
               (state) => state.decision_state,
             )}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Decision receipts</h3>
+            <span>{today.memory_review_decision_receipt_refs?.length ?? 0}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Receipt status"
+              value={
+                today.memory_review_decision_status ??
+                "backend_receipts_not_loaded"
+              }
+            />
+            <DetailTerm
+              label="FCC contract"
+              value={
+                today.fcc_memory_review_decision_contract_ref ??
+                "contract-ref:fcc-v1-005-memory-review-decisions:v1"
+              }
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Decision receipt refs: none recorded"
+            refs={today.memory_review_decision_receipt_refs ?? []}
+          />
+          <RefListWithFallback
+            emptyLabel="Decision routes: missing"
+            refs={today.fcc_memory_review_decision_route_refs ?? []}
           />
         </article>
         <article className="status-card">
@@ -1901,6 +1937,31 @@ function BriefingCard({
   );
 }
 
+const memoryDecisionLabels: Record<MemoryReviewDecisionKind, string> = {
+  accept: "Record accept receipt",
+  correct: "Record correction receipt",
+  reject: "Record reject receipt",
+};
+
+const memoryReviewDecisionBlockedRefs = [
+  "blocked-state:no-memory-write",
+  "blocked-state:no-memory-delete",
+  "blocked-state:no-memory-export",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-connector-write",
+  "blocked-state:no-external-crm-sync",
+  "blocked-state:no-automatic-action-execution",
+  "blocked-state:no-model-provider-authority",
+  "blocked-state:no-public-beta-or-production-authority",
+];
+
+type MemoryDecisionControlState = {
+  status: "idle" | "pending" | "recorded" | "replayed" | "failed";
+  decision?: MemoryReviewDecisionKind;
+  receipt?: MemoryReviewDecisionReceipt;
+  message?: string;
+};
+
 function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
   const candidateKind = item.candidate_kind ?? "memory_candidate";
   const priority = item.priority ?? "medium";
@@ -2083,6 +2144,7 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
         emptyLabel="Decision blocked refs: memory mutation remains unscoped"
         refs={item.decision_blocked_state_refs ?? []}
       />
+      <MemoryReviewDecisionControls item={item} />
       <InlineListWithFallback
         emptyLabel="Decision labels only: accept, correct, reject, defer, merge, supersede, forget request"
         items={item.available_decision_states ?? []}
@@ -2093,6 +2155,120 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
       />
       <RefList refs={item.evidence_refs ?? []} />
     </article>
+  );
+}
+
+function MemoryReviewDecisionControls({
+  item,
+}: {
+  item: FounderLoopMemoryReviewItem;
+}) {
+  const [state, setState] = useState<MemoryDecisionControlState>({
+    status: "idle",
+  });
+  const pending = state.status === "pending";
+  const candidateRef = item.business_memory_candidate_ref || item.review_ref;
+
+  async function recordDecision(decision: MemoryReviewDecisionKind) {
+    setState({ status: "pending", decision });
+    try {
+      const safeCandidateSuffix = safeRefSuffix(candidateRef);
+      const receipt = await recordMemoryReviewDecision(candidateRef, decision, {
+        reviewer_ref: "actor-ref:control-center-memory-review",
+        corrected_summary_ref:
+          decision === "correct"
+            ? `safe-summary-ref:control-center-memory-correction:${safeCandidateSuffix}`
+            : undefined,
+        source_refs: item.source_refs ?? [],
+        evidence_refs: item.evidence_refs ?? [],
+        metadata_refs: [
+          `metadata-ref:control-center-memory-review:${decision}`,
+          item.review_ref,
+        ],
+        blocked_state_refs: memoryReviewDecisionBlockedRefs,
+      });
+      const status = receipt.replayed ? "replayed" : "recorded";
+      setState({
+        status,
+        decision,
+        receipt,
+        message: `${status}: ${receipt.safe_summary_ref}`,
+      });
+    } catch (error) {
+      setState({
+        status: "failed",
+        decision,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Memory Review decision receipt was not recorded safely.",
+      });
+    }
+  }
+
+  return (
+    <div className="decision-controls" aria-label={`${item.title} memory decisions`}>
+      <div className="decision-button-row">
+        {(["accept", "correct", "reject"] as MemoryReviewDecisionKind[]).map(
+          (decision) => (
+            <button
+              className="secondary-button"
+              disabled={pending}
+              key={decision}
+              onClick={() => void recordDecision(decision)}
+              type="button"
+            >
+              {pending && state.decision === decision
+                ? "Recording"
+                : memoryDecisionLabels[decision]}
+            </button>
+          ),
+        )}
+      </div>
+      {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.receipt ? (
+        <dl className="detail-list">
+          <DetailTerm label="Decision state" value={state.status} />
+          <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+          <DetailTerm label="Audit" value={state.receipt.audit_ref} />
+          <DetailTerm
+            label="Evidence event"
+            value={state.receipt.evidence_timeline_event_ref}
+          />
+          <DetailTerm
+            label="Context injection"
+            value={
+              state.receipt.context_injection_authorized
+                ? "enabled"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Connector write"
+            value={
+              state.receipt.connector_write_authorized ? "enabled" : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Action execution"
+            value={
+              state.receipt.automatic_action_execution_authorized
+                ? "enabled"
+                : "blocked"
+            }
+          />
+        </dl>
+      ) : null}
+    </div>
+  );
+}
+
+function safeRefSuffix(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9_.:-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "missing"
   );
 }
 

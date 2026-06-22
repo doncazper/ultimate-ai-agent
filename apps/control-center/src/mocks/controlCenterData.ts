@@ -1531,8 +1531,8 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
     api_summary: {
-      route_count: 121,
-      control_center_route_count: 19,
+      route_count: 125,
+      control_center_route_count: 23,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -3264,6 +3264,17 @@ export const mockControlCenterData: ControlCenterData = {
       public_distribution_claim_enabled: false,
       production_authority_enabled: false,
     },
+    fcc_memory_review_decision_contract_ref:
+      "contract-ref:fcc-v1-005-memory-review-decisions:v1",
+    fcc_memory_review_decision_route_refs: [
+      "GET /control-center/memory/review",
+      "POST /control-center/memory/review/{candidate_ref}/accept",
+      "POST /control-center/memory/review/{candidate_ref}/correct",
+      "POST /control-center/memory/review/{candidate_ref}/reject",
+    ],
+    memory_review_decision_receipt_refs: [],
+    memory_review_decision_status:
+      "backend_decision_receipts_available_no_memory_write_or_context_injection",
     business_memory_quality_contract_ref:
       "contract-ref:business-memory-quality-controls:v1",
     business_memory_candidate_kinds: [
@@ -3895,9 +3906,9 @@ export const mockControlCenterData: ControlCenterData = {
       },
     ],
     memory_review_route_ref: "/memory",
-    memory_review_backend_route_ref: "GET /control-center/today/summary",
+    memory_review_backend_route_ref: "GET /control-center/memory/review",
     memory_review_status:
-      "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata",
+      "storage_backed_review_queue_with_backend_decision_receipts",
     memory_review_authority_boundary:
       "Review-only memory candidates; recall is not truth, and writes, deletes, context injection, connector writes, model/provider calls, and background sync are unscoped.",
     memory_write_enabled: false,

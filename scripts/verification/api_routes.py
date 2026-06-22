@@ -7,24 +7,24 @@ from typing import Any
 from .repo import load_json
 
 
-ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_121.json"
+ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_125.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 121
+EXPECTED_ROUTE_COUNT = 125
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 118,
+    "protected_local_bearer_required": 122,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 101,
-    "required_before_mutation_authority": 20,
+    "not_required_for_route_classification": 102,
+    "required_before_mutation_authority": 23,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 101,
-    "required_before_mutation_authority": 20,
+    "not_required_for_route_classification": 102,
+    "required_before_mutation_authority": 23,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
-    "not_targeted_for_route": 80,
-    "targeted_local_fixed_window": 41,
+    "not_targeted_for_route": 81,
+    "targeted_local_fixed_window": 44,
 }
 EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/approve"),
@@ -33,6 +33,9 @@ EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/reject"),
     ("POST", "/control-center/chat/turns"),
     ("POST", "/control-center/chat/turns/{turn_ref}/handoff"),
+    ("POST", "/control-center/memory/review/{candidate_ref}/accept"),
+    ("POST", "/control-center/memory/review/{candidate_ref}/correct"),
+    ("POST", "/control-center/memory/review/{candidate_ref}/reject"),
     ("POST", "/control-center/today/action-envelope"),
     ("POST", "/files/review/approvals/capture"),
     ("POST", "/integrations/mattermost/events/message"),
@@ -53,6 +56,7 @@ EXPECTED_RATE_LIMIT_GROUPS = {
     "action_preview_proposal",
     "chat_durable_receipt",
     "local_model_validation",
+    "memory_review_decision",
     "model_chat",
     "task_decomposition",
     "today_to_action_envelope",

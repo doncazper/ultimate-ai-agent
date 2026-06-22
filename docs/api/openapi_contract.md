@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `121`.
+Current OpenAPI path count: `125`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -48,13 +48,18 @@ Contract rules:
   `POST /control-center/chat/turns`,
   `GET /control-center/chat/turns/{turn_ref}/receipt`,
   `POST /control-center/chat/turns/{turn_ref}/handoff`,
+  `GET /control-center/memory/review`,
+  `POST /control-center/memory/review/{candidate_ref}/accept`,
+  `POST /control-center/memory/review/{candidate_ref}/correct`,
+  `POST /control-center/memory/review/{candidate_ref}/reject`,
   `GET /control-center/morning-briefing/summary`, and
   `GET /control-center/storage/status` expose storage-backed Founder Loop
   summaries plus Action Inbox and Chat receipts using SQLite and JSONL refs
-  only. Today to Action envelope, Action decision, and Chat handoff routes record
-  backend-owned review state and receipt refs; they do not grant action
-  execution, connector writes, model/provider calls, memory writes,
-  shell/subprocess work, or notification delivery.
+  only. Today to Action envelope, Action decision, Chat handoff, and Memory
+  Review decision routes record backend-owned review state and receipt refs; they
+  do not grant action execution, connector writes, CRM/account sync,
+  model/provider calls, memory writes, context injection, shell/subprocess work,
+  or notification delivery.
 
 API boundary hardening:
 
@@ -90,8 +95,9 @@ API boundary hardening:
   execution, mutation authority, or production authority.
 - UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
   decomposition, action preview/proposal, Action Inbox decisions,
-  Today-to-Action envelope promotion, Chat durable receipts/handoffs, and
-  expensive validation or local-model paths. It does not add auth, distributed
+  Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
+  Review decision receipts, and expensive validation or local-model paths. It
+  does not add auth, distributed
   quota, dependencies, billing, or production authority.
 - UAA-P1-086 adds enforcement tests for OpenAPI, `/api/manifest`, and route
   inventory alignment across classification, auth, approval, idempotency,

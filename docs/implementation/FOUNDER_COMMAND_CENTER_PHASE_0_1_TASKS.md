@@ -1235,7 +1235,7 @@ PR size: one docs PR, ideally after Tasks 1-4.
 
 Type: staged full-stack productization with docs/test/manifest gates first
 
-Status: FCC-V1-000 through FCC-V1-004 implemented; FCC-V1-005 through
+Status: FCC-V1-000 through FCC-V1-005 implemented; FCC-V1-006 through
 FCC-V1-007 planned. FCC-V1-001 is contract/verifier coverage for the API
 perimeter; duplicate replay runtime remains blocked until route-owner receipt
 storage exists outside routes that implement their own receipt-backed replay.
@@ -1275,13 +1275,18 @@ Milestones:
   Plans without treating model output as authority, executing work, writing
   memory, calling providers, writing connectors, or granting production
   authority.
-- `FCC-V1-005` Memory Review Decisions: add `MemoryReviewDecision` with
-  `candidate_ref`, `decision`, `corrected_summary_ref`, `source_refs`,
-  `evidence_refs`, `reviewer_ref`, `receipt_ref`, `idempotency_ref`, and
-  `blocked_state_refs`; store accept/correct/reject append-first; preserve
-  rejected decisions; store correction summaries as redacted safe refs only;
-  expose backend routes for review, accept, correct, and reject; show real UI
-  controls, receipt refs, and Evidence Timeline entries.
+- `FCC-V1-005` Memory Review Decisions: implemented backend-owned
+  `MemoryReviewDecisionReceipt` records with `candidate_ref`, `decision`,
+  `decision_ref`, `receipt_ref`, `idempotency_key_ref`,
+  `payload_fingerprint_ref`, `evidence_timeline_event_ref`,
+  `corrected_summary_ref` for corrections, `source_refs`, `evidence_refs`,
+  `reviewer_ref`, and `blocked_state_refs`; stores accept/correct/reject
+  append-first; preserves rejected decisions; stores correction summaries as
+  safe refs only; exposes backend routes for review, accept, correct, and
+  reject; shows real UI controls, receipt refs, and Evidence Timeline entries.
+  Memory writes, truth authority, context injection, CRM/account sync,
+  connector writes, action execution, public beta, and production authority
+  remain blocked.
 - `FCC-V1-006` Evidence Timeline Productization: add real evidence event types
   for action envelopes, action decisions, chat receipts, chat handoffs, and
   memory review decisions, grouped by Today item, Action, Chat turn, and Memory

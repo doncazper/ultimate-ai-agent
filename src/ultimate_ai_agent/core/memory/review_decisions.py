@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -13,9 +16,24 @@ from ultimate_ai_agent.core.memory.source_provenance import (
     MEMORY_SOURCE_PROVENANCE_REQUIRED_KINDS,
     MEMORY_SOURCE_PROVENANCE_TRUST_POSTURE,
 )
+from ultimate_ai_agent.core.time import utc_now
 
 
 MEMORY_REVIEW_DECISION_CONTRACT_REF = "contract-ref:memory-review-decision:v1"
+FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF = "contract-ref:fcc-v1-005-memory-review-decisions:v1"
+MEMORY_REVIEW_DECISION_ROUTE_REFS = (
+    "GET /control-center/memory/review",
+    "POST /control-center/memory/review/{candidate_ref}/accept",
+    "POST /control-center/memory/review/{candidate_ref}/correct",
+    "POST /control-center/memory/review/{candidate_ref}/reject",
+)
+
+MemoryReviewDecisionKind = Literal["accept", "correct", "reject"]
+MEMORY_REVIEW_DECISION_KINDS: list[MemoryReviewDecisionKind] = [
+    "accept",
+    "correct",
+    "reject",
+]
 
 MemoryReviewDecisionState = Literal[
     "accept",
@@ -54,6 +72,14 @@ MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS = [
     "blocked-state:no-memory-delete",
     "blocked-state:no-memory-export",
     "blocked-state:no-context-injection",
+]
+FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS = [
+    *MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS,
+    "blocked-state:no-connector-write",
+    "blocked-state:no-external-crm-sync",
+    "blocked-state:no-automatic-action-execution",
+    "blocked-state:no-model-provider-authority",
+    "blocked-state:no-public-beta-or-production-authority",
 ]
 
 _DENIED_FLAGS = [
@@ -140,6 +166,11 @@ def _safe_refs(values: list[str], field_name: str) -> None:
         _safe_ref(value, field_name)
 
 
+def _safe_optional_ref(value: str | None, field_name: str) -> None:
+    if value is not None:
+        _safe_ref(value, field_name)
+
+
 def _source_prefix(source_kind: str) -> str:
     return f"source-ref:{source_kind.replace('_', '-')}"
 
@@ -150,6 +181,18 @@ def _provenance_prefix(source_kind: str) -> str:
 
 def _matches_prefix(value: str, prefix: str) -> bool:
     return value == prefix or value.startswith(f"{prefix}:")
+
+
+def _safe_suffix(value: str) -> str:
+    return "".join(
+        character if character.isalnum() or character in "._-" else "-"
+        for character in value.lower()
+    ).strip("-") or "missing"
+
+
+def _short_ref_suffix(value: str) -> str:
+    digest = hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest()[:12]
+    return f"{_safe_suffix(value)[:48].strip('-') or 'ref'}-{digest}"
 
 
 def _validate_kind_refs(values: list[str], field_name: str, prefix: str) -> None:
@@ -280,6 +323,147 @@ class MemoryReviewDecisionEnvelope(BaseModel):
         return self
 
 
+class MemoryReviewDecisionRequest(BaseModel):
+    reviewer_ref: str = Field(default="actor-ref:local-operator", min_length=1)
+    corrected_summary_ref: str | None = Field(default=None, min_length=1)
+    source_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS)
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_request(self) -> "MemoryReviewDecisionRequest":
+        _safe_ref(self.reviewer_ref, "reviewer_ref")
+        _safe_optional_ref(self.corrected_summary_ref, "corrected_summary_ref")
+        for field_name in [
+            "source_refs",
+            "evidence_refs",
+            "metadata_refs",
+            "blocked_state_refs",
+        ]:
+            for value in getattr(self, field_name):
+                _safe_ref(value, field_name)
+        missing_blocked_refs = [
+            ref
+            for ref in FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS
+            if ref not in self.blocked_state_refs
+        ]
+        if missing_blocked_refs:
+            raise ValueError("memory review decision request missing blocked states")
+        return self
+
+
+class MemoryReviewDecisionReceipt(BaseModel):
+    contract_ref: str = Field(default=FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF)
+    candidate_ref: str = Field(..., min_length=1)
+    review_ref: str = Field(..., min_length=1)
+    decision: MemoryReviewDecisionKind
+    corrected_summary_ref: str | None = Field(default=None, min_length=1)
+    source_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    reviewer_ref: str = Field(..., min_length=1)
+    receipt_ref: str = Field(..., min_length=1)
+    decision_ref: str = Field(..., min_length=1)
+    audit_ref: str = Field(..., min_length=1)
+    idempotency_key_ref: str = Field(..., min_length=1)
+    payload_fingerprint_ref: str = Field(..., min_length=1)
+    evidence_timeline_event_ref: str = Field(..., min_length=1)
+    reviewed_recall_ref: str | None = Field(default=None, min_length=1)
+    correction_ref: str | None = Field(default=None, min_length=1)
+    rejection_ref: str | None = Field(default=None, min_length=1)
+    safe_summary_ref: str = Field(..., min_length=1)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS)
+    )
+    authority_boundary: str = Field(
+        default=(
+            "Memory Review decisions create backend-owned safe decision receipts only; "
+            "recall is not truth and context injection, connector writes, CRM sync, "
+            "automatic action execution, public beta, and production authority remain blocked."
+        ),
+        min_length=1,
+        max_length=300,
+    )
+    context_injection_authorized: bool = False
+    connector_write_authorized: bool = False
+    external_crm_sync_authorized: bool = False
+    account_sync_authorized: bool = False
+    automatic_action_execution_authorized: bool = False
+    model_provider_authority_allowed: bool = False
+    source_truth_authority: bool = False
+    memory_truth_authority: bool = False
+    production_authority_enabled: bool = False
+    replayed: bool = False
+    created_at: datetime = Field(default_factory=utc_now)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_decision(self) -> "MemoryReviewDecisionReceipt":
+        if self.contract_ref != FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF:
+            raise ValueError("FCC memory review decision contract ref drifted")
+        for field_name in [
+            "candidate_ref",
+            "review_ref",
+            "reviewer_ref",
+            "receipt_ref",
+            "decision_ref",
+            "audit_ref",
+            "idempotency_key_ref",
+            "payload_fingerprint_ref",
+            "evidence_timeline_event_ref",
+            "safe_summary_ref",
+        ]:
+            _safe_ref(getattr(self, field_name), field_name)
+        for field_name in ["source_refs", "evidence_refs", "blocked_state_refs"]:
+            _safe_refs(getattr(self, field_name), field_name)
+        for field_name in [
+            "corrected_summary_ref",
+            "reviewed_recall_ref",
+            "correction_ref",
+            "rejection_ref",
+        ]:
+            _safe_optional_ref(getattr(self, field_name), field_name)
+        _safe_text(self.authority_boundary, "authority_boundary")
+        missing_blocked_refs = [
+            ref
+            for ref in FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS
+            if ref not in self.blocked_state_refs
+        ]
+        if missing_blocked_refs:
+            raise ValueError("FCC memory review decision missing blocked states")
+        if self.decision == "correct" and self.corrected_summary_ref is None:
+            raise ValueError("correct memory review decisions require corrected_summary_ref")
+        if self.decision != "correct" and self.corrected_summary_ref is not None:
+            raise ValueError("corrected_summary_ref belongs only to correct decisions")
+        if self.decision in {"accept", "correct"} and self.reviewed_recall_ref is None:
+            raise ValueError("accept/correct decisions require reviewed recall ref")
+        if self.decision == "reject" and self.rejection_ref is None:
+            raise ValueError("reject decisions require rejection ref")
+        denied_flags = [
+            "context_injection_authorized",
+            "connector_write_authorized",
+            "external_crm_sync_authorized",
+            "account_sync_authorized",
+            "automatic_action_execution_authorized",
+            "model_provider_authority_allowed",
+            "source_truth_authority",
+            "memory_truth_authority",
+            "production_authority_enabled",
+        ]
+        for flag in denied_flags:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by FCC memory review decisions")
+        return self
+
+
+MemoryReviewDecision = MemoryReviewDecisionReceipt
+
+
 def build_memory_review_decision_envelope(
     *,
     decision_ref: str,
@@ -320,6 +504,82 @@ def build_memory_review_decision_envelope(
         merge_refs=merge_refs or [],
         supersedes_refs=supersedes_refs or [],
     )
+
+
+def memory_review_decision_payload_for_fingerprint(
+    *,
+    candidate_ref: str,
+    decision: MemoryReviewDecisionKind,
+    request: MemoryReviewDecisionRequest,
+) -> dict[str, object]:
+    return {
+        "candidate_ref": candidate_ref,
+        "decision": decision,
+        "reviewer_ref": request.reviewer_ref,
+        "corrected_summary_ref": request.corrected_summary_ref,
+        "source_refs": list(request.source_refs),
+        "evidence_refs": list(request.evidence_refs),
+        "metadata_refs": list(request.metadata_refs),
+        "blocked_state_refs": list(request.blocked_state_refs),
+    }
+
+
+def memory_review_payload_fingerprint_ref(payload: dict[str, object]) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    digest = hashlib.sha256(encoded.encode("utf-8", errors="replace")).hexdigest()
+    return f"payload-fingerprint:memory-review-decision:{digest[:24]}"
+
+
+def memory_review_decision_ref(
+    candidate_ref: str,
+    decision: MemoryReviewDecisionKind,
+    idempotency_ref: str,
+) -> str:
+    return (
+        f"memory-review-decision:{decision}:"
+        f"{_short_ref_suffix(candidate_ref)}:{_safe_suffix(idempotency_ref)}"
+    )
+
+
+def memory_review_decision_receipt_ref(
+    candidate_ref: str,
+    decision: MemoryReviewDecisionKind,
+    idempotency_ref: str,
+) -> str:
+    return (
+        f"receipt:memory-review:{decision}:"
+        f"{_short_ref_suffix(candidate_ref)}:{_safe_suffix(idempotency_ref)}"
+    )
+
+
+def memory_review_decision_audit_ref(
+    candidate_ref: str,
+    decision: MemoryReviewDecisionKind,
+    idempotency_ref: str,
+) -> str:
+    return (
+        f"audit-ref:memory-review:{decision}:"
+        f"{_short_ref_suffix(candidate_ref)}:{_safe_suffix(idempotency_ref)}"
+    )
+
+
+def memory_review_decision_evidence_ref(
+    candidate_ref: str,
+    decision: MemoryReviewDecisionKind,
+) -> str:
+    return f"evidence-ref:memory-review:{decision}:{_short_ref_suffix(candidate_ref)}"
+
+
+def memory_review_reviewed_recall_ref(candidate_ref: str) -> str:
+    return f"reviewed-recall-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
+
+
+def memory_review_correction_ref(candidate_ref: str) -> str:
+    return f"correction-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
+
+
+def memory_review_rejection_ref(candidate_ref: str) -> str:
+    return f"rejected-memory-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
 
 
 def validate_memory_review_decision_envelope(
@@ -372,14 +632,30 @@ def memory_review_decision_authority_posture() -> dict[str, object]:
 
 
 __all__ = [
+    "FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS",
+    "FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF",
     "MEMORY_REVIEW_DECISION_CONTRACT_REF",
+    "MEMORY_REVIEW_DECISION_KINDS",
     "MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS",
     "MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS",
+    "MEMORY_REVIEW_DECISION_ROUTE_REFS",
     "MEMORY_REVIEW_DECISION_STATES",
     "MemoryReviewDecisionEnvelope",
+    "MemoryReviewDecisionKind",
+    "MemoryReviewDecisionRequest",
+    "MemoryReviewDecisionReceipt",
     "MemoryReviewDecisionState",
     "build_memory_review_decision_envelope",
+    "memory_review_correction_ref",
+    "memory_review_decision_audit_ref",
     "memory_review_decision_authority_posture",
+    "memory_review_decision_evidence_ref",
+    "memory_review_decision_payload_for_fingerprint",
+    "memory_review_decision_receipt_ref",
+    "memory_review_decision_ref",
     "memory_review_decision_state_rows",
+    "memory_review_payload_fingerprint_ref",
+    "memory_review_rejection_ref",
+    "memory_review_reviewed_recall_ref",
     "validate_memory_review_decision_envelope",
 ]

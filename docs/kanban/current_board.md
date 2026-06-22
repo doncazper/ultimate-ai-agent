@@ -103,7 +103,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-004 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-005 Memory Review Decisions.
+No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-005 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-006 Evidence Timeline Productization.
 ```
 
 ## Ready Next
@@ -318,10 +318,11 @@ Center without treating model output as truth, approval, memory, or execution
 authority.
 
 FCC-V1-005 Memory Review Decisions
-Goal: add backend-owned Memory Review accept/correct/reject decisions with
-`MemoryReviewDecision` fields, append-first storage, preserved rejected
-decisions, safe corrected-summary refs, receipts, and Evidence Timeline
-entries.
+Goal met: Memory Review accept/correct/reject decisions are backend-owned,
+idempotent, receipt-backed, preserve rejected candidates, store corrected
+summary refs only, and surface receipt refs in Control Center and Evidence
+Timeline without memory truth authority, context injection, CRM/account sync,
+connector writes, action execution, public beta, or production authority.
 
 FCC-V1-006 Evidence Timeline Productization
 Goal: show actual audit events for action envelope creation, action decisions,

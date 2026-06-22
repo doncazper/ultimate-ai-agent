@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
 )
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
+from ultimate_ai_agent.core.memory import MemoryReviewDecisionRequest
 from ultimate_ai_agent.core.storage import (
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
@@ -48,6 +49,24 @@ def get_control_center_actions_inbox() -> ResultEnvelope:
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:action-inbox"}],
         redactions_applied=["safe_refs_only", "bounded_summaries_only", "raw_content_omitted"],
+    )
+
+
+@router.get("/memory/review", response_model=ResultEnvelope)
+def get_control_center_memory_review() -> ResultEnvelope:
+    data = get_founder_loop_service().memory_review()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_review",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-review",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-review"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -257,6 +276,72 @@ def post_control_center_chat_handoff(
     )
 
 
+@router.post("/memory/review/{candidate_ref}/accept", response_model=ResultEnvelope)
+def post_control_center_memory_review_accept(
+    candidate_ref: str,
+    request: MemoryReviewDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="accept",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
+@router.post("/memory/review/{candidate_ref}/correct", response_model=ResultEnvelope)
+def post_control_center_memory_review_correct(
+    candidate_ref: str,
+    request: MemoryReviewDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="correct",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
+@router.post("/memory/review/{candidate_ref}/reject", response_model=ResultEnvelope)
+def post_control_center_memory_review_reject(
+    candidate_ref: str,
+    request: MemoryReviewDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="reject",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
 @router.post("/actions/{action_id}/approve", response_model=ResultEnvelope)
 def post_control_center_action_approve_decision(
     action_id: str,
@@ -447,6 +532,64 @@ def _record_action_decision(
         trace_id=f"founder-loop:action-decision:{decision}",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:action-decision"}],
+        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+    )
+
+
+def _record_memory_review_decision(
+    *,
+    candidate_ref: str,
+    decision: Literal["accept", "correct", "reject"],
+    request: MemoryReviewDecisionRequest,
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(idempotency_key, idempotency_ref)
+    try:
+        data = get_founder_loop_service().record_memory_review_decision(
+            candidate_ref=candidate_ref,
+            decision=decision,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_MEMORY_DECISION_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Memory Review decision idempotency key already exists "
+                    "with different safe decision payload refs."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_MEMORY_DECISION_ERROR"
+        status_code = (
+            404 if code == "FOUNDER_LOOP_MEMORY_CANDIDATE_NOT_FOUND" else 400
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": code,
+                "safe_message": "The Memory Review decision could not be recorded safely.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_DECISION_UNSAFE_INPUT",
+                "safe_message": "The Memory Review decision request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_review_decision",
+        service="FounderLoopControlCenterAPI",
+        trace_id=f"founder-loop:memory-review-decision:{decision}",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-review-decision"}],
         redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
     )
 

@@ -60,7 +60,7 @@ def test_taxonomy_verifier_reports_missing_route_manifest_mapping(tmp_path: Path
         "schema_version": "uaa-control-center-route-status.v1",
         "status": "active UAA-P1-030 route status manifest",
         "operator_readiness_taxonomy_ref": verifier.TAXONOMY_REF,
-        "openapi_path_count": 121,
+        "openapi_path_count": 125,
         "allowed_release_statuses": list(verifier.ROUTE_STATUS_TAXONOMY_MAP),
         "release_status_taxonomy_map": {},
         "surfaces": [],

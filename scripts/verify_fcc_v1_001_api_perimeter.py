@@ -69,6 +69,7 @@ TARGETED_ROUTE_EXPECTATIONS = {
     ("POST", "/control-center/today/action-envelope"): "today_to_action_envelope",
     ("POST", "/control-center/chat/turns"): "chat_durable_receipt",
     ("POST", "/control-center/chat/turns/{turn_ref}/handoff"): "chat_durable_receipt",
+    ("POST", "/control-center/memory/review/{candidate_ref}/accept"): "memory_review_decision",
     ("POST", "/control-center/actions/{action_id}/reject"): "action_decision",
     ("POST", "/task-decomposition/approval-requests"): "task_decomposition",
     ("POST", "/task-decomposition/approvals/grants/capture"): "task_decomposition",
@@ -114,7 +115,7 @@ REQUIRED_EVIDENCE_REFS = {
     "docs/schemas/founder_loop_api_perimeter.schema.json",
     "src/ultimate_ai_agent/api/manifest.py",
     "src/ultimate_ai_agent/api/contracts.py",
-    "tests/fixtures/api_route_inventory_121.json",
+    "tests/fixtures/api_route_inventory_125.json",
 }
 
 

@@ -247,6 +247,8 @@ Proof refs:
 Goal: make Memory Review accept, correct, and reject real scoped backend
 behavior.
 
+Status: implemented for backend-owned, idempotent, receipt-backed decisions.
+
 Tasks:
 
 - Define the memory decision model.
@@ -275,6 +277,13 @@ Tasks:
 Definition of done: Memory Review decisions are backend-owned, receipt-backed,
 evidence-visible, and still do not grant context injection or production
 authority.
+
+Proof refs:
+
+- `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`
+- `scripts/verify_fcc_v1_005_memory_review_decisions.py`
+- `tests/test_fcc_v1_005_memory_review_decisions.py`
+- `apps/control-center/src/components/FounderLoopPanels.tsx`
 
 ## FCC-V1-006 - Evidence Timeline Productization
 

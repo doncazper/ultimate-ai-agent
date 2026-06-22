@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `121`.
+Current OpenAPI path count: `125`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,8 +44,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 14 |
-| `local_sensitive` | 84 |
-| `mutating_requires_authority` | 20 |
+| `local_sensitive` | 85 |
+| `mutating_requires_authority` | 23 |
 
 Allowed current side-effect classes are:
 
@@ -87,8 +87,9 @@ mutation authority, production authority, or a public beta claim.
 
 UAA-P1-085 implements targeted local fixed-window rate-limit posture for
 model/chat, task decomposition, action preview/proposal, Action Inbox decisions,
-Today-to-Action envelope promotion, Chat durable receipts/handoffs, and local
-model validation route groups. `/api/manifest` and the frozen route inventory expose
+Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
+Review decision receipts, and local model validation route groups.
+`/api/manifest` and the frozen route inventory expose
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production
 authority, or a public beta claim.
@@ -103,7 +104,9 @@ manifest-visible for every route. Mutating routes must expose local bearer
 auth posture, approval-before-mutation posture, idempotency posture, and
 rate-limit posture before real Founder Loop mutation routes can land.
 Duplicate replay behavior remains a route-owner contract; FCC-V1-002 implements
-it only for Action Inbox decision routes.
+it for Action Inbox decision routes, FCC-V1-004 implements it for Chat
+receipt/handoff routes, and FCC-V1-005 implements it for Memory Review decision
+receipt routes.
 
 ## Current route groups
 

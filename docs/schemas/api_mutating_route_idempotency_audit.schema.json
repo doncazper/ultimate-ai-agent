@@ -51,7 +51,7 @@
       }
     },
     "mutating_route_count": {
-      "const": 20
+      "const": 23
     },
     "manifest_field": {
       "const": "idempotency_required"

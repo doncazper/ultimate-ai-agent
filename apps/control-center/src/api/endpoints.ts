@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
   founderTodaySummary: "/control-center/today/summary",
   founderTodayActionEnvelope: "/control-center/today/action-envelope",
   controlCenterChatTurns: "/control-center/chat/turns",
+  founderMemoryReview: "/control-center/memory/review",
   founderActionsInbox: "/control-center/actions/inbox",
   founderMorningBriefing: "/control-center/morning-briefing/summary",
   founderStorageStatus: "/control-center/storage/status",
@@ -32,6 +33,14 @@ export const ACTION_DECISION_KINDS = [
 ] as const;
 
 export type ActionDecisionKind = (typeof ACTION_DECISION_KINDS)[number];
+export const MEMORY_REVIEW_DECISION_KINDS = [
+  "accept",
+  "correct",
+  "reject",
+] as const;
+
+export type MemoryReviewDecisionKind =
+  (typeof MEMORY_REVIEW_DECISION_KINDS)[number];
 
 export function actionDecisionEndpoint(
   actionId: string,
@@ -50,6 +59,13 @@ export function chatTurnReceiptEndpoint(turnRef: string): string {
 
 export function chatTurnHandoffEndpoint(turnRef: string): string {
   return `/control-center/chat/turns/${encodeURIComponent(turnRef)}/handoff`;
+}
+
+export function memoryReviewDecisionEndpoint(
+  candidateRef: string,
+  decision: MemoryReviewDecisionKind,
+): string {
+  return `/control-center/memory/review/${encodeURIComponent(candidateRef)}/${decision}`;
 }
 
 export function isActionDecisionEndpoint(endpoint: string): boolean {
@@ -77,6 +93,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.foundationGateSummary,
   API_ENDPOINTS.setupAssistantSummary,
   API_ENDPOINTS.founderTodaySummary,
+  API_ENDPOINTS.founderMemoryReview,
   API_ENDPOINTS.founderActionsInbox,
   API_ENDPOINTS.founderMorningBriefing,
   API_ENDPOINTS.founderStorageStatus,

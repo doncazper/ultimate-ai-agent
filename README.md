@@ -15,12 +15,12 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **FCC-V1-004 Complete: Chat Durable Receipt And Handoff; FCC-V1-005 Next: Memory Review Decisions; UAA-P1-087.2 Private UI Testing Deferred** |
+| Current lane | **FCC-V1-005 Complete: Memory Review Decisions; FCC-V1-006 Next: Evidence Timeline Productization; UAA-P1-087.2 Private UI Testing Deferred** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
-| Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-004 complete; FCC-V1-005 through FCC-V1-007 planned: Memory decisions, Evidence productization, and proof-lane promotion** |
+| Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-005 complete; FCC-V1-006 through FCC-V1-007 planned: Evidence productization and proof-lane promotion** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
-| API boundary | FastAPI route contract with **121** OpenAPI paths |
+| API boundary | FastAPI route contract with **125** OpenAPI paths |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 
@@ -76,7 +76,7 @@ with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing; low-confidence or conflicting
 intent asks the user rather than acting. UAA-P1-080 API Route Classification
 And Public/Protected Inventory is complete with typed route classifications in
-`/api/manifest`, a frozen 121-route inventory fixture, route-status manifest
+`/api/manifest`, a frozen 125-route inventory fixture, route-status manifest
 alignment, Control Center API Routes visibility, and focused verifier/tests.
 UAA-P1-081 Centralized FastAPI Security Headers is complete with centralized
 response headers, HTTPS-only HSTS behavior, no CORS/auth/rate-limit authority,
@@ -143,13 +143,19 @@ turn receipts and reviewable Actions/Plans handoff receipts. It does not treat
 model output as authority, execute actions or plans, write memory, inject
 context, write connectors, call providers, grant public beta authority, or
 grant production authority.
+FCC-V1-005 Memory Review Decisions is complete for backend-owned
+accept/correct/reject receipts with idempotency replay/conflict handling,
+preserved rejected candidates, corrected-summary refs only, and Evidence
+Timeline visibility. It does not make memory or sources truth, write memory,
+inject context, sync CRM/accounts, write connectors, execute actions, grant
+public beta authority, or grant production authority.
 The planned Founder Loop V1 productization conveyor is recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`: completed Control Center release surface manifest, API perimeter
 for real mutations, Action Inbox backend state machine, Today-to-Action
-vertical slice, and Chat durable receipt and handoff, followed by planned
-Memory Review accept/correct/reject backend decisions, Evidence Timeline
-productization, and promotion/proof lanes. These
+vertical slice, Chat durable receipt and handoff, and Memory Review decision
+receipts, followed by planned Evidence Timeline productization and
+promotion/proof lanes. These
 milestones define goals, routes, model fields, storage semantics, UI outcomes,
 proof commands, and authority boundaries; they do not add routes, controls,
 runtime calls, connector writes, memory writes, context injection, public beta,
@@ -237,7 +243,7 @@ of product state. The Python Agent Core remains the authority boundary.
 |---|---|---|
 | Product truth | Evidence-backed release claims and gap matrix | [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md) |
 | Catch-up loop | Human-reconciled loop for ChatGPT/Codex recommendations and peer-gap closure | [operator excellence loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
-| API contract | **121** OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
+| API contract | **125** OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
 | Governed web evidence | UAA-P1-063 status/request contract, allowlisted HTTPS GET envelope, bounded redacted preview, chatbot disclosure | [governed web evidence](docs/network/GOVERNED_WEB_EVIDENCE_V1.md), [M72 fetch tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md) |
 | Security posture | Reporting, severity, triage, redaction invariants | [SECURITY.md](SECURITY.md), [triage runbook](docs/security/SECURITY_TRIAGE_RUNBOOK.md) |
 | Operator shell | Gap map, route status manifest, and product language rules for visible surfaces | [gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [route status manifest](docs/control_center/ROUTE_STATUS_MANIFEST.md), [language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md) |

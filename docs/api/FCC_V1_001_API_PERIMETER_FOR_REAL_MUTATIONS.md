@@ -24,7 +24,7 @@ claim, production authority, or production readiness claim.
 - The frozen API route inventory fixture is updated to schema
   `uaa-api-route-inventory.v4` so every route projection includes auth and
   approval posture.
-- The FCC-V1-001 perimeter manifest records the current 20 routes classified
+- The FCC-V1-001 perimeter manifest records the current 23 routes classified
   as `mutating_requires_authority`.
 - `scripts/verify_fcc_v1_001_api_perimeter.py` fails if the manifest, fixture,
   targeted local rate-limit groups, or mutation posture drifts.
@@ -34,7 +34,9 @@ claim, production authority, or production readiness claim.
 ## Duplicate Replay Contract
 
 Duplicate replay behavior is defined here as a required route-owner contract.
-FCC-V1-002 implements it for Action Inbox decision routes; other Founder Loop
+FCC-V1-002 implements it for Action Inbox decision routes, FCC-V1-004
+implements it for Chat receipt/handoff routes, and FCC-V1-005 implements it for
+Memory Review accept/correct/reject decision receipt routes. Other Founder Loop
 mutation families remain future or blocked until their route owners add
 append-first receipt storage.
 
@@ -59,9 +61,10 @@ Rate limits are local-first backpressure, not authentication.
 FCC-V1-001 keeps the UAA-P1-085 targeted local fixed-window posture for the
 first expensive or sensitive route groups: model/chat, task decomposition,
 action preview/proposal, file approval capture, and local-model validation.
-Action decision routes now declare `action_decision` rate-limit posture through
-FCC-V1-002. Future memory decision and Chat handoff mutation routes must
-declare rate-limit posture before they can land.
+Action decision routes declare `action_decision` rate-limit posture through
+FCC-V1-002, Chat receipt/handoff routes declare `chat_durable_receipt` posture
+through FCC-V1-004, and Memory Review decision routes declare
+`memory_review_decision` posture through FCC-V1-005.
 
 ## Manual Review
 
@@ -84,11 +87,14 @@ before runtime behavior is added:
 - Evidence Timeline append/update records
 - File proposal or approval capture flows
 
-Action decision and Chat durable receipt/handoff routes now have route-owner
-storage, idempotency replay, and receipt refs; Action decisions also validate
-exact approval where required. The other families remain planned or blocked until
-route-owner storage, idempotency replay, exact approval binding, receipts, and
-evidence timeline updates exist for that route.
+Action decision, Chat durable receipt/handoff, and Memory Review
+accept/correct/reject decision routes now have route-owner storage,
+idempotency replay, and receipt refs; Action decisions also validate exact
+approval where required. Retention/delete, memory writes, connector sync,
+context injection, broader Evidence Timeline mutation, and other families remain
+planned or blocked until route-owner storage, idempotency replay, exact approval
+binding where applicable, receipts, and evidence timeline updates exist for that
+route.
 
 ## Evidence
 
@@ -98,6 +104,6 @@ evidence timeline updates exist for that route.
 - `tests/test_fcc_v1_001_api_perimeter.py`
 - `src/ultimate_ai_agent/api/contracts.py`
 - `src/ultimate_ai_agent/api/manifest.py`
-- `tests/fixtures/api_route_inventory_121.json`
+- `tests/fixtures/api_route_inventory_125.json`
 - `scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py`
 - `tests/test_api_boundary_enforcement.py`

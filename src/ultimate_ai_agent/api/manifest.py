@@ -51,6 +51,7 @@ CAPABILITIES_DECLARED = [
     "control_center_action_decision_state_machine",
     "control_center_chat_durable_receipts",
     "control_center_chat_reviewable_handoffs",
+    "control_center_memory_review_decision_receipts",
     "control_center_morning_briefing_summary",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
@@ -120,6 +121,11 @@ CAPABILITIES_BLOCKED = [
     "control_center_chat_memory_writes",
     "control_center_chat_plan_execution",
     "control_center_chat_action_execution",
+    "control_center_memory_review_context_injection",
+    "control_center_memory_review_connector_writes",
+    "control_center_memory_review_crm_sync",
+    "control_center_memory_review_action_execution",
+    "control_center_memory_review_truth_authority",
     "control_center_plugin_enablement",
     "control_center_frontend_native_build_control",
     "control_center_mobile_sensor_access",
@@ -224,12 +230,14 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/chat",
     "/control-center/today",
     "/control-center/actions",
+    "/control-center/memory",
     "/control-center/morning-briefing",
     "/control-center/storage",
 )
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}
 CONTROL_CENTER_ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
+CONTROL_CENTER_MEMORY_DECISION_SUFFIXES = ("/accept", "/correct", "/reject")
 CONTROL_CENTER_TODAY_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
 }
@@ -417,6 +425,15 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Action Inbox decision route; exact authority, idempotency, audit, and receipt posture required",
+        )
+    if (
+        normalized_method == "POST"
+        and path.startswith("/control-center/memory/review/")
+        and path.endswith(CONTROL_CENTER_MEMORY_DECISION_SUFFIXES)
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Memory Review decision route; exact authority, idempotent backend receipt, and context-injection block posture required",
         )
     if path.endswith("/run") or any(hint in path for hint in MUTATING_LOCAL_POSTURE_HINTS):
         return (

@@ -7,6 +7,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionEnvelopePromotionRequest,
 )
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
+from ultimate_ai_agent.core.memory import MemoryReviewDecisionKind, MemoryReviewDecisionRequest
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
 
@@ -25,6 +26,9 @@ class FounderLoopControlCenterService:
 
     def actions_inbox(self) -> dict:
         return self.repository.actions_inbox()
+
+    def memory_review(self) -> dict:
+        return self.repository.memory_review()
 
     def promote_today_item_to_action_envelope(
         self,
@@ -78,6 +82,21 @@ class FounderLoopControlCenterService:
     ) -> dict[str, Any]:
         return self.repository.record_chat_handoff(
             turn_ref=turn_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
+    def record_memory_review_decision(
+        self,
+        *,
+        candidate_ref: str,
+        decision: MemoryReviewDecisionKind,
+        request: MemoryReviewDecisionRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_memory_review_decision(
+            candidate_ref=candidate_ref,
+            decision=decision,
             request=request,
             idempotency_key_ref=idempotency_key_ref,
         )

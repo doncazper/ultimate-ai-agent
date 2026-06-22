@@ -14,6 +14,7 @@ import {
   chatTurnReceiptEndpoint,
   isAllowedReadEndpoint,
   isPreviewEndpoint,
+  memoryReviewDecisionEndpoint,
   READ_ENDPOINTS,
 } from "./api/endpoints";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
@@ -1341,7 +1342,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("121")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("125")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -2291,11 +2292,11 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Missing contracts/i })).toBeInTheDocument();
     expect(screen.getByText("/memory")).toBeInTheDocument();
     expect(
-      screen.getByText("GET /control-center/today/summary"),
-    ).toBeInTheDocument();
+      screen.getAllByText("GET /control-center/memory/review").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata",
+        "storage_backed_review_queue_with_backend_decision_receipts",
       ),
     ).toBeInTheDocument();
     expect(
@@ -2316,7 +2317,7 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Memory review is inspection-only/i),
+      screen.getByText(/Memory review can record safe accept, correction, and reject receipts/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText("memory-review:founder-loop-preferences"),
@@ -2369,6 +2370,18 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Review decisions/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:memory-review-decision:v1").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:fcc-v1-005-memory-review-decisions:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: /Record accept receipt/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Record correction receipt/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Record reject receipt/i }),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("review_needed_no_decision_captured").length).toBeGreaterThan(0);
     expect(screen.getAllByText("actor-ref:local-operator-review-required").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-memory-write").length).toBeGreaterThan(0);
@@ -2472,6 +2485,113 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw source/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/authoritative truth/i)).not.toBeInTheDocument();
+  });
+
+  it("records a Memory Review decision receipt with safe refs only", async () => {
+    const candidateRef =
+      "business-memory-candidate:preference:memory-review-founder-loop-preferences";
+    const receipt = {
+      contract_ref: "contract-ref:fcc-v1-005-memory-review-decisions:v1",
+      candidate_ref: candidateRef,
+      review_ref: "memory-review:founder-loop-preferences",
+      decision: "accept",
+      corrected_summary_ref: null,
+      source_refs: ["source-ref:manual-note:founder-loop-storage"],
+      evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
+      reviewer_ref: "actor-ref:control-center-memory-review",
+      receipt_ref: "receipt:memory-review:accept:control-center-test",
+      decision_ref: "memory-review-decision:accept:control-center-test",
+      audit_ref: "audit-ref:memory-review:accept:control-center-test",
+      idempotency_key_ref: "idempotency-ref:control-center-memory-review:accept:test",
+      payload_fingerprint_ref: "payload-fingerprint:memory-review-decision:test",
+      evidence_timeline_event_ref:
+        "evidence-ref:memory-review:accept:control-center-test",
+      reviewed_recall_ref: "reviewed-recall-ref:memory-review:control-center-test",
+      correction_ref: null,
+      rejection_ref: null,
+      safe_summary_ref: "safe-summary-ref:memory-review:accept",
+      blocked_state_refs: ["blocked-state:no-context-injection"],
+      authority_boundary:
+        "Memory Review decisions create backend-owned safe decision receipts only.",
+      context_injection_authorized: false,
+      connector_write_authorized: false,
+      external_crm_sync_authorized: false,
+      account_sync_authorized: false,
+      automatic_action_execution_authorized: false,
+      model_provider_authority_allowed: false,
+      source_truth_authority: false,
+      memory_truth_authority: false,
+      production_authority_enabled: false,
+      replayed: false,
+      created_at: "2026-06-22T00:00:00Z",
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(memoryReviewDecisionEndpoint(candidateRef, "accept"))
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Memory Review$/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Record accept receipt/i }),
+    );
+
+    await screen.findByText("receipt:memory-review:accept:control-center-test");
+    expect(
+      screen.getByText("audit-ref:memory-review:accept:control-center-test"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("evidence-ref:memory-review:accept:control-center-test"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Context injection").some((node) =>
+        node.nextElementSibling?.textContent?.includes("blocked"),
+      ),
+    ).toBe(true);
+    const [, options] =
+      fetchMock.mock.calls.find(
+        ([url, requestOptions]) =>
+          requestOptions?.method === "POST" &&
+          String(url).endsWith(memoryReviewDecisionEndpoint(candidateRef, "accept")),
+      ) ?? [];
+    expect(options?.headers).toMatchObject({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-UAA-Idempotency-Key": expect.stringMatching(
+        /^idempotency-ref:control-center-memory-review:accept:/,
+      ),
+    });
+    const bodyText = String(options?.body);
+    const body = JSON.parse(bodyText);
+    expect(body).toMatchObject({
+      reviewer_ref: "actor-ref:control-center-memory-review",
+      source_refs: ["source-ref:manual-note:founder-loop-storage"],
+      evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
+    });
+    expect(body.corrected_summary_ref).toBeUndefined();
+    expect(bodyText).not.toContain("raw");
+    expect(bodyText).not.toContain("prompt");
+    expect(bodyText).not.toContain("response");
+    expect(bodyText).not.toContain("provider_payload");
   });
 
   it("keeps alternate M17 metadata selection read-only and redacted", async () => {
@@ -3025,8 +3145,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 121,
-      control_center_route_count: 19,
+      route_count: 125,
+      control_center_route_count: 23,
       operation_ids_unique: true,
       execution_routes_present: false,
     },

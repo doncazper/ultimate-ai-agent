@@ -283,6 +283,75 @@ export interface ChatHandoffReceipt {
   created_at: string;
 }
 
+export type MemoryReviewDecisionKind = "accept" | "correct" | "reject";
+
+export interface MemoryReviewDecisionRequest {
+  reviewer_ref: string;
+  corrected_summary_ref?: string | null;
+  source_refs?: string[];
+  evidence_refs?: string[];
+  metadata_refs?: string[];
+  blocked_state_refs?: string[];
+}
+
+export interface MemoryReviewDecisionReceipt {
+  contract_ref: string;
+  candidate_ref: string;
+  review_ref: string;
+  decision: MemoryReviewDecisionKind;
+  corrected_summary_ref?: string | null;
+  source_refs: string[];
+  evidence_refs: string[];
+  reviewer_ref: string;
+  receipt_ref: string;
+  decision_ref: string;
+  audit_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  evidence_timeline_event_ref: string;
+  reviewed_recall_ref?: string | null;
+  correction_ref?: string | null;
+  rejection_ref?: string | null;
+  safe_summary_ref: string;
+  blocked_state_refs: string[];
+  authority_boundary: string;
+  context_injection_authorized: boolean;
+  connector_write_authorized: boolean;
+  external_crm_sync_authorized: boolean;
+  account_sync_authorized: boolean;
+  automatic_action_execution_authorized: boolean;
+  model_provider_authority_allowed: boolean;
+  source_truth_authority: boolean;
+  memory_truth_authority: boolean;
+  production_authority_enabled: boolean;
+  replayed: boolean;
+  created_at: string;
+}
+
+export interface FounderLoopMemoryReview {
+  route_ref: string;
+  surface_ref: string;
+  contract_ref: string;
+  legacy_decision_contract_ref: string;
+  decision_route_refs: string[];
+  decision_kinds: MemoryReviewDecisionKind[];
+  items: FounderLoopMemoryReviewItem[];
+  decision_receipts: MemoryReviewDecisionReceipt[];
+  decision_receipt_refs: string[];
+  decision_count: number;
+  idempotency_replay_enabled: boolean;
+  idempotency_conflict_rejected: boolean;
+  safe_refs_only: boolean;
+  raw_content_stored: boolean;
+  context_injection_authorized: boolean;
+  connector_write_authorized: boolean;
+  external_crm_sync_authorized: boolean;
+  automatic_action_execution_authorized: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+  authority_boundary: string;
+}
+
 export interface FounderLoopPlanSummary {
   plan_ref: string;
   title: string;
@@ -1137,6 +1206,10 @@ export interface FounderLoopTodaySummary {
   memory_review_decision_states: FounderLoopMemoryReviewDecisionState[];
   memory_review_decision_required_ref_fields: string[];
   memory_review_decision_authority_posture: FounderLoopMemoryReviewDecisionAuthorityPosture;
+  fcc_memory_review_decision_contract_ref: string;
+  fcc_memory_review_decision_route_refs: string[];
+  memory_review_decision_receipt_refs: string[];
+  memory_review_decision_status: string;
   business_memory_quality_contract_ref: string;
   business_memory_candidate_kinds: FounderLoopBusinessMemoryCandidateKind[];
   business_memory_quality_states: FounderLoopBusinessMemoryQualityState[];

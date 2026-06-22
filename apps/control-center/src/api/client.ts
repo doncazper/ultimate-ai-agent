@@ -22,6 +22,9 @@ import type {
   FounderLoopActionDecisionRequest,
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionEnvelopePromotionRequest,
+  MemoryReviewDecisionKind,
+  MemoryReviewDecisionReceipt,
+  MemoryReviewDecisionRequest,
   ChatHandoffReceipt,
   ChatHandoffRequest,
   ChatHandoffTarget,
@@ -34,6 +37,7 @@ import {
   actionDecisionEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
+  memoryReviewDecisionEndpoint,
 } from "./endpoints";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 import { sanitizeForDisplay } from "./redaction";
@@ -362,6 +366,45 @@ export async function recordChatHandoff(
   return receipt;
 }
 
+export async function recordMemoryReviewDecision(
+  candidateRef: string,
+  decision: MemoryReviewDecisionKind,
+  request: MemoryReviewDecisionRequest,
+): Promise<MemoryReviewDecisionReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${memoryReviewDecisionEndpoint(candidateRef, decision)}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": memoryReviewDecisionIdempotencyRef(
+          candidateRef,
+          decision,
+        ),
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  const data =
+    (await readJsonSafely(response)) as ResultEnvelope<MemoryReviewDecisionReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Memory Review decision receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return receipt;
+}
+
 function actionDecisionIdempotencyRef(
   actionId: string,
   decision: FounderLoopActionDecisionKind,
@@ -391,6 +434,13 @@ function chatHandoffIdempotencyRef(
   target: ChatHandoffTarget,
 ): string {
   return `idempotency-ref:control-center-chat-handoff:${target}:${safeChatSuffix(turnRef)}:${Date.now()}`;
+}
+
+function memoryReviewDecisionIdempotencyRef(
+  candidateRef: string,
+  decision: MemoryReviewDecisionKind,
+): string {
+  return `idempotency-ref:control-center-memory-review:${decision}:${safeChatSuffix(candidateRef)}:${Date.now()}`;
 }
 
 export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {

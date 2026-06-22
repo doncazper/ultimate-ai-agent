@@ -28,18 +28,19 @@
           "action_preview_proposal",
           "chat_durable_receipt",
           "local_model_validation",
+          "memory_review_decision",
           "model_chat",
           "today_to_action_envelope",
           "action_decision",
           "task_decomposition"
         ]
       },
-      "minItems": 7,
-      "maxItems": 7,
+      "minItems": 8,
+      "maxItems": 8,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 41
+      "const": 44
     },
     "posture_field": {
       "const": "rate_limit_posture"

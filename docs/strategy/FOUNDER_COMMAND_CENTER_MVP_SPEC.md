@@ -65,8 +65,11 @@ for the first Today-to-Action receipt loop without action execution. FCC-V1-004
 Control Center Chat Durable Receipt And Handoff is complete for durable safe
 Chat turn receipts and reviewable Actions/Plans handoff receipts without
 action execution, memory writes, model-output authority, connector writes, or
-provider calls. FCC-V1-005 Memory Review Decisions is the next implementation
-lane before
+provider calls. FCC-V1-005 Memory Review Decisions is complete for backend-owned
+accept/correct/reject receipts without memory truth authority, context
+injection, CRM/account sync, connector writes, action execution, public beta, or
+production authority. FCC-V1-006 Evidence Timeline Productization is the next
+implementation lane before
 P2/provider, packaging, public distribution, or commercialization expansion.
 
 Founder Loop V1 productization is now tracked as `FCC-V1-000` through

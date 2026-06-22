@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `121`, generated from the FastAPI application and
+Current OpenAPI path count: `125`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -35,6 +35,7 @@ docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md
 docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md
+docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md
 docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md
 docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md
 ```
@@ -64,8 +65,9 @@ Current boundary summary:
   authority claims.
 - UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
   decomposition, action preview/proposal, Action Inbox decisions, Today to
-  Action envelope promotion, Chat durable receipt/handoff routes, and local
-  model validation route groups. It does not add auth, distributed quota,
+  Action envelope promotion, Chat durable receipt/handoff routes, Memory Review
+  decision receipt routes, and local model validation route groups. It does not
+  add auth, distributed quota,
   dependencies, billing, or production
   authority.
 - FCC-V1-001 consumes UAA-P1-080 through UAA-P1-086 for the Founder Loop
@@ -77,6 +79,11 @@ Current boundary summary:
   state and local receipt refs only; they do not execute approved actions,
   perform connector writes, call providers, run shell/subprocess work, write
   memory, or grant production authority.
+- FCC-V1-005 adds backend-owned Memory Review accept/correct/reject decision
+  receipts. They record safe refs, idempotency/replay posture, and Evidence
+  Timeline visibility only; they do not inject context, make memory/source truth
+  authoritative, sync CRM/accounts, perform connector writes, execute actions,
+  or grant public beta or production authority.
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.
