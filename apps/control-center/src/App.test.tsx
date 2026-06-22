@@ -120,7 +120,12 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("priorities")).toBeInTheDocument();
     expect(screen.getByText("stale_source_posture")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Plan\/action state/i })).toBeInTheDocument();
-    expect(screen.getByText("blocked_until_uaa_p1_073")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("implemented_reviewable_action_envelopes_execution_blocked").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
+    expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-action-execution").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Module feed contract/i })).toBeInTheDocument();
     expect(screen.getByText(/Chat: planned_blocked_until_uaa_p1_074/i)).toBeInTheDocument();
     expect(screen.getByText(/Code: planned_blocked_until_uaa_p1_075/i)).toBeInTheDocument();
@@ -272,11 +277,18 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("dry_run_ref_available")).toBeInTheDocument();
     expect(screen.getByText("contract-ref:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("blocked_pending_scoped_mutation_contract")).toBeInTheDocument();
-    expect(screen.getByText("receipt-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("receipt-plan:founder-loop:mock-setup-hardening").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("audit-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("idempotency-ref:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("rollback-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("safe-disable:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
+    expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("action-envelope:plans:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("scope-ref:plans-action-envelope:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-approval-grant-capture").length).toBeGreaterThan(0);
     expect(
       screen.getByText(/Review refs only; request a scoped state-change milestone/i),
     ).toBeInTheDocument();
@@ -1375,7 +1387,7 @@ describe("Web Control Center shell", () => {
 
     for (const marker of [
       "receipt_audit_rollback_ref",
-      "plan_evidence_ref",
+      "plan_action_envelope_ref",
       "memory_review_evidence_ref",
       "source_readiness_evidence_ref",
       "foundation_gate_latency_ref",
@@ -1383,6 +1395,8 @@ describe("Web Control Center shell", () => {
       "audit-plan:founder-loop:mock-setup-hardening",
       "replay-ref:founder-loop:action-inbox",
       "rollback-plan:founder-loop:mock-setup-hardening",
+      "receipt-plan:plans-action-envelope:plan-summary-founder-loop-v1",
+      "rollback-plan:plans-action-envelope:plan-summary-founder-loop-v1",
       "latency-ref:foundation-gate:latest-report",
       "foundation-gate-ref:latest-report",
       "rollback_execution_not_scoped",
@@ -2879,7 +2893,7 @@ const mockApiData = {
       },
       {
         module: "Plans",
-        status: "partial_action_envelope_contract_missing",
+        status: "implemented_reviewable_action_envelope_contract",
         required_loop_outputs: [
           "today_plan_state",
           "action_envelope_or_blocked_state",
@@ -2888,7 +2902,7 @@ const mockApiData = {
         ],
         current_feed_refs: [
           "status-ref:founder-loop-plan-summary",
-          "contract-ref:plans-action-envelope-missing",
+          "contract-ref:plans-action-envelope:v1",
         ],
         standalone_complete_allowed: false,
       },
@@ -3095,6 +3109,76 @@ const mockApiData = {
     },
     business_memory_status:
       "implemented_review_queue_safe_ref_quality_metadata_contract",
+    plans_action_envelope_contract_ref:
+      "contract-ref:plans-action-envelope:v1",
+    plans_action_envelope_review_postures: [
+      "approve",
+      "edit",
+      "reject",
+      "defer",
+    ].map((reviewAction) => ({
+      review_action: reviewAction,
+      review_posture_ref: `review-posture:plans-action-envelope:${reviewAction}`,
+      exact_scope_required: true,
+      safe_refs_required: true,
+      receipt_refs_required: true,
+      grants_execution_authority: false,
+      captures_approval_grant: false,
+    })),
+    plans_action_envelope_required_ref_fields: [
+      "action_envelope_ref",
+      "source_plan_ref",
+      "scope_ref",
+      "side_effect_class",
+      "risk_class",
+      "approval_requirement_ref",
+      "review_posture_refs",
+      "evidence_refs",
+      "expected_receipt_refs",
+      "idempotency_key_ref",
+      "expires_at",
+      "rollback_ref",
+      "safe_disable_ref",
+      "blocked_state_refs",
+    ],
+    plans_action_envelope_required_blocked_refs: [
+      "blocked-state:no-action-execution",
+      "blocked-state:no-approval-grant-capture",
+      "blocked-state:approval-refs-identifiers-only",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-shell-subprocess-execution",
+      "blocked-state:no-model-provider-authority",
+      "blocked-state:no-public-beta-or-distribution",
+      "blocked-state:no-production-authority",
+    ],
+    plans_action_envelope_surface_bindings: [
+      {
+        surface: "Today",
+        feed_status: "implemented_plan_action_state_contract",
+        feed_ref: "today-ref:plans-action-envelope-state",
+        authority_boundary:
+          "Today can show envelope posture but cannot execute actions.",
+      },
+    ],
+    plans_action_envelope_authority_posture: {
+      safe_refs_only: true,
+      exact_scope_required: true,
+      approval_required_before_mutation: true,
+      approval_ref_authority: false,
+      approval_grant_capture_enabled: false,
+      action_execution_enabled: false,
+      state_change_enabled: false,
+      connector_write_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      model_provider_authority_allowed: false,
+      memory_write_authorized: false,
+      context_injection_authorized: false,
+      public_beta_claim_enabled: false,
+      public_distribution_claim_enabled: false,
+      production_authority_enabled: false,
+    },
+    plans_action_envelope_status:
+      "implemented_reviewable_action_envelopes_execution_blocked",
     priority_refs: [
       "priority-ref:action:high:founder-action-test",
       "priority-ref:briefing:medium:briefing-test",
@@ -3114,7 +3198,12 @@ const mockApiData = {
       approval_required_before_mutation: true,
       mutating_controls_enabled: false,
       execution_authorized: false,
-      action_envelope_contract_status: "blocked_until_uaa_p1_073",
+      action_envelope_contract_status:
+        "implemented_reviewable_action_envelopes_execution_blocked",
+      action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
+      review_actions: ["approve", "edit", "reject", "defer"],
+      approval_grant_capture_enabled: false,
+      state_change_enabled: false,
     },
     stale_source_posture: {
       status: "recheck_required_before_action_or_source_use",
@@ -3171,6 +3260,51 @@ const mockApiData = {
         stale_state: "recheck_action_summary_before_mutation",
         rollback_ref: "rollback-plan:founder-loop:test",
         safe_disable_ref: "safe-disable:founder-loop:test",
+        action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
+        action_envelope_ref: "action-envelope:plans:founder-action-test",
+        action_envelope_status: "review_ready_execution_blocked",
+        action_envelope_safe_summary:
+          "Action item is available as safe review metadata with exact-scope, receipt, idempotency, rollback, and safe-disable refs.",
+        action_scope_ref: "scope-ref:plans-action-envelope:founder-action-test",
+        action_approval_requirement_ref:
+          "approval-requirement:plans-action-envelope:founder-action-test",
+        action_review_actions: ["approve", "edit", "reject", "defer"],
+        action_review_posture_refs: [
+          "review-posture:plans-action-envelope:approve",
+          "review-posture:plans-action-envelope:edit",
+          "review-posture:plans-action-envelope:reject",
+          "review-posture:plans-action-envelope:defer",
+        ],
+        action_expected_receipt_refs: ["receipt-plan:founder-loop:test"],
+        action_idempotency_key_ref:
+          "idempotency-ref:plans-action-envelope:founder-action-test",
+        action_expires_at: "review_required_before_mutation",
+        action_stale_state: "recheck_plan_and_action_refs_before_mutation",
+        action_rollback_ref:
+          "rollback-plan:plans-action-envelope:founder-action-test",
+        action_safe_disable_ref:
+          "safe-disable:plans-action-envelope:founder-action-test",
+        action_blocked_state_refs: [
+          "blocked-state:no-action-execution",
+          "blocked-state:no-approval-grant-capture",
+          "blocked-state:approval-refs-identifiers-only",
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-public-beta-or-distribution",
+          "blocked-state:no-production-authority",
+        ],
+        action_authority_boundary:
+          "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
+        action_exact_scope_required: true,
+        action_envelope_approval_ref_authority: false,
+        action_envelope_grant_capture_enabled: false,
+        action_envelope_execution_enabled: false,
+        action_envelope_connector_write_enabled: false,
+        action_envelope_shell_execution_enabled: false,
+        action_envelope_model_provider_authority_allowed: false,
+        action_envelope_safe_refs_only: true,
+        action_envelope_raw_content_included: false,
         next_safe_action:
           "Review refs only; request a scoped state-change milestone before mutation.",
       },
@@ -3183,6 +3317,73 @@ const mockApiData = {
         safe_summary: "Bounded plan summary.",
         next_step_summary: "Review route-backed summaries.",
         evidence_refs: ["evidence-ref:founder-loop:test-plan"],
+        action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
+        action_envelope_ref: "action-envelope:plans:plan-summary-test",
+        action_envelope_status: "review_ready_execution_blocked",
+        action_envelope_safe_summary:
+          "Plan summary has a reviewable Action envelope with exact-scope, receipt, idempotency, rollback, and safe-disable refs; execution remains blocked.",
+        scope_ref: "scope-ref:plans-action-envelope:plan-summary-test",
+        side_effect_class: "validation_only",
+        risk_class: "medium",
+        approval_required: true,
+        approval_requirement_ref:
+          "approval-requirement:plans-action-envelope:plan-summary-test",
+        review_actions: ["approve", "edit", "reject", "defer"],
+        review_posture_refs: [
+          "review-posture:plans-action-envelope:approve",
+          "review-posture:plans-action-envelope:edit",
+          "review-posture:plans-action-envelope:reject",
+          "review-posture:plans-action-envelope:defer",
+        ],
+        expected_receipt_refs: [
+          "receipt-plan:plans-action-envelope:plan-summary-test",
+        ],
+        idempotency_key_ref:
+          "idempotency-ref:plans-action-envelope:plan-summary-test",
+        expires_at: "review_required_before_mutation",
+        stale_state: "recheck_plan_and_action_refs_before_mutation",
+        rollback_ref: "rollback-plan:plans-action-envelope:plan-summary-test",
+        safe_disable_ref: "safe-disable:plans-action-envelope:plan-summary-test",
+        blocked_state_refs: [
+          "blocked-state:no-action-execution",
+          "blocked-state:no-approval-grant-capture",
+          "blocked-state:approval-refs-identifiers-only",
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-public-beta-or-distribution",
+          "blocked-state:no-production-authority",
+        ],
+        authority_boundary:
+          "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
+        exact_scope_required: true,
+        approval_ref_authority: false,
+        approval_grant_capture_enabled: false,
+        action_execution_enabled: false,
+        connector_write_enabled: false,
+        shell_subprocess_execution_enabled: false,
+        model_provider_authority_allowed: false,
+        safe_refs_only: true,
+        raw_content_included: false,
+        plan_action_envelope_ref: "action-envelope:plans:plan-summary-test",
+        plan_action_scope_ref: "scope-ref:plans-action-envelope:plan-summary-test",
+        plan_action_approval_requirement_ref:
+          "approval-requirement:plans-action-envelope:plan-summary-test",
+        plan_action_review_posture_refs: [
+          "review-posture:plans-action-envelope:approve",
+          "review-posture:plans-action-envelope:edit",
+          "review-posture:plans-action-envelope:reject",
+          "review-posture:plans-action-envelope:defer",
+        ],
+        plan_action_expected_receipt_refs: [
+          "receipt-plan:plans-action-envelope:plan-summary-test",
+        ],
+        plan_action_blocked_state_refs: [
+          "blocked-state:no-action-execution",
+          "blocked-state:no-approval-grant-capture",
+        ],
+        plan_action_authority_boundary:
+          "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
       },
     ],
     memory_review_queue: [
@@ -3455,28 +3656,43 @@ const mockApiData = {
       },
       {
         timeline_item_ref: "evidence-timeline:plan/plan-summary/test",
-        item_kind: "plan_evidence_ref",
+        item_kind: "plan_action_envelope_ref",
         title: "Founder Loop test plan",
         safe_summary:
-          "Plan evidence is a bounded summary ref and does not create execution authority or a durable run by itself.",
+          "Plan evidence includes a reviewable Action envelope ref with exact scope, expected receipts, idempotency, rollback, and safe-disable posture; execution remains blocked.",
         source_refs: ["plan-summary:test"],
-        status_refs: ["status-ref:founder-loop-plan-summary"],
+        status_refs: [
+          "status-ref:founder-loop-plan-summary",
+          "contract-ref:plans-action-envelope:v1",
+          "action-envelope:plans:plan-summary-test",
+        ],
         related_route_refs: ["/plans", "/task-decomposition/status"],
         side_effect_class: "validation_only",
         authority_posture:
-          "Plan summary is inspection-only and not execution authority.",
-        approval_posture: "approval_required_before_execution_scope",
-        receipt_refs: [],
+          "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
+        approval_posture:
+          "approval-requirement:plans-action-envelope:plan-summary-test",
+        receipt_refs: ["receipt-plan:plans-action-envelope:plan-summary-test"],
         audit_refs: [],
         replay_refs: ["replay-ref:founder-loop:plan-summary"],
-        rollback_refs: [],
-        rollback_blockers: ["rollback_not_applicable_for_plan_summary"],
+        rollback_refs: ["rollback-plan:plans-action-envelope:plan-summary-test"],
+        rollback_blockers: ["rollback_execution_not_scoped"],
         latency_refs: [],
         foundation_gate_refs: [],
         redaction_status: "redacted_summary_only",
-        stale_state: "recheck_plan_refs_before_execution_claims",
-        missing_evidence_posture: "run_receipt_missing_until_execution_contract",
-        blocked_states: ["no_plan_execution_from_evidence_timeline"],
+        stale_state: "recheck_plan_and_action_refs_before_mutation",
+        missing_evidence_posture:
+          "execution_receipt_missing_until_scoped_action_contract",
+        blocked_states: [
+          "blocked-state:no-action-execution",
+          "blocked-state:no-approval-grant-capture",
+          "blocked-state:approval-refs-identifiers-only",
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-public-beta-or-distribution",
+          "blocked-state:no-production-authority",
+        ],
         next_safe_action: "Review route-backed summaries.",
       },
       {

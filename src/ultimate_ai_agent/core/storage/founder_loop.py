@@ -41,6 +41,16 @@ from ultimate_ai_agent.core.memory.review_decisions import (
     memory_review_decision_authority_posture,
     memory_review_decision_state_rows,
 )
+from ultimate_ai_agent.core.planning.action_envelopes import (
+    PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+    PLANS_ACTION_ENVELOPE_REQUIRED_BLOCKED_REFS,
+    PLANS_ACTION_ENVELOPE_REQUIRED_REF_FIELDS,
+    PLANS_ACTION_ENVELOPE_REVIEW_ACTIONS,
+    build_plan_action_envelope,
+    plans_action_envelope_authority_posture,
+    plans_action_envelope_review_posture_rows,
+    plans_action_envelope_surface_bindings,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -110,11 +120,12 @@ EVIDENCE_HISTORY_SURFACE_BINDINGS = [
     },
     {
         "surface": "Plans",
-        "current_status": "partial_until_action_envelopes",
+        "current_status": "implemented_reviewable_action_envelope_refs",
         "required_history_keys": list(EVIDENCE_HISTORY_GRAMMAR_KEYS),
         "authority_boundary": (
-            "Plan evidence can describe proposal and missing approval/receipt "
-            "posture, but plan summaries are not execution authority."
+            "Plan evidence can describe reviewable Action envelope posture, "
+            "expected receipts, rollback posture, and blockers, but plan "
+            "summaries are not execution authority."
         ),
     },
     {
@@ -216,7 +227,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
     },
     {
         "module": "Plans",
-        "status": "partial_action_envelope_contract_missing",
+        "status": "implemented_reviewable_action_envelope_contract",
         "required_loop_outputs": [
             "today_plan_state",
             "action_envelope_or_blocked_state",
@@ -225,7 +236,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         ],
         "current_feed_refs": [
             "status-ref:founder-loop-plan-summary",
-            "contract-ref:plans-action-envelope-missing",
+            PLANS_ACTION_ENVELOPE_CONTRACT_REF,
         ],
         "standalone_complete_allowed": False,
     },
@@ -1125,6 +1136,157 @@ def _business_memory_quality_contract_payload(item: dict[str, Any]) -> dict[str,
     }
 
 
+def _plans_action_envelope_blockers(extra: list[str] | None = None) -> list[str]:
+    return list(
+        dict.fromkeys([*PLANS_ACTION_ENVELOPE_REQUIRED_BLOCKED_REFS, *(extra or [])])
+    )
+
+
+def _plan_action_envelope_contract_payload(plan: dict[str, Any]) -> dict[str, Any]:
+    plan_ref = str(plan.get("plan_ref", "plan-summary:missing"))
+    envelope = build_plan_action_envelope(
+        source_plan_ref=plan_ref,
+        title=str(plan.get("title", "Plan summary")),
+        safe_summary=(
+            "Plan summary has a reviewable Action envelope with exact-scope, "
+            "receipt, idempotency, rollback, and safe-disable refs; execution "
+            "remains blocked."
+        ),
+        evidence_refs=list(plan.get("evidence_refs") or [])
+        or ["evidence-ref:founder-loop:plan-summary"],
+        blocked_state_refs=[
+            "blocked-state:no-plan-action-execution",
+            "blocked-state:no-plan-approval-grant-capture",
+        ],
+        next_safe_action=str(
+            plan.get(
+                "next_step_summary",
+                "Review the Action envelope metadata before any future scoped authority.",
+            )
+        ),
+    )
+    payload = envelope.model_dump(mode="json")
+    return {
+        "action_envelope_contract_ref": payload["contract_ref"],
+        "action_envelope_ref": payload["action_envelope_ref"],
+        "action_envelope_status": "review_ready_execution_blocked",
+        "action_envelope_safe_summary": payload["safe_summary"],
+        "scope_ref": payload["scope_ref"],
+        "side_effect_class": payload["side_effect_class"],
+        "risk_class": payload["risk_class"],
+        "approval_required": payload["approval_required"],
+        "approval_requirement_ref": payload["approval_requirement_ref"],
+        "review_actions": payload["review_actions"],
+        "review_posture_refs": payload["review_posture_refs"],
+        "expected_receipt_refs": payload["expected_receipt_refs"],
+        "idempotency_key_ref": payload["idempotency_key_ref"],
+        "expires_at": payload["expires_at"],
+        "stale_state": payload["stale_state"],
+        "rollback_ref": payload["rollback_ref"],
+        "safe_disable_ref": payload["safe_disable_ref"],
+        "blocked_state_refs": payload["blocked_state_refs"],
+        "authority_boundary": payload["authority_boundary"],
+        "exact_scope_required": payload["exact_scope_required"],
+        "approval_ref_authority": payload["approval_ref_authority"],
+        "approval_grant_capture_enabled": payload["approval_grant_capture_enabled"],
+        "action_execution_enabled": payload["action_execution_enabled"],
+        "connector_write_enabled": payload["connector_write_enabled"],
+        "shell_subprocess_execution_enabled": payload[
+            "shell_subprocess_execution_enabled"
+        ],
+        "model_provider_authority_allowed": payload[
+            "model_provider_authority_allowed"
+        ],
+        "safe_refs_only": payload["safe_refs_only"],
+        "raw_content_included": payload["raw_content_included"],
+        "plan_action_envelope_ref": payload["action_envelope_ref"],
+        "plan_action_scope_ref": payload["scope_ref"],
+        "plan_action_approval_requirement_ref": payload["approval_requirement_ref"],
+        "plan_action_review_posture_refs": payload["review_posture_refs"],
+        "plan_action_expected_receipt_refs": payload["expected_receipt_refs"],
+        "plan_action_blocked_state_refs": payload["blocked_state_refs"],
+        "plan_action_authority_boundary": payload["authority_boundary"],
+    }
+
+
+def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
+    action_ref = str(action.get("item_ref", "founder-action:missing"))
+    source_plan_ref = _status_ref("plan-summary", str(action.get("surface", "Actions")))
+    receipt_refs = list(action.get("receipt_refs") or [])
+    audit_refs = list(action.get("audit_refs") or [])
+    blocked_state_refs = _plans_action_envelope_blockers(
+        [
+            _status_ref(
+                "blocked-state",
+                str(action.get("state_change_readiness", "state-change-blocked")),
+            ),
+            _status_ref(
+                "blocked-state",
+                str(action.get("blocked_state", "mutation-blocked")),
+            ),
+        ]
+    )
+    envelope = build_plan_action_envelope(
+        source_plan_ref=source_plan_ref,
+        source_action_ref=action_ref,
+        title=str(action.get("title", "Action item")),
+        safe_summary=str(
+            action.get(
+                "safe_summary",
+                "Action item is available as safe review metadata only.",
+            )
+        ),
+        evidence_refs=list(action.get("evidence_refs") or [])
+        or ["evidence-ref:founder-loop:action-inbox"],
+        side_effect_class=str(action.get("side_effect_class", "validation_only")),
+        risk_class=str(action.get("risk_class", "medium")),
+        approval_required=bool(action.get("approval_required", True)),
+        audit_refs=audit_refs,
+        blocked_state_refs=blocked_state_refs,
+        next_safe_action=str(
+            action.get(
+                "next_safe_action",
+                "Review the safe summary and keep mutation blocked until scoped.",
+            )
+        ),
+    )
+    payload = envelope.model_dump(mode="json")
+    expected_receipt_refs = receipt_refs or payload["expected_receipt_refs"]
+    return {
+        "action_envelope_contract_ref": payload["contract_ref"],
+        "action_envelope_ref": payload["action_envelope_ref"],
+        "action_envelope_status": "review_ready_execution_blocked",
+        "action_envelope_safe_summary": payload["safe_summary"],
+        "action_scope_ref": payload["scope_ref"],
+        "action_approval_requirement_ref": payload["approval_requirement_ref"],
+        "action_review_actions": payload["review_actions"],
+        "action_review_posture_refs": payload["review_posture_refs"],
+        "action_expected_receipt_refs": expected_receipt_refs,
+        "action_idempotency_key_ref": payload["idempotency_key_ref"],
+        "action_expires_at": payload["expires_at"],
+        "action_stale_state": payload["stale_state"],
+        "action_rollback_ref": payload["rollback_ref"],
+        "action_safe_disable_ref": payload["safe_disable_ref"],
+        "action_blocked_state_refs": payload["blocked_state_refs"],
+        "action_authority_boundary": payload["authority_boundary"],
+        "action_exact_scope_required": payload["exact_scope_required"],
+        "action_envelope_approval_ref_authority": payload["approval_ref_authority"],
+        "action_envelope_grant_capture_enabled": payload[
+            "approval_grant_capture_enabled"
+        ],
+        "action_envelope_execution_enabled": payload["action_execution_enabled"],
+        "action_envelope_connector_write_enabled": payload["connector_write_enabled"],
+        "action_envelope_shell_execution_enabled": payload[
+            "shell_subprocess_execution_enabled"
+        ],
+        "action_envelope_model_provider_authority_allowed": payload[
+            "model_provider_authority_allowed"
+        ],
+        "action_envelope_safe_refs_only": payload["safe_refs_only"],
+        "action_envelope_raw_content_included": payload["raw_content_included"],
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1257,6 +1419,25 @@ class FounderLoopRepository:
             "business_memory_status": (
                 "implemented_review_queue_safe_ref_quality_metadata_contract"
             ),
+            "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+            "plans_action_envelope_review_postures": (
+                plans_action_envelope_review_posture_rows()
+            ),
+            "plans_action_envelope_required_ref_fields": (
+                PLANS_ACTION_ENVELOPE_REQUIRED_REF_FIELDS
+            ),
+            "plans_action_envelope_required_blocked_refs": (
+                PLANS_ACTION_ENVELOPE_REQUIRED_BLOCKED_REFS
+            ),
+            "plans_action_envelope_surface_bindings": (
+                plans_action_envelope_surface_bindings()
+            ),
+            "plans_action_envelope_authority_posture": (
+                plans_action_envelope_authority_posture()
+            ),
+            "plans_action_envelope_status": (
+                "implemented_reviewable_action_envelopes_execution_blocked"
+            ),
             "priority_refs": _priority_refs(actions, briefing_items),
             "blocker_refs": _blocked_state_refs(actions, memory_items, briefing_items),
             "follow_up_refs": [
@@ -1269,7 +1450,13 @@ class FounderLoopRepository:
                 "approval_required_before_mutation": True,
                 "mutating_controls_enabled": False,
                 "execution_authorized": False,
-                "action_envelope_contract_status": "blocked_until_uaa_p1_073",
+                "action_envelope_contract_status": (
+                    "implemented_reviewable_action_envelopes_execution_blocked"
+                ),
+                "action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+                "review_actions": list(PLANS_ACTION_ENVELOPE_REVIEW_ACTIONS),
+                "approval_grant_capture_enabled": False,
+                "state_change_enabled": False,
             },
             "stale_source_posture": {
                 "status": "recheck_required_before_action_or_source_use",
@@ -1353,7 +1540,9 @@ class FounderLoopRepository:
             "evidence_refs": ["evidence-ref:founder-loop:today-summary"],
             "blocked_states": [
                 "no_action_execution_route",
+                "no_approval_grant_capture_route",
                 "no_connector_write_route",
+                "no_shell_subprocess_execution",
                 "no_runtime_model_call_route",
             ],
         }
@@ -1413,8 +1602,13 @@ class FounderLoopRepository:
                     history_answers=_history_answers(
                         proposed=_history_answer(
                             "proposed",
-                            "A reviewed Action item was proposed from a safe summary ref.",
-                            refs=[action_ref, "status-ref:founder-loop-action-inbox"],
+                            "A reviewed Action item was proposed from a safe summary ref with a reviewable envelope.",
+                            refs=[
+                                action_ref,
+                                str(action.get("action_envelope_ref")),
+                                PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+                                "status-ref:founder-loop-action-inbox",
+                            ],
                         ),
                         approved=_history_answer(
                             "approved",
@@ -1455,7 +1649,11 @@ class FounderLoopRepository:
                         ),
                     ),
                     source_refs=[action_ref],
-                    status_refs=["status-ref:founder-loop-action-inbox"],
+                    status_refs=[
+                        "status-ref:founder-loop-action-inbox",
+                        PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+                        str(action.get("action_envelope_ref")),
+                    ],
                     related_route_refs=["GET /control-center/actions/inbox", "/actions"],
                     side_effect_class=str(action.get("side_effect_class", "validation_only")),
                     authority_posture=str(action.get("authority_boundary")),
@@ -1483,73 +1681,94 @@ class FounderLoopRepository:
             )
         for plan in plans:
             plan_ref = str(plan["plan_ref"])
+            expected_receipt_refs = list(plan.get("expected_receipt_refs") or [])
+            rollback_refs = [plan["rollback_ref"]] if plan.get("rollback_ref") else []
+            plan_stale_ref = _status_ref(
+                "stale-ref",
+                str(plan.get("stale_state", "recheck-plan-envelope-before-mutation")),
+            )
             timeline.append(
                 FounderLoopEvidenceTimelineItem(
                     timeline_item_ref=_timeline_ref("plan", plan_ref),
-                    item_kind="plan_evidence_ref",
+                    item_kind="plan_action_envelope_ref",
                     title=str(plan["title"]),
                     safe_summary=(
-                        "Plan evidence is a bounded summary ref. It does not create "
-                        "execution authority or a durable run by itself."
+                        "Plan evidence includes a reviewable Action envelope ref with "
+                        "exact scope, expected receipts, idempotency, rollback, and "
+                        "safe-disable posture; execution remains blocked."
                     ),
                     history_answers=_history_answers(
                         proposed=_history_answer(
                             "proposed",
-                            "A plan summary was proposed as bounded review context.",
-                            refs=[plan_ref, "status-ref:founder-loop-plan-summary"],
+                            "A reviewable Action envelope was proposed from a bounded plan summary.",
+                            refs=[
+                                plan_ref,
+                                str(plan.get("action_envelope_ref")),
+                                PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+                            ],
                         ),
                         approved=_history_answer(
                             "approved",
-                            "Execution approval is not present; action envelopes are still a later contract.",
-                            refs=["approval-status:required-before-execution-scope"],
+                            "No execution approval was granted; approval refs remain identifiers only.",
+                            refs=[
+                                str(plan.get("approval_requirement_ref")),
+                                "approval-status:refs-identifiers-only",
+                            ],
                             status="blocked",
                         ),
                         happened=_history_answer(
                             "happened",
-                            "Only plan summary inspection happened; no durable run or execution receipt is created.",
-                            refs=["replay-ref:founder-loop:plan-summary"],
+                            "Only safe envelope metadata was produced; no action was executed.",
+                            refs=expected_receipt_refs
+                            or ["receipt-status:expected-receipts-not-created"],
                             status="inspection_only",
                         ),
                         changed=_history_answer(
                             "changed",
-                            "No repo, connector, or task state changed from this plan evidence item.",
-                            refs=["change-status:no-state-change-from-plan-summary"],
+                            "No repo, connector, shell, model, memory, or task state changed.",
+                            refs=["change-status:no-state-change-from-plan-envelope"],
                             status="not_applicable",
                         ),
                         undoable=_history_answer(
                             "undoable",
-                            "There is no applied plan mutation to undo in this timeline item.",
-                            refs=["undo-blocker:rollback-not-applicable-for-plan-summary"],
-                            status="not_applicable",
+                            "Rollback refs describe undo posture only and do not execute rollback.",
+                            refs=rollback_refs or ["undo-blocker:rollback-execution-not-scoped"],
+                            status="blocked",
                         ),
                         stale=_history_answer(
                             "stale",
-                            "Plan refs must be rechecked before any future execution claim.",
-                            refs=["stale-ref:recheck-plan-refs-before-execution-claims"],
+                            "Plan and envelope refs must be rechecked before any future mutation claim.",
+                            refs=[plan_stale_ref],
                             status="recheck_required",
                         ),
                         blocked=_history_answer(
                             "blocked",
-                            "Plan execution and action envelope dispatch remain blocked.",
-                            refs=["blocked-state:no-plan-execution-from-evidence-timeline"],
+                            "Plan execution, approval grant capture, connector writes, shell/subprocess execution, and model/provider authority remain blocked.",
+                            refs=list(plan.get("blocked_state_refs") or []),
                             status="blocked",
                         ),
                     ),
                     source_refs=[plan_ref],
-                    status_refs=["status-ref:founder-loop-plan-summary"],
+                    status_refs=[
+                        "status-ref:founder-loop-plan-summary",
+                        PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+                        str(plan.get("action_envelope_ref")),
+                    ],
                     related_route_refs=["/plans", "/task-decomposition/status"],
                     side_effect_class="validation_only",
-                    authority_posture="Plan summary is inspection-only and not execution authority.",
-                    approval_posture="approval_required_before_execution_scope",
-                    receipt_refs=[],
+                    authority_posture=str(plan.get("authority_boundary")),
+                    approval_posture=str(plan.get("approval_requirement_ref")),
+                    receipt_refs=expected_receipt_refs,
                     audit_refs=[],
                     replay_refs=["replay-ref:founder-loop:plan-summary"],
-                    rollback_refs=[],
-                    rollback_blockers=["rollback_not_applicable_for_plan_summary"],
+                    rollback_refs=rollback_refs,
+                    rollback_blockers=["rollback_execution_not_scoped"],
                     redaction_status="redacted_summary_only",
-                    stale_state="recheck_plan_refs_before_execution_claims",
-                    missing_evidence_posture="run_receipt_missing_until_execution_contract",
-                    blocked_states=["no_plan_execution_from_evidence_timeline"],
+                    stale_state=str(plan.get("stale_state")),
+                    missing_evidence_posture=(
+                        "execution_receipt_missing_until_scoped_action_contract"
+                    ),
+                    blocked_states=list(plan.get("blocked_state_refs") or []),
                     next_safe_action=str(plan.get("next_step_summary")),
                 )
             )
@@ -1856,6 +2075,16 @@ class FounderLoopRepository:
             "items": items,
             "approval_required_before_mutation": True,
             "mutating_controls_enabled": False,
+            "action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+            "action_envelope_review_postures": (
+                plans_action_envelope_review_posture_rows()
+            ),
+            "action_envelope_required_ref_fields": (
+                PLANS_ACTION_ENVELOPE_REQUIRED_REF_FIELDS
+            ),
+            "action_envelope_authority_posture": (
+                plans_action_envelope_authority_posture()
+            ),
             "disabled_state_label": "Exact backend approval contract required",
             "evidence_refs": ["evidence-ref:founder-loop:action-inbox"],
             "blocked_states": [
@@ -1863,6 +2092,7 @@ class FounderLoopRepository:
                 "no_approval_grant_capture_route",
                 "no_state_change_contract_route",
                 "no_connector_write_route",
+                "no_shell_subprocess_execution",
                 "no_runtime_model_call_route",
             ],
         }
@@ -1934,7 +2164,11 @@ class FounderLoopRepository:
             """,
             (self._bounded_limit(limit),),
         )
-        return [_row_to_payload(row) for row in rows]
+        actions = [_row_to_payload(row) for row in rows]
+        return [
+            {**action, **_action_envelope_contract_payload(action)}
+            for action in actions
+        ]
 
     def list_plan_summaries(self, *, limit: int = 20) -> list[dict[str, Any]]:
         rows = self._fetch_all(
@@ -1947,7 +2181,11 @@ class FounderLoopRepository:
             """,
             (self._bounded_limit(limit),),
         )
-        return [_row_to_payload(row) for row in rows]
+        plans = [_row_to_payload(row) for row in rows]
+        return [
+            {**plan, **_plan_action_envelope_contract_payload(plan)}
+            for plan in plans
+        ]
 
     def list_memory_review_queue(self, *, limit: int = 20) -> list[dict[str, Any]]:
         rows = self._fetch_all(

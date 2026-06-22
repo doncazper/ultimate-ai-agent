@@ -85,6 +85,7 @@ SCAN_SEQUENCE = [
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("UAA-P1-071 memory review decision capture scan", "verify_uaa_p1_071_memory_review_decision_capture"),
     ("UAA-P1-072 business memory quality controls scan", "verify_uaa_p1_072_business_memory_quality_controls"),
+    ("UAA-P1-073 Plans Action envelopes scan", "verify_uaa_p1_073_plans_action_envelopes"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
@@ -1010,6 +1011,11 @@ def verify_uaa_p1_071_memory_review_decision_capture() -> None:
 def verify_uaa_p1_072_business_memory_quality_controls() -> None:
     print("\n[Verifier] Running UAA-P1-072 business memory quality controls scan...")
     run_cmd([sys.executable, "scripts/verify_uaa_p1_072_business_memory_quality_controls.py"])
+
+
+def verify_uaa_p1_073_plans_action_envelopes() -> None:
+    print("\n[Verifier] Running UAA-P1-073 Plans Action envelopes scan...")
+    run_cmd([sys.executable, "scripts/verify_uaa_p1_073_plans_action_envelopes.py"])
 
 def verify_no_openwebui_runtime_or_config_implementation() -> None:
     print("\n[Verifier] Running M21 OpenWebUI contract-only guard...")

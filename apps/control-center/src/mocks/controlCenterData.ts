@@ -79,6 +79,196 @@ function evidenceHistoryAnswers(
   };
 }
 
+const plansActionEnvelopeReviewActions = ["approve", "edit", "reject", "defer"];
+
+const plansActionEnvelopeRequiredRefFields = [
+  "action_envelope_ref",
+  "source_plan_ref",
+  "scope_ref",
+  "side_effect_class",
+  "risk_class",
+  "approval_requirement_ref",
+  "review_posture_refs",
+  "evidence_refs",
+  "expected_receipt_refs",
+  "idempotency_key_ref",
+  "expires_at",
+  "rollback_ref",
+  "safe_disable_ref",
+  "blocked_state_refs",
+];
+
+const plansActionEnvelopeRequiredBlockedRefs = [
+  "blocked-state:no-action-execution",
+  "blocked-state:no-approval-grant-capture",
+  "blocked-state:approval-refs-identifiers-only",
+  "blocked-state:no-connector-write",
+  "blocked-state:no-shell-subprocess-execution",
+  "blocked-state:no-model-provider-authority",
+  "blocked-state:no-public-beta-or-distribution",
+  "blocked-state:no-production-authority",
+];
+
+const plansActionEnvelopeReviewPostures =
+  plansActionEnvelopeReviewActions.map((reviewAction) => ({
+    review_action: reviewAction,
+    review_posture_ref: `review-posture:plans-action-envelope:${reviewAction}`,
+    exact_scope_required: true,
+    safe_refs_required: true,
+    receipt_refs_required: true,
+    grants_execution_authority: false,
+    captures_approval_grant: false,
+  }));
+
+const plansActionEnvelopeAuthorityPosture = {
+  safe_refs_only: true,
+  exact_scope_required: true,
+  approval_required_before_mutation: true,
+  approval_ref_authority: false,
+  approval_grant_capture_enabled: false,
+  action_execution_enabled: false,
+  state_change_enabled: false,
+  connector_write_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  model_provider_authority_allowed: false,
+  memory_write_authorized: false,
+  context_injection_authorized: false,
+  public_beta_claim_enabled: false,
+  public_distribution_claim_enabled: false,
+  production_authority_enabled: false,
+};
+
+const plansActionEnvelopeSurfaceBindings = [
+  {
+    surface: "Today",
+    feed_status: "implemented_plan_action_state_contract",
+    feed_ref: "today-ref:plans-action-envelope-state",
+    authority_boundary: "Today can show envelope posture but cannot execute actions.",
+  },
+  {
+    surface: "Plans",
+    feed_status: "implemented_reviewable_action_envelope_refs",
+    feed_ref: "plan-ref:reviewable-action-envelope",
+    authority_boundary: "Plans can produce envelope metadata but not execution authority.",
+  },
+  {
+    surface: "Actions",
+    feed_status: "implemented_action_inbox_envelope_refs",
+    feed_ref: "action-inbox-ref:reviewable-envelope-queue",
+    authority_boundary: "Actions can show review posture without grant capture.",
+  },
+  {
+    surface: "Evidence",
+    feed_status: "implemented_history_refs_for_envelope_posture",
+    feed_ref: "evidence-ref:plans-action-envelope-history",
+    authority_boundary: "Evidence records proposed envelope posture and blockers only.",
+  },
+  {
+    surface: "Memory",
+    feed_status: "blocked_until_cross_surface_memory_intake",
+    feed_ref: "memory-ref:plans-action-envelope-candidate-blocked",
+    authority_boundary: "Envelope refs do not become memory recall without review.",
+  },
+];
+
+function safeEnvelopeSuffix(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9_.@-]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function planActionEnvelopeFields(planRef: string) {
+  const suffix = safeEnvelopeSuffix(planRef);
+  const reviewPostureRefs = plansActionEnvelopeReviewActions.map(
+    (action) => `review-posture:plans-action-envelope:${action}`,
+  );
+  const blockedStateRefs = [
+    ...plansActionEnvelopeRequiredBlockedRefs,
+    "blocked-state:no-plan-action-execution",
+    "blocked-state:no-plan-approval-grant-capture",
+  ];
+
+  return {
+    action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
+    action_envelope_ref: `action-envelope:plans:${suffix}`,
+    action_envelope_status: "review_ready_execution_blocked",
+    action_envelope_safe_summary:
+      "Plan summary has a reviewable Action envelope with exact-scope, receipt, idempotency, rollback, and safe-disable refs; execution remains blocked.",
+    scope_ref: `scope-ref:plans-action-envelope:${suffix}`,
+    side_effect_class: "validation_only",
+    risk_class: "medium",
+    approval_required: true,
+    approval_requirement_ref: `approval-requirement:plans-action-envelope:${suffix}`,
+    review_actions: plansActionEnvelopeReviewActions,
+    review_posture_refs: reviewPostureRefs,
+    expected_receipt_refs: [`receipt-plan:plans-action-envelope:${suffix}`],
+    idempotency_key_ref: `idempotency-ref:plans-action-envelope:${suffix}`,
+    expires_at: "review_required_before_mutation",
+    stale_state: "recheck_plan_and_action_refs_before_mutation",
+    rollback_ref: `rollback-plan:plans-action-envelope:${suffix}`,
+    safe_disable_ref: `safe-disable:plans-action-envelope:${suffix}`,
+    blocked_state_refs: blockedStateRefs,
+    authority_boundary:
+      "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
+    exact_scope_required: true,
+    approval_ref_authority: false,
+    approval_grant_capture_enabled: false,
+    action_execution_enabled: false,
+    connector_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    model_provider_authority_allowed: false,
+    safe_refs_only: true,
+    raw_content_included: false,
+    plan_action_envelope_ref: `action-envelope:plans:${suffix}`,
+    plan_action_scope_ref: `scope-ref:plans-action-envelope:${suffix}`,
+    plan_action_approval_requirement_ref: `approval-requirement:plans-action-envelope:${suffix}`,
+    plan_action_review_posture_refs: reviewPostureRefs,
+    plan_action_expected_receipt_refs: [`receipt-plan:plans-action-envelope:${suffix}`],
+    plan_action_blocked_state_refs: blockedStateRefs,
+    plan_action_authority_boundary:
+      "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
+  };
+}
+
+function actionEnvelopeFields(actionRef: string, expectedReceiptRefs: string[]) {
+  const suffix = safeEnvelopeSuffix(actionRef);
+  return {
+    action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
+    action_envelope_ref: `action-envelope:plans:${suffix}`,
+    action_envelope_status: "review_ready_execution_blocked",
+    action_envelope_safe_summary:
+      "Action item is available as safe review metadata with exact-scope, receipt, idempotency, rollback, and safe-disable refs.",
+    action_scope_ref: `scope-ref:plans-action-envelope:${suffix}`,
+    action_approval_requirement_ref: `approval-requirement:plans-action-envelope:${suffix}`,
+    action_review_actions: plansActionEnvelopeReviewActions,
+    action_review_posture_refs: plansActionEnvelopeReviewActions.map(
+      (action) => `review-posture:plans-action-envelope:${action}`,
+    ),
+    action_expected_receipt_refs:
+      expectedReceiptRefs.length > 0
+        ? expectedReceiptRefs
+        : [`receipt-plan:plans-action-envelope:${suffix}`],
+    action_idempotency_key_ref: `idempotency-ref:plans-action-envelope:${suffix}`,
+    action_expires_at: "review_required_before_mutation",
+    action_stale_state: "recheck_plan_and_action_refs_before_mutation",
+    action_rollback_ref: `rollback-plan:plans-action-envelope:${suffix}`,
+    action_safe_disable_ref: `safe-disable:plans-action-envelope:${suffix}`,
+    action_blocked_state_refs: [
+      ...plansActionEnvelopeRequiredBlockedRefs,
+      "blocked-state:state-change-blocked",
+    ],
+    action_authority_boundary:
+      "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
+    action_exact_scope_required: true,
+    action_envelope_approval_ref_authority: false,
+    action_envelope_grant_capture_enabled: false,
+    action_envelope_execution_enabled: false,
+    action_envelope_connector_write_enabled: false,
+    action_envelope_shell_execution_enabled: false,
+    action_envelope_model_provider_authority_allowed: false,
+    action_envelope_safe_refs_only: true,
+    action_envelope_raw_content_included: false,
+  };
+}
+
 export const mockControlCenterData: ControlCenterData = {
   source: "mock",
   connection: {
@@ -1728,7 +1918,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         module: "Plans",
-        status: "partial_action_envelope_contract_missing",
+        status: "implemented_reviewable_action_envelope_contract",
         required_loop_outputs: [
           "today_plan_state",
           "action_envelope_or_blocked_state",
@@ -1737,7 +1927,7 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         current_feed_refs: [
           "status-ref:founder-loop-plan-summary",
-          "contract-ref:plans-action-envelope-missing",
+          "contract-ref:plans-action-envelope:v1",
         ],
         standalone_complete_allowed: false,
       },
@@ -1892,7 +2082,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         surface: "Plans",
-        current_status: "partial_until_action_envelopes",
+        current_status: "implemented_reviewable_action_envelope_refs",
         required_history_keys: [
           "proposed",
           "approved",
@@ -1903,7 +2093,7 @@ export const mockControlCenterData: ControlCenterData = {
           "blocked",
         ],
         authority_boundary:
-          "Plan evidence is inspection-only until Action envelopes are scoped.",
+          "Plan evidence can describe reviewable Action envelope posture, expected receipts, rollback posture, and blockers, but plan summaries are not execution authority.",
       },
       {
         surface: "Memory",
@@ -2188,6 +2378,17 @@ export const mockControlCenterData: ControlCenterData = {
     },
     business_memory_status:
       "implemented_review_queue_safe_ref_quality_metadata_contract",
+    plans_action_envelope_contract_ref:
+      "contract-ref:plans-action-envelope:v1",
+    plans_action_envelope_review_postures: plansActionEnvelopeReviewPostures,
+    plans_action_envelope_required_ref_fields:
+      plansActionEnvelopeRequiredRefFields,
+    plans_action_envelope_required_blocked_refs:
+      plansActionEnvelopeRequiredBlockedRefs,
+    plans_action_envelope_surface_bindings: plansActionEnvelopeSurfaceBindings,
+    plans_action_envelope_authority_posture: plansActionEnvelopeAuthorityPosture,
+    plans_action_envelope_status:
+      "implemented_reviewable_action_envelopes_execution_blocked",
     priority_refs: [
       "priority-ref:action:high:founder-action-mock-setup-hardening",
       "priority-ref:briefing:medium:briefing-mock-source-readiness",
@@ -2207,7 +2408,12 @@ export const mockControlCenterData: ControlCenterData = {
       approval_required_before_mutation: true,
       mutating_controls_enabled: false,
       execution_authorized: false,
-      action_envelope_contract_status: "blocked_until_uaa_p1_073",
+      action_envelope_contract_status:
+        "implemented_reviewable_action_envelopes_execution_blocked",
+      action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
+      review_actions: plansActionEnvelopeReviewActions,
+      approval_grant_capture_enabled: false,
+      state_change_enabled: false,
     },
     stale_source_posture: {
       status: "recheck_required_before_action_or_source_use",
@@ -2267,6 +2473,9 @@ export const mockControlCenterData: ControlCenterData = {
         stale_state: "recheck_setup_summary_before_mutation",
         rollback_ref: "rollback-plan:founder-loop:mock-setup-hardening",
         safe_disable_ref: "safe-disable:founder-loop:mock-setup-hardening",
+        ...actionEnvelopeFields("founder-action:mock-setup-hardening", [
+          "receipt-plan:founder-loop:mock-setup-hardening",
+        ]),
         next_safe_action:
           "Review refs only; request a scoped state-change milestone before mutation.",
       },
@@ -2296,6 +2505,7 @@ export const mockControlCenterData: ControlCenterData = {
         stale_state: "recheck_source_status_before_contract",
         rollback_ref: null,
         safe_disable_ref: "safe-disable:founder-loop:mock-briefing-surface",
+        ...actionEnvelopeFields("founder-action:mock-briefing", []),
         next_safe_action:
           "Define read-only briefing source refs before source reads.",
       },
@@ -2310,6 +2520,7 @@ export const mockControlCenterData: ControlCenterData = {
         next_step_summary:
           "Keep the loop storage-backed and review-gated before adding broader runtime surfaces.",
         evidence_refs: ["evidence-ref:founder-loop:mock-product-spine"],
+        ...planActionEnvelopeFields("plan-summary:founder-loop-v1"),
       },
     ],
     memory_review_queue: [
@@ -2621,35 +2832,56 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         timeline_item_ref: "evidence-timeline:plan/plan-summary/founder-loop-v1",
-        item_kind: "plan_evidence_ref",
+        item_kind: "plan_action_envelope_ref",
         title: "Founder Loop v1 product spine",
         safe_summary:
-          "Plan evidence is a bounded summary ref and does not create execution authority or a durable run by itself.",
+          "Plan evidence includes a reviewable Action envelope ref with exact scope, expected receipts, idempotency, rollback, and safe-disable posture; execution remains blocked.",
         history_contract_ref: "contract-ref:evidence-history-grammar:v1",
         history_answers: evidenceHistoryAnswers("plan-summary:founder-loop-v1"),
         source_refs: ["plan-summary:founder-loop-v1"],
-        status_refs: ["status-ref:founder-loop-plan-summary"],
+        status_refs: [
+          "status-ref:founder-loop-plan-summary",
+          "contract-ref:plans-action-envelope:v1",
+          "action-envelope:plans:plan-summary-founder-loop-v1",
+        ],
         related_route_refs: ["/plans", "/task-decomposition/status"],
         side_effect_class: "validation_only",
         authority_posture:
-          "Plan summary is inspection-only and not execution authority.",
-        approval_posture: "approval_required_before_execution_scope",
+          "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
+        approval_posture:
+          "approval-requirement:plans-action-envelope:plan-summary-founder-loop-v1",
         approval_ref_authority: false,
         rollback_execution_enabled: false,
         memory_truth_authority: false,
         context_injection_authorized: false,
         raw_evidence_included: false,
-        receipt_refs: [],
+        receipt_refs: [
+          "receipt-plan:plans-action-envelope:plan-summary-founder-loop-v1",
+        ],
         audit_refs: [],
         replay_refs: ["replay-ref:founder-loop:plan-summary"],
-        rollback_refs: [],
-        rollback_blockers: ["rollback_not_applicable_for_plan_summary"],
+        rollback_refs: [
+          "rollback-plan:plans-action-envelope:plan-summary-founder-loop-v1",
+        ],
+        rollback_blockers: ["rollback_execution_not_scoped"],
         latency_refs: [],
         foundation_gate_refs: [],
         redaction_status: "redacted_summary_only",
-        stale_state: "recheck_plan_refs_before_execution_claims",
-        missing_evidence_posture: "run_receipt_missing_until_execution_contract",
-        blocked_states: ["no_plan_execution_from_evidence_timeline"],
+        stale_state: "recheck_plan_and_action_refs_before_mutation",
+        missing_evidence_posture:
+          "execution_receipt_missing_until_scoped_action_contract",
+        blocked_states: [
+          "blocked-state:no-action-execution",
+          "blocked-state:no-approval-grant-capture",
+          "blocked-state:approval-refs-identifiers-only",
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-public-beta-or-distribution",
+          "blocked-state:no-production-authority",
+          "blocked-state:no-plan-action-execution",
+          "blocked-state:no-plan-approval-grant-capture",
+        ],
         next_safe_action:
           "Keep the loop storage-backed and review-gated before adding broader runtime surfaces.",
       },
@@ -2807,7 +3039,9 @@ export const mockControlCenterData: ControlCenterData = {
     evidence_refs: ["evidence-ref:founder-loop:mock-today-summary"],
     blocked_states: [
       "no_action_execution_route",
+      "no_approval_grant_capture_route",
       "no_connector_write_route",
+      "no_shell_subprocess_execution",
       "no_runtime_model_call_route",
     ],
   },
@@ -2858,6 +3092,9 @@ export const mockControlCenterData: ControlCenterData = {
         stale_state: "recheck_setup_summary_before_mutation",
         rollback_ref: "rollback-plan:founder-loop:mock-setup-hardening",
         safe_disable_ref: "safe-disable:founder-loop:mock-setup-hardening",
+        ...actionEnvelopeFields("founder-action:mock-setup-hardening", [
+          "receipt-plan:founder-loop:mock-setup-hardening",
+        ]),
         next_safe_action:
           "Review refs only; request a scoped state-change milestone before mutation.",
       },
@@ -2887,12 +3124,17 @@ export const mockControlCenterData: ControlCenterData = {
         stale_state: "recheck_source_status_before_contract",
         rollback_ref: null,
         safe_disable_ref: "safe-disable:founder-loop:mock-briefing-surface",
+        ...actionEnvelopeFields("founder-action:mock-briefing", []),
         next_safe_action:
           "Define read-only briefing source refs before source reads.",
       },
     ],
     approval_required_before_mutation: true,
     mutating_controls_enabled: false,
+    action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
+    action_envelope_review_postures: plansActionEnvelopeReviewPostures,
+    action_envelope_required_ref_fields: plansActionEnvelopeRequiredRefFields,
+    action_envelope_authority_posture: plansActionEnvelopeAuthorityPosture,
     disabled_state_label: "Exact backend approval contract required",
     evidence_refs: ["evidence-ref:founder-loop:mock-action-inbox"],
     blocked_states: [
@@ -2900,6 +3142,7 @@ export const mockControlCenterData: ControlCenterData = {
       "no_approval_grant_capture_route",
       "no_state_change_contract_route",
       "no_connector_write_route",
+      "no_shell_subprocess_execution",
       "no_runtime_model_call_route",
     ],
   },

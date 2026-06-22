@@ -10,6 +10,17 @@ from ultimate_ai_agent.core.planning.contracts import (
     TaskStep,
     TaskStepInputBoundary,
 )
+from ultimate_ai_agent.core.planning.action_envelopes import (
+    PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+    PLANS_ACTION_ENVELOPE_REQUIRED_BLOCKED_REFS,
+    PLANS_ACTION_ENVELOPE_REQUIRED_REF_FIELDS,
+    PLANS_ACTION_ENVELOPE_REVIEW_ACTIONS,
+    PlanActionEnvelope,
+    build_plan_action_envelope,
+    plans_action_envelope_authority_posture,
+    plans_action_envelope_review_posture_rows,
+    plans_action_envelope_surface_bindings,
+)
 from ultimate_ai_agent.core.planning.enums import (
     PlanInputTrustLevel,
     TaskDependencyKind,
@@ -25,6 +36,11 @@ from ultimate_ai_agent.core.planning.validation import infer_input_trust_level
 
 __all__ = [
     "PlanInputTrustLevel",
+    "PLANS_ACTION_ENVELOPE_CONTRACT_REF",
+    "PLANS_ACTION_ENVELOPE_REQUIRED_BLOCKED_REFS",
+    "PLANS_ACTION_ENVELOPE_REQUIRED_REF_FIELDS",
+    "PLANS_ACTION_ENVELOPE_REVIEW_ACTIONS",
+    "PlanActionEnvelope",
     "TaskConstraint",
     "TaskDependency",
     "TaskDependencyKind",
@@ -42,6 +58,10 @@ __all__ = [
     "TaskStepInputBoundary",
     "TaskStepKind",
     "build_task_planning_manifest",
+    "build_plan_action_envelope",
     "evaluate_task_plan",
     "infer_input_trust_level",
+    "plans_action_envelope_authority_posture",
+    "plans_action_envelope_review_posture_rows",
+    "plans_action_envelope_surface_bindings",
 ]

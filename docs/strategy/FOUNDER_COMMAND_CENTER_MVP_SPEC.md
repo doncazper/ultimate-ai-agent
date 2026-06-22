@@ -16,8 +16,9 @@ Work the next implementation lane in this order, starting from the accepted
 Current status: UAA-P1-068 Today Product Spine Contract, UAA-P1-069 Evidence
 History Grammar, UAA-P1-070 Memory Source And Provenance Model, UAA-P1-071
 Memory Review Decision Capture, and UAA-P1-072 Business Memory And Memory
-Quality Controls are implemented as contract/test/read-only UI slices.
-UAA-P1-073 Plans To Reviewable Action Envelopes is the next incomplete lane.
+Quality Controls, and UAA-P1-073 Plans To Reviewable Action Envelopes are
+implemented as contract/test/read-only UI slices. UAA-P1-074 Chat Local
+Operator Surface is the next incomplete lane.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -37,10 +38,11 @@ UAA-P1-073 Plans To Reviewable Action Envelopes is the next incomplete lane.
    candidate kinds and duplicate/conflict/stale/expired/low-confidence/
    source-missing/evidence-missing posture before any memory is treated as
    useful reviewed recall.
-6. Plans to Action envelopes: Plans produce approve/edit/reject/defer-ready
+6. Plans to Action envelopes: implemented. Plans produce
+   approve/edit/reject/defer-ready
    envelopes with exact scope, receipts, expiry, idempotency, evidence, and
    rollback/safe-disable posture.
-7. First-party Control Center chat local operator surface: Chat sends a local
+7. First-party Control Center chat local operator surface: Ready Next. Chat sends a local
    turn through the governed local gateway, shows model/runtime/auth/tool-denial
    truth, produces safe evidence, and hands off to Plans or Actions. OpenWebUI
    remains a secondary local/dev shell, not the product state owner.

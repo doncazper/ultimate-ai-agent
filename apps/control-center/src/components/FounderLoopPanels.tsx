@@ -106,6 +106,51 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         </article>
         <article className="status-card">
           <div className="status-card-header">
+            <h3>Action envelope contract</h3>
+            <span>{today.plans_action_envelope_status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.plans_action_envelope_contract_ref}
+            />
+            <DetailTerm
+              label="Exact scope"
+              value={
+                today.plans_action_envelope_authority_posture.exact_scope_required
+                  ? "required"
+                  : "missing"
+              }
+            />
+            <DetailTerm
+              label="Grant capture"
+              value={
+                today.plans_action_envelope_authority_posture
+                  .approval_grant_capture_enabled
+                  ? "enabled"
+                  : "disabled"
+              }
+            />
+            <DetailTerm
+              label="Execution"
+              value={
+                today.plans_action_envelope_authority_posture
+                  .action_execution_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <InlineListWithFallback
+            emptyLabel="Review actions: missing"
+            items={today.plans_action_envelope_review_postures.map(
+              (posture) => posture.review_action,
+            )}
+          />
+          <RefList refs={today.plans_action_envelope_required_blocked_refs} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
             <h3>Next safe actions</h3>
             <span>{today.next_safe_actions.length}</span>
           </div>
@@ -276,10 +321,10 @@ export function ActionInboxSurfacePanel({
           <DetailTerm label="Disabled state" value={inbox.disabled_state_label} />
         </dl>
       </article>
-      <article className="status-card">
-        <div className="status-card-header">
-          <h3>Local prerequisites</h3>
-          <span>read-only refs</span>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Local prerequisites</h3>
+            <span>read-only refs</span>
         </div>
         <p>
           These refs expose readiness only. They do not grant approval, state
@@ -287,6 +332,45 @@ export function ActionInboxSurfacePanel({
         </p>
         <RefList refs={inbox.read_only_route_refs ?? []} />
         <RefList refs={inbox.local_prerequisite_refs ?? []} />
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Action envelope contract</h3>
+          <span>{inbox.action_envelope_contract_ref ?? "missing"}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Exact scope"
+            value={
+              inbox.action_envelope_authority_posture?.exact_scope_required
+                ? "required"
+                : "missing"
+            }
+          />
+          <DetailTerm
+            label="Grant capture"
+            value={
+              inbox.action_envelope_authority_posture?.approval_grant_capture_enabled
+                ? "enabled"
+                : "disabled"
+            }
+          />
+          <DetailTerm
+            label="Execution"
+            value={
+              inbox.action_envelope_authority_posture?.action_execution_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+        </dl>
+        <InlineListWithFallback
+          emptyLabel="Review postures: missing"
+          items={(inbox.action_envelope_review_postures ?? []).map(
+            (posture) => posture.review_action,
+          )}
+        />
+        <RefList refs={inbox.action_envelope_required_ref_fields ?? []} />
       </article>
       <div className="review-grid">
         {inbox.items.map((item) => (
@@ -961,6 +1045,10 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
   const nextSafeAction =
     item.next_safe_action ??
     "Review the safe summary and keep mutation blocked until a scoped backend contract exists.";
+  const actionEnvelopeRef = item.action_envelope_ref ?? "missing until scoped contract";
+  const actionScopeRef = item.action_scope_ref ?? "scope ref missing";
+  const actionApprovalRequirement =
+    item.action_approval_requirement_ref ?? "approval requirement ref missing";
 
   return (
     <article className="review-card">
@@ -988,9 +1076,45 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
         <DetailTerm label="Stale-state posture" value={staleState} />
         <DetailTerm label="Rollback" value={rollbackValue} />
         <DetailTerm label="Safe disable" value={safeDisableValue} />
+        <DetailTerm
+          label="Action envelope contract"
+          value={item.action_envelope_contract_ref ?? "missing"}
+        />
+        <DetailTerm label="Action envelope" value={actionEnvelopeRef} />
+        <DetailTerm
+          label="Action envelope status"
+          value={item.action_envelope_status ?? "missing"}
+        />
+        <DetailTerm label="Exact scope" value={actionScopeRef} />
+        <DetailTerm
+          label="Approval requirement"
+          value={actionApprovalRequirement}
+        />
+        <DetailTerm
+          label="Envelope execution"
+          value={item.action_envelope_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Grant capture"
+          value={
+            item.action_envelope_grant_capture_enabled ? "enabled" : "disabled"
+          }
+        />
         <DetailTerm label="Next safe action" value={nextSafeAction} />
       </dl>
       {item.blocked_state ? <p className="muted">{item.blocked_state}</p> : null}
+      <InlineListWithFallback
+        emptyLabel="Review actions: missing"
+        items={item.action_review_actions ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Action expected receipt refs: missing until scoped contract"
+        refs={item.action_expected_receipt_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Action envelope blockers: missing"
+        refs={item.action_blocked_state_refs ?? []}
+      />
       <RefListWithFallback
         emptyLabel="Receipt refs: missing until scoped contract"
         refs={item.receipt_refs ?? []}
@@ -1005,6 +1129,11 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
 }
 
 function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
+  const actionEnvelopeRef = plan.action_envelope_ref ?? "missing until scoped contract";
+  const scopeRef = plan.scope_ref ?? "scope ref missing";
+  const approvalRequirement =
+    plan.approval_requirement_ref ?? "approval requirement ref missing";
+
   return (
     <article className="review-card">
       <div className="review-card-heading">
@@ -1013,6 +1142,58 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
       </div>
       <p>{plan.safe_summary}</p>
       <p className="muted">{plan.next_step_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Action envelope contract"
+          value={plan.action_envelope_contract_ref ?? "missing"}
+        />
+        <DetailTerm label="Action envelope" value={actionEnvelopeRef} />
+        <DetailTerm
+          label="Envelope status"
+          value={plan.action_envelope_status ?? "missing"}
+        />
+        <DetailTerm label="Exact scope" value={scopeRef} />
+        <DetailTerm label="Side effect" value={plan.side_effect_class ?? "missing"} />
+        <DetailTerm label="Risk" value={plan.risk_class ?? "missing"} />
+        <DetailTerm
+          label="Approval before mutation"
+          value={plan.approval_required ? "required" : "not required"}
+        />
+        <DetailTerm label="Approval requirement" value={approvalRequirement} />
+        <DetailTerm
+          label="Idempotency"
+          value={plan.idempotency_key_ref ?? "missing until scoped contract"}
+        />
+        <DetailTerm
+          label="Expiry posture"
+          value={plan.expires_at ?? "review required before mutation"}
+        />
+        <DetailTerm label="Rollback" value={plan.rollback_ref ?? "missing"} />
+        <DetailTerm
+          label="Safe disable"
+          value={plan.safe_disable_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Execution"
+          value={plan.action_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Grant capture"
+          value={plan.approval_grant_capture_enabled ? "enabled" : "disabled"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Review actions: missing"
+        items={plan.review_actions ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Expected receipt refs: missing until scoped contract"
+        refs={plan.expected_receipt_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Action envelope blockers: missing"
+        refs={plan.blocked_state_refs ?? []}
+      />
       <RefList refs={plan.evidence_refs} />
     </article>
   );

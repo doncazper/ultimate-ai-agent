@@ -103,6 +103,31 @@ export interface FounderLoopActionItem {
   rollback_ref?: string | null;
   safe_disable_ref?: string | null;
   next_safe_action: string;
+  action_envelope_contract_ref?: string;
+  action_envelope_ref?: string;
+  action_envelope_status?: string;
+  action_envelope_safe_summary?: string;
+  action_scope_ref?: string;
+  action_approval_requirement_ref?: string;
+  action_review_actions?: string[];
+  action_review_posture_refs?: string[];
+  action_expected_receipt_refs?: string[];
+  action_idempotency_key_ref?: string;
+  action_expires_at?: string;
+  action_stale_state?: string;
+  action_rollback_ref?: string;
+  action_safe_disable_ref?: string;
+  action_blocked_state_refs?: string[];
+  action_authority_boundary?: string;
+  action_exact_scope_required?: boolean;
+  action_envelope_approval_ref_authority?: boolean;
+  action_envelope_grant_capture_enabled?: boolean;
+  action_envelope_execution_enabled?: boolean;
+  action_envelope_connector_write_enabled?: boolean;
+  action_envelope_shell_execution_enabled?: boolean;
+  action_envelope_model_provider_authority_allowed?: boolean;
+  action_envelope_safe_refs_only?: boolean;
+  action_envelope_raw_content_included?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -114,6 +139,41 @@ export interface FounderLoopPlanSummary {
   safe_summary: string;
   next_step_summary: string;
   evidence_refs: string[];
+  action_envelope_contract_ref?: string;
+  action_envelope_ref?: string;
+  action_envelope_status?: string;
+  action_envelope_safe_summary?: string;
+  scope_ref?: string;
+  side_effect_class?: string;
+  risk_class?: string;
+  approval_required?: boolean;
+  approval_requirement_ref?: string;
+  review_actions?: string[];
+  review_posture_refs?: string[];
+  expected_receipt_refs?: string[];
+  idempotency_key_ref?: string;
+  expires_at?: string;
+  stale_state?: string;
+  rollback_ref?: string;
+  safe_disable_ref?: string;
+  blocked_state_refs?: string[];
+  authority_boundary?: string;
+  exact_scope_required?: boolean;
+  approval_ref_authority?: boolean;
+  approval_grant_capture_enabled?: boolean;
+  action_execution_enabled?: boolean;
+  connector_write_enabled?: boolean;
+  shell_subprocess_execution_enabled?: boolean;
+  model_provider_authority_allowed?: boolean;
+  safe_refs_only?: boolean;
+  raw_content_included?: boolean;
+  plan_action_envelope_ref?: string;
+  plan_action_scope_ref?: string;
+  plan_action_approval_requirement_ref?: string;
+  plan_action_review_posture_refs?: string[];
+  plan_action_expected_receipt_refs?: string[];
+  plan_action_blocked_state_refs?: string[];
+  plan_action_authority_boundary?: string;
   updated_at?: string;
 }
 
@@ -427,6 +487,41 @@ export interface FounderLoopBusinessMemoryAuthorityPosture {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopActionEnvelopeReviewPosture {
+  review_action: string;
+  review_posture_ref: string;
+  exact_scope_required: boolean;
+  safe_refs_required: boolean;
+  receipt_refs_required: boolean;
+  grants_execution_authority: boolean;
+  captures_approval_grant: boolean;
+}
+
+export interface FounderLoopActionEnvelopeSurfaceBinding {
+  surface: string;
+  feed_status: string;
+  feed_ref: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopActionEnvelopeAuthorityPosture {
+  safe_refs_only: boolean;
+  exact_scope_required: boolean;
+  approval_required_before_mutation: boolean;
+  approval_ref_authority: boolean;
+  approval_grant_capture_enabled: boolean;
+  action_execution_enabled: boolean;
+  state_change_enabled: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  model_provider_authority_allowed: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -461,6 +556,10 @@ export interface FounderLoopPlanActionState {
   mutating_controls_enabled: boolean;
   execution_authorized: boolean;
   action_envelope_contract_status: string;
+  action_envelope_contract_ref?: string;
+  review_actions?: string[];
+  approval_grant_capture_enabled?: boolean;
+  state_change_enabled?: boolean;
 }
 
 export interface FounderLoopStaleSourcePosture {
@@ -502,6 +601,13 @@ export interface FounderLoopTodaySummary {
   business_memory_surface_bindings: FounderLoopBusinessMemorySurfaceBinding[];
   business_memory_authority_posture: FounderLoopBusinessMemoryAuthorityPosture;
   business_memory_status: string;
+  plans_action_envelope_contract_ref: string;
+  plans_action_envelope_review_postures: FounderLoopActionEnvelopeReviewPosture[];
+  plans_action_envelope_required_ref_fields: string[];
+  plans_action_envelope_required_blocked_refs: string[];
+  plans_action_envelope_surface_bindings: FounderLoopActionEnvelopeSurfaceBinding[];
+  plans_action_envelope_authority_posture: FounderLoopActionEnvelopeAuthorityPosture;
+  plans_action_envelope_status: string;
   priority_refs: string[];
   blocker_refs: string[];
   follow_up_refs: string[];
@@ -550,6 +656,10 @@ export interface FounderLoopActionsInbox {
   items: FounderLoopActionItem[];
   approval_required_before_mutation: boolean;
   mutating_controls_enabled: boolean;
+  action_envelope_contract_ref?: string;
+  action_envelope_review_postures?: FounderLoopActionEnvelopeReviewPosture[];
+  action_envelope_required_ref_fields?: string[];
+  action_envelope_authority_posture?: FounderLoopActionEnvelopeAuthorityPosture;
   disabled_state_label: string;
   evidence_refs: string[];
   blocked_states: string[];

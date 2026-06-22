@@ -11,12 +11,12 @@ beta-readiness planning/currentness, UAA-P1-068 is complete for the Today
 Product Spine Contract, UAA-P1-069 is complete for the Evidence History
 Grammar, UAA-P1-070 is complete for the Memory Source And Provenance Model,
 UAA-P1-071 is complete for Memory Review Decision Capture, UAA-P1-072 is
-complete for Business Memory And Memory Quality Controls, UAA-P1-073 is the
-Ready Next Plans To Reviewable Action Envelopes lane, and UAA-P1-066
+complete for Business Memory And Memory Quality Controls, UAA-P1-073 is
+complete for Plans To Reviewable Action Envelopes, UAA-P1-074 is the Ready
+Next Chat Local Operator Surface lane, and UAA-P1-066
 remains queued as a strictly read-only Local Model Control Center
-inventory/status support lane. The product path runs through UAA-P1-073 to
-UAA-P1-078: Plans-to-Action envelopes, Chat operator
-truth, governed Code diffs, cross-surface intake,
+inventory/status support lane. The product path runs through UAA-P1-074 to
+UAA-P1-078: Chat operator truth, governed Code diffs, cross-surface intake,
 Today/Action/Evidence/Memory binding, and private local beta-readiness
 evidence. UAA-P1-079 is the later user-intent-understanding lane after that
 loop has evidence. This path adds no production authority, public beta, public

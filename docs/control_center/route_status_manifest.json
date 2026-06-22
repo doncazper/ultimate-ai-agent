@@ -30,8 +30,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only summary; any mutation requires exact LocalApprovalAuthority scope, idempotency, rollback, and receipt refs.",
-      "evidence_audit_output": "Storage-backed safe refs and bounded summaries for Today, action inbox, plan, memory-review, and briefing state; no raw prompts, raw responses, raw paths, raw logs, or credential material.",
+      "approval_requirement": "None for read-only summary; any mutation requires exact LocalApprovalAuthority scope, idempotency, rollback, audit, and receipt refs. UAA-P1-073 approval refs remain identifiers only.",
+      "evidence_audit_output": "Storage-backed safe refs and bounded summaries for Today, action inbox, plan, memory-review, briefing state, and UAA-P1-073 Action envelope posture; no raw prompts, raw responses, raw paths, raw logs, or credential material.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -77,8 +77,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "Read-only inbox inspection needs no approval; state changes require exact approval scope, idempotency, rollback, audit, and receipt refs.",
-      "evidence_audit_output": "Storage-backed action proposal refs, dry-run approval-envelope refs or missing-envelope blockers, side-effect classes, receipt/audit/idempotency/rollback refs, blocked states, and evidence refs only.",
+      "approval_requirement": "Read-only inbox inspection needs no approval; state changes require exact approval scope, idempotency, rollback, audit, and receipt refs. UAA-P1-073 approval refs remain identifiers only.",
+      "evidence_audit_output": "Storage-backed action proposal refs, UAA-P1-073 Action envelope contract refs, exact scope refs, side-effect/risk/approval posture, review actions, expected receipt refs, receipt/audit/idempotency/rollback refs, blocked states, and evidence refs only.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -204,8 +204,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "high",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "Exact approval grant for each safe registered capability; approval refs remain evidence only.",
-      "evidence_audit_output": "Durable run binding refs, approval refs, audit summaries, receipt refs, replay refs, and rollback refs.",
+      "approval_requirement": "Exact approval grant for each safe registered capability; approval refs remain evidence only. UAA-P1-073 reviewable Action envelope approval refs are identifiers only until a later exact authority path validates scope.",
+      "evidence_audit_output": "Durable run binding refs, approval refs, audit summaries, receipt refs, replay refs, rollback refs, and UAA-P1-073 Action envelope refs with exact scope, expected receipt, blocked-state, rollback, and safe-disable refs.",
       "current_backend_routes": [
         {
           "method": "POST",
@@ -524,8 +524,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only action inbox inspection.",
-      "evidence_audit_output": "Storage-backed action proposal refs, approval-envelope posture, state-change readiness, receipt/audit/idempotency/rollback posture, blocked states, and evidence refs.",
+      "approval_requirement": "None for read-only action inbox inspection. UAA-P1-073 approval refs remain identifiers only until later exact authority validation.",
+      "evidence_audit_output": "Storage-backed action proposal refs, UAA-P1-073 Action envelope contract refs, exact scope refs, approval-envelope posture, state-change readiness, expected receipt refs, receipt/audit/idempotency/rollback posture, blocked states, and evidence refs.",
       "backend_routes": [
         {
           "method": "GET",
@@ -728,13 +728,20 @@
       "ui_surface": "Plans",
       "frontend_route": "/plans",
       "owner": "task-decomposition",
-      "auth_posture": "blocked_placeholder_only",
-      "side_effect_class": "local_ui_state_only",
+      "auth_posture": "local_storage_backed_review_only",
+      "side_effect_class": "local_dev_workspace_only",
       "risk_class": "high",
-      "release_status": "blocked_missing_backend",
-      "approval_requirement": "Exact approval and durable run binding are required before any plan handler can run.",
-      "evidence_audit_output": "No durable evidence output from the placeholder page.",
-      "backend_routes": [],
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Exact approval and durable run binding are required before any plan handler can run. UAA-P1-073 Action envelope refs are read-only review metadata and do not grant execution.",
+      "evidence_audit_output": "Today summary exposes UAA-P1-073 plan Action envelope refs, exact scope refs, expected receipt refs, rollback/safe-disable refs, and blocked authority refs only.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only"
+        }
+      ],
       "missing_backend_routes": [
         "control-center-plans-surface-status",
         "durable-run-lifecycle-summary",

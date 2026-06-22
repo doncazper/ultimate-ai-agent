@@ -510,6 +510,8 @@ PR size: split contract and UI if needed.
 
 Type: backend contract/test plus UI display later
 
+Status: implemented / ready for review.
+
 New authority: no execution or approval grant.
 
 Acceptance criteria:
@@ -524,16 +526,23 @@ Acceptance criteria:
 
 Tests to add/update:
 
-- Plan/action envelope contract tests.
-- Approval-scope tests.
-- OpenAPI/API manifest tests if routes change.
+- `tests/test_uaa_p1_073_plans_action_envelopes.py`.
+- `tests/test_founder_loop_storage.py`.
+- `tests/test_control_center_founder_loop_api.py`.
+- `apps/control-center/src/App.test.tsx`.
+- `scripts/verify_uaa_p1_073_plans_action_envelopes.py`.
 - Documentation integrity.
 
-PR size: one contract PR, then one UI PR if needed.
+Gate met: `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md` and
+`docs/schemas/plans_action_envelopes.schema.json` define the reviewable Action
+envelope contract on existing Today/Action Inbox surfaces without adding
+execution authority.
 
 ## Task 9g - UAA-P1-074 First-Party Control Center Chat Local Operator Surface
 
 Type: backend/local gateway plus first-party Control Center UI display later
+
+Status: Ready Next.
 
 New authority: no provider SDK, tool execution, or memory write.
 

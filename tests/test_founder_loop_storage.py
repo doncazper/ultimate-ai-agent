@@ -9,6 +9,7 @@ from ultimate_ai_agent.core.storage import (
     FOUNDER_LOOP_SCHEMA_VERSION,
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
+    PLANS_ACTION_ENVELOPE_CONTRACT_REF,
     TODAY_PRODUCT_SPINE_CONTRACT_REF,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
@@ -76,6 +77,33 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert (
         today["business_memory_quality_contract_ref"]
         == BUSINESS_MEMORY_QUALITY_CONTRACT_REF
+    )
+    assert (
+        today["plans_action_envelope_contract_ref"]
+        == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    )
+    assert [
+        row["review_action"]
+        for row in today["plans_action_envelope_review_postures"]
+    ] == ["approve", "edit", "reject", "defer"]
+    assert "scope_ref" in today["plans_action_envelope_required_ref_fields"]
+    assert (
+        "blocked-state:no-action-execution"
+        in today["plans_action_envelope_required_blocked_refs"]
+    )
+    assert (
+        today["plans_action_envelope_authority_posture"][
+            "approval_grant_capture_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["plans_action_envelope_authority_posture"]["action_execution_enabled"]
+        is False
+    )
+    assert (
+        today["plans_action_envelope_status"]
+        == "implemented_reviewable_action_envelopes_execution_blocked"
     )
     assert today["memory_source_required_kinds"] == [
         "manual_note",
@@ -224,7 +252,13 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "approval_required_before_mutation": True,
         "mutating_controls_enabled": False,
         "execution_authorized": False,
-        "action_envelope_contract_status": "blocked_until_uaa_p1_073",
+        "action_envelope_contract_status": (
+            "implemented_reviewable_action_envelopes_execution_blocked"
+        ),
+        "action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+        "review_actions": ["approve", "edit", "reject", "defer"],
+        "approval_grant_capture_enabled": False,
+        "state_change_enabled": False,
     }
     assert today["stale_source_posture"]["source_refresh_enabled"] is False
     assert today["stale_source_posture"]["connector_runtime_enabled"] is False
@@ -235,6 +269,12 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert today["next_safe_actions"]
     assert today["actions"]
     assert inbox["mutating_controls_enabled"] is False
+    assert inbox["action_envelope_contract_ref"] == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    assert [
+        row["review_action"] for row in inbox["action_envelope_review_postures"]
+    ] == ["approve", "edit", "reject", "defer"]
+    assert "scope_ref" in inbox["action_envelope_required_ref_fields"]
+    assert inbox["action_envelope_authority_posture"]["action_execution_enabled"] is False
     assert inbox["route_ref"] == "/control-center/actions/inbox"
     assert "GET /control-center/storage/status" in inbox["read_only_route_refs"]
     assert "capability-ref:local-approval-authority" in inbox["local_prerequisite_refs"]
@@ -337,6 +377,62 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         == "safe-disable:founder-loop:setup-assistant-hardening"
     )
     assert "scoped state-change milestone" in approval_item["next_safe_action"]
+    assert (
+        approval_item["action_envelope_contract_ref"]
+        == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    )
+    assert approval_item["action_envelope_ref"].startswith("action-envelope:plans:")
+    assert approval_item["action_scope_ref"].startswith(
+        "scope-ref:plans-action-envelope:"
+    )
+    assert approval_item["action_review_actions"] == [
+        "approve",
+        "edit",
+        "reject",
+        "defer",
+    ]
+    assert approval_item["action_expected_receipt_refs"] == [
+        "receipt-plan:founder-loop:setup-assistant-hardening"
+    ]
+    assert (
+        "blocked-state:no-action-execution"
+        in approval_item["action_blocked_state_refs"]
+    )
+    assert approval_item["action_envelope_execution_enabled"] is False
+    assert approval_item["action_envelope_grant_capture_enabled"] is False
+    assert approval_item["action_envelope_raw_content_included"] is False
+
+    plan_item = next(
+        item
+        for item in today["plans"]
+        if item["plan_ref"] == "plan-summary:founder-loop-v1"
+    )
+    assert plan_item["action_envelope_contract_ref"] == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    assert (
+        plan_item["action_envelope_ref"]
+        == "action-envelope:plans:plan-summary-founder-loop-v1"
+    )
+    assert plan_item["scope_ref"] == (
+        "scope-ref:plans-action-envelope:plan-summary-founder-loop-v1"
+    )
+    assert plan_item["approval_requirement_ref"] == (
+        "approval-requirement:plans-action-envelope:plan-summary-founder-loop-v1"
+    )
+    assert plan_item["review_actions"] == ["approve", "edit", "reject", "defer"]
+    assert plan_item["expected_receipt_refs"] == [
+        "receipt-plan:plans-action-envelope:plan-summary-founder-loop-v1"
+    ]
+    assert (
+        plan_item["idempotency_key_ref"]
+        == "idempotency-ref:plans-action-envelope:plan-summary-founder-loop-v1"
+    )
+    assert (
+        "blocked-state:no-approval-grant-capture"
+        in plan_item["blocked_state_refs"]
+    )
+    assert plan_item["action_execution_enabled"] is False
+    assert plan_item["approval_grant_capture_enabled"] is False
+    assert plan_item["raw_content_included"] is False
 
     briefing_item = next(
         item
@@ -475,7 +571,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     timeline = today["evidence_timeline"]
     timeline_kinds = {item["item_kind"] for item in timeline}
     assert "receipt_audit_rollback_ref" in timeline_kinds
-    assert "plan_evidence_ref" in timeline_kinds
+    assert "plan_action_envelope_ref" in timeline_kinds
     assert "memory_review_evidence_ref" in timeline_kinds
     assert "source_readiness_evidence_ref" in timeline_kinds
     assert "foundation_gate_latency_ref" in timeline_kinds
@@ -526,6 +622,34 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert (
         "do not execute rollback"
         in (action_timeline_item["history_answers"]["undoable"]["answer"])
+    )
+
+    plan_timeline_item = next(
+        item for item in timeline if item["item_kind"] == "plan_action_envelope_ref"
+    )
+    assert PLANS_ACTION_ENVELOPE_CONTRACT_REF in plan_timeline_item["status_refs"]
+    assert (
+        "action-envelope:plans:plan-summary-founder-loop-v1"
+        in plan_timeline_item["status_refs"]
+    )
+    assert (
+        "reviewable Action envelope"
+        in plan_timeline_item["history_answers"]["proposed"]["answer"]
+    )
+    assert (
+        "approval refs remain identifiers only"
+        in plan_timeline_item["history_answers"]["approved"]["answer"]
+    )
+    assert plan_timeline_item["receipt_refs"] == [
+        "receipt-plan:plans-action-envelope:plan-summary-founder-loop-v1"
+    ]
+    assert plan_timeline_item["rollback_refs"] == [
+        "rollback-plan:plans-action-envelope:plan-summary-founder-loop-v1"
+    ]
+    assert "rollback_execution_not_scoped" in plan_timeline_item["rollback_blockers"]
+    assert (
+        "blocked-state:no-action-execution"
+        in plan_timeline_item["blocked_states"]
     )
 
     memory_timeline_item = next(

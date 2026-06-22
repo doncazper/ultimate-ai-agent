@@ -368,13 +368,13 @@ conveyor is repo-local process guidance only. It does not grant runtime
 authority, connector authority, provider/model authority, unrestricted shell,
 public beta, public distribution, or production readiness.
 
-Current conveyor status: UAA-P1-067 is complete for planning/currentness. The
-next incomplete documented milestone is UAA-P1-068 Today Product Spine
-Contract unless active docs show a later milestone has already been completed.
-The conveyor auto-advances after each successful milestone commit/push. Do not
-stop after merely recommending the next prompt; create and execute the next
-milestone prompt in the same Codex run until all documented milestones are
-complete or a real blocker/safety split requires stopping.
+Current conveyor status: UAA-P1-067 through UAA-P1-073 are complete. The next
+incomplete documented milestone is UAA-P1-074 Chat Local Operator Surface
+unless active docs show a later milestone has already been completed. The
+conveyor auto-advances after each successful milestone commit/push. Do not stop
+after merely recommending the next prompt; create and execute the next milestone
+prompt in the same Codex run until all documented milestones are complete or a
+real blocker/safety split requires stopping.
 
 ```text
 You are working only in doncazper/ultimate-ai-agent.
@@ -905,6 +905,100 @@ Auto-advance:
 - After commit/push succeeds, immediately create/update and execute the
   UAA-P1-073 Plans To Reviewable Action Envelopes prompt in the same run unless
   blocked.
+- Do not stop with only a next-prompt recommendation. Stop only for an exact
+  blocker, unsafe scope split, failed verification, failed push, or user
+  pause/stop.
+```
+
+## 17. UAA-P1-073 Plans To Reviewable Action Envelopes Prompt
+
+```text
+review the following documents:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+
+Implement UAA-P1-073 - Plans To Reviewable Action Envelopes.
+
+Also read AGENTS.md. If present, read SPECS.md, specs.md, SDLC.md, sdlc.md,
+and the closest task-specific spec, ADR, schema, standards, or process docs
+discovered with rg --files. Treat these as contributor guidance, not runtime
+configuration or product authority.
+
+Subagent plan:
+- Use at least one read-only subagent for plan/action envelope contract review
+  when agent capacity is available.
+- Use at least one read-only subagent for adversarial product-language,
+  redaction, approval-authority, route/OpenAPI, and UI affordance review when
+  agent capacity is available.
+- Subagents are advisory. The main Codex run owns integration, verification,
+  commit/push, and auto-advance.
+
+Scope:
+- Python core planning Action envelope contract, existing
+  `GET /control-center/today/summary` plan summaries, existing
+  `GET /control-center/actions/inbox` action summaries, TypeScript API types,
+  read-only Today/Plans/Actions visibility, docs, schema, focused tests, and
+  verifier.
+- Review actions: approve, edit, reject, and defer.
+- Envelope fields: exact scope ref, side-effect class, risk class, approval
+  requirement ref, evidence refs, expected receipt refs, idempotency key ref,
+  expiry, rollback ref, safe-disable ref, and blocked-state refs.
+- Do not add a new route, operation ID, side-effect class, backend mutation,
+  action execution, approval grant capture, connector write, shell/subprocess
+  execution, model/provider authority, automatic memory write, hidden context
+  injection, raw private evidence, public beta, public distribution, production
+  readiness, or production authority.
+
+Acceptance criteria:
+- `core.planning` exposes `contract-ref:plans-action-envelope:v1`.
+- Today summary exposes Action envelope contract ref, review posture rows,
+  required ref fields, required blocked refs, surface bindings, authority
+  posture, plan action state, and per-plan envelope metadata.
+- Action Inbox exposes Action envelope contract ref, review posture rows,
+  authority posture, and per-action envelope metadata.
+- Evidence Timeline records plan Action envelope history as safe refs.
+- Approve/edit/reject/defer posture is visible without creating action
+  execution, approval grant capture, reusable approval authority, connector
+  writes, shell/subprocess execution, model/provider authority, memory writes,
+  public beta, public distribution, production readiness, or production
+  authority.
+- The Control Center renders envelope metadata read-only and does not add
+  mutation controls.
+- Active docs mark UAA-P1-073 complete and promote UAA-P1-074 Chat Local
+  Operator Surface as the next incomplete milestone.
+
+Review/fix:
+- Perform adversarial review for approval refs becoming implied authority,
+  review actions becoming controls, exact scope being too vague, receipts or
+  rollback implying execution, shell/subprocess/provider/connector authority
+  creep, raw prompt/response/path/log leakage, route/OpenAPI drift, and unsafe
+  beta/production language.
+- Fix P0/P1 issues before hardening.
+
+Hardening:
+- Run PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_uaa_p1_073_plans_action_envelopes.py
+  tests/test_founder_loop_storage.py
+  tests/test_control_center_founder_loop_api.py
+- Run .venv/bin/python scripts/verify_uaa_p1_073_plans_action_envelopes.py
+- Run .venv/bin/python -c "import scripts.verify_all as v; v.verify_uaa_p1_073_plans_action_envelopes()"
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+- Run make frontend-check when frontend files changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-073 plus any conveyor auto-advance fix
+  intentionally made for this run.
+- Commit with message: implement UAA-P1-073 plans action envelopes
+- Push the current branch.
+
+Auto-advance:
+- After commit/push succeeds, immediately create/update and execute the
+  UAA-P1-074 Chat Local Operator Surface prompt in the same run unless blocked.
 - Do not stop with only a next-prompt recommendation. Stop only for an exact
   blocker, unsafe scope split, failed verification, failed push, or user
   pause/stop.

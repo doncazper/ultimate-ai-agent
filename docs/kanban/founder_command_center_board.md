@@ -21,8 +21,9 @@ planning/currentness path. UAA-P1-068 completed the Today Product Spine
 Contract. UAA-P1-069 completed the Evidence History Grammar contract.
 UAA-P1-070 completed the Memory Source And Provenance Model. UAA-P1-071
 completed Memory Review Decision Capture. UAA-P1-072 completed Business Memory
-And Memory Quality Controls. The parent board now promotes UAA-P1-073 Plans To
-Reviewable Action Envelopes as Ready Next.
+And Memory Quality Controls. UAA-P1-073 completed Plans To Reviewable Action
+Envelopes. The parent board now promotes UAA-P1-074 Chat Local Operator
+Surface as Ready Next.
 UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
@@ -59,14 +60,14 @@ Implemented / ready for review:
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
-UAA-P1-070, UAA-P1-071, UAA-P1-072.
+UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073.
 
 Candidate-next:
-UAA-P1-073 Plans To Reviewable Action Envelopes.
+UAA-P1-074 Chat Local Operator Surface.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077,
+UAA-P1-075, UAA-P1-076, UAA-P1-077,
 UAA-P1-078, UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
 UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
@@ -75,30 +76,30 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ## Candidate Next
 
-### UAA-P1-073 - Plans To Reviewable Action Envelopes
+### UAA-P1-074 - Chat Local Operator Surface
 
-Epic: Plans/Actions, Safety/Permissions
+Epic: Chat, Local Model, Product/UX
 
-Promoted by: UAA-P1-072
+Promoted by: UAA-P1-073
 
-Type: contract/docs/test first
+Type: backend/local gateway contract plus first-party Control Center read-only
+truth surface
 
-Description: Plans must produce approve/edit/reject/defer-ready Action
-envelopes with exact scope, side-effect class, risk, approval requirement,
-idempotency, expiry, evidence refs, expected receipt refs, rollback or
-safe-disable posture, and blocked-state reasons.
+Description: Chat must send a local turn through the governed local gateway,
+show model/runtime/auth/tool-denial truth, produce safe evidence, and hand off
+to Plans or Actions as proposals only.
 
-Acceptance criteria: Classification and decomposition alone are not enough.
-The user can inspect reviewable envelopes and see approve/edit/reject/defer
-posture without granting action execution authority.
+Acceptance criteria: A user can see whether local model runtime, auth, route
+availability, and tool/function denial are true. Model output is not treated as
+truth, memory, approval evidence, or execution authority.
 
-Required tests/verifiers: Action envelope contract tests, storage/API tests,
-frontend read-only render tests, raw-content denial tests, and documentation
-integrity.
+Required tests/verifiers: local gateway/API tests, Control Center render tests,
+auth/tool-denial tests, evidence-summary tests, documentation integrity, and
+OpenAPI/API manifest checks if route contracts change.
 
-Safety notes: No action execution, approval grant capture, connector writes,
-shell/subprocess execution, model/provider authority, public beta, public
-distribution, or production authority.
+Safety notes: No provider SDK calls, web fetching, tool execution, automatic
+memory write, hidden context injection, connector write, shell/subprocess
+execution, public beta, public distribution, or production authority.
 
 ### FCC-P0-002 Follow-Up - Collapse/Organize Control Center Around Core Surfaces
 
@@ -142,8 +143,8 @@ authority expansion.
 Acceptance evidence: Active docs, roadmap, current board, product truth, MVP
 spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
 UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
-UAA-P1-071 as complete, UAA-P1-072 as complete, UAA-P1-073 as Ready Next, and
-UAA-P1-066 as read-only local model support.
+UAA-P1-071 as complete, UAA-P1-072 as complete, UAA-P1-073 as complete,
+UAA-P1-074 as Ready Next, and UAA-P1-066 as read-only local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,
@@ -585,6 +586,8 @@ production authority.
 
 Epic: Plans/Actions, Safety/Permissions
 
+Status: implemented / ready for review.
+
 Description: Plans must produce approve/edit/reject/defer-ready Action
 envelopes with exact scope, side-effect class, risk, approval requirement,
 idempotency, expiry, evidence refs, expected receipt refs, rollback or
@@ -594,11 +597,14 @@ Acceptance criteria: Classification and decomposition alone are not enough.
 The user can review an Action envelope, edit its scope, reject it, defer it, or
 approve it only through exact scoped authority when such authority exists.
 
-Required tests/verifiers: plan/action envelope contract tests, approval-scope
-tests, route/API manifest checks if routes change, and documentation integrity.
+Required tests/verifiers: plan/action envelope contract tests, storage/API
+tests, frontend read-only render tests, raw-content denial tests, and
+documentation integrity. Bound by
+`scripts/verify_uaa_p1_073_plans_action_envelopes.py`.
 
-Safety notes: No execution, no reusable approval ref, no broad autonomy, and
-no connector writes by default.
+Safety notes: No action execution, approval grant capture, reusable approval
+ref authority, shell/subprocess execution, connector writes, broad autonomy, or
+production authority.
 
 ### UAA-P1-074 - Chat Local Operator Surface
 

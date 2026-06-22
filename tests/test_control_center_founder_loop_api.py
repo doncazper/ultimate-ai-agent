@@ -9,6 +9,7 @@ from ultimate_ai_agent.core.storage import (
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
+    PLANS_ACTION_ENVELOPE_CONTRACT_REF,
     TODAY_PRODUCT_SPINE_CONTRACT_REF,
 )
 
@@ -83,6 +84,16 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         setup_item["safe_disable_ref"]
         == "safe-disable:founder-loop:setup-assistant-hardening"
     )
+    assert setup_item["action_envelope_contract_ref"] == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    assert setup_item["action_envelope_ref"].startswith("action-envelope:plans:")
+    assert setup_item["action_review_actions"] == [
+        "approve",
+        "edit",
+        "reject",
+        "defer",
+    ]
+    assert setup_item["action_envelope_execution_enabled"] is False
+    assert setup_item["action_envelope_grant_capture_enabled"] is False
 
     briefing = client.get("/control-center/morning-briefing/summary").json()["data"]
     assert briefing["route_ref"] == "/control-center/morning-briefing/summary"
@@ -129,6 +140,23 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert (
         today["business_memory_quality_contract_ref"]
         == BUSINESS_MEMORY_QUALITY_CONTRACT_REF
+    )
+    assert (
+        today["plans_action_envelope_contract_ref"]
+        == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    )
+    assert [
+        row["review_action"]
+        for row in today["plans_action_envelope_review_postures"]
+    ] == ["approve", "edit", "reject", "defer"]
+    assert "scope_ref" in today["plans_action_envelope_required_ref_fields"]
+    assert (
+        "blocked-state:no-approval-grant-capture"
+        in today["plans_action_envelope_required_blocked_refs"]
+    )
+    assert (
+        today["plans_action_envelope_authority_posture"]["action_execution_enabled"]
+        is False
     )
     assert {
         "manual_note",
@@ -241,10 +269,26 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         BUSINESS_MEMORY_QUALITY_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
     )
+    assert module_feeds["Plans"]["status"] == (
+        "implemented_reviewable_action_envelope_contract"
+    )
+    assert PLANS_ACTION_ENVELOPE_CONTRACT_REF in module_feeds["Plans"][
+        "current_feed_refs"
+    ]
     assert module_feeds["Chat"]["status"] == "planned_blocked_until_uaa_p1_074"
     assert module_feeds["Code"]["status"] == "planned_blocked_until_uaa_p1_075"
     assert today["plan_action_state"]["execution_authorized"] is False
     assert today["plan_action_state"]["mutating_controls_enabled"] is False
+    assert (
+        today["plan_action_state"]["action_envelope_contract_status"]
+        == "implemented_reviewable_action_envelopes_execution_blocked"
+    )
+    assert (
+        today["plan_action_state"]["action_envelope_contract_ref"]
+        == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    )
+    assert today["plan_action_state"]["approval_grant_capture_enabled"] is False
+    assert today["plan_action_state"]["state_change_enabled"] is False
     assert today["stale_source_posture"]["connector_runtime_enabled"] is False
     assert today["next_safe_actions"]
     assert today["memory_review_route_ref"] == "/memory"
@@ -377,6 +421,24 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert "no_model_provider_authority" in memory_item["blocked_states"]
     assert "scoped memory policy milestone" in memory_item["next_safe_action"]
 
+    plan_item = next(
+        item
+        for item in today["plans"]
+        if item["plan_ref"] == "plan-summary:founder-loop-v1"
+    )
+    assert plan_item["action_envelope_contract_ref"] == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    assert (
+        plan_item["action_envelope_ref"]
+        == "action-envelope:plans:plan-summary-founder-loop-v1"
+    )
+    assert plan_item["review_actions"] == ["approve", "edit", "reject", "defer"]
+    assert plan_item["expected_receipt_refs"] == [
+        "receipt-plan:plans-action-envelope:plan-summary-founder-loop-v1"
+    ]
+    assert "blocked-state:no-action-execution" in plan_item["blocked_state_refs"]
+    assert plan_item["action_execution_enabled"] is False
+    assert plan_item["approval_grant_capture_enabled"] is False
+
     timeline = today["evidence_timeline"]
     assert (
         today["evidence_timeline_status"]
@@ -399,6 +461,22 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     )["history_answers"]
     assert "identifiers, not authority" in action_history["approved"]["answer"]
     assert "do not execute rollback" in action_history["undoable"]["answer"]
+
+    plan_history_item = next(
+        item for item in timeline if item["item_kind"] == "plan_action_envelope_ref"
+    )
+    assert PLANS_ACTION_ENVELOPE_CONTRACT_REF in plan_history_item["status_refs"]
+    assert (
+        "reviewable Action envelope"
+        in plan_history_item["history_answers"]["proposed"]["answer"]
+    )
+    assert plan_history_item["receipt_refs"] == [
+        "receipt-plan:plans-action-envelope:plan-summary-founder-loop-v1"
+    ]
+    assert (
+        "blocked-state:no-approval-grant-capture"
+        in plan_history_item["blocked_states"]
+    )
 
 
 def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_class(

@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/plans_action_envelopes.schema.json",
+  "title": "UAA-P1-073 Plans To Reviewable Action Envelopes",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plans_action_envelope_contract_ref",
+    "plans_action_envelope_review_postures",
+    "plans_action_envelope_required_ref_fields",
+    "plans_action_envelope_required_blocked_refs",
+    "plans_action_envelope_surface_bindings",
+    "plans_action_envelope_authority_posture",
+    "plans_action_envelope_status",
+    "plan_action_state",
+    "plans",
+    "actions"
+  ],
+  "properties": {
+    "plans_action_envelope_contract_ref": {
+      "const": "contract-ref:plans-action-envelope:v1"
+    },
+    "plans_action_envelope_review_postures": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "review_action",
+          "review_posture_ref",
+          "exact_scope_required",
+          "safe_refs_required",
+          "receipt_refs_required",
+          "grants_execution_authority",
+          "captures_approval_grant"
+        ],
+        "properties": {
+          "review_action": {
+            "enum": ["approve", "edit", "reject", "defer"]
+          },
+          "review_posture_ref": { "type": "string" },
+          "exact_scope_required": { "const": true },
+          "safe_refs_required": { "const": true },
+          "receipt_refs_required": { "const": true },
+          "grants_execution_authority": { "const": false },
+          "captures_approval_grant": { "const": false }
+        }
+      }
+    },
+    "plans_action_envelope_required_ref_fields": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "plans_action_envelope_required_blocked_refs": {
+      "type": "array",
+      "minItems": 8,
+      "items": { "type": "string" }
+    },
+    "plans_action_envelope_surface_bindings": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "feed_status",
+          "feed_ref",
+          "authority_boundary"
+        ],
+        "properties": {
+          "surface": {
+            "enum": ["Today", "Plans", "Actions", "Evidence", "Memory"]
+          },
+          "feed_status": { "type": "string" },
+          "feed_ref": { "type": "string" },
+          "authority_boundary": { "type": "string" }
+        }
+      }
+    },
+    "plans_action_envelope_authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "safe_refs_only",
+        "exact_scope_required",
+        "approval_required_before_mutation",
+        "approval_ref_authority",
+        "approval_grant_capture_enabled",
+        "action_execution_enabled",
+        "state_change_enabled",
+        "connector_write_enabled",
+        "shell_subprocess_execution_enabled",
+        "model_provider_authority_allowed",
+        "memory_write_authorized",
+        "context_injection_authorized",
+        "public_beta_claim_enabled",
+        "public_distribution_claim_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "safe_refs_only": { "const": true },
+        "exact_scope_required": { "const": true },
+        "approval_required_before_mutation": { "const": true },
+        "approval_ref_authority": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "state_change_enabled": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "shell_subprocess_execution_enabled": { "const": false },
+        "model_provider_authority_allowed": { "const": false },
+        "memory_write_authorized": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "public_distribution_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false }
+      }
+    },
+    "plans_action_envelope_status": {
+      "const": "implemented_reviewable_action_envelopes_execution_blocked"
+    },
+    "plan_action_state": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "approval_required_before_mutation",
+        "mutating_controls_enabled",
+        "execution_authorized",
+        "action_envelope_contract_status",
+        "action_envelope_contract_ref",
+        "review_actions",
+        "approval_grant_capture_enabled",
+        "state_change_enabled"
+      ],
+      "properties": {
+        "approval_required_before_mutation": { "const": true },
+        "mutating_controls_enabled": { "const": false },
+        "execution_authorized": { "const": false },
+        "action_envelope_contract_status": {
+          "const": "implemented_reviewable_action_envelopes_execution_blocked"
+        },
+        "action_envelope_contract_ref": {
+          "const": "contract-ref:plans-action-envelope:v1"
+        },
+        "review_actions": {
+          "type": "array",
+          "items": { "enum": ["approve", "edit", "reject", "defer"] }
+        },
+        "approval_grant_capture_enabled": { "const": false },
+        "state_change_enabled": { "const": false }
+      }
+    },
+    "plans": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/plan_envelope" }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/action_envelope" }
+    }
+  },
+  "$defs": {
+    "plan_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_envelope_contract_ref",
+        "action_envelope_ref",
+        "scope_ref",
+        "approval_requirement_ref",
+        "review_actions",
+        "expected_receipt_refs",
+        "idempotency_key_ref",
+        "rollback_ref",
+        "safe_disable_ref",
+        "blocked_state_refs",
+        "action_execution_enabled",
+        "approval_grant_capture_enabled",
+        "raw_content_included"
+      ],
+      "properties": {
+        "action_envelope_contract_ref": {
+          "const": "contract-ref:plans-action-envelope:v1"
+        },
+        "action_envelope_ref": { "type": "string" },
+        "scope_ref": { "type": "string" },
+        "approval_requirement_ref": { "type": "string" },
+        "review_actions": {
+          "type": "array",
+          "items": { "enum": ["approve", "edit", "reject", "defer"] }
+        },
+        "expected_receipt_refs": { "type": "array", "minItems": 1 },
+        "idempotency_key_ref": { "type": "string" },
+        "rollback_ref": { "type": "string" },
+        "safe_disable_ref": { "type": "string" },
+        "blocked_state_refs": { "type": "array", "minItems": 8 },
+        "action_execution_enabled": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "raw_content_included": { "const": false }
+      }
+    },
+    "action_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_envelope_contract_ref",
+        "action_envelope_ref",
+        "action_scope_ref",
+        "action_approval_requirement_ref",
+        "action_review_actions",
+        "action_expected_receipt_refs",
+        "action_blocked_state_refs",
+        "action_envelope_execution_enabled",
+        "action_envelope_grant_capture_enabled",
+        "action_envelope_raw_content_included"
+      ],
+      "properties": {
+        "action_envelope_contract_ref": {
+          "const": "contract-ref:plans-action-envelope:v1"
+        },
+        "action_envelope_ref": { "type": "string" },
+        "action_scope_ref": { "type": "string" },
+        "action_approval_requirement_ref": { "type": "string" },
+        "action_review_actions": {
+          "type": "array",
+          "items": { "enum": ["approve", "edit", "reject", "defer"] }
+        },
+        "action_expected_receipt_refs": { "type": "array", "minItems": 1 },
+        "action_blocked_state_refs": { "type": "array", "minItems": 8 },
+        "action_envelope_execution_enabled": { "const": false },
+        "action_envelope_grant_capture_enabled": { "const": false },
+        "action_envelope_raw_content_included": { "const": false }
+      }
+    }
+  }
+}

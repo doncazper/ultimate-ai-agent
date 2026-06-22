@@ -42,6 +42,54 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-073 Plans Action Envelopes Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor auto-advance after UAA-P1-072, with the
+explicit rule that next-prompt recommendations are handoffs, not stop signs.
+
+Recommendation: Complete UAA-P1-073 as safe-ref approve/edit/reject/defer-ready
+Action envelope metadata over Python core planning plus the existing Today
+summary and Action Inbox routes, then auto-advance to UAA-P1-074 Chat Local
+Operator Surface.
+
+Next prompt state:
+
+```text
+Auto-advance into UAA-P1-074 Chat Local Operator Surface after commit/push.
+Review the active roadmap, current board, Founder Command Center board, phase
+tasks, MVP spec, AGENTS.md, process/spec guidance, and the UAA-P1-068 through
+UAA-P1-073 contract evidence. Make Chat send a local turn through the governed
+local gateway, show model/runtime/auth/tool-denial truth, produce safe
+evidence, and hand off to Plans or Actions as proposals only. Do not add
+provider SDK calls, web fetching, tool execution, automatic memory writes,
+hidden context injection, connector writes, shell/subprocess execution, public
+beta, public distribution, production readiness, or production authority.
+```
+
+Decision: Accepted and completed for the UAA-P1-073 contract slice.
+
+Status: completed
+
+Completed: Added `contract-ref:plans-action-envelope:v1`, review actions,
+exact scope refs, side-effect/risk/approval posture, expected receipt refs,
+idempotency/expiry refs, rollback/safe-disable refs, blocked authority refs,
+safe-ref plan/action envelope metadata, Today/Action Inbox fields, read-only
+Control Center visibility, schema, verifier, focused tests, and active
+currentness updates that promote UAA-P1-074.
+
+Not done: No action execution, approval grant capture, reusable approval
+authority, connector write, shell/subprocess execution, provider/model
+authority, automatic memory write, hidden context injection, public beta,
+public distribution, production readiness, or production authority.
+
+Evidence: `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`,
+`docs/schemas/plans_action_envelopes.schema.json`,
+`scripts/verify_uaa_p1_073_plans_action_envelopes.py`,
+`tests/test_uaa_p1_073_plans_action_envelopes.py`,
+`src/ultimate_ai_agent/core/planning/action_envelopes.py`.
+
 ### 2026-06-21 - UAA-P1-072 Business Memory Quality Controls Completed
 
 Date: 2026-06-21
