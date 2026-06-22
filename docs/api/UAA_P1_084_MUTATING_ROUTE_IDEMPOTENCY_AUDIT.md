@@ -10,7 +10,7 @@ safe idempotency value. The policy ref is
 
 ## Contract
 
-The current mutating route set is the 17 routes classified as
+The current mutating route set is the 18 routes classified as
 `mutating_requires_authority` in `/api/manifest`.
 
 Requests to those routes without an idempotency header fail with a redacted
@@ -61,7 +61,7 @@ later enforcement-test coverage.
 - `tests/test_api_idempotency_audit.py`
 - `tests/test_api_manifest.py`
 - `tests/test_api_route_inventory_fixture.py`
-- `tests/fixtures/api_route_inventory_117.json`
+- `tests/fixtures/api_route_inventory_118.json`
 - `docs/schemas/api_mutating_route_idempotency_audit.schema.json`
 - `scripts/verify_uaa_p1_084_mutating_route_idempotency.py`
 - `docs/api/openapi_contract.md`

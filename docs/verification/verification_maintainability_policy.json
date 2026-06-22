@@ -19,8 +19,8 @@
       ],
       "allowlist": {
         "scripts/verification/run_all_legacy.py": {
-          "max_lines": 30270,
-          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-002 adds one stable small verifier hook, future static scans must move to small modules."
+          "max_lines": 30273,
+          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003 adds one stable small verifier hook, future static scans must move to small modules."
         },
         "scripts/verification/documentation_integrity/legacy.py": {
           "max_lines": 21958,

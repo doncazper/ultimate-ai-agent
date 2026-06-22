@@ -21,7 +21,15 @@ authority.
 ./scripts/dev/uaa setup install --target openwebui
 ./scripts/dev/uaa trial-boot
 ./scripts/dev/uaa launch-ui
+.venv/bin/python scripts/dev/uaa_founder_loop.py inspect
+.venv/bin/python scripts/dev/uaa_founder_loop.py promote-action-envelope --today-item-ref briefing:storage-state-first-loop --idempotency-ref idempotency-ref:local-review
 ```
+
+`uaa_founder_loop.py` is a repo-local FCC-V1-003 inspection helper. It prints
+safe refs for Today, Actions, receipts, and Evidence Timeline state, and can
+create a review-only Today-to-Action envelope receipt. It does not execute
+actions, call providers, write connectors, run shell/subprocess work, write
+memory, or echo raw local paths.
 
 ## First-Run Setup Doctor
 

@@ -1235,7 +1235,7 @@ PR size: one docs PR, ideally after Tasks 1-4.
 
 Type: staged full-stack productization with docs/test/manifest gates first
 
-Status: FCC-V1-000 through FCC-V1-002 implemented; FCC-V1-003 through
+Status: FCC-V1-000 through FCC-V1-003 implemented; FCC-V1-004 through
 FCC-V1-007 planned. FCC-V1-001 is contract/verifier coverage for the API
 perimeter; duplicate replay runtime remains blocked until route-owner receipt
 storage exists outside routes that implement their own receipt-backed replay.
@@ -1267,7 +1267,9 @@ Milestones:
 - `FCC-V1-003` Founder Loop V1 Vertical Slice: promote one Today item into an
   Action envelope, capture exact approval/edit/reject/defer decision, create a
   durable receipt, update Evidence Timeline, and provide CLI/repo-local
-  inspection parity.
+  inspection parity. Implemented for the first receipt-bearing vertical slice;
+  action execution, connector writes, memory writes, provider/model calls,
+  shell/subprocess work, public beta, and production authority remain blocked.
 - `FCC-V1-004` Control Center Chat Durable Receipt And Handoff: add safe
   `ChatTurnReceipt` records and reviewable handoff refs to Actions or Plans
   without treating model output as authority.

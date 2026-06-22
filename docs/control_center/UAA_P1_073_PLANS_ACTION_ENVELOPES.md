@@ -51,7 +51,7 @@ or executes a state change.
 
 The Plans module feed now includes `contract-ref:plans-action-envelope:v1`.
 `plan_action_state.action_envelope_contract_status` is
-`implemented_reviewable_action_envelopes_execution_blocked`.
+`implemented_today_to_action_envelope_vertical_slice_execution_blocked`.
 
 ## Surface Binding
 

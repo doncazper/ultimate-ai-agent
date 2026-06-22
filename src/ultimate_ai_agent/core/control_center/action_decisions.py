@@ -22,6 +22,9 @@ from ultimate_ai_agent.core.time import utc_now
 FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF = (
     "contract-ref:founder-loop-action-state-machine:v1"
 )
+FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF = (
+    "contract-ref:founder-loop-v1-vertical-slice:v1"
+)
 FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS = (
     "POST /control-center/actions/{action_id}/approve",
     "POST /control-center/actions/{action_id}/edit",
@@ -29,7 +32,11 @@ FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS = (
     "POST /control-center/actions/{action_id}/defer",
     "GET /control-center/actions/{action_id}/receipt",
 )
+FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS = (
+    "POST /control-center/today/action-envelope",
+)
 FOUNDER_LOOP_ACTION_DECISION_KINDS = ("approve", "edit", "reject", "defer")
+FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_STATUS = "action_envelope_created"
 FOUNDER_LOOP_ACTION_STATUSES = (
     "proposed",
     "approved",
@@ -91,6 +98,33 @@ class FounderLoopActionDecisionRequest(BaseModel):
         for ref_value in self.metadata_refs:
             _validate_safe_ref(ref_value, "metadata_refs")
         _validate_safe_payload(self.model_dump(mode="json"), "action_decision_request")
+        return self
+
+
+class FounderLoopActionEnvelopePromotionRequest(BaseModel):
+    today_item_ref: str = Field(..., min_length=1, max_length=200)
+    actor_context: ActorContext = Field(default_factory=_default_actor_context)
+    decision_reason_ref: str = Field(
+        default="decision-reason-ref:founder-loop:today-action-envelope",
+        min_length=1,
+        max_length=160,
+    )
+    risk_class: Literal["low", "medium", "high", "critical"] = "medium"
+    priority: Literal["low", "medium", "high"] = "medium"
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_refs(self) -> "FounderLoopActionEnvelopePromotionRequest":
+        _validate_safe_ref(self.today_item_ref, "today_item_ref")
+        _validate_safe_ref(self.decision_reason_ref, "decision_reason_ref")
+        for ref_value in self.metadata_refs:
+            _validate_safe_ref(ref_value, "metadata_refs")
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "action_envelope_promotion_request",
+        )
         return self
 
 
@@ -221,6 +255,68 @@ class FounderLoopActionDecisionReceipt(BaseModel):
         return self
 
 
+class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
+    contract_ref: str = FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF
+    today_item_ref: str = Field(..., min_length=1)
+    item_ref: str = Field(..., min_length=1)
+    action_envelope_ref: str = Field(..., min_length=1)
+    status: str = Field(
+        default=FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_STATUS,
+        min_length=1,
+        max_length=80,
+    )
+    receipt_ref: str = Field(..., min_length=1)
+    audit_ref: str = Field(..., min_length=1)
+    idempotency_key_ref: str = Field(..., min_length=1)
+    payload_fingerprint_ref: str = Field(..., min_length=1)
+    evidence_timeline_event_ref: str = Field(..., min_length=1)
+    action_executed: bool = False
+    approval_grants_execution: bool = False
+    connector_write_performed: bool = False
+    memory_write_performed: bool = False
+    raw_content_stored: bool = False
+    replayed: bool = False
+    safe_summary: str = Field(..., min_length=1, max_length=320)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    created_at: str = Field(default_factory=lambda: utc_now().isoformat())
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "FounderLoopActionEnvelopePromotionReceipt":
+        for field_name in [
+            "contract_ref",
+            "today_item_ref",
+            "item_ref",
+            "action_envelope_ref",
+            "receipt_ref",
+            "audit_ref",
+            "idempotency_key_ref",
+            "payload_fingerprint_ref",
+            "evidence_timeline_event_ref",
+        ]:
+            _validate_safe_ref(getattr(self, field_name), field_name)
+        for field_name in ["evidence_refs", "blocked_state_refs"]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        denied_flags = {
+            "action_executed": self.action_executed,
+            "approval_grants_execution": self.approval_grants_execution,
+            "connector_write_performed": self.connector_write_performed,
+            "memory_write_performed": self.memory_write_performed,
+            "raw_content_stored": self.raw_content_stored,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(f"action envelope receipt enabled denied authority: {enabled[0]}")
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "action_envelope_promotion_receipt",
+        )
+        return self
+
+
 def action_id_to_item_ref(action_id: str) -> str:
     if action_id.startswith("founder-action:"):
         _validate_safe_ref(action_id, "action_id")
@@ -258,6 +354,37 @@ def action_decision_audit_ref(
         "audit:founder-loop-action:"
         f"{_safe_suffix(item_ref)}:{_safe_suffix(decision)}:{_safe_suffix(idempotency_key_ref)}"
     )
+
+
+def today_item_to_action_item_ref(today_item_ref: str) -> str:
+    _validate_safe_ref(today_item_ref, "today_item_ref")
+    if today_item_ref.startswith("founder-action:"):
+        return today_item_ref
+    return f"founder-action:today-promotion:{_safe_suffix(today_item_ref)}"
+
+
+def action_envelope_promotion_receipt_ref(
+    item_ref: str,
+    idempotency_key_ref: str,
+) -> str:
+    return (
+        "receipt:founder-loop-action-envelope:"
+        f"{_safe_suffix(item_ref)}:{_safe_suffix(idempotency_key_ref)}"
+    )
+
+
+def action_envelope_promotion_audit_ref(
+    item_ref: str,
+    idempotency_key_ref: str,
+) -> str:
+    return (
+        "audit:founder-loop-action-envelope:"
+        f"{_safe_suffix(item_ref)}:{_safe_suffix(idempotency_key_ref)}"
+    )
+
+
+def action_envelope_promotion_event_ref(item_ref: str) -> str:
+    return f"evidence-timeline:action-envelope/{_safe_suffix(item_ref)}"
 
 
 def action_payload_fingerprint_ref(payload: dict[str, Any]) -> str:
@@ -318,6 +445,21 @@ def decision_payload_for_fingerprint(
         "decision_reason_ref": request.decision_reason_ref,
         "edited_envelope_ref": request.edited_envelope_ref,
         "defer_until_ref": request.defer_until_ref,
+        "metadata_refs": sorted(request.metadata_refs),
+    }
+
+
+def promotion_payload_for_fingerprint(
+    *,
+    request: FounderLoopActionEnvelopePromotionRequest,
+) -> dict[str, Any]:
+    return {
+        "contract_ref": FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
+        "today_item_ref": request.today_item_ref,
+        "actor_id": request.actor_context.actor_id,
+        "decision_reason_ref": request.decision_reason_ref,
+        "risk_class": request.risk_class,
+        "priority": request.priority,
         "metadata_refs": sorted(request.metadata_refs),
     }
 

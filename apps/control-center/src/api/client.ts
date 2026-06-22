@@ -20,6 +20,8 @@ import type {
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
   FounderLoopActionDecisionRequest,
+  FounderLoopActionEnvelopePromotionReceipt,
+  FounderLoopActionEnvelopePromotionRequest,
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
 import { API_ENDPOINTS, actionDecisionEndpoint } from "./endpoints";
@@ -242,6 +244,40 @@ export async function submitActionDecision(
   return receipt;
 }
 
+export async function submitTodayActionEnvelope(
+  request: FounderLoopActionEnvelopePromotionRequest,
+): Promise<FounderLoopActionEnvelopePromotionReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.founderTodayActionEnvelope}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": todayActionEnvelopeIdempotencyRef(
+          request.today_item_ref,
+        ),
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  const data =
+    (await response.json()) as ResultEnvelope<FounderLoopActionEnvelopePromotionReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        data.error?.message ??
+          "Today action envelope receipt was not recorded safely.",
+      ),
+    );
+  }
+  return receipt;
+}
+
 function actionDecisionIdempotencyRef(
   actionId: string,
   decision: FounderLoopActionDecisionKind,
@@ -252,6 +288,14 @@ function actionDecisionIdempotencyRef(
     .replace(/[^a-z0-9_.:-]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${Date.now()}`;
+}
+
+function todayActionEnvelopeIdempotencyRef(todayItemRef: string): string {
+  const safeTodayItemRef = todayItemRef
+    .toLowerCase()
+    .replace(/[^a-z0-9_.:-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `idempotency-ref:control-center-today-action:${safeTodayItemRef || "missing"}:${Date.now()}`;
 }
 
 export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `117`, generated from the FastAPI application and
+Current OpenAPI path count: `118`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -63,9 +63,10 @@ Current boundary summary:
   exactly-once execution, rate-limit, mutation authority, or production
   authority claims.
 - UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
-  decomposition, action preview/proposal, and local model validation route
-  groups. It does not add auth, distributed quota, dependencies, billing, or
-  production authority.
+  decomposition, action preview/proposal, Action Inbox decisions, Today to
+  Action envelope promotion, and local model validation route groups. It does
+  not add auth, distributed quota, dependencies, billing, or production
+  authority.
 - FCC-V1-001 consumes UAA-P1-080 through UAA-P1-086 for the Founder Loop
   mutation perimeter. Duplicate replay behavior is defined as a future
   route-owner requirement and remains blocked until append-first receipt

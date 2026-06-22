@@ -136,7 +136,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     )
     assert (
         today["plans_action_envelope_status"]
-        == "implemented_reviewable_action_envelopes_execution_blocked"
+        == "implemented_today_to_action_envelope_vertical_slice_execution_blocked"
     )
     assert today["memory_source_required_kinds"] == [
         "manual_note",
@@ -520,13 +520,13 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "approval_required_before_mutation": True,
         "mutating_controls_enabled": True,
         "execution_authorized": False,
-        "action_envelope_contract_status": (
-            "implemented_action_decision_receipts_execution_blocked"
-        ),
+        "action_envelope_contract_status": "implemented_today_promotion_and_action_decision_receipts_execution_blocked",
         "action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
         "review_actions": ["approve", "edit", "reject", "defer"],
         "approval_grant_capture_enabled": False,
         "state_change_enabled": True,
+        "vertical_slice_contract_ref": "contract-ref:founder-loop-v1-vertical-slice:v1",
+        "today_action_envelope_route_refs": ["POST /control-center/today/action-envelope"],
     }
     assert today["stale_source_posture"]["source_refresh_enabled"] is False
     assert today["stale_source_posture"]["connector_runtime_enabled"] is False

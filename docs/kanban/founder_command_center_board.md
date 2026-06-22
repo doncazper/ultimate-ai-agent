@@ -80,10 +80,10 @@ UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
 UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084,
 UAA-P1-085, UAA-P1-086, UAA-P1-087.1, UAA-P1-087.2a,
 UAA-P1-087.2b, UAA-P1-087.2c, FCC-V1-000, FCC-V1-001,
-FCC-V1-002.
+FCC-V1-002, FCC-V1-003.
 
 Candidate-next:
-FCC-V1-003 Founder Loop V1 Vertical Slice.
+FCC-V1-004 Control Center Chat Durable Receipt And Handoff.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 FCC-V1-000 through FCC-V1-007 Founder Loop V1 productization conveyor.
 
@@ -97,7 +97,7 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ### FCC-V1-000 through FCC-V1-007 - Founder Loop V1 Productization Conveyor
 
-Status: In progress through completed FCC-V1-002; FCC-V1-003 through
+Status: In progress through completed FCC-V1-003; FCC-V1-004 through
 FCC-V1-007 remain planned.
 
 Epic: Product/UX, Safety/Permissions, Memory/Knowledge, Business Cofounder
@@ -124,7 +124,10 @@ Milestone order:
 - `FCC-V1-002` Action Inbox Backend State Machine: implemented for
   backend-owned approve/edit/reject/defer decision state and receipt refs
   without action execution.
-- `FCC-V1-003` Founder Loop V1 Vertical Slice.
+- `FCC-V1-003` Founder Loop V1 Vertical Slice: implemented for the first
+  Today-to-Action envelope receipt loop with exact approval/edit/reject/defer
+  receipts, Evidence Timeline update, and CLI inspection parity; action
+  execution remains blocked.
 - `FCC-V1-004` Control Center Chat Durable Receipt And Handoff.
 - `FCC-V1-005` Memory Review Decisions.
 - `FCC-V1-006` Evidence Timeline Productization.
@@ -837,7 +840,7 @@ mutating authority paths without adding routes or authority.
 
 Proof: `docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md`,
 `docs/schemas/api_route_classification.schema.json`,
-`tests/fixtures/api_route_inventory_117.json`,
+`tests/fixtures/api_route_inventory_118.json`,
 `scripts/verify_uaa_p1_080_api_route_classification.py`,
 `tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
 `tests/test_control_center_api_routes.py`, and Control Center API Routes render

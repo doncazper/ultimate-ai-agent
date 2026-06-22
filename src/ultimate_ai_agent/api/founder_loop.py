@@ -9,6 +9,7 @@ from ultimate_ai_agent.api.idempotency import IDEMPOTENCY_KEY_HEADER, IDEMPOTENC
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
+    FounderLoopActionEnvelopePromotionRequest,
 )
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.storage import (
@@ -46,6 +47,67 @@ def get_control_center_actions_inbox() -> ResultEnvelope:
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:action-inbox"}],
         redactions_applied=["safe_refs_only", "bounded_summaries_only", "raw_content_omitted"],
+    )
+
+
+@router.post("/today/action-envelope", response_model=ResultEnvelope)
+def post_control_center_today_action_envelope(
+    request: FounderLoopActionEnvelopePromotionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().promote_today_item_to_action_envelope(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_ACTION_ENVELOPE_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Today-to-Action envelope idempotency key already exists "
+                    "with different safe promotion payload refs."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_ERROR"
+        status_code = 404 if code == "FOUNDER_LOOP_TODAY_ITEM_NOT_FOUND" else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": code,
+                "safe_message": "The Today item could not be promoted safely.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_ACTION_ENVELOPE_UNSAFE_INPUT",
+                "safe_message": "The Today-to-Action request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_today_action_envelope",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:today-action-envelope",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:today-action-envelope"}],
+        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
     )
 
 

@@ -34,7 +34,7 @@ with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, ask/act/defer routing, and ask-user handling for
 low-confidence or conflicting intent. UAA-P1-080 completes API Route
 Classification And Public/Protected Inventory with typed route classifications
-in `/api/manifest`, the frozen 117-route inventory fixture, route-status
+in `/api/manifest`, the frozen 118-route inventory fixture, route-status
 manifest alignment, Control Center API Routes visibility, and focused
 verifier/tests. UAA-P1-081 completes centralized FastAPI response security
 headers with HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082
@@ -70,17 +70,24 @@ required, idempotency replay/conflict handling, local receipt refs, and Control
 Center receipt visibility. It does not execute approved actions, perform
 connector writes, call providers, run shell/subprocess work, write memory, or
 grant production authority.
+FCC-V1-003 completes the first Founder Loop V1 vertical slice: a Today item
+can become a reviewable Action envelope, exact approve/edit/reject/defer
+decisions produce durable receipts, the Evidence Timeline updates, and the
+same state can be inspected through `scripts/dev/uaa_founder_loop.py`.
+Approved actions still do not execute and connector writes, shell/subprocess
+work, provider/model calls, memory writes, public beta, and production
+authority remain blocked.
 No public beta, distribution, production readiness, or production authority
 claim is granted.
 The planned Founder Loop V1 productization conveyor is now recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`. It carries the detailed goals for completed release surface
-manifest, API perimeter coverage, and Action Inbox backend decisions, then the
-first Today-to-Action vertical loop, Chat durable receipts and handoff, Memory Review
-accept/correct/reject backend decisions, Evidence Timeline productization, and
-promotion/proof lane. This is contract and task-shaping only; it grants no new
-routes, controls, runtime calls, connector writes, memory writes, context
-injection, beta, distribution, or production authority.
+manifest, API perimeter coverage, Action Inbox backend decisions, and the
+first Today-to-Action vertical loop, then Chat durable receipts and handoff,
+Memory Review accept/correct/reject backend decisions, Evidence Timeline
+productization, and promotion/proof lane. The remaining planned milestones
+grant no runtime calls, connector writes, memory writes, context injection,
+beta, distribution, or production authority by themselves.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.

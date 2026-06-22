@@ -60,8 +60,10 @@ approve/edit/reject/defer decision state, exact approval validation where
 required, idempotency replay/conflict handling, local receipt refs, and Control
 Center receipt visibility. It does not execute approved actions or grant
 connector, shell/subprocess, provider/model, memory-write, public beta, or
-production authority. FCC-V1-003 Founder Loop V1 Vertical Slice is the next
-implementation lane before
+production authority. FCC-V1-003 Founder Loop V1 Vertical Slice is complete
+for the first Today-to-Action receipt loop without action execution. FCC-V1-004
+Control Center Chat Durable Receipt And Handoff is the next implementation
+lane before
 P2/provider, packaging, public distribution, or commercialization expansion.
 
 Founder Loop V1 productization is now tracked as `FCC-V1-000` through

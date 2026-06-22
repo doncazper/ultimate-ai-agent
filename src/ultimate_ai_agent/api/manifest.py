@@ -47,6 +47,7 @@ CAPABILITIES_DECLARED = [
     "control_center_founder_loop_storage_summaries",
     "control_center_today_summary",
     "control_center_action_inbox_summary",
+    "control_center_today_to_action_envelope_promotion",
     "control_center_action_decision_state_machine",
     "control_center_morning_briefing_summary",
     "control_center_storage_status",
@@ -105,6 +106,8 @@ CAPABILITIES_BLOCKED = [
     "targeted_rate_limits_as_production_authority",
     "plugin_enablement_routes",
     "control_center_execution",
+    "control_center_today_to_action_envelope_as_execution",
+    "control_center_today_to_action_envelope_without_receipt",
     "control_center_action_decisions_as_action_execution",
     "control_center_action_decisions_without_exact_idempotency",
     "control_center_action_decisions_without_receipts",
@@ -217,6 +220,9 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}
 CONTROL_CENTER_ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
+CONTROL_CENTER_TODAY_ACTION_ENVELOPE_PATHS = {
+    "/control-center/today/action-envelope",
+}
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
 }
@@ -384,6 +390,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.public_metadata,
             "harmless API metadata or status route with no local user state",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_TODAY_ACTION_ENVELOPE_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Today-to-Action envelope authority route; exact idempotency, receipt, audit, and evidence posture required",
         )
     if (
         normalized_method == "POST"

@@ -4,6 +4,7 @@ from typing import Any
 
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
+    FounderLoopActionEnvelopePromotionRequest,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
@@ -23,6 +24,17 @@ class FounderLoopControlCenterService:
 
     def actions_inbox(self) -> dict:
         return self.repository.actions_inbox()
+
+    def promote_today_item_to_action_envelope(
+        self,
+        *,
+        request: FounderLoopActionEnvelopePromotionRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.promote_today_item_to_action_envelope(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
 
     def record_action_decision(
         self,

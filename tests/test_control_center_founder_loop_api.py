@@ -511,7 +511,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert today["plan_action_state"]["mutating_controls_enabled"] is True
     assert (
         today["plan_action_state"]["action_envelope_contract_status"]
-        == "implemented_action_decision_receipts_execution_blocked"
+        == "implemented_today_promotion_and_action_decision_receipts_execution_blocked"
     )
     assert (
         today["plan_action_state"]["action_envelope_contract_ref"]

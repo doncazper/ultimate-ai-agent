@@ -121,10 +121,10 @@ def _append_manifest_failures(
     context: ApiVerifierContext,
 ) -> None:
     manifest = context.manifest
-    if manifest.get("route_count") != 117:
-        failures.append("FCC-V1-002 expects current API route_count 117")
-    if manifest.get("route_classification_summary", {}).get("mutating_requires_authority") != 17:
-        failures.append("FCC-V1-002 expects 17 mutating routes")
+    if manifest.get("route_count") != 118:
+        failures.append("FCC-V1-002 expects current API route_count 118")
+    if manifest.get("route_classification_summary", {}).get("mutating_requires_authority") != 18:
+        failures.append("FCC-V1-002 expects 18 mutating routes")
     for key, (operation_id, route_classification) in ACTION_ROUTES.items():
         route = context.routes_by_key.get(key)
         if route is None:
@@ -162,7 +162,6 @@ def _append_release_surface_failures(
     _append_backend_route_set_failures(failures, actions.get("backend_routes", []), "release surface")
     blocked = set(actions.get("blocked_capabilities", []))
     for required in {
-        "missing_backend:today-action-envelope-creation-contract",
         "missing_backend:action-execution-contract",
         "production_authority",
         "connector_write",

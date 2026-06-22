@@ -3,16 +3,16 @@
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
     "not_required_for_route_classification": 100,
-    "required_before_mutation_authority": 17
+    "required_before_mutation_authority": 18
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 114,
+    "protected_local_bearer_required": 115,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 14,
     "local_sensitive": 83,
-    "mutating_requires_authority": 17,
+    "mutating_requires_authority": 18,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -21,14 +21,14 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 117,
+  "route_count": 118,
   "route_idempotency_posture_summary": {
     "not_required_for_route_classification": 100,
-    "required_before_mutation_authority": 17
+    "required_before_mutation_authority": 18
   },
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 79,
-    "targeted_local_fixed_window": 38
+    "targeted_local_fixed_window": 39
   },
   "routes": [
     {
@@ -587,6 +587,26 @@
       "route_classification": "local_sensitive",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Get control center storage status",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_today_action_envelope",
+      "path": "/control-center/today/action-envelope",
+      "rate_limit_group": "today_to_action_envelope",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post control center today action envelope",
       "tags": [
         "control-center"
       ]

@@ -1529,8 +1529,8 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
     api_summary: {
-      route_count: 117,
-      control_center_route_count: 18,
+      route_count: 118,
+      control_center_route_count: 19,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -3557,7 +3557,7 @@ export const mockControlCenterData: ControlCenterData = {
     plans_action_envelope_surface_bindings: plansActionEnvelopeSurfaceBindings,
     plans_action_envelope_authority_posture: plansActionEnvelopeAuthorityPosture,
     plans_action_envelope_status:
-      "implemented_reviewable_action_envelopes_execution_blocked",
+      "implemented_today_to_action_envelope_vertical_slice_execution_blocked",
     priority_refs: [
       "priority-ref:action:high:founder-action-mock-setup-hardening",
       "priority-ref:briefing:medium:briefing-mock-source-readiness",
@@ -3578,7 +3578,7 @@ export const mockControlCenterData: ControlCenterData = {
       mutating_controls_enabled: true,
       execution_authorized: false,
       action_envelope_contract_status:
-        "implemented_action_decision_receipts_execution_blocked",
+        "implemented_today_promotion_and_action_decision_receipts_execution_blocked",
       action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
       review_actions: plansActionEnvelopeReviewActions,
       approval_grant_capture_enabled: false,

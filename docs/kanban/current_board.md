@@ -64,11 +64,11 @@ V1 complete, and marks UAA-P1-080 API Route Classification And
 Public/Protected Inventory complete, and marks UAA-P1-081 Centralized FastAPI
 Security Headers complete, and marks UAA-P1-082 Explicit Loopback CORS
 Allowlist complete, and marks UAA-P1-083 Local Bearer Or Session Gate For
-Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. UAA-P1-087.2c is complete for the unanswered manual review scaffold. FCC-V1-000 is complete for Control Center release-surface truth, manifest/schema, verifier, and focused tests. FCC-V1-001 is complete for API perimeter contract/verifier coverage with duplicate replay runtime still blocked until route-owner receipt storage exists outside routes that implement their own receipt-backed replay. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are deferred until more Founder Loop implementation exists.
+Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. UAA-P1-087.2c is complete for the unanswered manual review scaffold. FCC-V1-000 is complete for Control Center release-surface truth, manifest/schema, verifier, and focused tests. FCC-V1-001 is complete for API perimeter contract/verifier coverage with duplicate replay runtime still blocked until route-owner receipt storage exists outside routes that implement their own receipt-backed replay. FCC-V1-002 is complete for Action Inbox backend decisions, and FCC-V1-003 is complete for the first Today-to-Action receipt-bearing vertical slice. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are deferred until more Founder Loop implementation exists.
 The planned FCC-V1 Founder Loop V1 conveyor keeps the productization lane
 running through `FCC-V1-000` through `FCC-V1-007`: completed release surface
-manifest, API perimeter for real mutations, and Action Inbox backend state machine, first
-Today-to-Action vertical loop, Chat durable receipt and handoff, Memory Review
+manifest, API perimeter for real mutations, Action Inbox backend state machine,
+and first Today-to-Action vertical loop, then Chat durable receipt and handoff, Memory Review
 accept/correct/reject backend decisions, Evidence Timeline productization, and
 promotion/proof lanes. Detailed goals, routes, model fields, storage
 semantics, UI outcomes, proof commands, and authority boundaries live in
@@ -103,7 +103,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-002 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-003 Founder Loop V1 Vertical Slice.
+No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-003 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists. The next planned/queued lane is FCC-V1-004 Control Center Chat Durable Receipt And Handoff.
 ```
 
 ## Ready Next
@@ -306,9 +306,10 @@ provider/model, memory-write, public beta, and production authority remain
 unavailable.
 
 FCC-V1-003 Founder Loop V1 Vertical Slice
-Goal: make one Today item become a reviewable Action envelope, receive an
-exact approval/edit/reject/defer decision, produce a durable receipt, and write
-an Evidence Timeline update with CLI/repo-local inspection parity.
+Goal met: one Today item can become a reviewable Action envelope, receive an
+exact approval/edit/reject/defer receipt, write an Evidence Timeline update,
+and be inspected through the repo-local CLI path. Approved actions still do not
+execute.
 
 FCC-V1-004 Control Center Chat Durable Receipt And Handoff
 Goal: record safe Chat turn receipts and reviewable handoff refs to Actions or

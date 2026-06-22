@@ -47,8 +47,9 @@ Mutations is complete as contract/verifier coverage; duplicate replay runtime
 remains blocked until route-owner receipt storage exists outside routes that
 implement their own receipt-backed replay. FCC-V1-002 Action Inbox Backend
 State Machine is complete for decision state and receipt refs without action
-execution. FCC-V1-003 Founder Loop V1 Vertical Slice is the next conveyor
-milestone.
+execution. FCC-V1-003 Founder Loop V1 Vertical Slice is complete for the first
+Today-to-Action receipt loop without action execution. FCC-V1-004 Chat Durable
+Receipt And Handoff is the next conveyor milestone.
 The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: completed Control Center

@@ -7,30 +7,31 @@ from typing import Any
 from .repo import load_json
 
 
-ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_117.json"
+ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_118.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 117
+EXPECTED_ROUTE_COUNT = 118
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 114,
+    "protected_local_bearer_required": 115,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 100,
-    "required_before_mutation_authority": 17,
+    "required_before_mutation_authority": 18,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 100,
-    "required_before_mutation_authority": 17,
+    "required_before_mutation_authority": 18,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
     "not_targeted_for_route": 79,
-    "targeted_local_fixed_window": 38,
+    "targeted_local_fixed_window": 39,
 }
 EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/approve"),
     ("POST", "/control-center/actions/{action_id}/defer"),
     ("POST", "/control-center/actions/{action_id}/edit"),
     ("POST", "/control-center/actions/{action_id}/reject"),
+    ("POST", "/control-center/today/action-envelope"),
     ("POST", "/files/review/approvals/capture"),
     ("POST", "/integrations/mattermost/events/message"),
     ("POST", "/integrations/mattermost/roles/bind"),
@@ -51,6 +52,7 @@ EXPECTED_RATE_LIMIT_GROUPS = {
     "local_model_validation",
     "model_chat",
     "task_decomposition",
+    "today_to_action_envelope",
 }
 ROUTE_PROJECTION_FIELDS = (
     "path",

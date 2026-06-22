@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { submitActionDecision } from "../api/client";
+import { submitActionDecision, submitTodayActionEnvelope } from "../api/client";
 import type {
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
+  FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
@@ -424,7 +425,11 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         </LoopPanel>
         <LoopPanel title="Morning Briefing" route="/briefing">
           {today.briefing_items.map((item) => (
-            <BriefingCard item={item} key={item.briefing_ref} />
+            <BriefingCard
+              allowActionEnvelopePromotion
+              item={item}
+              key={item.briefing_ref}
+            />
           ))}
         </LoopPanel>
         <LoopPanel title="Memory review" route="/memory">
@@ -1835,7 +1840,13 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
   );
 }
 
-function BriefingCard({ item }: { item: FounderLoopBriefingItem }) {
+function BriefingCard({
+  allowActionEnvelopePromotion = false,
+  item,
+}: {
+  allowActionEnvelopePromotion?: boolean;
+  item: FounderLoopBriefingItem;
+}) {
   const priority = item.priority ?? "medium";
   const sourceReadiness =
     item.source_readiness ?? "blocked_missing_source_contract";
@@ -1883,6 +1894,9 @@ function BriefingCard({ item }: { item: FounderLoopBriefingItem }) {
         items={item.blocked_states ?? []}
       />
       <RefList refs={item.evidence_refs ?? []} />
+      {allowActionEnvelopePromotion ? (
+        <TodayActionEnvelopeControls item={item} />
+      ) : null}
     </article>
   );
 }
@@ -2079,6 +2093,78 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
       />
       <RefList refs={item.evidence_refs ?? []} />
     </article>
+  );
+}
+
+function TodayActionEnvelopeControls({
+  item,
+}: {
+  item: FounderLoopBriefingItem;
+}) {
+  const [state, setState] = useState<{
+    status: "idle" | "pending" | "recorded" | "failed";
+    receipt?: FounderLoopActionEnvelopePromotionReceipt;
+    message?: string;
+  }>({ status: "idle" });
+  const pending = state.status === "pending";
+
+  async function createEnvelope() {
+    setState({ status: "pending" });
+    try {
+      const receipt = await submitTodayActionEnvelope({
+        today_item_ref: item.briefing_ref,
+        actor_context: "control_center_today_surface",
+        decision_reason_ref: "decision-reason-ref:today-action-envelope",
+        risk_class: "medium",
+        priority: item.priority === "high" ? "high" : "medium",
+        metadata_refs: [
+          "metadata-ref:control-center-today-action-envelope",
+          item.briefing_ref,
+        ],
+      });
+      setState({
+        status: "recorded",
+        receipt,
+        message: `${receipt.status}: ${receipt.safe_summary}`,
+      });
+    } catch (error) {
+      setState({
+        status: "failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Today action envelope receipt was not recorded safely.",
+      });
+    }
+  }
+
+  return (
+    <div className="decision-controls" aria-label={`${item.title} action envelope`}>
+      <button
+        className="secondary-button"
+        disabled={pending}
+        onClick={() => void createEnvelope()}
+        type="button"
+      >
+        {pending ? "Creating" : "Create Action envelope"}
+      </button>
+      {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.receipt ? (
+        <dl className="detail-list">
+          <DetailTerm label="Action envelope" value={state.receipt.action_envelope_ref} />
+          <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+          <DetailTerm label="Audit" value={state.receipt.audit_ref} />
+          <DetailTerm
+            label="Evidence event"
+            value={state.receipt.evidence_timeline_event_ref}
+          />
+          <DetailTerm
+            label="Action executed"
+            value={state.receipt.action_executed ? "yes" : "no"}
+          />
+        </dl>
+      ) : null}
+    </div>
   );
 }
 

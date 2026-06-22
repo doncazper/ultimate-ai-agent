@@ -36,15 +36,18 @@ route-owner receipt storage exists outside routes that implement their own
 receipt-backed replay. FCC-V1-002 Action Inbox Backend State Machine is
 complete for backend-owned approve/edit/reject/defer decision state, local
 receipt refs, and Control Center receipt visibility without action execution or
-new external authority. The next conveyor milestone is FCC-V1-003 Founder Loop
-V1 Vertical Slice. The
+new external authority. FCC-V1-003 Founder Loop V1 Vertical Slice is complete
+for Today-to-Action envelope creation, exact decision receipts, Evidence
+Timeline update, and CLI inspection parity without action execution or new
+external authority. The next conveyor milestone is FCC-V1-004 Control Center
+Chat Durable Receipt And Handoff. The
 sequence is tracked in
 `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`.
 The planned Founder Loop V1 productization conveyor is tracked in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` with detailed goals for
 `FCC-V1-000` through `FCC-V1-007`: completed release surface manifest, API
-perimeter, and Action Inbox backend decisions, Today-to-Action vertical loop, Chat durable
-receipts and handoff, Memory Review accept/correct/reject decisions, Evidence
+perimeter, Action Inbox backend decisions, and Today-to-Action vertical loop,
+then Chat durable receipts and handoff, Memory Review accept/correct/reject decisions, Evidence
 Timeline productization, and promotion/proof lanes.
 
 This is the human-facing entrypoint for active documentation. The full catalog
@@ -110,17 +113,17 @@ and completed UAA-P1-087.2b Private Trial Findings Capture And Acceptance
 Ledger, completed UAA-P1-087.2c Private Trial Manual Review Scaffold, and
 completed FCC-V1-000 Control Center Release Surface Manifest, FCC-V1-001
 API Perimeter For Real Mutations, and FCC-V1-002 Action Inbox Backend State
-Machine. Full UAA-P1-087.2
+Machine, plus completed FCC-V1-003 Founder Loop V1 Vertical Slice. Full UAA-P1-087.2
 local/private UI tuning and UAA-P1-087.3 private UI trial/native boot planning
 are deferred until the Founder Loop has more real implementation to test. The
-next conveyor milestone is FCC-V1-003. UAA-P1-066
+next conveyor milestone is FCC-V1-004. UAA-P1-066
 remains queued as a strictly read-only Local Model
 Control Center inventory/status support lane.
 `FCC-V1-000` through `FCC-V1-007` are the Founder Loop V1 productization
 conveyor after the private-trial sequencing: completed release surface truth,
 real mutation perimeter contract/verifier coverage, and backend-owned
-Action decisions, then Today item to Action envelope to exact approval to durable
-receipt, Chat receipt/handoff, Memory Review decision receipts, Evidence
+Action decisions, then completed Today item to Action envelope to exact
+approval/edit/reject/defer receipt, followed by Chat receipt/handoff, Memory Review decision receipts, Evidence
 Timeline productization, and proof-lane promotion.
 This sequence makes Today the product spine and keeps memory,
 Evidence, Plans, Chat, Code, and Actions bound to safe refs, review decisions,
@@ -138,7 +141,7 @@ provider payload export, or no-secret-output regression.
 | Founder Command Center product-loop planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`, `docs/metrics/NORTH_STAR_METRICS.md`, `docs/codex/CODEX_EXECUTION_PROMPTS.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product truth packet | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
-| Control Center readiness | `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/ROUTE_STATUS_MANIFEST.md`, `docs/control_center/route_status_manifest.json`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/control_center/UAA_P1_078_PRIVATE_BETA_READINESS_GATE.md`, `docs/control_center/UAA_P1_079_USER_INTENT_UNDERSTANDING.md` |
+| Control Center readiness | `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/ROUTE_STATUS_MANIFEST.md`, `docs/control_center/route_status_manifest.json`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/control_center/UAA_P1_078_PRIVATE_BETA_READINESS_GATE.md`, `docs/control_center/UAA_P1_079_USER_INTENT_UNDERSTANDING.md` |
 | Local model production-readiness lane | `docs/production/M166_PRODUCTION_AUTHORITY_GATE.md`, `docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md`, `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
 | Local model operations | `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Release verification and evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `docs/production/BACKUP_RESTORE_VERIFICATION.md`, `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`, `docs/production/LOCAL_RUNTIME_PACKAGING.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |

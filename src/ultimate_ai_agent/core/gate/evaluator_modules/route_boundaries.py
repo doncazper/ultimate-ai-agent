@@ -2205,6 +2205,11 @@ FOUNDER_LOOP_ACTION_DECISION_ROUTES = frozenset(
         "/control-center/actions/{action_id}/reject",
     }
 )
+FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES = frozenset(
+    {
+        "/control-center/today/action-envelope",
+    }
+)
 FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     frozenset(
         {
@@ -2216,6 +2221,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
         }
     )
     | FOUNDER_LOOP_ACTION_DECISION_ROUTES
+    | FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES
 )
 MATTERMOST_AGENT_ROOMS_ROUTES = {
     "/integrations/mattermost/audit",

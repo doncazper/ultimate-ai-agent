@@ -32,16 +32,25 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS,
     FOUNDER_LOOP_ACTION_DECISION_KINDS,
     FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS,
+    FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS,
     FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
+    FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
     FounderLoopActionDecisionReceipt,
     FounderLoopActionDecisionRequest,
+    FounderLoopActionEnvelopePromotionReceipt,
+    FounderLoopActionEnvelopePromotionRequest,
     action_approval_request,
-    action_id_to_item_ref,
     action_decision_audit_ref,
     action_decision_receipt_ref,
     action_decision_ref,
+    action_envelope_promotion_audit_ref,
+    action_envelope_promotion_event_ref,
+    action_envelope_promotion_receipt_ref,
+    action_id_to_item_ref,
     action_payload_fingerprint_ref,
     decision_payload_for_fingerprint,
+    promotion_payload_for_fingerprint,
+    today_item_to_action_item_ref,
 )
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -879,6 +888,13 @@ def _action_decision_safe_summary(decision: str, status: str) -> str:
         f"Action decision '{decision}' recorded as backend-owned receipt state; "
         "the underlying action was not executed."
     )
+
+
+def _promoted_action_title(source_title: str) -> str:
+    candidate = f"Action envelope for {source_title}".strip()
+    if len(candidate) <= 120:
+        return candidate
+    return candidate[:117].rstrip() + "..."
 
 
 def _history_answer(
@@ -1849,6 +1865,8 @@ class FounderLoopRepository:
         counts = {
             "action_inbox": self._count("action_inbox"),
             "action_envelopes": self._count("action_envelopes"),
+            "action_envelope_promotions": self._count("action_envelope_promotions"),
+            "action_envelope_receipts": self._count("action_envelope_receipts"),
             "action_decision_events": self._count("action_decision_events"),
             "action_receipts": self._count("action_receipts"),
             "briefing_items": self._count("briefing_items"),
@@ -2008,7 +2026,7 @@ class FounderLoopRepository:
                 plans_action_envelope_authority_posture()
             ),
             "plans_action_envelope_status": (
-                "implemented_reviewable_action_envelopes_execution_blocked"
+                "implemented_today_to_action_envelope_vertical_slice_execution_blocked"
             ),
             "priority_refs": _priority_refs(actions, briefing_items),
             "blocker_refs": _blocked_state_refs(actions, memory_items, briefing_items),
@@ -2023,9 +2041,11 @@ class FounderLoopRepository:
                 "mutating_controls_enabled": True,
                 "execution_authorized": False,
                 "action_envelope_contract_status": (
-                    "implemented_action_decision_receipts_execution_blocked"
+                    "implemented_today_promotion_and_action_decision_receipts_execution_blocked"
                 ),
                 "action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
+                "vertical_slice_contract_ref": FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
+                "today_action_envelope_route_refs": list(FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS),
                 "review_actions": list(PLANS_ACTION_ENVELOPE_REVIEW_ACTIONS),
                 "approval_grant_capture_enabled": False,
                 "state_change_enabled": True,
@@ -3375,6 +3395,7 @@ class FounderLoopRepository:
                 "GET /control-center/runtime-readiness/summary",
                 "GET /control-center/foundation-gate/summary",
             ],
+            "today_action_envelope_route_refs": list(FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS),
             "decision_route_refs": list(FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS),
             "local_prerequisite_refs": [
                 "status-ref:founder-loop-storage",
@@ -3398,8 +3419,10 @@ class FounderLoopRepository:
             ],
             "decision_actions": list(FOUNDER_LOOP_ACTION_DECISION_KINDS),
             "decision_receipts_required": True,
+            "today_action_envelope_receipts_required": True,
             "idempotency_replay_enabled": True,
             "idempotency_conflict_rejected": True,
+            "vertical_slice_contract_ref": FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
             "action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
             "action_envelope_review_postures": (
                 plans_action_envelope_review_posture_rows()
@@ -3499,6 +3522,252 @@ class FounderLoopRepository:
             {**action, **_action_envelope_contract_payload(action)}
             for action in actions
         ]
+
+    def promote_today_item_to_action_envelope(
+        self,
+        *,
+        request: FounderLoopActionEnvelopePromotionRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        source = self._today_item_payload_for_ref(request.today_item_ref)
+        if source is None:
+            raise FounderLoopStorageError("FOUNDER_LOOP_TODAY_ITEM_NOT_FOUND")
+
+        item_ref = today_item_to_action_item_ref(request.today_item_ref)
+        fingerprint_payload = promotion_payload_for_fingerprint(request=request)
+        payload_fingerprint_ref = action_payload_fingerprint_ref(fingerprint_payload)
+        replay = self._action_envelope_promotion_replay(idempotency_key_ref)
+        if replay is not None:
+            if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
+                raise FounderLoopStorageDuplicateError(
+                    "FOUNDER_LOOP_ACTION_ENVELOPE_IDEMPOTENCY_CONFLICT"
+                )
+            receipt = self._action_envelope_promotion_receipt_by_ref(
+                str(replay["receipt_ref"])
+            )
+            return {
+                **receipt,
+                "replayed": True,
+                "safe_summary": (
+                    "Prior Today-to-Action envelope receipt returned for matching "
+                    "idempotency key."
+                ),
+            }
+
+        existing_action = self._action_payload_for_item_ref(item_ref)
+        action_envelope_ref = f"action-envelope:founder-loop-v1:{_safe_suffix(item_ref)}"
+        receipt_ref = action_envelope_promotion_receipt_ref(
+            item_ref,
+            idempotency_key_ref,
+        )
+        audit_ref = action_envelope_promotion_audit_ref(item_ref, idempotency_key_ref)
+        evidence_event_ref = action_envelope_promotion_event_ref(item_ref)
+        evidence_refs = list(
+            dict.fromkeys(
+                [
+                    "evidence-ref:founder-loop:today-action-envelope",
+                    evidence_event_ref,
+                    request.today_item_ref,
+                    *list((existing_action or {}).get("evidence_refs") or []),
+                    *list(source.get("evidence_refs") or []),
+                    *request.metadata_refs,
+                ]
+            )
+        )
+        receipt_refs = list(
+            dict.fromkeys(
+                [*list((existing_action or {}).get("receipt_refs") or []), receipt_ref]
+            )
+        )
+        audit_refs = list(
+            dict.fromkeys(
+                [*list((existing_action or {}).get("audit_refs") or []), audit_ref]
+            )
+        )
+        action_status = str((existing_action or {}).get("status") or "proposed")
+        approval_envelope_status = str(
+            (existing_action or {}).get("approval_envelope_status")
+            or "review_ready_exact_scope_required"
+        )
+        state_change_readiness = str(
+            (existing_action or {}).get("state_change_readiness")
+            or "action_envelope_created_no_execution"
+        )
+        receipt = FounderLoopActionEnvelopePromotionReceipt(
+            today_item_ref=request.today_item_ref,
+            item_ref=item_ref,
+            action_envelope_ref=action_envelope_ref,
+            receipt_ref=receipt_ref,
+            audit_ref=audit_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            evidence_timeline_event_ref=evidence_event_ref,
+            safe_summary=(
+                "Today item ref was promoted into a reviewable Action envelope; "
+                "no action execution, connector write, memory write, shell/subprocess "
+                "work, provider/model call, or production authority occurred."
+            ),
+            evidence_refs=evidence_refs,
+            blocked_state_refs=list(FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS),
+        )
+        receipt_payload = receipt.model_dump(mode="json")
+        action_record = FounderLoopActionRecord(
+            item_ref=item_ref,
+            title=_promoted_action_title(str(source.get("title", "Today item"))),
+            safe_summary=(
+                "Today item safe refs were promoted into an Action envelope for "
+                "review only; execution remains blocked."
+            ),
+            surface="Today",
+            priority=request.priority,
+            risk_class=request.risk_class,
+            status=action_status,
+            side_effect_class="local_dev_workspace_only",
+            authority_boundary=(
+                "Today-to-Action promotion creates reviewable local state only; "
+                "LocalApprovalAuthority must validate exact scope before an approve "
+                "decision, and the action still cannot execute."
+            ),
+            approval_required=True,
+            approval_envelope_ref=f"approval-envelope:founder-loop-v1:{_safe_suffix(item_ref)}",
+            approval_envelope_status=approval_envelope_status,
+            state_change_contract_ref=FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
+            state_change_readiness=state_change_readiness,
+            blocked_state=(
+                "Action execution, connector writes, memory writes, shell/subprocess "
+                "work, provider/model calls, and production authority remain blocked."
+            ),
+            evidence_refs=evidence_refs,
+            receipt_refs=receipt_refs,
+            audit_refs=audit_refs,
+            idempotency_key_ref=idempotency_key_ref,
+            expires_at="review_required_before_decision_or_execution",
+            stale_state="recheck_today_item_before_action_decision",
+            rollback_ref=f"rollback-plan:founder-loop-v1:{_safe_suffix(item_ref)}",
+            safe_disable_ref=f"safe-disable:founder-loop-v1:{_safe_suffix(item_ref)}",
+            next_safe_action=(
+                "Review the Action envelope and record approve, edit, reject, or "
+                "defer; execution remains blocked."
+            ),
+        )
+        envelope_payload = {
+            "contract_ref": FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
+            "vertical_slice_contract_ref": FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
+            "today_item_ref": request.today_item_ref,
+            "item_ref": item_ref,
+            "action_envelope_ref": action_envelope_ref,
+            "status": "proposed",
+            "exact_scope_ref": f"scope:founder-loop-v1:{_safe_suffix(item_ref)}",
+            "risk_class": request.risk_class,
+            "side_effect_class": "local_dev_workspace_only",
+            "approval_requirement_ref": (
+                f"approval-requirement:founder-loop-v1:{_safe_suffix(item_ref)}"
+            ),
+            "expected_receipt_ref": receipt_ref,
+            "rollback_ref": action_record.rollback_ref,
+            "safe_disable_ref": action_record.safe_disable_ref,
+            "blocked_state_refs": list(FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS),
+            "action_execution_enabled": False,
+            "connector_write_enabled": False,
+            "shell_subprocess_execution_enabled": False,
+            "model_provider_authority_allowed": False,
+            "production_authority_enabled": False,
+        }
+        _validate_safe_payload(envelope_payload, "action_envelope_promotion")
+        self.upsert_action(action_record)
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO action_envelopes (
+                    envelope_ref, item_ref, status, envelope_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    action_envelope_ref,
+                    item_ref,
+                    "proposed",
+                    _json_dumps(envelope_payload),
+                    receipt.created_at,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO action_envelope_receipts (
+                    receipt_ref, item_ref, action_envelope_ref, receipt_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    receipt_ref,
+                    item_ref,
+                    action_envelope_ref,
+                    _json_dumps(receipt_payload),
+                    receipt.created_at,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO action_envelope_promotions (
+                    promotion_ref, today_item_ref, item_ref, action_envelope_ref,
+                    receipt_ref, audit_ref, idempotency_key_ref,
+                    payload_fingerprint_ref, evidence_timeline_event_ref,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    (
+                        "action-envelope-promotion:"
+                        f"{_safe_suffix(item_ref)}:{_safe_suffix(idempotency_key_ref)}"
+                    ),
+                    request.today_item_ref,
+                    item_ref,
+                    action_envelope_ref,
+                    receipt_ref,
+                    audit_ref,
+                    idempotency_key_ref,
+                    payload_fingerprint_ref,
+                    evidence_event_ref,
+                    receipt.created_at,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO action_envelope_promotion_replays (
+                    key_ref, today_item_ref, item_ref, payload_fingerprint_ref,
+                    receipt_ref, action_envelope_ref, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    idempotency_key_ref,
+                    request.today_item_ref,
+                    item_ref,
+                    payload_fingerprint_ref,
+                    receipt_ref,
+                    action_envelope_ref,
+                    receipt.created_at,
+                ),
+            )
+        self.append_log(
+            JsonlLogKind.receipt,
+            {
+                "event_ref": receipt.receipt_ref,
+                "safe_summary": receipt.safe_summary,
+                "evidence_refs": receipt.evidence_refs,
+            },
+        )
+        self.append_log(
+            JsonlLogKind.audit,
+            {
+                "event_ref": receipt.audit_ref,
+                "safe_summary": "Founder Loop Today-to-Action envelope audit ref recorded.",
+                "evidence_refs": receipt.evidence_refs,
+            },
+        )
+        return receipt_payload
 
     def latest_action_receipt(self, action_id: str) -> dict[str, Any] | None:
         item_ref = action_id_to_item_ref(action_id)
@@ -3706,6 +3975,42 @@ class FounderLoopRepository:
             return None
         return _row_to_payload(rows[0])
 
+    def _today_item_payload_for_ref(self, today_item_ref: str) -> dict[str, Any] | None:
+        _validate_safe_ref(today_item_ref, "today_item_ref")
+        for item in self.list_action_inbox(limit=200):
+            if item.get("item_ref") == today_item_ref:
+                return {
+                    "source_kind": "action",
+                    "title": item.get("title"),
+                    "safe_summary": item.get("safe_summary"),
+                    "evidence_refs": item.get("evidence_refs", []),
+                }
+        for item in self.list_briefing_items(limit=200):
+            if item.get("briefing_ref") == today_item_ref:
+                return {
+                    "source_kind": "briefing",
+                    "title": item.get("title"),
+                    "safe_summary": item.get("safe_summary"),
+                    "evidence_refs": item.get("evidence_refs", []),
+                }
+        for item in self.list_memory_review_queue(limit=200):
+            if item.get("review_ref") == today_item_ref:
+                return {
+                    "source_kind": "memory",
+                    "title": item.get("title"),
+                    "safe_summary": item.get("safe_summary"),
+                    "evidence_refs": item.get("evidence_refs", []),
+                }
+        for item in self.list_plan_summaries(limit=200):
+            if item.get("plan_ref") == today_item_ref:
+                return {
+                    "source_kind": "plan",
+                    "title": item.get("title"),
+                    "safe_summary": item.get("safe_summary"),
+                    "evidence_refs": item.get("evidence_refs", []),
+                }
+        return None
+
     def _action_decision_replay(self, idempotency_key_ref: str) -> dict[str, Any] | None:
         rows = self._fetch_all(
             """
@@ -3720,6 +4025,38 @@ class FounderLoopRepository:
         if not rows:
             return None
         return dict(rows[0])
+
+    def _action_envelope_promotion_replay(
+        self,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any] | None:
+        rows = self._fetch_all(
+            """
+            SELECT key_ref, today_item_ref, item_ref, payload_fingerprint_ref,
+                   receipt_ref, action_envelope_ref, created_at
+            FROM action_envelope_promotion_replays
+            WHERE key_ref = ?
+            LIMIT 1
+            """,
+            (idempotency_key_ref,),
+        )
+        if not rows:
+            return None
+        return dict(rows[0])
+
+    def _action_envelope_promotion_receipt_by_ref(self, receipt_ref: str) -> dict[str, Any]:
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM action_envelope_receipts
+            WHERE receipt_ref = ?
+            LIMIT 1
+            """,
+            (receipt_ref,),
+        )
+        if not rows:
+            raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_ENVELOPE_RECEIPT_NOT_FOUND")
+        return dict(json.loads(str(rows[0]["receipt_json"])))
 
     def _action_receipt_by_ref(self, receipt_ref: str) -> dict[str, Any]:
         rows = self._fetch_all(
@@ -4268,6 +4605,34 @@ class FounderLoopRepository:
                     item_ref TEXT NOT NULL,
                     status TEXT NOT NULL,
                     envelope_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS action_envelope_promotions (
+                    promotion_ref TEXT PRIMARY KEY,
+                    today_item_ref TEXT NOT NULL,
+                    item_ref TEXT NOT NULL,
+                    action_envelope_ref TEXT NOT NULL,
+                    receipt_ref TEXT NOT NULL,
+                    audit_ref TEXT NOT NULL,
+                    idempotency_key_ref TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    evidence_timeline_event_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS action_envelope_receipts (
+                    receipt_ref TEXT PRIMARY KEY,
+                    item_ref TEXT NOT NULL,
+                    action_envelope_ref TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS action_envelope_promotion_replays (
+                    key_ref TEXT PRIMARY KEY,
+                    today_item_ref TEXT NOT NULL,
+                    item_ref TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    receipt_ref TEXT NOT NULL,
+                    action_envelope_ref TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS action_decision_events (
@@ -4988,6 +5353,8 @@ class FounderLoopRepository:
         allowed = {
             "action_envelopes",
             "action_decision_events",
+            "action_envelope_promotions",
+            "action_envelope_receipts",
             "action_inbox",
             "action_receipts",
             "briefing_items",

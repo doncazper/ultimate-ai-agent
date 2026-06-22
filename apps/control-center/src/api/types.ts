@@ -172,6 +172,38 @@ export interface FounderLoopActionDecisionReceipt {
   created_at: string;
 }
 
+export interface FounderLoopActionEnvelopePromotionRequest {
+  today_item_ref: string;
+  actor_context: string;
+  decision_reason_ref: string;
+  risk_class: "low" | "medium" | "high" | "critical";
+  priority: "low" | "medium" | "high";
+  metadata_refs?: string[];
+}
+
+export interface FounderLoopActionEnvelopePromotionReceipt {
+  contract_ref: string;
+  today_item_ref: string;
+  item_ref: string;
+  action_envelope_ref: string;
+  status: string;
+  receipt_ref: string;
+  audit_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  evidence_timeline_event_ref: string;
+  action_executed: boolean;
+  approval_grants_execution: boolean;
+  connector_write_performed: boolean;
+  memory_write_performed: boolean;
+  raw_content_stored: boolean;
+  replayed: boolean;
+  safe_summary: string;
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  created_at: string;
+}
+
 export interface FounderLoopPlanSummary {
   plan_ref: string;
   title: string;
@@ -990,6 +1022,8 @@ export interface FounderLoopPlanActionState {
   review_actions?: string[];
   approval_grant_capture_enabled?: boolean;
   state_change_enabled?: boolean;
+  vertical_slice_contract_ref?: string;
+  today_action_envelope_route_refs?: string[];
 }
 
 export interface FounderLoopStaleSourcePosture {
@@ -1208,6 +1242,9 @@ export interface FounderLoopActionsInbox {
   decision_receipts_required?: boolean;
   idempotency_replay_enabled?: boolean;
   idempotency_conflict_rejected?: boolean;
+  today_action_envelope_route_refs?: string[];
+  today_action_envelope_receipts_required?: boolean;
+  vertical_slice_contract_ref?: string;
   action_envelope_contract_ref?: string;
   action_envelope_review_postures?: FounderLoopActionEnvelopeReviewPosture[];
   action_envelope_required_ref_fields?: string[];

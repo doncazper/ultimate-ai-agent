@@ -24,7 +24,7 @@ claim, production authority, or production readiness claim.
 - The frozen API route inventory fixture is updated to schema
   `uaa-api-route-inventory.v4` so every route projection includes auth and
   approval posture.
-- The FCC-V1-001 perimeter manifest records the current 17 routes classified
+- The FCC-V1-001 perimeter manifest records the current 18 routes classified
   as `mutating_requires_authority`.
 - `scripts/verify_fcc_v1_001_api_perimeter.py` fails if the manifest, fixture,
   targeted local rate-limit groups, or mutation posture drifts.
@@ -97,6 +97,6 @@ approval binding, receipts, and evidence timeline updates exist for that route.
 - `tests/test_fcc_v1_001_api_perimeter.py`
 - `src/ultimate_ai_agent/api/contracts.py`
 - `src/ultimate_ai_agent/api/manifest.py`
-- `tests/fixtures/api_route_inventory_117.json`
+- `tests/fixtures/api_route_inventory_118.json`
 - `scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py`
 - `tests/test_api_boundary_enforcement.py`

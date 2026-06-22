@@ -165,6 +165,10 @@ production authority is granted.
 
 ## FCC-V1-003 - Founder Loop V1 Vertical Slice
 
+Status: implemented for the first receipt-bearing vertical slice. The route,
+storage, UI, CLI inspection path, verifier, and focused tests are present, but
+approved actions still do not execute.
+
 Goal: ship the first real loop: Today item -> Action envelope -> exact
 approval -> durable receipt -> Evidence Timeline update.
 
@@ -188,6 +192,13 @@ Tasks:
 Definition of done: a reviewer can open Today, create an Action envelope,
 approve, edit, reject, or defer it, see the durable receipt, and see the
 Evidence Timeline update.
+
+Proof refs:
+
+- `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`
+- `scripts/verify_fcc_v1_003_founder_loop_vertical_slice.py`
+- `tests/test_fcc_v1_003_founder_loop_vertical_slice.py`
+- `scripts/dev/uaa_founder_loop.py`
 
 ## FCC-V1-004 - Control Center Chat Durable Receipt And Handoff
 

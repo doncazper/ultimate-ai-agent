@@ -118,7 +118,7 @@
       }
     },
     "plans_action_envelope_status": {
-      "const": "implemented_reviewable_action_envelopes_execution_blocked"
+      "const": "implemented_today_to_action_envelope_vertical_slice_execution_blocked"
     },
     "plan_action_state": {
       "type": "object",
@@ -138,7 +138,7 @@
         "mutating_controls_enabled": { "const": true },
         "execution_authorized": { "const": false },
         "action_envelope_contract_status": {
-          "const": "implemented_action_decision_receipts_execution_blocked"
+          "const": "implemented_today_promotion_and_action_decision_receipts_execution_blocked"
         },
         "action_envelope_contract_ref": {
           "const": "contract-ref:plans-action-envelope:v1"

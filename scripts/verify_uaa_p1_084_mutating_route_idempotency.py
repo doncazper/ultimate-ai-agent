@@ -36,7 +36,7 @@ from scripts.verification.repo import (  # noqa: E402
 CONTRACT_DOC = "docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md"
 POLICY_SCHEMA = "docs/schemas/api_mutating_route_idempotency_audit.schema.json"
 ROUTE_SCHEMA = "docs/schemas/api_route_classification.schema.json"
-ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_117.json"
+ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_118.json"
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:p1-084-verifier"}
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [

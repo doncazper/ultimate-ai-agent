@@ -2,7 +2,7 @@
 
 Status: active gated foundation map
 Baseline: v0.102.3 / 0.102.3
-Current OpenAPI path count: 117
+Current OpenAPI path count: 118
 Scope: documentation and route ownership inventory only
 
 This map records the current FastAPI route groups for UAA-P1-058 and future
@@ -18,13 +18,13 @@ typed metadata endpoint for route inventory and capabilities.
 
 | Contract surface | Result |
 |---|---|
-| OpenAPI path count | 117 paths. |
-| `/api/manifest` route count | 117 routes. |
+| OpenAPI path count | 118 paths. |
+| `/api/manifest` route count | 118 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
 | Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | 65 backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
-| Route inventory doc | Current count matches 117; inventory is summarized by group and remains subordinate to `/api/manifest`. |
+| Route inventory doc | Current count matches 118; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
 ## Mismatch Findings
 
@@ -32,7 +32,7 @@ typed metadata endpoint for route inventory and capabilities.
 |---|---|---|
 | OpenAPI vs `/api/manifest` | No current route count, path, operation ID, or side-effect mismatch found by required verifiers. | Keep checks release-blocking. |
 | Control Center route-status manifest vs `/api/manifest` | No current mismatch for manifest entries that name backend routes. The route-status manifest is a visible-action subset, not an all-route inventory. | Do not use it as the source for non-Control Center service extraction. |
-| `docs/api/route_inventory.md` vs `/api/manifest` | Count and high-level groups agree. The doc intentionally summarizes broad groups rather than listing all 117 rows. | This UAA-P1-021 map is the exhaustive grouping companion. |
+| `docs/api/route_inventory.md` vs `/api/manifest` | Count and high-level groups agree. The doc intentionally summarizes broad groups rather than listing all 118 rows. | This UAA-P1-021 map is the exhaustive grouping companion. |
 | UAA-P1-058 readiness | First extraction is now limited to `GET /health` and `GET /version` under `system_service`; broader extraction remains gated by this map, UAA-P1-020, UAA-P1-052, Foundation Gate, OpenAPI, and API manifest stability. | Do not start broader extraction until all are accepted and green on the target branch. |
 | UAA-P1-059 ownership gate | `tests/test_route_module_ownership.py` now fails if a route appears without ownership, module, risk, auth, release, operation ID, side-effect, route-count, or evidence behavior coverage. | Keep this check in the route-modularity lane before broader extraction. |
 
@@ -46,7 +46,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only:2` | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only:1` | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only:2` | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
-| `control-center` | 18 | `control-center` | `control_center_service` | local status or future auth per route | `local_dev_workspace_only:9`, `validation_only:9` | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
+| `control-center` | 19 | `control-center` | `control_center_service` | local status or future auth per route | `local_dev_workspace_only:10`, `validation_only:9` | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only:3` | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only:1` | medium | stable/generated from path; unique | `status_available_not_completion` |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only:6` | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
@@ -138,6 +138,7 @@ future-auth posture, blocked-from-production.
 | `GET` | `/control-center/setup-assistant/summary` | `get_control_center_setup_assistant_summary` | `validation_only` | yes | future | yes |
 | `GET` | `/control-center/status` | `get_control_center_status` | `validation_only` | yes | future | yes |
 | `GET` | `/control-center/storage/status` | `get_control_center_storage_status` | `local_dev_workspace_only` | no | future | yes |
+| `POST` | `/control-center/today/action-envelope` | `post_control_center_today_action_envelope` | `local_dev_workspace_only` | no | future | yes |
 | `GET` | `/control-center/today/summary` | `get_control_center_today_summary` | `local_dev_workspace_only` | no | future | yes |
 
 ### `cost-governor`

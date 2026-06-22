@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     EXPECTED_M36_OPENAPI_PATH_COUNT,
     EXPECTED_M167_OPENAPI_PATH_COUNT,
     FOUNDER_LOOP_ACTION_DECISION_ROUTES,
+    FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
     _historical_openapi_path_set,
@@ -62,6 +63,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/actions/{action_id}/edit",
         "/control-center/actions/{action_id}/receipt",
         "/control-center/actions/{action_id}/reject",
+        "/control-center/today/action-envelope",
         "/control-center/morning-briefing/summary",
         "/control-center/storage/status",
         "/control-center/today/summary",
@@ -71,6 +73,9 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/actions/{action_id}/defer",
         "/control-center/actions/{action_id}/edit",
         "/control-center/actions/{action_id}/reject",
+    }
+    assert FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES == {
+        "/control-center/today/action-envelope",
     }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
         "control_center_setup_assistant",

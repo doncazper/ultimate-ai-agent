@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
   foundationGateSummary: "/control-center/foundation-gate/summary",
   setupAssistantSummary: "/control-center/setup-assistant/summary",
   founderTodaySummary: "/control-center/today/summary",
+  founderTodayActionEnvelope: "/control-center/today/action-envelope",
   founderActionsInbox: "/control-center/actions/inbox",
   founderMorningBriefing: "/control-center/morning-briefing/summary",
   founderStorageStatus: "/control-center/storage/status",

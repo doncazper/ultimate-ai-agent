@@ -831,7 +831,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M12 Control Center API Read Only",
             FoundationGateCategory.contracts,
             "FoundationGateEvaluator.check_m12_control_center_api_read_only",
-            "Control Center API exposes only read-only, preview-only, and exact Action Inbox decision-state routes with no execute/run/connect/dispatch/enable route.",
+            "Control Center API exposes only read-only, preview-only, exact Today-to-Action envelope, and exact Action Inbox decision-state routes with no execute/run/connect/dispatch/enable route.",
             "Control Center API exposes an unsafe execution route or unsafe route metadata.",
             "critical",
         ),

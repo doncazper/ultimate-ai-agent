@@ -123,7 +123,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("stale_source_posture")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Plan\/action state/i })).toBeInTheDocument();
     expect(
-      screen.getAllByText("implemented_reviewable_action_envelopes_execution_blocked").length,
+      screen.getAllByText("implemented_today_to_action_envelope_vertical_slice_execution_blocked").length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Memory-to-loop binding/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:memory-to-loop-binding:v1").length).toBeGreaterThan(0);
@@ -158,11 +158,91 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-action-execution").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("button", { name: /Create Action envelope/i }).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Module feed contract/i })).toBeInTheDocument();
     expect(screen.getByText(/Chat: implemented_local_operator_surface_contract/i)).toBeInTheDocument();
     expect(screen.getByText(/Code: implemented_governed_code_workbench_contract_apply_blocked/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Stale-source posture/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
+  });
+
+  it("creates a Today Action envelope through the exact receipt route", async () => {
+    const receipt = {
+      contract_ref: "contract-ref:founder-loop-v1-vertical-slice:v1",
+      today_item_ref: "briefing:storage-state-first-loop",
+      item_ref: "founder-action:today-promotion:storage-state-first-loop",
+      action_envelope_ref: "action-envelope:founder-loop-v1:storage-state-first-loop",
+      status: "action_envelope_created",
+      receipt_ref: "receipt:today-action-envelope:storage-state-first-loop",
+      audit_ref: "audit:today-action-envelope:storage-state-first-loop",
+      idempotency_key_ref: "idempotency-ref:control-center-today-action:test",
+      payload_fingerprint_ref: "payload-fingerprint-ref:test",
+      evidence_timeline_event_ref:
+        "evidence-timeline-event:today-action-envelope:storage-state-first-loop",
+      action_executed: false,
+      approval_grants_execution: false,
+      connector_write_performed: false,
+      memory_write_performed: false,
+      raw_content_stored: false,
+      replayed: false,
+      safe_summary: "Reviewable Action envelope created; execution remains blocked.",
+      evidence_refs: ["evidence-ref:founder-loop:today-action-envelope"],
+      blocked_state_refs: ["blocked-state:no-action-execution"],
+      created_at: "2026-06-22T00:00:00Z",
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (
+        options?.method === "POST" &&
+        String(url) === API_ENDPOINTS.founderTodayActionEnvelope
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error("backend unavailable");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^Today$/i })).toBeInTheDocument();
+    const actionEnvelopeButtons = screen.getAllByRole("button", {
+      name: /Create Action envelope/i,
+    });
+    fireEvent.click(
+      actionEnvelopeButtons[1],
+    );
+
+    await screen.findByText("receipt:today-action-envelope:storage-state-first-loop");
+    const [, options] =
+      fetchMock.mock.calls.find((call) => call[1]?.method === "POST") ?? [];
+    expect(fetchMock).toHaveBeenCalledWith(
+      API_ENDPOINTS.founderTodayActionEnvelope,
+      expect.any(Object),
+    );
+    expect(options?.method).toBe("POST");
+    expect(options?.headers).toMatchObject({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+    expect(
+      String((options?.headers as Record<string, string>)["X-UAA-Idempotency-Key"]),
+    ).toMatch(/^idempotency-ref:control-center-today-action:/);
+    expect(JSON.parse(String(options?.body))).toMatchObject({
+      today_item_ref: "briefing:storage-state-first-loop",
+      actor_context: "control_center_today_surface",
+      decision_reason_ref: "decision-reason-ref:today-action-envelope",
+    });
+    expect(screen.getByText("audit:today-action-envelope:storage-state-first-loop")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "evidence-timeline-event:today-action-envelope:storage-state-first-loop",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
   });
 
   it("renders runtime, remote, mobile, and plugin governance panels as safe summaries", async () => {
@@ -1065,7 +1145,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("117")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("118")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -2621,6 +2701,9 @@ describe("Web Control Center shell", () => {
   it("keeps read endpoints separate from the single preview POST endpoint", () => {
     expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.actionPreview);
     expect(READ_ENDPOINTS).not.toContain(
+      API_ENDPOINTS.founderTodayActionEnvelope,
+    );
+    expect(READ_ENDPOINTS).not.toContain(
       API_ENDPOINTS.runtimeSmokeReportValidate,
     );
     expect(API_ENDPOINTS.actionPreview).toBe("/control-center/actions/preview");
@@ -2736,8 +2819,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 117,
-      control_center_route_count: 18,
+      route_count: 118,
+      control_center_route_count: 19,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -3554,7 +3637,7 @@ const mockApiData = {
       production_authority_enabled: false,
     },
     plans_action_envelope_status:
-      "implemented_reviewable_action_envelopes_execution_blocked",
+      "implemented_today_to_action_envelope_vertical_slice_execution_blocked",
     priority_refs: [
       "priority-ref:action:high:founder-action-test",
       "priority-ref:briefing:medium:briefing-test",
@@ -3575,7 +3658,7 @@ const mockApiData = {
       mutating_controls_enabled: true,
       execution_authorized: false,
       action_envelope_contract_status:
-        "implemented_action_decision_receipts_execution_blocked",
+        "implemented_today_promotion_and_action_decision_receipts_execution_blocked",
       action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
       review_actions: ["approve", "edit", "reject", "defer"],
       approval_grant_capture_enabled: false,
