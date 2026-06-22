@@ -14,6 +14,10 @@ from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiManifest
 from ultimate_ai_agent.api.cors import configure_loopback_cors
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
+from ultimate_ai_agent.api.local_auth import (
+    LOCAL_API_AUTH_POLICY_REF,
+    local_api_auth_failure,
+)
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.mattermost import register_mattermost_routes
 from ultimate_ai_agent.api.openapi import configure_openapi_contract
@@ -540,6 +544,25 @@ async def session_log_api_middleware(request: Request, call_next: Any) -> Any:
             error_code=error_code,
             error_summary=error_summary,
         )
+
+
+@app.middleware("http")
+async def local_api_auth_gate_middleware(request: Request, call_next: Any) -> Any:
+    failure = local_api_auth_failure(
+        request.headers.get("authorization"),
+        method=request.method,
+        path=request.url.path,
+    )
+    if failure is not None:
+        return JSONResponse(
+            status_code=failure.status_code,
+            content={
+                "detail": failure.safe_message,
+                "code": failure.code,
+                "policy_ref": LOCAL_API_AUTH_POLICY_REF,
+            },
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")

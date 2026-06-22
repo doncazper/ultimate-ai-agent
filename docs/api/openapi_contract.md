@@ -61,14 +61,15 @@ API boundary hardening:
   Control Center origins: `http://localhost:5173`,
   `http://127.0.0.1:5173`, `http://[::1]:5173`,
   `http://localhost:4173`, `http://127.0.0.1:4173`, and
-  `http://[::1]:4173`. CORS is browser hardening, not authentication, and
+  `http://[::1]:4173`, with the `Authorization` request header allowed for the
+  UAA-P1-083 local bearer. CORS is browser hardening, not authentication, and
   wildcard CORS remains denied. It does not add auth, sessions, idempotency
   enforcement, rate limits, dependencies, route authority, or runtime authority.
-- UAA-P1-083 will add a simple local bearer/session gate for sensitive routes
-  that expose logs, observability events, task runs, approvals, memory, file
-  previews or write proposals, model gateway behavior, action previews, or
-  sensitive runtime state. It is not enterprise auth, multi-user auth, OAuth,
-  roles, or a password flow.
+- UAA-P1-083 adds a simple local bearer gate for protected routes classified
+  as `local_readonly`, `local_sensitive`, or
+  `mutating_requires_authority`. The gate is enabled by
+  `UAA_API_LOCAL_AUTH_ENABLED=1` or a configured `UAA_API_LOCAL_BEARER`; it is
+  not enterprise auth, multi-user auth, OAuth, roles, or a password flow.
 - UAA-P1-084 will audit mutating routes so every mutation requires an
   idempotency key or scoped idempotency ref before authority is claimed.
 - UAA-P1-085 will add targeted rate limits for model/chat, task decomposition,

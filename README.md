@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-082 Complete: Explicit Loopback CORS; UAA-P1-083 Planned Sensitive-Route Gate** |
+| Current lane | **UAA-P1-083 Complete: Local Protected-Route Bearer Gate; UAA-P1-084 Planned Idempotency Audit** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -82,8 +82,11 @@ response headers, HTTPS-only HSTS behavior, no CORS/auth/rate-limit authority,
 manifest capability posture, and focused verifier/tests. UAA-P1-082 Explicit
 Loopback CORS Allowlist is complete with exact local Control Center dev/preview
 origins, no wildcard CORS, no CORS credentials, no auth claim, manifest
-capability posture, and focused verifier/tests. UAA-P1-083 through UAA-P1-086
-remain planned/queued API boundary hardening
+capability posture, and focused verifier/tests. UAA-P1-083 Local Bearer Or
+Session Gate For Sensitive Routes is complete with a configured local bearer
+gate for non-public route classifications, public metadata routes left open,
+no enterprise/OAuth/password-flow claim, and focused verifier/tests. UAA-P1-084
+through UAA-P1-086 remain planned/queued API boundary hardening
 lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
 Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/api_local_auth_gate.schema.json",
+  "title": "UAA P1 083 Local API Auth Gate Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy_ref",
+    "enabled_env",
+    "bearer_env",
+    "public_metadata_paths",
+    "protected_route_classifications",
+    "minimum_bearer_length",
+    "authorization_header_scheme",
+    "session_cookie_auth_enabled",
+    "enterprise_auth_enabled",
+    "multi_user_auth_enabled",
+    "oauth_enabled",
+    "password_flow_enabled",
+    "production_authority_enabled"
+  ],
+  "properties": {
+    "policy_ref": {
+      "const": "auth:p1-083:local-protected-routes:v1"
+    },
+    "enabled_env": {
+      "const": "UAA_API_LOCAL_AUTH_ENABLED"
+    },
+    "bearer_env": {
+      "const": "UAA_API_LOCAL_BEARER"
+    },
+    "public_metadata_paths": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      },
+      "contains": {
+        "const": "/api/manifest"
+      }
+    },
+    "protected_route_classifications": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "local_readonly",
+          "local_sensitive",
+          "mutating_requires_authority"
+        ]
+      }
+    },
+    "minimum_bearer_length": {
+      "type": "integer",
+      "minimum": 12
+    },
+    "authorization_header_scheme": {
+      "const": "Bearer"
+    },
+    "session_cookie_auth_enabled": {
+      "const": false
+    },
+    "enterprise_auth_enabled": {
+      "const": false
+    },
+    "multi_user_auth_enabled": {
+      "const": false
+    },
+    "oauth_enabled": {
+      "const": false
+    },
+    "password_flow_enabled": {
+      "const": false
+    },
+    "production_authority_enabled": {
+      "const": false
+    }
+  }
+}

@@ -95,6 +95,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-080 API route classification scan", "verify_uaa_p1_080_api_route_classification"),
     ("UAA-P1-081 FastAPI security headers scan", "verify_uaa_p1_081_fastapi_security_headers"),
     ("UAA-P1-082 loopback CORS scan", "verify_uaa_p1_082_loopback_cors"),
+    ("UAA-P1-083 local auth gate scan", "verify_uaa_p1_083_local_auth_gate"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),

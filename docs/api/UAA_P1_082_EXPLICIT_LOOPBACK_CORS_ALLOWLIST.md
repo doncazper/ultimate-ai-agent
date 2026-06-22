@@ -21,8 +21,9 @@ origins:
 - `http://[::1]:4173`
 
 Allowed browser methods are `GET` and `POST`. Allowed request headers are
-`Content-Type` and `X-Requested-With`. CORS credentials are disabled. Wildcard
-CORS remains denied.
+`Authorization`, `Content-Type`, and `X-Requested-With`. `Authorization` is
+allowed only so the UAA-P1-083 local bearer can cross the exact loopback browser
+boundary; CORS credentials are disabled. Wildcard CORS remains denied.
 
 Allowed origins receive an exact `Access-Control-Allow-Origin` match. Disallowed
 external, LAN, wrong-port, wildcard, and `null` origins do not receive CORS

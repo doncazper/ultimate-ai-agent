@@ -57,5 +57,7 @@ production readiness, or production authority is added by this milestone.
 ## Next
 
 UAA-P1-081 Centralized FastAPI Security Headers and UAA-P1-082 Explicit
-Loopback CORS Allowlist are complete as separate milestones. UAA-P1-083 remains
-planned/queued and cannot be claimed from this classification milestone.
+Loopback CORS Allowlist are complete as separate milestones. UAA-P1-083 Local
+Protected-Route Bearer Gate is complete as a separate configured local perimeter
+gate and cannot be claimed from this classification milestone. UAA-P1-084
+through UAA-P1-086 remain planned/queued for the remaining API perimeter gates.

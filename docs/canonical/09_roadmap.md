@@ -22,7 +22,10 @@ public/protected inventory truth. UAA-P1-081 is complete for centralized
 FastAPI response security headers with HTTPS-only HSTS and no CORS/auth/
 rate-limit authority. UAA-P1-082 is complete for explicit local Control Center
 loopback CORS allowlisting with no wildcard CORS, CORS credentials, or auth
-claim. UAA-P1-083 through UAA-P1-086 remain planned/queued API
+claim. UAA-P1-083 is complete for a configured local bearer gate over
+non-public route classifications with public metadata routes left open and no
+enterprise/OAuth/password-flow claim. UAA-P1-084 through UAA-P1-086 remain
+planned/queued API
 boundary hardening lanes, followed by the UAA-P1-087
 Private Operator Trial And UI Functional Tuning sequence: UAA-P1-087.1 local
 launcher dual-surface boot readiness, UAA-P1-087.2 in-person private UI
@@ -33,8 +36,8 @@ remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane. The product path now runs through UAA-P1-080
 API route classification after UAA-P1-079 added reviewable
 user-intent-understanding and UAA-P1-078 added local/private beta-readiness
-evidence. Security headers, CORS, auth, idempotency, rate limits, and
-enforcement tests remain planned next but unscoped by this milestone. This path adds no
+evidence. Idempotency, rate limits, and enforcement tests remain planned next
+but unscoped by this milestone. This path adds no
 production authority, public beta, public
 distribution, connector writes, provider/model authority, unrestricted shell,
 automatic memory writes, hidden context injection, or raw private-content

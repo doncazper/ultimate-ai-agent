@@ -62,12 +62,13 @@
       "type": "array",
       "items": {
         "enum": [
+          "Authorization",
           "Content-Type",
           "X-Requested-With"
         ]
       },
-      "minItems": 2,
-      "maxItems": 2,
+      "minItems": 3,
+      "maxItems": 3,
       "uniqueItems": true
     },
     "allow_credentials": {

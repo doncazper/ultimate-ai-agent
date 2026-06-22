@@ -17,6 +17,7 @@ CONTROL_CENTER_LOOPBACK_CORS_ORIGINS: tuple[str, ...] = (
 
 CONTROL_CENTER_LOOPBACK_CORS_METHODS: tuple[str, ...] = ("GET", "POST")
 CONTROL_CENTER_LOOPBACK_CORS_HEADERS: tuple[str, ...] = (
+    "Authorization",
     "Content-Type",
     "X-Requested-With",
 )

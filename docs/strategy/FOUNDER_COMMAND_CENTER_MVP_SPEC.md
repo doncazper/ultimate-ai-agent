@@ -31,9 +31,12 @@ route-classification and inventory slice. UAA-P1-081 Centralized FastAPI
 Security Headers is implemented as centralized browser-hardening headers with
 HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082 Explicit
 Loopback CORS Allowlist is implemented as exact local Control Center CORS
-browser hardening with no auth claim. UAA-P1-083 through UAA-P1-086 remain
-planned/queued API boundary hardening lanes. UAA-P1-087 is planned after those
-gates as an ordered private operator trial and UI functional tuning sequence:
+browser hardening with no auth claim. UAA-P1-083 Local Bearer Or Session Gate
+For Sensitive Routes is implemented as a configured local protected-route
+bearer gate with no enterprise/OAuth/password-flow or production authority
+claim. UAA-P1-084 through UAA-P1-086 remain planned/queued API boundary
+hardening lanes. UAA-P1-087 is planned after those gates as an ordered private
+operator trial and UI functional tuning sequence:
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
 in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
 cockpit planning/source-only scaffold after the `.command` contract is proven.

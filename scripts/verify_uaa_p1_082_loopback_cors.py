@@ -34,6 +34,7 @@ REQUIRED_DOC_SNIPPETS = {
         "http://127.0.0.1:5173",
         "http://[::1]:5173",
         "http://localhost:4173",
+        "Authorization",
         "wildcard CORS remains denied",
         "CORS is browser hardening, not authentication",
         "UAA-P1-083",
@@ -47,7 +48,8 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/route_inventory.md": [
         "UAA-P1-082",
         "explicit loopback CORS allowlist posture",
-        "UAA-P1-083 through UAA-P1-086",
+        "UAA-P1-083 implements local protected-route bearer gate posture",
+        "Future UAA-P1-084 through UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -94,7 +96,7 @@ def _preflight(client: TestClient, origin: str, method: str = "POST"):
         headers={
             "Origin": origin,
             "Access-Control-Request-Method": method,
-            "Access-Control-Request-Headers": "content-type",
+            "Access-Control-Request-Headers": "content-type, authorization",
         },
     )
 
@@ -133,6 +135,10 @@ def main() -> int:
         failures.append("allowed preflight missing exact origin")
     if preflight.headers.get("Access-Control-Allow-Methods") != "GET, POST":
         failures.append("allowed preflight method list drifted")
+    if "Authorization" not in preflight.headers.get("Access-Control-Allow-Headers", ""):
+        failures.append("allowed preflight missing Authorization header")
+    if "Content-Type" not in preflight.headers.get("Access-Control-Allow-Headers", ""):
+        failures.append("allowed preflight missing Content-Type header")
     if preflight.headers.get("Access-Control-Allow-Credentials") is not None:
         failures.append("allowed preflight exposes credentials header")
     for name, value in FASTAPI_SECURITY_HEADERS.items():

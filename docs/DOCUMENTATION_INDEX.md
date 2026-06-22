@@ -58,7 +58,10 @@ headers, HTTPS-only HSTS, manifest capability posture, and focused verifier
 coverage without adding CORS/auth/rate-limit authority. UAA-P1-082 Explicit
 Loopback CORS Allowlist completes exact local Control Center dev/preview origin
 allowlisting without wildcard CORS, CORS credentials, or auth claims.
-UAA-P1-083 through UAA-P1-086 remain planned/queued API boundary hardening
+UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes completes a
+configured local bearer gate for non-public route classifications without
+enterprise auth, OAuth, password flow, idempotency, rate-limit, or production
+authority claims. UAA-P1-084 through UAA-P1-086 remain planned/queued API boundary hardening
 lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
 Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native
@@ -93,6 +96,7 @@ docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md
 docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md
 docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md
 docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md
+docs/api/UAA_P1_083_LOCAL_BEARER_SESSION_GATE.md
 docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md
 docs/metrics/NORTH_STAR_METRICS.md
 docs/codex/CODEX_EXECUTION_PROMPTS.md
@@ -106,6 +110,7 @@ docs/schemas/memory_to_loop_binding.schema.json
 docs/schemas/memory_review_decision_capture.schema.json
 docs/schemas/business_memory_quality_controls.schema.json
 docs/schemas/plans_action_envelopes.schema.json
+docs/schemas/api_local_auth_gate.schema.json
 ```
 
 ## Historical Currentness Repairs

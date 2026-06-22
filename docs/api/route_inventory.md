@@ -63,12 +63,18 @@ Center dev/preview origins only: `http://localhost:5173`,
 `http://[::1]:4173`. Wildcard CORS and CORS credentials remain denied, and CORS
 does not grant auth or route authority.
 
-Future UAA-P1-083 through UAA-P1-086 route inventory checks must record: local
-bearer/session gate posture for sensitive routes, idempotency key or scoped
-idempotency ref posture for mutating routes, targeted rate-limit posture for
-expensive/sensitive paths, and enforcement coverage in OpenAPI/API manifest
-tests. These future checks add no auth, rate limits, dependencies, or runtime
-authority until separately implemented.
+UAA-P1-083 implements local protected-route bearer gate posture for non-public
+route classifications. `GET /health`, `GET /version`, `GET /api/manifest`, and
+`GET /openapi.json` remain public metadata; `local_readonly`,
+`local_sensitive`, and `mutating_requires_authority` routes require the
+configured local bearer when the gate is enabled. This is not enterprise auth,
+OAuth, a password flow, production authority, or a public beta claim.
+
+Future UAA-P1-084 through UAA-P1-086 route inventory checks must record:
+idempotency key or scoped idempotency ref posture for mutating routes, targeted
+rate-limit posture for expensive/sensitive paths, and enforcement coverage in
+OpenAPI/API manifest tests. These future checks add no rate limits,
+dependencies, or runtime authority until separately implemented.
 
 ## Current route groups
 
@@ -164,10 +170,10 @@ payloads.
 - model-runtime validation and simulation routes remain validation/fallback only
 - runtime readiness and smoke-report routes remain status/validation only
 
-This is partial local auth coverage, not a general sensitive-route auth
-boundary. UAA-P1-083 remains future work for logs/observability, task runs,
-approvals, memory, file previews/proposals, model gateway behavior, action
-previews, and sensitive runtime state.
+UAA-P1-083 adds the general local protected-route bearer gate around the
+current non-public route classifications. Local `/v1` and task-decomposition
+routes can still keep their narrower disabled-by-default bearer gates; P1-083
+does not grant execution, provider, connector, or production authority.
 
 ### Task, file, tool, provider, memory, truth, approval, consent, cost, gate, and remote-worker groups
 

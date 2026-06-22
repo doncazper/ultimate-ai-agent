@@ -35,6 +35,7 @@ def test_loopback_cors_allowlist_is_explicit_and_non_credentialed() -> None:
     )
     assert CONTROL_CENTER_LOOPBACK_CORS_METHODS == ("GET", "POST")
     assert CONTROL_CENTER_LOOPBACK_CORS_HEADERS == (
+        "Authorization",
         "Content-Type",
         "X-Requested-With",
     )
@@ -63,6 +64,7 @@ def test_allowed_loopback_preflight_is_scoped_and_security_hardened() -> None:
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == origin
     assert response.headers["Access-Control-Allow-Methods"] == "GET, POST"
+    assert "Authorization" in response.headers["Access-Control-Allow-Headers"]
     assert "Content-Type" in response.headers["Access-Control-Allow-Headers"]
     assert response.headers.get("Access-Control-Allow-Credentials") is None
     assert response.headers["Access-Control-Allow-Origin"] != "*"

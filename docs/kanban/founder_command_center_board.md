@@ -65,14 +65,14 @@ FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
-UAA-P1-080, UAA-P1-081, UAA-P1-082.
+UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083.
 
 Candidate-next:
-UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes.
+UAA-P1-084 Mutating Route Idempotency Enforcement Audit.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, UAA-P1-087,
+UAA-P1-084, UAA-P1-085, UAA-P1-086, UAA-P1-087,
 UAA-P1-087.1, UAA-P1-087.2, UAA-P1-087.3,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
@@ -830,20 +830,25 @@ authority.
 
 Epic: API Boundary, Security/Permissions
 
-Description: Add a simple local-first bearer or local session gate for routes
-that expose logs or observability events, task runs, approvals, memory, file
-previews or write proposals, model gateway behavior, action previews, or
-sensitive runtime state.
+Status: Implemented.
+
+Description: Adds a configured local-first bearer gate for protected route
+classifications that expose logs or observability events, task runs, approvals,
+memory, file previews or write proposals, model gateway behavior, action
+previews, or sensitive runtime state.
 
 Acceptance criteria: Public routes are limited to harmless metadata such as
 health/version and possibly safe manifest data; sensitive routes require the
 local gate before authority claims.
 
-Required tests/verifiers: future protected-route tests, OpenAPI/API manifest
-checks, and docs integrity.
+Required tests/verifiers: `tests/test_api_local_auth_gate.py`,
+`tests/test_api_manifest.py`, `tests/test_api_cors.py`,
+`scripts/verify_uaa_p1_083_local_auth_gate.py`, OpenAPI/API manifest checks,
+and docs integrity.
 
 Safety notes: No enterprise auth, multi-user auth, OAuth, roles, password flow,
-or runtime auth implementation is added by this planning entry.
+rate limit, idempotency enforcement, public beta, distribution, production
+readiness, or production authority is added by this implementation.
 
 ### UAA-P1-084 - Mutating Route Idempotency Enforcement Audit
 

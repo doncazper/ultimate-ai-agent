@@ -642,9 +642,11 @@ Inventory has landed with its contract, schema, fixture, verifier, tests,
 Control Center visibility, and pushed commit. UAA-P1-081 and UAA-P1-082 are
 complete when active docs show centralized FastAPI security headers and
 explicit loopback CORS allowlisting have landed with verifier/test evidence and
-pushed commits. UAA-P1-083 through UAA-P1-086 remain planned/queued API
+pushed commits. UAA-P1-083 is complete when active docs show the local
+protected-route bearer gate has landed with verifier/test evidence and a pushed
+commit. UAA-P1-084 through UAA-P1-086 remain planned/queued API
 boundary-hardening work. If that remaining API boundary lane is active, it
-auto-advances in order through UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
+auto-advances in order through UAA-P1-084, UAA-P1-085, UAA-P1-086,
 then the
 UAA-P1-087 Private Operator Trial And UI Functional Tuning sequence:
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
