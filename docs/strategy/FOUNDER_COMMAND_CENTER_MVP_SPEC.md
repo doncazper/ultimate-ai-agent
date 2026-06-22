@@ -15,7 +15,9 @@ Work the next implementation lane in this order, starting from the accepted
 
 Current status: UAA-P1-068 Today Product Spine Contract and UAA-P1-069
 Evidence History Grammar are implemented as contract/test/read-only UI slices.
-UAA-P1-070 Memory Source And Provenance Model is the next incomplete lane.
+UAA-P1-070 Memory Source And Provenance Model is implemented as a
+contract/test/read-only source provenance slice. UAA-P1-071 Memory Review
+Decision Capture is the next incomplete lane.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -24,25 +26,28 @@ UAA-P1-070 Memory Source And Provenance Model is the next incomplete lane.
    follow-on work remain visible.
 2. Evidence history grammar: Evidence reads as what was proposed, approved,
    happened, changed, can be undone, is stale, and remains blocked.
-3. Memory source/provenance and review decisions: make reviewed memory the
-   product differentiator for Today, Actions, Evidence, Weekly Review,
-   Chat/local coding summaries, manual external-assistant review imports, and
-   CRM-lite business flow.
-4. Plans to Action envelopes: Plans produce approve/edit/reject/defer-ready
+3. Memory source/provenance model: define safe source refs and review-required
+   posture for manual notes, external assistant review summaries, local chat,
+   local coding, task plans, action proposals, evidence timeline refs,
+   read-only calendar/email metadata refs, and CRM-lite business records.
+4. Memory review decision capture: add accept/correct/reject/defer-ready
+   review decisions without granting writes, deletes, context injection,
+   connector runtime, model/provider authority, or production claims.
+5. Plans to Action envelopes: Plans produce approve/edit/reject/defer-ready
    envelopes with exact scope, receipts, expiry, idempotency, evidence, and
    rollback/safe-disable posture.
-5. Chat local operator surface: Chat sends a local turn, shows
+6. Chat local operator surface: Chat sends a local turn, shows
    model/runtime/auth/tool-denial truth, produces safe evidence, and hands off
    to Plans or Actions.
-6. Governed Code workbench: repo-local safe diffs, validation proof,
+7. Governed Code workbench: repo-local safe diffs, validation proof,
    approval-bound apply, rollback, and evidence before broad coding-agent
    autonomy.
-7. Local Control Center macOS-first Setup Assistant hardening: tighten
+8. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.
-8. First product loop readability: make Today, Plans, Actions, Memory,
+9. First product loop readability: make Today, Plans, Actions, Memory,
    Evidence, and Settings easier to scan without adding route authority.
-9. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
+10. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
    class, approval requirement, expiry, idempotency, evidence, and rollback
    posture before any approve affordance is wired.
 10. Morning Briefing skeleton: compose existing safe summaries, mock/degraded

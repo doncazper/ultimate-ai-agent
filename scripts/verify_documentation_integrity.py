@@ -4333,18 +4333,19 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
 
     readme = read_lower("README.md")
     if (
-        "uaa-p1-070 ready next: memory source and provenance model" not in readme
+        "uaa-p1-071 ready next: memory review decision capture" not in readme
         or "uaa-p1-067 completes" not in readme
         or "uaa-p1-068 completes" not in readme
         or "uaa-p1-069 completes" not in readme
+        or "uaa-p1-070 memory source and provenance model is\ncomplete" not in readme
         or (
             "uaa-p1-066 remains queued" not in readme
             and "uaa-p1-066\nremains queued" not in readme
         )
     ):
         failures.append(
-            "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069 complete, "
-            "UAA-P1-070 Ready Next, and UAA-P1-066 queued support"
+            "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070 "
+            "complete, UAA-P1-071 Ready Next, and UAA-P1-066 queued support"
         )
 
     docs_readme = read_lower("docs/README.md")
@@ -4353,7 +4354,8 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "completed uaa-p1-067" not in docs_readme
         or "completed uaa-p1-068" not in docs_readme
         or "completed uaa-p1-069" not in docs_readme
-        or "ready next uaa-p1-070" not in docs_readme
+        or "completed uaa-p1-070" not in docs_readme
+        or "ready next uaa-p1-071" not in docs_readme
         or (
             "uaa-p1-066 remains queued" not in docs_readme
             and "uaa-p1-066 remains\nqueued" not in docs_readme
@@ -4361,8 +4363,8 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
     ):
         failures.append(
             "docs/README.md must identify UAA-P1-065 done, "
-            "UAA-P1-067/UAA-P1-068/UAA-P1-069 complete, UAA-P1-070 Ready Next, "
-            "and UAA-P1-066 queued support"
+            "UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070 complete, "
+            "UAA-P1-071 Ready Next, and UAA-P1-066 queued support"
         )
 
     return failures
@@ -4854,18 +4856,19 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
 
     readme = read_lower("README.md")
     if (
-        "uaa-p1-070 ready next: memory source and provenance model" not in readme
+        "uaa-p1-071 ready next: memory review decision capture" not in readme
         or "uaa-p1-067 completes" not in readme
         or "uaa-p1-068 completes" not in readme
         or "uaa-p1-069 completes" not in readme
+        or "uaa-p1-070 memory source and provenance model is\ncomplete" not in readme
         or (
             "uaa-p1-066 remains queued" not in readme
             and "uaa-p1-066\nremains queued" not in readme
         )
     ):
         failures.append(
-            "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069 complete, "
-            "UAA-P1-070 Ready Next, and UAA-P1-066 queued support"
+            "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070 "
+            "complete, UAA-P1-071 Ready Next, and UAA-P1-066 queued support"
         )
     if "p0-017 adds safe local model operational recovery guidance" not in readme:
         failures.append("README must mention P0-017 operational recovery")

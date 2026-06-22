@@ -139,6 +139,33 @@ export interface FounderLoopMemoryReviewItem {
   blocked_states: string[];
   next_safe_action: string;
   evidence_refs: string[];
+  source_policy_ref: string;
+  source_kind: string;
+  source_kind_ref: string;
+  source_refs_status: string;
+  provenance_refs_status: string;
+  source_review_required: boolean;
+  source_trust_posture: string;
+  safe_summary_only: boolean;
+  source_truth_authority: boolean;
+  memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  account_auth_enabled: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+  source_payload_storage_allowed: boolean;
+  prompt_body_storage_allowed: boolean;
+  response_body_storage_allowed: boolean;
+  provider_body_storage_allowed: boolean;
+  path_body_storage_allowed: boolean;
+  log_body_storage_allowed: boolean;
+  account_ref_storage_allowed: boolean;
+  private_content_storage_allowed: boolean;
+  connector_runtime_allowed: boolean;
+  provider_or_model_authority_allowed: boolean;
+  accepted_as_truth: boolean;
   created_at?: string;
 }
 
@@ -224,6 +251,38 @@ export interface FounderLoopEvidenceHistorySurfaceBinding {
   authority_boundary: string;
 }
 
+export interface FounderLoopMemorySourcePolicy {
+  source_kind: string;
+  source_kind_ref: string;
+  safe_ref_prefix: string;
+  safe_summary_required: boolean;
+  review_required: boolean;
+  trusted_without_review: boolean;
+  source_payload_storage_allowed: boolean;
+  automatic_memory_write_allowed: boolean;
+  context_injection_allowed: boolean;
+  connector_runtime_allowed: boolean;
+  provider_or_model_authority_allowed: boolean;
+  account_auth_allowed: boolean;
+}
+
+export interface FounderLoopMemorySourceReviewPosture {
+  review_required_before_recall: boolean;
+  source_summary_trusted_without_review: boolean;
+  external_assistant_summary_trusted_without_review: boolean;
+  local_model_summary_trusted_without_review: boolean;
+  automatic_memory_write_enabled: boolean;
+  hidden_context_injection_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  account_auth_enabled: boolean;
+  provider_or_model_authority_allowed: boolean;
+  source_payload_storage_allowed: boolean;
+  private_content_storage_allowed: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -283,6 +342,11 @@ export interface FounderLoopTodaySummary {
   evidence_history_required_states: string[];
   evidence_history_required_questions: FounderLoopEvidenceHistoryQuestion[];
   evidence_history_surface_bindings: FounderLoopEvidenceHistorySurfaceBinding[];
+  memory_source_provenance_contract_ref: string;
+  memory_source_required_kinds: string[];
+  memory_source_policy: FounderLoopMemorySourcePolicy[];
+  memory_source_denied_content_refs: string[];
+  memory_source_review_posture: FounderLoopMemorySourceReviewPosture;
   priority_refs: string[];
   blocker_refs: string[];
   follow_up_refs: string[];

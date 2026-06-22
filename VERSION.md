@@ -15,9 +15,10 @@ existing Today summary route with contract metadata, schema, verifier, focused
 tests, and read-only Today rendering. UAA-P1-069 completes the Evidence History
 Grammar contract for proposed/approved/happened/changed/undoable/stale/blocked
 history answers with safe refs only. The active product path now emphasizes
-UAA-P1-070 Memory Source And Provenance Model before broader authority
-expansion. No public beta, distribution, production readiness, or production
-authority claim is granted.
+completed UAA-P1-070 Memory Source And Provenance Model work and promotes
+UAA-P1-071 Memory Review Decision Capture before broader authority expansion.
+No public beta, distribution, production readiness, or production authority
+claim is granted.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.

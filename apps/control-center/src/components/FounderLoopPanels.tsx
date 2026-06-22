@@ -444,6 +444,43 @@ export function MemoryReviewSurfacePanel({
           </p>
           <RefList refs={today.memory_review_missing_contract_refs ?? []} />
         </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Source provenance</h3>
+            <span>{today.memory_source_required_kinds.length}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.memory_source_provenance_contract_ref}
+            />
+            <DetailTerm
+              label="Review before recall"
+              value={
+                today.memory_source_review_posture.review_required_before_recall
+                  ? "required"
+                  : "missing"
+              }
+            />
+            <DetailTerm
+              label="Connector runtime"
+              value={
+                today.memory_source_review_posture.connector_runtime_enabled
+                  ? "enabled"
+                  : "disabled"
+              }
+            />
+            <DetailTerm
+              label="Production authority"
+              value={
+                today.memory_source_review_posture.production_authority_enabled
+                  ? "enabled"
+                  : "disabled"
+              }
+            />
+          </dl>
+          <RefList refs={today.memory_source_denied_content_refs ?? []} />
+        </article>
       </div>
       <div className="review-grid">
         {today.memory_review_queue.map((item) => (
@@ -944,6 +981,9 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
     item.confidence_posture ?? "safe_summary_unverified";
   const staleState =
     item.stale_state ?? "recheck_source_refs_before_memory_use";
+  const sourceKind = item.source_kind ?? "manual_note";
+  const sourceTrustPosture =
+    item.source_trust_posture ?? "untrusted_until_reviewed";
   const nextSafeAction =
     item.next_safe_action ??
     "Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.";
@@ -958,6 +998,22 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
       <dl className="detail-list">
         <DetailTerm label="Review ref" value={item.review_ref} />
         <DetailTerm label="Candidate kind" value={candidateKind} />
+        <DetailTerm label="Source kind" value={sourceKind} />
+        <DetailTerm label="Source trust" value={sourceTrustPosture} />
+        <DetailTerm label="Source ref status" value={item.source_refs_status} />
+        <DetailTerm
+          label="Provenance ref status"
+          value={item.provenance_refs_status}
+        />
+        <DetailTerm label="Accepted as truth" value={item.accepted_as_truth ? "yes" : "no"} />
+        <DetailTerm
+          label="Memory write authority"
+          value={item.memory_write_authorized ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Context injection authority"
+          value={item.context_injection_authorized ? "yes" : "no"}
+        />
         <DetailTerm label="Status" value={item.status} />
         <DetailTerm label="Review state" value={reviewState} />
         <DetailTerm label="Side effect" value={sideEffect} />

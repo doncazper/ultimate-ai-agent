@@ -27,6 +27,17 @@ SECRET_KEY_EXACT = {"token", "access_token", "refresh_token", "auth_token", "bea
 SECRET_ASSIGNMENT_PATTERN = re.compile(
     r"(?i)\b(api[_-]?key|secret|password|private[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token)\b\s*[:=]"
 )
+UNSAFE_PROVENANCE_KEY_PATTERN = re.compile(
+    r"(?i)(raw|prompt|response|provider[_-]?payload|local[_-]?path|"
+    r"account[_-]?id|account[_-]?identifier|username|hostname|credential|"
+    r"password|token|secret|api[_-]?key|authorization|cookie)"
+)
+UNSAFE_PROVENANCE_VALUE_PATTERN = re.compile(
+    r"(?i)(/users/|/home/|/var/|/etc/|[a-z]:\\|raw[_ -]?prompt|"
+    r"raw[_ -]?response|provider[_-]?payload|raw[_ -]?log|account[_ -]?id|"
+    r"account identifier|username\s*:|hostname\s*:|credential|password|"
+    r"token|secret|api[_-]?key|authorization|cookie)"
+)
 
 
 def _value(value: Any) -> Any:
@@ -49,6 +60,21 @@ def _secret_like(value: Any) -> bool:
     return memory_contains_secret({"value": value})
 
 
+def _unsafe_provenance_like(value: Any) -> bool:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if UNSAFE_PROVENANCE_KEY_PATTERN.search(str(key)):
+                return True
+            if _unsafe_provenance_like(item):
+                return True
+        return False
+    if isinstance(value, (list, tuple, set)):
+        return any(_unsafe_provenance_like(item) for item in value)
+    if isinstance(value, str):
+        return bool(UNSAFE_PROVENANCE_VALUE_PATTERN.search(value))
+    return False
+
+
 def validate_memory_record(record: MemoryRecord) -> bool:
     if record.sensitivity == MemorySensitivity.credential_secret:
         raise ValueError("credential_secret memories are rejected by default.")
@@ -66,12 +92,16 @@ def validate_memory_record(record: MemoryRecord) -> bool:
 def validate_memory_source_ref(source_ref: MemorySourceRef) -> bool:
     if _secret_like(source_ref.model_dump()):
         raise ValueError("Memory source reference contains secret-like content.")
+    if _unsafe_provenance_like(source_ref.model_dump()):
+        raise ValueError("Memory source reference contains unsafe provenance content.")
     return True
 
 
 def validate_memory_provenance(provenance: MemoryProvenance) -> bool:
     if _secret_like(provenance.model_dump()):
         raise ValueError("Memory provenance contains secret-like content.")
+    if _unsafe_provenance_like(provenance.model_dump()):
+        raise ValueError("Memory provenance contains unsafe provenance content.")
     return True
 
 

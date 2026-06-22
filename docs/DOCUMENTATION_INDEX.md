@@ -33,9 +33,10 @@ Control Center gap map, product language rules, and product truth packet into a
 practical first product-loop roadmap. UAA-P1-067 completes the Today-spine,
 memory-first Founder Command Center beta-readiness planning/currentness pass;
 UAA-P1-068 completes the Today Product Spine Contract; UAA-P1-069 completes the
-Evidence History Grammar; UAA-P1-070 Memory Source And Provenance Model is the
-current Ready Next product lane. Every module feeds Today, Actions, Evidence,
-and Memory; reviewed business memory, source provenance, Evidence-as-history,
+Evidence History Grammar; UAA-P1-070 completes the Memory Source And
+Provenance Model; UAA-P1-071 Memory Review Decision Capture is the current
+Ready Next product lane. Every module feeds Today, Actions, Evidence,
+and Memory; source provenance, reviewed business memory, Evidence-as-history,
 Plans-to-Action envelopes, Chat operator truth, governed Code diffs,
 cross-surface intake, memory quality, and loop binding proceed before broader
 authority. These are planning
@@ -52,6 +53,7 @@ docs/kanban/founder_command_center_board.md
 docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md
 docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md
 docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md
+docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md
 docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md
 docs/metrics/NORTH_STAR_METRICS.md
 docs/codex/CODEX_EXECUTION_PROMPTS.md

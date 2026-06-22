@@ -6,6 +6,7 @@ import pytest
 from ultimate_ai_agent.core.storage import (
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
     FOUNDER_LOOP_SCHEMA_VERSION,
+    MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
     TODAY_PRODUCT_SPINE_CONTRACT_REF,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
@@ -60,6 +61,38 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert today["status"] == "storage_backed_partial_loop"
     assert today["product_spine_contract_ref"] == TODAY_PRODUCT_SPINE_CONTRACT_REF
     assert today["evidence_history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF
+    assert (
+        today["memory_source_provenance_contract_ref"]
+        == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+    )
+    assert today["memory_source_required_kinds"] == [
+        "manual_note",
+        "external_assistant_review_summary",
+        "local_chat_summary",
+        "local_coding_summary",
+        "task_plan",
+        "action_proposal",
+        "evidence_timeline_ref",
+        "read_only_calendar_metadata_ref",
+        "read_only_email_metadata_ref",
+        "crm_lite_business_record",
+    ]
+    assert len(today["memory_source_policy"]) == len(
+        today["memory_source_required_kinds"]
+    )
+    for source_policy in today["memory_source_policy"]:
+        assert source_policy["review_required"] is True
+        assert source_policy["trusted_without_review"] is False
+        assert source_policy["source_payload_storage_allowed"] is False
+        assert source_policy["automatic_memory_write_allowed"] is False
+        assert source_policy["context_injection_allowed"] is False
+        assert source_policy["connector_runtime_allowed"] is False
+        assert source_policy["provider_or_model_authority_allowed"] is False
+        assert source_policy["account_auth_allowed"] is False
+    assert today["memory_source_review_posture"]["review_required_before_recall"] is True
+    assert today["memory_source_review_posture"]["connector_runtime_enabled"] is False
+    assert today["memory_source_review_posture"]["account_auth_enabled"] is False
+    assert today["memory_source_review_posture"]["production_authority_enabled"] is False
     assert set(today["evidence_history_required_states"]) == HISTORY_KEYS
     assert {
         item["key"]
@@ -268,6 +301,23 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "provenance-ref:founder-loop-memory:preferences"
     ]
     assert memory_item["source_refs"] == ["source-ref:founder-loop-storage"]
+    assert memory_item["source_policy_ref"] == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+    assert memory_item["source_kind"] == "manual_note"
+    assert memory_item["source_kind_ref"] == "memory-source-kind:manual-note"
+    assert memory_item["source_review_required"] is True
+    assert memory_item["source_trust_posture"] == "untrusted_until_reviewed"
+    assert memory_item["safe_summary_only"] is True
+    assert memory_item["source_truth_authority"] is False
+    assert memory_item["memory_write_authorized"] is False
+    assert memory_item["automatic_memory_write_authorized"] is False
+    assert memory_item["context_injection_authorized"] is False
+    assert memory_item["connector_runtime_allowed"] is False
+    assert memory_item["account_auth_enabled"] is False
+    assert memory_item["provider_or_model_authority_allowed"] is False
+    assert memory_item["public_beta_claim_enabled"] is False
+    assert memory_item["public_distribution_claim_enabled"] is False
+    assert memory_item["production_authority_enabled"] is False
+    assert memory_item["accepted_as_truth"] is False
     assert (
         "contract-ref:memory-review-decision-capture-missing"
         in memory_item["missing_contract_refs"]
@@ -496,6 +546,15 @@ def test_founder_loop_memory_review_defaults_are_review_only(tmp_path: Path) -> 
     assert "remain unscoped" in item["authority_boundary"]
     assert item["provenance_refs"] == []
     assert item["source_refs"] == []
+    assert item["source_policy_ref"] == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+    assert item["source_kind"] == "manual_note"
+    assert item["source_refs_status"] == "missing_safe_source_refs"
+    assert item["provenance_refs_status"] == "missing_provenance_refs"
+    assert item["source_review_required"] is True
+    assert item["source_trust_posture"] == "untrusted_until_reviewed"
+    assert item["accepted_as_truth"] is False
+    assert item["memory_write_authorized"] is False
+    assert item["context_injection_authorized"] is False
     assert item["missing_contract_refs"] == []
     assert (
         item["correction_posture"]

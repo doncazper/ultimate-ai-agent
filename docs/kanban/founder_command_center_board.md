@@ -18,11 +18,12 @@ Surfaces.
 
 UAA-P1-067 completed the Today-spine, memory-first beta-readiness
 planning/currentness path. UAA-P1-068 completed the Today Product Spine
-Contract. UAA-P1-069 completed the Evidence History Grammar contract. The
-parent board now promotes UAA-P1-070 Memory Source And Provenance Model as
-Ready Next. UAA-P1-066 remains queued as a strictly read-only Local Model
-Manager support lane and does not add lifecycle, switching, activation,
-download, runtime adapter, or production authority.
+Contract. UAA-P1-069 completed the Evidence History Grammar contract.
+UAA-P1-070 completed the Memory Source And Provenance Model. The parent board
+now promotes UAA-P1-071 Memory Review Decision Capture as Ready Next.
+UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
+lane and does not add lifecycle, switching, activation, download, runtime
+adapter, or production authority.
 
 Mattermost, plugin ecosystem, packaging/distribution, additional integrations,
 and new runtime authority lanes are not allowed to displace this sequence
@@ -55,14 +56,15 @@ Authority-changing cards: 0 unless a separate scoped milestone is accepted
 Implemented / ready for review:
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
-FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069.
+FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
+UAA-P1-070.
 
 Candidate-next:
-UAA-P1-070 Memory Source And Provenance Model.
+UAA-P1-071 Memory Review Decision Capture.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
+UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
@@ -70,26 +72,23 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ## Candidate Next
 
-### UAA-P1-070 - Memory Source And Provenance Model
+### UAA-P1-071 - Memory Review Decision Capture
 
 Epic: Memory/Knowledge, Safety/Permissions
 
-Promoted by: UAA-P1-069
+Promoted by: UAA-P1-070
 
 Type: contract/docs/test first
 
-Description: Define safe source refs for manual notes, external assistant
-review summaries, local chat summaries, local coding summaries, task plans,
-action proposals, evidence timeline refs, read-only calendar/email metadata
-refs, and CRM-lite business records.
+Description: Define accept, correct, reject, defer, merge, supersede, and
+forget-request review states before any candidate becomes reviewed recall.
 
-Acceptance criteria: Memory candidates can identify where they came from
-without storing raw prompts, raw responses, raw provider payloads, raw local
-paths, raw logs, account identifiers, usernames, hostnames, credentials, or raw
-private content.
+Acceptance criteria: Decisions carry actor refs, source refs, evidence refs,
+stale-state posture, retention posture, audit refs, receipt refs, and blocked
+states for unimplemented write/delete/export behavior.
 
-Required tests/verifiers: focused memory/source schema tests, redaction denial
-tests, Founder Loop storage/API tests if persisted, and documentation
+Required tests/verifiers: focused Memory Review decision tests, redaction
+denial tests, Founder Loop storage/API tests if persisted, and documentation
 integrity.
 
 Safety notes: No provider calls, browser import, connector runtime, account
@@ -137,8 +136,8 @@ authority expansion.
 
 Acceptance evidence: Active docs, roadmap, current board, product truth, MVP
 spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
-UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as Ready Next, and
-UAA-P1-066 as read-only local model support.
+UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
+UAA-P1-071 as Ready Next, and UAA-P1-066 as read-only local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,
@@ -512,18 +511,21 @@ route-status checks are green on the target branch.
 
 Epic: Memory/Knowledge, Safety/Permissions
 
-Description: Define safe source refs for manual notes, external assistant
+Status: implemented / ready for review.
+
+Description: Defines safe source refs for manual notes, external assistant
 review summaries, local chat, local coding summaries, task plans, action
 proposals, evidence timeline refs, read-only calendar/email metadata refs, and
 CRM-lite business records.
 
-Acceptance criteria: Memory candidates can identify where they came from
+Acceptance criteria: Memory candidates identify where they came from
 without storing raw prompts, raw responses, raw provider payloads, raw local
 paths, raw logs, account identifiers, usernames, hostnames, credentials, or raw
 private content.
 
 Required tests/verifiers: focused memory/source schema tests and documentation
-integrity.
+integrity. Bound by
+`scripts/verify_uaa_p1_070_memory_source_provenance_model.py`.
 
 Safety notes: No provider calls, browser import, connector runtime, account
 auth, automatic memory write, context injection, or production authority.

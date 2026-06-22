@@ -42,6 +42,61 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-070 Memory Source Provenance Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor auto-advance after UAA-P1-069.
+
+Recommendation: Complete UAA-P1-070 as the Memory Source And Provenance Model
+over Python core memory plus the existing Today summary route, then
+auto-advance to UAA-P1-071 Memory Review Decision Capture instead of stopping
+at a next-prompt handoff.
+
+Next prompt state:
+
+```text
+Auto-advance into UAA-P1-071 Memory Review Decision Capture after commit/push.
+Review the active roadmap, current board, Founder Command Center board, phase
+tasks, MVP spec, AGENTS.md, process/spec guidance, Product Language Rules, and
+the UAA-P1-068/UAA-P1-069/UAA-P1-070 contract evidence. Define accept,
+correct, reject, defer, merge, supersede, and forget-request review states
+before any candidate becomes reviewed recall. Decisions must carry actor refs,
+source refs, evidence refs, stale-state posture, retention posture, audit refs,
+receipt refs, and blocked states for unimplemented write/delete/export
+behavior. Do not add automatic memory write, delete, export, hidden context
+injection, connector runtime, account auth, model/provider authority, public
+beta, public distribution, production readiness, or production authority.
+```
+
+Decision: Accepted and completed for the UAA-P1-070 contract slice.
+
+Status: completed
+
+Completed: Added the `contract-ref:memory-source-provenance:v1` core memory
+contract, required source-kind taxonomy, safe source/provenance refs,
+review-required and untrusted-until-reviewed posture, denied-content refs,
+negative authority flags, legacy unsafe-provenance validation hardening, Today
+summary fields, read-only Memory surface visibility, schema, verifier, focused
+tests, and currentness docs.
+
+Not done: No new route, OpenAPI operation, side-effect class, backend mutation,
+review decision capture, accept/correct/reject/defer controls, memory write,
+delete, export, connector runtime, account auth, model/provider call, browser
+import, external assistant import, cross-surface intake, CRM sync, context
+injection, public beta, public distribution, production readiness, or
+production authority was added.
+
+Evidence: `src/ultimate_ai_agent/core/memory/source_provenance.py`,
+`docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`,
+`docs/schemas/memory_source_provenance.schema.json`,
+`scripts/verify_uaa_p1_070_memory_source_provenance_model.py`,
+`tests/test_uaa_p1_070_memory_source_provenance_model.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`,
+`apps/control-center/src/components/FounderLoopPanels.tsx`, and
+`docs/codex/CODEX_EXECUTION_PROMPTS.md`.
+
 ### 2026-06-21 - UAA-P1-069 Evidence History Grammar Completed
 
 Date: 2026-06-21

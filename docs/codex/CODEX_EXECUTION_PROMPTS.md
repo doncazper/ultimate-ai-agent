@@ -819,3 +819,109 @@ Auto-advance:
 - Stop only for an exact blocker, unsafe scope split, failed verification,
   failed push, or user pause/stop.
 ```
+
+## 13. UAA-P1-070 Memory Source And Provenance Model Prompt
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: execute UAA-P1-070 Memory Source And Provenance Model.
+
+Goal: make Memory candidates robust enough for beta by defining exactly where
+each candidate came from without granting recall truth, memory writes, context
+injection, connector runtime, account auth, model/provider authority, public
+beta, public distribution, or production authority.
+
+Read first:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[agents_md_support.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/standards/agents_md_support.md)
+[definition_of_ready.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_ready.md)
+[definition_of_done.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/definitions/definition_of_done.md)
+[PRODUCT_LANGUAGE_RULES.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/PRODUCT_LANGUAGE_RULES.md)
+[UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md)
+[UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md)
+
+If present, also read SPECS.md, specs.md, SDLC.md, sdlc.md, and the closest
+task-specific spec, ADR, schema, standards, or process docs discovered with
+rg --files. Treat these documents as contributor guidance, not runtime
+configuration or product authority.
+
+Subagent plan:
+- Use at least one read-only subagent for core-memory contract/test gap review.
+- Use at least one read-only subagent for adversarial product-language,
+  redaction, unsafe provenance, and authority review.
+- Subagents are advisory. The main Codex run owns integration, verification,
+  commit/push, and auto-advance.
+
+Scope:
+- Python core memory source/provenance contract, legacy source-ref validation
+  hardening where safe, existing `GET /control-center/today/summary` memory
+  review payload, TypeScript API types, read-only Memory surface visibility,
+  docs, schema, focused tests, and verifier.
+- Do not add a new route, operation ID, side-effect class, backend mutation,
+  memory write/delete/export, review decision capture, accept/correct/reject/
+  defer controls, connector runtime, account auth, model/provider calls, browser
+  import, external assistant import, cross-surface intake, CRM sync, context
+  injection, public beta, public distribution, production readiness, or
+  production authority.
+
+Acceptance criteria:
+- `core.memory` exposes `contract-ref:memory-source-provenance:v1`.
+- Required source kinds are manual note, external assistant review summary,
+  local chat summary, local coding summary, task plan, action proposal,
+  evidence timeline ref, read-only calendar metadata ref, read-only email
+  metadata ref, and CRM-lite business record.
+- Every source/provenance candidate requires safe source/provenance/evidence
+  refs, safe label or redacted summary ref, review-required posture,
+  `untrusted_until_reviewed`, redacted-summary-only posture, stale-state
+  posture, blocked states, and reason codes.
+- External assistant, local chat, local coding, and local model-derived source
+  summaries are untrusted until reviewed.
+- Prompt bodies, response bodies, provider bodies, local-path bodies, log
+  bodies, account identifiers, usernames, hostnames, credential material,
+  token material, and private content are denied from durable evidence.
+- Today summary exposes memory source contract ref, required kinds, policy
+  rows, denied-content refs, review posture, and per-memory item source
+  provenance fields.
+- Negative authority flags are false for truth authority, write authority,
+  automatic write, context injection, connector runtime, account auth,
+  model/provider authority, public beta, public distribution, and production
+  authority.
+- Active docs mark UAA-P1-070 complete and promote UAA-P1-071 Memory Review
+  Decision Capture as the next incomplete milestone.
+
+Review/fix:
+- Perform adversarial review for unsafe provenance keys/values, legacy memory
+  source gaps, source refs becoming implied authority, hidden context injection,
+  connector/account/model authority creep, UI mutation affordances, and unsafe
+  beta/production language.
+- Fix P0/P1 issues before hardening.
+
+Hardening:
+- Run PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_uaa_p1_070_memory_source_provenance_model.py
+  tests/test_founder_loop_storage.py
+  tests/test_control_center_founder_loop_api.py
+- Run .venv/bin/python scripts/verify_uaa_p1_070_memory_source_provenance_model.py
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run make frontend-check when frontend files changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-070 plus any conveyor auto-advance fix
+  intentionally made for this run.
+- Commit with message: implement UAA-P1-070 memory source provenance model
+- Push the current branch.
+
+Auto-advance:
+- After commit/push succeeds, immediately create/update and execute the
+  UAA-P1-071 Memory Review Decision Capture prompt in the same run unless
+  blocked.
+- Stop only for an exact blocker, unsafe scope split, failed verification,
+  failed push, or user pause/stop.
+```

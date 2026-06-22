@@ -389,7 +389,7 @@
         "No full CRM-lite business-memory quality layer for people, projects, organizations, opportunities, promises, follow-ups, decisions, preferences, conflicts, and stale records.",
         "No completed Today/Action/Evidence/Weekly Review binding that makes reviewed memory feel like the product spine."
       ],
-      "next_checkpoint": "Use UAA-P1-070 through UAA-P1-077 to add source provenance, decision capture, business memory, quality controls, cross-surface intake, and loop binding before raising maturity."
+      "next_checkpoint": "Use UAA-P1-071 through UAA-P1-077 to add decision capture, business memory, quality controls, cross-surface intake, and loop binding before raising maturity."
     },
     {
       "id": "tool_registry",

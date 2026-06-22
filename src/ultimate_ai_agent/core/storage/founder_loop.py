@@ -15,6 +15,14 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.memory.source_provenance import (
+    MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
+    MEMORY_SOURCE_PROVENANCE_DENIED_CONTENT_REFS,
+    MEMORY_SOURCE_PROVENANCE_REQUIRED_KINDS,
+    MEMORY_SOURCE_PROVENANCE_TRUST_POSTURE,
+    memory_source_provenance_policy_rows,
+    memory_source_provenance_review_posture,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -287,6 +295,12 @@ UNSAFE_STORAGE_TEXT_FRAGMENTS = (
     "raw_path",
     "raw log",
     "raw_log",
+    "account identifier",
+    "account_identifier",
+    "account id",
+    "account_id",
+    "raw private content",
+    "raw_private_content",
     "environment dump",
     "environment_dump",
     "credential material",
@@ -301,6 +315,8 @@ UNSAFE_STORAGE_TEXT_FRAGMENTS = (
 UNSAFE_STORAGE_KEY_FRAGMENTS = (
     "api_key",
     "authorization",
+    "account_identifier",
+    "account_id",
     "client_secret",
     "cookie",
     "credential",
@@ -312,6 +328,7 @@ UNSAFE_STORAGE_KEY_FRAGMENTS = (
     "raw_path",
     "raw_prompt",
     "raw_response",
+    "raw_private_content",
     "secret",
     "serial",
     "token",
@@ -837,6 +854,92 @@ def _row_to_payload(row: sqlite3.Row) -> dict[str, Any]:
     return payload
 
 
+def _memory_source_policy_for(item: dict[str, Any]) -> dict[str, Any]:
+    source_refs = [str(ref) for ref in item.get("source_refs", [])]
+    policies = memory_source_provenance_policy_rows()
+    for policy in policies:
+        prefix = str(policy["safe_ref_prefix"])
+        if any(ref == prefix or ref.startswith(f"{prefix}:") for ref in source_refs):
+            return policy
+
+    candidate_kind = str(item.get("candidate_kind", "")).lower()
+    source_kind_by_candidate = {
+        "operator_preference": "manual_note",
+        "preference": "manual_note",
+        "manual_note": "manual_note",
+        "business_contact": "crm_lite_business_record",
+        "business_record": "crm_lite_business_record",
+        "plan": "task_plan",
+        "task_plan": "task_plan",
+        "action": "action_proposal",
+        "action_proposal": "action_proposal",
+        "evidence": "evidence_timeline_ref",
+        "calendar": "read_only_calendar_metadata_ref",
+        "email": "read_only_email_metadata_ref",
+        "chat": "local_chat_summary",
+        "coding": "local_coding_summary",
+        "external_assistant": "external_assistant_review_summary",
+    }
+    source_kind = source_kind_by_candidate.get(candidate_kind, "manual_note")
+    return next(
+        policy
+        for policy in policies
+        if policy["source_kind"] == source_kind
+    )
+
+
+def _memory_source_ref_status(
+    item: dict[str, Any],
+    policy: dict[str, Any],
+) -> str:
+    source_refs = [str(ref) for ref in item.get("source_refs", [])]
+    if not source_refs:
+        return "missing_safe_source_refs"
+    prefix = str(policy["safe_ref_prefix"])
+    if any(ref == prefix or ref.startswith(f"{prefix}:") for ref in source_refs):
+        return "safe_source_refs_present"
+    return "legacy_safe_refs_need_review"
+
+
+def _memory_provenance_ref_status(item: dict[str, Any]) -> str:
+    if item.get("provenance_refs"):
+        return "safe_provenance_refs_present"
+    return "missing_provenance_refs"
+
+
+def _memory_source_contract_payload(item: dict[str, Any]) -> dict[str, Any]:
+    policy = _memory_source_policy_for(item)
+    return {
+        "source_policy_ref": MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
+        "source_kind": policy["source_kind"],
+        "source_kind_ref": policy["source_kind_ref"],
+        "source_refs_status": _memory_source_ref_status(item, policy),
+        "provenance_refs_status": _memory_provenance_ref_status(item),
+        "source_review_required": True,
+        "source_trust_posture": MEMORY_SOURCE_PROVENANCE_TRUST_POSTURE,
+        "safe_summary_only": True,
+        "source_truth_authority": False,
+        "memory_write_authorized": False,
+        "automatic_memory_write_authorized": False,
+        "context_injection_authorized": False,
+        "account_auth_enabled": False,
+        "public_beta_claim_enabled": False,
+        "public_distribution_claim_enabled": False,
+        "production_authority_enabled": False,
+        "source_payload_storage_allowed": False,
+        "prompt_body_storage_allowed": False,
+        "response_body_storage_allowed": False,
+        "provider_body_storage_allowed": False,
+        "path_body_storage_allowed": False,
+        "log_body_storage_allowed": False,
+        "account_ref_storage_allowed": False,
+        "private_content_storage_allowed": False,
+        "connector_runtime_allowed": False,
+        "provider_or_model_authority_allowed": False,
+        "accepted_as_truth": False,
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -933,6 +1036,19 @@ class FounderLoopRepository:
                 EVIDENCE_HISTORY_GRAMMAR_REQUIRED_QUESTIONS
             ),
             "evidence_history_surface_bindings": EVIDENCE_HISTORY_SURFACE_BINDINGS,
+            "memory_source_provenance_contract_ref": (
+                MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+            ),
+            "memory_source_required_kinds": (
+                MEMORY_SOURCE_PROVENANCE_REQUIRED_KINDS
+            ),
+            "memory_source_policy": memory_source_provenance_policy_rows(),
+            "memory_source_denied_content_refs": (
+                MEMORY_SOURCE_PROVENANCE_DENIED_CONTENT_REFS
+            ),
+            "memory_source_review_posture": (
+                memory_source_provenance_review_posture()
+            ),
             "priority_refs": _priority_refs(actions, briefing_items),
             "blocker_refs": _blocked_state_refs(actions, memory_items, briefing_items),
             "follow_up_refs": [
@@ -1636,7 +1752,14 @@ class FounderLoopRepository:
             """,
             (self._bounded_limit(limit),),
         )
-        return [_row_to_payload(row) for row in rows]
+        items = [_row_to_payload(row) for row in rows]
+        return [
+            {
+                **item,
+                **_memory_source_contract_payload(item),
+            }
+            for item in items
+        ]
 
     def list_briefing_items(self, *, limit: int = 20) -> list[dict[str, Any]]:
         rows = self._fetch_all(

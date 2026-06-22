@@ -411,7 +411,7 @@ authority.
 
 ## Task 9c - UAA-P1-070 Memory Source And Provenance Model
 
-Status: ready next.
+Status: complete.
 
 Type: backend contract/test/docs
 
@@ -435,9 +435,19 @@ Tests to add/update:
 - Redaction denial tests for raw/private fields.
 - Documentation integrity.
 
-PR size: one backend contract PR.
+Completed evidence:
+
+- `src/ultimate_ai_agent/core/memory/source_provenance.py`
+- `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`
+- `docs/schemas/memory_source_provenance.schema.json`
+- `scripts/verify_uaa_p1_070_memory_source_provenance_model.py`
+- `tests/test_uaa_p1_070_memory_source_provenance_model.py`
+
+PR size: one backend contract plus read-only UI visibility PR.
 
 ## Task 9d - UAA-P1-071 Memory Review Decision Capture
+
+Status: ready next.
 
 Type: backend contract/test plus UI display later
 
