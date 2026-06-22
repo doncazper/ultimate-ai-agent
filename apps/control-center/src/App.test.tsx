@@ -313,7 +313,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("milestone:uaa-p1-087.2a")).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Full UAA-P1-087.2 still needs accepted or revised local\/private findings/i,
+        /Full UAA-P1-087.2 still needs accepted or revised local\/private findings later/i,
       ),
     ).toBeInTheDocument();
     expect(
@@ -321,8 +321,8 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("milestone:uaa-p1-087.2b")).toBeInTheDocument();
     expect(
-      screen.getByText("ledger-ref:private-operator-trial-acceptance:v1"),
-    ).toBeInTheDocument();
+      screen.getAllByText("ledger-ref:private-operator-trial-acceptance:v1").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Acceptance ledger/i })).toBeInTheDocument();
     expect(screen.getByText("operator_review_ready")).toBeInTheDocument();
     expect(screen.getByText("manual-smoke-step:private-trial:boot-control-center")).toBeInTheDocument();
@@ -330,6 +330,24 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("tuning-decision:private-trial:pending-memory-review-emphasis")).toBeInTheDocument();
     expect(
       screen.getByText("finding-ref:private-trial:pending:crm-lite-follow-ups"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("milestone:uaa-p1-087.2c")).toBeInTheDocument();
+    expect(
+      screen.getByText("scaffold-ref:private-operator-trial-manual-review:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("manual_review_deferred_pending_implementation"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("unanswered_pending_manual_review").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("pending-answer:private-trial:crm-lite-follow-ups"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "missing-implementation:founder-loop:action-decision-receipts",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText("launcher-command:uaa-trial-boot")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Authority boundary/i })).toBeInTheDocument();

@@ -808,9 +808,10 @@ PR size: completed as one API middleware/docs/test evidence slice.
 
 Type: local trial/test/docs/UI tuning
 
-Status: Implemented through UAA-P1-087.2b; planned for full UAA-P1-087.2 and
-UAA-P1-087.3 after the proven local boot path, packet surface, and acceptance
-ledger.
+Status: Implemented through UAA-P1-087.2c; full UAA-P1-087.2 and
+UAA-P1-087.3 are deferred until more Founder Loop implementation exists after
+the proven local boot path, packet surface, acceptance ledger, and unanswered
+manual review scaffold.
 
 New authority: no.
 
@@ -834,8 +835,14 @@ Sub-milestone order:
   review refs, acceptance question refs, tuning decision refs, finding refs,
   and blocked authority refs without claiming accepted findings, adding backend
   routes, or adding runtime authority.
-- `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: use the
-  proven local boot path, 087.2a packet, and 087.2b acceptance ledger for
+- `UAA-P1-087.2c` Private Trial Manual Review Intake Scaffold: implemented.
+  The safe-ref-only scaffold and read-only `/private-trial` visibility record
+  unanswered pending answer refs, missing implementation refs, deferred
+  decision refs, and blocked authority refs without claiming accepted/revised
+  findings, adding backend routes, or adding runtime authority.
+- `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: deferred
+  until more Founder Loop implementation exists; later use the proven local
+  boot path, 087.2a packet, 087.2b acceptance ledger, and 087.2c scaffold for
   hands-on founder testing and capture accepted/revised friction, manual smoke
   evidence, UI/copy tasks, Today/Actions/Memory/Evidence/Chat handoff gaps, and
   CRM-lite follow-up gaps.
@@ -865,14 +872,18 @@ Tests to add/update:
 - UAA-P1-087.2a packet/verifier tests and read-only Control Center render test.
 - UAA-P1-087.2b acceptance-ledger/verifier tests and read-only Control Center
   render test.
+- UAA-P1-087.2c manual-review-scaffold/verifier tests and read-only Control
+  Center render test.
 - Manual smoke checklist acceptance artifact for full UAA-P1-087.2.
 - Control Center render/frontend checks for tuned flows.
 - Product-language checks.
 - Documentation integrity.
 
 PR size: UAA-P1-087.1 landed as the launcher boot-readiness slice; UAA-P1-087.2a
-lands as the packet/surface slice; UAA-P1-087.2b lands as the acceptance-ledger
-slice; keep full UAA-P1-087.2 and UAA-P1-087.3 in their own follow-up patches.
+landed as the packet/surface slice; UAA-P1-087.2b landed as the acceptance-ledger
+slice; UAA-P1-087.2c landed as the unanswered manual-review scaffold slice; keep
+full UAA-P1-087.2 and UAA-P1-087.3 in their own later follow-up patches after
+more Founder Loop implementation exists.
 
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 

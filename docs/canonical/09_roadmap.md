@@ -36,8 +36,12 @@ complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is
 complete for the private trial packet and read-only Control Center tuning
 surface only. UAA-P1-087.2b is complete for the private trial acceptance
 ledger and manual smoke review refs only; full UAA-P1-087.2 in-person private
-UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit
-planning/source-only scaffold remain next.
+UI functional tuning is not complete. UAA-P1-087.2c is complete for the
+unanswered manual review scaffold and pending answer refs only. Full
+UAA-P1-087.2 and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only
+scaffold are deferred until more Founder Loop implementation exists.
+FCC-V1-000 Control Center Release Surface Manifest is the next conveyor
+milestone.
 The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: Control Center release

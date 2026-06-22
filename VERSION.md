@@ -47,13 +47,18 @@ UAA-P1-084 completes a runtime idempotency header gate for
 execution claim. UAA-P1-085 completes targeted local fixed-window rate limits
 for model/chat, task-decomposition, action preview/proposal, and expensive
 validation/local-model paths with no auth, distributed quota, dependency, or
-production authority claim. UAA-P1-086 remains planned/queued for API boundary
-enforcement tests, followed by the UAA-P1-087 Private Operator Trial
-And UI Functional Tuning sequence: UAA-P1-087.1 local launcher dual-surface
-boot readiness, UAA-P1-087.2 in-person private UI functional tuning, and
-UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold after
-the `.command` contract is proven. No public beta, distribution,
-production readiness, or production authority claim is granted.
+production authority claim. UAA-P1-086 completes API boundary enforcement
+tests without route, middleware, runtime authority, public beta, or production
+authority changes. UAA-P1-087.1 completes local launcher dual-surface boot
+readiness, UAA-P1-087.2a completes the private trial packet/read-only tuning
+surface, UAA-P1-087.2b completes the private trial acceptance ledger, and
+UAA-P1-087.2c completes the unanswered manual review scaffold. Full
+UAA-P1-087.2 in-person private UI functional tuning remains deferred until
+more Founder Loop implementation exists and accepted or revised local/private
+findings can be recorded later; UAA-P1-087.3 native SwiftUI boot cockpit
+planning/source-only scaffold remains deferred behind full UAA-P1-087.2.
+No public beta, distribution, production readiness, or production authority
+claim is granted.
 The planned Founder Loop V1 productization conveyor is now recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`. It carries the detailed goals for the release surface manifest,

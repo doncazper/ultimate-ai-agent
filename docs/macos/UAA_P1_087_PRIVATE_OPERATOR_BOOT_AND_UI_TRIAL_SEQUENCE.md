@@ -23,12 +23,17 @@ later native app work for the first boot-readiness step.
    refs, acceptance question refs, pending tuning decision refs, and read-only
    Control Center visibility needed before accepted/revised findings can be
    recorded.
-4. `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning.
+4. `UAA-P1-087.2c` Private Trial Manual Review Intake Scaffold is implemented.
+   It adds safe unanswered question slots, pending answer refs, missing
+   implementation refs, and deferred decision refs so later manual review does
+   not fake accepted/revised findings before the Founder Loop is ready to judge.
+5. `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning.
    Use the real local boot flow to run hands-on founder testing and record
    friction, manual smoke evidence, UI/copy tasks, blocked-state confusion,
    Today/Actions/Memory/Evidence/Chat handoff issues, and CRM-lite follow-up
-   gaps.
-5. `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold.
+   gaps. Full `UAA-P1-087.2` is deferred until more Founder Loop
+   implementation exists.
+6. `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold.
    After the `.command` boot contract is proven, plan and then implement a
    source-only native SwiftUI macOS cockpit over the same fixed launcher
    contracts. This is not a signed installer, LaunchAgent, daemon, public
@@ -59,8 +64,10 @@ Not allowed by this docs-only sequence:
 After `UAA-P1-086`, run `UAA-P1-087` through these sub-milestones in order.
 Do not jump to `UAA-P1-087.3` until `UAA-P1-087.1` has proven the launcher
 contract, `UAA-P1-087.2a` has produced the packet/read-only tuning surface, and
-`UAA-P1-087.2b` has produced the review ledger. Full `UAA-P1-087.2` still
-requires accepted or revised private-trial findings.
+`UAA-P1-087.2b` has produced the review ledger, and `UAA-P1-087.2c` has
+produced the unanswered manual-review scaffold. Full `UAA-P1-087.2` is deferred
+until more Founder Loop implementation exists and still requires accepted or
+revised private-trial findings.
 The next planned productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, so private boot/UI trial

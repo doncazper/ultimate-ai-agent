@@ -652,13 +652,13 @@ commit. UAA-P1-086 is complete for API boundary-hardening enforcement tests,
 UAA-P1-087.1 is complete for local launcher dual-surface boot readiness, and
 UAA-P1-087.2a is complete for the private trial packet/read-only tuning
 surface, and UAA-P1-087.2b is complete for the private trial findings capture
-and acceptance ledger. The conveyor now advances to full UAA-P1-087.2
-in-person private UI functional tuning, then UAA-P1-087.3 native SwiftUI boot
-cockpit planning/source-only scaffold after accepted or revised local/private
-findings exist, before moving to P2/provider, packaging, public distribution,
-or commercialization work. The planned FCC-V1
-productization lane then continues
-through FCC-V1-000 Control Center Release Surface Manifest, FCC-V1-001 API
+and acceptance ledger, and UAA-P1-087.2c is complete for the unanswered manual
+review scaffold. Full UAA-P1-087.2 in-person private UI functional tuning and
+UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are
+deferred until more Founder Loop implementation exists and accepted or revised
+local/private findings can be recorded later. The conveyor now advances through
+the planned FCC-V1 productization lane: FCC-V1-000 Control Center Release
+Surface Manifest, FCC-V1-001 API
 Perimeter For Real Mutations, FCC-V1-002 Action Inbox Backend State Machine,
 FCC-V1-003 Founder Loop V1 Vertical Slice, FCC-V1-004 Chat Durable Receipt And
 Handoff, FCC-V1-005 Memory Review Decisions, FCC-V1-006 Evidence Timeline
@@ -686,12 +686,12 @@ UAA-P1-079 unless the active roadmap explicitly documents them.
 If a later accepted prompt starts the API Boundary Hardening Lane, use this
 extension order after UAA-P1-079: UAA-P1-080, UAA-P1-081, UAA-P1-082,
 UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then UAA-P1-087.1,
-UAA-P1-087.2a, UAA-P1-087.2b, full UAA-P1-087.2, and UAA-P1-087.3. Stop after
-UAA-P1-087.3 is complete and verified unless active docs explicitly document
-the next lane.
+UAA-P1-087.2a, UAA-P1-087.2b, and UAA-P1-087.2c. Treat full UAA-P1-087.2 and
+UAA-P1-087.3 as deferred unless active docs later promote them with enough
+Founder Loop implementation evidence for manual review.
 
 If active docs show the Founder Loop V1 productization lane is accepted, use
-this extension order after UAA-P1-087.3 or the current prerequisite breakpoint:
+this extension order after UAA-P1-087.2c or the current prerequisite breakpoint:
 FCC-V1-000, FCC-V1-001, FCC-V1-002, FCC-V1-003, FCC-V1-004, FCC-V1-005,
 FCC-V1-006, and FCC-V1-007. Stop only after FCC-V1-007 is complete and
 verified, or when a real blocker or safety split prevents safe continuation.

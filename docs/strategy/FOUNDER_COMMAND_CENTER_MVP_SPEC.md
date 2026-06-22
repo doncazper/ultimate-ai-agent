@@ -45,10 +45,12 @@ production authority claim. UAA-P1-086 is complete for API boundary
 enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface
 boot readiness. UAA-P1-087.2a private trial packet and read-only tuning surface
 is complete. UAA-P1-087.2b private trial findings capture and acceptance ledger
-is complete. Full UAA-P1-087.2 in-person private UI functional tuning and
-UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold remain
-the next private-trial sequence before P2/provider, packaging, public
-distribution, or commercialization expansion.
+is complete. UAA-P1-087.2c private trial manual review scaffold is complete
+with unanswered pending answer refs only. Full UAA-P1-087.2 in-person private
+UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit
+planning/source-only scaffold are deferred until more Founder Loop
+implementation exists. FCC-V1-000 is the next implementation lane before
+P2/provider, packaging, public distribution, or commercialization expansion.
 
 Founder Loop V1 productization is now tracked as `FCC-V1-000` through
 `FCC-V1-007` in
@@ -140,12 +142,15 @@ manifest, idempotency, CLI/core/API inspection, or redaction gates.
    readiness for Control Center plus the secondary OpenWebUI shell, and
    UAA-P1-087.2a adds the safe-ref-only private trial packet/read-only tuning
    surface. UAA-P1-087.2b adds the safe-ref-only acceptance ledger for pending
-   manual smoke review. Next use local/in-person testing to tune Today, Actions,
-   Memory, Evidence, Chat handoff, blocked-state language, and CRM-lite follow-up
-   flow, and only then plan/source-scaffold a native SwiftUI boot cockpit over
-   the proven launcher contract. Produce accepted/revised manual smoke evidence,
-   friction notes, and UI/copy tasks before any P2/provider, packaging, public
-   distribution, or commercialization lane.
+   manual smoke review. UAA-P1-087.2c adds unanswered manual-review slots and
+   pending answer refs without accepted/revised findings. Defer full
+   local/in-person testing until more Founder Loop implementation exists; later
+   tune Today, Actions, Memory, Evidence, Chat handoff, blocked-state language,
+   and CRM-lite follow-up flow, and only then plan/source-scaffold a native
+   SwiftUI boot cockpit over the proven launcher contract. Produce
+   accepted/revised manual smoke evidence, friction notes, and UI/copy tasks
+   before any P2/provider, packaging, public distribution, or commercialization
+   lane.
 15. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.

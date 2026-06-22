@@ -75,17 +75,16 @@ FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
 UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084,
-UAA-P1-085.
+UAA-P1-085, UAA-P1-086, UAA-P1-087.1, UAA-P1-087.2a,
+UAA-P1-087.2b, UAA-P1-087.2c.
 
 Candidate-next:
-UAA-P1-086 API Boundary Enforcement Tests.
+FCC-V1-000 Control Center Release Surface Manifest.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 FCC-V1-000 through FCC-V1-007 Founder Loop V1 productization conveyor.
 
 Blocked / future:
 UAA-P1-087.2, UAA-P1-087.3,
-FCC-V1-000, FCC-V1-001, FCC-V1-002, FCC-V1-003, FCC-V1-004,
-FCC-V1-005, FCC-V1-006, FCC-V1-007,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
 ```
@@ -1010,11 +1009,17 @@ Sub-milestone order:
   `/private-trial` visibility collect manual smoke step refs, pending surface
   review refs, acceptance question refs, tuning decision refs, and blocked
   authority refs before accepted/revised findings exist.
-- `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: run founder
-  testing through the proven boot path and capture manual smoke evidence,
-  friction notes, copy/UI tasks, and core loop gaps.
+- `UAA-P1-087.2c` Private Trial Manual Review Intake Scaffold: implemented.
+  The safe-ref-only scaffold and read-only `/private-trial` visibility collect
+  unanswered pending answer refs, missing implementation refs, deferred
+  decision refs, and blocked authority refs before accepted/revised findings
+  exist.
+- `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: deferred
+  until more Founder Loop implementation exists; later, run founder testing
+  through the proven boot path and capture manual smoke evidence, friction
+  notes, copy/UI tasks, and core loop gaps.
 - `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold:
-  only after the `.command` contract is accepted, plan/source-scaffold the
+  only after full UAA-P1-087.2 evidence is accepted, plan/source-scaffold the
   native macOS boot cockpit over the same fixed launcher contracts.
 
 Acceptance criteria: Trial produces a manual smoke checklist, usability/friction

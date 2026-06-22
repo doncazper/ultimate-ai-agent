@@ -59,10 +59,11 @@ Current safe packet findings:
 
 ## Full UAA-P1-087.2 Gate
 
-UAA-P1-087.2 should remain planned until a local/private operator trial reviews
-this packet and accepts or revises the findings. The full milestone should then
+UAA-P1-087.2 should remain planned and deferred until more Founder Loop
+implementation exists and a later local/private operator trial reviews this
+packet, then accepts or revises the findings. The full milestone should then
 record accepted UI/copy tuning changes, manual smoke evidence refs, and
-remaining blocker refs before moving to UAA-P1-087.3.
+remaining blocker refs before moving to UAA-P1-087.3 as a product claim.
 
 ## Verification
 

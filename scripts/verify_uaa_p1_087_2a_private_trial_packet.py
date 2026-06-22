@@ -54,12 +54,12 @@ REQUIRED_DOC_SNIPPETS = {
     FRONTEND_ROUTES: [
         'path: "/private-trial"',
         'label: "Trial Packet"',
-        'status: "087.2a/2b packet"',
+        'status: "087.2a-2c packet"',
         "<PrivateOperatorTrialPanel />",
     ],
     FRONTEND_PANEL: [
         "UAA-P1-087.2a prepares",
-        "Full UAA-P1-087.2 still needs accepted or revised local/private findings.",
+        "Full UAA-P1-087.2 still needs accepted or revised local/private findings later.",
         "adds no backend route",
         "connector write",
         "blockedStateRefs",
@@ -75,7 +75,7 @@ REQUIRED_DOC_SNIPPETS = {
         '"/private-trial"',
         "Private Operator Trial",
         "milestone:uaa-p1-087.2a",
-        "Full UAA-P1-087.2 still needs accepted or revised local\\/private findings",
+        "Full UAA-P1-087.2 still needs accepted or revised local\\/private findings later",
     ],
     FOCUSED_TEST: [
         "test_private_operator_trial_packet_defines_safe_checklist",
@@ -238,11 +238,26 @@ def _append_completion_claim_failures(
     for path, text in docs.items():
         lowered = text.lower()
         for pattern in full_completion_patterns:
-            if pattern.search(lowered):
+            match = pattern.search(lowered)
+            if match and not _is_deferred_full_087_2_reference(match.group(0)):
                 failures.append(
                     f"{path} claims full UAA-P1-087.2 completion; only UAA-P1-087.2a is allowed"
                 )
                 break
+
+
+def _is_deferred_full_087_2_reference(match_text: str) -> bool:
+    return any(
+        marker in match_text
+        for marker in [
+            "deferred",
+            "planned",
+            "blocked",
+            "not complete",
+            "does not complete",
+            "missing",
+        ]
+    )
 
 
 def main() -> int:

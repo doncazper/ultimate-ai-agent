@@ -1,11 +1,13 @@
 import {
   privateOperatorTrialAcceptanceLedger,
+  privateOperatorTrialManualReviewScaffold,
   privateOperatorTrialPacket,
 } from "../mocks/privateOperatorTrialPacket";
 
 export function PrivateOperatorTrialPanel() {
   const packet = privateOperatorTrialPacket;
   const ledger = privateOperatorTrialAcceptanceLedger;
+  const scaffold = privateOperatorTrialManualReviewScaffold;
   const counts = packet.checklistItems.reduce(
     (acc, item) => {
       acc[item.trialState] += 1;
@@ -26,6 +28,9 @@ export function PrivateOperatorTrialPanel() {
       revised: 0,
     },
   );
+  const unansweredReviewCount = scaffold.reviewItems.filter(
+    (item) => item.answerState === "unanswered_pending_manual_review",
+  ).length;
 
   return (
     <section
@@ -34,7 +39,7 @@ export function PrivateOperatorTrialPanel() {
     >
       <div className="section-heading">
         <div>
-          <p className="eyebrow">087.2a packet</p>
+          <p className="eyebrow">087.2a-2c packet</p>
           <h2 id="private-operator-trial-heading">Private Operator Trial</h2>
         </div>
         <span className="status-pill compact">local/private only</span>
@@ -42,8 +47,9 @@ export function PrivateOperatorTrialPanel() {
       <p className="section-copy">
         UAA-P1-087.2a prepares the local Control Center trial packet as safe
         refs. UAA-P1-087.2b adds the acceptance ledger for manual smoke review
-        and pending operator findings. Full UAA-P1-087.2 still needs
-        accepted or revised local/private findings.
+        and pending operator findings. UAA-P1-087.2c adds unanswered manual
+        review slots for later; full UAA-P1-087.2 still needs accepted or
+        revised local/private findings later.
       </p>
 
       <div className="metric-grid">
@@ -52,6 +58,7 @@ export function PrivateOperatorTrialPanel() {
         <Metric label="Blocked" value={counts.blocked} />
         <Metric label="Review" value={counts.needs_operator_review} />
         <Metric label="Pending" value={ledgerCounts.pending_operator_review} />
+        <Metric label="Unanswered" value={unansweredReviewCount} />
       </div>
 
       <div className="panel-grid">
@@ -135,6 +142,36 @@ export function PrivateOperatorTrialPanel() {
           </div>
           <RefList refs={ledger.tuningDecisionRefs} />
         </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Manual review scaffold</h3>
+            <span>{scaffold.reviewState}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Scaffold ref" value={scaffold.scaffoldRef} />
+            <DetailTerm label="Milestone" value={scaffold.milestoneRef} />
+            <DetailTerm label="Source ledger" value={scaffold.sourceLedgerRef} />
+            <DetailTerm label="Status" value={scaffold.status} />
+          </dl>
+          <p>{scaffold.nextSafeAction}</p>
+        </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Missing implementation</h3>
+            <span>{scaffold.missingImplementationRefs.length}</span>
+          </div>
+          <RefList refs={scaffold.missingImplementationRefs} />
+        </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Deferred decisions</h3>
+            <span>{scaffold.deferredDecisionRefs.length}</span>
+          </div>
+          <RefList refs={scaffold.deferredDecisionRefs} />
+        </article>
       </div>
 
       <div className="review-grid">
@@ -170,6 +207,25 @@ export function PrivateOperatorTrialPanel() {
             </dl>
             <RefList refs={review.findingRefs} />
             <RefList refs={review.blockerRefs} />
+          </article>
+        ))}
+      </div>
+
+      <div className="review-grid">
+        {scaffold.reviewItems.map((item) => (
+          <article className="review-card" key={item.itemRef}>
+            <div className="review-card-heading">
+              <h3>{item.surface} manual review</h3>
+              <span>{item.answerState}</span>
+            </div>
+            <p>{item.safeQuestion}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Question ref" value={item.reviewQuestionRef} />
+              <DetailTerm label="Pending answer" value={item.pendingAnswerRef} />
+              <DetailTerm label="Next safe action" value={item.nextSafeAction} />
+            </dl>
+            <RefList refs={item.expectedEvidenceRefs} />
+            <RefList refs={item.implementationPrerequisiteRefs} />
           </article>
         ))}
       </div>

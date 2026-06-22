@@ -79,7 +79,7 @@ export const navItems: NavItem[] = [
   { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "blocked", role: "primary" },
   { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", role: "supporting" },
-  { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a/2b packet", role: "supporting" },
+  { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a-2c packet", role: "supporting" },
   { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", role: "supporting" },
   { path: "/setup", label: "Setup", group: "Review", status: "dry-run", role: "supporting" },
   { path: "/chat", label: "Chat", group: "Review", status: "local gated", role: "supporting" },

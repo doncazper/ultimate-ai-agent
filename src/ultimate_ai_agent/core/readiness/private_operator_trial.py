@@ -49,6 +49,10 @@ PrivateOperatorTrialReviewState = Literal[
     "needs_follow_up",
 ]
 
+PrivateOperatorTrialManualAnswerState = Literal[
+    "unanswered_pending_manual_review",
+]
+
 PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES: list[PrivateOperatorTrialSurface] = [
     "Local Boot",
     "Today",
@@ -429,6 +433,170 @@ class PrivateOperatorTrialAcceptanceLedger(BaseModel):
         return self
 
 
+class PrivateOperatorTrialManualReviewItem(BaseModel):
+    item_ref: str = Field(..., min_length=1)
+    surface: PrivateOperatorTrialSurface
+    answer_state: PrivateOperatorTrialManualAnswerState = (
+        "unanswered_pending_manual_review"
+    )
+    review_question_ref: str = Field(..., min_length=1)
+    pending_answer_ref: str = Field(..., min_length=1)
+    safe_question: str = Field(..., min_length=1, max_length=360)
+    expected_evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    implementation_prerequisite_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS)
+    )
+    next_safe_action: str = Field(..., min_length=1, max_length=240)
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_manual_review_item(self) -> "PrivateOperatorTrialManualReviewItem":
+        for field_name in ["item_ref", "review_question_ref", "pending_answer_ref"]:
+            _safe_ref(getattr(self, field_name), field_name)
+        for field_name in [
+            "expected_evidence_refs",
+            "implementation_prerequisite_refs",
+            "blocked_state_refs",
+        ]:
+            _safe_refs(getattr(self, field_name), field_name)
+        for field_name in [
+            "surface",
+            "answer_state",
+            "safe_question",
+            "next_safe_action",
+        ]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        if self.answer_state != "unanswered_pending_manual_review":
+            raise ValueError("private trial manual review answers must stay pending")
+        missing_blocked = set(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blocked:
+            raise ValueError("private trial manual review item missing blocked refs")
+        if not self.local_private_only:
+            raise ValueError("private trial manual review item must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("private trial manual review item must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("private trial manual review item requires manual review")
+        for flag in _DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by private trial manual review")
+        return self
+
+
+class PrivateOperatorTrialManualReviewScaffold(BaseModel):
+    scaffold_ref: str = "scaffold-ref:private-operator-trial-manual-review:v1"
+    contract_ref: str = PRIVATE_OPERATOR_TRIAL_CONTRACT_REF
+    milestone_ref: str = "milestone:uaa-p1-087.2c"
+    status: str = "implemented_private_trial_manual_review_scaffold_authority_blocked"
+    source_ledger_ref: str = "ledger-ref:private-operator-trial-acceptance:v1"
+    review_state: str = "manual_review_deferred_pending_implementation"
+    review_items: list[PrivateOperatorTrialManualReviewItem] = Field(
+        default_factory=list, min_length=1
+    )
+    unanswered_question_refs: list[str] = Field(default_factory=list, min_length=1)
+    missing_implementation_refs: list[str] = Field(default_factory=list, min_length=1)
+    deferred_decision_refs: list[str] = Field(default_factory=list, min_length=1)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS)
+    )
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    next_safe_action: str = (
+        "Keep manual review unanswered until more Founder Loop implementation exists, "
+        "then record accepted or revised safe refs in a later full UAA-P1-087.2 trial."
+    )
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_manual_review_scaffold(
+        self,
+    ) -> "PrivateOperatorTrialManualReviewScaffold":
+        if self.contract_ref != PRIVATE_OPERATOR_TRIAL_CONTRACT_REF:
+            raise ValueError("private trial manual review contract ref drifted")
+        for field_name in [
+            "scaffold_ref",
+            "contract_ref",
+            "milestone_ref",
+            "source_ledger_ref",
+        ]:
+            _safe_ref(getattr(self, field_name), field_name)
+        for field_name in ["status", "review_state", "next_safe_action"]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        for field_name in [
+            "unanswered_question_refs",
+            "missing_implementation_refs",
+            "deferred_decision_refs",
+            "blocked_state_refs",
+            "evidence_refs",
+        ]:
+            _safe_refs(getattr(self, field_name), field_name)
+        if {item.surface for item in self.review_items} != set(
+            PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES
+        ):
+            raise ValueError("private trial manual review scaffold missing surfaces")
+        if {item.answer_state for item in self.review_items} != {
+            "unanswered_pending_manual_review"
+        }:
+            raise ValueError("private trial manual review scaffold must stay unanswered")
+        missing_blocked = set(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blocked:
+            raise ValueError("private trial manual review scaffold missing blocked refs")
+        if not self.local_private_only:
+            raise ValueError("private trial manual review scaffold must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("private trial manual review scaffold must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("private trial manual review scaffold requires manual review")
+        for flag in _DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by private trial manual review")
+        return self
+
+
 def build_private_operator_trial_packet() -> PrivateOperatorTrialPacket:
     return PrivateOperatorTrialPacket(
         checklist_items=_checklist_items(),
@@ -485,6 +653,39 @@ def build_private_operator_trial_acceptance_ledger() -> PrivateOperatorTrialAcce
             "evidence-ref:private-trial:acceptance-ledger-v1",
             "evidence-ref:private-trial:manual-smoke-runbook",
             "evidence-ref:private-trial:pending-operator-findings",
+        ],
+    )
+
+
+def build_private_operator_trial_manual_review_scaffold() -> PrivateOperatorTrialManualReviewScaffold:
+    return PrivateOperatorTrialManualReviewScaffold(
+        review_items=_manual_review_items(),
+        unanswered_question_refs=[
+            "review-question:private-trial:first-screen-orientation",
+            "review-question:private-trial:today-workflow-readiness",
+            "review-question:private-trial:actions-decision-clarity",
+            "review-question:private-trial:memory-trust-and-control",
+            "review-question:private-trial:evidence-history-confidence",
+            "review-question:private-trial:chat-handoff-truth",
+            "review-question:private-trial:blocked-copy-friction",
+            "review-question:private-trial:crm-lite-follow-up-value",
+        ],
+        missing_implementation_refs=[
+            "missing-implementation:founder-loop:release-surface-manifest",
+            "missing-implementation:founder-loop:action-decision-receipts",
+            "missing-implementation:founder-loop:memory-review-receipts",
+            "missing-implementation:founder-loop:chat-receipt-handoff",
+            "missing-implementation:founder-loop:evidence-productization",
+        ],
+        deferred_decision_refs=[
+            "deferred-decision:private-trial:full-087-2-acceptance",
+            "deferred-decision:private-trial:native-boot-cockpit",
+            "deferred-decision:private-trial:beta-readiness-language",
+        ],
+        evidence_refs=[
+            "evidence-ref:private-trial:manual-review-scaffold-v1",
+            "evidence-ref:private-trial:unanswered-questions",
+            "evidence-ref:private-trial:deferred-manual-review",
         ],
     )
 
@@ -552,6 +753,71 @@ def _checklist_items() -> list[PrivateOperatorTrialChecklistItem]:
                 evidence_refs=[f"evidence-ref:private-trial:{slug}"],
                 friction_refs=[f"friction-ref:private-trial:{slug}"],
                 ui_copy_task_refs=[f"ui-copy-task:private-trial:{slug}"],
+                next_safe_action=next_safe_action,
+            )
+        )
+    return items
+
+
+def _manual_review_items() -> list[PrivateOperatorTrialManualReviewItem]:
+    rows: list[tuple[PrivateOperatorTrialSurface, str, str]] = [
+        (
+            "Local Boot",
+            "Does the boot path make it obvious which surface is first-party and what is blocked?",
+            "Wait for manual operator review after the local boot flow is used in context.",
+        ),
+        (
+            "Today",
+            "Does Today make the next useful business step visible without scanning too much?",
+            "Wait for more Founder Loop implementation before scoring Today readiness.",
+        ),
+        (
+            "Actions",
+            "Can the operator understand approve, edit, reject, defer, receipt, and rollback posture?",
+            "Implement backend decision receipts before manual acceptance.",
+        ),
+        (
+            "Memory",
+            "Does Memory feel trustworthy, correctable, and useful across business follow-ups?",
+            "Implement durable review decisions before manual acceptance.",
+        ),
+        (
+            "Evidence",
+            "Does Evidence read like what was proposed, approved, happened, changed, and undoable?",
+            "Productize Evidence Timeline receipts before manual acceptance.",
+        ),
+        (
+            "Chat/Plans Handoff",
+            "Does Chat show model, runtime, auth, tool-denial, and handoff truth clearly?",
+            "Implement durable chat receipt and handoff refs before manual acceptance.",
+        ),
+        (
+            "Blocked State Language",
+            "Does blocked copy explain the next safe action without feeling like paperwork?",
+            "Review copy after more surfaces have real backend state.",
+        ),
+        (
+            "CRM-Lite Follow-Ups",
+            "Do follow-up refs feel like useful business flow rather than generic memory notes?",
+            "Implement local follow-up records after memory and action receipts exist.",
+        ),
+    ]
+    items: list[PrivateOperatorTrialManualReviewItem] = []
+    for surface, question, next_safe_action in rows:
+        slug = _surface_slug(surface)
+        items.append(
+            PrivateOperatorTrialManualReviewItem(
+                item_ref=f"manual-review-item:private-trial:{slug}",
+                surface=surface,
+                review_question_ref=f"review-question:private-trial:{slug}",
+                pending_answer_ref=f"pending-answer:private-trial:{slug}",
+                safe_question=question,
+                expected_evidence_refs=[
+                    f"evidence-ref:private-trial:manual-review:{slug}"
+                ],
+                implementation_prerequisite_refs=[
+                    f"implementation-prereq:private-trial:{slug}"
+                ],
                 next_safe_action=next_safe_action,
             )
         )

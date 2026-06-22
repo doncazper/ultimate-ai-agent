@@ -107,6 +107,19 @@
         "apps/control-center/src/components/PrivateOperatorTrialPanel.tsx",
         "apps/control-center/src/App.test.tsx"
       ]
+    },
+    {
+      "id": "UAA-P1-087.2c",
+      "status": "implemented",
+      "goal": "Private trial manual review scaffold and read-only Control Center visibility record unanswered pending answer refs, missing implementation refs, deferred decision refs, and blocked-authority refs without claiming manual review answers or full UAA-P1-087.2 completion.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_087_2c_private_trial_manual_review_scaffold.py",
+        "docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md",
+        "docs/macos/private_operator_trial_manual_review_scaffold_v1.json",
+        "tests/test_uaa_p1_087_2c_private_trial_manual_review_scaffold.py",
+        "apps/control-center/src/components/PrivateOperatorTrialPanel.tsx",
+        "apps/control-center/src/App.test.tsx"
+      ]
     }
   ]
 }

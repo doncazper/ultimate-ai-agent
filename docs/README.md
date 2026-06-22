@@ -23,10 +23,13 @@ Expensive And Sensitive Routes work, completed UAA-P1-086 API Boundary
 Enforcement Tests work, completed UAA-P1-087.1 Local Launcher Dual-Surface
 Boot Readiness work, completed UAA-P1-087.2a Private Trial Packet And UI
 Tuning Surface work, and completed UAA-P1-087.2b Private Trial Findings Capture
-And Acceptance Ledger work. Full UAA-P1-087.2 in-person private UI functional
-tuning remains planned until accepted or revised local/private findings are
-recorded, followed by UAA-P1-087.3 native SwiftUI boot cockpit
-planning/source-only scaffold. The
+And Acceptance Ledger work, and completed UAA-P1-087.2c Private Trial Manual
+Review Scaffold work. Full UAA-P1-087.2 in-person private UI functional tuning
+remains planned but deferred until more Founder Loop implementation exists and
+accepted or revised local/private findings can be recorded later.
+UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold stays
+deferred behind full UAA-P1-087.2. The next conveyor milestone is FCC-V1-000
+Control Center Release Surface Manifest. The
 sequence is tracked in
 `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`.
 The planned Founder Loop V1 productization conveyor is tracked in
@@ -96,8 +99,9 @@ For Expensive And Sensitive Routes, completed UAA-P1-086 API Boundary
 Enforcement Tests, completed UAA-P1-087.1 Local Launcher Dual-Surface Boot
 Readiness, completed UAA-P1-087.2a Private Trial Packet And UI Tuning Surface,
 and completed UAA-P1-087.2b Private Trial Findings Capture And Acceptance
-Ledger. It is followed by full UAA-P1-087.2 local/private UI tuning and
-UAA-P1-087.3 private UI trial/native boot planning sequence. UAA-P1-066
+Ledger. Full UAA-P1-087.2 local/private UI tuning and UAA-P1-087.3 private UI
+trial/native boot planning are deferred until the Founder Loop has more real
+implementation to test. The next conveyor milestone is FCC-V1-000. UAA-P1-066
 remains queued as a strictly read-only Local Model
 Control Center inventory/status support lane.
 `FCC-V1-000` through `FCC-V1-007` are the planned Founder Loop V1

@@ -47,14 +47,17 @@ evidence, and system surfaces remain reachable but do not visually displace the
 daily loop. `/inbox` is a blocked/planned frontend posture surface only; it has
 no backend email/calendar connector route, account auth, draft proposal route,
 send/write/archive/delete authority, or connector runtime.
-`/private-trial` is the UAA-P1-087.2a/087.2b read-only packet and acceptance
-ledger surface only. It renders safe refs from
+`/private-trial` is the UAA-P1-087.2a/087.2b/087.2c read-only packet,
+acceptance ledger, and unanswered manual-review scaffold surface only. It
+renders safe refs from
 `docs/macos/private_operator_trial_packet_v1.json` and
-`docs/macos/private_operator_trial_acceptance_ledger_v1.json` and adds no
-backend route, OpenAPI path, connector write, memory write, action execution,
-provider/model authority, shell/subprocess behavior, browser automation, public
-beta claim, or production authority. Full UAA-P1-087.2 remains planned until
-accepted or revised local/private findings are recorded.
+`docs/macos/private_operator_trial_acceptance_ledger_v1.json` plus the
+unanswered `docs/macos/private_operator_trial_manual_review_scaffold_v1.json`
+and adds no backend route, OpenAPI path, connector write, memory write, action
+execution, provider/model authority, shell/subprocess behavior, browser
+automation, public beta claim, or production authority. Full UAA-P1-087.2 is
+deferred until more Founder Loop implementation exists and accepted or revised
+local/private findings are recorded later.
 
 Backend API endpoints consumed:
 

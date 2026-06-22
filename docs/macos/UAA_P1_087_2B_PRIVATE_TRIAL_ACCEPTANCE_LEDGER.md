@@ -41,9 +41,10 @@ memory write, action execution, Code apply, or provider authority.
 
 ## Full UAA-P1-087.2 Gate
 
-Full UAA-P1-087.2 remains planned until the local/private operator review
-records accepted or revised findings. UAA-P1-087.2b is the review ledger that
-makes those findings collectable; it is not the finding itself.
+Full UAA-P1-087.2 remains planned and deferred until more Founder Loop
+implementation exists and a later local/private operator review records
+accepted or revised findings. UAA-P1-087.2b is the review ledger that makes
+those findings collectable; it is not the finding itself.
 
 Do not move to UAA-P1-087.3 as a product claim until full UAA-P1-087.2 records
 accepted UI/copy tuning changes, manual smoke evidence refs, and remaining

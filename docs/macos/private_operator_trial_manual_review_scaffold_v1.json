@@ -1,0 +1,162 @@
+{
+  "scaffold_ref": "scaffold-ref:private-operator-trial-manual-review:v1",
+  "contract_ref": "contract-ref:private-operator-ui-functional-tuning:v1",
+  "milestone_ref": "milestone:uaa-p1-087.2c",
+  "status": "implemented_private_trial_manual_review_scaffold_authority_blocked",
+  "source_ledger_ref": "ledger-ref:private-operator-trial-acceptance:v1",
+  "review_state": "manual_review_deferred_pending_implementation",
+  "review_items": [
+    {
+      "item_ref": "manual-review-item:private-trial:local-boot",
+      "surface": "Local Boot",
+      "answer_state": "unanswered_pending_manual_review",
+      "review_question_ref": "review-question:private-trial:local-boot",
+      "pending_answer_ref": "pending-answer:private-trial:local-boot",
+      "safe_question": "Does the boot path make it obvious which surface is first-party and what is blocked?",
+      "expected_evidence_refs": ["evidence-ref:private-trial:manual-review:local-boot"],
+      "implementation_prerequisite_refs": ["implementation-prereq:private-trial:local-boot"],
+      "next_safe_action": "Wait for manual operator review after the local boot flow is used in context."
+    },
+    {
+      "item_ref": "manual-review-item:private-trial:today",
+      "surface": "Today",
+      "answer_state": "unanswered_pending_manual_review",
+      "review_question_ref": "review-question:private-trial:today",
+      "pending_answer_ref": "pending-answer:private-trial:today",
+      "safe_question": "Does Today make the next useful business step visible without scanning too much?",
+      "expected_evidence_refs": ["evidence-ref:private-trial:manual-review:today"],
+      "implementation_prerequisite_refs": ["implementation-prereq:private-trial:today"],
+      "next_safe_action": "Wait for more Founder Loop implementation before scoring Today readiness."
+    },
+    {
+      "item_ref": "manual-review-item:private-trial:actions",
+      "surface": "Actions",
+      "answer_state": "unanswered_pending_manual_review",
+      "review_question_ref": "review-question:private-trial:actions",
+      "pending_answer_ref": "pending-answer:private-trial:actions",
+      "safe_question": "Can the operator understand approve, edit, reject, defer, receipt, and rollback posture?",
+      "expected_evidence_refs": ["evidence-ref:private-trial:manual-review:actions"],
+      "implementation_prerequisite_refs": ["implementation-prereq:private-trial:actions"],
+      "next_safe_action": "Implement backend decision receipts before manual acceptance."
+    },
+    {
+      "item_ref": "manual-review-item:private-trial:memory",
+      "surface": "Memory",
+      "answer_state": "unanswered_pending_manual_review",
+      "review_question_ref": "review-question:private-trial:memory",
+      "pending_answer_ref": "pending-answer:private-trial:memory",
+      "safe_question": "Does Memory feel trustworthy, correctable, and useful across business follow-ups?",
+      "expected_evidence_refs": ["evidence-ref:private-trial:manual-review:memory"],
+      "implementation_prerequisite_refs": ["implementation-prereq:private-trial:memory"],
+      "next_safe_action": "Implement durable review decisions before manual acceptance."
+    },
+    {
+      "item_ref": "manual-review-item:private-trial:evidence",
+      "surface": "Evidence",
+      "answer_state": "unanswered_pending_manual_review",
+      "review_question_ref": "review-question:private-trial:evidence",
+      "pending_answer_ref": "pending-answer:private-trial:evidence",
+      "safe_question": "Does Evidence read like what was proposed, approved, happened, changed, and undoable?",
+      "expected_evidence_refs": ["evidence-ref:private-trial:manual-review:evidence"],
+      "implementation_prerequisite_refs": ["implementation-prereq:private-trial:evidence"],
+      "next_safe_action": "Productize Evidence Timeline receipts before manual acceptance."
+    },
+    {
+      "item_ref": "manual-review-item:private-trial:chat-plans-handoff",
+      "surface": "Chat/Plans Handoff",
+      "answer_state": "unanswered_pending_manual_review",
+      "review_question_ref": "review-question:private-trial:chat-plans-handoff",
+      "pending_answer_ref": "pending-answer:private-trial:chat-plans-handoff",
+      "safe_question": "Does Chat show model, runtime, auth, tool-denial, and handoff truth clearly?",
+      "expected_evidence_refs": ["evidence-ref:private-trial:manual-review:chat-plans-handoff"],
+      "implementation_prerequisite_refs": ["implementation-prereq:private-trial:chat-plans-handoff"],
+      "next_safe_action": "Implement durable chat receipt and handoff refs before manual acceptance."
+    },
+    {
+      "item_ref": "manual-review-item:private-trial:blocked-state-language",
+      "surface": "Blocked State Language",
+      "answer_state": "unanswered_pending_manual_review",
+      "review_question_ref": "review-question:private-trial:blocked-state-language",
+      "pending_answer_ref": "pending-answer:private-trial:blocked-state-language",
+      "safe_question": "Does blocked copy explain the next safe action without feeling like paperwork?",
+      "expected_evidence_refs": ["evidence-ref:private-trial:manual-review:blocked-state-language"],
+      "implementation_prerequisite_refs": ["implementation-prereq:private-trial:blocked-state-language"],
+      "next_safe_action": "Review copy after more surfaces have real backend state."
+    },
+    {
+      "item_ref": "manual-review-item:private-trial:crm-lite-follow-ups",
+      "surface": "CRM-Lite Follow-Ups",
+      "answer_state": "unanswered_pending_manual_review",
+      "review_question_ref": "review-question:private-trial:crm-lite-follow-ups",
+      "pending_answer_ref": "pending-answer:private-trial:crm-lite-follow-ups",
+      "safe_question": "Do follow-up refs feel like useful business flow rather than generic memory notes?",
+      "expected_evidence_refs": ["evidence-ref:private-trial:manual-review:crm-lite-follow-ups"],
+      "implementation_prerequisite_refs": ["implementation-prereq:private-trial:crm-lite-follow-ups"],
+      "next_safe_action": "Implement local follow-up records after memory and action receipts exist."
+    }
+  ],
+  "unanswered_question_refs": [
+    "review-question:private-trial:first-screen-orientation",
+    "review-question:private-trial:today-workflow-readiness",
+    "review-question:private-trial:actions-decision-clarity",
+    "review-question:private-trial:memory-trust-and-control",
+    "review-question:private-trial:evidence-history-confidence",
+    "review-question:private-trial:chat-handoff-truth",
+    "review-question:private-trial:blocked-copy-friction",
+    "review-question:private-trial:crm-lite-follow-up-value"
+  ],
+  "missing_implementation_refs": [
+    "missing-implementation:founder-loop:release-surface-manifest",
+    "missing-implementation:founder-loop:action-decision-receipts",
+    "missing-implementation:founder-loop:memory-review-receipts",
+    "missing-implementation:founder-loop:chat-receipt-handoff",
+    "missing-implementation:founder-loop:evidence-productization"
+  ],
+  "deferred_decision_refs": [
+    "deferred-decision:private-trial:full-087-2-acceptance",
+    "deferred-decision:private-trial:native-boot-cockpit",
+    "deferred-decision:private-trial:beta-readiness-language"
+  ],
+  "blocked_state_refs": [
+    "blocked-state:no-public-beta",
+    "blocked-state:no-public-distribution",
+    "blocked-state:no-production-readiness-claim",
+    "blocked-state:no-production-authority",
+    "blocked-state:no-connector-write",
+    "blocked-state:no-provider-model-authority",
+    "blocked-state:no-unrestricted-shell",
+    "blocked-state:no-shell-subprocess-execution",
+    "blocked-state:no-remote-execution",
+    "blocked-state:no-account-sync",
+    "blocked-state:no-crm-write",
+    "blocked-state:no-memory-write",
+    "blocked-state:no-action-execution",
+    "blocked-state:no-code-apply-execution",
+    "blocked-state:openwebui-secondary-only"
+  ],
+  "evidence_refs": [
+    "evidence-ref:private-trial:manual-review-scaffold-v1",
+    "evidence-ref:private-trial:unanswered-questions",
+    "evidence-ref:private-trial:deferred-manual-review"
+  ],
+  "next_safe_action": "Keep manual review unanswered until more Founder Loop implementation exists, then record accepted or revised safe refs in a later full UAA-P1-087.2 trial.",
+  "local_private_only": true,
+  "safe_refs_only": true,
+  "manual_operator_review_required": true,
+  "public_beta_claim_enabled": false,
+  "public_distribution_claim_enabled": false,
+  "production_readiness_claim_enabled": false,
+  "production_authority_enabled": false,
+  "connector_write_enabled": false,
+  "provider_model_authority_allowed": false,
+  "unrestricted_shell_enabled": false,
+  "shell_subprocess_execution_enabled": false,
+  "remote_execution_enabled": false,
+  "account_sync_enabled": false,
+  "crm_write_enabled": false,
+  "memory_write_authorized": false,
+  "action_execution_enabled": false,
+  "code_apply_execution_enabled": false,
+  "runtime_authority_added": false,
+  "backend_route_added": false
+}
