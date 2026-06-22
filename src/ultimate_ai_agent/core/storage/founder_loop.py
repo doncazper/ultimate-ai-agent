@@ -31,6 +31,15 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.memory.intake import (
+    CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
+    CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
+    CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_REF_FIELDS,
+    CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_SURFACES,
+    cross_surface_memory_intake_authority_posture,
+    cross_surface_memory_intake_proposals,
+    cross_surface_memory_intake_surface_bindings,
+)
 from ultimate_ai_agent.core.memory.source_provenance import (
     MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
     MEMORY_SOURCE_PROVENANCE_DENIED_CONTENT_REFS,
@@ -258,7 +267,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
     },
     {
         "module": "Memory",
-        "status": "implemented_review_queue_decision_and_quality_metadata_contract",
+        "status": "implemented_review_queue_quality_and_intake_metadata_contract",
         "required_loop_outputs": [
             "today_memory_review_count",
             "action_or_follow_up_candidate",
@@ -269,6 +278,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             "status-ref:founder-loop-memory-review",
             MEMORY_REVIEW_DECISION_CONTRACT_REF,
             BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
+            CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
         ],
         "standalone_complete_allowed": False,
     },
@@ -1396,6 +1406,41 @@ def _governed_code_workbench_contract_payload() -> dict[str, Any]:
     }
 
 
+def _cross_surface_memory_intake_contract_payload() -> dict[str, Any]:
+    proposals = [
+        proposal.model_dump(mode="json")
+        for proposal in cross_surface_memory_intake_proposals()
+    ]
+    return {
+        "cross_surface_memory_intake_contract_ref": (
+            CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF
+        ),
+        "cross_surface_memory_intake_status": (
+            "implemented_review_only_proposal_intake_contract"
+        ),
+        "cross_surface_memory_intake_required_surfaces": (
+            CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_SURFACES
+        ),
+        "cross_surface_memory_intake_required_ref_fields": (
+            CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_REF_FIELDS
+        ),
+        "cross_surface_memory_intake_required_blocked_refs": (
+            CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS
+        ),
+        "cross_surface_memory_intake_proposal_count": len(proposals),
+        "cross_surface_memory_intake_proposals": proposals,
+        "cross_surface_memory_intake_surface_bindings": (
+            cross_surface_memory_intake_surface_bindings()
+        ),
+        "cross_surface_memory_intake_authority_posture": (
+            cross_surface_memory_intake_authority_posture()
+        ),
+        "cross_surface_memory_intake_blocked_state_refs": (
+            CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS
+        ),
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1446,11 +1491,15 @@ class FounderLoopRepository:
         plans = self.list_plan_summaries(limit=3)
         memory_items = self.list_memory_review_queue(limit=3)
         briefing_items = self.list_briefing_items(limit=3)
+        cross_surface_memory_intake_contract = (
+            _cross_surface_memory_intake_contract_payload()
+        )
         evidence_timeline = self._build_evidence_timeline(
             actions=actions,
             plans=plans,
             memory_items=memory_items,
             briefing_items=briefing_items,
+            cross_surface_memory_intake_contract=cross_surface_memory_intake_contract,
         )
         next_safe_actions = _next_safe_actions(
             actions=actions,
@@ -1530,6 +1579,7 @@ class FounderLoopRepository:
             "business_memory_status": (
                 "implemented_review_queue_safe_ref_quality_metadata_contract"
             ),
+            **cross_surface_memory_intake_contract,
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
             "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
@@ -1667,6 +1717,7 @@ class FounderLoopRepository:
         plans: list[dict[str, Any]],
         memory_items: list[dict[str, Any]],
         briefing_items: list[dict[str, Any]],
+        cross_surface_memory_intake_contract: dict[str, Any],
     ) -> list[dict[str, Any]]:
         timeline: list[FounderLoopEvidenceTimelineItem] = []
         for action in actions:
@@ -2096,6 +2147,118 @@ class FounderLoopRepository:
                 next_safe_action=(
                     "Review safe proposal refs and validation posture; require a "
                     "later exact approval-bound apply contract before mutation."
+                ),
+            )
+        )
+        memory_intake_proposals = list(
+            cross_surface_memory_intake_contract[
+                "cross_surface_memory_intake_proposals"
+            ]
+        )
+        memory_intake_proposal_refs = [
+            str(proposal["proposal_ref"]) for proposal in memory_intake_proposals
+        ]
+        memory_intake_source_refs = [
+            ref
+            for proposal in memory_intake_proposals
+            for ref in proposal.get("source_refs", [])
+        ]
+        memory_intake_evidence_refs = [
+            ref
+            for proposal in memory_intake_proposals
+            for ref in proposal.get("evidence_refs", [])
+        ]
+        memory_intake_stale_refs = [
+            _status_ref("stale-ref", str(proposal["stale_state"]))
+            for proposal in memory_intake_proposals
+        ]
+        timeline.append(
+            FounderLoopEvidenceTimelineItem(
+                timeline_item_ref=_timeline_ref(
+                    "memory-intake",
+                    cross_surface_memory_intake_contract[
+                        "cross_surface_memory_intake_contract_ref"
+                    ],
+                ),
+                item_kind="cross_surface_memory_intake_proposal_ref",
+                title="Cross-surface memory intake",
+                safe_summary=(
+                    "Today, Chat, Plans, Actions, Evidence, local coding, and "
+                    "manual external-assistant review imports can produce reviewed "
+                    "memory intake proposals with safe refs only."
+                ),
+                history_answers=_history_answers(
+                    proposed=_history_answer(
+                        "proposed",
+                        "Seven review-only memory intake candidates were proposed from bounded surface summaries and safe refs.",
+                        refs=[
+                            CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
+                            *memory_intake_proposal_refs,
+                        ],
+                    ),
+                    approved=_history_answer(
+                        "approved",
+                        "No memory write, automatic intake, context injection, provider call, account fetch, browser import, or shell-history import is approved.",
+                        refs=CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
+                        status="blocked",
+                    ),
+                    happened=_history_answer(
+                        "happened",
+                        "Only safe memory intake proposal metadata was produced; source payloads remain hidden.",
+                        refs=memory_intake_evidence_refs,
+                        status="proposal_refs_only",
+                    ),
+                    changed=_history_answer(
+                        "changed",
+                        "No memory record, context pack, source account, connector, repo, shell, model, or task state changed.",
+                        refs=["change-status:no-memory-intake-state-change"],
+                        status="not_applicable",
+                    ),
+                    undoable=_history_answer(
+                        "undoable",
+                        "There is no rollback execution because no memory mutation was performed.",
+                        refs=["rollback-status:memory-intake-no-mutation"],
+                        status="not_applicable",
+                    ),
+                    stale=_history_answer(
+                        "stale",
+                        "Each intake proposal must be rechecked before a later memory review decision.",
+                        refs=memory_intake_stale_refs,
+                        status="recheck_required",
+                    ),
+                    blocked=_history_answer(
+                        "blocked",
+                        "Automatic memory writes, accepted recall, context injection, provider calls, account fetch, browser import, shell-history import, raw-file import, connector runtime, and production authority remain blocked.",
+                        refs=CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
+                        status="blocked",
+                    ),
+                ),
+                source_refs=memory_intake_proposal_refs + memory_intake_source_refs,
+                status_refs=[
+                    CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
+                    MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
+                    MEMORY_REVIEW_DECISION_CONTRACT_REF,
+                    BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
+                ],
+                related_route_refs=["GET /control-center/today/summary", "/memory"],
+                side_effect_class="local_dev_workspace_only",
+                authority_posture=(
+                    "Cross-surface memory intake is proposal metadata only; review "
+                    "is required and writes or context injection remain unscoped."
+                ),
+                approval_posture="approval-status:memory-intake-write-not-authorized",
+                receipt_refs=[],
+                audit_refs=memory_intake_evidence_refs,
+                replay_refs=["replay-ref:cross-surface-memory-intake:review"],
+                rollback_refs=[],
+                rollback_blockers=["memory_intake_no_mutation_to_rollback"],
+                redaction_status="redacted_summary_only",
+                stale_state="recheck_each_intake_candidate_before_review",
+                missing_evidence_posture="missing_evidence_refs_require_review",
+                blocked_states=CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
+                next_safe_action=(
+                    "Review candidate refs in the Memory inbox before any later "
+                    "memory decision milestone."
                 ),
             )
         )

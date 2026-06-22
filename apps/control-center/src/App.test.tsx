@@ -1900,7 +1900,7 @@ describe("Web Control Center shell", () => {
       screen.getByText("Memory deletes").nextElementSibling,
     ).toHaveTextContent("disabled");
     expect(
-      screen.getByText("Context injection").nextElementSibling,
+      screen.getAllByText("Context injection")[0].nextElementSibling,
     ).toHaveTextContent("disabled");
     expect(
       screen.getByText(
@@ -1981,6 +1981,32 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("blocked-state:no-connector-runtime").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-model-provider-authority").length).toBeGreaterThan(0);
     expect(screen.getAllByText("weekly-review-ref:business-memory-carry-forward").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Memory intake/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:cross-surface-memory-intake:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("memory-intake-proposal:local-coding").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("memory-intake-proposal:external-assistant-review").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Local Coding").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("External Assistant Review").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("missing_safe_evidence_until_reviewed").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("recheck_source_refs_before_memory_intake").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:no-shell-history-import").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:no-raw-file-import").length,
+    ).toBeGreaterThan(0);
 
     for (const label of [
       /^accept$/i,
@@ -2913,7 +2939,7 @@ const mockApiData = {
       },
       {
         module: "Memory",
-        status: "implemented_review_queue_decision_and_quality_metadata_contract",
+        status: "implemented_review_queue_quality_and_intake_metadata_contract",
         required_loop_outputs: [
           "today_memory_review_count",
           "action_or_follow_up_candidate",
@@ -2924,6 +2950,7 @@ const mockApiData = {
           "status-ref:founder-loop-memory-review",
           "contract-ref:memory-review-decision:v1",
           "contract-ref:business-memory-quality-controls:v1",
+          "contract-ref:cross-surface-memory-intake:v1",
         ],
         standalone_complete_allowed: false,
       },
@@ -3423,7 +3450,7 @@ const mockApiData = {
       plan_count: 1,
       memory_review_count: 1,
       briefing_count: 1,
-      evidence_timeline_count: 5,
+      evidence_timeline_count: 6,
     },
     actions: [
       {

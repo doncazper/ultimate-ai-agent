@@ -368,8 +368,8 @@ conveyor is repo-local process guidance only. It does not grant runtime
 authority, connector authority, provider/model authority, unrestricted shell,
 public beta, public distribution, or production readiness.
 
-Current conveyor status: UAA-P1-067 through UAA-P1-075 are complete. The next
-incomplete documented milestone is UAA-P1-076 Cross-Surface Memory Intake
+Current conveyor status: UAA-P1-067 through UAA-P1-076 are complete. The next
+incomplete documented milestone is UAA-P1-077 Memory-To-Loop Binding
 unless active docs show a later milestone has already been completed. The
 conveyor auto-advances after each successful milestone commit/push. Do not stop
 after merely recommending the next prompt; create and execute the next milestone
@@ -878,8 +878,8 @@ Acceptance criteria:
   connector, shell, model, memory, or task state changed.
 - Control Center types/mocks can display the Code module feed as implemented
   but apply-blocked.
-- Active docs mark UAA-P1-075 complete and promote UAA-P1-076 Cross-Surface
-  Memory Intake as the next incomplete milestone.
+- Active docs mark UAA-P1-075 complete and UAA-P1-076 complete, then promote
+  UAA-P1-077 Memory-To-Loop Binding as the next incomplete milestone.
 
 Review/fix:
 - Perform adversarial review for implied apply authority, approval refs becoming
@@ -909,7 +909,7 @@ Commit/push:
 
 Auto-advance:
 - After commit/push succeeds, immediately create/update and execute the
-  UAA-P1-076 Cross-Surface Memory Intake prompt in the same run unless blocked.
+  UAA-P1-077 Memory-To-Loop Binding prompt in the same run unless blocked.
 - Do not stop with only a next-prompt recommendation. Stop only for an exact
   blocker, unsafe scope split, failed verification, failed push, or user
   pause/stop.

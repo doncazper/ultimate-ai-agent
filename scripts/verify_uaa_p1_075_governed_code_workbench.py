@@ -242,8 +242,12 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
     }
     if set(bindings) != {"Today", "Code", "Actions", "Evidence", "Memory"}:
         failures.append("governed Code surface bindings drifted")
-    if bindings["Memory"]["feed_status"] != "blocked_until_cross_surface_memory_intake":
-        failures.append("governed Code memory binding is not blocked")
+    if bindings["Memory"]["feed_status"] != (
+        "cross_surface_memory_intake_proposal_refs_only"
+    ):
+        failures.append("governed Code memory binding is not proposal-only")
+    if bindings["Memory"]["feed_ref"] != "memory-intake-proposal:local-coding":
+        failures.append("governed Code memory binding missing intake ref")
 
     module_feeds = {item["module"]: item for item in today["module_feed_contract"]}
     code_feed = module_feeds.get("Code", {})

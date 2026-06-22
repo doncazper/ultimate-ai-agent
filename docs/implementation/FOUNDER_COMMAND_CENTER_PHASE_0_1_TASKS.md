@@ -611,7 +611,7 @@ distribution, or production authority.
 
 Type: full-stack read-only/proposal
 
-Status: Ready Next.
+Status: Done.
 
 New authority: no.
 
@@ -627,15 +627,24 @@ Acceptance criteria:
 
 Tests to add/update:
 
-- Cross-surface fixture tests.
-- Control Center render tests for proposed candidates.
-- Frontend safety verifier updates if new UI is added.
+- `tests/test_uaa_p1_076_cross_surface_memory_intake.py`.
+- `tests/test_founder_loop_storage.py`.
+- `tests/test_control_center_founder_loop_api.py`.
+- `apps/control-center/src/App.test.tsx`.
+- `scripts/verify_uaa_p1_076_cross_surface_memory_intake.py`.
+- `docs/schemas/cross_surface_memory_intake.schema.json`.
 
-PR size: one proposal/intake PR after provenance and decision contracts.
+Gate met: `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`
+defines the review-only intake contract and keeps memory writes, automatic
+recall, context injection, provider calls, account fetch, browser import, shell
+history import, source import, connector runtime, public beta, public
+distribution, and production authority blocked.
 
 ## Task 9j - UAA-P1-077 Memory-To-Loop Binding
 
 Type: full-stack read-only product-surface binding
+
+Status: Ready Next.
 
 New authority: no.
 

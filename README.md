@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-076 Ready Next: Cross-Surface Memory Intake** |
+| Current lane | **UAA-P1-077 Ready Next: Memory-To-Loop Binding** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -57,9 +57,14 @@ and read-only Control Center visibility. UAA-P1-075 Governed Code Workbench V1
 is complete with repo-local proposal scope, safe diff summary refs, validation
 plan refs, expected apply and rollback receipt refs, Evidence Timeline binding,
 blocked apply authority, and read-only Control Center metadata shape.
-UAA-P1-076 Cross-Surface Memory Intake is now Ready Next before loop binding and
-private local beta-readiness gates can be claimed. UAA-P1-066 remains queued as
-a strictly read-only Local Model Control Center inventory/status support lane.
+UAA-P1-076 Cross-Surface Memory Intake is complete with review-only memory
+intake proposals from Today, Chat, Plans, Actions, Evidence, local coding, and
+manual external-assistant review imports; memory writes, automatic recall,
+context injection, provider calls, account fetch, browser import, shell-history
+import, and source import remain blocked. UAA-P1-077 Memory-To-Loop Binding is
+now Ready Next before private local beta-readiness gates can be claimed.
+UAA-P1-066 remains queued as a strictly read-only Local Model Control Center
+inventory/status support lane.
 
 Already-pushed tags remain immutable historical records. M150's
 `v1.2.0-alpha` label is preserved as historical alpha-target context only; it

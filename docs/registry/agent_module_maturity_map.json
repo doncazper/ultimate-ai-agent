@@ -388,15 +388,16 @@
       "evidence": [
         "M24 memory provider contracts and local stores are tested with source refs, review states, retention posture, redaction, and forbidden raw-content boundaries.",
         "Founder Loop storage and relationship/follow-up candidate tests prove a bounded Memory Review substrate, not automatic memory authority.",
-        "UAA-P1-071 and UAA-P1-072 add review-only decision metadata plus safe-ref CRM-lite business-memory candidate and quality posture on the Today spine."
+        "UAA-P1-071 and UAA-P1-072 add review-only decision metadata plus safe-ref CRM-lite business-memory candidate and quality posture on the Today spine.",
+        "UAA-P1-076 adds review-only cross-surface intake proposal refs from Today, Chat, Plans, Actions, Evidence, local coding, and manual external-assistant review imports without memory writes or context injection."
       ],
       "gaps": [
-        "No cross-surface intake from local chat, local coding summaries, manual external-assistant review summaries, plans, actions, calendar/email metadata refs, and evidence timeline refs.",
+        "No completed memory-to-loop binding from reviewed candidates and intake proposals into Today, Action Inbox, Evidence Timeline, and Weekly CEO Review.",
         "No memory write policy binding, retention/delete/export execution, or context-injection policy.",
         "No mutation-capable quality-control actions for duplicate/conflict/stale records.",
         "No completed Today/Action/Evidence/Weekly Review binding that makes reviewed memory feel like the full product spine."
       ],
-      "next_checkpoint": "Use UAA-P1-076 through UAA-P1-077 to add cross-surface intake and loop binding before raising maturity; UAA-P1-075 has added governed Code proposal refs without memory writes."
+      "next_checkpoint": "Use UAA-P1-077 to bind reviewed memory and intake proposal state into the daily loop before raising maturity; UAA-P1-076 has added cross-surface intake refs without memory writes or context injection."
     },
     {
       "id": "tool_registry",

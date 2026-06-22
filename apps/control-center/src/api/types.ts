@@ -578,6 +578,76 @@ export interface FounderLoopGovernedCodeWorkbenchAuthorityPosture {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopCrossSurfaceMemoryIntakeProposal {
+  contract_ref: string;
+  proposal_ref: string;
+  surface: string;
+  source_kind: string;
+  candidate_kind: string;
+  candidate_ref: string;
+  safe_summary: string;
+  source_refs: string[];
+  source_provenance_contract_ref: string;
+  memory_review_decision_contract_ref: string;
+  business_memory_quality_contract_ref: string;
+  source_trust_posture: string;
+  provenance_refs: string[];
+  evidence_refs: string[];
+  quality_state_refs: string[];
+  missing_evidence_refs: string[];
+  missing_evidence_posture: string;
+  confidence_posture: string;
+  stale_state: string;
+  next_safe_action: string;
+  review_queue_ref: string;
+  review_required: boolean;
+  safe_summary_only: boolean;
+  source_payload_storage_allowed: boolean;
+  memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  provider_call_enabled: boolean;
+  account_fetch_enabled: boolean;
+  browser_import_enabled: boolean;
+  shell_history_import_enabled: boolean;
+  raw_file_import_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  source_truth_authority: boolean;
+  accepted_as_recall: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+}
+
+export interface FounderLoopCrossSurfaceMemoryIntakeSurfaceBinding {
+  surface: string;
+  feed_status: string;
+  feed_ref: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopCrossSurfaceMemoryIntakeAuthorityPosture {
+  safe_refs_only: boolean;
+  review_required: boolean;
+  safe_summary_only: boolean;
+  source_payload_storage_allowed: boolean;
+  memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  provider_call_enabled: boolean;
+  account_fetch_enabled: boolean;
+  browser_import_enabled: boolean;
+  shell_history_import_enabled: boolean;
+  raw_file_import_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  source_truth_authority: boolean;
+  accepted_as_recall: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -657,6 +727,16 @@ export interface FounderLoopTodaySummary {
   business_memory_surface_bindings: FounderLoopBusinessMemorySurfaceBinding[];
   business_memory_authority_posture: FounderLoopBusinessMemoryAuthorityPosture;
   business_memory_status: string;
+  cross_surface_memory_intake_contract_ref: string;
+  cross_surface_memory_intake_status: string;
+  cross_surface_memory_intake_required_surfaces: string[];
+  cross_surface_memory_intake_required_ref_fields: string[];
+  cross_surface_memory_intake_required_blocked_refs: string[];
+  cross_surface_memory_intake_proposal_count: number;
+  cross_surface_memory_intake_proposals: FounderLoopCrossSurfaceMemoryIntakeProposal[];
+  cross_surface_memory_intake_surface_bindings: FounderLoopCrossSurfaceMemoryIntakeSurfaceBinding[];
+  cross_surface_memory_intake_authority_posture: FounderLoopCrossSurfaceMemoryIntakeAuthorityPosture;
+  cross_surface_memory_intake_blocked_state_refs: string[];
   chat_local_operator_contract_ref: string;
   chat_local_operator_status: string;
   chat_local_operator_turn_ref: string;

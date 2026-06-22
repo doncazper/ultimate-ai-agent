@@ -190,9 +190,10 @@ const chatLocalOperatorSurfaceBindings = [
   },
   {
     surface: "Memory",
-    feed_status: "blocked_until_cross_surface_memory_intake",
-    feed_ref: "blocked-state:no-chat-memory-write",
-    authority_boundary: "Chat does not write memory or inject context.",
+    feed_status: "cross_surface_memory_intake_proposal_refs_only",
+    feed_ref: "memory-intake-proposal:chat",
+    authority_boundary:
+      "Chat can feed reviewed memory intake candidates only; memory writes and context injection remain blocked.",
   },
 ];
 
@@ -279,11 +280,161 @@ const governedCodeWorkbenchSurfaceBindings = [
   },
   {
     surface: "Memory",
-    feed_status: "blocked_until_cross_surface_memory_intake",
-    feed_ref: "blocked-state:no-code-memory-write",
-    authority_boundary: "Code does not write memory or inject context.",
+    feed_status: "cross_surface_memory_intake_proposal_refs_only",
+    feed_ref: "memory-intake-proposal:local-coding",
+    authority_boundary:
+      "Code can feed reviewed memory intake candidates only; memory writes and context injection remain blocked.",
   },
 ];
+
+const crossSurfaceMemoryIntakeContractRef =
+  "contract-ref:cross-surface-memory-intake:v1";
+
+const crossSurfaceMemoryIntakeRequiredSurfaces = [
+  "Today",
+  "Chat",
+  "Plans",
+  "Actions",
+  "Evidence",
+  "Local Coding",
+  "External Assistant Review",
+];
+
+const crossSurfaceMemoryIntakeRequiredRefFields = [
+  "proposal_ref",
+  "candidate_ref",
+  "review_queue_ref",
+  "surface",
+  "source_kind",
+  "candidate_kind",
+  "source_refs",
+  "provenance_refs",
+  "evidence_refs",
+  "quality_state_refs",
+  "missing_evidence_refs",
+  "stale_state",
+  "next_safe_action",
+  "blocked_state_refs",
+];
+
+const crossSurfaceMemoryIntakeBlockedRefs = [
+  "blocked-state:no-automatic-memory-write",
+  "blocked-state:no-memory-write",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-provider-call",
+  "blocked-state:no-account-fetch",
+  "blocked-state:no-browser-import",
+  "blocked-state:no-shell-history-import",
+  "blocked-state:no-raw-file-import",
+  "blocked-state:no-connector-runtime",
+  "blocked-state:no-source-truth-authority",
+  "blocked-state:no-public-beta-or-distribution",
+  "blocked-state:no-production-authority",
+];
+
+const crossSurfaceMemoryIntakeAuthorityPosture = {
+  safe_refs_only: true,
+  review_required: true,
+  safe_summary_only: true,
+  source_payload_storage_allowed: false,
+  memory_write_authorized: false,
+  automatic_memory_write_authorized: false,
+  context_injection_authorized: false,
+  provider_call_enabled: false,
+  account_fetch_enabled: false,
+  browser_import_enabled: false,
+  shell_history_import_enabled: false,
+  raw_file_import_enabled: false,
+  connector_runtime_enabled: false,
+  source_truth_authority: false,
+  accepted_as_recall: false,
+  public_beta_claim_enabled: false,
+  public_distribution_claim_enabled: false,
+  production_authority_enabled: false,
+};
+
+const memoryIntakeSourceBySurface: Record<string, string> = {
+  Today: "evidence_timeline_ref",
+  Chat: "local_chat_summary",
+  Plans: "task_plan",
+  Actions: "action_proposal",
+  Evidence: "evidence_timeline_ref",
+  "Local Coding": "local_coding_summary",
+  "External Assistant Review": "external_assistant_review_summary",
+};
+
+const memoryIntakeCandidateBySurface: Record<string, string> = {
+  Today: "follow_up",
+  Chat: "preference",
+  Plans: "decision",
+  Actions: "commitment",
+  Evidence: "decision",
+  "Local Coding": "project",
+  "External Assistant Review": "opportunity",
+};
+
+const crossSurfaceMemoryIntakeSurfaceBindings =
+  crossSurfaceMemoryIntakeRequiredSurfaces.map((surface) => ({
+    surface,
+    feed_status: "implemented_memory_intake_proposal_refs",
+    feed_ref: `memory-intake-proposal:${surface.toLowerCase().replaceAll(" ", "-")}`,
+    authority_boundary:
+      "Memory intake proposals are review-only and cannot write memory or inject context.",
+  }));
+
+const crossSurfaceMemoryIntakeProposals =
+  crossSurfaceMemoryIntakeRequiredSurfaces.map((surface) => {
+    const surfaceSlug = surface.toLowerCase().replaceAll(" ", "-");
+    const sourceKind = memoryIntakeSourceBySurface[surface];
+    const sourceSlug = sourceKind.replaceAll("_", "-");
+    const candidateKind = memoryIntakeCandidateBySurface[surface];
+    return {
+      contract_ref: crossSurfaceMemoryIntakeContractRef,
+      proposal_ref: `memory-intake-proposal:${surfaceSlug}`,
+      surface,
+      source_kind: sourceKind,
+      candidate_kind: candidateKind,
+      candidate_ref: `business-memory-candidate:${candidateKind.replaceAll("_", "-")}:${surfaceSlug}`,
+      safe_summary: `${surface} can propose a reviewed memory candidate using safe refs; no write or context injection is authorized.`,
+      source_refs: [`source-ref:${sourceSlug}:${surfaceSlug}`],
+      source_provenance_contract_ref: "contract-ref:memory-source-provenance:v1",
+      memory_review_decision_contract_ref: "contract-ref:memory-review-decision:v1",
+      business_memory_quality_contract_ref:
+        "contract-ref:business-memory-quality-controls:v1",
+      source_trust_posture: "untrusted_until_reviewed",
+      provenance_refs: [`provenance-ref:${sourceSlug}:${surfaceSlug}`],
+      evidence_refs: [`evidence-ref:memory-intake:${surfaceSlug}`],
+      quality_state_refs: [
+        "business-memory-quality:low-confidence",
+        "business-memory-quality:blocked",
+      ],
+      missing_evidence_refs: [`missing-evidence-ref:memory-intake:${surfaceSlug}`],
+      missing_evidence_posture: "missing_safe_evidence_until_reviewed",
+      confidence_posture: "low_confidence_until_reviewed",
+      stale_state: "recheck_source_refs_before_memory_intake",
+      next_safe_action:
+        "Review source, provenance, confidence, stale-state, and evidence refs before any later memory decision.",
+      review_queue_ref: `memory-review-queue-ref:intake:${surfaceSlug}`,
+      review_required: true,
+      safe_summary_only: true,
+      source_payload_storage_allowed: false,
+      memory_write_authorized: false,
+      automatic_memory_write_authorized: false,
+      context_injection_authorized: false,
+      provider_call_enabled: false,
+      account_fetch_enabled: false,
+      browser_import_enabled: false,
+      shell_history_import_enabled: false,
+      raw_file_import_enabled: false,
+      connector_runtime_enabled: false,
+      source_truth_authority: false,
+      accepted_as_recall: false,
+      public_beta_claim_enabled: false,
+      public_distribution_claim_enabled: false,
+      production_authority_enabled: false,
+      blocked_state_refs: crossSurfaceMemoryIntakeBlockedRefs,
+    };
+  });
 
 const plansActionEnvelopeReviewPostures =
   plansActionEnvelopeReviewActions.map((reviewAction) => ({
@@ -341,9 +492,10 @@ const plansActionEnvelopeSurfaceBindings = [
   },
   {
     surface: "Memory",
-    feed_status: "blocked_until_cross_surface_memory_intake",
-    feed_ref: "memory-ref:plans-action-envelope-candidate-blocked",
-    authority_boundary: "Envelope refs do not become memory recall without review.",
+    feed_status: "cross_surface_memory_intake_proposal_refs_only",
+    feed_ref: "memory-intake-proposal:plans",
+    authority_boundary:
+      "Envelope refs can feed reviewed memory intake candidates only; memory recall, writes, and context injection remain blocked.",
   },
 ];
 
@@ -2112,7 +2264,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         module: "Memory",
-        status: "implemented_review_queue_decision_and_quality_metadata_contract",
+        status: "implemented_review_queue_quality_and_intake_metadata_contract",
         required_loop_outputs: [
           "today_memory_review_count",
           "action_or_follow_up_candidate",
@@ -2123,6 +2275,7 @@ export const mockControlCenterData: ControlCenterData = {
           "status-ref:founder-loop-memory-review",
           "contract-ref:memory-review-decision:v1",
           "contract-ref:business-memory-quality-controls:v1",
+          crossSurfaceMemoryIntakeContractRef,
         ],
         standalone_complete_allowed: false,
       },
@@ -2560,6 +2713,24 @@ export const mockControlCenterData: ControlCenterData = {
     },
     business_memory_status:
       "implemented_review_queue_safe_ref_quality_metadata_contract",
+    cross_surface_memory_intake_contract_ref: crossSurfaceMemoryIntakeContractRef,
+    cross_surface_memory_intake_status:
+      "implemented_review_only_proposal_intake_contract",
+    cross_surface_memory_intake_required_surfaces:
+      crossSurfaceMemoryIntakeRequiredSurfaces,
+    cross_surface_memory_intake_required_ref_fields:
+      crossSurfaceMemoryIntakeRequiredRefFields,
+    cross_surface_memory_intake_required_blocked_refs:
+      crossSurfaceMemoryIntakeBlockedRefs,
+    cross_surface_memory_intake_proposal_count:
+      crossSurfaceMemoryIntakeProposals.length,
+    cross_surface_memory_intake_proposals: crossSurfaceMemoryIntakeProposals,
+    cross_surface_memory_intake_surface_bindings:
+      crossSurfaceMemoryIntakeSurfaceBindings,
+    cross_surface_memory_intake_authority_posture:
+      crossSurfaceMemoryIntakeAuthorityPosture,
+    cross_surface_memory_intake_blocked_state_refs:
+      crossSurfaceMemoryIntakeBlockedRefs,
     chat_local_operator_contract_ref: chatLocalOperatorContractRef,
     chat_local_operator_status: "implemented_local_turn_truth_surface",
     chat_local_operator_turn_ref: "chat-turn:local-operator:local-chat-gateway",
@@ -2686,7 +2857,7 @@ export const mockControlCenterData: ControlCenterData = {
       plan_count: 1,
       memory_review_count: 1,
       briefing_count: 2,
-      evidence_timeline_count: 5,
+      evidence_timeline_count: 7,
     },
     actions: [
       {
@@ -3219,6 +3390,57 @@ export const mockControlCenterData: ControlCenterData = {
         blocked_states: governedCodeWorkbenchBlockedRefs,
         next_safe_action:
           "Review safe proposal refs and validation posture; require a later exact approval-bound apply contract before mutation.",
+      },
+      {
+        timeline_item_ref:
+          "evidence-timeline:memory-intake/contract-ref/cross-surface-memory-intake/v1",
+        item_kind: "cross_surface_memory_intake_proposal_ref",
+        title: "Cross-surface memory intake",
+        safe_summary:
+          "Today, Chat, Plans, Actions, Evidence, local coding, and manual external-assistant review imports can produce reviewed memory intake proposals with safe refs only.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers(
+          crossSurfaceMemoryIntakeContractRef,
+        ),
+        source_refs: [
+          ...crossSurfaceMemoryIntakeProposals.map(
+            (proposal) => proposal.proposal_ref,
+          ),
+          ...crossSurfaceMemoryIntakeProposals.flatMap(
+            (proposal) => proposal.source_refs,
+          ),
+        ],
+        status_refs: [
+          crossSurfaceMemoryIntakeContractRef,
+          "contract-ref:memory-source-provenance:v1",
+          "contract-ref:memory-review-decision:v1",
+          "contract-ref:business-memory-quality-controls:v1",
+        ],
+        related_route_refs: ["GET /control-center/today/summary", "/memory"],
+        side_effect_class: "local_dev_workspace_only",
+        authority_posture:
+          "Cross-surface memory intake is proposal metadata only; review is required and writes or context injection remain unscoped.",
+        approval_posture: "approval-status:memory-intake-write-not-authorized",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
+        receipt_refs: [],
+        audit_refs: crossSurfaceMemoryIntakeProposals.flatMap(
+          (proposal) => proposal.evidence_refs,
+        ),
+        replay_refs: ["replay-ref:cross-surface-memory-intake:review"],
+        rollback_refs: [],
+        rollback_blockers: ["memory_intake_no_mutation_to_rollback"],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_each_intake_candidate_before_review",
+        missing_evidence_posture: "missing_evidence_refs_require_review",
+        blocked_states: crossSurfaceMemoryIntakeBlockedRefs,
+        next_safe_action:
+          "Review candidate refs in the Memory inbox before any later memory decision milestone.",
       },
       {
         timeline_item_ref: "evidence-timeline:memory/memory-review/founder-loop-preferences",

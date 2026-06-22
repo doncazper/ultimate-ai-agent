@@ -221,9 +221,12 @@ def chat_local_operator_surface_bindings() -> list[dict[str, str]]:
         },
         {
             "surface": "Memory",
-            "feed_status": "blocked_until_cross_surface_memory_intake",
-            "feed_ref": "blocked-state:no-chat-memory-write",
-            "authority_boundary": "Chat does not write memory or inject context.",
+            "feed_status": "cross_surface_memory_intake_proposal_refs_only",
+            "feed_ref": "memory-intake-proposal:chat",
+            "authority_boundary": (
+                "Chat can feed reviewed memory intake candidates only; memory "
+                "writes and context injection remain blocked."
+            ),
         },
     ]
 

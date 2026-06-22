@@ -674,6 +674,61 @@ export function MemoryReviewSurfacePanel({
             )}
           />
         </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Memory intake</h3>
+            <span>{today.cross_surface_memory_intake_status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.cross_surface_memory_intake_contract_ref}
+            />
+            <DetailTerm
+              label="Proposal count"
+              value={String(today.cross_surface_memory_intake_proposal_count)}
+            />
+            <DetailTerm
+              label="Review required"
+              value={
+                today.cross_surface_memory_intake_authority_posture.review_required
+                  ? "yes"
+                  : "missing"
+              }
+            />
+            <DetailTerm
+              label="Memory write"
+              value={
+                today.cross_surface_memory_intake_authority_posture
+                  .memory_write_authorized
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Context injection"
+              value={
+                today.cross_surface_memory_intake_authority_posture
+                  .context_injection_authorized
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <InlineListWithFallback
+            emptyLabel="Intake surfaces: missing"
+            items={today.cross_surface_memory_intake_required_surfaces}
+          />
+          <RefList refs={today.cross_surface_memory_intake_required_blocked_refs} />
+        </article>
+      </div>
+      <div className="review-grid">
+        {today.cross_surface_memory_intake_proposals.map((proposal) => (
+          <MemoryIntakeProposalCard
+            key={proposal.proposal_ref}
+            proposal={proposal}
+          />
+        ))}
       </div>
       <div className="review-grid">
         {today.memory_review_queue.map((item) => (
@@ -682,6 +737,52 @@ export function MemoryReviewSurfacePanel({
       </div>
       <BlockedStateList states={today.memory_review_blocked_states ?? []} />
     </section>
+  );
+}
+
+function MemoryIntakeProposalCard({
+  proposal,
+}: {
+  proposal: FounderLoopTodaySummary["cross_surface_memory_intake_proposals"][number];
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>{proposal.surface}</h3>
+        <span>{proposal.candidate_kind}</span>
+      </div>
+      <p>{proposal.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Proposal ref" value={proposal.proposal_ref} />
+        <DetailTerm label="Candidate ref" value={proposal.candidate_ref} />
+        <DetailTerm label="Source kind" value={proposal.source_kind} />
+        <DetailTerm label="Trust posture" value={proposal.source_trust_posture} />
+        <DetailTerm label="Confidence" value={proposal.confidence_posture} />
+        <DetailTerm label="Missing evidence" value={proposal.missing_evidence_posture} />
+        <DetailTerm label="Stale-state" value={proposal.stale_state} />
+        <DetailTerm label="Next safe action" value={proposal.next_safe_action} />
+        <DetailTerm
+          label="Memory write"
+          value={proposal.memory_write_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={proposal.context_injection_authorized ? "enabled" : "blocked"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Source refs: missing"
+        refs={proposal.source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: missing"
+        refs={proposal.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing evidence refs: none"
+        refs={proposal.missing_evidence_refs}
+      />
+    </article>
   );
 }
 

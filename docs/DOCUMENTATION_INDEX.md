@@ -12,7 +12,7 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_3.md`, `docs/release_notes/checkpoint_m168.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
-| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md` |
+| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
@@ -40,7 +40,10 @@ candidate kinds and quality posture; UAA-P1-073 Plans To Reviewable Action
 Envelopes completes reviewable Action envelope posture; UAA-P1-074 Chat Local
 Operator Surface completes first-party local Chat operator truth; UAA-P1-075
 Governed Code Workbench V1 completes repo-local governed Code proposal refs;
-UAA-P1-076 Cross-Surface Memory Intake is the current Ready Next product lane.
+UAA-P1-076 Cross-Surface Memory Intake completes review-only intake proposal
+refs from Today, Chat, Plans, Actions, Evidence, local coding, and manual
+external-assistant review imports; UAA-P1-077 Memory-To-Loop Binding is the
+current Ready Next product lane.
 Every module
 feeds Today, Actions, Evidence, and Memory;
 source provenance, reviewed business memory, Evidence-as-history,
@@ -67,6 +70,7 @@ docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md
 docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md
 docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md
 docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md
+docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md
 docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md
 docs/metrics/NORTH_STAR_METRICS.md
 docs/codex/CODEX_EXECUTION_PROMPTS.md
@@ -75,6 +79,7 @@ docs/schemas/evidence_history_grammar.schema.json
 docs/schemas/memory_source_provenance.schema.json
 docs/schemas/chat_local_operator_surface.schema.json
 docs/schemas/governed_code_workbench.schema.json
+docs/schemas/cross_surface_memory_intake.schema.json
 docs/schemas/memory_review_decision_capture.schema.json
 docs/schemas/business_memory_quality_controls.schema.json
 docs/schemas/plans_action_envelopes.schema.json

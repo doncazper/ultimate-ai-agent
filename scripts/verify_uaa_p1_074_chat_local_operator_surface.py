@@ -217,8 +217,12 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
     }
     if set(bindings) != {"Today", "Chat", "Plans", "Actions", "Evidence", "Memory"}:
         failures.append("Chat local operator surface bindings drifted")
-    if bindings["Memory"]["feed_status"] != "blocked_until_cross_surface_memory_intake":
-        failures.append("Chat local operator memory binding is not blocked")
+    if bindings["Memory"]["feed_status"] != (
+        "cross_surface_memory_intake_proposal_refs_only"
+    ):
+        failures.append("Chat local operator memory binding is not proposal-only")
+    if bindings["Memory"]["feed_ref"] != "memory-intake-proposal:chat":
+        failures.append("Chat local operator memory binding missing intake ref")
 
     module_feeds = {item["module"]: item for item in today["module_feed_contract"]}
     chat_feed = module_feeds.get("Chat", {})

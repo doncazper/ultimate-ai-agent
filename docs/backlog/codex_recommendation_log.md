@@ -42,6 +42,47 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-076 Cross-Surface Memory Intake Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor after UAA-P1-075, with the user pause
+request treated as a stop-after-clean-milestone boundary.
+
+Recommendation: Complete UAA-P1-076 as a review-only cross-surface memory
+intake contract, then pause with UAA-P1-077 Memory-To-Loop Binding documented
+as the next lane.
+
+Next prompt: Execute UAA-P1-077 Memory-To-Loop Binding after reviewing the
+active roadmap, current board, Founder Command Center board, phase tasks, MVP
+spec, AGENTS.md, process/spec guidance, and UAA-P1-068 through UAA-P1-076
+contract evidence. Bind memory state into Today, Action Inbox, Evidence
+Timeline, and Weekly CEO Review without approval, execution, memory write,
+context injection, connector runtime, provider/model authority, public beta,
+public distribution, production readiness, or production authority.
+
+Decision: Accepted and completed for the UAA-P1-076 contract slice.
+
+Status: completed
+
+Completed: Added `contract-ref:cross-surface-memory-intake:v1`, review-only
+proposal refs from Today, Chat, Plans, Actions, Evidence, local coding, and
+manual external-assistant review imports, source/provenance/evidence refs,
+quality and stale-state posture, blocked authority refs, Today/Evidence fields,
+Control Center Memory Review visibility, schema, verifier, focused tests, and
+active currentness updates that promote UAA-P1-077.
+
+Not done: No automatic memory write, accepted recall promotion, context
+injection, provider call, account fetch, browser import, shell history import,
+raw file import, connector runtime, source truth authority, public beta, public
+distribution, production readiness, or production authority.
+
+Evidence: `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`,
+`docs/schemas/cross_surface_memory_intake.schema.json`,
+`scripts/verify_uaa_p1_076_cross_surface_memory_intake.py`,
+`tests/test_uaa_p1_076_cross_surface_memory_intake.py`,
+`src/ultimate_ai_agent/core/memory/intake.py`.
+
 ### 2026-06-21 - UAA-P1-075 Governed Code Workbench Completed
 
 Date: 2026-06-21
@@ -51,7 +92,7 @@ explicit rule that next-prompt recommendations are handoffs, not stop signs.
 
 Recommendation: Complete UAA-P1-075 as a governed repo-local Code proposal
 contract on the Today spine and Evidence Timeline, then auto-advance to
-UAA-P1-076 Cross-Surface Memory Intake.
+UAA-P1-076 Cross-Surface Memory Intake complete.
 
 Next prompt state:
 
@@ -75,7 +116,8 @@ Completed: Added `contract-ref:governed-code-workbench:v1`, repo-local proposal
 refs, safe diff summary refs, validation plan/result refs, approval requirement
 refs, expected apply and rollback receipt refs, blocked authority refs,
 Today/Evidence fields, Control Center metadata shape, schema, verifier, focused
-tests, and active currentness updates that promote UAA-P1-076.
+tests, and active currentness updates that promoted the then-next memory intake
+milestone.
 
 Not done: No apply execution, approval grant capture, direct file-write
 runtime, unrestricted shell, shell/subprocess execution, remote execution,

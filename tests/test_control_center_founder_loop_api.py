@@ -10,6 +10,12 @@ from ultimate_ai_agent.core.code import (
     GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS,
     GOVERNED_CODE_WORKBENCH_REQUIRED_REF_FIELDS,
 )
+from ultimate_ai_agent.core.memory import (
+    CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
+    CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
+    CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_REF_FIELDS,
+    CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_SURFACES,
+)
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
@@ -265,7 +271,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     )
     assert (
         module_feeds["Memory"]["status"]
-        == "implemented_review_queue_decision_and_quality_metadata_contract"
+        == "implemented_review_queue_quality_and_intake_metadata_contract"
     )
     assert (
         MEMORY_REVIEW_DECISION_CONTRACT_REF
@@ -273,6 +279,10 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     )
     assert (
         BUSINESS_MEMORY_QUALITY_CONTRACT_REF
+        in module_feeds["Memory"]["current_feed_refs"]
+    )
+    assert (
+        CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
     )
     assert module_feeds["Plans"]["status"] == (
@@ -327,6 +337,34 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert (
         today["governed_code_workbench_authority_posture"][
             "production_authority_enabled"
+        ]
+        is False
+    )
+    assert (
+        today["cross_surface_memory_intake_contract_ref"]
+        == CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF
+    )
+    assert today["cross_surface_memory_intake_required_surfaces"] == (
+        CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_SURFACES
+    )
+    assert today["cross_surface_memory_intake_required_ref_fields"] == (
+        CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_REF_FIELDS
+    )
+    assert set(CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS) <= set(
+        today["cross_surface_memory_intake_blocked_state_refs"]
+    )
+    assert today["cross_surface_memory_intake_proposal_count"] == len(
+        CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_SURFACES
+    )
+    assert (
+        today["cross_surface_memory_intake_authority_posture"][
+            "automatic_memory_write_authorized"
+        ]
+        is False
+    )
+    assert (
+        today["cross_surface_memory_intake_authority_posture"][
+            "context_injection_authorized"
         ]
         is False
     )
@@ -554,6 +592,24 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert code_history_item["rollback_execution_enabled"] is False
     assert set(GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS) <= set(
         code_history_item["blocked_states"]
+    )
+
+    memory_intake_item = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "cross_surface_memory_intake_proposal_ref"
+    )
+    assert CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF in memory_intake_item[
+        "status_refs"
+    ]
+    assert memory_intake_item["history_answers"]["approved"]["status"] == "blocked"
+    assert "Only safe memory intake proposal metadata" in (
+        memory_intake_item["history_answers"]["happened"]["answer"]
+    )
+    assert memory_intake_item["memory_truth_authority"] is False
+    assert memory_intake_item["context_injection_authorized"] is False
+    assert set(CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS) <= set(
+        memory_intake_item["blocked_states"]
     )
 
 

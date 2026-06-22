@@ -21,7 +21,8 @@ implemented as contract/test/read-only UI slices. UAA-P1-074 Chat Local
 Operator Surface is implemented as a first-party local operator truth slice.
 UAA-P1-075 Governed Code Workbench V1 is implemented as a governed repo-local
 Code proposal and Evidence Timeline metadata slice. UAA-P1-076 Cross-Surface
-Memory Intake is the next incomplete lane.
+Memory Intake is implemented as a review-only proposal/intake slice. UAA-P1-077
+Memory-To-Loop Binding is the next incomplete lane.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -52,11 +53,16 @@ Memory Intake is the next incomplete lane.
 8. Governed Code workbench: implemented. Repo-local safe diff summary refs,
    validation proof refs, approval-bound apply posture, rollback receipt
    posture, and evidence before broad coding-agent autonomy.
-9. Cross-surface memory intake: Ready Next. Bind safe memory proposals from
+9. Cross-surface memory intake: implemented. Bind safe memory proposals from
    Today, Chat, Plans, Actions, Evidence, local coding summaries, and manual
    external-assistant review imports without automatic memory writes or context
    injection.
-10. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,
+10. Memory-to-loop binding: Ready Next. Make Today, Action Inbox, Evidence
+   Timeline, and Weekly CEO Review show memory candidates, accepted recall
+   refs, corrections, rejected items, follow-up commitments, stale-state
+   posture, and missing-evidence blockers without write or context-injection
+   authority.
+11. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,
    loop binding, or beta-readiness claims, classify routes as
    `public_metadata`, `local_readonly`, `local_sensitive`, or
    `mutating_requires_authority`; plan centralized security headers, explicit

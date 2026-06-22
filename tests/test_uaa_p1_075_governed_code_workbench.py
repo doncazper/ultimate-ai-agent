@@ -100,8 +100,9 @@ def test_governed_code_workbench_posture_and_surface_bindings() -> None:
     surfaces = {binding["surface"]: binding for binding in bindings}
     assert set(surfaces) == {"Today", "Code", "Actions", "Evidence", "Memory"}
     assert surfaces["Memory"]["feed_status"] == (
-        "blocked_until_cross_surface_memory_intake"
+        "cross_surface_memory_intake_proposal_refs_only"
     )
+    assert surfaces["Memory"]["feed_ref"] == "memory-intake-proposal:local-coding"
 
 
 def test_founder_loop_today_binds_governed_code_workbench(tmp_path) -> None:

@@ -285,9 +285,12 @@ def plans_action_envelope_surface_bindings() -> list[dict[str, str]]:
         },
         {
             "surface": "Memory",
-            "feed_status": "blocked_until_cross_surface_memory_intake",
-            "feed_ref": "memory-ref:plans-action-envelope-candidate-blocked",
-            "authority_boundary": "Envelope refs do not become memory recall without review.",
+            "feed_status": "cross_surface_memory_intake_proposal_refs_only",
+            "feed_ref": "memory-intake-proposal:plans",
+            "authority_boundary": (
+                "Envelope refs can feed reviewed memory intake candidates only; "
+                "memory recall, writes, and context injection remain blocked."
+            ),
         },
     ]
 

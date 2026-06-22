@@ -71,7 +71,8 @@ Governed Code metadata feeds these surfaces as safe refs only:
 - Code: repo-local safe diff summary contract.
 - Actions: expected apply receipt refs and approval requirement refs only.
 - Evidence: validation and rollback receipt refs as history.
-- Memory: blocked until cross-surface memory intake is scoped later.
+- Memory: reviewed cross-surface memory intake proposal refs only; memory writes
+  and context injection remain blocked.
 
 ## Authority Boundary
 
@@ -133,5 +134,6 @@ Required proof:
 
 ## Next Milestone
 
-UAA-P1-076 Cross-Surface Memory Intake is next unless hardening finds that
-UAA-P1-075 needs an incremental follow-up such as UAA-P1-075.1.
+UAA-P1-076 Cross-Surface Memory Intake is now implemented. UAA-P1-077
+Memory-To-Loop Binding is next unless hardening finds that UAA-P1-076 needs an
+incremental follow-up such as UAA-P1-076.1.
