@@ -1,0 +1,101 @@
+{
+  "schema_version": "uaa-verifier-maintainability-policy.v1",
+  "line_budgets": {
+    "compatibility_wrappers": {
+      "max_lines": 120,
+      "paths": [
+        "scripts/verify_all.py",
+        "scripts/verify_documentation_integrity.py"
+      ]
+    },
+    "verifier_modules": {
+      "max_lines": 700,
+      "globs": [
+        "scripts/verify_uaa_p1_0*.py",
+        "scripts/verification/**/*.py"
+      ],
+      "allowlist": {
+        "scripts/verification/run_all_legacy.py": {
+          "max_lines": 30237,
+          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; future static scans must move to small modules."
+        },
+        "scripts/verification/documentation_integrity/legacy.py": {
+          "max_lines": 21945,
+          "reason": "Frozen compatibility body moved out of scripts/verify_documentation_integrity.py; future doc checks must be data-driven or modular."
+        }
+      }
+    },
+    "test_files": {
+      "max_lines": 700,
+      "globs": [
+        "tests/test_*.py"
+      ],
+      "allowlist": {
+        "tests/test_m167_github_bootstrap_local_installer.py": {
+          "max_lines": 981,
+          "reason": "Pre-existing oversized test outside this verifier refactor."
+        },
+        "tests/test_documentation_integrity_verifier.py": {
+          "max_lines": 863,
+          "reason": "Pre-existing oversized test outside this verifier refactor."
+        },
+        "tests/test_dev_setup.py": {
+          "max_lines": 846,
+          "reason": "Pre-existing oversized test outside this verifier refactor."
+        },
+        "tests/test_control_center_frontend_safety_verifier.py": {
+          "max_lines": 734,
+          "reason": "Pre-existing oversized test outside this verifier refactor."
+        },
+        "tests/test_foundation_gate_latency_scripts.py": {
+          "max_lines": 701,
+          "reason": "Pre-existing oversized test outside this verifier refactor."
+        },
+        "tests/test_founder_loop_storage.py": {
+          "max_lines": 1088,
+          "reason": "Frozen seed/read-model legacy chunk after behavior-specific tests were sharded."
+        },
+        "tests/test_control_center_founder_loop_api.py": {
+          "max_lines": 782,
+          "reason": "Frozen Control Center Founder Loop API safety chunk after manifest test was sharded."
+        }
+      }
+    }
+  },
+  "milestone_future_reference_check": {
+    "paths": [
+      "scripts/verify_uaa_p1_080_api_route_classification.py",
+      "scripts/verify_uaa_p1_081_fastapi_security_headers.py",
+      "scripts/verify_uaa_p1_082_loopback_cors.py",
+      "scripts/verify_uaa_p1_083_local_auth_gate.py",
+      "scripts/verify_uaa_p1_084_mutating_route_idempotency.py",
+      "scripts/verify_uaa_p1_085_targeted_rate_limits.py"
+    ]
+  },
+  "banned_duplicate_helpers": [
+    {
+      "pattern": "def _fixture_routes_from_manifest",
+      "allowed_paths": [
+        "scripts/verification/api_routes.py"
+      ]
+    }
+  ],
+  "shared_api_lane_setup": {
+    "paths": [
+      "scripts/verify_uaa_p1_080_api_route_classification.py",
+      "scripts/verify_uaa_p1_081_fastapi_security_headers.py",
+      "scripts/verify_uaa_p1_082_loopback_cors.py",
+      "scripts/verify_uaa_p1_083_local_auth_gate.py",
+      "scripts/verify_uaa_p1_084_mutating_route_idempotency.py",
+      "scripts/verify_uaa_p1_085_targeted_rate_limits.py",
+      "scripts/verification/api_routes.py"
+    ],
+    "forbidden_patterns": [
+      "from fastapi.testclient import TestClient",
+      "TestClient(app)",
+      "build_api_manifest(app)",
+      "current_manifest()",
+      "from ultimate_ai_agent.api.app import app"
+    ]
+  }
+}

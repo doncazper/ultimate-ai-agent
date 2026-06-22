@@ -2182,6 +2182,7 @@ M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_FILES = {
     "src/ultimate_ai_agent/core/hardening_freeze/network_browser_openwebui.py",
     "src/ultimate_ai_agent/core/local_model_management/contracts.py",
     "scripts/verify_all.py",
+    "scripts/verification/run_all_legacy.py",
     "scripts/verify_control_center_frontend.py",
 }
 M21_OPENWEBUI_ALLOWED_FRAGMENT_SCAN_EXCEPTIONS = {
@@ -2345,6 +2346,7 @@ M152_FORBIDDEN_DEPENDENCY_FRAGMENTS = (
     "lmstudio",
 )
 M152_STATIC_SCAN_ALLOWED_FILES = {
+    "src/ultimate_ai_agent/api/local_auth.py",
     "src/ultimate_ai_agent/api/openapi.py",
     "src/ultimate_ai_agent/core/gate/criteria.py",
     "src/ultimate_ai_agent/core/gate/evaluators.py",

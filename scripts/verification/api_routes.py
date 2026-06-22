@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+from .repo import load_json
+
+
+ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_112.json"
+ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v3"
+EXPECTED_ROUTE_COUNT = 112
+EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
+    "not_required_for_route_classification": 99,
+    "required_before_mutation_authority": 13,
+}
+EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
+    "not_targeted_for_route": 78,
+    "targeted_local_fixed_window": 34,
+}
+EXPECTED_MUTATING_ROUTES = {
+    ("POST", "/files/review/approvals/capture"),
+    ("POST", "/integrations/mattermost/events/message"),
+    ("POST", "/integrations/mattermost/roles/bind"),
+    ("POST", "/integrations/mattermost/roles/unbind"),
+    ("POST", "/kernel/tasks/run"),
+    ("POST", "/task-decomposition/approval-requests"),
+    ("POST", "/task-decomposition/approvals/grants/capture"),
+    ("POST", "/task-decomposition/approvals/revoke"),
+    ("POST", "/task-decomposition/capabilities/register"),
+    ("POST", "/task-decomposition/examples/init"),
+    ("POST", "/task-decomposition/plans/execute"),
+    ("POST", "/task-decomposition/run"),
+    ("POST", "/v1/chat/completions"),
+}
+EXPECTED_RATE_LIMIT_GROUPS = {
+    "action_preview_proposal",
+    "local_model_validation",
+    "model_chat",
+    "task_decomposition",
+}
+ROUTE_PROJECTION_FIELDS = (
+    "path",
+    "method",
+    "operation_id",
+    "tags",
+    "summary",
+    "side_effect_class",
+    "route_classification",
+    "idempotency_required",
+    "idempotency_posture",
+    "idempotency_policy_ref",
+    "rate_limit_targeted",
+    "rate_limit_posture",
+    "rate_limit_policy_ref",
+    "rate_limit_group",
+)
+
+
+def route_key(route: dict[str, Any]) -> tuple[str, str]:
+    return (route["method"], route["path"])
+
+
+def route_index(manifest: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
+    return {route_key(route): route for route in manifest["routes"]}
+
+
+def projected_routes(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    routes = [
+        {field: route[field] for field in ROUTE_PROJECTION_FIELDS}
+        for route in manifest["routes"]
+    ]
+    return sorted(routes, key=lambda item: (item["path"], item["method"]))
+
+
+def route_fixture(path: str | Path = ROUTE_FIXTURE_PATH) -> dict[str, Any]:
+    return load_json(path)
+
+
+def classification_counter(manifest: dict[str, Any]) -> Counter[str]:
+    return Counter(route.get("route_classification") for route in manifest["routes"])
+
+
+def side_effect_counter(manifest: dict[str, Any]) -> Counter[str]:
+    return Counter(route.get("side_effect_class") for route in manifest["routes"])
+
+
+def append_expected_route_count(failures: list[str], manifest: dict[str, Any]) -> None:
+    if manifest["route_count"] != EXPECTED_ROUTE_COUNT:
+        failures.append(f"/api/manifest route_count changed: {manifest['route_count']}")
+
+
+def append_route_fixture_mismatches(
+    failures: list[str],
+    manifest: dict[str, Any],
+    *,
+    label: str = "route inventory fixture",
+) -> None:
+    fixture = route_fixture()
+    if fixture.get("schema_version") != ROUTE_FIXTURE_SCHEMA_VERSION:
+        failures.append(f"{label} schema_version is stale")
+    if fixture.get("routes") != projected_routes(manifest):
+        failures.append(f"{label} does not match live manifest")
+    for key in [
+        "route_classification_vocabulary",
+        "route_classification_summary",
+        "route_idempotency_posture_summary",
+        "idempotency_audit_policy_ref",
+        "route_rate_limit_posture_summary",
+        "rate_limit_policy_ref",
+    ]:
+        if fixture.get(key) != manifest.get(key):
+            failures.append(f"{label} {key} is stale")
+
+
+def expected_summary_total(summary: dict[str, int]) -> int:
+    return sum(summary.values())

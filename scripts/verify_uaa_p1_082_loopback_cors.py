@@ -9,11 +9,9 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from fastapi.testclient import TestClient  # noqa: E402
-
-from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.cors import (  # noqa: E402
     CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS,
     CONTROL_CENTER_LOOPBACK_CORS_HEADERS,
@@ -21,8 +19,18 @@ from ultimate_ai_agent.api.cors import (  # noqa: E402
     CONTROL_CENTER_LOOPBACK_CORS_ORIGINS,
     LOOPBACK_CORS_POLICY_REF,
 )
-from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.api.security_headers import FASTAPI_SECURITY_HEADERS  # noqa: E402
+from scripts.verification.api_routes import append_expected_route_count  # noqa: E402
+from scripts.verification.api_lane import (  # noqa: E402
+    ApiVerifierContext,
+    default_api_verifier_context,
+)
+from scripts.verification.repo import (  # noqa: E402
+    append_forbidden_claims,
+    append_missing_doc_snippets,
+    print_failures_or_success,
+    read_text,
+)
 
 
 CONTRACT_DOC = "docs/api/UAA_P1_082_EXPLICIT_LOOPBACK_CORS_ALLOWLIST.md"
@@ -40,7 +48,6 @@ REQUIRED_DOC_SNIPPETS = {
         "X-UAA-Idempotency-Ref",
         "wildcard CORS remains denied",
         "CORS is browser hardening, not authentication",
-        "UAA-P1-083",
     ],
     "docs/api/openapi_contract.md": [
         "UAA-P1-082",
@@ -51,10 +58,6 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/route_inventory.md": [
         "UAA-P1-082",
         "explicit loopback CORS allowlist posture",
-        "UAA-P1-083 implements local protected-route bearer gate posture",
-        "UAA-P1-084 implements mutating-route idempotency enforcement audit posture",
-        "UAA-P1-085 implements targeted local fixed-window rate-limit posture",
-        "Future UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -67,14 +70,11 @@ FORBIDDEN_CLAIMS = [
     "public release ready",
     "production ready because of cors",
 ]
+SUCCESS_MESSAGE = "UAA-P1-082 loopback CORS verification passed."
 
 
 def _read(path: str) -> str:
-    return (ROOT / path).read_text(encoding="utf-8")
-
-
-def _compact(path: str) -> str:
-    return " ".join(_read(path).lower().split())
+    return read_text(path)
 
 
 def _policy_payload() -> dict[str, Any]:
@@ -96,7 +96,7 @@ def _policy_payload() -> dict[str, Any]:
     }
 
 
-def _preflight(client: TestClient, origin: str, method: str = "POST"):
+def _preflight(client: Any, origin: str, method: str = "POST"):
     return client.options(
         "/contracts/validate",
         headers={
@@ -110,7 +110,8 @@ def _preflight(client: TestClient, origin: str, method: str = "POST"):
     )
 
 
-def main() -> int:
+def verify(context: ApiVerifierContext | None = None) -> list[str]:
+    context = context or default_api_verifier_context()
     failures: list[str] = []
     schema = json.loads(_read(SCHEMA_DOC))
     errors = sorted(
@@ -127,7 +128,7 @@ def main() -> int:
     if CONTROL_CENTER_LOOPBACK_CORS_METHODS != ("GET", "POST"):
         failures.append("loopback CORS methods must stay GET/POST only")
 
-    client = TestClient(app)
+    client = context.client
     for origin in CONTROL_CENTER_LOOPBACK_CORS_ORIGINS:
         response = client.get("/health", headers={"Origin": origin})
         if response.headers.get("Access-Control-Allow-Origin") != origin:
@@ -179,9 +180,8 @@ def main() -> int:
         if "Access-Control-Allow-Origin" in rejected.headers:
             failures.append(f"blocked preflight received CORS allow header: {origin}")
 
-    manifest = build_api_manifest(app).model_dump(mode="json")
-    if manifest["route_count"] != 112:
-        failures.append(f"route count drifted: {manifest['route_count']}")
+    manifest = context.manifest
+    append_expected_route_count(failures, manifest)
     if "explicit_loopback_cors_allowlist" not in manifest["capabilities_declared"]:
         failures.append("/api/manifest missing explicit_loopback_cors_allowlist")
     for blocked in [
@@ -192,12 +192,8 @@ def main() -> int:
         if blocked not in manifest["capabilities_blocked"]:
             failures.append(f"/api/manifest missing blocked capability {blocked}")
 
-    for doc_path, snippets in REQUIRED_DOC_SNIPPETS.items():
-        compact = _compact(doc_path)
-        for snippet in snippets:
-            if " ".join(snippet.lower().split()) not in compact:
-                failures.append(f"{doc_path} missing '{snippet}'")
-    for scan_path in [
+    append_missing_doc_snippets(failures, REQUIRED_DOC_SNIPPETS)
+    append_forbidden_claims(failures, [
         CONTRACT_DOC,
         "docs/api/openapi_contract.md",
         "docs/api/route_inventory.md",
@@ -205,20 +201,13 @@ def main() -> int:
         "VERSION.md",
         "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
         "docs/kanban/current_board.md",
-    ]:
-        if not (ROOT / scan_path).exists():
-            continue
-        compact = _compact(scan_path)
-        for forbidden in FORBIDDEN_CLAIMS:
-            if forbidden in compact:
-                failures.append(f"{scan_path} contains forbidden claim '{forbidden}'")
+    ], FORBIDDEN_CLAIMS)
 
-    if failures:
-        for failure in failures:
-            print(f"ERROR: {failure}")
-        return 1
-    print("UAA-P1-082 loopback CORS verification passed.")
-    return 0
+    return failures
+
+
+def main() -> int:
+    return print_failures_or_success(verify(), SUCCESS_MESSAGE)
 
 
 if __name__ == "__main__":

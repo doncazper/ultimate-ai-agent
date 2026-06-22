@@ -1,28 +1,40 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from typing import Any
 from unittest.mock import patch
 
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from fastapi.testclient import TestClient  # noqa: E402
-
-from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
-from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.api.rate_limits import (  # noqa: E402
     API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV,
     API_TARGETED_RATE_LIMIT_POLICY_REF,
     API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV,
     api_rate_limit_policy_payload,
     reset_api_rate_limit_state,
+)
+from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_RATE_LIMIT_GROUPS,
+    EXPECTED_RATE_LIMIT_POSTURE_SUMMARY,
+    append_expected_route_count,
+    append_route_fixture_mismatches,
+    route_fixture,
+)
+from scripts.verification.api_lane import (  # noqa: E402
+    ApiVerifierContext,
+    default_api_verifier_context,
+)
+from scripts.verification.repo import (  # noqa: E402
+    append_forbidden_claims,
+    append_missing_doc_snippets,
+    load_json,
+    print_failures_or_success,
 )
 
 
@@ -31,16 +43,6 @@ POLICY_SCHEMA = "docs/schemas/api_targeted_rate_limits.schema.json"
 ROUTE_SCHEMA = "docs/schemas/api_route_classification.schema.json"
 ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_112.json"
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:p1-085-verifier"}
-EXPECTED_RATE_LIMIT_SUMMARY = {
-    "not_targeted_for_route": 78,
-    "targeted_local_fixed_window": 34,
-}
-EXPECTED_GROUPS = {
-    "action_preview_proposal",
-    "local_model_validation",
-    "model_chat",
-    "task_decomposition",
-}
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
         "Status: Implemented",
@@ -56,7 +58,6 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/route_inventory.md": [
         "UAA-P1-085 implements targeted local fixed-window rate-limit posture",
-        "Future UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -66,48 +67,16 @@ FORBIDDEN_CLAIMS = [
     "public beta is ready",
     "public release ready",
 ]
+SUCCESS_MESSAGE = "UAA-P1-085 targeted local rate-limit verification passed."
 
 
-def _read(path: str) -> str:
-    return (ROOT / path).read_text(encoding="utf-8")
-
-
-def _load_json(path: str) -> Any:
-    return json.loads(_read(path))
-
-
-def _compact(path: str) -> str:
-    return " ".join(_read(path).lower().split())
-
-
-def _fixture_routes_from_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
-    routes = [
-        {
-            "path": route["path"],
-            "method": route["method"],
-            "operation_id": route["operation_id"],
-            "tags": route["tags"],
-            "summary": route["summary"],
-            "side_effect_class": route["side_effect_class"],
-            "route_classification": route["route_classification"],
-            "idempotency_required": route["idempotency_required"],
-            "idempotency_posture": route["idempotency_posture"],
-            "idempotency_policy_ref": route["idempotency_policy_ref"],
-            "rate_limit_targeted": route["rate_limit_targeted"],
-            "rate_limit_posture": route["rate_limit_posture"],
-            "rate_limit_policy_ref": route["rate_limit_policy_ref"],
-            "rate_limit_group": route["rate_limit_group"],
-        }
-        for route in manifest["routes"]
-    ]
-    return sorted(routes, key=lambda item: (item["path"], item["method"]))
-
-
-def main() -> int:
+def verify(context: ApiVerifierContext | None = None) -> list[str]:
+    context = context or default_api_verifier_context()
     failures: list[str] = []
-    manifest = build_api_manifest(app).model_dump(mode="json")
+    manifest = context.manifest
+    append_expected_route_count(failures, manifest)
 
-    policy_schema = _load_json(POLICY_SCHEMA)
+    policy_schema = load_json(POLICY_SCHEMA)
     policy_payload = api_rate_limit_policy_payload(targeted_route_count=34)
     for error in sorted(
         Draft202012Validator(policy_schema).iter_errors(policy_payload),
@@ -115,21 +84,22 @@ def main() -> int:
     ):
         failures.append(f"api targeted rate-limit policy schema error: {error.message}")
 
-    route_fixture = _load_json(ROUTE_FIXTURE)
-    route_schema = _load_json(ROUTE_SCHEMA)
+    route_fixture_payload = route_fixture(ROUTE_FIXTURE)
+    route_schema = load_json(ROUTE_SCHEMA)
     for error in sorted(
-        Draft202012Validator(route_schema).iter_errors(route_fixture),
+        Draft202012Validator(route_schema).iter_errors(route_fixture_payload),
         key=lambda error: error.path,
     ):
         failures.append(f"route inventory schema error: {error.message}")
-    if route_fixture.get("schema_version") != "uaa-api-route-inventory.v3":
-        failures.append("route inventory fixture schema_version is not v3")
-    if route_fixture.get("routes") != _fixture_routes_from_manifest(manifest):
-        failures.append("route inventory fixture does not match live manifest rate-limit posture")
+    append_route_fixture_mismatches(
+        failures,
+        manifest,
+        label="route inventory fixture",
+    )
 
     if manifest.get("rate_limit_policy_ref") != API_TARGETED_RATE_LIMIT_POLICY_REF:
         failures.append("/api/manifest missing P1-085 rate-limit policy ref")
-    if manifest.get("route_rate_limit_posture_summary") != EXPECTED_RATE_LIMIT_SUMMARY:
+    if manifest.get("route_rate_limit_posture_summary") != EXPECTED_RATE_LIMIT_POSTURE_SUMMARY:
         failures.append("/api/manifest route_rate_limit_posture_summary drifted")
     if "targeted_local_rate_limits" not in manifest["capabilities_declared"]:
         failures.append("/api/manifest missing targeted_local_rate_limits")
@@ -141,18 +111,18 @@ def main() -> int:
         if blocked not in manifest["capabilities_blocked"]:
             failures.append(f"/api/manifest missing blocked capability {blocked}")
 
-    route_index = {(route["method"], route["path"]): route for route in manifest["routes"]}
+    routes_by_key = context.routes_by_key
     targeted_routes = {
-        key for key, route in route_index.items() if route["rate_limit_targeted"] is True
+        key for key, route in routes_by_key.items() if route["rate_limit_targeted"] is True
     }
     if len(targeted_routes) != 34:
         failures.append(f"targeted rate-limit route count drifted: {len(targeted_routes)}")
     targeted_groups = {
         route["rate_limit_group"]
-        for route in route_index.values()
+        for route in routes_by_key.values()
         if route["rate_limit_targeted"] is True
     }
-    if targeted_groups != EXPECTED_GROUPS:
+    if targeted_groups != EXPECTED_RATE_LIMIT_GROUPS:
         failures.append(f"targeted rate-limit groups drifted: {sorted(targeted_groups)}")
     for key in [
         ("POST", "/models/route/preview"),
@@ -160,13 +130,13 @@ def main() -> int:
         ("POST", "/task-decomposition/run"),
         ("POST", "/v1/chat/completions"),
     ]:
-        route = route_index[key]
+        route = routes_by_key[key]
         if route["rate_limit_posture"] != "targeted_local_fixed_window":
             failures.append(f"{key[0]} {key[1]} missing targeted rate-limit posture")
         if route["rate_limit_policy_ref"] != API_TARGETED_RATE_LIMIT_POLICY_REF:
             failures.append(f"{key[0]} {key[1]} rate-limit policy ref drifted")
 
-    client = TestClient(app)
+    client = context.client
     env = {
         API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV: "1",
         API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV: "60",
@@ -262,12 +232,8 @@ def main() -> int:
         if header_name not in expose_headers:
             failures.append(f"CORS expose headers missing {header_name}")
 
-    for doc_path, snippets in REQUIRED_DOC_SNIPPETS.items():
-        compact = _compact(doc_path)
-        for snippet in snippets:
-            if " ".join(snippet.lower().split()) not in compact:
-                failures.append(f"{doc_path} missing '{snippet}'")
-    for scan_path in [
+    append_missing_doc_snippets(failures, REQUIRED_DOC_SNIPPETS)
+    append_forbidden_claims(failures, [
         CONTRACT_DOC,
         "docs/api/openapi_contract.md",
         "docs/api/route_inventory.md",
@@ -275,20 +241,13 @@ def main() -> int:
         "VERSION.md",
         "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
         "docs/kanban/current_board.md",
-    ]:
-        if not (ROOT / scan_path).exists():
-            continue
-        compact = _compact(scan_path)
-        for forbidden in FORBIDDEN_CLAIMS:
-            if forbidden in compact:
-                failures.append(f"{scan_path} contains forbidden claim '{forbidden}'")
+    ], FORBIDDEN_CLAIMS)
 
-    if failures:
-        for failure in failures:
-            print(f"ERROR: {failure}")
-        return 1
-    print("UAA-P1-085 targeted local rate-limit verification passed.")
-    return 0
+    return failures
+
+
+def main() -> int:
+    return print_failures_or_success(verify(), SUCCESS_MESSAGE)
 
 
 if __name__ == "__main__":

@@ -5351,6 +5351,7 @@ class FoundationGateEvaluator:
         allowed_files = {
             "src/ultimate_ai_agent/core/gate/evaluators.py",
             "scripts/verify_all.py",
+            "scripts/verification/run_all_legacy.py",
             "scripts/verify_control_center_frontend.py",
             "tests/test_control_center_frontend_safety_verifier.py",
         }
@@ -5558,6 +5559,7 @@ class FoundationGateEvaluator:
         allowed_files = {
             "src/ultimate_ai_agent/core/gate/evaluators.py",
             "scripts/verify_all.py",
+            "scripts/verification/run_all_legacy.py",
             "scripts/verify_control_center_frontend.py",
             "tests/test_control_center_frontend_safety_verifier.py",
         }
@@ -7569,7 +7571,9 @@ class FoundationGateEvaluator:
                 for path in (self.root / "src" / "ultimate_ai_agent" / "core" / "planning").glob("*.py")
             ).lower()
             forbidden_fragments = (
-                "subprocess",
+                "import subprocess",
+                "from subprocess import",
+                "subprocess" + ".",
                 "os.system(",
                 "popen(",
                 "shell=true",

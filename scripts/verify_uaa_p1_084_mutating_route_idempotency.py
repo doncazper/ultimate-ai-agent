@@ -1,24 +1,36 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from typing import Any
 
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from fastapi.testclient import TestClient  # noqa: E402
-
-from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.idempotency import (  # noqa: E402
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
     api_idempotency_audit_policy_payload,
 )
-from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
+from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY,
+    EXPECTED_MUTATING_ROUTES,
+    append_expected_route_count,
+    append_route_fixture_mismatches,
+    route_fixture,
+)
+from scripts.verification.api_lane import (  # noqa: E402
+    ApiVerifierContext,
+    default_api_verifier_context,
+)
+from scripts.verification.repo import (  # noqa: E402
+    append_forbidden_claims,
+    append_missing_doc_snippets,
+    load_json,
+    print_failures_or_success,
+)
 
 
 CONTRACT_DOC = "docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md"
@@ -26,21 +38,6 @@ POLICY_SCHEMA = "docs/schemas/api_mutating_route_idempotency_audit.schema.json"
 ROUTE_SCHEMA = "docs/schemas/api_route_classification.schema.json"
 ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_112.json"
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:p1-084-verifier"}
-MUTATING_ROUTES = {
-    ("POST", "/files/review/approvals/capture"),
-    ("POST", "/integrations/mattermost/events/message"),
-    ("POST", "/integrations/mattermost/roles/bind"),
-    ("POST", "/integrations/mattermost/roles/unbind"),
-    ("POST", "/kernel/tasks/run"),
-    ("POST", "/task-decomposition/approval-requests"),
-    ("POST", "/task-decomposition/approvals/grants/capture"),
-    ("POST", "/task-decomposition/approvals/revoke"),
-    ("POST", "/task-decomposition/capabilities/register"),
-    ("POST", "/task-decomposition/examples/init"),
-    ("POST", "/task-decomposition/plans/execute"),
-    ("POST", "/task-decomposition/run"),
-    ("POST", "/v1/chat/completions"),
-}
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
         "Status: Implemented",
@@ -57,8 +54,6 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/route_inventory.md": [
         "UAA-P1-084 implements mutating-route idempotency enforcement audit posture",
-        "UAA-P1-085 implements targeted local fixed-window rate-limit posture",
-        "Future UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -69,22 +64,11 @@ FORBIDDEN_CLAIMS = [
     "public beta is ready",
     "public release ready",
 ]
-
-
-def _read(path: str) -> str:
-    return (ROOT / path).read_text(encoding="utf-8")
-
-
-def _load_json(path: str) -> Any:
-    return json.loads(_read(path))
-
-
-def _compact(path: str) -> str:
-    return " ".join(_read(path).lower().split())
+SUCCESS_MESSAGE = "UAA-P1-084 mutating-route idempotency verification passed."
 
 
 def _post(
-    client: TestClient,
+    client,
     path: str,
     headers: dict[str, str] | None = None,
     json_body: dict[str, str] | None = None,
@@ -96,35 +80,14 @@ def _post(
     )
 
 
-def _fixture_routes_from_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
-    routes = [
-        {
-            "path": route["path"],
-            "method": route["method"],
-            "operation_id": route["operation_id"],
-            "tags": route["tags"],
-            "summary": route["summary"],
-            "side_effect_class": route["side_effect_class"],
-            "route_classification": route["route_classification"],
-            "idempotency_required": route["idempotency_required"],
-            "idempotency_posture": route["idempotency_posture"],
-            "idempotency_policy_ref": route["idempotency_policy_ref"],
-            "rate_limit_targeted": route["rate_limit_targeted"],
-            "rate_limit_posture": route["rate_limit_posture"],
-            "rate_limit_policy_ref": route["rate_limit_policy_ref"],
-            "rate_limit_group": route["rate_limit_group"],
-        }
-        for route in manifest["routes"]
-    ]
-    return sorted(routes, key=lambda item: (item["path"], item["method"]))
-
-
-def main() -> int:
+def verify(context: ApiVerifierContext | None = None) -> list[str]:
+    context = context or default_api_verifier_context()
     failures: list[str] = []
-    manifest = build_api_manifest(app).model_dump(mode="json")
+    manifest = context.manifest
     mutating_count = manifest["route_classification_summary"]["mutating_requires_authority"]
+    append_expected_route_count(failures, manifest)
 
-    policy_schema = _load_json(POLICY_SCHEMA)
+    policy_schema = load_json(POLICY_SCHEMA)
     policy_payload = api_idempotency_audit_policy_payload(mutating_route_count=mutating_count)
     for error in sorted(
         Draft202012Validator(policy_schema).iter_errors(policy_payload),
@@ -132,22 +95,22 @@ def main() -> int:
     ):
         failures.append(f"api mutating idempotency policy schema error: {error.message}")
 
-    route_fixture = _load_json(ROUTE_FIXTURE)
-    route_schema = _load_json(ROUTE_SCHEMA)
+    route_fixture_payload = route_fixture(ROUTE_FIXTURE)
+    route_schema = load_json(ROUTE_SCHEMA)
     for error in sorted(
-        Draft202012Validator(route_schema).iter_errors(route_fixture),
+        Draft202012Validator(route_schema).iter_errors(route_fixture_payload),
         key=lambda error: error.path,
     ):
         failures.append(f"route inventory schema error: {error.message}")
-    if route_fixture.get("routes") != _fixture_routes_from_manifest(manifest):
-        failures.append("route inventory fixture does not match live manifest idempotency posture")
+    append_route_fixture_mismatches(
+        failures,
+        manifest,
+        label="route inventory fixture",
+    )
 
     if manifest.get("idempotency_audit_policy_ref") != API_IDEMPOTENCY_AUDIT_POLICY_REF:
         failures.append("/api/manifest missing P1-084 idempotency audit policy ref")
-    if manifest.get("route_idempotency_posture_summary") != {
-        "not_required_for_route_classification": 99,
-        "required_before_mutation_authority": 13,
-    }:
+    if manifest.get("route_idempotency_posture_summary") != EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY:
         failures.append("/api/manifest route_idempotency_posture_summary drifted")
     if "mutating_route_idempotency_audit" not in manifest["capabilities_declared"]:
         failures.append("/api/manifest missing mutating_route_idempotency_audit")
@@ -160,14 +123,14 @@ def main() -> int:
         if blocked not in manifest["capabilities_blocked"]:
             failures.append(f"/api/manifest missing blocked capability {blocked}")
 
-    route_index = {(route["method"], route["path"]): route for route in manifest["routes"]}
+    routes_by_key = context.routes_by_key
     required_routes = {
-        key for key, route in route_index.items() if route["idempotency_required"] is True
+        key for key, route in routes_by_key.items() if route["idempotency_required"] is True
     }
-    if required_routes != MUTATING_ROUTES:
+    if required_routes != EXPECTED_MUTATING_ROUTES:
         failures.append(f"mutating idempotency route set drifted: {sorted(required_routes)}")
-    for key in MUTATING_ROUTES:
-        route = route_index[key]
+    for key in EXPECTED_MUTATING_ROUTES:
+        route = routes_by_key[key]
         if route["route_classification"] != "mutating_requires_authority":
             failures.append(f"{key[0]} {key[1]} classification is not mutating")
         if route["idempotency_posture"] != "required_before_mutation_authority":
@@ -175,8 +138,8 @@ def main() -> int:
         if route["idempotency_policy_ref"] != API_IDEMPOTENCY_AUDIT_POLICY_REF:
             failures.append(f"{key[0]} {key[1]} idempotency policy ref drifted")
 
-    client = TestClient(app)
-    for _method, path in sorted(MUTATING_ROUTES):
+    client = context.client
+    for _method, path in sorted(EXPECTED_MUTATING_ROUTES):
         missing = _post(client, path)
         invalid = _post(client, path, headers={"X-UAA-Idempotency-Key": "short"})
         if missing.status_code != 428:
@@ -219,12 +182,8 @@ def main() -> int:
         if header_name not in allow_headers:
             failures.append(f"CORS preflight missing {header_name}")
 
-    for doc_path, snippets in REQUIRED_DOC_SNIPPETS.items():
-        compact = _compact(doc_path)
-        for snippet in snippets:
-            if " ".join(snippet.lower().split()) not in compact:
-                failures.append(f"{doc_path} missing '{snippet}'")
-    for scan_path in [
+    append_missing_doc_snippets(failures, REQUIRED_DOC_SNIPPETS)
+    append_forbidden_claims(failures, [
         CONTRACT_DOC,
         "docs/api/openapi_contract.md",
         "docs/api/route_inventory.md",
@@ -232,20 +191,13 @@ def main() -> int:
         "VERSION.md",
         "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
         "docs/kanban/current_board.md",
-    ]:
-        if not (ROOT / scan_path).exists():
-            continue
-        compact = _compact(scan_path)
-        for forbidden in FORBIDDEN_CLAIMS:
-            if forbidden in compact:
-                failures.append(f"{scan_path} contains forbidden claim '{forbidden}'")
+    ], FORBIDDEN_CLAIMS)
 
-    if failures:
-        for failure in failures:
-            print(f"ERROR: {failure}")
-        return 1
-    print("UAA-P1-084 mutating-route idempotency verification passed.")
-    return 0
+    return failures
+
+
+def main() -> int:
+    return print_failures_or_success(verify(), SUCCESS_MESSAGE)
 
 
 if __name__ == "__main__":

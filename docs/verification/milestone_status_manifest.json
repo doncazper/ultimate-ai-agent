@@ -1,0 +1,65 @@
+{
+  "schema_version": "uaa-verification-milestone-status.v1",
+  "active_baseline": "v0.102.3",
+  "api_route_inventory": {
+    "fixture_ref": "tests/fixtures/api_route_inventory_112.json",
+    "route_count": 112,
+    "schema_version": "uaa-api-route-inventory.v3"
+  },
+  "milestones": [
+    {
+      "id": "UAA-P1-080",
+      "status": "implemented",
+      "goal": "API route classification inventory is visible in OpenAPI/API manifest evidence without adding runtime authority.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_080_api_route_classification.py",
+        "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md"
+      ]
+    },
+    {
+      "id": "UAA-P1-081",
+      "status": "implemented",
+      "goal": "Centralized FastAPI security headers are enforced as boundary hardening, not authentication or production readiness.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_081_fastapi_security_headers.py",
+        "docs/api/UAA_P1_081_CENTRALIZED_FASTAPI_SECURITY_HEADERS.md"
+      ]
+    },
+    {
+      "id": "UAA-P1-082",
+      "status": "implemented",
+      "goal": "Loopback Control Center CORS allowlist is exact, local-only browser hardening.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_082_loopback_cors.py",
+        "docs/api/UAA_P1_082_EXPLICIT_LOOPBACK_CORS_ALLOWLIST.md"
+      ]
+    },
+    {
+      "id": "UAA-P1-083",
+      "status": "implemented",
+      "goal": "Local protected-route bearer gate blocks non-public routes without claiming enterprise auth.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_083_local_auth_gate.py",
+        "docs/api/UAA_P1_083_LOCAL_BEARER_SESSION_GATE.md"
+      ]
+    },
+    {
+      "id": "UAA-P1-084",
+      "status": "implemented",
+      "goal": "Mutating routes require idempotency evidence before authority checks without durable dedupe or exactly-once claims.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_084_mutating_route_idempotency.py",
+        "docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md"
+      ]
+    },
+    {
+      "id": "UAA-P1-085",
+      "status": "implemented",
+      "goal": "Targeted local fixed-window rate limits protect selected local API routes without auth, billing, distributed quota, or production authority claims.",
+      "proof_refs": [
+        "scripts/verify_uaa_p1_085_targeted_rate_limits.py",
+        "docs/api/UAA_P1_085_TARGETED_RATE_LIMITS.md"
+      ]
+    }
+  ]
+}

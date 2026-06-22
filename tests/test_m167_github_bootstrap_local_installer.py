@@ -56,6 +56,9 @@ def _implementation_surface_files() -> list[Path]:
         else:
             candidates = []
         for path in candidates:
+            rel = path.relative_to(ROOT).as_posix()
+            if rel == "scripts/verification/run_all_legacy.py":
+                continue
             if any(part in {"node_modules", "__pycache__"} for part in path.parts):
                 continue
             if path.name.startswith("verify_"):

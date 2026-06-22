@@ -1,50 +1,29 @@
 from typing import Any
-import json
-from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
 
-from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.route_registration import register_router_once
-
-
-FIXTURE_PATH = Path("tests/fixtures/api_route_inventory_112.json")
+from scripts.verification import api_lane
+from scripts.verification.api_routes import (
+    EXPECTED_ROUTE_COUNT,
+    projected_routes,
+    route_fixture,
+)
 
 
 def test_frozen_api_route_inventory_matches_current_contract() -> None:
-    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-    manifest = build_api_manifest(app).model_dump(mode="json")
-    current_routes = [
-        {
-            "path": route["path"],
-            "method": route["method"],
-            "operation_id": route["operation_id"],
-            "tags": route["tags"],
-            "summary": route["summary"],
-            "side_effect_class": route["side_effect_class"],
-            "route_classification": route["route_classification"],
-            "idempotency_required": route["idempotency_required"],
-            "idempotency_posture": route["idempotency_posture"],
-            "idempotency_policy_ref": route["idempotency_policy_ref"],
-            "rate_limit_targeted": route["rate_limit_targeted"],
-            "rate_limit_posture": route["rate_limit_posture"],
-            "rate_limit_policy_ref": route["rate_limit_policy_ref"],
-            "rate_limit_group": route["rate_limit_group"],
-        }
-        for route in manifest["routes"]
-    ]
-    current_routes.sort(key=lambda item: (item["path"], item["method"]))
+    fixture = route_fixture()
+    manifest = api_lane.default_api_verifier_context().manifest
 
     assert fixture["schema_version"] == "uaa-api-route-inventory.v3"
-    assert fixture["route_count"] == 112
+    assert fixture["route_count"] == EXPECTED_ROUTE_COUNT
     assert fixture["route_classification_vocabulary"] == manifest["route_classification_vocabulary"]
     assert fixture["route_classification_summary"] == manifest["route_classification_summary"]
     assert fixture["route_idempotency_posture_summary"] == manifest["route_idempotency_posture_summary"]
     assert fixture["idempotency_audit_policy_ref"] == manifest["idempotency_audit_policy_ref"]
     assert fixture["route_rate_limit_posture_summary"] == manifest["route_rate_limit_posture_summary"]
     assert fixture["rate_limit_policy_ref"] == manifest["rate_limit_policy_ref"]
-    assert fixture["routes"] == current_routes
+    assert fixture["routes"] == projected_routes(manifest)
 
 
 def test_register_router_once_is_method_aware_for_same_path_routes() -> None:

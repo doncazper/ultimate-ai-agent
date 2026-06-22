@@ -10,23 +10,11 @@ from ultimate_ai_agent.api.idempotency import (
     api_idempotency_audit_policy_payload,
 )
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from scripts.verification.api_routes import (
+    EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY,
+    EXPECTED_MUTATING_ROUTES,
+)
 
-
-MUTATING_ROUTES = {
-    ("POST", "/files/review/approvals/capture"),
-    ("POST", "/integrations/mattermost/events/message"),
-    ("POST", "/integrations/mattermost/roles/bind"),
-    ("POST", "/integrations/mattermost/roles/unbind"),
-    ("POST", "/kernel/tasks/run"),
-    ("POST", "/task-decomposition/approval-requests"),
-    ("POST", "/task-decomposition/approvals/grants/capture"),
-    ("POST", "/task-decomposition/approvals/revoke"),
-    ("POST", "/task-decomposition/capabilities/register"),
-    ("POST", "/task-decomposition/examples/init"),
-    ("POST", "/task-decomposition/plans/execute"),
-    ("POST", "/task-decomposition/run"),
-    ("POST", "/v1/chat/completions"),
-}
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:test-p1-084"}
 
 
@@ -76,17 +64,14 @@ def test_mutating_routes_declare_idempotency_requirement_before_authority() -> N
     route_index = {(route["method"], route["path"]): route for route in routes}
 
     assert manifest["idempotency_audit_policy_ref"] == API_IDEMPOTENCY_AUDIT_POLICY_REF
-    assert manifest["route_idempotency_posture_summary"] == {
-        "not_required_for_route_classification": 99,
-        "required_before_mutation_authority": 13,
-    }
+    assert manifest["route_idempotency_posture_summary"] == EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY
     assert {
         key
         for key, route in route_index.items()
         if route["idempotency_posture"] == "required_before_mutation_authority"
-    } == MUTATING_ROUTES
+    } == EXPECTED_MUTATING_ROUTES
 
-    for key in MUTATING_ROUTES:
+    for key in EXPECTED_MUTATING_ROUTES:
         route = route_index[key]
         assert route["route_classification"] == "mutating_requires_authority"
         assert route["idempotency_required"] is True
@@ -94,7 +79,7 @@ def test_mutating_routes_declare_idempotency_requirement_before_authority() -> N
         assert "idempotency key or scoped idempotency ref" in route["idempotency_reason"]
 
     for key, route in route_index.items():
-        if key in MUTATING_ROUTES:
+        if key in EXPECTED_MUTATING_ROUTES:
             continue
         assert route["idempotency_required"] is False
         assert route["idempotency_posture"] == "not_required_for_route_classification"

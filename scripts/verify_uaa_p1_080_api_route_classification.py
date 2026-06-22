@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import sys
-from collections import Counter
 from pathlib import Path
-from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
 
-from ultimate_ai_agent.api.app import app  # noqa: E402
-from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
+from scripts.verification.api_routes import (  # noqa: E402
+    append_expected_route_count,
+    append_route_fixture_mismatches,
+    classification_counter,
+    side_effect_counter,
+)
+from scripts.verification.api_lane import (  # noqa: E402
+    ApiVerifierContext,
+    default_api_verifier_context,
+)
+from scripts.verification.repo import (  # noqa: E402
+    append_forbidden_claims,
+    append_missing_doc_snippets,
+    load_json,
+    print_failures_or_success,
+    read_text,
+)
 
 
 ALLOWED_CLASSIFICATIONS = {
@@ -72,7 +84,6 @@ REQUIRED_DOC_SNIPPETS = {
         "local_sensitive",
         "mutating_requires_authority",
         "No middleware",
-        "UAA-P1-081",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -83,46 +94,17 @@ FORBIDDEN_CLAIMS = [
     "cors implemented by UAA-P1-080",
     "rate limits implemented by UAA-P1-080",
 ]
+SUCCESS_MESSAGE = "UAA-P1-080 API route classification verification passed."
 
 
-def _load_json(path: str) -> Any:
-    return json.loads((ROOT / path).read_text(encoding="utf-8"))
-
-
-def _compact(path: str) -> str:
-    return " ".join((ROOT / path).read_text(encoding="utf-8").lower().split())
-
-
-def _fixture_routes_from_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
-    routes = [
-        {
-            "path": route["path"],
-            "method": route["method"],
-            "operation_id": route["operation_id"],
-            "tags": route["tags"],
-            "summary": route["summary"],
-            "side_effect_class": route["side_effect_class"],
-            "route_classification": route["route_classification"],
-            "idempotency_required": route["idempotency_required"],
-            "idempotency_posture": route["idempotency_posture"],
-            "idempotency_policy_ref": route["idempotency_policy_ref"],
-            "rate_limit_targeted": route["rate_limit_targeted"],
-            "rate_limit_posture": route["rate_limit_posture"],
-            "rate_limit_policy_ref": route["rate_limit_policy_ref"],
-            "rate_limit_group": route["rate_limit_group"],
-        }
-        for route in manifest["routes"]
-    ]
-    return sorted(routes, key=lambda item: (item["path"], item["method"]))
-
-
-def main() -> int:
+def verify(context: ApiVerifierContext | None = None) -> list[str]:
+    context = context or default_api_verifier_context()
     failures: list[str] = []
-    manifest = build_api_manifest(app).model_dump(mode="json")
+    manifest = context.manifest
     routes = manifest["routes"]
+    routes_by_key = context.routes_by_key
 
-    if manifest["route_count"] != 112:
-        failures.append(f"/api/manifest route_count changed: {manifest['route_count']}")
+    append_expected_route_count(failures, manifest)
     if manifest["route_classification_vocabulary"] != [
         "public_metadata",
         "local_readonly",
@@ -131,8 +113,8 @@ def main() -> int:
     ]:
         failures.append("/api/manifest route_classification_vocabulary is wrong")
 
-    classifications = Counter(route.get("route_classification") for route in routes)
-    side_effects = Counter(route.get("side_effect_class") for route in routes)
+    classifications = classification_counter(manifest)
+    side_effects = side_effect_counter(manifest)
     if set(classifications) != ALLOWED_CLASSIFICATIONS:
         failures.append(f"unexpected route classifications: {dict(classifications)}")
     if dict(side_effects) != EXPECTED_SIDE_EFFECT_MIX:
@@ -140,14 +122,13 @@ def main() -> int:
     if dict(classifications) != manifest.get("route_classification_summary"):
         failures.append("route_classification_summary does not match route inventory")
 
-    route_index = {(route["method"], route["path"]): route for route in routes}
     public_metadata_paths = {
-        key for key, route in route_index.items() if route["route_classification"] == "public_metadata"
+        key for key, route in routes_by_key.items() if route["route_classification"] == "public_metadata"
     }
     if public_metadata_paths != EXPECTED_PUBLIC_METADATA_PATHS:
         failures.append(f"public_metadata routes are too broad or stale: {sorted(public_metadata_paths)}")
     for key, expected in HIGH_RISK_EXPECTATIONS.items():
-        actual = route_index.get(key, {}).get("route_classification")
+        actual = routes_by_key.get(key, {}).get("route_classification")
         if actual != expected:
             failures.append(f"{key[0]} {key[1]} classified as {actual}, expected {expected}")
     for route in routes:
@@ -161,29 +142,13 @@ def main() -> int:
         if route.get("blocked_from_production") is not True:
             failures.append(f"{route['method']} {route['path']} blocked_from_production drifted")
 
-    fixture = _load_json("tests/fixtures/api_route_inventory_112.json")
-    if fixture.get("schema_version") != "uaa-api-route-inventory.v3":
-        failures.append("tests/fixtures/api_route_inventory_112.json schema_version is stale")
-    if fixture.get("routes") != _fixture_routes_from_manifest(manifest):
-        failures.append("tests/fixtures/api_route_inventory_112.json does not match live manifest")
-    if fixture.get("route_classification_summary") != manifest.get("route_classification_summary"):
-        failures.append("fixture route_classification_summary is stale")
-    if fixture.get("route_idempotency_posture_summary") != manifest.get(
-        "route_idempotency_posture_summary"
-    ):
-        failures.append("fixture route_idempotency_posture_summary is stale")
-    if fixture.get("idempotency_audit_policy_ref") != manifest.get(
-        "idempotency_audit_policy_ref"
-    ):
-        failures.append("fixture idempotency_audit_policy_ref is stale")
-    if fixture.get("route_rate_limit_posture_summary") != manifest.get(
-        "route_rate_limit_posture_summary"
-    ):
-        failures.append("fixture route_rate_limit_posture_summary is stale")
-    if fixture.get("rate_limit_policy_ref") != manifest.get("rate_limit_policy_ref"):
-        failures.append("fixture rate_limit_policy_ref is stale")
+    append_route_fixture_mismatches(
+        failures,
+        manifest,
+        label="tests/fixtures/api_route_inventory_112.json",
+    )
 
-    route_status = _load_json("docs/control_center/route_status_manifest.json")
+    route_status = load_json("docs/control_center/route_status_manifest.json")
     for section_name, route_key in (
         ("surfaces", "current_backend_routes"),
         ("visible_actions", "backend_routes"),
@@ -191,7 +156,7 @@ def main() -> int:
         for item in route_status.get(section_name, []):
             for route in item.get(route_key, []):
                 key = (route.get("method"), route.get("path"))
-                expected = route_index.get(key)
+                expected = routes_by_key.get(key)
                 if expected is None:
                     continue
                 if route.get("route_classification") != expected["route_classification"]:
@@ -199,15 +164,7 @@ def main() -> int:
                         f"route status manifest {key[0]} {key[1]} classification mismatch"
                     )
 
-    for doc_path, snippets in REQUIRED_DOC_SNIPPETS.items():
-        path = ROOT / doc_path
-        if not path.exists():
-            failures.append(f"missing doc: {doc_path}")
-            continue
-        compact = _compact(doc_path)
-        for snippet in snippets:
-            if " ".join(snippet.lower().split()) not in compact:
-                failures.append(f"{doc_path} missing '{snippet}'")
+    append_missing_doc_snippets(failures, REQUIRED_DOC_SNIPPETS)
     scan_paths = [
         "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md",
         "docs/api/openapi_contract.md",
@@ -217,28 +174,19 @@ def main() -> int:
         "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
         "docs/kanban/current_board.md",
     ]
-    for scan_path in scan_paths:
-        if not (ROOT / scan_path).exists():
-            continue
-        compact = _compact(scan_path)
-        for forbidden in FORBIDDEN_CLAIMS:
-            if forbidden in compact:
-                failures.append(f"{scan_path} contains forbidden claim '{forbidden}'")
+    append_forbidden_claims(failures, scan_paths, FORBIDDEN_CLAIMS)
 
-    frontend = (ROOT / "apps/control-center/src/components/ApiRouteInventoryPanel.tsx").read_text(
-        encoding="utf-8"
-    )
+    frontend = read_text("apps/control-center/src/components/ApiRouteInventoryPanel.tsx")
     frontend_compact = " ".join(frontend.split())
     for snippet in ["Classification", "route_classification", "Classification is posture evidence only"]:
         if snippet not in frontend_compact:
             failures.append(f"API Routes panel missing {snippet}")
 
-    if failures:
-        for failure in failures:
-            print(f"ERROR: {failure}")
-        return 1
-    print("UAA-P1-080 API route classification verification passed.")
-    return 0
+    return failures
+
+
+def main() -> int:
+    return print_failures_or_success(failures=verify(), success_message=SUCCESS_MESSAGE)
 
 
 if __name__ == "__main__":

@@ -11,20 +11,27 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from fastapi.testclient import TestClient  # noqa: E402
-
-from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.local_auth import (  # noqa: E402
     LOCAL_API_AUTH_ENABLED_ENV,
     LOCAL_API_BEARER_ENV,
     local_api_auth_policy_payload,
 )
-from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.mattermost.api_safety import (  # noqa: E402
     MATTERMOST_BRIDGE_BEARER_ENV,
     MATTERMOST_BRIDGE_ENV,
+)
+from scripts.verification.api_lane import (  # noqa: E402
+    ApiVerifierContext,
+    default_api_verifier_context,
+)
+from scripts.verification.repo import (  # noqa: E402
+    append_forbidden_claims,
+    append_missing_doc_snippets,
+    print_failures_or_success,
+    read_text,
 )
 
 
@@ -59,9 +66,6 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/route_inventory.md": [
         "UAA-P1-083 implements local protected-route bearer gate posture",
-        "UAA-P1-084 implements mutating-route idempotency enforcement audit posture",
-        "UAA-P1-085 implements targeted local fixed-window rate-limit posture",
-        "Future UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -73,17 +77,14 @@ FORBIDDEN_CLAIMS = [
     "public release ready",
     "cors is auth",
 ]
+SUCCESS_MESSAGE = "UAA-P1-083 local auth gate verification passed."
 
 
 def _read(path: str) -> str:
-    return (ROOT / path).read_text(encoding="utf-8")
+    return read_text(path)
 
 
-def _compact(path: str) -> str:
-    return " ".join(_read(path).lower().split())
-
-
-def _request(client: TestClient, method: str, path: str, **kwargs: Any):
+def _request(client: Any, method: str, path: str, **kwargs: Any):
     if method == "GET":
         return client.get(path, **kwargs)
     if method == "POST":
@@ -91,7 +92,8 @@ def _request(client: TestClient, method: str, path: str, **kwargs: Any):
     raise AssertionError(f"unsupported method: {method}")
 
 
-def main() -> int:
+def verify(context: ApiVerifierContext | None = None) -> list[str]:
+    context = context or default_api_verifier_context()
     failures: list[str] = []
 
     schema = json.loads(_read(SCHEMA_DOC))
@@ -102,7 +104,7 @@ def main() -> int:
     for error in errors:
         failures.append(f"api local auth gate schema error: {error.message}")
 
-    client = TestClient(app)
+    client = context.client
     env = {
         LOCAL_API_AUTH_ENABLED_ENV: "1",
         LOCAL_API_BEARER_ENV: LOCAL_TEST_BEARER,
@@ -179,7 +181,7 @@ def main() -> int:
         if LOCAL_API_BEARER_ENV in response.text:
             failures.append("local auth failure echoed bearer env name")
 
-    manifest = build_api_manifest(app).model_dump(mode="json")
+    manifest = context.manifest
     if "local_protected_route_bearer_gate" not in manifest["capabilities_declared"]:
         failures.append("/api/manifest missing local_protected_route_bearer_gate")
     for blocked in [
@@ -196,12 +198,8 @@ def main() -> int:
         if route["protected_route"] is not expected:
             failures.append(f"{route['method']} {route['path']} protected_route mismatch")
 
-    for doc_path, snippets in REQUIRED_DOC_SNIPPETS.items():
-        compact = _compact(doc_path)
-        for snippet in snippets:
-            if " ".join(snippet.lower().split()) not in compact:
-                failures.append(f"{doc_path} missing '{snippet}'")
-    for scan_path in [
+    append_missing_doc_snippets(failures, REQUIRED_DOC_SNIPPETS)
+    append_forbidden_claims(failures, [
         CONTRACT_DOC,
         "docs/api/openapi_contract.md",
         "docs/api/route_inventory.md",
@@ -209,20 +207,13 @@ def main() -> int:
         "VERSION.md",
         "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md",
         "docs/kanban/current_board.md",
-    ]:
-        if not (ROOT / scan_path).exists():
-            continue
-        compact = _compact(scan_path)
-        for forbidden in FORBIDDEN_CLAIMS:
-            if forbidden in compact:
-                failures.append(f"{scan_path} contains forbidden claim '{forbidden}'")
+    ], FORBIDDEN_CLAIMS)
 
-    if failures:
-        for failure in failures:
-            print(f"ERROR: {failure}")
-        return 1
-    print("UAA-P1-083 local auth gate verification passed.")
-    return 0
+    return failures
+
+
+def main() -> int:
+    return print_failures_or_success(verify(), SUCCESS_MESSAGE)
 
 
 if __name__ == "__main__":

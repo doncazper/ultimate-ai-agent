@@ -14,6 +14,10 @@ from ultimate_ai_agent.api.manifest import (
     clear_api_manifest_static_cache,
 )
 from ultimate_ai_agent.api.openapi import forbidden_raw_provider_schema_fields, forbidden_raw_secret_schema_fields
+from scripts.verification.api_routes import (
+    EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY,
+    EXPECTED_RATE_LIMIT_POSTURE_SUMMARY,
+)
 
 
 client = TestClient(app)
@@ -98,15 +102,9 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     )
     assert sum(manifest["route_classification_summary"].values()) == manifest["route_count"]
     assert manifest["idempotency_audit_policy_ref"] == "idempotency:p1-084:mutating-routes:v1"
-    assert manifest["route_idempotency_posture_summary"] == {
-        "not_required_for_route_classification": 99,
-        "required_before_mutation_authority": 13,
-    }
+    assert manifest["route_idempotency_posture_summary"] == EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY
     assert manifest["rate_limit_policy_ref"] == "rate-limit:p1-085:targeted-local:v1"
-    assert manifest["route_rate_limit_posture_summary"] == {
-        "not_targeted_for_route": 78,
-        "targeted_local_fixed_window": 34,
-    }
+    assert manifest["route_rate_limit_posture_summary"] == EXPECTED_RATE_LIMIT_POSTURE_SUMMARY
     assert all(
         route["route_classification"] in manifest["route_classification_vocabulary"]
         for route in manifest["routes"]
