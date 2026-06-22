@@ -37,6 +37,12 @@ an emerging Control Center/operator cockpit. It is not yet a polished personal
 assistant, business cofounder, public beta, public distribution, or broad
 autonomy runtime.
 
+The proprietary product UI path is Control Center / Founder Command Center.
+OpenWebUI remains a supported local/dev conversational shell and compatibility
+surface for governed `/v1` smoke, llama.cpp shell testing, and developer chat;
+it is not the product cockpit and should not become the source of product
+state.
+
 The repo currently has:
 
 - FastAPI/Pydantic API boundary with stable OpenAPI and route side-effect
@@ -67,10 +73,13 @@ remains subordinate to canonical evidence and must not be used as truth, policy
 authority, approval evidence, or automatic context injection.
 
 The product risk is adding more roadmap, connector, plugin, mobile, browser,
-or shell surface before one single-user founder loop is excellent. A second
-risk is treating memory as a generic recall store instead of the product's
-reviewed business context layer for people, projects, deals, promises,
-follow-ups, decisions, preferences, and evidence-backed corrections.
+or shell surface before one single-user founder loop is excellent. That risk
+includes over-investing in OpenWebUI as a full product surface instead of using
+it as a governed local/dev shell while the first-party Control Center becomes
+the daily cockpit. A second risk is treating memory as a generic recall store
+instead of the product's reviewed business context layer for people, projects,
+deals, promises, follow-ups, decisions, preferences, and evidence-backed
+corrections.
 
 ## Why UAA Has A Strong Foundation
 
@@ -150,6 +159,10 @@ The first product loop must fit inside existing authority boundaries. It should
 not chase broad plugin marketplaces, multi-user enterprise, mobile sensors,
 unrestricted browser automation, unrestricted shell execution, or connector
 writes before the single-user loop is excellent.
+
+OpenWebUI may support local model smoke and developer chat along this path, but
+first-party product workflows land in Control Center through Python Agent Core
+contracts.
 
 ## User Persona: Sam, Founder/Operator
 
@@ -266,6 +279,9 @@ testable without adding new authority.
 - Build on the `UAA-P1-011` readable operator-loop baseline.
 - Create Founder Command Center information architecture around Today, Inbox,
   Plans, Actions, Memory, Evidence, and Settings.
+- Keep Control Center / Founder Command Center as the proprietary primary UI;
+  keep OpenWebUI secondary as a governed local/dev shell and compatibility
+  surface.
 - Treat UAA-P1-067 as the completed Today-spine, memory-first
   planning/currentness pass, promote UAA-P1-068 Today Product Spine Contract
   as the next product lane, and keep UAA-P1-066 as read-only local model

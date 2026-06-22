@@ -10,11 +10,12 @@ Current planning overlay: the active product/package baseline is v0.102.3 /
 beta-readiness planning/currentness, UAA-P1-068 is complete for the Today
 Product Spine Contract, UAA-P1-069 is complete for the Evidence History
 Grammar, UAA-P1-070 is complete for the Memory Source And Provenance Model,
-UAA-P1-071 is the Ready Next Memory Review Decision Capture lane, and UAA-P1-066
+UAA-P1-071 is complete for Memory Review Decision Capture, UAA-P1-072 is the
+Ready Next Business Memory And Memory Quality Controls lane, and UAA-P1-066
 remains queued as a strictly read-only Local Model Control Center
-inventory/status support lane. The product path runs through UAA-P1-071 to
-UAA-P1-078: review decisions, business/CRM-lite memory, memory quality
-controls, Plans-to-Action envelopes, Chat operator
+inventory/status support lane. The product path runs through UAA-P1-072 to
+UAA-P1-078: business/CRM-lite memory, memory quality controls,
+Plans-to-Action envelopes, Chat operator
 truth, governed Code diffs, cross-surface intake,
 Today/Action/Evidence/Memory binding, and private local beta-readiness
 evidence. UAA-P1-079 is the later user-intent-understanding lane after that
@@ -32,7 +33,7 @@ Build a Commander-led, spec-driven, memory-backed, relationship-aware AI operati
 ```text
 Python/FastAPI/Pydantic Agent Core
 CCC Web / TypeScript Control Center
-OpenWebUI preferred conversational web shell
+OpenWebUI supported local/dev conversational shell
 Postgres canonical database
 Docker Compose local development
 Stable Agent API Boundary
@@ -152,7 +153,7 @@ v0.18.4 adds:
 v0.18.3 adds:
 
 - `docs/ui/*` OpenWebUI and CCC strategy docs.
-- OpenWebUI as the preferred conversational web shell, not the agent brain.
+- OpenWebUI as a supported local/dev conversational shell, not the agent brain.
 - CCC as Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS.
 - CCC Web as the current TypeScript web Control Center.
 - CCC iOS, CCC Android, and CCC macOS as future native clients only.

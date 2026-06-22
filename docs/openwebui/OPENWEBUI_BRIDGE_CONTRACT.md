@@ -2,7 +2,13 @@
 
 Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
-OpenWebUI is the preferred conversational web shell for the Ultimate AI Agent. OpenWebUI is not the agent brain. Python Agent Core remains the authority layer for policy, approvals, consent, tool authorization, event logging, secrets, redaction, memory governance, runtime boundaries, and Foundation Gate evidence.
+OpenWebUI is a supported local/dev conversational shell and compatibility
+surface for the Ultimate AI Agent. It is not the proprietary product cockpit,
+not the agent brain, and not the source of product state. Python Agent Core
+remains the authority layer for policy, approvals, consent, tool authorization,
+event logging, secrets, redaction, memory governance, runtime boundaries, and
+Foundation Gate evidence. Control Center / Founder Command Center is the
+first-party product UI path, including future first-party Chat.
 
 M21 defines the future bridge contract only. No OpenWebUI integration is implemented. No OpenWebUI deployment config is added. No Docker Compose file is added. No OpenWebUI plugin, function, pipeline, tool, admin workflow, authentication, cookie, API key, admin token, browser profile access, or live connection is added.
 

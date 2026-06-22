@@ -19,7 +19,11 @@ This document resolves the M14 ambiguity:
 
 No item in this sequence may add production Control Center authority, runtime execution, model/provider calls, network calls, remote execution, mobile sensor access, plugin enablement, native build workflows, production persistence, or external actions unless a future reviewed milestone explicitly changes the boundary.
 
-v0.18.3 clarifies that OpenWebUI remains the preferred conversational web shell and CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI.
+v0.18.3 clarifies that OpenWebUI remains a supported local/dev conversational
+shell and CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and
+CCC macOS. Current product direction keeps Control Center / Founder Command
+Center as the first-party product UI. Open Design governs custom CCC surfaces
+and does not replace OpenWebUI.
 
 v0.19.0 implements M15 Approval Queue + Receipt/Event Viewer UI. v0.19.1 hardens M15 Approval/Receipt UI safety. v0.20.0 implements M16 Event Timeline + Run/Receipt Trace Viewer. v0.20.1 hardens M16 trace/redaction safety. v0.21.0 implements M17 Evidence/File/Memory Viewer. v0.21.1 hardens M17 viewer safety. v0.21.2 normalizes developer verification commands. v0.22.0 implements M18 Local Runtime Status + Manual Smoke Control Surface. v0.22.1 cleans up roadmap status labels only. v0.23.0 implements M19 Mobile Companion Contract/API Planning only. v0.23.1 hardens M19 roadmap status and mobile contract safety tests only. v0.24.0 implements M20 Device Capability Broker Contract as contract-only planning and validation. v0.24.1 hardens M20 Device Capability Broker Contract safety only. v0.25.0 implements M21 OpenWebUI Bridge + Chat Shell Integration Contract as contract/planning/validation only. v0.26.0 implements M22 Local Model Runtime Activation Contract as contract/planning/validation only. v0.27.0 implements M23 First Real Local LLM Call as manual fixed-prompt local call only. v0.28.0 implements M24 Memory Provider Abstraction + Local Memory Store as governed reviewed-write-only local memory foundation. v0.29.0 implements M25 Truth Source Router + Evidence Claim Checker as deterministic local contracts. v0.30.0 implements M26 Grounded Recall Router + Evidence-Linked Context Pack Builder as deterministic local contracts. v0.31.0 implements M27 Tool Broker v2 + Safe Tool Intent Contracts as validation-only contracts. v0.32.0 implements M28 Approval Authority v2 + Action Policy Expansion as policy-only contracts. v0.33.0 implements M29 Agent Task Planning Engine as review-only planning contracts. v0.34.0 implements M30 Multi-Step Execution Framework as state-machine-only contracts and v0.34.1 hardens M30 safety. v0.35.0 implements M31 Real Tool Runtime Adapter, Single Safe No-Op Tool. M32-M40 are planned/provisional capability-layer charters in `docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md` and do not authorize implementation.
 
@@ -200,7 +204,8 @@ Source-of-truth docs:
 
 Status: implemented.
 
-Purpose: clarify OpenWebUI as the preferred conversational web shell and CCC as the Control Center Clients family before M15 UI expansion.
+Purpose: clarify OpenWebUI as a supported local/dev conversational shell and
+CCC as the Control Center Clients family before M15 UI expansion.
 
 Allowed scope:
 
@@ -236,7 +241,7 @@ Must not add:
 
 Acceptance criteria:
 
-- OpenWebUI remains the preferred conversational web shell.
+- OpenWebUI remains a supported local/dev conversational shell.
 - OpenWebUI is not the agent brain.
 - CCC means Control Center Clients.
 - CCC Web, CCC iOS, CCC Android, and CCC macOS are defined.
@@ -577,7 +582,7 @@ Must not add:
 
 Acceptance criteria:
 
-- OpenWebUI remains the preferred conversational web shell.
+- OpenWebUI remains a supported local/dev conversational shell.
 - OpenWebUI is not the agent brain.
 - Python Agent Core remains authority.
 - No OpenAPI path count change is accepted in this milestone.

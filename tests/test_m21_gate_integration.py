@@ -20,7 +20,8 @@ def test_m21_openwebui_bridge_contract_criterion_exists_and_passes() -> None:
     assert "m21_openwebui_bridge_contract_safe" in criteria_by_id
     criterion = criteria_by_id["m21_openwebui_bridge_contract_safe"]
     assert "contract-only" in criterion.pass_condition
-    assert "OpenWebUI is the preferred conversational web shell" in criterion.pass_condition
+    assert "OpenWebUI is a supported local/dev conversational shell" in criterion.pass_condition
+    assert "not the agent brain or product cockpit" in criterion.pass_condition
     assert "not the agent brain" in criterion.pass_condition
     assert "Agent Core remains authority" in criterion.pass_condition
     assert "no direct tool execution" in criterion.pass_condition

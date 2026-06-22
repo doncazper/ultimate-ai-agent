@@ -8,7 +8,11 @@ Python Agent Core is the brain and authority layer. It owns governance decisions
 
 ## OpenWebUI
 
-OpenWebUI is the preferred conversational web shell for local LLM chat. OpenWebUI is not the agent brain and must not bypass Python Agent Core. A future OpenWebUI adapter may be reviewed later, but no OpenWebUI integration is implemented yet.
+OpenWebUI is a supported local/dev conversational shell for local LLM chat.
+OpenWebUI is not the agent brain, not the first-party product cockpit, and must
+not bypass Python Agent Core. Control Center / Founder Command Center is the
+first-party product UI path. A future OpenWebUI adapter may be reviewed later,
+but no OpenWebUI integration is implemented yet.
 
 ## CCC Web
 
@@ -32,7 +36,9 @@ Mobile Companion remains a future governed sensor/capture device client concept.
 
 ## Open Design System
 
-Open Design System is design governance for CCC surfaces. Open Design does not replace OpenWebUI. Design docs guide custom CCC Web, CCC iOS, CCC Android, and CCC macOS surfaces without enabling design tools or design-to-code workflows.
+Open Design System is design governance for CCC surfaces. Open Design does not
+replace OpenWebUI. Design docs guide custom CCC Web, CCC iOS, CCC Android, and
+CCC macOS surfaces without enabling design tools or design-to-code workflows.
 ## M19 Mobile Companion Contract Planning
 
 v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. CCC Web remains

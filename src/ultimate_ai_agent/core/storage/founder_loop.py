@@ -23,6 +23,13 @@ from ultimate_ai_agent.core.memory.source_provenance import (
     memory_source_provenance_policy_rows,
     memory_source_provenance_review_posture,
 )
+from ultimate_ai_agent.core.memory.review_decisions import (
+    MEMORY_REVIEW_DECISION_CONTRACT_REF,
+    MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS,
+    MEMORY_REVIEW_DECISION_STATES,
+    memory_review_decision_authority_posture,
+    memory_review_decision_state_rows,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -213,7 +220,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
     },
     {
         "module": "Memory",
-        "status": "implemented_review_queue_decision_capture_missing",
+        "status": "implemented_review_queue_decision_metadata_contract",
         "required_loop_outputs": [
             "today_memory_review_count",
             "action_or_follow_up_candidate",
@@ -222,7 +229,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
         ],
         "current_feed_refs": [
             "status-ref:founder-loop-memory-review",
-            "contract-ref:memory-review-decision-capture-missing",
+            MEMORY_REVIEW_DECISION_CONTRACT_REF,
         ],
         "standalone_complete_allowed": False,
     },
@@ -940,6 +947,67 @@ def _memory_source_contract_payload(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _safe_suffix(value: str) -> str:
+    return SAFE_STATUS_REF_CHARS.sub("-", value.lower()).strip("-") or "missing"
+
+
+def _memory_review_decision_contract_payload(item: dict[str, Any]) -> dict[str, Any]:
+    review_ref = str(item.get("review_ref", "memory-review:missing"))
+    suffix = _safe_suffix(review_ref)
+    review_state = str(item.get("review_state", "review_needed"))
+    decision_status = (
+        "review_needed_no_decision_captured"
+        if review_state == "review_needed"
+        else "decision_metadata_present_requires_recheck"
+    )
+    return {
+        "decision_contract_ref": MEMORY_REVIEW_DECISION_CONTRACT_REF,
+        "available_decision_states": MEMORY_REVIEW_DECISION_STATES,
+        "decision_capture_status": decision_status,
+        "decision_required_ref_fields": MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS,
+        "decision_actor_ref": "actor-ref:local-operator-review-required",
+        "decision_source_provenance_contract_ref": (
+            MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+        ),
+        "decision_source_kind": _memory_source_policy_for(item)["source_kind"],
+        "decision_source_trust_posture": MEMORY_SOURCE_PROVENANCE_TRUST_POSTURE,
+        "decision_redaction_status": "redacted_summary_only",
+        "decision_audit_refs": [f"audit-plan:memory-review:{suffix}"],
+        "decision_receipt_refs": [f"receipt-plan:memory-review:{suffix}"],
+        "decision_blocked_state_refs": [
+            "blocked-state:no-memory-write",
+            "blocked-state:no-memory-delete",
+            "blocked-state:no-memory-export",
+            "blocked-state:no-context-injection",
+            "blocked-state:no-connector-runtime",
+            "blocked-state:no-account-auth",
+            "blocked-state:no-model-provider-authority",
+            "blocked-state:no-public-beta-or-production-authority",
+        ],
+        "decision_stale_state": str(
+            item.get("stale_state", "recheck_source_refs_before_memory_use")
+        ),
+        "decision_retention_posture": str(
+            item.get("retention_posture", "retention_policy_not_bound")
+        ),
+        "decision_correction_posture": str(
+            item.get(
+                "correction_posture",
+                "correction_requires_scoped_memory_write_contract",
+            )
+        ),
+        "decision_authority_boundary": (
+            "Memory review decisions are review metadata only; writes, deletes, "
+            "exports, context injection, connector runtime, account auth, and "
+            "production authority remain unscoped."
+        ),
+        "decision_review_only": True,
+        "memory_delete_authorized": False,
+        "memory_export_authorized": False,
+        "retention_execution_authorized": False,
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1049,6 +1117,16 @@ class FounderLoopRepository:
             "memory_source_review_posture": (
                 memory_source_provenance_review_posture()
             ),
+            "memory_review_decision_contract_ref": (
+                MEMORY_REVIEW_DECISION_CONTRACT_REF
+            ),
+            "memory_review_decision_states": memory_review_decision_state_rows(),
+            "memory_review_decision_required_ref_fields": (
+                MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS
+            ),
+            "memory_review_decision_authority_posture": (
+                memory_review_decision_authority_posture()
+            ),
             "priority_refs": _priority_refs(actions, briefing_items),
             "blocker_refs": _blocked_state_refs(actions, memory_items, briefing_items),
             "follow_up_refs": [
@@ -1107,7 +1185,7 @@ class FounderLoopRepository:
             "memory_review_missing_contract_refs": [
                 "contract-ref:memory-write-policy-binding-missing",
                 "contract-ref:memory-retention-delete-missing",
-                "contract-ref:memory-review-decision-capture-missing",
+                "contract-ref:business-memory-quality-controls-missing",
                 "contract-ref:context-injection-missing",
             ],
             "memory_review_blocked_states": [
@@ -1757,6 +1835,7 @@ class FounderLoopRepository:
             {
                 **item,
                 **_memory_source_contract_payload(item),
+                **_memory_review_decision_contract_payload(item),
             }
             for item in items
         ]
@@ -2360,12 +2439,14 @@ class FounderLoopRepository:
                         "Review-only memory candidate; recall is not truth, and writes, "
                         "deletes, and context injection remain unscoped."
                     ),
-                    provenance_refs=["provenance-ref:founder-loop-memory:preferences"],
-                    source_refs=["source-ref:founder-loop-storage"],
+                    provenance_refs=[
+                        "provenance-ref:manual-note:founder-loop-preferences"
+                    ],
+                    source_refs=["source-ref:manual-note:founder-loop-storage"],
                     missing_contract_refs=[
                         "contract-ref:memory-write-policy-binding-missing",
                         "contract-ref:memory-retention-delete-missing",
-                        "contract-ref:memory-review-decision-capture-missing",
+                        "contract-ref:business-memory-quality-controls-missing",
                         "contract-ref:context-injection-missing",
                     ],
                     correction_posture="correction_requires_scoped_memory_write_contract",
@@ -2559,12 +2640,14 @@ class FounderLoopRepository:
                     "Review-only memory candidate; recall is not truth, and writes, "
                     "deletes, and context injection remain unscoped."
                 ),
-                "provenance_refs": ["provenance-ref:founder-loop-memory:preferences"],
-                "source_refs": ["source-ref:founder-loop-storage"],
+                "provenance_refs": [
+                    "provenance-ref:manual-note:founder-loop-preferences"
+                ],
+                "source_refs": ["source-ref:manual-note:founder-loop-storage"],
                 "missing_contract_refs": [
                     "contract-ref:memory-write-policy-binding-missing",
                     "contract-ref:memory-retention-delete-missing",
-                    "contract-ref:memory-review-decision-capture-missing",
+                    "contract-ref:business-memory-quality-controls-missing",
                     "contract-ref:context-injection-missing",
                 ],
                 "correction_posture": "correction_requires_scoped_memory_write_contract",

@@ -122,8 +122,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only review queue inspection; accept, correct, reject, retain, delete, write, and context-injection decisions require later exact scoped memory contracts.",
-      "evidence_audit_output": "Storage-backed memory candidate refs, provenance refs, source refs, evidence refs, review state, correction/rejection posture, retention/delete posture, confidence posture, stale-state posture, authority boundary, blocked states, and next safe action labels only.",
+      "approval_requirement": "None for read-only review queue inspection; UAA-P1-071 decision metadata is review-only, and accept, correct, reject, retain, delete, write, context-injection, and quality-control actions require later exact scoped memory contracts.",
+      "evidence_audit_output": "Storage-backed memory candidate refs, provenance refs, source refs, evidence refs, review state, UAA-P1-071 decision metadata, correction/rejection posture, retention/delete posture, confidence posture, stale-state posture, authority boundary, blocked states, and next safe action labels only.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -133,7 +133,7 @@
         }
       ],
       "missing_backend_routes": [
-        "memory-review-decision-capture-contract",
+        "business-memory-quality-controls",
         "memory-write-policy-binding",
         "memory-retention-delete-contract",
         "context-injection-contract"
@@ -1090,8 +1090,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only memory review inspection; writes, deletes, decision capture, and context injection require later scoped contracts.",
-      "evidence_audit_output": "Storage-backed memory review candidate refs, safe summaries, provenance refs, source refs, evidence refs, review state, correction/rejection posture, retention/delete posture, confidence posture, stale-state posture, authority boundary, blocked states, and next safe action labels.",
+      "approval_requirement": "None for read-only memory review inspection; UAA-P1-071 decision metadata is review-only, and writes, deletes, quality-control actions, and context injection require later scoped contracts.",
+      "evidence_audit_output": "Storage-backed memory review candidate refs, safe summaries, provenance refs, source refs, evidence refs, review state, UAA-P1-071 decision metadata, correction/rejection posture, retention/delete posture, confidence posture, stale-state posture, authority boundary, blocked states, and next safe action labels.",
       "backend_routes": [
         {
           "method": "GET",
@@ -1101,7 +1101,7 @@
         }
       ],
       "missing_backend_routes": [
-        "memory-review-decision-capture-contract",
+        "business-memory-quality-controls",
         "memory-write-policy-binding",
         "memory-retention-delete-contract",
         "context-injection-contract"

@@ -5659,7 +5659,7 @@ class FoundationGateEvaluator:
             if plan.status != OpenWebUIBridgeStatus.planned_disabled:
                 failures.append("default OpenWebUI bridge plan is not planned-disabled")
             if not manifest.openwebui_is_preferred_conversational_shell:
-                failures.append("OpenWebUI must remain the preferred conversational shell")
+                failures.append("OpenWebUI must remain a supported local/dev conversational shell")
             if manifest.openwebui_is_agent_brain:
                 failures.append("OpenWebUI must not be the agent brain")
             if not manifest.agent_core_remains_authority:
@@ -50063,7 +50063,10 @@ class FoundationGateEvaluator:
         ui_text = "\n".join(self._read(self.root / path).lower() for path in required_docs)
         expectations = {
             "UI strategy docs missing OpenWebUI chat shell boundary": (
-                "openwebui is the preferred conversational web shell"
+                "openwebui is a supported local/dev conversational shell"
+            ),
+            "UI strategy docs missing Control Center product UI boundary": (
+                "first-party product ui path"
             ),
             "UI strategy docs missing OpenWebUI not-brain boundary": "openwebui is not the agent brain",
             "UI strategy docs missing CCC governance/control boundary": "ccc is the governance/control layer",

@@ -29,6 +29,10 @@ Open Design System and UI Design Governance docs apply to future Control Center 
 
 ## v0.18.3 OpenWebUI and CCC Strategy
 
-v0.18.3 clarifies that CCC means Control Center Clients across CCC Web, CCC iOS, CCC Android, and CCC macOS. This contract still covers the current backend Control Center API only. OpenWebUI remains a preferred conversational web shell and is not the agent brain.
+v0.18.3 clarifies that CCC means Control Center Clients across CCC Web, CCC iOS,
+CCC Android, and CCC macOS. This contract still covers the current backend
+Control Center API only. Current product direction keeps Control Center /
+Founder Command Center as the first-party product UI; OpenWebUI remains a
+supported local/dev conversational shell and is not the agent brain.
 
 No OpenWebUI bridge route, native CCC route, Android route, iOS route, macOS route, mobile sensor route, OS permission route, native build workflow, or production authority is added.

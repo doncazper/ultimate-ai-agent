@@ -2,7 +2,10 @@
 
 Status: Active UI strategy clarification for v0.19.1. Documentation only.
 
-OpenWebUI is the preferred conversational web shell for local LLM chat. It is a chat surface, not the agent brain, and it must not bypass Python Agent Core.
+OpenWebUI is a supported local/dev conversational shell for local LLM chat. It
+is a chat surface, not the agent brain, not the first-party product cockpit,
+and it must not bypass Python Agent Core. Control Center / Founder Command
+Center is the first-party product UI path.
 
 CCC means Control Center Clients. CCC is the governance/control layer for custom client surfaces that inspect status, governance, approvals, receipts, previews, and safe control workflows through Python Agent Core APIs.
 
@@ -27,7 +30,7 @@ Open Design relationship:
 
 - Open Design does not replace OpenWebUI.
 - Open Design governs custom CCC surfaces, including CCC Web and future native CCC clients.
-- OpenWebUI remains the preferred conversational web shell.
+- OpenWebUI remains a supported local/dev conversational shell.
 - CCC remains the custom governance/control client family.
 
 Explicit non-implementation statement:
@@ -41,10 +44,10 @@ Explicit non-implementation statement:
 ## M19 Mobile Companion Contract Planning
 
 v0.23.0 / M19 adds Mobile Companion Contract/API Planning only. OpenWebUI
-remains the preferred conversational web shell and is not the agent brain. CCC
-means Control Center Clients, including CCC Web, CCC iOS, CCC Android, and CCC
-macOS. CCC is the governance/control layer and must use Python Agent Core
-authority.
+remains a supported local/dev conversational shell and is not the agent brain
+or first-party product cockpit. CCC means Control Center Clients, including CCC
+Web, CCC iOS, CCC Android, and CCC macOS. CCC is the governance/control layer
+and must use Python Agent Core authority.
 
 M19 adds no OpenWebUI integration, no OpenWebUI deployment config, no backend
 API route, no native CCC implementation, no Android app, no iOS app, no macOS

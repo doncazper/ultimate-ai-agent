@@ -10,7 +10,9 @@ OpenWebUI/CCC strategy criteria:
 - README points to `README_IMPORT_v0_18_3.md` and `ultimate_ai_agent_master_plan_v0_18_3.md`.
 - active import, master plan, release notes, and Foundation Gate implementation plan exist for v0.18.3.
 - required `docs/ui/*` strategy files exist.
-- UI strategy docs say OpenWebUI is the preferred conversational web shell.
+- UI strategy docs say OpenWebUI is a supported local/dev conversational shell.
+- UI strategy docs say Control Center / Founder Command Center is the
+  first-party product UI path.
 - UI strategy docs say OpenWebUI is not the agent brain.
 - UI strategy docs say CCC is the governance/control layer.
 - UI strategy docs say Open Design does not replace OpenWebUI.

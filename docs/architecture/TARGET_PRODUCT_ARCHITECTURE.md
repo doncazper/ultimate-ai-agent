@@ -55,6 +55,18 @@ Routes may validate, preview, summarize, or expose metadata. Runtime authority
 requires an accepted scoped milestone, explicit approval model, side-effect
 class, tests, and verifier updates.
 
+Because Control Center is browser-facing, the target FastAPI boundary also needs
+a small local-first API perimeter before broader authority is claimed. Planned
+UAA-P1-080 through UAA-P1-086 work will classify every route as
+`public_metadata`, `local_readonly`, `local_sensitive`, or
+`mutating_requires_authority`; add centralized security headers; allow only
+explicit loopback Control Center origins through CORS; add a simple local bearer
+or session gate for sensitive routes; audit mutating routes for idempotency keys
+or scoped idempotency refs; add targeted rate limits for expensive/sensitive
+paths; and enforce the posture through OpenAPI, `/api/manifest`, and route
+inventory tests. These are planned perimeter controls, not implemented by this
+document.
+
 ### Control Center App Shell
 
 Control Center should become the Founder Command Center shell organized around
@@ -241,8 +253,8 @@ memory write authority, context injection, account auth, connector runtime,
 connector writes, browser automation, plugin execution, background polling, or
 production authority. Any future mutating or runtime adapter path must be
 separately scoped, PolicyEngine-classified, LocalApprovalAuthority-bound,
-redacted, auditable, revocable, receipt-backed, rollback/safe-disable-aware, and
-tested.
+idempotency-bound, redacted, auditable, revocable, receipt-backed,
+rollback/safe-disable-aware, and tested.
 
 ### `system_service`
 

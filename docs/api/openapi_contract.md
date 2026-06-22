@@ -19,6 +19,10 @@ Contract rules:
 - API validation errors must be sanitized and must not echo raw invalid input
   values or secret-like field values.
 - Route metadata must preserve explicit side-effect classes.
+- Planned UAA-P1-080 route classification will classify every route as one of
+  `public_metadata`, `local_readonly`, `local_sensitive`, or
+  `mutating_requires_authority`. This classification vocabulary is not yet an
+  implemented OpenAPI/API manifest invariant.
 - Local-dev workspace routes must remain local-dev scoped, policy-bound, and
   blocked from production authority by default.
 - Governed web evidence routes may use the `governed_network_read_only`
@@ -38,6 +42,32 @@ Contract rules:
   `GET /control-center/storage/status` expose storage-backed Founder Loop
   summaries using SQLite and JSONL refs only. They do not grant action
   execution, connector writes, model/provider calls, or notification delivery.
+
+Planned API boundary hardening:
+
+- UAA-P1-081 will add centralized FastAPI response security headers:
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` or strict
+  equivalent, `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`,
+  Permissions-Policy denying unused browser capabilities,
+  `Content-Security-Policy` with strict production posture and documented dev
+  exceptions, and HSTS only for actual HTTPS deployment.
+- UAA-P1-082 will add explicit loopback CORS allowlisting for configured local
+  Control Center origins such as `localhost`, `127.0.0.1`, `[::1]`, and local
+  dev ports. CORS is browser hardening, not authentication, and wildcard CORS
+  must remain denied.
+- UAA-P1-083 will add a simple local bearer/session gate for sensitive routes
+  that expose logs, observability events, task runs, approvals, memory, file
+  previews or write proposals, model gateway behavior, action previews, or
+  sensitive runtime state. It is not enterprise auth, multi-user auth, OAuth,
+  roles, or a password flow.
+- UAA-P1-084 will audit mutating routes so every mutation requires an
+  idempotency key or scoped idempotency ref before authority is claimed.
+- UAA-P1-085 will add targeted rate limits for model/chat, task decomposition,
+  action preview/proposal, and expensive validation or local-model paths.
+- UAA-P1-086 will add OpenAPI, `/api/manifest`, and route inventory tests for
+  the classification, auth, approval, idempotency, header, CORS, and rate-limit
+  posture. These controls are planned and must not be described as implemented
+  until the scoped milestones land.
 
 Forbidden by the current API boundary:
 

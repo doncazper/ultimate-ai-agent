@@ -494,7 +494,7 @@ v0.18.3 adds docs/verifier/gate tests only:
 
 ```text
 Required docs/ui files exist.
-OpenWebUI is the preferred conversational web shell.
+OpenWebUI is a supported local/dev conversational shell.
 OpenWebUI is not the agent brain.
 CCC means Control Center Clients.
 CCC is the governance/control layer.
@@ -612,7 +612,7 @@ v0.25.0 adds contract/planning/validation tests only:
 
 ```text
 OpenWebUI bridge docs exist.
-OpenWebUI is the preferred conversational web shell.
+OpenWebUI is a supported local/dev conversational shell.
 OpenWebUI is not the agent brain.
 Python Agent Core remains authority.
 chat ingress/egress contracts are summary/ref/redacted-metadata only.

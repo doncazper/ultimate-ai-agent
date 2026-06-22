@@ -83,6 +83,7 @@ SCAN_SEQUENCE = [
     ("control center frontend safety verifier", "verify_control_center_frontend_script"),
     ("control center browser smoke readiness verifier", "verify_control_center_browser_smoke_readiness_script"),
     ("documentation integrity scan", "verify_documentation_integrity"),
+    ("UAA-P1-071 memory review decision capture scan", "verify_uaa_p1_071_memory_review_decision_capture"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
@@ -1000,6 +1001,10 @@ def verify_control_center_browser_smoke_readiness_script() -> None:
 def verify_documentation_integrity() -> None:
     print("\n[Verifier] Running documentation integrity scan...")
     run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"])
+
+def verify_uaa_p1_071_memory_review_decision_capture() -> None:
+    print("\n[Verifier] Running UAA-P1-071 memory review decision capture scan...")
+    run_cmd([sys.executable, "scripts/verify_uaa_p1_071_memory_review_decision_capture.py"])
 
 def verify_no_openwebui_runtime_or_config_implementation() -> None:
     print("\n[Verifier] Running M21 OpenWebUI contract-only guard...")

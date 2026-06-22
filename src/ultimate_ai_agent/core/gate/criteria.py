@@ -1047,7 +1047,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M21 OpenWebUI Bridge Contract Safe",
             FoundationGateCategory.security,
             "FoundationGateEvaluator.check_m21_openwebui_bridge_contract_safe",
-            "M21 OpenWebUI Bridge is contract-only, OpenWebUI is the preferred conversational web shell, OpenWebUI is not the agent brain, Agent Core remains authority, no direct tool execution, no direct memory write, no runtime execution, no provider call, no approval grant, no raw content, no OpenWebUI integration or deployment config, keeps OpenAPI path count at 78, and M22 is now contract-only.",
+            "M21 OpenWebUI Bridge is contract-only, OpenWebUI is a supported local/dev conversational shell and compatibility surface, OpenWebUI is not the agent brain or product cockpit, Agent Core remains authority, no direct tool execution, no direct memory write, no runtime execution, no provider call, no approval grant, no raw content, no OpenWebUI integration or deployment config, keeps OpenAPI path count at 78, and M22 is now contract-only.",
             "M21 OpenWebUI bridge contract is missing or violates the contract-only, no-OpenWebUI-runtime, no-execution, no-authority boundary.",
             "critical",
         ),

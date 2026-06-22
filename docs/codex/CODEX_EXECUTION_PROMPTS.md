@@ -720,6 +720,98 @@ Auto-advance:
   failed push, or user pause/stop.
 ```
 
+## 15. UAA-P1-071 Memory Review Decision Capture Prompt
+
+```text
+review the following documents:
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+
+Implement UAA-P1-071 - Memory Review Decision Capture.
+
+Also read AGENTS.md. If present, read SPECS.md, specs.md, SDLC.md, sdlc.md,
+and the closest task-specific spec, ADR, schema, standards, or process docs
+discovered with rg --files. Treat these as contributor guidance, not runtime
+configuration or product authority.
+
+Subagent plan:
+- Use at least one read-only subagent for core-memory decision-contract review.
+- Use at least one read-only subagent for adversarial product-language,
+  redaction, mutation-authority, and UI affordance review.
+- Subagents are advisory. The main Codex run owns integration, verification,
+  commit/push, and auto-advance.
+
+Scope:
+- Python core memory review-decision contract, existing
+  `GET /control-center/today/summary` memory review payload, TypeScript API
+  types, read-only Memory surface visibility, docs, schema, focused tests, and
+  verifier.
+- Decision states: accept, correct, reject, defer, merge, supersede, and
+  forget-request. The wire-safe value may be `forget_request`.
+- Decision metadata must include actor refs, source refs, provenance refs,
+  evidence refs, stale-state posture, retention posture, audit refs, receipt
+  refs, blocked-state refs, source provenance binding, and denied authority
+  flags.
+- Do not add a new route, operation ID, side-effect class, backend mutation,
+  memory write/delete/export, retention execution, reviewed-recall promotion,
+  hidden context injection, accept/correct/reject/defer/merge/supersede/forget
+  action buttons, connector runtime, account auth, provider/model calls, browser
+  import, external assistant import, CRM sync, public beta, public distribution,
+  production readiness, or production authority.
+
+Acceptance criteria:
+- `core.memory` exposes `contract-ref:memory-review-decision:v1`.
+- Today summary exposes memory review decision contract ref, decision states,
+  required ref fields, authority posture, and per-memory-candidate decision
+  metadata.
+- Decision envelopes bind back to
+  `contract-ref:memory-source-provenance:v1`, keep source posture
+  `untrusted_until_reviewed`, and use redacted-summary-only status.
+- All write/delete/export/context-injection/connector/account/model/provider/
+  public-beta/public-distribution/production flags remain denied.
+- The Control Center renders decision metadata read-only and does not add
+  mutation controls.
+- Active docs mark UAA-P1-071 complete and promote UAA-P1-072 Business Memory
+  And Memory Quality Controls as the next incomplete milestone.
+
+Review/fix:
+- Perform adversarial review for decision labels becoming implied memory writes,
+  forget-request becoming implied deletion, accept becoming truth/recall
+  authority, source refs bypassing provenance, unsafe raw/private text,
+  hidden context injection, connector/account/model authority creep, UI mutation
+  affordances, and unsafe beta/production language.
+- Fix P0/P1 issues before hardening.
+
+Hardening:
+- Run PYTHONPATH=src .venv/bin/python -m pytest
+  tests/test_uaa_p1_071_memory_review_decision_capture.py
+  tests/test_founder_loop_storage.py
+  tests/test_control_center_founder_loop_api.py
+- Run .venv/bin/python scripts/verify_uaa_p1_071_memory_review_decision_capture.py
+- Run .venv/bin/python scripts/verify_uaa_p1_070_memory_source_provenance_model.py
+- Run .venv/bin/python scripts/verify_documentation_integrity.py
+- Run PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
+- Run make frontend-check when frontend files changed.
+- Run git diff --check.
+
+Commit/push:
+- Stage only files changed for UAA-P1-071 plus any conveyor auto-advance fix
+  intentionally made for this run.
+- Commit with message: implement UAA-P1-071 memory review decision capture
+- Push the current branch.
+
+Auto-advance:
+- After commit/push succeeds, immediately create/update and execute the
+  UAA-P1-072 Business Memory And Memory Quality Controls prompt in the same run
+  unless blocked.
+- Do not stop with only a next-prompt recommendation. Stop only for an exact
+  blocker, unsafe scope split, failed verification, failed push, or user
+  pause/stop.
+```
+
 ## 12. UAA-P1-069 Evidence History Grammar Prompt
 
 ```text

@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-071 Ready Next: Memory Review Decision Capture** |
+| Current lane | **UAA-P1-072 Ready Next: Business Memory And Memory Quality Controls** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -40,11 +40,13 @@ Grammar contract so Evidence answers what was proposed, approved, happened,
 changed, can be undone, is stale, and remains blocked with safe refs and
 redacted summaries only. UAA-P1-070 Memory Source And Provenance Model is
 complete with core memory provenance contracts, safe source refs,
-review-required posture, and denied authority flags. UAA-P1-071
-Memory Review Decision Capture is now Ready Next before later memory quality,
-Plans-to-Action envelopes, Chat operator truth, governed Code diffs, and
-private local beta-readiness gates can be claimed. UAA-P1-066 remains queued as
-a strictly read-only Local Model Control Center inventory/status support lane.
+review-required posture, and denied authority flags. UAA-P1-071 Memory Review
+Decision Capture is complete with review-only decision metadata, blocked
+write/delete/export posture, and read-only Control Center visibility. UAA-P1-072
+Business Memory And Memory Quality Controls is now Ready Next before later
+Plans-to-Action envelopes, Chat operator truth, governed Code diffs, and private
+local beta-readiness gates can be claimed. UAA-P1-066 remains queued as a
+strictly read-only Local Model Control Center inventory/status support lane.
 
 Already-pushed tags remain immutable historical records. M150's
 `v1.2.0-alpha` label is preserved as historical alpha-target context only; it
@@ -67,7 +69,8 @@ The current implementation provides:
 - typed policy, approval, route, run, receipt, and evidence contracts
 - FastAPI route metadata with side-effect classification
 - `PolicyEngine` and `LocalApprovalAuthority` as required authority boundaries
-- local model readiness through a scoped llama.cpp/OpenWebUI shell lane
+- local model readiness through a scoped llama.cpp/OpenWebUI shell lane, with
+  OpenWebUI kept secondary to the first-party Control Center product UI
 - safe workspace previews, patch proposals, atomic apply, and rollback receipts
 - redacted session/run observability for UAA-managed surfaces only
 - governed web evidence status and allowlisted evidence request contracts with
@@ -113,8 +116,11 @@ Python Agent Core
         +-- redacted observability under .uaa/
 ```
 
-OpenWebUI is a shell into UAA-managed local model behavior, not the agent brain.
-The Python Agent Core remains the authority boundary.
+Control Center / Founder Command Center is the proprietary first-party product
+UI path for Today, Inbox, Plans, Actions, Memory, Evidence, Settings, Models,
+and future Chat. OpenWebUI is a supported local/dev shell into UAA-managed local
+model behavior, not the agent brain, not the product cockpit, and not the source
+of product state. The Python Agent Core remains the authority boundary.
 
 ## Capability Map
 

@@ -2,7 +2,11 @@
 
 Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
-OpenWebUI is the preferred conversational web shell. Python Agent Core remains authority. Every future stage requires a dedicated milestone and review.
+OpenWebUI is a supported local/dev conversational shell and compatibility
+surface. Python Agent Core remains authority. Control Center / Founder Command
+Center is the proprietary primary product UI, including future first-party
+Chat. Every future OpenWebUI stage requires a dedicated milestone and review
+and must not make OpenWebUI the product cockpit or source of product state.
 
 ## Stage 0: Docs And Strategy Only
 
@@ -34,7 +38,7 @@ Purpose: allow reviewed chat-to-agent handoff only through Python Agent Core.
 
 Must not add: authority bypass, direct tool execution, direct credential access, hidden remote execution, public exposure without security review, direct memory writes, direct model runtime calls before M22/M23-type gates, approval bypass, or arbitrary approval strings as authority.
 
-## Stage 5: OpenWebUI To CCC Context Links
+## Stage 5: OpenWebUI To Control Center Context Links
 
 Purpose: link chat context to CCC status, approval, receipt, and trace views without moving authority into UI clients.
 

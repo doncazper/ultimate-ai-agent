@@ -121,7 +121,11 @@ M15 is implemented in v0.19.0 as read-only/preview-only frontend route panels fo
 
 ## v0.18.3 CCC Web Route Boundary
 
-v0.18.3 clarifies that the existing route set belongs to CCC Web, the current TypeScript web Control Center. CCC iOS, CCC Android, and CCC macOS are future native clients only. OpenWebUI remains a separate preferred conversational web shell.
+v0.18.3 clarifies that the existing route set belongs to CCC Web, the current
+TypeScript web Control Center. CCC iOS, CCC Android, and CCC macOS are future
+native clients only. Current product direction keeps Control Center / Founder
+Command Center as the first-party product UI and keeps OpenWebUI as a separate
+supported local/dev conversational shell.
 
 No frontend route, backend API path, OpenWebUI integration, native client route, mobile sensor route, OS permission route, native build workflow, or production authority is added.
 

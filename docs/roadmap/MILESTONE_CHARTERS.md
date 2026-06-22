@@ -52,7 +52,8 @@ Notes:
 ## Governance Rules
 
 - Python Agent Core remains the brain.
-- OpenWebUI is the preferred conversational web shell, not the agent brain.
+- OpenWebUI is a supported local/dev conversational shell, not the agent brain
+  or first-party product cockpit.
 - CCC means Control Center Clients: CCC Web, CCC iOS, CCC Android, and CCC macOS.
 - CCC is the governance/control client family and cannot bypass Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Foundation Gate, or governed source systems.
 - TypeScript Control Center is CCC Web.

@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/memory_review_decision_capture.schema.json",
+  "title": "UAA-P1-071 Memory Review Decision Capture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "memory_review_decision_contract_ref",
+    "memory_review_decision_states",
+    "memory_review_decision_required_ref_fields",
+    "memory_review_decision_authority_posture",
+    "memory_review_queue"
+  ],
+  "properties": {
+    "memory_review_decision_contract_ref": {
+      "const": "contract-ref:memory-review-decision:v1"
+    },
+    "memory_review_decision_states": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision_state",
+          "decision_state_ref",
+          "review_required",
+          "actor_ref_required",
+          "source_refs_required",
+          "provenance_refs_required",
+          "evidence_refs_required",
+          "audit_refs_required",
+          "receipt_refs_required",
+          "blocked_state_refs_required",
+          "writes_authorized",
+          "deletes_authorized",
+          "exports_authorized",
+          "context_injection_authorized",
+          "accepted_as_recall"
+        ],
+        "properties": {
+          "decision_state": { "$ref": "#/$defs/decision_state" },
+          "decision_state_ref": { "$ref": "#/$defs/safe_ref" },
+          "review_required": { "const": true },
+          "actor_ref_required": { "const": true },
+          "source_refs_required": { "const": true },
+          "provenance_refs_required": { "const": true },
+          "evidence_refs_required": { "const": true },
+          "audit_refs_required": { "const": true },
+          "receipt_refs_required": { "const": true },
+          "blocked_state_refs_required": { "const": true },
+          "writes_authorized": { "const": false },
+          "deletes_authorized": { "const": false },
+          "exports_authorized": { "const": false },
+          "context_injection_authorized": { "const": false },
+          "accepted_as_recall": { "const": false }
+        }
+      }
+    },
+    "memory_review_decision_required_ref_fields": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "actor_ref" },
+        { "const": "source_refs" },
+        { "const": "provenance_refs" },
+        { "const": "evidence_refs" },
+        { "const": "stale_state" },
+        { "const": "retention_posture" },
+        { "const": "audit_refs" },
+        { "const": "receipt_refs" },
+        { "const": "blocked_state_refs" }
+      ],
+      "items": false,
+      "minItems": 9,
+      "maxItems": 9
+    },
+    "memory_review_decision_authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_only",
+        "memory_write_authorized",
+        "memory_delete_authorized",
+        "memory_export_authorized",
+        "context_injection_authorized",
+        "connector_runtime_enabled",
+        "account_auth_enabled",
+        "provider_or_model_authority_allowed",
+        "source_truth_authority",
+        "accepted_as_recall",
+        "retention_execution_authorized",
+        "public_beta_claim_enabled",
+        "public_distribution_claim_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "review_only": { "const": true },
+        "memory_write_authorized": { "const": false },
+        "memory_delete_authorized": { "const": false },
+        "memory_export_authorized": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "connector_runtime_enabled": { "const": false },
+        "account_auth_enabled": { "const": false },
+        "provider_or_model_authority_allowed": { "const": false },
+        "source_truth_authority": { "const": false },
+        "accepted_as_recall": { "const": false },
+        "retention_execution_authorized": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "public_distribution_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false }
+      }
+    },
+    "memory_review_queue": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "decision_contract_ref",
+          "available_decision_states",
+          "decision_capture_status",
+          "decision_required_ref_fields",
+          "decision_actor_ref",
+          "decision_source_provenance_contract_ref",
+          "decision_source_kind",
+          "decision_source_trust_posture",
+          "decision_redaction_status",
+          "decision_audit_refs",
+          "decision_receipt_refs",
+          "decision_blocked_state_refs",
+          "decision_stale_state",
+          "decision_retention_posture",
+          "decision_correction_posture",
+          "decision_authority_boundary",
+          "decision_review_only",
+          "memory_write_authorized",
+          "memory_delete_authorized",
+          "memory_export_authorized",
+          "context_injection_authorized",
+          "connector_runtime_allowed",
+          "account_auth_enabled",
+          "provider_or_model_authority_allowed",
+          "retention_execution_authorized"
+        ],
+        "properties": {
+          "decision_contract_ref": {
+            "const": "contract-ref:memory-review-decision:v1"
+          },
+          "available_decision_states": { "$ref": "#/$defs/decision_state_list" },
+          "decision_capture_status": {
+            "enum": [
+              "review_needed_no_decision_captured",
+              "decision_metadata_present_requires_recheck"
+            ]
+          },
+          "decision_required_ref_fields": {
+            "$ref": "#/properties/memory_review_decision_required_ref_fields"
+          },
+          "decision_actor_ref": { "$ref": "#/$defs/safe_ref" },
+          "decision_source_provenance_contract_ref": {
+            "const": "contract-ref:memory-source-provenance:v1"
+          },
+          "decision_source_kind": {
+            "enum": [
+              "manual_note",
+              "external_assistant_review_summary",
+              "local_chat_summary",
+              "local_coding_summary",
+              "task_plan",
+              "action_proposal",
+              "evidence_timeline_ref",
+              "read_only_calendar_metadata_ref",
+              "read_only_email_metadata_ref",
+              "crm_lite_business_record"
+            ]
+          },
+          "decision_source_trust_posture": {
+            "const": "untrusted_until_reviewed"
+          },
+          "decision_redaction_status": {
+            "const": "redacted_summary_only"
+          },
+          "decision_audit_refs": { "$ref": "#/$defs/safe_ref_list" },
+          "decision_receipt_refs": { "$ref": "#/$defs/safe_ref_list" },
+          "decision_blocked_state_refs": {
+            "$ref": "#/$defs/safe_ref_list",
+            "allOf": [
+              { "contains": { "const": "blocked-state:no-memory-write" } },
+              { "contains": { "const": "blocked-state:no-memory-delete" } },
+              { "contains": { "const": "blocked-state:no-memory-export" } },
+              { "contains": { "const": "blocked-state:no-context-injection" } }
+            ]
+          },
+          "decision_stale_state": { "type": "string", "minLength": 1 },
+          "decision_retention_posture": { "type": "string", "minLength": 1 },
+          "decision_correction_posture": { "type": "string", "minLength": 1 },
+          "decision_authority_boundary": { "type": "string", "minLength": 1 },
+          "decision_review_only": { "const": true },
+          "memory_write_authorized": { "const": false },
+          "memory_delete_authorized": { "const": false },
+          "memory_export_authorized": { "const": false },
+          "context_injection_authorized": { "const": false },
+          "connector_runtime_allowed": { "const": false },
+          "account_auth_enabled": { "const": false },
+          "provider_or_model_authority_allowed": { "const": false },
+          "retention_execution_authorized": { "const": false }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "decision_state": {
+      "enum": [
+        "accept",
+        "correct",
+        "reject",
+        "defer",
+        "merge",
+        "supersede",
+        "forget_request"
+      ]
+    },
+    "decision_state_list": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "accept" },
+        { "const": "correct" },
+        { "const": "reject" },
+        { "const": "defer" },
+        { "const": "merge" },
+        { "const": "supersede" },
+        { "const": "forget_request" }
+      ],
+      "items": false,
+      "minItems": 7,
+      "maxItems": 7
+    },
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$",
+      "not": {
+        "pattern": "raw[_-]?prompt|raw[_-]?response|provider[_-]?payload|raw[_-]?provider|raw[_-]?path|raw[_-]?log|account[_-]?identifier|account[_-]?id|username|hostname|credential|raw[_-]?private[_-]?content"
+      }
+    },
+    "safe_ref_list": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/safe_ref" }
+    }
+  }
+}

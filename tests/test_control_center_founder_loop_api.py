@@ -6,6 +6,7 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.storage import (
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
+    MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
     TODAY_PRODUCT_SPINE_CONTRACT_REF,
 )
@@ -107,6 +108,10 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
         today["memory_source_provenance_contract_ref"]
         == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
     )
+    assert (
+        today["memory_review_decision_contract_ref"]
+        == MEMORY_REVIEW_DECISION_CONTRACT_REF
+    )
     assert {
         "manual_note",
         "external_assistant_review_summary",
@@ -132,6 +137,24 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
     assert today["memory_source_review_posture"]["connector_runtime_enabled"] is False
     assert today["memory_source_review_posture"]["account_auth_enabled"] is False
     assert today["memory_source_review_posture"]["production_authority_enabled"] is False
+    assert [row["decision_state"] for row in today["memory_review_decision_states"]] == [
+        "accept",
+        "correct",
+        "reject",
+        "defer",
+        "merge",
+        "supersede",
+        "forget_request",
+    ]
+    assert today["memory_review_decision_authority_posture"]["review_only"] is True
+    assert (
+        today["memory_review_decision_authority_posture"]["memory_write_authorized"]
+        is False
+    )
+    assert (
+        today["memory_review_decision_authority_posture"]["accepted_as_recall"]
+        is False
+    )
     assert set(today["evidence_history_required_states"]) == {
         "proposed",
         "approved",
@@ -177,6 +200,14 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
         for item in today["module_feed_contract"]
     }
     assert {"Today", "Actions", "Plans", "Memory", "Evidence", "Chat", "Code"} <= set(module_feeds)
+    assert (
+        module_feeds["Memory"]["status"]
+        == "implemented_review_queue_decision_metadata_contract"
+    )
+    assert (
+        MEMORY_REVIEW_DECISION_CONTRACT_REF
+        in module_feeds["Memory"]["current_feed_refs"]
+    )
     assert module_feeds["Chat"]["status"] == "planned_blocked_until_uaa_p1_074"
     assert module_feeds["Code"]["status"] == "planned_blocked_until_uaa_p1_075"
     assert today["plan_action_state"]["execution_authorized"] is False
@@ -196,6 +227,10 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
         "contract-ref:memory-write-policy-binding-missing"
         in today["memory_review_missing_contract_refs"]
     )
+    assert (
+        "contract-ref:business-memory-quality-controls-missing"
+        in today["memory_review_missing_contract_refs"]
+    )
     assert "no_memory_write" in today["memory_review_blocked_states"]
     assert "no_context_injection" in today["memory_review_blocked_states"]
     assert "no_raw_source_display" in today["memory_review_blocked_states"]
@@ -208,9 +243,11 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
     assert memory_item["priority"] == "high"
     assert memory_item["review_state"] == "review_needed"
     assert memory_item["provenance_refs"] == [
-        "provenance-ref:founder-loop-memory:preferences"
+        "provenance-ref:manual-note:founder-loop-preferences"
     ]
-    assert memory_item["source_refs"] == ["source-ref:founder-loop-storage"]
+    assert memory_item["source_refs"] == [
+        "source-ref:manual-note:founder-loop-storage"
+    ]
     assert memory_item["source_policy_ref"] == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
     assert memory_item["source_kind"] == "manual_note"
     assert memory_item["source_trust_posture"] == "untrusted_until_reviewed"
@@ -227,6 +264,30 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(monkeypa
     assert memory_item["public_beta_claim_enabled"] is False
     assert memory_item["public_distribution_claim_enabled"] is False
     assert memory_item["production_authority_enabled"] is False
+    assert memory_item["decision_contract_ref"] == MEMORY_REVIEW_DECISION_CONTRACT_REF
+    assert memory_item["available_decision_states"] == [
+        "accept",
+        "correct",
+        "reject",
+        "defer",
+        "merge",
+        "supersede",
+        "forget_request",
+    ]
+    assert memory_item["decision_capture_status"] == "review_needed_no_decision_captured"
+    assert memory_item["decision_actor_ref"] == (
+        "actor-ref:local-operator-review-required"
+    )
+    assert memory_item["decision_source_provenance_contract_ref"] == (
+        MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+    )
+    assert memory_item["decision_source_kind"] == "manual_note"
+    assert memory_item["decision_source_trust_posture"] == "untrusted_until_reviewed"
+    assert memory_item["decision_redaction_status"] == "redacted_summary_only"
+    assert memory_item["decision_review_only"] is True
+    assert memory_item["memory_delete_authorized"] is False
+    assert memory_item["memory_export_authorized"] is False
+    assert memory_item["retention_execution_authorized"] is False
     assert (
         "contract-ref:memory-retention-delete-missing"
         in memory_item["missing_contract_refs"]

@@ -2,7 +2,11 @@
 
 Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
-OpenWebUI is the preferred conversational web shell. Future chat shell integration must use Python Agent Core as the authority layer and must never make OpenWebUI the agent brain.
+OpenWebUI is a supported local/dev conversational shell and compatibility
+surface. The proprietary first-party chat product surface belongs in Control
+Center / Founder Command Center. Future chat shell integration must use Python
+Agent Core as the authority layer and must never make OpenWebUI the agent
+brain or the source of product state.
 
 Future chat ingress envelopes describe user-to-Agent-Core messages using safe refs and user-visible summaries. Future chat egress envelopes describe Agent-Core-to-user summaries using redacted metadata. Both envelope directions are planning contracts in M21 and do not create a runtime bridge.
 

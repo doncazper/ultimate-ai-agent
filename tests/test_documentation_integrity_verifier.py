@@ -618,7 +618,8 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
     for rel_path in getattr(verifier, "REQUIRED_UI_STRATEGY_DOCS", []):
         files.setdefault(
             rel_path,
-            "OpenWebUI is the preferred conversational web shell.\n"
+            "OpenWebUI is a supported local/dev conversational shell.\n"
+            "Control Center / Founder Command Center is the first-party product UI path.\n"
             "OpenWebUI is not the agent brain.\n"
             "OpenWebUI must not bypass Python Agent Core.\n"
             "No OpenWebUI integration is implemented in this patch.\n"
@@ -645,7 +646,8 @@ def _write_minimal_repo(root: Path, version: str = "0.14.6") -> None:
         files.setdefault(
             rel_path,
             "M21 is contract-only.\n"
-            "OpenWebUI is the preferred conversational web shell.\n"
+            "OpenWebUI is a supported local/dev conversational shell.\n"
+            "OpenWebUI is not the source of product state.\n"
             "OpenWebUI is not the agent brain.\n"
             "Python Agent Core remains authority.\n"
             "No OpenWebUI integration is implemented.\n"

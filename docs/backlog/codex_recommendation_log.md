@@ -42,6 +42,53 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-071 Memory Review Decision Capture Completed
+
+Date: 2026-06-21
+
+Thread: Documented-milestone conveyor auto-advance after UAA-P1-070, with
+explicit correction that the conveyor must not stop at a next-prompt handoff.
+
+Recommendation: Complete UAA-P1-071 as review-only Memory Review Decision
+Capture over Python core memory plus the existing Today summary route, then
+auto-advance to UAA-P1-072 Business Memory And Memory Quality Controls instead
+of stopping at a recommendation.
+
+Next prompt state:
+
+```text
+Auto-advance into UAA-P1-072 Business Memory And Memory Quality Controls after
+commit/push. Review the active roadmap, current board, Founder Command Center
+board, phase tasks, MVP spec, AGENTS.md, process/spec guidance, and the
+UAA-P1-068/UAA-P1-069/UAA-P1-070/UAA-P1-071 contract evidence. Define CRM-lite
+business memory candidate kinds and quality posture before any memory is treated
+as useful reviewed recall. Do not add automatic memory writes, connector writes,
+account sync, hidden context injection, provider/model authority, public beta,
+public distribution, production readiness, or production authority.
+```
+
+Decision: Accepted and completed for the UAA-P1-071 contract slice.
+
+Status: completed
+
+Completed: Added `contract-ref:memory-review-decision:v1`, review-only decision
+states, required actor/source/provenance/evidence/audit/receipt/blocked refs,
+source provenance binding, denied authority posture, Today summary fields,
+read-only Memory surface visibility, schema, verifier, focused tests, and active
+currentness updates that promote UAA-P1-072.
+
+Not done: No memory write/delete/export, retention execution, reviewed-recall
+promotion, connector runtime, account auth/sync, provider/model call, hidden
+context injection, accept/correct/reject/defer/merge/supersede/forget action
+controls, public beta, public distribution, production readiness, or production
+authority.
+
+Evidence: `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`,
+`docs/schemas/memory_review_decision_capture.schema.json`,
+`scripts/verify_uaa_p1_071_memory_review_decision_capture.py`,
+`tests/test_uaa_p1_071_memory_review_decision_capture.py`,
+`src/ultimate_ai_agent/core/memory/review_decisions.py`.
+
 ### 2026-06-21 - UAA-P1-070 Memory Source Provenance Completed
 
 Date: 2026-06-21

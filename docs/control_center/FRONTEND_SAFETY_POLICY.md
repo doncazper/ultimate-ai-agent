@@ -111,7 +111,11 @@ Design governance does not add frontend behavior, dependencies, Tailwind, shadcn
 
 ## v0.18.3 CCC Web Boundary
 
-v0.18.3 clarifies CCC Web as the current TypeScript web Control Center and CCC as the broader Control Center Clients family. OpenWebUI is the preferred conversational web shell and Open Design does not replace OpenWebUI.
+v0.18.3 clarifies CCC Web as the current TypeScript web Control Center and CCC
+as the broader Control Center Clients family. Current product direction keeps
+Control Center / Founder Command Center as the first-party product UI and keeps
+OpenWebUI as a supported local/dev conversational shell; Open Design does not
+replace OpenWebUI.
 
 The frontend safety boundary is unchanged: no OpenWebUI integration, deployment config, new frontend feature, backend route, native CCC implementation, Android app, iOS app, macOS app, mobile sensor access, OS permission integration, native build workflow, signing/store workflow, or production authority is added.
 

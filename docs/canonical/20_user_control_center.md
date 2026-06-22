@@ -146,7 +146,7 @@ M15 approval, receipt, and event viewer UI must read the design governance docs 
 v0.18.3 clarifies the long-term UI/client split:
 
 - Python Agent Core remains the brain and authority layer.
-- OpenWebUI is the preferred conversational web shell and is not the agent brain.
+- OpenWebUI is a supported local/dev conversational shell and is not the agent brain.
 - CCC means Control Center Clients.
 - CCC is the governance/control client family.
 - CCC Web is the current TypeScript web Control Center.

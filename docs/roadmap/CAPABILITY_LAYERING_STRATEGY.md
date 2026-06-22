@@ -43,7 +43,10 @@ Layer 3 includes:
 - chat session refs.
 - safe transcript refs.
 
-OpenWebUI remains the preferred conversational web shell. It is not the agent brain and must not bypass Python Agent Core.
+OpenWebUI remains a supported local/dev conversational shell. It is not the
+agent brain, not the first-party product cockpit, and must not bypass Python
+Agent Core. Control Center / Founder Command Center is the proprietary product
+UI path.
 
 ## Layer 4 - Local Model Runtime
 

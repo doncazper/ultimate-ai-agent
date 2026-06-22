@@ -2,7 +2,12 @@
 
 Status: Future roadmap clarification for v0.18.4. Documentation only.
 
-OpenWebUI is the preferred conversational web shell. Integration with Python Agent Core is future work and must advance through reviewed milestones. Every stage must preserve Python Agent Core authority, Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, Redaction, Foundation Gate, and stable API/OpenAPI contracts.
+OpenWebUI is a supported local/dev conversational shell and compatibility
+surface. Control Center / Founder Command Center is the first-party product UI
+path. OpenWebUI integration with Python Agent Core is future work and must
+advance through reviewed milestones. Every stage must preserve Python Agent
+Core authority, Approval Authority, Consent Ledger, Tool Broker, Event Ledger,
+Secret Broker, Redaction, Foundation Gate, and stable API/OpenAPI contracts.
 
 ## Stage 0: Docs and Strategy Only
 

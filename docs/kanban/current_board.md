@@ -53,8 +53,9 @@ the Today-spine, memory-first beta-readiness planning/currentness lane and
 recorded the milestone conveyor. UAA-P1-068 completed the Today Product Spine
 Contract on the existing Today summary route. UAA-P1-069 completed the Evidence
 History Grammar contract on that same route. UAA-P1-070 completed the Memory
-Source And Provenance Model. The active product path now promotes UAA-P1-071
-Memory Review Decision Capture as Ready Next, with UAA-P1-066 kept queued as a
+Source And Provenance Model. UAA-P1-071 completed Memory Review Decision
+Capture. The active product path now promotes UAA-P1-072 Business Memory And
+Memory Quality Controls as Ready Next, with UAA-P1-066 kept queued as a
 strictly read-only Local Model Control Center inventory/status support lane.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
@@ -85,20 +86,22 @@ Gate = required acceptance evidence before Done
 
 ```text
 No active build item is in progress. The next documented milestone is
-UAA-P1-071 Memory Review Decision Capture.
+UAA-P1-072 Business Memory And Memory Quality Controls.
 ```
 
 ## Ready Next
 
 ```text
-UAA-P1-071 Memory Review Decision Capture
-Goal: define accept, correct, reject, defer, merge, supersede, and
-forget-request review states before any candidate becomes reviewed recall.
-Scope: memory decision schema, actor/source/evidence refs, stale-state posture,
-retention posture, audit refs, receipt refs, blocked write/delete/export states,
-docs, fixtures, and tests first. No automatic memory write, delete, export,
-hidden context injection, connector runtime, account auth, model/provider
-authority, public beta, public distribution, or production authority.
+UAA-P1-072 Business Memory And Memory Quality Controls
+Goal: define CRM-lite business memory candidate kinds and quality posture before
+any memory is treated as useful reviewed recall.
+Scope: profile, project, relationship, organization, deal/opportunity, promise,
+follow-up, preference, decision, and commitment candidate kinds; duplicate,
+conflict, stale/expired, low-confidence, source-missing, evidence-missing,
+blocked, and reviewed memory posture; safe refs into Today, Action Inbox,
+Evidence Timeline, and Weekly CEO Review. No connector writes, account sync,
+automatic memory write, hidden context injection, provider/model authority,
+public beta, public distribution, or production authority.
 
 UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
 Goal: queued support lane for a strictly read-only Control Center model
@@ -119,10 +122,11 @@ That candidate remains a later exact implementation pass and is not implemented
 by UAA-P1-065. UAA-P1-067 completed the Today-spine, memory-first
 beta-readiness planning/currentness path. UAA-P1-068 completed the
 product-spine contract. UAA-P1-069 completed the Evidence History Grammar
-contract, UAA-P1-070 completed the Memory Source And Provenance Model, and
-UAA-P1-071 is queued first as the Ready Next memory review decision capture
-model. UAA-P1-066 remains queued behind or alongside that path as read-only
-local model status support. Later Local Model Manager lifecycle,
+contract, UAA-P1-070 completed the Memory Source And Provenance Model,
+UAA-P1-071 completed Memory Review Decision Capture, and UAA-P1-072 is queued
+first as the Ready Next business memory and memory quality controls model.
+UAA-P1-066 remains queued behind or alongside that path as read-only local model
+status support. Later Local Model Manager lifecycle,
 switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
 downloads still require separate exact scoped milestones.
 ```
@@ -142,12 +146,6 @@ UAA-P2-056 Extension trust product surface
 Goal: surface static package review, provenance, hash refs, declared
 capabilities, requested grants, activation/revocation state, and risk flags
 without runtime import or execution.
-
-UAA-P1-071 Memory Review Decision Capture
-Goal: define accept, correct, reject, defer, merge, supersede, and
-forget-request review states with actor refs, source refs, evidence refs, audit
-refs, receipt refs, stale-state posture, retention posture, and no automatic
-memory write.
 
 UAA-P1-072 Business Memory And Memory Quality Controls
 Goal: shape CRM-lite business memory candidates and quality posture for dedupe,
@@ -188,6 +186,38 @@ UAA-P1-079 User Intent Understanding V1
 Goal: later, after the loop has reviewed memory/evidence/action/chat/code
 signals, shape user-intent classification with confidence, ambiguity posture,
 ask/act/defer routing, and no hidden authority.
+
+UAA-P1-080 API Route Classification And Public/Protected Inventory
+Goal: classify every API route as `public_metadata`, `local_readonly`,
+`local_sensitive`, or `mutating_requires_authority` before new authority-heavy
+claims.
+
+UAA-P1-081 Centralized FastAPI Security Headers
+Goal: plan and later implement response security headers for the browser-facing
+Control Center boundary without claiming they exist yet.
+
+UAA-P1-082 Explicit Loopback CORS Allowlist
+Goal: replace any future broad browser CORS posture with explicit local Control
+Center origins only; CORS remains browser hardening, not auth.
+
+UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes
+Goal: add a simple local-first protected-route boundary for logs, runs,
+approvals, memory, file previews/proposals, model gateway behavior, action
+previews, and sensitive runtime state.
+
+UAA-P1-084 Mutating Route Idempotency Enforcement Audit
+Goal: require every mutating route to carry an idempotency key or scoped
+idempotency ref before mutation authority is claimed.
+
+UAA-P1-085 Targeted Rate Limits For Expensive And Sensitive Routes
+Goal: rate-limit likely abuse or heavy paths first: model/chat, task
+decomposition, action preview/proposal, and expensive validation/local-model
+behavior.
+
+UAA-P1-086 API Boundary Enforcement Tests
+Goal: make OpenAPI, `/api/manifest`, and route inventory checks enforce route
+classification, auth, approval, idempotency, headers, CORS, and rate-limit
+posture where scoped.
 ```
 
 ## QA / Verification
@@ -368,15 +398,17 @@ public release claim, or runtime authority. UAA-P1-066 remains queued as a
 read-only local model status support lane, while UAA-P1-067 completed the
 Today-spine, memory-first planning/currentness path, UAA-P1-068 completed the
 Today product-spine contract, UAA-P1-069 completed the evidence history
-grammar, UAA-P1-070 completed the memory source/provenance model, and
-UAA-P1-071 is the current Ready Next memory review decision capture milestone.
+grammar, UAA-P1-070 completed the memory source/provenance model,
+UAA-P1-071 completed memory review decision capture, and UAA-P1-072 is the
+current Ready Next business memory and memory quality controls milestone.
 
 UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 Gate met: Active docs, roadmap, current board, Founder Command Center board,
 product truth, strategy/task docs, and the Codex prompt library identify Today
 as the product spine, memory as the reviewed differentiator, UAA-P1-068 as
-completed Today Product Spine Contract work, UAA-P1-069 as Ready Next Evidence
-History Grammar, and UAA-P1-066 as queued read-only local model support.
+completed Today Product Spine Contract work, and the conveyor that now has
+UAA-P1-071 complete and UAA-P1-072 Ready Next. UAA-P1-066 remains queued as
+read-only local model support.
 `docs/codex/CODEX_EXECUTION_PROMPTS.md` records the
 milestone conveyor from UAA-P1-067 through UAA-P1-079 with review/fix,
 hardening, commit/push, and next-prompt mechanics. This milestone adds no
@@ -418,8 +450,9 @@ runtime, account auth, automatic refresh, model/provider authority, automatic
 memory write, context injection, raw private evidence, rollback execution,
 approval grant, public beta, public distribution, production readiness, or
 production authority. UAA-P1-070 completed the memory source/provenance
-milestone and UAA-P1-071 is the current Ready Next memory review decision
-capture milestone.
+milestone, UAA-P1-071 completed memory review decision capture, and UAA-P1-072
+is the current Ready Next business memory and memory quality controls
+milestone.
 
 UAA-P1-070 Memory Source And Provenance Model
 Gate met: `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`
@@ -436,8 +469,44 @@ contract. This milestone adds no new route, OpenAPI operation, side-effect
 class, backend mutation, memory write/delete/export, connector runtime, account
 auth, model/provider authority, automatic memory write, hidden context
 injection, raw private evidence, public beta, public distribution, production
-readiness, or production authority. UAA-P1-071 is the current Ready Next memory
-review decision capture milestone.
+readiness, or production authority. UAA-P1-071 completed memory review decision
+capture and UAA-P1-072 is the current Ready Next business memory and memory
+quality controls milestone.
+
+UAA-P1-071 Memory Review Decision Capture
+Gate met: `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`
+defines `contract-ref:memory-review-decision:v1`; `core.memory` exposes
+review-only decision envelopes for accept, correct, reject, defer, merge,
+supersede, and forget-request posture; `GET /control-center/today/summary`
+exposes decision states, required refs, source provenance binding, audit refs,
+receipt refs, blocked-state refs, and denied authority posture for the Memory
+Review queue. `docs/schemas/memory_review_decision_capture.schema.json`,
+`scripts/verify_uaa_p1_071_memory_review_decision_capture.py`,
+`tests/test_uaa_p1_071_memory_review_decision_capture.py`,
+`tests/test_founder_loop_storage.py`,
+`tests/test_control_center_founder_loop_api.py`, and
+`apps/control-center/src/components/FounderLoopPanels.tsx` bind the contract.
+This milestone adds no new route, OpenAPI operation, side-effect class, backend
+mutation, memory write/delete/export, retention execution, connector runtime,
+account auth, model/provider authority, automatic memory write, hidden context
+injection, raw private evidence, public beta, public distribution, production
+readiness, or production authority. UAA-P1-072 is the current Ready Next
+business memory and memory quality controls milestone.
+
+UAA-P1-080 through UAA-P1-086 API Boundary Hardening Lane
+Status: planned/queued, not implemented. Preserves existing UAA-P1-073 through
+UAA-P1-079 product-loop milestone names while requiring an API perimeter gate
+before authority-heavy Plans, Chat, Code, loop-binding, or private
+beta-readiness claims. Existing partial coverage: OpenAPI and `/api/manifest`
+route metadata, route side-effect classes, route-status auth posture,
+disabled-by-default bearer-gated `/v1` local model shell, and idempotency
+concepts in durable run/action planning. Missing/future work: route-wide
+classification vocabulary, centralized security headers, explicit loopback CORS
+allowlist, local bearer/session gate for all sensitive routes, mutating-route
+idempotency enforcement audit, targeted rate limits, and OpenAPI/API
+manifest/route inventory enforcement tests. This lane adds no runtime code,
+middleware, dependencies, auth, CORS, headers, rate limiting, public beta, public
+distribution, production readiness, or production authority.
 
 UAA-P0-001 Baseline currentness repair
 Gate met: README, roadmap, tags, API path count, and M160-M167 state tell one story.

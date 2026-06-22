@@ -447,7 +447,7 @@ PR size: one backend contract plus read-only UI visibility PR.
 
 ## Task 9d - UAA-P1-071 Memory Review Decision Capture
 
-Status: ready next.
+Status: complete.
 
 Type: backend contract/test plus UI display later
 
@@ -468,9 +468,19 @@ Tests to add/update:
 - Founder Loop storage/API tests if persisted.
 - Frontend tests if decision states are rendered.
 
+Completed evidence:
+
+- `src/ultimate_ai_agent/core/memory/review_decisions.py`
+- `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`
+- `docs/schemas/memory_review_decision_capture.schema.json`
+- `scripts/verify_uaa_p1_071_memory_review_decision_capture.py`
+- `tests/test_uaa_p1_071_memory_review_decision_capture.py`
+
 PR size: split contract and UI if needed.
 
 ## Task 9e - UAA-P1-072 Business Memory And Memory Quality Controls
+
+Status: ready next.
 
 Type: backend contract/test plus UI display later
 
@@ -519,18 +529,20 @@ Tests to add/update:
 
 PR size: one contract PR, then one UI PR if needed.
 
-## Task 9g - UAA-P1-074 Chat Local Operator Surface
+## Task 9g - UAA-P1-074 First-Party Control Center Chat Local Operator Surface
 
-Type: backend/local gateway plus UI display later
+Type: backend/local gateway plus first-party Control Center UI display later
 
 New authority: no provider SDK, tool execution, or memory write.
 
 Acceptance criteria:
 
-- Chat can send a local turn through the governed local gateway.
+- Control Center Chat can send a local turn through the governed local gateway.
 - Chat shows model/runtime/auth/tool-denial truth and safe evidence refs.
 - Chat can hand off to Plans or Actions as proposals only.
 - Model output is not truth, memory, approval evidence, or execution authority.
+- OpenWebUI remains a secondary local/dev shell and compatibility surface, not
+  the product state owner or the destination for wiring every workflow.
 
 Tests to add/update:
 

@@ -11,7 +11,9 @@ The evaluator and verification suite verify:
 - M21 OpenWebUI bridge source files exist.
 - M21 OpenWebUI bridge docs exist.
 - default OpenWebUI bridge manifest is contract-only.
-- OpenWebUI is the preferred conversational web shell.
+- OpenWebUI is a supported local/dev conversational shell and compatibility
+  surface.
+- OpenWebUI is not the product cockpit or source of product state.
 - OpenWebUI is not the agent brain.
 - Python Agent Core remains authority.
 - no OpenWebUI integration, deployment config, or runtime config is present.

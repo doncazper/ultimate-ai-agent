@@ -52,6 +52,18 @@ from ultimate_ai_agent.core.memory.records import (
 )
 from ultimate_ai_agent.core.memory.redaction import memory_contains_secret, redact_memory_content
 from ultimate_ai_agent.core.memory.requests import MemoryReadRequest, MemoryWriteRequest as LegacyMemoryWriteRequest
+from ultimate_ai_agent.core.memory.review_decisions import (
+    MEMORY_REVIEW_DECISION_CONTRACT_REF,
+    MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS,
+    MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS,
+    MEMORY_REVIEW_DECISION_STATES,
+    MemoryReviewDecisionEnvelope,
+    MemoryReviewDecisionState,
+    build_memory_review_decision_envelope,
+    memory_review_decision_authority_posture,
+    memory_review_decision_state_rows,
+    validate_memory_review_decision_envelope,
+)
 from ultimate_ai_agent.core.memory.source_provenance import (
     MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
     MEMORY_SOURCE_PROVENANCE_DENIED_CONTENT_REFS,
@@ -89,10 +101,16 @@ __all__ = [
     "MemoryProvenance",
     "MemoryReadDecision",
     "MemoryReadRequest",
+    "MEMORY_REVIEW_DECISION_CONTRACT_REF",
+    "MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS",
+    "MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS",
+    "MEMORY_REVIEW_DECISION_STATES",
     "MemoryRecallEligibility",
     "MemoryRecallMetadata",
     "MemoryRecord",
     "MemoryRecordKind",
+    "MemoryReviewDecisionEnvelope",
+    "MemoryReviewDecisionState",
     "MemoryRetrievalMode",
     "MemoryRetrievalPolicy",
     "MemoryRetentionState",
@@ -124,12 +142,16 @@ __all__ = [
     "FCCRelationshipMemoryReviewState",
     "build_fcc_relationship_memory_candidate",
     "build_default_memory_provider_manifest",
+    "build_memory_review_decision_envelope",
     "build_memory_source_provenance_ref",
+    "memory_review_decision_authority_posture",
+    "memory_review_decision_state_rows",
     "memory_source_provenance_policy_rows",
     "memory_source_provenance_review_posture",
     "memory_contains_secret",
     "redact_memory_content",
     "validate_fcc_relationship_memory_candidate",
     "validate_memory_record",
+    "validate_memory_review_decision_envelope",
     "validate_memory_source_provenance_ref",
 ]

@@ -19,8 +19,9 @@ Surfaces.
 UAA-P1-067 completed the Today-spine, memory-first beta-readiness
 planning/currentness path. UAA-P1-068 completed the Today Product Spine
 Contract. UAA-P1-069 completed the Evidence History Grammar contract.
-UAA-P1-070 completed the Memory Source And Provenance Model. The parent board
-now promotes UAA-P1-071 Memory Review Decision Capture as Ready Next.
+UAA-P1-070 completed the Memory Source And Provenance Model. UAA-P1-071
+completed Memory Review Decision Capture. The parent board now promotes
+UAA-P1-072 Business Memory And Memory Quality Controls as Ready Next.
 UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
@@ -57,43 +58,47 @@ Implemented / ready for review:
 FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
-UAA-P1-070.
+UAA-P1-070, UAA-P1-071.
 
 Candidate-next:
-UAA-P1-071 Memory Review Decision Capture.
+UAA-P1-072 Business Memory And Memory Quality Controls.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-072, UAA-P1-073, UAA-P1-074,
-UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
+UAA-P1-073, UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077,
+UAA-P1-078, UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
+UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
 ```
 
 ## Candidate Next
 
-### UAA-P1-071 - Memory Review Decision Capture
+### UAA-P1-072 - Business Memory And Memory Quality Controls
 
-Epic: Memory/Knowledge, Safety/Permissions
+Epic: Memory/Knowledge, Business Cofounder Workflows
 
-Promoted by: UAA-P1-070
+Promoted by: UAA-P1-071
 
 Type: contract/docs/test first
 
-Description: Define accept, correct, reject, defer, merge, supersede, and
-forget-request review states before any candidate becomes reviewed recall.
+Description: Shape reviewed candidate kinds for profile, project,
+relationship, organization, deal/opportunity, promise, follow-up, preference,
+decision, and commitment memory, plus dedupe, conflict, stale/expired,
+low-confidence, source-missing, and evidence-missing posture.
 
-Acceptance criteria: Decisions carry actor refs, source refs, evidence refs,
-stale-state posture, retention posture, audit refs, receipt refs, and blocked
-states for unimplemented write/delete/export behavior.
+Acceptance criteria: Business memory shows provenance, review state,
+correction path, stale-state posture, retention/delete/export posture, quality
+posture, and evidence refs. It feeds Today, Action Inbox, Evidence Timeline,
+and Weekly CEO Review without external CRM writes or account sync.
 
-Required tests/verifiers: focused Memory Review decision tests, redaction
-denial tests, Founder Loop storage/API tests if persisted, and documentation
-integrity.
+Required tests/verifiers: memory schema tests, raw-content denial tests, memory
+quality tests, Founder Loop storage/API tests if surfaced, frontend tests when
+rendered, and documentation integrity.
 
 Safety notes: No provider calls, browser import, connector runtime, account
-auth, automatic memory write, hidden context injection, or production
-authority.
+auth, account sync, automatic memory write, hidden context injection, CRM write,
+or production authority.
 
 ### FCC-P0-002 Follow-Up - Collapse/Organize Control Center Around Core Surfaces
 
@@ -137,7 +142,8 @@ authority expansion.
 Acceptance evidence: Active docs, roadmap, current board, product truth, MVP
 spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
 UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
-UAA-P1-071 as Ready Next, and UAA-P1-066 as read-only local model support.
+UAA-P1-071 as complete, UAA-P1-072 as Ready Next, and UAA-P1-066 as read-only
+local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,
@@ -310,9 +316,10 @@ memory writes, context injection, model/provider authority, connector writes,
 raw transcript/prompt/source display, background sync, delete execution, or
 production authority.
 
-Blockers/dependencies: Decision capture, write policy binding,
+Blockers/dependencies: Decision application/persistence, write policy binding,
 retention/delete contract, context-injection contract, CLI inspection path, and
-durable receipt binding remain future scoped work.
+durable receipt binding remain future scoped work. UAA-P1-071 covers
+review-only decision metadata, not memory mutation.
 
 ### FCC-P1-007 - P1 - Calendar Read-Only Integration Contract
 
@@ -534,6 +541,8 @@ auth, automatic memory write, context injection, or production authority.
 
 Epic: Memory/Knowledge, Safety/Permissions
 
+Status: implemented / ready for review.
+
 Description: Define accept, correct, reject, defer, merge, supersede, and
 forget-request review states before any candidate becomes reviewed recall.
 
@@ -542,7 +551,8 @@ stale-state posture, retention posture, audit refs, receipt refs, and blocked
 states for unimplemented write/delete/export behavior.
 
 Required tests/verifiers: focused Memory Review decision tests, Founder Loop
-storage/API tests if persisted, and frontend tests if surfaced.
+storage/API tests, frontend render checks, and documentation integrity. Bound by
+`scripts/verify_uaa_p1_071_memory_review_decision_capture.py`.
 
 Safety notes: Review decisions do not create automatic context injection,
 connector writes, model/provider authority, or hidden memory writes.
@@ -695,6 +705,129 @@ language checks, and documentation integrity.
 
 Safety notes: Intent classification is not hidden authority, approval, memory
 truth, or broad autonomy.
+
+### UAA-P1-080 - API Route Classification And Public/Protected Inventory
+
+Epic: API Boundary, Security/Permissions
+
+Description: Classify every FastAPI route as `public_metadata`,
+`local_readonly`, `local_sensitive`, or `mutating_requires_authority` and map
+public/protected posture before new runtime authority is claimed.
+
+Acceptance criteria: Route inventory, OpenAPI/API manifest planning, and Control
+Center route posture distinguish harmless metadata from sensitive state and
+mutating authority paths.
+
+Required tests/verifiers: future route inventory/OpenAPI/API manifest tests and
+documentation integrity.
+
+Safety notes: Planning only until implemented; classification does not grant
+auth, approval, runtime behavior, or production authority.
+
+### UAA-P1-081 - Centralized FastAPI Security Headers
+
+Epic: API Boundary, Browser-Facing Control Center
+
+Description: Add a future milestone for centralized response security headers:
+`X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` or strict
+equivalent, `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`,
+Permissions-Policy denying unused browser capabilities, `Content-Security-Policy`
+with strict production posture and documented dev exceptions, and HSTS only for
+actual HTTPS deployment.
+
+Acceptance criteria: Security-header posture is centralized, tested, and
+documented before browser-facing production-readiness claims.
+
+Required tests/verifiers: future response-header tests and docs integrity.
+
+Safety notes: No middleware or header implementation is added by this planning
+entry.
+
+### UAA-P1-082 - Explicit Loopback CORS Allowlist
+
+Epic: API Boundary, Browser-Facing Control Center
+
+Description: Add a future server-side CORS policy that allows only explicit
+local Control Center origins such as `localhost`, `127.0.0.1`, `[::1]`, and
+configured local dev ports.
+
+Acceptance criteria: Broad wildcard CORS is denied, configured local origins are
+documented, and CORS is labeled browser hardening rather than authentication.
+
+Required tests/verifiers: future CORS policy tests and docs integrity.
+
+Safety notes: No CORS implementation or auth claim is added by this planning
+entry.
+
+### UAA-P1-083 - Local Bearer Or Session Gate For Sensitive Routes
+
+Epic: API Boundary, Security/Permissions
+
+Description: Add a simple local-first bearer or local session gate for routes
+that expose logs or observability events, task runs, approvals, memory, file
+previews or write proposals, model gateway behavior, action previews, or
+sensitive runtime state.
+
+Acceptance criteria: Public routes are limited to harmless metadata such as
+health/version and possibly safe manifest data; sensitive routes require the
+local gate before authority claims.
+
+Required tests/verifiers: future protected-route tests, OpenAPI/API manifest
+checks, and docs integrity.
+
+Safety notes: No enterprise auth, multi-user auth, OAuth, roles, password flow,
+or runtime auth implementation is added by this planning entry.
+
+### UAA-P1-084 - Mutating Route Idempotency Enforcement Audit
+
+Epic: API Boundary, Durability/Safety
+
+Description: Audit every mutating route and require an idempotency key or scoped
+idempotency ref aligned with UAA's durable run and action-envelope safety model.
+
+Acceptance criteria: Mutating routes cannot claim authority without
+idempotency, audit, approval, receipt, and rollback/safe-disable posture.
+
+Required tests/verifiers: future mutating-route idempotency tests and route
+inventory checks.
+
+Safety notes: Existing idempotency primitives remain partial coverage; this
+entry does not implement new runtime enforcement.
+
+### UAA-P1-085 - Targeted Rate Limits For Expensive And Sensitive Routes
+
+Epic: API Boundary, Performance/Safety
+
+Description: Add targeted rate limits to likely abuse or heavy paths first:
+model/chat endpoints, task decomposition endpoints, action preview/proposal
+endpoints, and routes that trigger expensive validation or local model behavior.
+
+Acceptance criteria: Rate limits are targeted and evidence-based; validation-only
+endpoints may remain lighter unless abuse risk is shown.
+
+Required tests/verifiers: future rate-limit tests and docs integrity.
+
+Safety notes: No generalized framework or dependency is added by this planning
+entry.
+
+### UAA-P1-086 - API Boundary Enforcement Tests
+
+Epic: API Boundary, Tests/Verification
+
+Description: Add OpenAPI, `/api/manifest`, and route inventory checks that
+enforce route classification, protected-route auth posture, approval posture,
+mutating idempotency posture, security headers, CORS policy, and targeted
+rate-limit posture where scoped.
+
+Acceptance criteria: Sensitive and mutating routes cannot silently drift outside
+their declared local auth, approval, idempotency, redaction, and browser-hardening
+posture.
+
+Required tests/verifiers: future OpenAPI/API manifest/route inventory tests and
+documentation integrity.
+
+Safety notes: Enforcement tests do not grant runtime authority; they make missing
+perimeter work visible.
 
 ### FCC-P1-014 - P1 - Lead And Follow-Up Tracker Spec
 

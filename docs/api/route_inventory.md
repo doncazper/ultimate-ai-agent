@@ -20,6 +20,18 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
+Planned UAA-P1-080 classification will add a public/protected route inventory
+view using:
+
+- `public_metadata`
+- `local_readonly`
+- `local_sensitive`
+- `mutating_requires_authority`
+
+This vocabulary is planned only. Current route metadata already exposes
+side-effect classes, auth posture, and blocked-from-production posture, but it
+does not yet enforce route-wide public/protected classification.
+
 Allowed current side-effect classes are:
 
 - `none`
@@ -30,6 +42,14 @@ Allowed current side-effect classes are:
 Production runtime side effects remain blocked unless an exact scoped milestone
 grants reviewed authority and updates OpenAPI, route side-effect
 classification, Foundation Gate checks, tests, docs, and rollback guidance.
+
+Future UAA-P1-081 through UAA-P1-086 route inventory checks must record:
+centralized security-header posture, explicit loopback CORS allowlist posture,
+local bearer/session gate posture for sensitive routes, idempotency key or
+scoped idempotency ref posture for mutating routes, targeted rate-limit posture
+for expensive/sensitive paths, and enforcement coverage in OpenAPI/API manifest
+tests. These checks are future work and add no middleware, auth, CORS, headers,
+rate limits, dependencies, or runtime authority in this docs pass.
 
 ## Current route groups
 
@@ -124,6 +144,11 @@ payloads.
 - local `/v1` model shell routes remain disabled by default and bearer-gated
 - model-runtime validation and simulation routes remain validation/fallback only
 - runtime readiness and smoke-report routes remain status/validation only
+
+This is partial local auth coverage, not a general sensitive-route auth
+boundary. UAA-P1-083 remains future work for logs/observability, task runs,
+approvals, memory, file previews/proposals, model gateway behavior, action
+previews, and sensitive runtime state.
 
 ### Task, file, tool, provider, memory, truth, approval, consent, cost, gate, and remote-worker groups
 

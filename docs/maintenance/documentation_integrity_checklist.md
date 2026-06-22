@@ -137,7 +137,7 @@ Run this checklist before every release that changes docs, roadmap, API metadata
 
 - active baseline points to v0.32.1.
 - M21 is contract/planning/validation only.
-- OpenWebUI is the preferred conversational web shell.
+- OpenWebUI is a supported local/dev conversational shell.
 - OpenWebUI is not the agent brain.
 - Python Agent Core remains authority.
 - OpenWebUI refs are identifiers only and never authority.

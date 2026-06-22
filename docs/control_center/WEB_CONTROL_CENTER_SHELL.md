@@ -86,7 +86,12 @@ The design docs do not enable design tools, design SaaS, design-to-code, screens
 
 ## v0.18.3 CCC Web Strategy
 
-v0.18.3 clarifies that this shell is CCC Web, the current TypeScript web Control Center. CCC means Control Center Clients and also includes future CCC iOS, CCC Android, and CCC macOS planning. OpenWebUI remains the preferred conversational web shell, while Open Design governs custom CCC surfaces and does not replace OpenWebUI.
+v0.18.3 clarifies that this shell is CCC Web, the current TypeScript web
+Control Center. CCC means Control Center Clients and also includes future CCC
+iOS, CCC Android, and CCC macOS planning. Current product direction keeps
+Control Center / Founder Command Center as the first-party product UI and keeps
+OpenWebUI as a supported local/dev conversational shell, while Open Design
+governs custom CCC surfaces and does not replace OpenWebUI.
 
 This shell remains read-only/preview-only and is not the agent brain. v0.18.3 adds no frontend feature, backend API route, OpenWebUI integration, native CCC implementation, Android app, iOS app, macOS app, mobile sensor access, native build workflow, OS permission integration, or production authority.
 

@@ -71,9 +71,10 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
-| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Ready Next: Memory Review Decision Capture; then `UAA-P1-072` through `UAA-P1-078` for memory quality, Plans-to-Action envelopes, Chat operator surface, governed Code workbench, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
+| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Ready Next: Business Memory And Memory Quality Controls; then `UAA-P1-073` through `UAA-P1-078` for Plans-to-Action envelopes, Chat operator surface, governed Code workbench, loop binding, and beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
 | Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
+| Harden the browser-facing API perimeter before new authority | `UAA-P1-080` through `UAA-P1-086` planned: route classification, security headers, loopback CORS, local auth gate, idempotency audit, targeted rate limits, and OpenAPI/API manifest enforcement | P1 | Control Center remains local-first while every route gets an explicit public/protected classification and sensitive or mutating paths have auth, approval, idempotency, redaction, and test posture before authority-heavy Plans, Chat, Code, loop-binding, or beta-readiness claims |
 | Expand CI into named release lanes | `UAA-P1-013` Done, `UAA-P1-053` Done: CI lane workflow expansion | P1 | docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction, local model, durability, performance, and packaging lanes are visible in CI without unsafe artifact leakage |
 | Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Done: Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
 | Preserve UAA's stricter authority model | `UAA-P1-020` PolicyEngine consolidation map | P0/P1 | No copied peer runtime feature ships without exact policy, approval, audit, rollback, and redaction gates |
@@ -87,13 +88,24 @@ They do not mark the capability shipped and do not grant new authority.
 
 - No raw prompt, raw response, raw provider payload, raw path, raw log, username,
   hostname, serial, environment dump, or credential material in durable evidence.
-- No OpenWebUI authority over UAA. OpenWebUI remains a shell.
+- No OpenWebUI authority over UAA. OpenWebUI remains a supported local/dev
+  conversational shell and compatibility surface, not the destination for
+  wiring every product workflow.
+- Control Center / Founder Command Center is the proprietary primary product
+  UI for Today, Inbox, Plans, Actions, Memory, Evidence, Settings, Models, and
+  first-party Chat. Product state must land there through Python Agent Core
+  contracts, not in OpenWebUI-owned state.
 - No model/provider output as production authority by itself.
 - No tool, shell, network, browser, plugin, connector, mobile, or remote action
   without reviewed capability scope and exact approval where required.
 - No bypass around PolicyEngine, LocalApprovalAuthority, route side-effect
   classification, OpenAPI checks, or Foundation Gate checks.
-- Every mutating path must have idempotency, audit, rollback, and test evidence.
+- Browser-facing API perimeter hardening is required before new authority-heavy
+  Control Center workflows: route classification, security headers, loopback
+  CORS, local auth, idempotency, rate-limit posture, and enforcement tests must
+  be explicit.
+- Every mutating API route or local mutation path must require an idempotency key
+  or scoped idempotency ref, plus audit, rollback, and test evidence.
 - Every product claim must be backed by source, tests, docs, or release evidence.
 
 ## Program Milestones
@@ -284,9 +296,17 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_file_atomic_writes.py
 Goal: build a focused set of surfaces and make each one operationally truthful,
 fast, and inspectable.
 
+UI surface direction: Control Center / Founder Command Center is the
+first-party product cockpit. OpenWebUI remains useful as a local/dev
+conversational shell for `/v1` smoke, llama.cpp compatibility, and developer
+chat, but it is not the product cockpit and is not the surface where all UAA
+product workflows should be wired.
+
 Required surfaces:
 
-- Chat Shell: local OpenWebUI/Control Center entry point with model/status truth.
+- Chat Shell: first-party Control Center chat operator surface with
+  model/runtime/auth/tool-denial truth; OpenWebUI remains a separate local/dev
+  shell over the same governed gateway.
 - Plans: task decomposition, approval needs, DAG status, and safe execution.
 - Models: GGUF search, acquisition status, llama.cpp status, tuning, and rollback.
 - Approvals: exact-scope pending approvals, grant capture, revoke, and audit.
@@ -387,11 +407,13 @@ Tasks:
   refs, read-only calendar/email metadata, and CRM-lite business records. Raw
   prompts, raw responses, raw provider payloads, raw paths, raw logs, account
   identifiers, and raw private content remain denied in durable evidence.
-- `UAA-P1-071` Ready Next: Memory Review decision capture: add exact reviewed states for
+- `UAA-P1-071` Done: Memory Review decision capture: add exact reviewed states for
   accept, correct, reject, defer, merge, supersede, and forget-request posture
   before any memory candidate becomes recall. Decisions need actor refs,
-  source refs, evidence refs, stale-state posture, audit refs, and receipt refs.
-- `UAA-P1-072` Business memory and memory quality controls: add profile, project,
+  source refs, provenance refs, evidence refs, stale-state posture, retention
+  posture, audit refs, receipt refs, blocked-state refs, source provenance
+  binding, and review-only denied authority flags.
+- `UAA-P1-072` Ready Next: Business memory and memory quality controls: add profile, project,
   relationship, organization, deal/opportunity, promise, follow-up, decision,
   preference, and commitment candidate kinds with provenance, review posture,
   dedupe, conflict, stale/expired, low-confidence, source-missing, and
@@ -402,10 +424,12 @@ Tasks:
   side-effect class, risk, approval requirement, idempotency, expiry,
   evidence refs, expected receipt refs, rollback/safe-disable posture, and
   blocked-state reasons. Classification/decomposition alone is not enough.
-- `UAA-P1-074` Chat local operator surface: Chat must send a local turn through
-  the governed local gateway, show model/runtime/auth/tool-denial truth, produce
-  safe evidence, and hand off to Plans or Actions without treating model output
-  as authority, truth, memory, or execution permission.
+- `UAA-P1-074` First-party Control Center chat local operator surface: Chat
+  must send a local turn through the governed local gateway, show
+  model/runtime/auth/tool-denial truth, produce safe evidence, and hand off to
+  Plans or Actions without treating model output as authority, truth, memory,
+  or execution permission. OpenWebUI remains a secondary local/dev shell, not
+  the source of product state.
 - `UAA-P1-075` Governed Code workbench v1: Code should be narrower than Goat
   but better governed: repo-local safe diffs, validation proof, exact approval
   before apply, atomic apply, rollback receipts, and evidence timeline binding.
@@ -430,11 +454,25 @@ Tasks:
   add a reviewable intent classifier that proposes user intent with confidence,
   source refs, ambiguity posture, and ask/act/defer routing. It must not become
   hidden authority or broad autonomy.
+- API Boundary Hardening Lane, planned/queued before authority-heavy claims from
+  Plans, Chat, Code, loop binding, or private beta-readiness:
+  `UAA-P1-080` API route classification and public/protected inventory;
+  `UAA-P1-081` centralized FastAPI security headers;
+  `UAA-P1-082` explicit loopback CORS allowlist;
+  `UAA-P1-083` simple local bearer/session gate for sensitive routes;
+  `UAA-P1-084` mutating-route idempotency enforcement audit;
+  `UAA-P1-085` targeted rate limits for expensive/sensitive routes; and
+  `UAA-P1-086` OpenAPI/API manifest/route inventory enforcement tests. This
+  lane is planning only until implemented and does not add middleware, auth,
+  CORS, headers, dependencies, or runtime authority.
 
 Acceptance:
 
 - Today is the product spine; module completion means the module feeds Today,
   Actions, Evidence, and Memory with safe refs and human-readable state.
+- Authority-heavy product claims for Plans, Chat, Code, loop binding, and
+  private beta-readiness must either pass the UAA-P1-080 through UAA-P1-086 API
+  boundary gates or explicitly remain blocked on missing perimeter controls.
 - Evidence reads as narrative history, not compliance paperwork.
 - Memory is reviewable product state, not hidden prompt stuffing.
 - Plans produce reviewable Action envelopes with approve/edit/reject/defer
@@ -777,16 +815,16 @@ Verification:
 - `UAA-P1-070` Done: memory source/provenance model for manual notes,
   external assistant review summaries, local chat/coding summaries, plans,
   actions, evidence refs, and read-only calendar/email metadata refs.
-- `UAA-P1-071` Ready Next: Memory Review decision capture for accept, correct,
+- `UAA-P1-071` Done: Memory Review decision capture for accept, correct,
   reject, defer, merge, supersede, and forget-request posture.
-- `UAA-P1-072` Shape: business memory and memory quality controls for CRM-lite
+- `UAA-P1-072` Ready Next: business memory and memory quality controls for CRM-lite
   candidate kinds, dedupe, conflicts, stale state, low confidence,
   source-missing, and evidence-missing posture.
 - `UAA-P1-073` Shape: Plans to reviewable Action envelopes with exact scope,
   approve/edit/reject/defer posture, receipts, and rollback/safe-disable state.
-- `UAA-P1-074` Shape: Chat local operator surface with turn send,
-  model/runtime/auth/tool-denial truth, safe evidence, and handoff to Plans or
-  Actions.
+- `UAA-P1-074` Shape: first-party Control Center chat local operator surface
+  with turn send, model/runtime/auth/tool-denial truth, safe evidence, and
+  handoff to Plans or Actions. OpenWebUI remains a secondary local/dev shell.
 - `UAA-P1-075` Shape: governed Code workbench v1 for repo-local safe diffs,
   validation proof, approval-bound apply, rollback, and evidence.
 - `UAA-P1-076` Shape: cross-surface memory intake from Today, Chat, Plans,
@@ -798,6 +836,22 @@ Verification:
   Center loop without public beta/distribution claims.
 - `UAA-P1-079` Later: user-intent understanding v1 after memory, evidence,
   Chat, Plans, Code, and Actions produce reviewable loop evidence.
+- `UAA-P1-080` Planned: API route classification and public/protected inventory
+  using `public_metadata`, `local_readonly`, `local_sensitive`, and
+  `mutating_requires_authority`.
+- `UAA-P1-081` Planned: centralized FastAPI response security headers for the
+  browser-facing Control Center boundary.
+- `UAA-P1-082` Planned: explicit loopback CORS allowlist for local Control
+  Center origins; CORS is browser hardening, not auth.
+- `UAA-P1-083` Planned: simple local bearer/session gate for sensitive routes;
+  no enterprise auth, OAuth, roles, or password flow.
+- `UAA-P1-084` Planned: mutating-route idempotency enforcement audit for
+  idempotency keys or scoped idempotency refs.
+- `UAA-P1-085` Planned: targeted rate limits for model/chat, task
+  decomposition, action preview/proposal, and expensive validation paths.
+- `UAA-P1-086` Planned: OpenAPI/API manifest/route inventory tests enforcing
+  classification, auth, approval, idempotency, headers, CORS, and rate-limit
+  posture.
 - `UAA-P2-056` Shape: extension trust product surface.
 - `UAA-P2-058` Shape: Provider Credential Vault Adapter v1 as a
   disabled-by-default opaque-ref adapter contract. This gate must not collect,
@@ -859,6 +913,7 @@ An item is Done only when:
 | Extension ecosystem | capability/plugin contracts | inspectable, activatable, revocable catalog | P2 |
 | Mobile companion | iOS skeleton/read-only contracts | companion after core loop is stable | P2 |
 | API organization | large FastAPI surface | service modules with unchanged route contracts | P1 |
+| API perimeter | side-effect metadata, route inventory, and partial bearer-gated `/v1` lane | route classification, local auth, headers, CORS, idempotency audit, targeted rate limits, and manifest enforcement | P1 |
 | CI/security posture | named local lanes | visible CI lanes plus safe security/artifact redaction checks | P1 |
 | Product truthfulness | strong docs rules | regression checks across docs, UI, reports, and loop artifacts | P0/P1 |
 

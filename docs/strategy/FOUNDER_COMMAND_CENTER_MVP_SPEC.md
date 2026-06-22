@@ -13,11 +13,11 @@ and gated.
 Work the next implementation lane in this order, starting from the accepted
 `UAA-P1-011` readable-loop baseline:
 
-Current status: UAA-P1-068 Today Product Spine Contract and UAA-P1-069
-Evidence History Grammar are implemented as contract/test/read-only UI slices.
-UAA-P1-070 Memory Source And Provenance Model is implemented as a
-contract/test/read-only source provenance slice. UAA-P1-071 Memory Review
-Decision Capture is the next incomplete lane.
+Current status: UAA-P1-068 Today Product Spine Contract, UAA-P1-069 Evidence
+History Grammar, UAA-P1-070 Memory Source And Provenance Model, and UAA-P1-071
+Memory Review Decision Capture are implemented as contract/test/read-only UI
+slices. UAA-P1-072 Business Memory And Memory Quality Controls is the next
+incomplete lane.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -33,26 +33,39 @@ Decision Capture is the next incomplete lane.
 4. Memory review decision capture: add accept/correct/reject/defer-ready
    review decisions without granting writes, deletes, context injection,
    connector runtime, model/provider authority, or production claims.
-5. Plans to Action envelopes: Plans produce approve/edit/reject/defer-ready
+5. Business memory and memory quality controls: define CRM-lite memory
+   candidate kinds and duplicate/conflict/stale/expired/low-confidence/
+   source-missing/evidence-missing posture before any memory is treated as
+   useful reviewed recall.
+6. Plans to Action envelopes: Plans produce approve/edit/reject/defer-ready
    envelopes with exact scope, receipts, expiry, idempotency, evidence, and
    rollback/safe-disable posture.
-6. Chat local operator surface: Chat sends a local turn, shows
-   model/runtime/auth/tool-denial truth, produces safe evidence, and hands off
-   to Plans or Actions.
-7. Governed Code workbench: repo-local safe diffs, validation proof,
+7. First-party Control Center chat local operator surface: Chat sends a local
+   turn through the governed local gateway, shows model/runtime/auth/tool-denial
+   truth, produces safe evidence, and hands off to Plans or Actions. OpenWebUI
+   remains a secondary local/dev shell, not the product state owner.
+8. Governed Code workbench: repo-local safe diffs, validation proof,
    approval-bound apply, rollback, and evidence before broad coding-agent
    autonomy.
-8. Local Control Center macOS-first Setup Assistant hardening: tighten
+9. Sequential API boundary hardening: before authority-heavy Plans, Chat, Code,
+   loop binding, or beta-readiness claims, classify routes as
+   `public_metadata`, `local_readonly`, `local_sensitive`, or
+   `mutating_requires_authority`; plan centralized security headers, explicit
+   loopback CORS, simple local bearer/session protection for sensitive routes,
+   mutating-route idempotency enforcement, targeted rate limits, and OpenAPI/API
+   manifest/route inventory checks. This is not enterprise auth and does not
+   add runtime authority.
+10. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.
-9. First product loop readability: make Today, Plans, Actions, Memory,
+11. First product loop readability: make Today, Plans, Actions, Memory,
    Evidence, and Settings easier to scan without adding route authority.
-10. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
+12. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
    class, approval requirement, expiry, idempotency, evidence, and rollback
    posture before any approve affordance is wired.
-10. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
+13. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
-11. Read-only email/calendar integration contracts: metadata-only calendar/email
+14. Read-only email/calendar integration contracts: metadata-only calendar/email
    contracts are implemented as contract-only source-readiness support, and the
    draft-only email response proposal contract is implemented as contract-only
    proposal posture. Connector runtime, draft UI, account auth, and send/write
@@ -62,6 +75,19 @@ This lane is docs/contracts/tests/inspection first. It grants no new backend
 route, frontend mutation control, setup mutation, connector runtime,
 model/provider call, shell/browser/plugin/mobile/remote execution, installer
 authority, public distribution, or production authority.
+
+Current partial API coverage is limited to OpenAPI/API manifest metadata,
+side-effect classes, route-status auth posture, bearer-gated local `/v1`
+planning, and idempotency concepts in durable run/action contracts. Centralized
+security headers, explicit loopback CORS, a broad local bearer/session gate,
+route-wide public/protected classification, mutating-route idempotency
+enforcement, targeted rate limits, and enforcement tests remain future scoped
+work.
+
+UI direction: Control Center / Founder Command Center is the proprietary
+primary product UI for the loop. OpenWebUI remains a supported local/dev
+conversational shell and compatibility surface; it should not own product state
+or become the destination for wiring every workflow.
 
 ## Planning-Only Permission Language
 

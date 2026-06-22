@@ -1905,9 +1905,9 @@ describe("Web Control Center shell", () => {
       screen.getByText("recheck_source_refs_before_memory_use"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("provenance-ref:founder-loop-memory:mock-preferences"),
+      screen.getByText("provenance-ref:manual-note:mock-preferences"),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("source-ref:founder-loop-storage").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("source-ref:manual-note:founder-loop-storage").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("contract-ref:memory-write-policy-binding-missing").length,
     ).toBeGreaterThan(0);
@@ -1915,7 +1915,7 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("contract-ref:memory-retention-delete-missing").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("contract-ref:memory-review-decision-capture-missing").length,
+      screen.getAllByText("contract-ref:business-memory-quality-controls-missing").length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("contract-ref:context-injection-missing").length,
@@ -1932,6 +1932,11 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Review provenance and evidence refs/i),
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Review decisions/i })).toBeInTheDocument();
+    expect(screen.getAllByText("contract-ref:memory-review-decision:v1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("review_needed_no_decision_captured").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("actor-ref:local-operator-review-required").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-memory-write").length).toBeGreaterThan(0);
 
     for (const label of [
       /^accept$/i,
@@ -1942,6 +1947,9 @@ describe("Web Control Center shell", () => {
       /^write$/i,
       /^inject$/i,
       /^approve$/i,
+      /^merge$/i,
+      /^supersede$/i,
+      /^defer$/i,
       /^run$/i,
       /^sync$/i,
       /^export$/i,
@@ -2854,7 +2862,7 @@ const mockApiData = {
       },
       {
         module: "Memory",
-        status: "implemented_review_queue_decision_capture_missing",
+        status: "implemented_review_queue_decision_metadata_contract",
         required_loop_outputs: [
           "today_memory_review_count",
           "action_or_follow_up_candidate",
@@ -2863,7 +2871,7 @@ const mockApiData = {
         ],
         current_feed_refs: [
           "status-ref:founder-loop-memory-review",
-          "contract-ref:memory-review-decision-capture-missing",
+          "contract-ref:memory-review-decision:v1",
         ],
         standalone_complete_allowed: false,
       },
@@ -3039,12 +3047,12 @@ const mockApiData = {
         side_effect_class: "local_dev_workspace_only",
         authority_boundary:
           "Review-only memory candidate; recall is not truth, and writes, deletes, and context injection remain unscoped.",
-        provenance_refs: ["provenance-ref:founder-loop-memory:test"],
-        source_refs: ["source-ref:founder-loop-storage"],
+        provenance_refs: ["provenance-ref:manual-note:test"],
+        source_refs: ["source-ref:manual-note:test"],
         missing_contract_refs: [
           "contract-ref:memory-write-policy-binding-missing",
           "contract-ref:memory-retention-delete-missing",
-          "contract-ref:memory-review-decision-capture-missing",
+          "contract-ref:business-memory-quality-controls-missing",
           "contract-ref:context-injection-missing",
         ],
         correction_posture: "correction_requires_scoped_memory_write_contract",
@@ -3065,6 +3073,82 @@ const mockApiData = {
         next_safe_action:
           "Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.",
         evidence_refs: ["evidence-ref:founder-loop:test-memory"],
+        source_policy_ref: "contract-ref:memory-source-provenance:v1",
+        source_kind: "manual_note",
+        source_kind_ref: "memory-source-kind:manual-note",
+        source_refs_status: "safe_source_refs_present",
+        provenance_refs_status: "safe_provenance_refs_present",
+        source_review_required: true,
+        source_trust_posture: "untrusted_until_reviewed",
+        safe_summary_only: true,
+        source_truth_authority: false,
+        memory_write_authorized: false,
+        automatic_memory_write_authorized: false,
+        context_injection_authorized: false,
+        account_auth_enabled: false,
+        public_beta_claim_enabled: false,
+        public_distribution_claim_enabled: false,
+        production_authority_enabled: false,
+        source_payload_storage_allowed: false,
+        prompt_body_storage_allowed: false,
+        response_body_storage_allowed: false,
+        provider_body_storage_allowed: false,
+        path_body_storage_allowed: false,
+        log_body_storage_allowed: false,
+        account_ref_storage_allowed: false,
+        private_content_storage_allowed: false,
+        connector_runtime_allowed: false,
+        provider_or_model_authority_allowed: false,
+        accepted_as_truth: false,
+        decision_contract_ref: "contract-ref:memory-review-decision:v1",
+        available_decision_states: [
+          "accept",
+          "correct",
+          "reject",
+          "defer",
+          "merge",
+          "supersede",
+          "forget_request",
+        ],
+        decision_capture_status: "review_needed_no_decision_captured",
+        decision_required_ref_fields: [
+          "actor_ref",
+          "source_refs",
+          "provenance_refs",
+          "evidence_refs",
+          "stale_state",
+          "retention_posture",
+          "audit_refs",
+          "receipt_refs",
+          "blocked_state_refs",
+        ],
+        decision_actor_ref: "actor-ref:local-operator-review-required",
+        decision_source_provenance_contract_ref:
+          "contract-ref:memory-source-provenance:v1",
+        decision_source_kind: "manual_note",
+        decision_source_trust_posture: "untrusted_until_reviewed",
+        decision_redaction_status: "redacted_summary_only",
+        decision_audit_refs: ["audit-plan:memory-review:test"],
+        decision_receipt_refs: ["receipt-plan:memory-review:test"],
+        decision_blocked_state_refs: [
+          "blocked-state:no-memory-write",
+          "blocked-state:no-memory-delete",
+          "blocked-state:no-memory-export",
+          "blocked-state:no-context-injection",
+          "blocked-state:no-connector-runtime",
+          "blocked-state:no-account-auth",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-public-beta-or-production-authority",
+        ],
+        decision_stale_state: "recheck_source_refs_before_memory_use",
+        decision_retention_posture: "retention_policy_not_bound",
+        decision_correction_posture: "correction_requires_scoped_memory_write_contract",
+        decision_authority_boundary:
+          "Memory review decisions are review metadata only; writes, deletes, exports, context injection, connector runtime, account auth, and production authority remain unscoped.",
+        decision_review_only: true,
+        memory_delete_authorized: false,
+        memory_export_authorized: false,
+        retention_execution_authorized: false,
       },
     ],
     memory_review_route_ref: "/memory",
@@ -3078,7 +3162,7 @@ const mockApiData = {
     memory_review_missing_contract_refs: [
       "contract-ref:memory-write-policy-binding-missing",
       "contract-ref:memory-retention-delete-missing",
-      "contract-ref:memory-review-decision-capture-missing",
+      "contract-ref:business-memory-quality-controls-missing",
       "contract-ref:context-injection-missing",
     ],
     memory_review_blocked_states: [
@@ -3181,12 +3265,12 @@ const mockApiData = {
         title: "Memory review",
         safe_summary:
           "Memory evidence is recall metadata only. Memory is not truth, not approval, and not context-injection authority.",
-        source_refs: ["memory-review:test", "source-ref:founder-loop-storage"],
+        source_refs: ["memory-review:test", "source-ref:manual-note:test"],
         status_refs: [
           "status-ref:founder-loop-memory-review",
           "contract-ref:memory-write-policy-binding-missing",
           "contract-ref:memory-retention-delete-missing",
-          "contract-ref:memory-review-decision-capture-missing",
+          "contract-ref:business-memory-quality-controls-missing",
           "contract-ref:context-injection-missing",
         ],
         related_route_refs: ["GET /control-center/today/summary", "/memory"],

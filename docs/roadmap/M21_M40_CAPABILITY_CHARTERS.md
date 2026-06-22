@@ -7,7 +7,8 @@ These charters define capability layers after M20. v0.56.0 is the M52 OpenWebUI 
 ## Shared Rules
 
 - Python Agent Core remains the brain.
-- OpenWebUI is the preferred conversational web shell.
+- OpenWebUI is a supported local/dev conversational shell, not the first-party
+  product cockpit.
 - CCC is the user-control and governance client family.
 - Model output is never source of truth.
 - Memory is recall, not authority.
@@ -44,7 +45,7 @@ Dependencies: v0.18.3 OpenWebUI/CCC strategy, stable API/OpenAPI contracts, Pyth
 
 Acceptance criteria:
 
-- OpenWebUI remains the preferred conversational shell.
+- OpenWebUI remains a supported local/dev conversational shell.
 - Agent Core remains authority.
 - no bypass of Approval Authority, Consent Ledger, Tool Broker, Event Ledger, Secret Broker, or Foundation Gate.
 - no OpenWebUI integration, deployment config, backend route, frontend feature, runtime execution, model/provider call, tool execution, memory write, file access, dependency, or production authority.

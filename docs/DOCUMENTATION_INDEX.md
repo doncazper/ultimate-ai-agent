@@ -12,7 +12,7 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_102_3.md`, `docs/release_notes/checkpoint_m168.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
-| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md` |
+| Founder Command Center / Product Strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
@@ -34,9 +34,10 @@ practical first product-loop roadmap. UAA-P1-067 completes the Today-spine,
 memory-first Founder Command Center beta-readiness planning/currentness pass;
 UAA-P1-068 completes the Today Product Spine Contract; UAA-P1-069 completes the
 Evidence History Grammar; UAA-P1-070 completes the Memory Source And
-Provenance Model; UAA-P1-071 Memory Review Decision Capture is the current
-Ready Next product lane. Every module feeds Today, Actions, Evidence,
-and Memory; source provenance, reviewed business memory, Evidence-as-history,
+Provenance Model; UAA-P1-071 completes Memory Review Decision Capture;
+UAA-P1-072 Business Memory And Memory Quality Controls is the current Ready
+Next product lane. Every module feeds Today, Actions, Evidence, and Memory;
+source provenance, reviewed business memory, Evidence-as-history,
 Plans-to-Action envelopes, Chat operator truth, governed Code diffs,
 cross-surface intake, memory quality, and loop binding proceed before broader
 authority. These are planning
@@ -54,11 +55,14 @@ docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md
 docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md
 docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md
 docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md
+docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md
 docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md
 docs/metrics/NORTH_STAR_METRICS.md
 docs/codex/CODEX_EXECUTION_PROMPTS.md
 docs/schemas/today_product_spine_contract.schema.json
 docs/schemas/evidence_history_grammar.schema.json
+docs/schemas/memory_source_provenance.schema.json
+docs/schemas/memory_review_decision_capture.schema.json
 ```
 
 ## Historical Currentness Repairs
@@ -901,9 +905,16 @@ docs/ui/OPENWEBUI_INTEGRATION_ROADMAP.md
 docs/ui/CCC_NATIVE_CLIENT_STRATEGY.md
 ```
 
-v0.18.3 clarifies that OpenWebUI is the preferred conversational web shell, CCC means Control Center Clients, and CCC covers CCC Web, CCC iOS, CCC Android, and CCC macOS. Open Design governs custom CCC surfaces and does not replace OpenWebUI. These docs add no OpenWebUI integration, deployment config, frontend feature, backend API route, native app, native build workflow, mobile sensor access, OS permission integration, signing, keystore, provisioning, App Store, or Play Store workflow.
+v0.18.3 clarifies that OpenWebUI is a supported local/dev conversational shell,
+CCC means Control Center Clients, and CCC covers CCC Web, CCC iOS, CCC Android,
+and CCC macOS. Current product direction keeps Control Center / Founder Command
+Center as the first-party product UI. Open Design governs custom CCC surfaces
+and does not replace OpenWebUI. These docs add no OpenWebUI integration,
+deployment config, frontend feature, backend API route, native app, native build
+workflow, mobile sensor access, OS permission integration, signing, keystore,
+provisioning, App Store, or Play Store workflow.
 
-v0.25.1 hardens M21 OpenWebUI Bridge + Chat Shell Integration Contract safety while keeping M21 contract/planning/validation only. OpenWebUI remains the preferred conversational web shell and is not the agent brain. Python Agent Core remains authority. M21 allows only summary/ref/redacted-preview content modes, rejects blocked raw/future modes for refs and envelopes, permits safe negated authority-boundary text, rejects positive OpenWebUI authority claims, and scans the OpenWebUI bridge package for forbidden runtime/config fragments. M21 adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugins/functions/pipelines/tools/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, OpenWebUI runtime execution, user-content local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority. v0.26.0 implements M22 as contract-only metadata/validation. v0.26.1 hardens M22 verifier precision and metadata key secret hygiene only. v0.27.0 implements M23 as manual fixed-prompt local call only.
+v0.25.1 hardens M21 OpenWebUI Bridge + Chat Shell Integration Contract safety while keeping M21 contract/planning/validation only. OpenWebUI remains a supported local/dev conversational shell and is not the agent brain or first-party product cockpit. Python Agent Core remains authority. M21 allows only summary/ref/redacted-preview content modes, rejects blocked raw/future modes for refs and envelopes, permits safe negated authority-boundary text, rejects positive OpenWebUI authority claims, and scans the OpenWebUI bridge package for forbidden runtime/config fragments. M21 adds no OpenWebUI integration, deployment config, Docker config, OpenWebUI plugins/functions/pipelines/tools/admin/auth/cookie/API key/admin token workflow, browser profile access, live OpenWebUI connection, backend API route, frontend feature, OpenWebUI runtime execution, user-content local LLM call, model/provider call, tool execution, memory write, file access, remote execution, browser automation, Computer Use, mobile sensor access, plugin enablement, dependency, or production authority. v0.26.0 implements M22 as contract-only metadata/validation. v0.26.1 hardens M22 verifier precision and metadata key secret hygiene only. v0.27.0 implements M23 as manual fixed-prompt local call only.
 
 ## Active Post-M20 Roadmap Projection Docs
 

@@ -6,6 +6,7 @@ import pytest
 from ultimate_ai_agent.core.storage import (
     EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF,
     FOUNDER_LOOP_SCHEMA_VERSION,
+    MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
     TODAY_PRODUCT_SPINE_CONTRACT_REF,
     FounderLoopRepository,
@@ -65,6 +66,10 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         today["memory_source_provenance_contract_ref"]
         == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
     )
+    assert (
+        today["memory_review_decision_contract_ref"]
+        == MEMORY_REVIEW_DECISION_CONTRACT_REF
+    )
     assert today["memory_source_required_kinds"] == [
         "manual_note",
         "external_assistant_review_summary",
@@ -93,6 +98,35 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert today["memory_source_review_posture"]["connector_runtime_enabled"] is False
     assert today["memory_source_review_posture"]["account_auth_enabled"] is False
     assert today["memory_source_review_posture"]["production_authority_enabled"] is False
+    assert [row["decision_state"] for row in today["memory_review_decision_states"]] == [
+        "accept",
+        "correct",
+        "reject",
+        "defer",
+        "merge",
+        "supersede",
+        "forget_request",
+    ]
+    assert today["memory_review_decision_required_ref_fields"] == [
+        "actor_ref",
+        "source_refs",
+        "provenance_refs",
+        "evidence_refs",
+        "stale_state",
+        "retention_posture",
+        "audit_refs",
+        "receipt_refs",
+        "blocked_state_refs",
+    ]
+    assert today["memory_review_decision_authority_posture"]["review_only"] is True
+    assert (
+        today["memory_review_decision_authority_posture"]["memory_write_authorized"]
+        is False
+    )
+    assert (
+        today["memory_review_decision_authority_posture"]["accepted_as_recall"]
+        is False
+    )
     assert set(today["evidence_history_required_states"]) == HISTORY_KEYS
     assert {
         item["key"]
@@ -149,6 +183,14 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         assert feed["standalone_complete_allowed"] is False
         assert len(feed["required_loop_outputs"]) == 4
         assert feed["current_feed_refs"]
+    assert (
+        module_feeds["Memory"]["status"]
+        == "implemented_review_queue_decision_metadata_contract"
+    )
+    assert (
+        MEMORY_REVIEW_DECISION_CONTRACT_REF
+        in module_feeds["Memory"]["current_feed_refs"]
+    )
     assert today["module_completion_contract"] == {
         "visibility_requirement": (
             "Module state must be visible in Today, Actions, Evidence, and "
@@ -298,9 +340,11 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         in memory_item["authority_boundary"]
     )
     assert memory_item["provenance_refs"] == [
-        "provenance-ref:founder-loop-memory:preferences"
+        "provenance-ref:manual-note:founder-loop-preferences"
     ]
-    assert memory_item["source_refs"] == ["source-ref:founder-loop-storage"]
+    assert memory_item["source_refs"] == [
+        "source-ref:manual-note:founder-loop-storage"
+    ]
     assert memory_item["source_policy_ref"] == MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
     assert memory_item["source_kind"] == "manual_note"
     assert memory_item["source_kind_ref"] == "memory-source-kind:manual-note"
@@ -318,8 +362,37 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert memory_item["public_distribution_claim_enabled"] is False
     assert memory_item["production_authority_enabled"] is False
     assert memory_item["accepted_as_truth"] is False
+    assert memory_item["decision_contract_ref"] == MEMORY_REVIEW_DECISION_CONTRACT_REF
+    assert memory_item["available_decision_states"] == [
+        "accept",
+        "correct",
+        "reject",
+        "defer",
+        "merge",
+        "supersede",
+        "forget_request",
+    ]
+    assert memory_item["decision_capture_status"] == "review_needed_no_decision_captured"
+    assert memory_item["decision_actor_ref"] == (
+        "actor-ref:local-operator-review-required"
+    )
+    assert memory_item["decision_source_provenance_contract_ref"] == (
+        MEMORY_SOURCE_PROVENANCE_CONTRACT_REF
+    )
+    assert memory_item["decision_source_kind"] == "manual_note"
+    assert memory_item["decision_source_trust_posture"] == "untrusted_until_reviewed"
+    assert memory_item["decision_redaction_status"] == "redacted_summary_only"
+    assert memory_item["decision_review_only"] is True
+    assert memory_item["memory_delete_authorized"] is False
+    assert memory_item["memory_export_authorized"] is False
+    assert memory_item["retention_execution_authorized"] is False
+    assert memory_item["decision_audit_refs"]
+    assert memory_item["decision_receipt_refs"]
+    assert "blocked-state:no-memory-write" in memory_item["decision_blocked_state_refs"]
+    assert "blocked-state:no-memory-delete" in memory_item["decision_blocked_state_refs"]
+    assert "blocked-state:no-memory-export" in memory_item["decision_blocked_state_refs"]
     assert (
-        "contract-ref:memory-review-decision-capture-missing"
+        "contract-ref:business-memory-quality-controls-missing"
         in memory_item["missing_contract_refs"]
     )
     assert (
@@ -555,6 +628,11 @@ def test_founder_loop_memory_review_defaults_are_review_only(tmp_path: Path) -> 
     assert item["accepted_as_truth"] is False
     assert item["memory_write_authorized"] is False
     assert item["context_injection_authorized"] is False
+    assert item["decision_contract_ref"] == MEMORY_REVIEW_DECISION_CONTRACT_REF
+    assert item["decision_capture_status"] == "review_needed_no_decision_captured"
+    assert item["decision_review_only"] is True
+    assert item["memory_delete_authorized"] is False
+    assert item["memory_export_authorized"] is False
     assert item["missing_contract_refs"] == []
     assert (
         item["correction_posture"]

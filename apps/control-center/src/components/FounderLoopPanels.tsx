@@ -481,6 +481,48 @@ export function MemoryReviewSurfacePanel({
           </dl>
           <RefList refs={today.memory_source_denied_content_refs ?? []} />
         </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Review decisions</h3>
+            <span>{today.memory_review_decision_states.length}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.memory_review_decision_contract_ref}
+            />
+            <DetailTerm
+              label="Review-only"
+              value={
+                today.memory_review_decision_authority_posture.review_only
+                  ? "yes"
+                  : "no"
+              }
+            />
+            <DetailTerm
+              label="Write authority"
+              value={
+                today.memory_review_decision_authority_posture.memory_write_authorized
+                  ? "enabled"
+                  : "disabled"
+              }
+            />
+            <DetailTerm
+              label="Recall authority"
+              value={
+                today.memory_review_decision_authority_posture.accepted_as_recall
+                  ? "enabled"
+                  : "disabled"
+              }
+            />
+          </dl>
+          <InlineListWithFallback
+            emptyLabel="Decision labels: metadata only"
+            items={today.memory_review_decision_states.map(
+              (state) => state.decision_state,
+            )}
+          />
+        </article>
       </div>
       <div className="review-grid">
         {today.memory_review_queue.map((item) => (
@@ -984,6 +1026,8 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
   const sourceKind = item.source_kind ?? "manual_note";
   const sourceTrustPosture =
     item.source_trust_posture ?? "untrusted_until_reviewed";
+  const decisionCaptureStatus =
+    item.decision_capture_status ?? "review_needed_no_decision_captured";
   const nextSafeAction =
     item.next_safe_action ??
     "Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.";
@@ -1000,6 +1044,28 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
         <DetailTerm label="Candidate kind" value={candidateKind} />
         <DetailTerm label="Source kind" value={sourceKind} />
         <DetailTerm label="Source trust" value={sourceTrustPosture} />
+        <DetailTerm label="Decision capture" value={decisionCaptureStatus} />
+        <DetailTerm label="Decision actor" value={item.decision_actor_ref} />
+        <DetailTerm
+          label="Decision source kind"
+          value={item.decision_source_kind}
+        />
+        <DetailTerm
+          label="Decision source trust"
+          value={item.decision_source_trust_posture}
+        />
+        <DetailTerm
+          label="Decision review-only"
+          value={item.decision_review_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Delete authority"
+          value={item.memory_delete_authorized ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Export authority"
+          value={item.memory_export_authorized ? "yes" : "no"}
+        />
         <DetailTerm label="Source ref status" value={item.source_refs_status} />
         <DetailTerm
           label="Provenance ref status"
@@ -1037,6 +1103,22 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
       <RefListWithFallback
         emptyLabel="Missing contracts: memory write, retention/delete, context injection"
         refs={item.missing_contract_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Decision audit refs: missing until review capture contract"
+        refs={item.decision_audit_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Decision receipt refs: missing until review capture contract"
+        refs={item.decision_receipt_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Decision blocked refs: memory mutation remains unscoped"
+        refs={item.decision_blocked_state_refs ?? []}
+      />
+      <InlineListWithFallback
+        emptyLabel="Decision labels only: accept, correct, reject, defer, merge, supersede, forget request"
+        items={item.available_decision_states ?? []}
       />
       <InlineListWithFallback
         emptyLabel="Item blockers: memory write and context injection not scoped"

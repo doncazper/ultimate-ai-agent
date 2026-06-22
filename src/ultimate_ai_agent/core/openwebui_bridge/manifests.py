@@ -58,7 +58,7 @@ def build_default_openwebui_bridge_manifest(
         docs_refs=M21_OPENWEBUI_DOCS,
         warnings=[
             "M21 is contract-only.",
-            "OpenWebUI is the preferred conversational web shell, not the agent brain.",
+            "OpenWebUI is a supported local/dev conversational shell, not the agent brain or product cockpit.",
             "Python Agent Core remains authority.",
             "No OpenWebUI integration, deployment config, plugin, runtime call, memory write, or tool execution is added.",
         ],

@@ -2,7 +2,10 @@
 
 Status: Active M21 contract documentation for v0.25.1. Contract-only.
 
-OpenWebUI is the preferred conversational web shell, not the agent brain. Python Agent Core remains authority.
+OpenWebUI is a supported local/dev conversational shell and compatibility
+surface, not the agent brain, not the proprietary product cockpit, and not the
+source of product state. Python Agent Core remains authority. Control Center /
+Founder Command Center is the first-party product UI path.
 
 Primary risks:
 

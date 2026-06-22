@@ -16,6 +16,12 @@ Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
 Foundation Gate checks remain the authority boundaries.
 
+Control Center / Founder Command Center is the first-party product UI for
+Today, Inbox, Plans, Actions, Memory, Evidence, Settings, Models, and future
+first-party Chat. OpenWebUI is a supported local/dev conversational shell and
+compatibility surface only; copy must not imply that OpenWebUI owns product
+state or is where every UAA workflow will be wired.
+
 CLI is a first-class operator surface. Product behavior must not live only in
 React state; UI-only state is limited to presentation concerns such as filters,
 expanded panels, selected tabs, and layout preferences. If the UI can trigger or
@@ -78,9 +84,10 @@ controls must say review-only or local state. Disabled or missing work must stay
 blocked, partial, or not scoped.
 
 Future Founder Command Center surfaces for Today, Inbox, Plans, Actions, Memory,
-Evidence, and Settings must remain inspectable through backend/core contracts
-and, where appropriate, CLI commands or repo-local scripts. The frontend can make
-those workflows easier to operate, but it cannot become the only access path.
+Evidence, Settings, Models, and first-party Chat must remain inspectable through
+backend/core contracts and, where appropriate, CLI commands or repo-local
+scripts. The frontend can make those workflows easier to operate, but it cannot
+become the only access path.
 
 Status panels must avoid standalone readiness claims. When a backend field uses
 a readiness-shaped name, the UI must frame it as a claim status or evidence

@@ -166,6 +166,26 @@ export interface FounderLoopMemoryReviewItem {
   connector_runtime_allowed: boolean;
   provider_or_model_authority_allowed: boolean;
   accepted_as_truth: boolean;
+  decision_contract_ref: string;
+  available_decision_states: string[];
+  decision_capture_status: string;
+  decision_required_ref_fields: string[];
+  decision_actor_ref: string;
+  decision_source_provenance_contract_ref: string;
+  decision_source_kind: string;
+  decision_source_trust_posture: string;
+  decision_redaction_status: string;
+  decision_audit_refs: string[];
+  decision_receipt_refs: string[];
+  decision_blocked_state_refs: string[];
+  decision_stale_state: string;
+  decision_retention_posture: string;
+  decision_correction_posture: string;
+  decision_authority_boundary: string;
+  decision_review_only: boolean;
+  memory_delete_authorized: boolean;
+  memory_export_authorized: boolean;
+  retention_execution_authorized: boolean;
   created_at?: string;
 }
 
@@ -283,6 +303,41 @@ export interface FounderLoopMemorySourceReviewPosture {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopMemoryReviewDecisionState {
+  decision_state: string;
+  decision_state_ref: string;
+  review_required: boolean;
+  actor_ref_required: boolean;
+  source_refs_required: boolean;
+  provenance_refs_required: boolean;
+  evidence_refs_required: boolean;
+  audit_refs_required: boolean;
+  receipt_refs_required: boolean;
+  blocked_state_refs_required: boolean;
+  writes_authorized: boolean;
+  deletes_authorized: boolean;
+  exports_authorized: boolean;
+  context_injection_authorized: boolean;
+  accepted_as_recall: boolean;
+}
+
+export interface FounderLoopMemoryReviewDecisionAuthorityPosture {
+  review_only: boolean;
+  memory_write_authorized: boolean;
+  memory_delete_authorized: boolean;
+  memory_export_authorized: boolean;
+  context_injection_authorized: boolean;
+  connector_runtime_enabled: boolean;
+  account_auth_enabled: boolean;
+  provider_or_model_authority_allowed: boolean;
+  source_truth_authority: boolean;
+  accepted_as_recall: boolean;
+  retention_execution_authorized: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -347,6 +402,10 @@ export interface FounderLoopTodaySummary {
   memory_source_policy: FounderLoopMemorySourcePolicy[];
   memory_source_denied_content_refs: string[];
   memory_source_review_posture: FounderLoopMemorySourceReviewPosture;
+  memory_review_decision_contract_ref: string;
+  memory_review_decision_states: FounderLoopMemoryReviewDecisionState[];
+  memory_review_decision_required_ref_fields: string[];
+  memory_review_decision_authority_posture: FounderLoopMemoryReviewDecisionAuthorityPosture;
   priority_refs: string[];
   blocker_refs: string[];
   follow_up_refs: string[];
