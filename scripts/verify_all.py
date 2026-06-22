@@ -92,6 +92,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-077 memory-to-loop binding scan", "verify_uaa_p1_077_memory_to_loop_binding"),
     ("UAA-P1-078 private beta-readiness gate scan", "verify_uaa_p1_078_private_beta_readiness_gate"),
     ("UAA-P1-079 user intent understanding scan", "verify_uaa_p1_079_user_intent_understanding"),
+    ("UAA-P1-080 API route classification scan", "verify_uaa_p1_080_api_route_classification"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
@@ -1060,6 +1061,16 @@ def verify_uaa_p1_079_user_intent_understanding() -> None:
         [
             sys.executable,
             "scripts/verify_uaa_p1_079_user_intent_understanding.py",
+        ]
+    )
+
+
+def verify_uaa_p1_080_api_route_classification() -> None:
+    print("\n[Verifier] Running UAA-P1-080 API route classification scan...")
+    run_cmd(
+        [
+            sys.executable,
+            "scripts/verify_uaa_p1_080_api_route_classification.py",
         ]
     )
 

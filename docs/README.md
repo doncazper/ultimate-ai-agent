@@ -13,8 +13,10 @@ UAA-P1-074 Chat Local Operator Surface work, completed UAA-P1-075 Governed
 Code Workbench V1 work, completed UAA-P1-076 Cross-Surface Memory Intake work,
 completed UAA-P1-077 Memory-To-Loop Binding work, completed UAA-P1-078
 Private Beta-Readiness Gate work, and completed UAA-P1-079 User Intent
-Understanding V1 work. UAA-P1-080 through UAA-P1-086 remain planned/queued API
-boundary hardening lanes.
+Understanding V1 work, and completed UAA-P1-080 API Route Classification And
+Public/Protected Inventory work. UAA-P1-081 through UAA-P1-086 remain
+planned/queued API boundary hardening lanes, followed by UAA-P1-087 Private
+Operator Trial And UI Functional Tuning.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -64,8 +66,10 @@ Reviewable Action Envelopes, and completed UAA-P1-074 Chat Local Operator
 Surface, completed UAA-P1-075 Governed Code Workbench V1, and completed
 UAA-P1-076 Cross-Surface Memory Intake, and completed UAA-P1-077
 Memory-To-Loop Binding, and completed UAA-P1-078 Private Beta-Readiness Gate
-to completed UAA-P1-079 User Intent Understanding V1. UAA-P1-080 through
-UAA-P1-086 remain planned/queued API boundary hardening lanes. UAA-P1-066
+to completed UAA-P1-079 User Intent Understanding V1, and completed UAA-P1-080
+API Route Classification And Public/Protected Inventory. UAA-P1-081 through
+UAA-P1-086 remain planned/queued API boundary hardening lanes, followed by
+UAA-P1-087 Private Operator Trial And UI Functional Tuning. UAA-P1-066
 remains queued as a strictly read-only Local Model
 Control Center inventory/status support lane.
 This sequence makes Today the product spine and keeps memory,

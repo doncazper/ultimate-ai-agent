@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-079 Complete: User Intent Understanding V1; UAA-P1-080 Planned API Boundary Hardening** |
+| Current lane | **UAA-P1-080 Complete: API Route Classification; UAA-P1-081 Planned Security Headers** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -73,8 +73,13 @@ Inbox, Memory Review, Evidence Timeline, Chat/Plans Handoff, Governed Code,
 and CRM-lite follow-ups. UAA-P1-079 User Intent Understanding V1 is complete
 with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing; low-confidence or conflicting
-intent asks the user rather than acting. UAA-P1-080 through UAA-P1-086 remain
-planned/queued API boundary hardening lanes and grant no new authority here.
+intent asks the user rather than acting. UAA-P1-080 API Route Classification
+And Public/Protected Inventory is complete with typed route classifications in
+`/api/manifest`, a frozen 112-route inventory fixture, route-status manifest
+alignment, Control Center API Routes visibility, and focused verifier/tests.
+UAA-P1-081 through UAA-P1-086 remain planned/queued API boundary hardening
+lanes, followed by UAA-P1-087 Private Operator Trial And UI Functional Tuning,
+and grant no new authority here.
 UAA-P1-066 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane.
 

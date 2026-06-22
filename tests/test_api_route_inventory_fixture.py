@@ -23,6 +23,7 @@ def test_frozen_api_route_inventory_matches_current_contract() -> None:
             "tags": route["tags"],
             "summary": route["summary"],
             "side_effect_class": route["side_effect_class"],
+            "route_classification": route["route_classification"],
         }
         for route in manifest["routes"]
     ]
@@ -30,6 +31,8 @@ def test_frozen_api_route_inventory_matches_current_contract() -> None:
 
     assert fixture["schema_version"] == "uaa-api-route-inventory.v1"
     assert fixture["route_count"] == 112
+    assert fixture["route_classification_vocabulary"] == manifest["route_classification_vocabulary"]
+    assert fixture["route_classification_summary"] == manifest["route_classification_summary"]
     assert fixture["routes"] == current_routes
 
 

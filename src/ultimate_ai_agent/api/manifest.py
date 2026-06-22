@@ -6,7 +6,12 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
 from ultimate_ai_agent import __version__
-from ultimate_ai_agent.api.contracts import ApiManifest, ApiRouteInventoryItem, ApiRouteSideEffectClass
+from ultimate_ai_agent.api.contracts import (
+    ApiManifest,
+    ApiRouteClassification,
+    ApiRouteInventoryItem,
+    ApiRouteSideEffectClass,
+)
 
 
 CAPABILITIES_DECLARED = [
@@ -171,6 +176,55 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/storage",
 )
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
+PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}
+LOCAL_READONLY_PATHS = {
+    "/control-center/dashboard",
+    "/control-center/foundation-gate/summary",
+    "/control-center/manifest",
+    "/control-center/routes",
+    "/control-center/runtime-readiness/summary",
+    "/control-center/setup-assistant/summary",
+    "/control-center/status",
+    "/extensions/catalog",
+    "/remote-workers/mesh/status",
+    "/remote-workers/status",
+    "/remote-workers/tailnet/status",
+    "/runtime/capability-matrix",
+    "/runtime/readiness",
+    "/web-evidence/status",
+}
+NON_MUTATING_LOCAL_POSTURE_HINTS = (
+    "/classify",
+    "/client-errors",
+    "/decompose",
+    "/dry-run",
+    "/evaluate",
+    "/freshness/check",
+    "/preview",
+    "/propose",
+    "/query",
+    "/read/",
+    "/refs/",
+    "/route",
+    "/simulate",
+    "/smoke/",
+    "/suggest",
+    "/tree/",
+    "/validate",
+)
+MUTATING_LOCAL_POSTURE_HINTS = (
+    "/approval-requests",
+    "/approvals/grants/capture",
+    "/approvals/revoke",
+    "/capabilities/register",
+    "/events/message",
+    "/examples/init",
+    "/plans/execute",
+    "/roles/bind",
+    "/roles/unbind",
+    "/tasks/run",
+)
+ROUTE_CLASSIFICATION_VOCABULARY = tuple(ApiRouteClassification)
 
 API_MANIFEST_CACHEABLE_FIELDS = (
     "title",
@@ -180,6 +234,8 @@ API_MANIFEST_CACHEABLE_FIELDS = (
     "route_count",
     "route_groups",
     "routes",
+    "route_classification_vocabulary",
+    "route_classification_summary",
     "capabilities_declared",
     "capabilities_blocked",
     "no_runtime_integrations",
@@ -200,6 +256,7 @@ API_MANIFEST_CACHE_INVALIDATION_RULES = (
     "package_version_change",
     "active_baseline_change",
     "route_path_method_operation_tag_summary_change",
+    "route_classification_logic_change",
     "capabilities_declared_change",
     "capabilities_blocked_change",
     "manual_cache_clear",
@@ -262,6 +319,42 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
     return ApiRouteSideEffectClass.validation_only
 
 
+def route_classification_for_path(
+    method: str,
+    path: str,
+    side_effect_class: ApiRouteSideEffectClass,
+) -> tuple[ApiRouteClassification, str]:
+    normalized_method = method.upper()
+    if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
+        return (
+            ApiRouteClassification.public_metadata,
+            "harmless API metadata or status route with no local user state",
+        )
+    if path.endswith("/run") or any(hint in path for hint in MUTATING_LOCAL_POSTURE_HINTS):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "mutation-like local route; exact authority, idempotency, audit, and rollback posture required",
+        )
+    if (
+        side_effect_class == ApiRouteSideEffectClass.local_dev_workspace_only
+        and normalized_method not in {"GET", "HEAD", "OPTIONS"}
+        and not any(hint in path for hint in NON_MUTATING_LOCAL_POSTURE_HINTS)
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "local non-read route without a preview/validation posture; authority required before product use",
+        )
+    if normalized_method == "GET" and path in LOCAL_READONLY_PATHS:
+        return (
+            ApiRouteClassification.local_readonly,
+            "local read-only route inventory or status surface; protected in production posture",
+        )
+    return (
+        ApiRouteClassification.local_sensitive,
+        "sensitive local state, request payload, evidence, memory, file, runtime, approval, or connector-adjacent route",
+    )
+
+
 def iter_api_routes(routes: list[Any]) -> list[APIRoute]:
     api_routes: list[APIRoute] = []
     for route in routes:
@@ -283,6 +376,11 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
             operation_id = route.operation_id or stable_operation_id(method, route.path)
             tags = list(route.tags or [route_group_for_path(route.path)])
             side_effect_class = route_side_effect_class(route.path)
+            route_classification, classification_reason = route_classification_for_path(
+                method,
+                route.path,
+                side_effect_class,
+            )
             items.append(
                 ApiRouteInventoryItem(
                     path=route.path,
@@ -292,6 +390,9 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                     summary=route.summary or route_summary(method, route.path),
                     validation_only=side_effect_class == ApiRouteSideEffectClass.validation_only,
                     side_effect_class=side_effect_class,
+                    route_classification=route_classification,
+                    protected_route=route_classification != ApiRouteClassification.public_metadata,
+                    classification_reason=classification_reason,
                 )
             )
     return sorted(items, key=lambda item: (item.path, item.method))
@@ -380,6 +481,9 @@ def _get_api_manifest_static_cache_entry(app: FastAPI) -> _ApiManifestStaticCach
 
 def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) -> ApiManifest:
     static = _get_api_manifest_static_cache_entry(app)
+    classification_summary = {classification.value: 0 for classification in ROUTE_CLASSIFICATION_VOCABULARY}
+    for route in static.routes:
+        classification_summary[str(route.route_classification)] += 1
     return ApiManifest(
         title=static.title,
         api_version=static.api_version,
@@ -388,6 +492,10 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
         route_count=static.route_count,
         route_groups=list(static.route_groups),
         routes=[route.model_copy(deep=True) for route in static.routes],
+        route_classification_vocabulary=[
+            classification.value for classification in ROUTE_CLASSIFICATION_VOCABULARY
+        ],
+        route_classification_summary=classification_summary,
         foundation_gate_status=foundation_gate_status,
         capabilities_declared=list(static.capabilities_declared),
         capabilities_blocked=list(static.capabilities_blocked),

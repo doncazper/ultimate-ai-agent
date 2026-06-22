@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/api_route_classification.schema.json",
+  "title": "UAA-P1-080 API route classification inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "route_count",
+    "route_classification_vocabulary",
+    "route_classification_summary",
+    "routes",
+    "schema_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa-api-route-inventory.v1"
+    },
+    "route_count": {
+      "const": 112
+    },
+    "route_classification_vocabulary": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "public_metadata",
+          "local_readonly",
+          "local_sensitive",
+          "mutating_requires_authority"
+        ]
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "route_classification_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "public_metadata",
+        "local_readonly",
+        "local_sensitive",
+        "mutating_requires_authority"
+      ],
+      "properties": {
+        "public_metadata": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "local_readonly": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "local_sensitive": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mutating_requires_authority": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 112,
+      "maxItems": 112,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "method",
+          "operation_id",
+          "path",
+          "route_classification",
+          "side_effect_class",
+          "summary",
+          "tags"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "side_effect_class": {
+            "enum": [
+              "none",
+              "validation_only",
+              "local_dev_workspace_only",
+              "governed_network_read_only"
+            ]
+          },
+          "route_classification": {
+            "enum": [
+              "public_metadata",
+              "local_readonly",
+              "local_sensitive",
+              "mutating_requires_authority"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

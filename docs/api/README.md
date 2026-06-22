@@ -27,6 +27,7 @@ Current API docs:
 ```text
 docs/api/openapi_contract.md
 docs/api/route_inventory.md
+docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md
 docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md
@@ -34,7 +35,9 @@ docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md
 
 Current boundary summary:
 
-- `/api/manifest` publishes typed route metadata and the generated route count.
+- `/api/manifest` publishes typed route metadata, generated route count, and
+  UAA-P1-080 route classification as `public_metadata`, `local_readonly`,
+  `local_sensitive`, or `mutating_requires_authority`.
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.
@@ -70,7 +73,8 @@ Current boundary summary:
   summaries with safe refs and bounded summaries only. They do not grant
   action execution, connector writes, provider calls, email/calendar reads, or
   notification delivery.
-- Route metadata must keep side-effect classes explicit.
+- Route metadata must keep side-effect classes and public/protected route
+  classification explicit.
 
 Denied by the current API boundary:
 

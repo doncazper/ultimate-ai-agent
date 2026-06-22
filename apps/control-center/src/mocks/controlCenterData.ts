@@ -1970,6 +1970,10 @@ export const mockControlCenterData: ControlCenterData = {
         owner: "Python Agent Core",
         service_module: "control_center_service",
         side_effect_class: "read_only",
+        route_classification: "local_readonly",
+        protected_route: true,
+        classification_reason:
+          "local read-only route inventory or status surface; protected in production posture",
         risk_class: "low",
         release_status: "implemented",
         auth_posture: "local-dev unauthenticated; production auth future",
@@ -1989,6 +1993,10 @@ export const mockControlCenterData: ControlCenterData = {
         owner: "Python Agent Core",
         service_module: "control_center_service",
         side_effect_class: "validation_only",
+        route_classification: "local_sensitive",
+        protected_route: true,
+        classification_reason:
+          "sensitive local state, request payload, evidence, memory, file, runtime, approval, or connector-adjacent route",
         risk_class: "medium",
         release_status: "preview-only",
         auth_posture: "local-dev unauthenticated; production auth future",
@@ -2008,6 +2016,10 @@ export const mockControlCenterData: ControlCenterData = {
         owner: "Python Agent Core",
         service_module: "control_center_service",
         side_effect_class: "read_only",
+        route_classification: "local_readonly",
+        protected_route: true,
+        classification_reason:
+          "local read-only route inventory or status surface; protected in production posture",
         risk_class: "medium",
         release_status: "dry-run",
         auth_posture: "local-dev unauthenticated; production auth future",

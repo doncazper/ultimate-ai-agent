@@ -723,6 +723,64 @@ Tests to add/update:
 
 PR size: completed as one read-only contract/UI/test evidence slice.
 
+## Task 9m - UAA-P1-080 API Route Classification And Public/Protected Inventory
+
+Type: API boundary contract/test/docs
+
+Status: Done.
+
+New authority: no.
+
+Acceptance criteria:
+
+- Every current FastAPI route is classified as `public_metadata`,
+  `local_readonly`, `local_sensitive`, or `mutating_requires_authority`.
+- `/api/manifest`, the frozen route inventory fixture, route-status manifest,
+  and Control Center API Routes surface show the classification without adding
+  routes, middleware, auth, headers, CORS, idempotency enforcement, rate limits,
+  or runtime authority.
+- Public/protected posture remains inventory truth only; P1-081 through P1-086
+  remain planned/queued perimeter-hardening work.
+
+Tests to add/update:
+
+- `tests/test_api_manifest.py`
+- `tests/test_api_route_inventory_fixture.py`
+- `tests/test_control_center_api_routes.py`
+- `scripts/verify_uaa_p1_080_api_route_classification.py`
+- Documentation integrity.
+
+PR size: completed as one API contract/UI/docs/test evidence slice.
+
+## Task 9n - UAA-P1-087 Private Operator Trial And UI Functional Tuning
+
+Type: local trial/test/docs/UI tuning
+
+Status: Planned after UAA-P1-086.
+
+New authority: no.
+
+Acceptance criteria:
+
+- Runs after UAA-P1-080 through UAA-P1-086 API boundary hardening.
+- Captures local/in-person founder testing notes for Today, Actions, Memory,
+  Evidence, Chat handoff, blocked-state language, and CRM-lite follow-up flow.
+- Produces a manual smoke checklist, usability/friction findings, UI/copy
+  tuning tasks, and beta-readiness evidence refs.
+- Keeps trial scope local/private and does not claim public beta, public
+  distribution, production readiness, connector writes, action execution,
+  memory writes, provider/model authority, Code apply, or hidden automation.
+
+Tests to add/update:
+
+- Manual smoke checklist artifact.
+- Control Center render/frontend checks for tuned flows.
+- Product-language checks.
+- Documentation integrity.
+
+PR size: one private-operator-trial readiness and UI tuning lane after
+UAA-P1-086.
+
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 
 Type: test-only

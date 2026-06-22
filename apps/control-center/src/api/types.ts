@@ -1473,6 +1473,9 @@ export interface ApiRouteSummary {
   owner?: string;
   service_module?: string;
   side_effect_class?: string;
+  route_classification?: string;
+  protected_route?: boolean;
+  classification_reason?: string;
   risk_class?: string;
   release_status?: string;
   auth_posture?: string;

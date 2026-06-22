@@ -3,10 +3,10 @@
 Status: active UAA-P1-030 route status manifest
 
 The route status manifest is the production-readiness index for visible Control
-Center actions. It records the owner, auth posture, side-effect class, risk
-class, OpenAPI operation id, release status, UI surface, approval requirement,
-and evidence/audit output for each visible action and required operator shell
-surface.
+Center actions. It records the owner, auth posture, side-effect class,
+UAA-P1-080 route classification, risk class, OpenAPI operation id, release
+status, UI surface, approval requirement, and evidence/audit output for each
+visible action and required operator shell surface.
 
 Machine-checkable source:
 
@@ -36,6 +36,12 @@ This manifest does not add runtime authority, backend routes, frontend
 controls, shell/subprocess behavior, unrestricted network or browser automation,
 connector writes, plugin runtime import, mobile control, autonomous background
 execution, public distribution, or production readiness claims.
+
+Route classifications are inventory posture only. `public_metadata`,
+`local_readonly`, `local_sensitive`, and `mutating_requires_authority` describe
+how a visible route should be treated by later API perimeter work; they do not
+implement auth, middleware, headers, CORS, idempotency, rate limits, or new
+runtime authority.
 
 ## Release Status Values
 

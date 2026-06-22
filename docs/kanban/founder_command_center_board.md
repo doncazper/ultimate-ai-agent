@@ -64,14 +64,15 @@ FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
-UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079.
+UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
+UAA-P1-080.
 
 Candidate-next:
-UAA-P1-080 API Route Classification And Public/Protected Inventory.
+UAA-P1-081 Centralized FastAPI Security Headers.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
+UAA-P1-082, UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, UAA-P1-087,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
 ```
@@ -750,21 +751,29 @@ autonomy.
 
 ### UAA-P1-080 - API Route Classification And Public/Protected Inventory
 
+Status: Implemented / ready for review.
+
 Epic: API Boundary, Security/Permissions
 
 Description: Classify every FastAPI route as `public_metadata`,
 `local_readonly`, `local_sensitive`, or `mutating_requires_authority` and map
 public/protected posture before new runtime authority is claimed.
 
-Acceptance criteria: Route inventory, OpenAPI/API manifest planning, and Control
+Acceptance criteria: Route inventory, OpenAPI/API manifest contract, and Control
 Center route posture distinguish harmless metadata from sensitive state and
-mutating authority paths.
+mutating authority paths without adding routes or authority.
 
-Required tests/verifiers: future route inventory/OpenAPI/API manifest tests and
-documentation integrity.
+Proof: `docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md`,
+`docs/schemas/api_route_classification.schema.json`,
+`tests/fixtures/api_route_inventory_112.json`,
+`scripts/verify_uaa_p1_080_api_route_classification.py`,
+`tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
+`tests/test_control_center_api_routes.py`, and Control Center API Routes render
+tests.
 
-Safety notes: Planning only until implemented; classification does not grant
-auth, approval, runtime behavior, or production authority.
+Safety notes: Classification does not grant auth, approval, runtime behavior,
+middleware, headers, CORS, idempotency enforcement, rate limits, public beta,
+distribution, or production authority.
 
 ### UAA-P1-081 - Centralized FastAPI Security Headers
 
@@ -870,6 +879,27 @@ documentation integrity.
 
 Safety notes: Enforcement tests do not grant runtime authority; they make missing
 perimeter work visible.
+
+### UAA-P1-087 - Private Operator Trial And UI Functional Tuning
+
+Epic: Product/UX, Private Beta Readiness
+
+Description: After UAA-P1-080 through UAA-P1-086, run local/in-person founder
+testing and tune Today, Actions, Memory, Evidence, Chat handoff, blocked-state
+language, and CRM-lite follow-up flow before moving to P2/provider, packaging,
+public distribution, or commercialization shaping.
+
+Acceptance criteria: Trial produces a manual smoke checklist, usability/friction
+findings, UI/copy tuning tasks, and beta-readiness evidence refs. It proves the
+core loop is functional enough to test with the founder/operator and keeps
+authority boundaries visible.
+
+Required tests/verifiers: future frontend checks, manual smoke evidence,
+documentation integrity, and product-language checks.
+
+Safety notes: Local/private trial only. No public beta, public distribution,
+connector writes, action execution, memory writes, provider/model authority,
+Code apply, hidden automation, or production authority.
 
 ### FCC-P1-014 - P1 - Lead And Follow-Up Tracker Spec
 

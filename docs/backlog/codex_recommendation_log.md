@@ -42,6 +42,52 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-080 API Route Classification Completed
+
+Date: 2026-06-21
+
+Thread: API boundary-hardening conveyor after UAA-P1-079, with the user pause
+request treated as a stop-after-clean-milestone boundary.
+
+Recommendation: Complete UAA-P1-080 as a typed route-classification and
+public/protected inventory contract for every FastAPI route, preserving the
+112-route OpenAPI surface and existing side-effect classes while exposing
+`public_metadata`, `local_readonly`, `local_sensitive`, and
+`mutating_requires_authority` posture in `/api/manifest`, route-status docs,
+fixtures, tests, and the Control Center API Routes view.
+
+Next prompt: Start UAA-P1-081 Centralized FastAPI Security Headers after
+reviewing the active roadmap, current board, Founder Command Center board,
+phase tasks, MVP spec, AGENTS.md, process/spec guidance, OpenAPI/API manifest
+docs, P1-080 route classification evidence, and existing route status manifest.
+Keep the scope to response security headers only; do not add auth/session
+gating, CORS, idempotency enforcement, rate limits, route authority, connector
+writes, provider/model authority, action execution, automatic memory writes,
+context injection, public beta, distribution, or production authority.
+
+Decision: Accepted and completed for the UAA-P1-080 contract/inventory slice.
+
+Status: completed
+
+Completed: Added typed route classification vocabulary, per-route
+classification reasons and protected-route posture, manifest summary counts,
+fixture/schema/verifier coverage, route-status manifest alignment, Control
+Center classification display, active currentness docs, and focused tests.
+
+Not done: Centralized security headers, loopback CORS allowlist,
+sensitive-route auth/session gate, mutating-route idempotency enforcement,
+targeted rate limits, enforcement middleware, public beta, distribution, and
+production authority.
+
+Evidence: `docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md`,
+`docs/schemas/api_route_classification.schema.json`,
+`tests/fixtures/api_route_inventory_112.json`,
+`scripts/verify_uaa_p1_080_api_route_classification.py`,
+`tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
+`tests/test_control_center_api_routes.py`,
+`docs/control_center/route_status_manifest.json`,
+`docs/api/openapi_contract.md`, and `docs/api/route_inventory.md`.
+
 ### 2026-06-21 - UAA-P1-079 User Intent Understanding Completed
 
 Date: 2026-06-21

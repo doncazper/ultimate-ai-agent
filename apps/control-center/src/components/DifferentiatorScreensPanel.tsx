@@ -476,6 +476,8 @@ function RouteAuthorityRow({ route }: { route: ApiRouteSummary }) {
         <dd>{formatList(route.methods)}</dd>
         <dt>Side-effect class</dt>
         <dd>{route.side_effect_class ?? "manifest-owned"}</dd>
+        <dt>Classification</dt>
+        <dd>{route.route_classification ?? "classification pending"}</dd>
         <dt>Risk / release</dt>
         <dd>
           {route.risk_class ?? "risk mapped"} /{" "}

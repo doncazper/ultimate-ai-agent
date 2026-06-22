@@ -240,6 +240,18 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders API route classification posture", async () => {
+    window.history.pushState({}, "", "/api-routes");
+    render(<App />);
+
+    expect(await screen.findByText("API Routes")).toBeInTheDocument();
+    expect(screen.getByText("Classification")).toBeInTheDocument();
+    expect(screen.getAllByText(/local_readonly/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Classification is posture evidence only/i),
+    ).toBeInTheDocument();
+  });
+
   it("renders Inbox as a blocked planned triage surface without connector authority", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/inbox");
@@ -2695,6 +2707,10 @@ const mockApiData = {
         owner: "Python Agent Core",
         service_module: "control_center_service",
         side_effect_class: "read_only",
+        route_classification: "local_readonly",
+        protected_route: true,
+        classification_reason:
+          "local read-only route inventory or status surface; protected in production posture",
         risk_class: "low",
         release_status: "implemented",
         auth_posture: "local-dev unauthenticated; production auth future",

@@ -32,8 +32,13 @@ states, a schema, verifier, focused tests, Today/Actions/Evidence visibility,
 and blocked authority refs. UAA-P1-079 completes User Intent Understanding V1
 with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, ask/act/defer routing, and ask-user handling for
-low-confidence or conflicting intent. UAA-P1-080 through UAA-P1-086 remain
-planned/queued API boundary hardening lanes. No public beta, distribution,
+low-confidence or conflicting intent. UAA-P1-080 completes API Route
+Classification And Public/Protected Inventory with typed route classifications
+in `/api/manifest`, the frozen 112-route inventory fixture, route-status
+manifest alignment, Control Center API Routes visibility, and focused
+verifier/tests. UAA-P1-081 through UAA-P1-086 remain planned/queued API
+boundary hardening lanes, followed by UAA-P1-087 Private Operator Trial And UI
+Functional Tuning. No public beta, distribution,
 production readiness, or production authority claim is granted.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is

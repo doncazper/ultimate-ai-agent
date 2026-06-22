@@ -37,13 +37,15 @@
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
           "path": "/control-center/storage/status",
           "operation_id": "get_control_center_storage_status",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -85,7 +87,8 @@
           "method": "GET",
           "path": "/control-center/actions/inbox",
           "operation_id": "get_control_center_actions_inbox",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -107,7 +110,8 @@
           "method": "GET",
           "path": "/control-center/morning-briefing/summary",
           "operation_id": "get_control_center_morning_briefing_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -130,7 +134,8 @@
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -155,7 +160,8 @@
           "method": "GET",
           "path": "/control-center/setup-assistant/summary",
           "operation_id": "get_control_center_setup_assistant_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -177,19 +183,22 @@
           "method": "GET",
           "path": "/v1/models",
           "operation_id": "get_v1_models",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/v1/chat/completions",
           "operation_id": "post_v1_chat_completions",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         },
         {
           "method": "GET",
           "path": "/runtime/readiness",
           "operation_id": "get_runtime_readiness",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -212,25 +221,29 @@
           "method": "POST",
           "path": "/task-decomposition/classify",
           "operation_id": "post_task_decomposition_classify",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/task-decomposition/decompose",
           "operation_id": "post_task_decomposition_decompose",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/task-decomposition/run",
           "operation_id": "post_task_decomposition_run",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         },
         {
           "method": "POST",
           "path": "/task-decomposition/plans/execute",
           "operation_id": "post_task_decomposition_plans_execute",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [
@@ -253,19 +266,22 @@
           "method": "GET",
           "path": "/v1/models",
           "operation_id": "get_v1_models",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/models/route/preview",
           "operation_id": "post_models_route_preview",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/model-runtime/manifests/validate",
           "operation_id": "post_model_runtime_manifests_validate",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -288,19 +304,22 @@
           "method": "GET",
           "path": "/control-center/approvals/summary",
           "operation_id": "get_control_center_approvals_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/task-decomposition/approvals/grants/capture",
           "operation_id": "post_task_decomposition_approvals_grants_capture",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         },
         {
           "method": "POST",
           "path": "/task-decomposition/approvals/revoke",
           "operation_id": "post_task_decomposition_approvals_revoke",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [
@@ -323,25 +342,29 @@
           "method": "POST",
           "path": "/files/refs/validate",
           "operation_id": "post_files_refs_validate",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/files/read/preview",
           "operation_id": "post_files_read_preview",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/files/write/propose",
           "operation_id": "post_files_write_propose",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/files/diff/preview",
           "operation_id": "post_files_diff_preview",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -365,43 +388,50 @@
           "method": "GET",
           "path": "/health",
           "operation_id": "get_health",
-          "side_effect_class": "none"
+          "side_effect_class": "none",
+          "route_classification": "public_metadata"
         },
         {
           "method": "GET",
           "path": "/version",
           "operation_id": "get_version",
-          "side_effect_class": "none"
+          "side_effect_class": "none",
+          "route_classification": "public_metadata"
         },
         {
           "method": "GET",
           "path": "/api/manifest",
           "operation_id": "get_api_manifest",
-          "side_effect_class": "none"
+          "side_effect_class": "none",
+          "route_classification": "public_metadata"
         },
         {
           "method": "GET",
           "path": "/control-center/manifest",
           "operation_id": "get_control_center_manifest",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/control-center/runtime-readiness/summary",
           "operation_id": "get_control_center_runtime_readiness_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/runtime/readiness",
           "operation_id": "get_runtime_readiness",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/runtime/capability-matrix",
           "operation_id": "get_runtime_capability_matrix",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -425,31 +455,36 @@
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/receipts/preview",
           "operation_id": "post_receipts_preview",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/events/validate",
           "operation_id": "post_events_validate",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
           "path": "/task-decomposition/audit",
           "operation_id": "get_task_decomposition_audit",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
           "path": "/control-center/foundation-gate/summary",
           "operation_id": "get_control_center_foundation_gate_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -495,7 +530,8 @@
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -538,7 +574,8 @@
           "method": "GET",
           "path": "/control-center/actions/inbox",
           "operation_id": "get_control_center_actions_inbox",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -563,7 +600,8 @@
           "method": "GET",
           "path": "/control-center/morning-briefing/summary",
           "operation_id": "get_control_center_morning_briefing_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -589,7 +627,8 @@
           "method": "GET",
           "path": "/control-center/storage/status",
           "operation_id": "get_control_center_storage_status",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -613,7 +652,8 @@
           "method": "GET",
           "path": "/control-center/setup-assistant/summary",
           "operation_id": "get_control_center_setup_assistant_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -637,19 +677,22 @@
           "method": "GET",
           "path": "/control-center/dashboard",
           "operation_id": "get_control_center_dashboard",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/control-center/manifest",
           "operation_id": "get_control_center_manifest",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/control-center/status",
           "operation_id": "get_control_center_status",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": []
@@ -671,7 +714,8 @@
           "method": "GET",
           "path": "/control-center/dashboard",
           "operation_id": "get_control_center_dashboard",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": []
@@ -693,19 +737,22 @@
           "method": "GET",
           "path": "/control-center/dashboard",
           "operation_id": "get_control_center_dashboard",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/runtime/readiness",
           "operation_id": "get_runtime_readiness",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/runtime/capability-matrix",
           "operation_id": "get_runtime_capability_matrix",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": []
@@ -727,13 +774,15 @@
           "method": "POST",
           "path": "/v1/chat/completions",
           "operation_id": "post_v1_chat_completions",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         },
         {
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -759,7 +808,8 @@
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -804,13 +854,15 @@
           "method": "GET",
           "path": "/runtime/readiness",
           "operation_id": "get_runtime_readiness",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/runtime/capability-matrix",
           "operation_id": "get_runtime_capability_matrix",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -835,7 +887,8 @@
           "method": "GET",
           "path": "/control-center/foundation-gate/summary",
           "operation_id": "get_control_center_foundation_gate_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": []
@@ -857,13 +910,15 @@
           "method": "GET",
           "path": "/api/manifest",
           "operation_id": "get_api_manifest",
-          "side_effect_class": "none"
+          "side_effect_class": "none",
+          "route_classification": "public_metadata"
         },
         {
           "method": "GET",
           "path": "/control-center/routes",
           "operation_id": "get_control_center_routes",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": []
@@ -885,25 +940,29 @@
           "method": "GET",
           "path": "/api/manifest",
           "operation_id": "get_api_manifest",
-          "side_effect_class": "none"
+          "side_effect_class": "none",
+          "route_classification": "public_metadata"
         },
         {
           "method": "GET",
           "path": "/control-center/routes",
           "operation_id": "get_control_center_routes",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/control-center/foundation-gate/summary",
           "operation_id": "get_control_center_foundation_gate_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/runtime/readiness",
           "operation_id": "get_runtime_readiness",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": []
@@ -925,7 +984,8 @@
           "method": "GET",
           "path": "/control-center/approvals/summary",
           "operation_id": "get_control_center_approvals_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -949,7 +1009,8 @@
           "method": "POST",
           "path": "/receipts/preview",
           "operation_id": "post_receipts_preview",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -973,7 +1034,8 @@
           "method": "POST",
           "path": "/events/validate",
           "operation_id": "post_events_validate",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -1015,19 +1077,22 @@
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
           "path": "/task-decomposition/audit",
           "operation_id": "get_task_decomposition_audit",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
           "path": "/control-center/foundation-gate/summary",
           "operation_id": "get_control_center_foundation_gate_summary",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -1051,13 +1116,15 @@
           "method": "POST",
           "path": "/files/refs/validate",
           "operation_id": "post_files_refs_validate",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
           "path": "/files/read/preview",
           "operation_id": "post_files_read_preview",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -1082,7 +1149,8 @@
           "method": "POST",
           "path": "/files/review/approvals/capture",
           "operation_id": "post_files_review_approvals_capture",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [
@@ -1125,7 +1193,8 @@
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
-          "side_effect_class": "local_dev_workspace_only"
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -1153,13 +1222,15 @@
           "method": "GET",
           "path": "/runtime/readiness",
           "operation_id": "get_runtime_readiness",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",
           "path": "/runtime/capability-matrix",
           "operation_id": "get_runtime_capability_matrix",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -1183,7 +1254,8 @@
           "method": "POST",
           "path": "/runtime/smoke-reports/validate",
           "operation_id": "post_runtime_smoke_reports_validate",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [
@@ -1207,7 +1279,8 @@
           "method": "GET",
           "path": "/control-center/dashboard",
           "operation_id": "get_control_center_dashboard",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "missing_backend_routes": [
@@ -1286,7 +1359,8 @@
           "method": "POST",
           "path": "/control-center/actions/preview",
           "operation_id": "post_control_center_actions_preview",
-          "side_effect_class": "validation_only"
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": [],

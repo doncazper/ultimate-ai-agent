@@ -134,10 +134,11 @@ Required verification:
 
 ## Next
 
-The UAA-P1-067 through UAA-P1-079 Today-spine conveyor is complete after this
-milestone is committed, pushed, and verified.
+The UAA-P1-067 through UAA-P1-080 conveyor is complete after UAA-P1-080 is
+committed, pushed, and verified.
 
-Next planned lane: UAA-P1-080 API Route Classification And Public/Protected
-Inventory. That lane remains planned/queued until separately scoped and does
-not grant middleware, auth, route authority, runtime authority, or production
-authority by this document.
+UAA-P1-080 API Route Classification And Public/Protected Inventory is complete.
+Next planned lane: UAA-P1-081 Centralized FastAPI Security Headers. That lane
+remains planned/queued until separately scoped and does not grant middleware
+beyond response headers, auth, route authority, runtime authority, or
+production authority by this document.

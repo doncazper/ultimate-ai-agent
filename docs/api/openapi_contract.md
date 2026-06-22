@@ -19,9 +19,9 @@ Contract rules:
 - API validation errors must be sanitized and must not echo raw invalid input
   values or secret-like field values.
 - Route metadata must preserve explicit side-effect classes.
-- Planned UAA-P1-080 route classification will classify every route as one of
+- UAA-P1-080 route classification classifies every route as one of
   `public_metadata`, `local_readonly`, `local_sensitive`, or
-  `mutating_requires_authority`. This classification vocabulary is not yet an
+  `mutating_requires_authority`. This classification vocabulary is now an
   implemented OpenAPI/API manifest invariant.
 - Local-dev workspace routes must remain local-dev scoped, policy-bound, and
   blocked from production authority by default.
@@ -43,7 +43,11 @@ Contract rules:
   summaries using SQLite and JSONL refs only. They do not grant action
   execution, connector writes, model/provider calls, or notification delivery.
 
-Planned API boundary hardening:
+API boundary hardening:
+
+- UAA-P1-080 adds route classification inventory only. It does not add
+  middleware, auth, CORS, headers, rate limits, dependencies, or runtime
+  authority.
 
 - UAA-P1-081 will add centralized FastAPI response security headers:
   `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` or strict

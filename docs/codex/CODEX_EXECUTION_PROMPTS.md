@@ -40,6 +40,115 @@ Final summary must list files changed, tests/verifiers run, skipped checks with
 reasons, and blocked items.
 ```
 
+## 11. UAA-P1-080 API Route Classification Prompt
+
+Use this prompt only after UAA-P1-079 User Intent Understanding V1 is complete,
+verified, committed, and pushed. This prompt starts the planned API boundary
+hardening lane with classification/inventory truth only. It does not grant
+middleware, auth, CORS, security headers, idempotency enforcement, rate limits,
+connector authority, provider/model authority, action execution, public beta,
+distribution, production readiness, or production authority.
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: implement UAA-P1-080 API Route Classification And Public/Protected
+Inventory as the next documented milestone after UAA-P1-079.
+
+Review these documents first:
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[openapi_contract.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/api/openapi_contract.md)
+[route_inventory.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/api/route_inventory.md)
+[ROUTE_STATUS_MANIFEST.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/ROUTE_STATUS_MANIFEST.md)
+[OPERATOR_SHELL_GAP_MAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/OPERATOR_SHELL_GAP_MAP.md)
+
+Also inspect SPECS.md, specs.md, SDLC.md, sdlc.md if present. If absent, note
+that AGENTS.md and the listed docs are the active process/spec guidance.
+
+Subagent plan:
+- Use one read-only explorer/reviewer for the P1-080 route-classification gap
+  and safety review when subagent capacity is available.
+- If subagent capacity is exhausted, close stale completed agents and retry
+  once. If still blocked, proceed locally and record the attempted delegation.
+- Subagents are advisory. The main Codex run owns implementation, integration,
+  verification, commit/push, and next-prompt recommendation.
+
+Scope:
+- Add explicit route classification vocabulary:
+  `public_metadata`, `local_readonly`, `local_sensitive`,
+  `mutating_requires_authority`.
+- Classify every existing FastAPI route in `/api/manifest`.
+- Surface the classification through the existing `/control-center/routes`
+  inventory and Control Center API Routes UI.
+- Add or update route-status manifest posture so visible Control Center route
+  refs can be compared against `/api/manifest`.
+- Add docs, schema/verifier coverage, and focused tests.
+- Preserve the current 112 OpenAPI paths, stable operation IDs, existing
+  side-effect classes, and route behavior.
+
+Non-goals:
+- Do not add routes, middleware, auth, sessions, CORS, security headers,
+  idempotency enforcement, rate limiting, dependencies, connector writes,
+  model/provider calls, shell/subprocess execution, action execution, memory
+  writes, Code apply, public beta, public distribution, production readiness,
+  or production authority.
+
+Acceptance criteria:
+- Every `/api/manifest` route has exactly one route classification from the
+  allowed vocabulary.
+- `public_metadata` is limited to harmless metadata/status routes.
+- `local_readonly` identifies local read-only route inventory/status surfaces
+  that do not expose sensitive user/workspace state.
+- `local_sensitive` identifies routes that expose or accept sensitive local
+  state, previews, validation payloads, evidence, memory, files, model/runtime
+  posture, observability, approvals, or connector-adjacent data without
+  mutation authority.
+- `mutating_requires_authority` identifies mutation-like or authority-bearing
+  local routes that must stay exact-scoped, approval-bound, idempotent,
+  auditable, rollback-aware, redacted, and tested before product authority is
+  claimed.
+- `/control-center/routes` and the API Routes UI display classification in
+  human-readable form and do not expose raw JSON as the primary UI.
+- Route-status manifest backend route refs include classification and tests
+  compare those refs with `/api/manifest`.
+- Active docs mark UAA-P1-080 complete and keep UAA-P1-081 as the next
+  planned/queued API boundary-hardening milestone.
+
+Review/fix:
+- Perform adversarial self-review for route/OpenAPI drift, broad auth claims,
+  false public exposure claims, hidden production readiness, classification
+  gaps, route-status mismatch, unsafe product copy, and redaction/evidence
+  leakage.
+- Fix P0/P1 findings before hardening.
+
+Hardening:
+- Run focused route/API tests:
+  `PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py tests/test_control_center_api_routes.py -q`
+- Run the P1-080 verifier.
+- Run OpenAPI, documentation integrity, and frontend safety checks:
+  `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`
+  `.venv/bin/python scripts/verify_documentation_integrity.py`
+  `.venv/bin/python scripts/verify_control_center_frontend.py`
+- Run `make frontend-check` if frontend files change.
+- Run `git diff --check`.
+
+Commit/push:
+- Stage only files changed for UAA-P1-080.
+- Commit with message: `implement UAA-P1-080 API route classification`.
+- Push the current branch. Do not force push.
+
+Next prompt:
+- After commit/push succeeds, recommend or execute UAA-P1-081 Centralized
+  FastAPI Security Headers if the conveyor continues and the scope remains safe.
+- Use an incremental UAA-P1-080.1 only if route classification cannot be
+  completed safely in one commit.
+```
+
 ## 2. Frontend-Only Safe Control Center Prompt
 
 ```text
@@ -363,21 +472,25 @@ side-effect class impact, and remaining blocked items.
 
 ## 10. Today-Spine Milestone Conveyor Prompt
 
-Use this prompt to run the UAA-P1-067 through UAA-P1-079 conveyor. The
+Use this prompt to run the UAA-P1-067 through UAA-P1-080 conveyor. The
 conveyor is repo-local process guidance only. It does not grant runtime
 authority, connector authority, provider/model authority, unrestricted shell,
 public beta, public distribution, or production readiness.
 
-Current conveyor status: UAA-P1-067 through UAA-P1-079 are complete when the
-active docs show UAA-P1-079 User Intent Understanding V1 has landed with its
-contract, schema, verifier, tests, Control Center visibility, and pushed commit.
-UAA-P1-080 through UAA-P1-086 are planned/queued API boundary-hardening work and
-are not part of this bounded Today-spine conveyor unless a later accepted prompt
-explicitly starts that lane. The conveyor auto-advances after each successful
-milestone commit/push until UAA-P1-079 is complete, verified, and pushed. Do not
-stop after merely recommending the next prompt; create and execute the next
-milestone prompt in the same Codex run until all conveyor milestones are
-complete or a real blocker/safety split requires stopping.
+Current conveyor status: UAA-P1-067 through UAA-P1-080 are complete when the
+active docs show UAA-P1-080 API Route Classification And Public/Protected
+Inventory has landed with its contract, schema, fixture, verifier, tests,
+Control Center visibility, and pushed commit. UAA-P1-081 through UAA-P1-086
+remain planned/queued API boundary-hardening work. If that remaining API
+boundary lane is active, it auto-advances in order through UAA-P1-081,
+UAA-P1-082, UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then UAA-P1-087
+Private Operator Trial And UI Functional Tuning before moving to P2/provider,
+packaging, public distribution, or commercialization work. The conveyor
+auto-advances after each successful milestone commit/push until the active
+bounded sequence is complete, verified, and pushed. Do not stop after merely
+recommending the next prompt; create and execute the next milestone prompt in
+the same Codex run until all conveyor milestones are complete or a real
+blocker/safety split requires stopping.
 
 ```text
 You are working only in doncazper/ultimate-ai-agent.
@@ -390,6 +503,12 @@ UAA-P1-068, UAA-P1-069, UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073,
 UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, then UAA-P1-079.
 Stop after UAA-P1-079 is complete and verified. Do not invent milestones after
 UAA-P1-079 unless the active roadmap explicitly documents them.
+
+If a later accepted prompt starts the API Boundary Hardening Lane, use this
+extension order after UAA-P1-079: UAA-P1-080, UAA-P1-081, UAA-P1-082,
+UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then UAA-P1-087. Stop after
+UAA-P1-087 is complete and verified unless active docs explicitly document the
+next lane.
 
 Review the following documents first:
 [OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
@@ -511,7 +630,9 @@ Execution workflow:
    the same run. Add or update a "Next prompt" section in
    docs/backlog/codex_recommendation_log.md only as conveyor state, not as a
    stopping point. Stop only when:
-   - all milestones through UAA-P1-079 are complete and verified,
+   - all milestones through UAA-P1-079 are complete and verified for the
+     Today-spine conveyor, or all milestones through UAA-P1-087 are complete
+     and verified when the API boundary/private-operator-trial lane is active,
    - the next slice is too large or unsafe and needs an incremental prompt that
      cannot be executed safely in the same run,
    - verification, push, dependencies, or repo state blocks progress, or

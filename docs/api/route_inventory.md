@@ -20,17 +20,25 @@ Each route declares:
 - `requires_auth_future`
 - `blocked_from_production`
 
-Planned UAA-P1-080 classification will add a public/protected route inventory
-view using:
+UAA-P1-080 classification adds a public/protected route inventory view using:
 
 - `public_metadata`
 - `local_readonly`
 - `local_sensitive`
 - `mutating_requires_authority`
 
-This vocabulary is planned only. Current route metadata already exposes
-side-effect classes, auth posture, and blocked-from-production posture, but it
-does not yet enforce route-wide public/protected classification.
+This vocabulary is implemented in `/api/manifest` and the frozen route
+inventory fixture. Current route metadata also exposes side-effect classes,
+auth posture, and blocked-from-production posture.
+
+Current route classification summary:
+
+| Classification | Count |
+|---|---:|
+| `public_metadata` | 3 |
+| `local_readonly` | 14 |
+| `local_sensitive` | 82 |
+| `mutating_requires_authority` | 13 |
 
 Allowed current side-effect classes are:
 

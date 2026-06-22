@@ -379,6 +379,7 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
         "path": "/control-center/today/summary",
         "operation_id": "get_control_center_today_summary",
         "side_effect_class": "local_dev_workspace_only",
+        "route_classification": "local_sensitive",
     } in evidence_action["backend_routes"]
 
 
@@ -404,6 +405,12 @@ def test_control_center_route_status_manifest_matches_openapi_and_api_manifest()
             api_routes[key].side_effect_class,
         )
         assert route["side_effect_class"] == side_effect_class
+        route_classification = getattr(
+            api_routes[key].route_classification,
+            "value",
+            api_routes[key].route_classification,
+        )
+        assert route["route_classification"] == route_classification
         assert route["path"] in openapi_paths
         assert route["method"].lower() in openapi_paths[route["path"]]
         assert route["operation_id"] == openapi_paths[route["path"]][route["method"].lower()]["operationId"]

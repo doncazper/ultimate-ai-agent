@@ -11,6 +11,13 @@ class ApiRouteSideEffectClass(str, Enum):
     governed_network_read_only = "governed_network_read_only"
 
 
+class ApiRouteClassification(str, Enum):
+    public_metadata = "public_metadata"
+    local_readonly = "local_readonly"
+    local_sensitive = "local_sensitive"
+    mutating_requires_authority = "mutating_requires_authority"
+
+
 class ApiRouteInventoryItem(BaseModel):
     path: str = Field(..., min_length=1)
     method: str = Field(..., min_length=1)
@@ -19,6 +26,9 @@ class ApiRouteInventoryItem(BaseModel):
     summary: str = Field(..., min_length=1)
     validation_only: bool
     side_effect_class: ApiRouteSideEffectClass
+    route_classification: ApiRouteClassification
+    protected_route: bool
+    classification_reason: str = Field(..., min_length=1)
     requires_auth_future: bool = True
     blocked_from_production: bool = True
 
@@ -33,6 +43,8 @@ class ApiManifest(BaseModel):
     route_count: int = Field(..., ge=0)
     route_groups: List[str] = Field(default_factory=list)
     routes: List[ApiRouteInventoryItem] = Field(default_factory=list)
+    route_classification_vocabulary: List[ApiRouteClassification] = Field(default_factory=list)
+    route_classification_summary: dict[str, int] = Field(default_factory=dict)
     foundation_gate_status: Optional[str] = None
     capabilities_declared: List[str] = Field(default_factory=list)
     capabilities_blocked: List[str] = Field(default_factory=list)

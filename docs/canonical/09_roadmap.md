@@ -17,13 +17,16 @@ Chat Local Operator Surface, UAA-P1-075 is complete for Governed Code
 Workbench V1, UAA-P1-076 is complete for Cross-Surface Memory Intake,
 UAA-P1-077 is complete for Memory-To-Loop Binding, and UAA-P1-078 is complete
 for the Private Beta-Readiness Gate. UAA-P1-079 is complete for User Intent
-Understanding V1. UAA-P1-080 through UAA-P1-086 remain planned/queued API
-boundary hardening lanes. UAA-P1-066
+Understanding V1. UAA-P1-080 is complete for API route classification and
+public/protected inventory truth. UAA-P1-081 through UAA-P1-086 remain
+planned/queued API boundary hardening lanes, followed by UAA-P1-087 Private
+Operator Trial And UI Functional Tuning. UAA-P1-066
 remains queued as a strictly read-only Local Model Control Center
-inventory/status support lane. The product path now runs through UAA-P1-079
-reviewable user-intent-understanding after UAA-P1-078 added local/private
-beta-readiness evidence. API boundary hardening is planned next but unscoped by
-this milestone. This path adds no
+inventory/status support lane. The product path now runs through UAA-P1-080
+API route classification after UAA-P1-079 added reviewable
+user-intent-understanding and UAA-P1-078 added local/private beta-readiness
+evidence. Security headers, CORS, auth, idempotency, rate limits, and
+enforcement tests remain planned next but unscoped by this milestone. This path adds no
 production authority, public beta, public
 distribution, connector writes, provider/model authority, unrestricted shell,
 automatic memory writes, hidden context injection, or raw private-content

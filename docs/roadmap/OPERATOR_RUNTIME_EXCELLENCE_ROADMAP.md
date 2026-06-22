@@ -71,10 +71,11 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
-| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Done: Plans To Reviewable Action Envelopes; `UAA-P1-074` Done: Chat Local Operator Surface; `UAA-P1-075` Done: Governed Code Workbench V1; `UAA-P1-076` Done: Cross-Surface Memory Intake; `UAA-P1-077` Done: Memory-To-Loop Binding; `UAA-P1-078` Done: Private Beta-Readiness Gate; `UAA-P1-079` Done: User Intent Understanding V1; then `UAA-P1-080` through `UAA-P1-086` planned/queued for API boundary hardening | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, Chat operator truth refs, governed Code proposal refs, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, memory-to-loop refs, private beta-readiness evidence states, reviewable user intent proposals, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
+| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Done: Plans To Reviewable Action Envelopes; `UAA-P1-074` Done: Chat Local Operator Surface; `UAA-P1-075` Done: Governed Code Workbench V1; `UAA-P1-076` Done: Cross-Surface Memory Intake; `UAA-P1-077` Done: Memory-To-Loop Binding; `UAA-P1-078` Done: Private Beta-Readiness Gate; `UAA-P1-079` Done: User Intent Understanding V1; `UAA-P1-080` Done: API Route Classification And Public/Protected Inventory; then `UAA-P1-081` through `UAA-P1-086` planned/queued for remaining API boundary hardening | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, Chat operator truth refs, governed Code proposal refs, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, memory-to-loop refs, private beta-readiness evidence states, reviewable user intent proposals, route classification truth, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
 | Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
-| Harden the browser-facing API perimeter before new authority | `UAA-P1-080` through `UAA-P1-086` planned: route classification, security headers, loopback CORS, local auth gate, idempotency audit, targeted rate limits, and OpenAPI/API manifest enforcement | P1 | Control Center remains local-first while every route gets an explicit public/protected classification and sensitive or mutating paths have auth, approval, idempotency, redaction, and test posture before authority-heavy Plans, Chat, Code, loop-binding, or beta-readiness claims |
+| Harden the browser-facing API perimeter before new authority | `UAA-P1-080` Done: route classification and public/protected inventory; `UAA-P1-081` through `UAA-P1-086` planned: security headers, loopback CORS, local auth gate, idempotency audit, targeted rate limits, and OpenAPI/API manifest enforcement | P1 | Control Center remains local-first while every route now has an explicit public/protected classification. Sensitive or mutating paths still need auth, approval, idempotency, redaction, and test posture before authority-heavy Plans, Chat, Code, loop-binding, or beta-readiness claims |
+| Run the first private operator trial before broader roadmap expansion | `UAA-P1-087` Planned: Private Operator Trial And UI Functional Tuning | P1 | After API perimeter hardening, use in-person/local founder testing to tune Today, Actions, Memory, Evidence, Chat handoff, blocked-state language, and CRM-lite flow before moving to P2/provider/packaging/commercialization work |
 | Expand CI into named release lanes | `UAA-P1-013` Done, `UAA-P1-053` Done: CI lane workflow expansion | P1 | docs, OpenAPI, Foundation Gate, API safety, frontend, security/redaction, local model, durability, performance, and packaging lanes are visible in CI without unsafe artifact leakage |
 | Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Done: Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
 | Preserve UAA's stricter authority model | `UAA-P1-020` PolicyEngine consolidation map | P0/P1 | No copied peer runtime feature ships without exact policy, approval, audit, rollback, and redaction gates |
@@ -457,17 +458,25 @@ Tasks:
   ask/act/defer routing after the loop has reviewed memory, evidence history,
   action envelopes, and Chat/Code receipts. Low-confidence or conflicting
   intent asks the user rather than acting, and hidden authority remains blocked.
-- API Boundary Hardening Lane, planned/queued before authority-heavy claims from
+- API Boundary Hardening Lane, required before authority-heavy claims from
   Plans, Chat, Code, loop binding, or private beta-readiness:
-  `UAA-P1-080` API route classification and public/protected inventory;
+  `UAA-P1-080` Done: API route classification and public/protected inventory;
   `UAA-P1-081` centralized FastAPI security headers;
   `UAA-P1-082` explicit loopback CORS allowlist;
   `UAA-P1-083` simple local bearer/session gate for sensitive routes;
   `UAA-P1-084` mutating-route idempotency enforcement audit;
   `UAA-P1-085` targeted rate limits for expensive/sensitive routes; and
-  `UAA-P1-086` OpenAPI/API manifest/route inventory enforcement tests. This
-  lane is planning only until implemented and does not add middleware, auth,
-  CORS, headers, dependencies, or runtime authority.
+  `UAA-P1-086` OpenAPI/API manifest/route inventory enforcement tests.
+  UAA-P1-080 adds classification truth only. The remaining lane is
+  planned/queued and does not add middleware, auth, CORS, headers,
+  dependencies, or runtime authority until separately implemented.
+- `UAA-P1-087` Planned private operator trial and UI functional tuning: after
+  UAA-P1-080 through UAA-P1-086, run local/in-person founder testing of Today,
+  Actions, Memory, Evidence, Chat handoff, blocked-state language, and CRM-lite
+  flow. This milestone records findings, manual smoke checklists, UI/copy
+  tuning, and beta-readiness friction without adding connector writes, action
+  execution, memory writes, provider/model authority, public beta, public
+  distribution, or production authority.
 
 Acceptance:
 
@@ -841,7 +850,7 @@ Verification:
   Center loop without public beta/distribution claims.
 - `UAA-P1-079` Done: user-intent understanding v1 after memory, evidence,
   Chat, Plans, Code, and Actions produce reviewable loop evidence.
-- `UAA-P1-080` Planned: API route classification and public/protected inventory
+- `UAA-P1-080` Done: API route classification and public/protected inventory
   using `public_metadata`, `local_readonly`, `local_sensitive`, and
   `mutating_requires_authority`.
 - `UAA-P1-081` Planned: centralized FastAPI response security headers for the
@@ -857,6 +866,9 @@ Verification:
 - `UAA-P1-086` Planned: OpenAPI/API manifest/route inventory tests enforcing
   classification, auth, approval, idempotency, headers, CORS, and rate-limit
   posture.
+- `UAA-P1-087` Planned: private operator trial and UI functional tuning after
+  API boundary hardening, focused on local hands-on usability and manual smoke
+  evidence before P2/provider/packaging/commercialization expansion.
 - `UAA-P2-056` Shape: extension trust product surface.
 - `UAA-P2-058` Shape: Provider Credential Vault Adapter v1 as a
   disabled-by-default opaque-ref adapter contract. This gate must not collect,

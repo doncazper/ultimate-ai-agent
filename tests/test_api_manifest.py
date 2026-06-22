@@ -64,7 +64,41 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert all(route["side_effect_class"] != "production_runtime" for route in manifest["routes"])
     assert all(route["requires_auth_future"] is True for route in manifest["routes"])
     assert all(route["blocked_from_production"] is True for route in manifest["routes"])
+    assert manifest["route_classification_vocabulary"] == [
+        "public_metadata",
+        "local_readonly",
+        "local_sensitive",
+        "mutating_requires_authority",
+    ]
+    assert set(manifest["route_classification_summary"]) == set(
+        manifest["route_classification_vocabulary"]
+    )
+    assert sum(manifest["route_classification_summary"].values()) == manifest["route_count"]
+    assert all(
+        route["route_classification"] in manifest["route_classification_vocabulary"]
+        for route in manifest["routes"]
+    )
+    assert all(route["classification_reason"] for route in manifest["routes"])
+    assert all(
+        route["protected_route"] is (route["route_classification"] != "public_metadata")
+        for route in manifest["routes"]
+    )
     routes_by_path = {route["path"]: route for route in manifest["routes"]}
+    assert routes_by_path["/health"]["route_classification"] == "public_metadata"
+    assert routes_by_path["/version"]["route_classification"] == "public_metadata"
+    assert routes_by_path["/api/manifest"]["route_classification"] == "public_metadata"
+    assert routes_by_path["/control-center/routes"]["route_classification"] == "local_readonly"
+    assert routes_by_path["/runtime/readiness"]["route_classification"] == "local_readonly"
+    assert routes_by_path["/control-center/today/summary"]["route_classification"] == "local_sensitive"
+    assert routes_by_path["/files/tree/preview"]["route_classification"] == "local_sensitive"
+    assert routes_by_path["/observability/session-events"]["route_classification"] == "local_sensitive"
+    assert routes_by_path["/web-evidence/request"]["route_classification"] == "local_sensitive"
+    assert routes_by_path["/kernel/tasks/run"]["route_classification"] == (
+        "mutating_requires_authority"
+    )
+    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
+        "route_classification"
+    ] == "mutating_requires_authority"
     assert routes_by_path["/v1/chat/completions"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/tree/preview"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/read/preview"]["side_effect_class"] == "local_dev_workspace_only"
@@ -141,6 +175,7 @@ def test_api_manifest_static_cache_policy_excludes_authority_and_private_state()
     assert "route_path_method_operation_tag_summary_change" in (
         API_MANIFEST_CACHE_INVALIDATION_RULES
     )
+    assert "route_classification_logic_change" in API_MANIFEST_CACHE_INVALIDATION_RULES
     assert policy["authority_decisions_cached"] is False
     assert policy["policy_decisions_cached"] is False
     assert policy["approval_decisions_cached"] is False
@@ -199,6 +234,9 @@ def test_api_manifest_static_cache_invalidates_when_route_risk_changes() -> None
     assert second.route_count == first.route_count + 1
     assert routes_by_path["/files/cache-test"].side_effect_class == (
         "local_dev_workspace_only"
+    )
+    assert routes_by_path["/files/cache-test"].route_classification == (
+        "mutating_requires_authority"
     )
     assert routes_by_path["/files/cache-test"].validation_only is False
 

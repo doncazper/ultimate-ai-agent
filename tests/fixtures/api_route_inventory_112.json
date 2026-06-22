@@ -1,1126 +1,1250 @@
 {
+  "schema_version": "uaa-api-route-inventory.v1",
   "route_count": 112,
+  "route_classification_vocabulary": [
+    "public_metadata",
+    "local_readonly",
+    "local_sensitive",
+    "mutating_requires_authority"
+  ],
+  "route_classification_summary": {
+    "public_metadata": 3,
+    "local_readonly": 14,
+    "local_sensitive": 82,
+    "mutating_requires_authority": 13
+  },
   "routes": [
     {
+      "path": "/adapter-manifest/validate",
       "method": "POST",
       "operation_id": "post_adapter_manifest_validate",
-      "path": "/adapter-manifest/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post adapter manifest validate",
       "tags": [
         "adapter-boundary"
-      ]
+      ],
+      "summary": "Post adapter manifest validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/api/manifest",
       "method": "GET",
       "operation_id": "get_api_manifest",
-      "path": "/api/manifest",
-      "side_effect_class": "none",
-      "summary": "Get api manifest",
       "tags": [
         "api-boundary"
-      ]
+      ],
+      "summary": "Get api manifest",
+      "side_effect_class": "none",
+      "route_classification": "public_metadata"
     },
     {
+      "path": "/approvals/grants/validate",
       "method": "POST",
       "operation_id": "post_approvals_grants_validate",
-      "path": "/approvals/grants/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post approvals grants validate",
       "tags": [
         "approval-authority"
-      ]
+      ],
+      "summary": "Post approvals grants validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/approvals/receipts/validate",
       "method": "POST",
       "operation_id": "post_approvals_receipts_validate",
-      "path": "/approvals/receipts/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post approvals receipts validate",
       "tags": [
         "approval-authority"
-      ]
+      ],
+      "summary": "Post approvals receipts validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/approvals/requests/validate",
       "method": "POST",
       "operation_id": "post_approvals_requests_validate",
-      "path": "/approvals/requests/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post approvals requests validate",
       "tags": [
         "approval-authority"
-      ]
+      ],
+      "summary": "Post approvals requests validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/approvals/validate",
       "method": "POST",
       "operation_id": "post_approvals_validate",
-      "path": "/approvals/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post approvals validate",
       "tags": [
         "approval-authority"
-      ]
+      ],
+      "summary": "Post approvals validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/consent/evaluate",
       "method": "POST",
       "operation_id": "post_consent_evaluate",
-      "path": "/consent/evaluate",
-      "side_effect_class": "validation_only",
-      "summary": "Post consent evaluate",
       "tags": [
         "consent"
-      ]
+      ],
+      "summary": "Post consent evaluate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/consent/grants/validate",
       "method": "POST",
       "operation_id": "post_consent_grants_validate",
-      "path": "/consent/grants/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post consent grants validate",
       "tags": [
         "consent"
-      ]
+      ],
+      "summary": "Post consent grants validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/context-budget/validate",
       "method": "POST",
       "operation_id": "post_context_budget_validate",
-      "path": "/context-budget/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post context budget validate",
       "tags": [
         "context-budget"
-      ]
+      ],
+      "summary": "Post context budget validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/context-packs/validate",
       "method": "POST",
       "operation_id": "post_context_packs_validate",
-      "path": "/context-packs/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post context packs validate",
       "tags": [
         "contracts"
-      ]
+      ],
+      "summary": "Post context packs validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/contracts/validate",
       "method": "POST",
       "operation_id": "post_contracts_validate",
-      "path": "/contracts/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post contracts validate",
       "tags": [
         "contracts"
-      ]
+      ],
+      "summary": "Post contracts validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/control-center/actions/inbox",
       "method": "GET",
       "operation_id": "get_control_center_actions_inbox",
-      "path": "/control-center/actions/inbox",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get control center actions inbox",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center actions inbox",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/control-center/actions/preview",
       "method": "POST",
       "operation_id": "post_control_center_actions_preview",
-      "path": "/control-center/actions/preview",
-      "side_effect_class": "validation_only",
-      "summary": "Post control center actions preview",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Post control center actions preview",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/control-center/approvals/summary",
       "method": "GET",
       "operation_id": "get_control_center_approvals_summary",
-      "path": "/control-center/approvals/summary",
-      "side_effect_class": "validation_only",
-      "summary": "Get control center approvals summary",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center approvals summary",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/control-center/dashboard",
       "method": "GET",
       "operation_id": "get_control_center_dashboard",
-      "path": "/control-center/dashboard",
-      "side_effect_class": "validation_only",
-      "summary": "Get control center dashboard",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center dashboard",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/control-center/foundation-gate/summary",
       "method": "GET",
       "operation_id": "get_control_center_foundation_gate_summary",
-      "path": "/control-center/foundation-gate/summary",
-      "side_effect_class": "validation_only",
-      "summary": "Get control center foundation gate summary",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center foundation gate summary",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/control-center/manifest",
       "method": "GET",
       "operation_id": "get_control_center_manifest",
-      "path": "/control-center/manifest",
-      "side_effect_class": "validation_only",
-      "summary": "Get control center manifest",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center manifest",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/control-center/morning-briefing/summary",
       "method": "GET",
       "operation_id": "get_control_center_morning_briefing_summary",
-      "path": "/control-center/morning-briefing/summary",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get control center morning briefing summary",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center morning briefing summary",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/control-center/routes",
       "method": "GET",
       "operation_id": "get_control_center_routes",
-      "path": "/control-center/routes",
-      "side_effect_class": "validation_only",
-      "summary": "Get control center routes",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center routes",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/control-center/runtime-readiness/summary",
       "method": "GET",
       "operation_id": "get_control_center_runtime_readiness_summary",
-      "path": "/control-center/runtime-readiness/summary",
-      "side_effect_class": "validation_only",
-      "summary": "Get control center runtime readiness summary",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center runtime readiness summary",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/control-center/setup-assistant/summary",
       "method": "GET",
       "operation_id": "get_control_center_setup_assistant_summary",
-      "path": "/control-center/setup-assistant/summary",
-      "side_effect_class": "validation_only",
-      "summary": "Get control center setup assistant summary",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center setup assistant summary",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/control-center/status",
       "method": "GET",
       "operation_id": "get_control_center_status",
-      "path": "/control-center/status",
-      "side_effect_class": "validation_only",
-      "summary": "Get control center status",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center status",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/control-center/storage/status",
       "method": "GET",
       "operation_id": "get_control_center_storage_status",
-      "path": "/control-center/storage/status",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get control center storage status",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center storage status",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/control-center/today/summary",
       "method": "GET",
       "operation_id": "get_control_center_today_summary",
-      "path": "/control-center/today/summary",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get control center today summary",
       "tags": [
         "control-center"
-      ]
+      ],
+      "summary": "Get control center today summary",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/costs/budgets/validate",
       "method": "POST",
       "operation_id": "post_costs_budgets_validate",
-      "path": "/costs/budgets/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post costs budgets validate",
       "tags": [
         "cost-governor"
-      ]
+      ],
+      "summary": "Post costs budgets validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/costs/estimate/preview",
       "method": "POST",
       "operation_id": "post_costs_estimate_preview",
-      "path": "/costs/estimate/preview",
-      "side_effect_class": "validation_only",
-      "summary": "Post costs estimate preview",
       "tags": [
         "cost-governor"
-      ]
+      ],
+      "summary": "Post costs estimate preview",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/costs/evaluate",
       "method": "POST",
       "operation_id": "post_costs_evaluate",
-      "path": "/costs/evaluate",
-      "side_effect_class": "validation_only",
-      "summary": "Post costs evaluate",
       "tags": [
         "cost-governor"
-      ]
+      ],
+      "summary": "Post costs evaluate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/events/validate",
       "method": "POST",
       "operation_id": "post_events_validate",
-      "path": "/events/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post events validate",
       "tags": [
         "ledger"
-      ]
+      ],
+      "summary": "Post events validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/extensions/catalog",
       "method": "GET",
       "operation_id": "get_extensions_catalog",
-      "path": "/extensions/catalog",
-      "side_effect_class": "validation_only",
-      "summary": "Get extensions catalog",
       "tags": [
         "extension-catalog"
-      ]
+      ],
+      "summary": "Get extensions catalog",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/files/diff/preview",
       "method": "POST",
       "operation_id": "post_files_diff_preview",
-      "path": "/files/diff/preview",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post files diff preview",
       "tags": [
         "files"
-      ]
+      ],
+      "summary": "Post files diff preview",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/files/read/preview",
       "method": "POST",
       "operation_id": "post_files_read_preview",
-      "path": "/files/read/preview",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post files read preview",
       "tags": [
         "files"
-      ]
+      ],
+      "summary": "Post files read preview",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/files/refs/validate",
       "method": "POST",
       "operation_id": "post_files_refs_validate",
-      "path": "/files/refs/validate",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post files refs validate",
       "tags": [
         "files"
-      ]
+      ],
+      "summary": "Post files refs validate",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/files/review/approvals/capture",
       "method": "POST",
       "operation_id": "post_files_review_approvals_capture",
-      "path": "/files/review/approvals/capture",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post files review approvals capture",
       "tags": [
         "files"
-      ]
+      ],
+      "summary": "Post files review approvals capture",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/files/tree/preview",
       "method": "POST",
       "operation_id": "post_files_tree_preview",
-      "path": "/files/tree/preview",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post files tree preview",
       "tags": [
         "files"
-      ]
+      ],
+      "summary": "Post files tree preview",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/files/write/propose",
       "method": "POST",
       "operation_id": "post_files_write_propose",
-      "path": "/files/write/propose",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post files write propose",
       "tags": [
         "files"
-      ]
+      ],
+      "summary": "Post files write propose",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/gate/reports/validate",
       "method": "POST",
       "operation_id": "post_gate_reports_validate",
-      "path": "/gate/reports/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post gate reports validate",
       "tags": [
         "foundation-gate"
-      ]
+      ],
+      "summary": "Post gate reports validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/gate/shadow-replay/validate",
       "method": "POST",
       "operation_id": "post_gate_shadow_replay_validate",
-      "path": "/gate/shadow-replay/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post gate shadow replay validate",
       "tags": [
         "foundation-gate"
-      ]
+      ],
+      "summary": "Post gate shadow replay validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/health",
       "method": "GET",
       "operation_id": "get_health",
-      "path": "/health",
-      "side_effect_class": "none",
-      "summary": "Get health",
       "tags": [
         "system"
-      ]
+      ],
+      "summary": "Get health",
+      "side_effect_class": "none",
+      "route_classification": "public_metadata"
     },
     {
+      "path": "/integrations/mattermost/audit",
       "method": "GET",
       "operation_id": "get_integrations_mattermost_audit",
-      "path": "/integrations/mattermost/audit",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get integrations mattermost audit",
       "tags": [
         "mattermost"
-      ]
+      ],
+      "summary": "Get integrations mattermost audit",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/integrations/mattermost/events/message",
       "method": "POST",
       "operation_id": "post_integrations_mattermost_events_message",
-      "path": "/integrations/mattermost/events/message",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post integrations mattermost events message",
       "tags": [
         "mattermost"
-      ]
+      ],
+      "summary": "Post integrations mattermost events message",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/integrations/mattermost/receipts",
       "method": "GET",
       "operation_id": "get_integrations_mattermost_receipts",
-      "path": "/integrations/mattermost/receipts",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get integrations mattermost receipts",
       "tags": [
         "mattermost"
-      ]
+      ],
+      "summary": "Get integrations mattermost receipts",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/integrations/mattermost/roles/bind",
       "method": "POST",
       "operation_id": "post_integrations_mattermost_roles_bind",
-      "path": "/integrations/mattermost/roles/bind",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post integrations mattermost roles bind",
       "tags": [
         "mattermost"
-      ]
+      ],
+      "summary": "Post integrations mattermost roles bind",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/integrations/mattermost/roles/catalog",
       "method": "GET",
       "operation_id": "get_integrations_mattermost_roles_catalog",
-      "path": "/integrations/mattermost/roles/catalog",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get integrations mattermost roles catalog",
       "tags": [
         "mattermost"
-      ]
+      ],
+      "summary": "Get integrations mattermost roles catalog",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/integrations/mattermost/roles/suggest",
       "method": "POST",
       "operation_id": "post_integrations_mattermost_roles_suggest",
-      "path": "/integrations/mattermost/roles/suggest",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post integrations mattermost roles suggest",
       "tags": [
         "mattermost"
-      ]
+      ],
+      "summary": "Post integrations mattermost roles suggest",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/integrations/mattermost/roles/unbind",
       "method": "POST",
       "operation_id": "post_integrations_mattermost_roles_unbind",
-      "path": "/integrations/mattermost/roles/unbind",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post integrations mattermost roles unbind",
       "tags": [
         "mattermost"
-      ]
+      ],
+      "summary": "Post integrations mattermost roles unbind",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/integrations/mattermost/status",
       "method": "GET",
       "operation_id": "get_integrations_mattermost_status",
-      "path": "/integrations/mattermost/status",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get integrations mattermost status",
       "tags": [
         "mattermost"
-      ]
+      ],
+      "summary": "Get integrations mattermost status",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/kernel/tasks/run",
       "method": "POST",
       "operation_id": "post_kernel_tasks_run",
-      "path": "/kernel/tasks/run",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post kernel tasks run",
       "tags": [
         "kernel"
-      ]
+      ],
+      "summary": "Post kernel tasks run",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/local-runtime/validate",
       "method": "POST",
       "operation_id": "post_local_runtime_validate",
-      "path": "/local-runtime/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post local runtime validate",
       "tags": [
         "runtime-boundary"
-      ]
+      ],
+      "summary": "Post local runtime validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/memory/query/preview",
       "method": "POST",
       "operation_id": "post_memory_query_preview",
-      "path": "/memory/query/preview",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post memory query preview",
       "tags": [
         "memory"
-      ]
+      ],
+      "summary": "Post memory query preview",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/memory/records/validate",
       "method": "POST",
       "operation_id": "post_memory_records_validate",
-      "path": "/memory/records/validate",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post memory records validate",
       "tags": [
         "memory"
-      ]
+      ],
+      "summary": "Post memory records validate",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/memory/write/evaluate",
       "method": "POST",
       "operation_id": "post_memory_write_evaluate",
-      "path": "/memory/write/evaluate",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post memory write evaluate",
       "tags": [
         "memory"
-      ]
+      ],
+      "summary": "Post memory write evaluate",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/model-runtime/local/endpoints/validate",
       "method": "POST",
       "operation_id": "post_model_runtime_local_endpoints_validate",
-      "path": "/model-runtime/local/endpoints/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post model runtime local endpoints validate",
       "tags": [
         "model-runtime"
-      ]
+      ],
+      "summary": "Post model runtime local endpoints validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/model-runtime/local/execution/validate",
       "method": "POST",
       "operation_id": "post_model_runtime_local_execution_validate",
-      "path": "/model-runtime/local/execution/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post model runtime local execution validate",
       "tags": [
         "model-runtime"
-      ]
+      ],
+      "summary": "Post model runtime local execution validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/model-runtime/local/simulate-fallback",
       "method": "POST",
       "operation_id": "post_model_runtime_local_simulate_fallback",
-      "path": "/model-runtime/local/simulate-fallback",
-      "side_effect_class": "validation_only",
-      "summary": "Post model runtime local simulate fallback",
       "tags": [
         "model-runtime"
-      ]
+      ],
+      "summary": "Post model runtime local simulate fallback",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/model-runtime/local/smoke/validate",
       "method": "POST",
       "operation_id": "post_model_runtime_local_smoke_validate",
-      "path": "/model-runtime/local/smoke/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post model runtime local smoke validate",
       "tags": [
         "model-runtime"
-      ]
+      ],
+      "summary": "Post model runtime local smoke validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/model-runtime/manifests/validate",
       "method": "POST",
       "operation_id": "post_model_runtime_manifests_validate",
-      "path": "/model-runtime/manifests/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post model runtime manifests validate",
       "tags": [
         "model-runtime"
-      ]
+      ],
+      "summary": "Post model runtime manifests validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/model-runtime/requests/validate",
       "method": "POST",
       "operation_id": "post_model_runtime_requests_validate",
-      "path": "/model-runtime/requests/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post model runtime requests validate",
       "tags": [
         "model-runtime"
-      ]
+      ],
+      "summary": "Post model runtime requests validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/model-runtime/responses/validate",
       "method": "POST",
       "operation_id": "post_model_runtime_responses_validate",
-      "path": "/model-runtime/responses/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post model runtime responses validate",
       "tags": [
         "model-runtime"
-      ]
+      ],
+      "summary": "Post model runtime responses validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/model-runtime/simulate",
       "method": "POST",
       "operation_id": "post_model_runtime_simulate",
-      "path": "/model-runtime/simulate",
-      "side_effect_class": "validation_only",
-      "summary": "Post model runtime simulate",
       "tags": [
         "model-runtime"
-      ]
+      ],
+      "summary": "Post model runtime simulate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/models/profiles/validate",
       "method": "POST",
       "operation_id": "post_models_profiles_validate",
-      "path": "/models/profiles/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post models profiles validate",
       "tags": [
         "model-router"
-      ]
+      ],
+      "summary": "Post models profiles validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/models/route/preview",
       "method": "POST",
       "operation_id": "post_models_route_preview",
-      "path": "/models/route/preview",
-      "side_effect_class": "validation_only",
-      "summary": "Post models route preview",
       "tags": [
         "model-router"
-      ]
+      ],
+      "summary": "Post models route preview",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/observability/client-errors",
       "method": "POST",
       "operation_id": "post_observability_client_errors",
-      "path": "/observability/client-errors",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post observability client errors",
       "tags": [
         "observability"
-      ]
+      ],
+      "summary": "Post observability client errors",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/observability/session-events",
       "method": "GET",
       "operation_id": "get_observability_session_events",
-      "path": "/observability/session-events",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get observability session events",
       "tags": [
         "observability"
-      ]
+      ],
+      "summary": "Get observability session events",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/providers/manifests/validate",
       "method": "POST",
       "operation_id": "post_providers_manifests_validate",
-      "path": "/providers/manifests/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post providers manifests validate",
       "tags": [
         "provider-registry"
-      ]
+      ],
+      "summary": "Post providers manifests validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/providers/resolve",
       "method": "POST",
       "operation_id": "post_providers_resolve",
-      "path": "/providers/resolve",
-      "side_effect_class": "validation_only",
-      "summary": "Post providers resolve",
       "tags": [
         "provider-registry"
-      ]
+      ],
+      "summary": "Post providers resolve",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/providers/results/validate",
       "method": "POST",
       "operation_id": "post_providers_results_validate",
-      "path": "/providers/results/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post providers results validate",
       "tags": [
         "provider-registry"
-      ]
+      ],
+      "summary": "Post providers results validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/receipts/preview",
       "method": "POST",
       "operation_id": "post_receipts_preview",
-      "path": "/receipts/preview",
-      "side_effect_class": "validation_only",
-      "summary": "Post receipts preview",
       "tags": [
         "ledger"
-      ]
+      ],
+      "summary": "Post receipts preview",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/remote-workers/dry-run",
       "method": "POST",
       "operation_id": "post_remote_workers_dry_run",
-      "path": "/remote-workers/dry-run",
-      "side_effect_class": "validation_only",
-      "summary": "Post remote workers dry run",
       "tags": [
         "remote-workers"
-      ]
+      ],
+      "summary": "Post remote workers dry run",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/remote-workers/jobs/validate",
       "method": "POST",
       "operation_id": "post_remote_workers_jobs_validate",
-      "path": "/remote-workers/jobs/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post remote workers jobs validate",
       "tags": [
         "remote-workers"
-      ]
+      ],
+      "summary": "Post remote workers jobs validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/remote-workers/mesh/status",
       "method": "GET",
       "operation_id": "get_remote_workers_mesh_status",
-      "path": "/remote-workers/mesh/status",
-      "side_effect_class": "validation_only",
-      "summary": "Get remote workers mesh status",
       "tags": [
         "remote-workers"
-      ]
+      ],
+      "summary": "Get remote workers mesh status",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/remote-workers/nodes/validate",
       "method": "POST",
       "operation_id": "post_remote_workers_nodes_validate",
-      "path": "/remote-workers/nodes/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post remote workers nodes validate",
       "tags": [
         "remote-workers"
-      ]
+      ],
+      "summary": "Post remote workers nodes validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/remote-workers/policy/validate",
       "method": "POST",
       "operation_id": "post_remote_workers_policy_validate",
-      "path": "/remote-workers/policy/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post remote workers policy validate",
       "tags": [
         "remote-workers"
-      ]
+      ],
+      "summary": "Post remote workers policy validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/remote-workers/status",
       "method": "GET",
       "operation_id": "get_remote_workers_status",
-      "path": "/remote-workers/status",
-      "side_effect_class": "validation_only",
-      "summary": "Get remote workers status",
       "tags": [
         "remote-workers"
-      ]
+      ],
+      "summary": "Get remote workers status",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/remote-workers/tailnet/status",
       "method": "GET",
       "operation_id": "get_remote_workers_tailnet_status",
-      "path": "/remote-workers/tailnet/status",
-      "side_effect_class": "validation_only",
-      "summary": "Get remote workers tailnet status",
       "tags": [
         "remote-workers"
-      ]
+      ],
+      "summary": "Get remote workers tailnet status",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/remote-workers/transports/validate",
       "method": "POST",
       "operation_id": "post_remote_workers_transports_validate",
-      "path": "/remote-workers/transports/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post remote workers transports validate",
       "tags": [
         "remote-workers"
-      ]
+      ],
+      "summary": "Post remote workers transports validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/runs/state/transition/validate",
       "method": "POST",
       "operation_id": "post_runs_state_transition_validate",
-      "path": "/runs/state/transition/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post runs state transition validate",
       "tags": [
         "ledger"
-      ]
+      ],
+      "summary": "Post runs state transition validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/runtime/capability-matrix",
       "method": "GET",
       "operation_id": "get_runtime_capability_matrix",
-      "path": "/runtime/capability-matrix",
-      "side_effect_class": "validation_only",
-      "summary": "Get runtime capability matrix",
       "tags": [
         "runtime-readiness"
-      ]
+      ],
+      "summary": "Get runtime capability matrix",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/runtime/readiness",
       "method": "GET",
       "operation_id": "get_runtime_readiness",
-      "path": "/runtime/readiness",
-      "side_effect_class": "validation_only",
-      "summary": "Get runtime readiness",
       "tags": [
         "runtime-readiness"
-      ]
+      ],
+      "summary": "Get runtime readiness",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/runtime/smoke-reports/validate",
       "method": "POST",
       "operation_id": "post_runtime_smoke_reports_validate",
-      "path": "/runtime/smoke-reports/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post runtime smoke reports validate",
       "tags": [
         "runtime-readiness"
-      ]
+      ],
+      "summary": "Post runtime smoke reports validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/secrets/access/evaluate",
       "method": "POST",
       "operation_id": "post_secrets_access_evaluate",
-      "path": "/secrets/access/evaluate",
-      "side_effect_class": "validation_only",
-      "summary": "Post secrets access evaluate",
       "tags": [
         "secret-broker"
-      ]
+      ],
+      "summary": "Post secrets access evaluate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/secrets/credentials/validate",
       "method": "POST",
       "operation_id": "post_secrets_credentials_validate",
-      "path": "/secrets/credentials/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post secrets credentials validate",
       "tags": [
         "secret-broker"
-      ]
+      ],
+      "summary": "Post secrets credentials validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/approval-requests",
       "method": "POST",
       "operation_id": "post_task_decomposition_approval_requests",
-      "path": "/task-decomposition/approval-requests",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition approval requests",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition approval requests",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/task-decomposition/approvals",
       "method": "GET",
       "operation_id": "get_task_decomposition_approvals",
-      "path": "/task-decomposition/approvals",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get task decomposition approvals",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Get task decomposition approvals",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/approvals/grants/capture",
       "method": "POST",
       "operation_id": "post_task_decomposition_approvals_grants_capture",
-      "path": "/task-decomposition/approvals/grants/capture",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition approvals grants capture",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition approvals grants capture",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/task-decomposition/approvals/revoke",
       "method": "POST",
       "operation_id": "post_task_decomposition_approvals_revoke",
-      "path": "/task-decomposition/approvals/revoke",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition approvals revoke",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition approvals revoke",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/task-decomposition/audit",
       "method": "GET",
       "operation_id": "get_task_decomposition_audit",
-      "path": "/task-decomposition/audit",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get task decomposition audit",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Get task decomposition audit",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/capabilities/register",
       "method": "POST",
       "operation_id": "post_task_decomposition_capabilities_register",
-      "path": "/task-decomposition/capabilities/register",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition capabilities register",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition capabilities register",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/task-decomposition/catalog",
       "method": "GET",
       "operation_id": "get_task_decomposition_catalog",
-      "path": "/task-decomposition/catalog",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get task decomposition catalog",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Get task decomposition catalog",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/classify",
       "method": "POST",
       "operation_id": "post_task_decomposition_classify",
-      "path": "/task-decomposition/classify",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition classify",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition classify",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/decompose",
       "method": "POST",
       "operation_id": "post_task_decomposition_decompose",
-      "path": "/task-decomposition/decompose",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition decompose",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition decompose",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/examples/init",
       "method": "POST",
       "operation_id": "post_task_decomposition_examples_init",
-      "path": "/task-decomposition/examples/init",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition examples init",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition examples init",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/task-decomposition/metrics",
       "method": "GET",
       "operation_id": "get_task_decomposition_metrics",
-      "path": "/task-decomposition/metrics",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get task decomposition metrics",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Get task decomposition metrics",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/plans/execute",
       "method": "POST",
       "operation_id": "post_task_decomposition_plans_execute",
-      "path": "/task-decomposition/plans/execute",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition plans execute",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition plans execute",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/task-decomposition/plans/validate",
       "method": "POST",
       "operation_id": "post_task_decomposition_plans_validate",
-      "path": "/task-decomposition/plans/validate",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition plans validate",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition plans validate",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/registry/export",
       "method": "GET",
       "operation_id": "get_task_decomposition_registry_export",
-      "path": "/task-decomposition/registry/export",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get task decomposition registry export",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Get task decomposition registry export",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/task-decomposition/run",
       "method": "POST",
       "operation_id": "post_task_decomposition_run",
-      "path": "/task-decomposition/run",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post task decomposition run",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Post task decomposition run",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/task-decomposition/status",
       "method": "GET",
       "operation_id": "get_task_decomposition_status",
-      "path": "/task-decomposition/status",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get task decomposition status",
       "tags": [
         "task-decomposition"
-      ]
+      ],
+      "summary": "Get task decomposition status",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/tools/manifests/validate",
       "method": "POST",
       "operation_id": "post_tools_manifests_validate",
-      "path": "/tools/manifests/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post tools manifests validate",
       "tags": [
         "tool-broker"
-      ]
+      ],
+      "summary": "Post tools manifests validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/tools/requests/dry-run",
       "method": "POST",
       "operation_id": "post_tools_requests_dry_run",
-      "path": "/tools/requests/dry-run",
-      "side_effect_class": "validation_only",
-      "summary": "Post tools requests dry run",
       "tags": [
         "tool-broker"
-      ]
+      ],
+      "summary": "Post tools requests dry run",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/tools/requests/evaluate",
       "method": "POST",
       "operation_id": "post_tools_requests_evaluate",
-      "path": "/tools/requests/evaluate",
-      "side_effect_class": "validation_only",
-      "summary": "Post tools requests evaluate",
       "tags": [
         "tool-broker"
-      ]
+      ],
+      "summary": "Post tools requests evaluate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/truth/conflicts/validate",
       "method": "POST",
       "operation_id": "post_truth_conflicts_validate",
-      "path": "/truth/conflicts/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post truth conflicts validate",
       "tags": [
         "truth"
-      ]
+      ],
+      "summary": "Post truth conflicts validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/truth/evidence/validate",
       "method": "POST",
       "operation_id": "post_truth_evidence_validate",
-      "path": "/truth/evidence/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post truth evidence validate",
       "tags": [
         "truth"
-      ]
+      ],
+      "summary": "Post truth evidence validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/truth/freshness/check",
       "method": "POST",
       "operation_id": "post_truth_freshness_check",
-      "path": "/truth/freshness/check",
-      "side_effect_class": "validation_only",
-      "summary": "Post truth freshness check",
       "tags": [
         "truth"
-      ]
+      ],
+      "summary": "Post truth freshness check",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/truth/grounding-policy/validate",
       "method": "POST",
       "operation_id": "post_truth_grounding_policy_validate",
-      "path": "/truth/grounding-policy/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post truth grounding policy validate",
       "tags": [
         "truth"
-      ]
+      ],
+      "summary": "Post truth grounding policy validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/truth/route",
       "method": "POST",
       "operation_id": "post_truth_route",
-      "path": "/truth/route",
-      "side_effect_class": "validation_only",
-      "summary": "Post truth route",
       "tags": [
         "truth"
-      ]
+      ],
+      "summary": "Post truth route",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/truth/sources/validate",
       "method": "POST",
       "operation_id": "post_truth_sources_validate",
-      "path": "/truth/sources/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post truth sources validate",
       "tags": [
         "truth"
-      ]
+      ],
+      "summary": "Post truth sources validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/v1/chat/completions",
       "method": "POST",
       "operation_id": "post_v1_chat_completions",
-      "path": "/v1/chat/completions",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Post v1 chat completions",
       "tags": [
         "openwebui-local-test"
-      ]
+      ],
+      "summary": "Post v1 chat completions",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority"
     },
     {
+      "path": "/v1/models",
       "method": "GET",
       "operation_id": "get_v1_models",
-      "path": "/v1/models",
-      "side_effect_class": "local_dev_workspace_only",
-      "summary": "Get v1 models",
       "tags": [
         "openwebui-local-test"
-      ]
+      ],
+      "summary": "Get v1 models",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/version",
       "method": "GET",
       "operation_id": "get_version",
-      "path": "/version",
-      "side_effect_class": "none",
-      "summary": "Get version",
       "tags": [
         "system"
-      ]
+      ],
+      "summary": "Get version",
+      "side_effect_class": "none",
+      "route_classification": "public_metadata"
     },
     {
+      "path": "/web-evidence/request",
       "method": "POST",
       "operation_id": "post_web_evidence_request",
-      "path": "/web-evidence/request",
-      "side_effect_class": "governed_network_read_only",
-      "summary": "Post web evidence request",
       "tags": [
         "web-evidence"
-      ]
+      ],
+      "summary": "Post web evidence request",
+      "side_effect_class": "governed_network_read_only",
+      "route_classification": "local_sensitive"
     },
     {
+      "path": "/web-evidence/status",
       "method": "GET",
       "operation_id": "get_web_evidence_status",
-      "path": "/web-evidence/status",
-      "side_effect_class": "none",
-      "summary": "Get web evidence status",
       "tags": [
         "web-evidence"
-      ]
+      ],
+      "summary": "Get web evidence status",
+      "side_effect_class": "none",
+      "route_classification": "local_readonly"
     },
     {
+      "path": "/world-state/validate",
       "method": "POST",
       "operation_id": "post_world_state_validate",
-      "path": "/world-state/validate",
-      "side_effect_class": "validation_only",
-      "summary": "Post world state validate",
       "tags": [
         "world-state"
-      ]
+      ],
+      "summary": "Post world state validate",
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive"
     }
-  ],
-  "schema_version": "uaa-api-route-inventory.v1"
+  ]
 }

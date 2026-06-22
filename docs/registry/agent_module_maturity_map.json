@@ -399,7 +399,7 @@
         "No mutation-capable quality-control actions for duplicate/conflict/stale records.",
         "No execution-capable memory-derived Action flow, CRM sync, or automatic recall."
       ],
-      "next_checkpoint": "Use UAA-P1-080 only for API route classification and public/protected inventory truth; memory write policy binding, retention/delete/export execution, context injection, and CRM sync remain future scoped work."
+      "next_checkpoint": "UAA-P1-080 completed API route classification and public/protected inventory truth. Use UAA-P1-081 only for centralized FastAPI security headers; memory write policy binding, retention/delete/export execution, context injection, and CRM sync remain future scoped work."
     },
     {
       "id": "tool_registry",

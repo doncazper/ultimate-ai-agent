@@ -185,8 +185,13 @@ def _validate_route_status_manifest(failures: list[str]) -> None:
         "path": "/control-center/today/summary",
         "operation_id": "get_control_center_today_summary",
         "side_effect_class": "local_dev_workspace_only",
+        "route_classification": "local_sensitive",
     }
-    if expected_route not in evidence_action.get("backend_routes", []):
+    has_expected_route = any(
+        all(route.get(key) == value for key, value in expected_route.items())
+        for route in evidence_action.get("backend_routes", [])
+    )
+    if not has_expected_route:
         failures.append("navigate-evidence missing Today summary backend route")
 
 
