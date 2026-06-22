@@ -1,15 +1,58 @@
 # Ultimate AI Agent
 
-Ultimate AI Agent (UAA) is a local-first foundation for governed AI agent work.
-It puts a Python Agent Core, typed contracts, approvals, redacted evidence,
-rollback paths, and verifier-backed release discipline in front of any
-capability that could affect real systems.
+**A local-first Founder Command Center for a professional founder/operator
+loop.**
+
+Ultimate AI Agent (UAA) is building a professional AI command center for one
+local user: start the day with priorities and blockers, decide what needs
+attention, review safe action proposals, keep receipts and evidence, and turn
+reviewed memory into better follow-through. The user-facing product path is
+the **Founder Command Center**. The technical web shell is the **Control
+Center**. The Python Agent Core remains the authority boundary.
+
+The foundation exists so this assistant stays governed. Typed FastAPI
+contracts, `PolicyEngine`, `LocalApprovalAuthority`, route side-effect
+classification, redacted evidence, rollback posture, CLI inspection paths, and
+verifier-backed release discipline sit underneath the product loop before any
+workflow can affect local state.
 
 This repository is under active development. It is not a public release, public
-beta, hosted production service, broad-autonomy runtime, or unrestricted tool
-runner.
+beta, hosted production service, broad-autonomy runtime, unrestricted tool
+runner, connector-write runtime, or production-authority system.
 
-## Current Status
+## What It Helps With
+
+The intended daily loop is:
+
+```text
+Morning Briefing
+  -> Today Plan
+  -> Action Inbox
+  -> Draft or propose safe work
+  -> Exact approve/edit/reject/defer decision
+  -> Receipt and Evidence Timeline
+  -> Memory Review
+  -> Weekly CEO Review
+```
+
+Current product truth is narrower than the vision:
+
+- **Proofed route surfaces**: `/actions`, `/chat`, `/memory`, and `/evidence`
+  have exact backend-owned route-surface behavior for the bounded Founder Loop
+  V1 proof lane.
+- **Partial surfaces**: `/today`, Morning Briefing, Plans, local model status,
+  private-trial review, and broader Control Center readability remain partial
+  or support surfaces.
+- **Blocked or future-scoped surfaces**: `/inbox`, `/settings`, model
+  lifecycle controls, connector workflows, action execution, public beta,
+  public release, public distribution, and production authority remain blocked
+  until later scoped evidence exists.
+- **Memory direction**: reviewed business memory for people, projects,
+  companies, opportunities, promises, preferences, decisions, follow-ups, and
+  evidence-backed corrections is central, but memory remains recall, not truth
+  or authority.
+
+## Current Technical Snapshot
 
 | Field | Current state |
 |---|---|

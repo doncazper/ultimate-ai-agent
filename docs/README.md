@@ -1,5 +1,18 @@
 # Ultimate AI Agent Docs
 
+This is the active documentation entrypoint. Start with UAA as the
+Founder Command Center product path: a local-first professional AI command
+center for Today, Inbox, Plans, Actions, Memory, Evidence, and Settings. The
+front-door product story lives in `README.md`; the strategic narrative lives in
+`docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`; the implementation
+truth and blocked states live in
+`docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`.
+
+The Control Center is the technical web shell, Founder Command Center is the
+user-facing product name, and the Founder Loop is the bounded product spine.
+Python Agent Core, PolicyEngine, LocalApprovalAuthority, route classification,
+OpenAPI checks, and Foundation Gate checks remain the authority boundaries.
+
 Status: active
 Current through: v0.103.0 plus accepted checkpoint-m169, completed
 UAA-P1-065 Founder Command Center review cleanup, completed UAA-P1-067
@@ -73,9 +86,10 @@ current implementation claims.
 
 | Need | Start with |
 |---|---|
-| Current repository story | `README.md`, `VERSION.md`, `docs/release_notes/v0_103_0.md` |
+| Product story and current repository truth | `README.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
+| Version and checkpoint currentness | `VERSION.md`, `docs/release_notes/v0_103_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product claims and gaps | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |

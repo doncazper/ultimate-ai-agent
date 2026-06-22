@@ -15,6 +15,13 @@ External benchmark and peer-console context is product-shaping evidence only.
 It is not an implementation dependency, product dependency, authority source,
 or template for bypassing UAA governance.
 
+Front-door docs may lead with the Founder Command Center product loop when
+they also preserve this packet's implementation truth: implemented, partial,
+blocked, planned, and future-scoped states must remain explicit. The product
+narrative grants no runtime authority, connector authority, action execution,
+public beta, public release, public distribution, or production readiness
+claim.
+
 ## Release Truth
 
 Allowed current claims:
