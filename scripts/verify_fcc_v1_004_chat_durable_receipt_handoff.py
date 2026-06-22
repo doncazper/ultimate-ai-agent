@@ -21,6 +21,7 @@ from scripts.verification.repo import (  # noqa: E402
     load_json,
     print_failures_or_success,
 )
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 from ultimate_ai_agent.core.chat import CHAT_DURABLE_RECEIPT_CONTRACT_REF  # noqa: E402
 
 
@@ -275,31 +276,43 @@ def _append_behavior_failures(
     context: ApiVerifierContext,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+    bearer = "fcc-v1-004-local-bearer"
+    auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
-            receipt = _exercise_chat_turn_receipt(failures, context)
-            _exercise_chat_handoffs(failures, context, receipt)
-            _append_today_summary_failures(failures, context, receipt)
+            receipt = _exercise_chat_turn_receipt(failures, context, auth_headers)
+            _exercise_chat_handoffs(failures, context, receipt, auth_headers)
+            _append_today_summary_failures(failures, context, receipt, auth_headers)
         finally:
             if old_state_dir is None:
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
 
 
 def _exercise_chat_turn_receipt(
     failures: list[str],
     context: ApiVerifierContext,
+    auth_headers: dict[str, str],
 ) -> dict[str, Any]:
     body = _chat_turn_body()
-    missing = context.client.post("/control-center/chat/turns", json=body)
+    missing = context.client.post("/control-center/chat/turns", json=body, headers=auth_headers)
     if missing.status_code != 428:
         failures.append("Chat turn receipt route must reject missing idempotency")
     first = context.client.post(
         "/control-center/chat/turns",
         json=body,
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-chat-turn"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-chat-turn",
+        },
     )
     if first.status_code != 200:
         failures.append(f"Chat turn receipt route failed with {first.status_code}")
@@ -311,18 +324,27 @@ def _exercise_chat_turn_receipt(
     replay = context.client.post(
         "/control-center/chat/turns",
         json=body,
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-chat-turn"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-chat-turn",
+        },
     )
     if replay.status_code != 200 or replay.json().get("data", {}).get("replayed") is not True:
         failures.append("Chat turn receipt route must replay matching idempotency payload")
     conflict = context.client.post(
         "/control-center/chat/turns",
         json={**body, "model_ref": "model-ref:fcc-v1-004-other-local"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-chat-turn"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-chat-turn",
+        },
     )
     if conflict.status_code != 409:
         failures.append("Chat turn receipt route must reject idempotency conflict")
-    fetched = context.client.get(f"/control-center/chat/turns/{body['turn_ref']}/receipt")
+    fetched = context.client.get(
+        f"/control-center/chat/turns/{body['turn_ref']}/receipt",
+        headers=auth_headers,
+    )
     if fetched.status_code != 200 or fetched.json().get("data", {}).get("receipt_ref") != receipt.get("receipt_ref"):
         failures.append("Chat turn receipt GET route did not return the stored receipt")
     return receipt
@@ -332,25 +354,33 @@ def _exercise_chat_handoffs(
     failures: list[str],
     context: ApiVerifierContext,
     receipt: dict[str, Any],
+    auth_headers: dict[str, str],
 ) -> None:
     turn_ref = str(receipt.get("turn_ref", "chat-turn:fcc-v1-004"))
     missing_receipt = context.client.post(
         "/control-center/chat/turns/chat-turn:fcc-v1-004-missing/handoff",
         json={"handoff_target": "actions"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-missing"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-missing",
+        },
     )
     if missing_receipt.status_code != 404:
         failures.append("Chat handoff must reject missing turn receipt with 404")
     missing_idempotency = context.client.post(
         f"/control-center/chat/turns/{turn_ref}/handoff",
         json={"handoff_target": "actions"},
+        headers=auth_headers,
     )
     if missing_idempotency.status_code != 428:
         failures.append("Chat handoff route must reject missing idempotency")
     actions = context.client.post(
         f"/control-center/chat/turns/{turn_ref}/handoff",
         json={"handoff_target": "actions"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-handoff-actions"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-handoff-actions",
+        },
     )
     if actions.status_code != 200:
         failures.append(f"Chat actions handoff route failed with {actions.status_code}")
@@ -364,21 +394,30 @@ def _exercise_chat_handoffs(
     replay = context.client.post(
         f"/control-center/chat/turns/{turn_ref}/handoff",
         json={"handoff_target": "actions"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-handoff-actions"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-handoff-actions",
+        },
     )
     if replay.status_code != 200 or replay.json().get("data", {}).get("replayed") is not True:
         failures.append("Chat actions handoff must replay matching idempotency payload")
     conflict = context.client.post(
         f"/control-center/chat/turns/{turn_ref}/handoff",
         json={"handoff_target": "plans"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-handoff-actions"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-handoff-actions",
+        },
     )
     if conflict.status_code != 409:
         failures.append("Chat handoff route must reject idempotency conflict")
     plans = context.client.post(
         f"/control-center/chat/turns/{turn_ref}/handoff",
         json={"handoff_target": "plans"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-handoff-plans"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-004-handoff-plans",
+        },
     )
     if plans.status_code != 200:
         failures.append(f"Chat plans handoff route failed with {plans.status_code}")
@@ -395,8 +434,9 @@ def _append_today_summary_failures(
     failures: list[str],
     context: ApiVerifierContext,
     receipt: dict[str, Any],
+    auth_headers: dict[str, str],
 ) -> None:
-    response = context.client.get("/control-center/today/summary")
+    response = context.client.get("/control-center/today/summary", headers=auth_headers)
     if response.status_code != 200:
         failures.append("Today summary did not return after Chat receipt")
         return

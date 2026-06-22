@@ -89,6 +89,7 @@ SCAN_SEQUENCE = [
     ("FCC-V1-003 Founder Loop vertical slice scan", "verify_fcc_v1_003_founder_loop_vertical_slice"),
     ("FCC-V1-004 Chat durable receipt and handoff scan", "verify_fcc_v1_004_chat_durable_receipt_handoff"),
     ("FCC-V1-005 Memory Review decision receipts scan", "verify_fcc_v1_005_memory_review_decisions"),
+    ("Governed Cognitive Memory Spine V1 scan", "verify_governed_cognitive_memory_spine_v1"),
     ("FCC-V1-006 Evidence Timeline productization scan", "verify_fcc_v1_006_evidence_timeline_productization"),
     ("FCC-V1-007 Founder Loop V1 promotion proof scan", "verify_founder_loop_v1"),
     ("documentation integrity scan", "verify_documentation_integrity"),
@@ -1010,6 +1011,8 @@ def verify_m13_web_control_center_frontend_safety() -> None:
                 sys.exit(1)
         for fragment in forbidden_source_fragments:
             if fragment in lowered:
+                if fragment == "authorization:" and rel_path.as_posix() == "apps/control-center/src/api/client.ts" and "withlocalapiauthheaders" in lowered and "vite_uaa_local_api_bearer" in lowered and "setlocalapibearerforsession" in lowered:
+                    continue
                 print(f"FAIL: Forbidden frontend source fragment in {rel_path}: {fragment}")
                 sys.exit(1)
     endpoints = (app_root / "src" / "api" / "endpoints.ts").read_text(encoding="utf-8")
@@ -1038,6 +1041,7 @@ def verify_fcc_v1_003_founder_loop_vertical_slice() -> None:
 def verify_fcc_v1_004_chat_durable_receipt_handoff() -> None:
     run_cmd([sys.executable, "scripts/verify_fcc_v1_004_chat_durable_receipt_handoff.py"])
 def verify_fcc_v1_005_memory_review_decisions() -> None: run_cmd([sys.executable, "scripts/verify_fcc_v1_005_memory_review_decisions.py"])
+def verify_governed_cognitive_memory_spine_v1() -> None: run_cmd([sys.executable, "scripts/verify_governed_cognitive_memory_spine_v1.py"])
 def verify_fcc_v1_006_evidence_timeline_productization() -> None: run_cmd([sys.executable, "scripts/verify_fcc_v1_006_evidence_timeline_productization.py"])
 def verify_founder_loop_v1() -> None: run_cmd([sys.executable, "scripts/verify_founder_loop_v1.py"])
 def verify_documentation_integrity() -> None:
@@ -29600,13 +29604,16 @@ def verify_v0292_local_dev_api_hardening() -> None:
         from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
 
         client = TestClient(app)
+        old_bearer = os.environ.get("UAA_API_LOCAL_BEARER")
+        os.environ["UAA_API_LOCAL_BEARER"] = "verify-v0292-local-bearer"
+        auth_headers = {"Authorization": "Bearer verify-v0292-local-bearer"}
         with tempfile.TemporaryDirectory(prefix="uaa-verify-v0292-kernel-") as probe_dir:
             probe_root = Path(probe_dir)
             payload = kernel_request(probe_root).model_dump(mode="json")
             payload["approval_ref"] = "approval_test_verify"
             response = client.post(
                 "/kernel/tasks/run",
-                headers={"X-UAA-Idempotency-Key": "idempotency:verify-v0292-kernel"},
+                headers={**auth_headers, "X-UAA-Idempotency-Key": "idempotency:verify-v0292-kernel"},
                 json=payload,
             )
             if response.status_code != 200:
@@ -29636,6 +29643,7 @@ def verify_v0292_local_dev_api_hardening() -> None:
             response = client.post(
                 "/files/read/preview",
                 json={
+                    "safe_root_ref": "local_dev_workspace",
                     "request": {
                         "request_id": "frr_verify_v0292",
                         "run_id": "run_verify_v0292",
@@ -29649,6 +29657,7 @@ def verify_v0292_local_dev_api_hardening() -> None:
                         "max_bytes": 100,
                     },
                 },
+                headers=auth_headers,
             )
             if response.status_code != 200:
                 print(f"FAIL: file preview API probe returned HTTP {response.status_code}")
@@ -29676,6 +29685,7 @@ def verify_v0292_local_dev_api_hardening() -> None:
             hostile_response = client.post(
                 "/files/read/preview",
                 json={
+                    "safe_root_ref": "local_dev_workspace",
                     "request": {
                         "request_id": "frr_verify_v0292_hostile",
                         "run_id": "run_verify_v0292",
@@ -29689,6 +29699,7 @@ def verify_v0292_local_dev_api_hardening() -> None:
                         "max_bytes": 100,
                     },
                 },
+                headers=auth_headers,
             )
             if hostile_response.status_code != 200 or hostile_response.json().get("success") is not False:
                 print("FAIL: file preview API did not safely reject hostile secret-like path")
@@ -29699,6 +29710,7 @@ def verify_v0292_local_dev_api_hardening() -> None:
             caller_root_response = client.post(
                 "/files/read/preview",
                 json={
+                    "safe_root_ref": "local_dev_workspace",
                     "workspace_root": str(preview_root),
                     "request": {
                         "request_id": "frr_verify_v0292_caller_root",
@@ -29713,6 +29725,7 @@ def verify_v0292_local_dev_api_hardening() -> None:
                         "max_bytes": 100,
                     },
                 },
+                headers=auth_headers,
             )
             if caller_root_response.status_code != 422:
                 print("FAIL: file preview API accepted caller-selected workspace_root")
@@ -29724,6 +29737,10 @@ def verify_v0292_local_dev_api_hardening() -> None:
                 os.environ.pop("UAA_FILE_API_SAFE_ROOT", None)
             else:
                 os.environ["UAA_FILE_API_SAFE_ROOT"] = old_safe_root
+        if old_bearer is None:
+            os.environ.pop("UAA_API_LOCAL_BEARER", None)
+        else:
+            os.environ["UAA_API_LOCAL_BEARER"] = old_bearer
 
         broker_source = (ROOT / "src" / "ultimate_ai_agent" / "core" / "tools" / "broker.py").read_text(
             encoding="utf-8"

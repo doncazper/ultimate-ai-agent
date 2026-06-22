@@ -39,6 +39,7 @@ import {
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
   memoryReviewDecisionEndpoint,
+  memoryReviewReceiptEndpoint,
 } from "./endpoints";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 import { sanitizeForDisplay } from "./redaction";
@@ -63,9 +64,36 @@ const CHAT_OPERATOR_BLOCKED_REFS = [
   "blocked-state:no-production-authority",
 ];
 
+let sessionLocalApiBearer: string | null = null;
+
+export function setLocalApiBearerForSession(value: string | null): void {
+  const trimmed = value?.trim() ?? "";
+  sessionLocalApiBearer = trimmed.length > 0 ? trimmed : null;
+}
+
+function localApiBearerForRequest(): string | null {
+  const configured = String(
+    import.meta.env.VITE_UAA_LOCAL_API_BEARER ?? "",
+  ).trim();
+  return sessionLocalApiBearer ?? (configured.length > 0 ? configured : null);
+}
+
+function withLocalApiAuthHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
+  const bearer = localApiBearerForRequest();
+  if (!bearer) {
+    return headers;
+  }
+  return {
+    ...headers,
+    Authorization: `Bearer ${bearer}`,
+  };
+}
+
 async function readEnvelope<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
-    headers: { Accept: "application/json" },
+    headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
   });
   const data = (await response.json()) as ResultEnvelope<T> | T;
   if (!response.ok) {
@@ -209,10 +237,10 @@ export async function submitActionPreview(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.actionPreview}`,
     {
       method: "POST",
-      headers: {
+      headers: withLocalApiAuthHeaders({
         Accept: "application/json",
         "Content-Type": "application/json",
-      },
+      }),
       body: JSON.stringify(request),
     },
   );
@@ -240,14 +268,15 @@ export async function submitActionDecision(
     `${API_BASE_POLICY.baseUrl}${actionDecisionEndpoint(actionId, decision)}`,
     {
       method: "POST",
-      headers: {
+      headers: withLocalApiAuthHeaders({
         Accept: "application/json",
         "Content-Type": "application/json",
         "X-UAA-Idempotency-Key": actionDecisionIdempotencyRef(
           actionId,
           decision,
+          request,
         ),
-      },
+      }),
       body: JSON.stringify(request),
     },
   );
@@ -275,13 +304,14 @@ export async function submitTodayActionEnvelope(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.founderTodayActionEnvelope}`,
     {
       method: "POST",
-      headers: {
+      headers: withLocalApiAuthHeaders({
         Accept: "application/json",
         "Content-Type": "application/json",
         "X-UAA-Idempotency-Key": todayActionEnvelopeIdempotencyRef(
           request.today_item_ref,
+          request,
         ),
-      },
+      }),
       body: JSON.stringify(request),
     },
   );
@@ -309,13 +339,14 @@ export async function recordChatTurnReceipt(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterChatTurns}`,
     {
       method: "POST",
-      headers: {
+      headers: withLocalApiAuthHeaders({
         Accept: "application/json",
         "Content-Type": "application/json",
         "X-UAA-Idempotency-Key": chatTurnReceiptIdempotencyRef(
           request.turn_ref ?? request.model_ref,
+          request,
         ),
-      },
+      }),
       body: JSON.stringify(request),
     },
   );
@@ -353,11 +384,15 @@ export async function recordChatHandoff(
     `${API_BASE_POLICY.baseUrl}${chatTurnHandoffEndpoint(turnRef)}`,
     {
       method: "POST",
-      headers: {
+      headers: withLocalApiAuthHeaders({
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": chatHandoffIdempotencyRef(turnRef, target),
-      },
+        "X-UAA-Idempotency-Key": chatHandoffIdempotencyRef(
+          turnRef,
+          target,
+          request,
+        ),
+      }),
       body: JSON.stringify(request),
     },
   );
@@ -385,14 +420,15 @@ export async function recordMemoryReviewDecision(
     `${API_BASE_POLICY.baseUrl}${memoryReviewDecisionEndpoint(candidateRef, decision)}`,
     {
       method: "POST",
-      headers: {
+      headers: withLocalApiAuthHeaders({
         Accept: "application/json",
         "Content-Type": "application/json",
         "X-UAA-Idempotency-Key": memoryReviewDecisionIdempotencyRef(
           candidateRef,
           decision,
+          request,
         ),
-      },
+      }),
       body: JSON.stringify(request),
     },
   );
@@ -412,42 +448,62 @@ export async function recordMemoryReviewDecision(
   return receipt;
 }
 
+export async function fetchMemoryReviewDecisionReceipt(
+  candidateRef: string,
+): Promise<MemoryReviewDecisionReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  return readEnvelope<MemoryReviewDecisionReceipt>(
+    memoryReviewReceiptEndpoint(candidateRef),
+  );
+}
+
 function actionDecisionIdempotencyRef(
   actionId: string,
   decision: FounderLoopActionDecisionKind,
+  request?: FounderLoopActionDecisionRequest,
 ): string {
   const safeActionId = actionId
     .replace(/^founder-action:/, "")
     .toLowerCase()
     .replace(/[^a-z0-9_.:-]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${Date.now()}`;
+  return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}`;
 }
 
-function todayActionEnvelopeIdempotencyRef(todayItemRef: string): string {
+function todayActionEnvelopeIdempotencyRef(
+  todayItemRef: string,
+  request?: FounderLoopActionEnvelopePromotionRequest,
+): string {
   const safeTodayItemRef = todayItemRef
     .toLowerCase()
     .replace(/[^a-z0-9_.:-]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `idempotency-ref:control-center-today-action:${safeTodayItemRef || "missing"}:${Date.now()}`;
+  return `idempotency-ref:control-center-today-action:${safeTodayItemRef || "missing"}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}`;
 }
 
-function chatTurnReceiptIdempotencyRef(turnRef: string): string {
-  return `idempotency-ref:control-center-chat-turn:${safeChatSuffix(turnRef)}:${Date.now()}`;
+function chatTurnReceiptIdempotencyRef(
+  turnRef: string,
+  request?: ChatTurnReceiptRequest,
+): string {
+  return `idempotency-ref:control-center-chat-turn:${safeChatSuffix(turnRef)}:${safeChatSuffix(request?.safe_summary_ref ?? "summary")}`;
 }
 
 function chatHandoffIdempotencyRef(
   turnRef: string,
   target: ChatHandoffTarget,
+  request?: ChatHandoffRequest,
 ): string {
-  return `idempotency-ref:control-center-chat-handoff:${target}:${safeChatSuffix(turnRef)}:${Date.now()}`;
+  return `idempotency-ref:control-center-chat-handoff:${target}:${safeChatSuffix(turnRef)}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}`;
 }
 
 function memoryReviewDecisionIdempotencyRef(
   candidateRef: string,
   decision: MemoryReviewDecisionKind,
+  request?: MemoryReviewDecisionRequest,
 ): string {
-  return `idempotency-ref:control-center-memory-review:${decision}:${safeChatSuffix(candidateRef)}:${Date.now()}`;
+  return `idempotency-ref:control-center-memory-review:${decision}:${safeChatSuffix(candidateRef)}:${safeChatSuffix(request?.reviewer_ref ?? "reviewer")}:${safeChatSuffix(request?.corrected_summary_ref ?? "none")}`;
 }
 
 export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {
@@ -467,7 +523,7 @@ export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionSt
     const response = await fetch(
       `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.localModels}`,
       {
-        headers: { Accept: "application/json" },
+        headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
       },
     );
     const data = await readJsonSafely(response);
@@ -526,10 +582,10 @@ export async function requestRedactedLocalChatProbe(
       `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.localChatCompletions}`,
       {
         method: "POST",
-        headers: {
+        headers: withLocalApiAuthHeaders({
           Accept: "application/json",
           "Content-Type": "application/json",
-        },
+        }),
         body: JSON.stringify({
           model: modelId,
           messages: [{ role: "user", content: "status" }],

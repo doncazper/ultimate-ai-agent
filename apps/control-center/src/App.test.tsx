@@ -15,8 +15,14 @@ import {
   isAllowedReadEndpoint,
   isPreviewEndpoint,
   memoryReviewDecisionEndpoint,
+  memoryReviewReceiptEndpoint,
   READ_ENDPOINTS,
 } from "./api/endpoints";
+import {
+  fetchMemoryReviewDecisionReceipt,
+  recordMemoryReviewDecision,
+  setLocalApiBearerForSession,
+} from "./api/client";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
 import { mockControlCenterData } from "./mocks/controlCenterData";
 import { primaryNavItems, supportingNavItems } from "./routes";
@@ -1342,7 +1348,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("126")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("127")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -2502,6 +2508,7 @@ describe("Web Control Center shell", () => {
       evidence_timeline_event_ref:
         "evidence-ref:memory-review:accept:control-center-test",
       reviewed_recall_ref: "reviewed-recall-ref:memory-review:control-center-test",
+      reviewed_recall_record_ref: "memory-record-ref:mem_control_center_test",
       correction_ref: null,
       rejection_ref: null,
       safe_summary_ref: "safe-summary-ref:memory-review:accept",
@@ -2551,6 +2558,7 @@ describe("Web Control Center shell", () => {
     );
 
     await screen.findByText("receipt:memory-review:accept:control-center-test");
+    expect(screen.getByText("memory-record-ref:mem_control_center_test")).toBeInTheDocument();
     expect(
       screen.getByText("audit-ref:memory-review:accept:control-center-test"),
     ).toBeInTheDocument();
@@ -2587,6 +2595,87 @@ describe("Web Control Center shell", () => {
     expect(bodyText).not.toContain("prompt");
     expect(bodyText).not.toContain("response");
     expect(bodyText).not.toContain("provider_payload");
+  });
+
+  it("attaches a non-persistent local bearer to memory read and write helpers", async () => {
+    const candidateRef = "memory-candidate:auth-header-test";
+    const localBearer = "control-center-local-bearer-test";
+    const receipt = {
+      contract_ref: "contract-ref:memory-review-decision:v1",
+      candidate_ref: candidateRef,
+      review_ref: "memory-review:auth-header-test",
+      decision: "accept",
+      corrected_summary_ref: null,
+      reviewed_recall_record_ref: "memory-record-ref:auth-header-test",
+      source_refs: ["source-ref:auth-header-test"],
+      evidence_refs: ["evidence-ref:auth-header-test"],
+      reviewer_ref: "actor-ref:control-center-memory-review",
+      receipt_ref: "receipt:memory-review:auth-header-test",
+      decision_ref: "memory-review-decision:auth-header-test",
+      audit_ref: "audit-ref:memory-review:auth-header-test",
+      idempotency_key_ref: "idempotency-ref:memory-review:auth-header-test",
+      payload_fingerprint_ref: "payload-fingerprint:memory-review:auth-header-test",
+      evidence_timeline_event_ref: "evidence-timeline-event:memory-review:auth-header-test",
+      context_injection_authorized: false,
+      source_truth_authority: false,
+      memory_truth_authority: false,
+      connector_write_performed: false,
+      crm_sync_performed: false,
+      account_sync_performed: false,
+      action_execution_performed: false,
+      production_authority_enabled: false,
+      blocked_state_refs: ["blocked-state:no-context-injection"],
+      replayed: false,
+      created_at: "2026-06-22T00:00:00Z",
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (urlText.endsWith(memoryReviewReceiptEndpoint(candidateRef))) {
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(memoryReviewDecisionEndpoint(candidateRef, "accept"))
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    setLocalApiBearerForSession(localBearer);
+
+    await fetchMemoryReviewDecisionReceipt(candidateRef);
+    await recordMemoryReviewDecision(candidateRef, "accept", {
+      reviewer_ref: "actor-ref:control-center-memory-review",
+      source_refs: ["source-ref:auth-header-test"],
+      evidence_refs: ["evidence-ref:auth-header-test"],
+    });
+
+    const getCall = fetchMock.mock.calls.find(([url, options]) =>
+      String(url).endsWith(memoryReviewReceiptEndpoint(candidateRef)) &&
+      !options?.method
+    );
+    const postCall = fetchMock.mock.calls.find(([url, options]) =>
+      String(url).endsWith(memoryReviewDecisionEndpoint(candidateRef, "accept")) &&
+      options?.method === "POST"
+    );
+    expect(getCall?.[1]?.headers).toMatchObject({
+      Authorization: `Bearer ${localBearer}`,
+    });
+    expect(postCall?.[1]?.headers).toMatchObject({
+      Authorization: `Bearer ${localBearer}`,
+      "X-UAA-Idempotency-Key": expect.stringMatching(
+        /^idempotency-ref:control-center-memory-review:accept:/,
+      ),
+    });
+    expect(String(postCall?.[1]?.body)).not.toContain(localBearer);
+    setLocalApiBearerForSession(null);
   });
 
   it("keeps alternate M17 metadata selection read-only and redacted", async () => {
@@ -3142,8 +3231,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 126,
-      control_center_route_count: 24,
+      route_count: 127,
+      control_center_route_count: 25,
       operation_ids_unique: true,
       execution_routes_present: false,
     },

@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.task_decomposition.api_safety import task_decomposit
 
 LOCAL_API_AUTH_ENABLED_ENV = "UAA_API_LOCAL_AUTH_ENABLED"
 LOCAL_API_BEARER_ENV = "UAA_API_LOCAL_BEARER"
+LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV = "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY"
 LOCAL_API_AUTH_POLICY_REF = "auth:p1-083:local-protected-routes:v1"
 MIN_LOCAL_API_BEARER_LENGTH = 12
 
@@ -55,6 +56,10 @@ def local_api_bearer_value(env: Mapping[str, str] | None = None) -> str | None:
 def local_api_auth_configured(env: Mapping[str, str] | None = None) -> bool:
     values = _env_values(env)
     return _truthy(values.get(LOCAL_API_AUTH_ENABLED_ENV)) or bool(local_api_bearer_value(values))
+
+
+def local_api_auth_dev_bypass_enabled(env: Mapping[str, str] | None = None) -> bool:
+    return _truthy(_env_values(env).get(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV))
 
 
 def route_requires_local_api_auth(method: str, path: str) -> bool:
@@ -109,7 +114,7 @@ def local_api_auth_failure(
 ) -> LocalApiAuthFailure | None:
     if not route_requires_local_api_auth(method, path):
         return None
-    if not local_api_auth_configured(env):
+    if local_api_auth_dev_bypass_enabled(env):
         return None
     if endpoint_specific_local_authorized(authorization_header, path=path, env=env):
         return None
@@ -132,8 +137,11 @@ def local_api_auth_failure(
 def local_api_auth_policy_payload() -> dict[str, object]:
     return {
         "policy_ref": LOCAL_API_AUTH_POLICY_REF,
+        "fail_closed_by_default": True,
         "enabled_env": LOCAL_API_AUTH_ENABLED_ENV,
         "bearer_env": LOCAL_API_BEARER_ENV,
+        "dev_only_bypass_env": LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
+        "dev_only_bypass_enabled": local_api_auth_dev_bypass_enabled(),
         "public_metadata_paths": sorted(LOCAL_AUTH_PUBLIC_METADATA_PATHS),
         "protected_route_classifications": sorted(
             classification.value for classification in LOCAL_AUTH_PROTECTED_CLASSIFICATIONS
@@ -145,5 +153,6 @@ def local_api_auth_policy_payload() -> dict[str, object]:
         "multi_user_auth_enabled": False,
         "oauth_enabled": False,
         "password_flow_enabled": False,
+        "dev_only_bypass_production_authority": False,
         "production_authority_enabled": False,
     }

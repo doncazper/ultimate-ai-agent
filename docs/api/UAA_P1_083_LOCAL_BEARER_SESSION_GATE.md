@@ -11,14 +11,18 @@ routes are every route classified outside `public_metadata` in `/api/manifest`:
 
 The local gate policy ref is `auth:p1-083:local-protected-routes:v1`.
 
-The gate is configured with local environment refs only:
+The gate fails closed by default for protected routes. It is configured with
+local environment refs only:
 
 - `UAA_API_LOCAL_AUTH_ENABLED=1` enables the local protected-route gate.
 - `UAA_API_LOCAL_BEARER` supplies the local bearer value.
+- `UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY=1` is an explicit local-dev
+  harness bypass for protected routes when no bearer is configured.
 
-If `UAA_API_LOCAL_BEARER` is set, the gate is active even without
-`UAA_API_LOCAL_AUTH_ENABLED=1`. If the gate is enabled without a valid local
-bearer value, protected routes fail closed with a redacted `503` response.
+If `UAA_API_LOCAL_BEARER` is set, the gate accepts only that local bearer even
+without `UAA_API_LOCAL_AUTH_ENABLED=1`. If no valid local bearer is configured
+and the explicit dev-only bypass is not set, protected routes fail closed with
+a redacted `503` response.
 
 Allowed public metadata routes:
 
@@ -28,9 +32,9 @@ Allowed public metadata routes:
 - `GET /openapi.json`
 
 All other route classifications require `Authorization: Bearer <configured
-local value>` when the gate is configured. Wrong or missing bearer values return
-a redacted `401` response. Auth failure responses still receive the centralized
-UAA-P1-081 security headers.
+local value>` unless the explicit dev-only bypass is set. Wrong or missing
+bearer values return a redacted `401` response. Auth failure responses still
+receive the centralized UAA-P1-081 security headers.
 
 Routes with existing endpoint-specific local bearer gates, such as local
 `/v1`, task decomposition, and Mattermost bridge routes, may satisfy the P1-083
@@ -51,6 +55,7 @@ distribution, production readiness, or production authority is added by this
 milestone.
 
 No production authority is granted by this local gate.
+No production authority is granted by the explicit dev-only bypass.
 
 The local bearer gate is a local perimeter control. It is not approval
 authority, product authority, model/provider authority, or a production

@@ -374,8 +374,11 @@ def safe_exception_message(code: str) -> str:
 
 
 def _file_api_safe_roots() -> dict[str, Path]:
+    configured_root = os.environ.get(FILE_API_SAFE_ROOT_ENV, "").strip()
+    if not configured_root:
+        return {}
     return {
-        FILE_API_DEFAULT_SAFE_ROOT_REF: Path(os.environ.get(FILE_API_SAFE_ROOT_ENV, ".")).resolve(),
+        FILE_API_DEFAULT_SAFE_ROOT_REF: Path(configured_root).resolve(),
     }
 
 
@@ -2036,13 +2039,13 @@ class FileRefValidateRequest(BaseModel):
     sensitivity: FileSensitivity
 
 class FileReadPreviewAPIRequest(BaseModel):
-    safe_root_ref: str = FILE_API_DEFAULT_SAFE_ROOT_REF
+    safe_root_ref: str = Field(..., min_length=1)
     request: FileReadRequest
 
     model_config = ConfigDict(extra="forbid")
 
 class FileTreePreviewAPIRequest(BaseModel):
-    safe_root_ref: str = FILE_API_DEFAULT_SAFE_ROOT_REF
+    safe_root_ref: str = Field(..., min_length=1)
     request: FileTreePreviewRequest
 
     model_config = ConfigDict(extra="forbid")
@@ -2063,7 +2066,7 @@ class FileWriteAPIProposal(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 class FileWriteAPIRequest(BaseModel):
-    safe_root_ref: str = FILE_API_DEFAULT_SAFE_ROOT_REF
+    safe_root_ref: str = Field(..., min_length=1)
     proposal: FileWriteAPIProposal
 
     model_config = ConfigDict(extra="forbid")

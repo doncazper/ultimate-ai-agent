@@ -12,7 +12,8 @@
       "max_lines": 700,
       "paths": [
         "scripts/verify_cua_contract_lane.py",
-        "scripts/verify_founder_loop_v1.py"
+        "scripts/verify_founder_loop_v1.py",
+        "scripts/verify_governed_cognitive_memory_spine_v1.py"
       ],
       "globs": [
         "scripts/verify_uaa_p1_0*.py",
@@ -20,8 +21,8 @@
       ],
       "allowlist": {
         "scripts/verification/run_all_legacy.py": {
-          "max_lines": 30276,
-          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003 and FCC-V1-004 add stable small verifier hooks, future static scans must move to small modules."
+          "max_lines": 30293,
+          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003, FCC-V1-004, governed memory spine, and fail-closed local auth compatibility add stable small verifier hooks, future static scans must move to small modules."
         },
         "scripts/verification/documentation_integrity/legacy.py": {
           "max_lines": 21958,

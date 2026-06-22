@@ -310,6 +310,7 @@ export interface MemoryReviewDecisionReceipt {
   payload_fingerprint_ref: string;
   evidence_timeline_event_ref: string;
   reviewed_recall_ref?: string | null;
+  reviewed_recall_record_ref?: string | null;
   correction_ref?: string | null;
   rejection_ref?: string | null;
   safe_summary_ref: string;

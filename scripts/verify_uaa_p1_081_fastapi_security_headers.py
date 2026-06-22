@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from ultimate_ai_agent.api.security_headers import (  # noqa: E402
     HTTPS_ONLY_SECURITY_HEADERS,
     SECURITY_HEADERS_POLICY_REF,
 )
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 from scripts.verification.api_routes import append_expected_route_count  # noqa: E402
 from scripts.verification.api_lane import (  # noqa: E402
     ApiVerifierContext,
@@ -108,10 +110,20 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     http_client = context.client
     https_client = context.https_client
     success = http_client.get("/health")
-    validation_error = http_client.post(
-        "/contracts/validate",
-        json={"api_key": "ABCDEFGHIJKLMNOP"},
-    )
+    old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+    bearer = "uaa-p1-081-local-bearer"
+    os.environ[LOCAL_API_BEARER_ENV] = bearer
+    try:
+        validation_error = http_client.post(
+            "/contracts/validate",
+            json={"api_key": "ABCDEFGHIJKLMNOP"},
+            headers={"Authorization": f"Bearer {bearer}"},
+        )
+    finally:
+        if old_bearer is None:
+            os.environ.pop(LOCAL_API_BEARER_ENV, None)
+        else:
+            os.environ[LOCAL_API_BEARER_ENV] = old_bearer
     https = https_client.get("/version")
 
     _assert_headers(success, failures, "GET /health")

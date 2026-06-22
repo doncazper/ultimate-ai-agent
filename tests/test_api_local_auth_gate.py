@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.local_auth import (
+    LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
     LOCAL_API_AUTH_ENABLED_ENV,
     LOCAL_API_BEARER_ENV,
 )
@@ -26,6 +27,7 @@ def _headers(value: str = LOCAL_TEST_BEARER) -> dict[str, str]:
 def test_public_metadata_routes_remain_open_when_local_gate_is_configured(
     monkeypatch,
 ) -> None:
+    monkeypatch.delenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, raising=False)
     monkeypatch.setenv(LOCAL_API_BEARER_ENV, LOCAL_TEST_BEARER)
     client = _client()
 
@@ -35,6 +37,7 @@ def test_public_metadata_routes_remain_open_when_local_gate_is_configured(
 
 
 def test_protected_routes_require_configured_local_bearer(monkeypatch) -> None:
+    monkeypatch.delenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, raising=False)
     monkeypatch.setenv(LOCAL_API_BEARER_ENV, LOCAL_TEST_BEARER)
     client = _client()
 
@@ -52,6 +55,7 @@ def test_protected_routes_require_configured_local_bearer(monkeypatch) -> None:
 
 
 def test_local_gate_denies_sensitive_post_before_validation(monkeypatch) -> None:
+    monkeypatch.delenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, raising=False)
     monkeypatch.setenv(LOCAL_API_BEARER_ENV, LOCAL_TEST_BEARER)
     client = _client()
 
@@ -63,6 +67,7 @@ def test_local_gate_denies_sensitive_post_before_validation(monkeypatch) -> None
 
 
 def test_local_gate_fails_closed_when_enabled_without_valid_bearer(monkeypatch) -> None:
+    monkeypatch.delenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, raising=False)
     monkeypatch.setenv(LOCAL_API_AUTH_ENABLED_ENV, "1")
     monkeypatch.delenv(LOCAL_API_BEARER_ENV, raising=False)
     client = _client()
@@ -74,7 +79,20 @@ def test_local_gate_fails_closed_when_enabled_without_valid_bearer(monkeypatch) 
     assert "UAA_API_LOCAL_BEARER" not in response.text
 
 
-def test_local_gate_is_inactive_until_configured(monkeypatch) -> None:
+def test_local_gate_fails_closed_by_default_without_bearer(monkeypatch) -> None:
+    monkeypatch.delenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, raising=False)
+    monkeypatch.delenv(LOCAL_API_AUTH_ENABLED_ENV, raising=False)
+    monkeypatch.delenv(LOCAL_API_BEARER_ENV, raising=False)
+    client = _client()
+
+    response = client.get("/control-center/routes")
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "LOCAL_API_AUTH_NOT_CONFIGURED"
+
+
+def test_explicit_dev_only_bypass_keeps_local_dev_harness_open(monkeypatch) -> None:
+    monkeypatch.setenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, "1")
     monkeypatch.delenv(LOCAL_API_AUTH_ENABLED_ENV, raising=False)
     monkeypatch.delenv(LOCAL_API_BEARER_ENV, raising=False)
     client = _client()
@@ -88,6 +106,7 @@ def test_local_gate_is_inactive_until_configured(monkeypatch) -> None:
 def test_route_specific_local_bearer_does_not_require_second_global_bearer(
     monkeypatch,
 ) -> None:
+    monkeypatch.delenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, raising=False)
     mattermost_bearer = "mattermost-local-bearer"
     monkeypatch.setenv(LOCAL_API_BEARER_ENV, LOCAL_TEST_BEARER)
     monkeypatch.setenv(MATTERMOST_BRIDGE_ENV, "1")
@@ -104,6 +123,7 @@ def test_route_specific_local_bearer_does_not_require_second_global_bearer(
 
 
 def test_cors_preflight_remains_browser_hardening_not_auth(monkeypatch) -> None:
+    monkeypatch.delenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, raising=False)
     monkeypatch.setenv(LOCAL_API_BEARER_ENV, LOCAL_TEST_BEARER)
     client = _client()
 
@@ -127,12 +147,19 @@ def test_manifest_declares_local_gate_without_broad_auth_claims() -> None:
     manifest = build_api_manifest(app).model_dump(mode="json")
 
     assert "local_protected_route_bearer_gate" in manifest["capabilities_declared"]
+    assert "local_protected_route_fail_closed_by_default" in manifest["capabilities_declared"]
+    assert manifest["local_auth_policy"]["fail_closed_by_default"] is True
+    assert manifest["local_auth_policy"]["dev_only_bypass_env"] == (
+        LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV
+    )
+    assert manifest["local_auth_policy"]["dev_only_bypass_production_authority"] is False
     for blocked in [
         "local_protected_route_gate_as_enterprise_auth",
         "local_protected_route_gate_as_multi_user_auth",
         "local_protected_route_gate_as_oauth",
         "local_protected_route_gate_as_password_flow",
         "local_protected_route_gate_as_production_authority",
+        "local_protected_route_dev_only_bypass_as_production_authority",
     ]:
         assert blocked in manifest["capabilities_blocked"]
 

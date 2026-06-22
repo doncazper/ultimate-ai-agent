@@ -82,6 +82,7 @@ class ApiManifest(BaseModel):
     route_idempotency_posture_summary: dict[str, int] = Field(default_factory=dict)
     rate_limit_policy_ref: Optional[str] = None
     route_rate_limit_posture_summary: dict[str, int] = Field(default_factory=dict)
+    local_auth_policy: dict[str, object] = Field(default_factory=dict)
     foundation_gate_status: Optional[str] = None
     capabilities_declared: List[str] = Field(default_factory=list)
     capabilities_blocked: List[str] = Field(default_factory=list)

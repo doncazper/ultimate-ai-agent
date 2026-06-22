@@ -21,6 +21,7 @@ from scripts.verification.repo import (  # noqa: E402
     load_json,
     print_failures_or_success,
 )
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 from ultimate_ai_agent.core.storage import EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES  # noqa: E402
 
 
@@ -291,23 +292,31 @@ def _append_behavior_failures(
     failures: list[str], context: ApiVerifierContext
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+    bearer = "fcc-v1-007-local-bearer"
+    auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
-            receipts = _exercise_founder_loop(failures, context)
-            _append_timeline_failures(failures, context, receipts)
+            receipts = _exercise_founder_loop(failures, context, auth_headers)
+            _append_timeline_failures(failures, context, receipts, auth_headers)
         finally:
             if old_state_dir is None:
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
 
 
 def _exercise_founder_loop(
-    failures: list[str], context: ApiVerifierContext
+    failures: list[str], context: ApiVerifierContext, auth_headers: dict[str, str]
 ) -> list[str]:
     receipts: list[str] = []
-    inbox = context.client.get("/control-center/actions/inbox")
+    inbox = context.client.get("/control-center/actions/inbox", headers=auth_headers)
     items = inbox.json().get("data", {}).get("items", []) if inbox.status_code == 200 else []
     if not items:
         failures.append("Action Inbox proof exercise found no action candidates")
@@ -316,7 +325,10 @@ def _exercise_founder_loop(
     action = context.client.post(
         f"/control-center/actions/{item_ref}/reject",
         json={"decision_reason_ref": "decision-reason-ref:fcc-v1-007-action"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-action"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-action",
+        },
     )
     _append_receipt_from_response(failures, action, receipts, "Action decision")
     chat = context.client.post(
@@ -331,16 +343,22 @@ def _exercise_founder_loop(
             "safe_summary_ref": "safe-summary-ref:fcc-v1-007-chat",
             "evidence_refs": ["evidence-ref:fcc-v1-007-chat"],
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-chat"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-chat",
+        },
     )
     _append_receipt_from_response(failures, chat, receipts, "Chat turn")
     handoff = context.client.post(
         "/control-center/chat/turns/chat-turn:fcc-v1-007/handoff",
         json={"handoff_target": "actions"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-handoff"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-handoff",
+        },
     )
     _append_receipt_from_response(failures, handoff, receipts, "Chat handoff")
-    memory = context.client.get("/control-center/memory/review")
+    memory = context.client.get("/control-center/memory/review", headers=auth_headers)
     memory_items = (
         memory.json().get("data", {}).get("items", []) if memory.status_code == 200 else []
     )
@@ -355,7 +373,10 @@ def _exercise_founder_loop(
             "source_refs": ["source-ref:fcc-v1-007-memory"],
             "evidence_refs": ["evidence-ref:fcc-v1-007-memory"],
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-memory"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-memory",
+        },
     )
     _append_receipt_from_response(failures, decision, receipts, "Memory Review")
     return receipts
@@ -375,9 +396,12 @@ def _append_receipt_from_response(
 
 
 def _append_timeline_failures(
-    failures: list[str], context: ApiVerifierContext, receipts: list[str]
+    failures: list[str],
+    context: ApiVerifierContext,
+    receipts: list[str],
+    auth_headers: dict[str, str],
 ) -> None:
-    response = context.client.get("/control-center/evidence/timeline")
+    response = context.client.get("/control-center/evidence/timeline", headers=auth_headers)
     if response.status_code != 200:
         failures.append(f"Evidence Timeline proof route failed with {response.status_code}")
         return

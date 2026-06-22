@@ -2,16 +2,16 @@
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 103,
+    "not_required_for_route_classification": 104,
     "required_before_mutation_authority": 23
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 123,
+    "protected_local_bearer_required": 124,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 14,
-    "local_sensitive": 86,
+    "local_sensitive": 87,
     "mutating_requires_authority": 23,
     "public_metadata": 3
   },
@@ -21,13 +21,13 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 126,
+  "route_count": 127,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 103,
+    "not_required_for_route_classification": 104,
     "required_before_mutation_authority": 23
   },
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 82,
+    "not_targeted_for_route": 83,
     "targeted_local_fixed_window": 44
   },
   "routes": [
@@ -607,6 +607,26 @@
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post control center memory review candidate ref correct",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_control_center_memory_review_candidate_ref_receipt",
+      "path": "/control-center/memory/review/{candidate_ref}/receipt",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Get control center memory review candidate ref receipt",
       "tags": [
         "control-center"
       ]
