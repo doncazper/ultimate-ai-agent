@@ -739,8 +739,9 @@ Acceptance criteria:
   and Control Center API Routes surface show the classification without adding
   routes, middleware, auth, headers, CORS, idempotency enforcement, rate limits,
   or runtime authority.
-- Public/protected posture remains inventory truth only; P1-082 through P1-086
-  remain planned/queued perimeter-hardening work after P1-081 security headers.
+- Public/protected posture remains inventory truth only; P1-083 through P1-086
+  remain planned/queued perimeter-hardening work after P1-081 security headers
+  and P1-082 loopback CORS.
 
 Tests to add/update:
 
@@ -777,7 +778,33 @@ Tests to add/update:
 
 PR size: completed as one API middleware/docs/test evidence slice.
 
-## Task 9o - UAA-P1-087 Private Operator Trial And UI Functional Tuning
+## Task 9o - UAA-P1-082 Explicit Loopback CORS Allowlist
+
+Type: API boundary hardening/test/docs
+
+Status: Done.
+
+New authority: no.
+
+Acceptance criteria:
+
+- Server-side CORS allows only explicit local Control Center dev/preview
+  origins on `localhost`, `127.0.0.1`, and `[::1]` for ports `5173` and `4173`.
+- Wildcard CORS, CORS credentials, external origins, LAN/private IP origins,
+  wrong local ports, `0.0.0.0`, and `null` origins remain denied.
+- CORS is documented as browser hardening, not authentication, authorization,
+  route authority, public beta, distribution, or production authority.
+
+Tests to add/update:
+
+- `tests/test_api_cors.py`
+- `tests/test_api_manifest.py`
+- `scripts/verify_uaa_p1_082_loopback_cors.py`
+- Documentation integrity.
+
+PR size: completed as one API middleware/docs/test evidence slice.
+
+## Task 9p - UAA-P1-087 Private Operator Trial And UI Functional Tuning
 
 Type: local trial/test/docs/UI tuning
 

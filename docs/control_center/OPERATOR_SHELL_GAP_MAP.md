@@ -28,9 +28,9 @@ manifest metadata, route side-effect classes, route-status auth posture,
 P1-080 route classification as `public_metadata`, `local_readonly`,
 `local_sensitive`, or `mutating_requires_authority`, UAA-P1-081 centralized
 response security headers, disabled-by-default bearer-gated local `/v1`
-behavior, and idempotency concepts in durable run/action planning. Missing
-controls remain planned in UAA-P1-082 through UAA-P1-086: explicit loopback
-CORS allowlist; simple local bearer/session gate for sensitive routes;
+behavior, UAA-P1-082 explicit loopback CORS allowlist, and idempotency concepts
+in durable run/action planning. Missing controls remain planned in UAA-P1-083
+through UAA-P1-086: simple local bearer/session gate for sensitive routes;
 mutating-route idempotency enforcement audit; targeted rate limits; and
 OpenAPI/API manifest/route inventory enforcement tests. CORS is browser
 hardening, not auth, and this gap map does not implement those later controls.
@@ -138,11 +138,11 @@ remaining gaps before broader product-readiness claims are:
 7. Continue expanding Evidence views beyond the FCC-P1-006 timeline only after
    durable run, evidence-index, rollback-status, and latency-report contracts
    are scoped.
-8. Complete the UAA-P1-082 through UAA-P1-086 remaining API boundary
+8. Complete the UAA-P1-083 through UAA-P1-086 remaining API boundary
    hardening lane before claiming authority-heavy Plans, Chat, Code,
-   loop-binding, or private beta-readiness: loopback CORS, local
-   sensitive-route auth, mutating-route idempotency audit, targeted rate
-   limits, and OpenAPI/API manifest enforcement tests.
+   loop-binding, or private beta-readiness: local sensitive-route auth,
+   mutating-route idempotency audit, targeted rate limits, and OpenAPI/API
+   manifest enforcement tests.
 
 These remaining gaps are release blockers for M172 product-readiness claims.
 

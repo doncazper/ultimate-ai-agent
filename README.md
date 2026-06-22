@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-081 Complete: FastAPI Security Headers; UAA-P1-082 Planned Loopback CORS** |
+| Current lane | **UAA-P1-082 Complete: Explicit Loopback CORS; UAA-P1-083 Planned Sensitive-Route Gate** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -79,8 +79,11 @@ And Public/Protected Inventory is complete with typed route classifications in
 alignment, Control Center API Routes visibility, and focused verifier/tests.
 UAA-P1-081 Centralized FastAPI Security Headers is complete with centralized
 response headers, HTTPS-only HSTS behavior, no CORS/auth/rate-limit authority,
-manifest capability posture, and focused verifier/tests. UAA-P1-082 through
-UAA-P1-086 remain planned/queued API boundary hardening
+manifest capability posture, and focused verifier/tests. UAA-P1-082 Explicit
+Loopback CORS Allowlist is complete with exact local Control Center dev/preview
+origins, no wildcard CORS, no CORS credentials, no auth claim, manifest
+capability posture, and focused verifier/tests. UAA-P1-083 through UAA-P1-086
+remain planned/queued API boundary hardening
 lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
 Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native

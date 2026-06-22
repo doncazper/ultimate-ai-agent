@@ -65,10 +65,10 @@ FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
-UAA-P1-080, UAA-P1-081.
+UAA-P1-080, UAA-P1-081, UAA-P1-082.
 
 Candidate-next:
-UAA-P1-082 Explicit Loopback CORS Allowlist.
+UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
@@ -803,19 +803,28 @@ runtime authority, public beta, distribution, or production authority.
 
 ### UAA-P1-082 - Explicit Loopback CORS Allowlist
 
+Status: Implemented / ready for review.
+
 Epic: API Boundary, Browser-Facing Control Center
 
-Description: Add a future server-side CORS policy that allows only explicit
-local Control Center origins such as `localhost`, `127.0.0.1`, `[::1]`, and
-configured local dev ports.
+Description: Adds a server-side CORS policy that allows only explicit local
+Control Center origins: `http://localhost:5173`, `http://127.0.0.1:5173`,
+`http://[::1]:5173`, `http://localhost:4173`, `http://127.0.0.1:4173`, and
+`http://[::1]:4173`.
 
 Acceptance criteria: Broad wildcard CORS is denied, configured local origins are
-documented, and CORS is labeled browser hardening rather than authentication.
+documented, CORS credentials are disabled, blocked origins receive no allow
+headers, and CORS is labeled browser hardening rather than authentication.
 
-Required tests/verifiers: future CORS policy tests and docs integrity.
+Proof: `docs/api/UAA_P1_082_EXPLICIT_LOOPBACK_CORS_ALLOWLIST.md`,
+`docs/schemas/api_loopback_cors.schema.json`,
+`scripts/verify_uaa_p1_082_loopback_cors.py`, `tests/test_api_cors.py`, and
+`tests/test_api_manifest.py`.
 
-Safety notes: No CORS implementation or auth claim is added by this planning
-entry.
+Safety notes: CORS is browser hardening only. It does not grant auth, sessions,
+route authority, runtime authority, connector writes, provider/model calls,
+idempotency enforcement, rate limits, public beta, distribution, or production
+authority.
 
 ### UAA-P1-083 - Local Bearer Or Session Gate For Sensitive Routes
 

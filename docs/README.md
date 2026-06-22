@@ -14,8 +14,9 @@ Code Workbench V1 work, completed UAA-P1-076 Cross-Surface Memory Intake work,
 completed UAA-P1-077 Memory-To-Loop Binding work, completed UAA-P1-078
 Private Beta-Readiness Gate work, and completed UAA-P1-079 User Intent
 Understanding V1 work, completed UAA-P1-080 API Route Classification And
-Public/Protected Inventory work, and completed UAA-P1-081 Centralized FastAPI
-Security Headers work. UAA-P1-082 through UAA-P1-086 remain planned/queued API
+Public/Protected Inventory work, completed UAA-P1-081 Centralized FastAPI
+Security Headers work, and completed UAA-P1-082 Explicit Loopback CORS
+Allowlist work. UAA-P1-083 through UAA-P1-086 remain planned/queued API
 boundary hardening lanes, followed by the UAA-P1-087
 Private Operator Trial And UI Functional Tuning sequence: UAA-P1-087.1 local
 launcher dual-surface boot readiness, UAA-P1-087.2 in-person private UI
@@ -74,8 +75,9 @@ UAA-P1-076 Cross-Surface Memory Intake, and completed UAA-P1-077
 Memory-To-Loop Binding, and completed UAA-P1-078 Private Beta-Readiness Gate
 to completed UAA-P1-079 User Intent Understanding V1, and completed UAA-P1-080
 API Route Classification And Public/Protected Inventory, and completed
-UAA-P1-081 Centralized FastAPI Security Headers. UAA-P1-082 through
-UAA-P1-086 remain planned/queued API boundary hardening lanes, followed by
+UAA-P1-081 Centralized FastAPI Security Headers, and completed UAA-P1-082
+Explicit Loopback CORS Allowlist. UAA-P1-083 through UAA-P1-086 remain
+planned/queued API boundary hardening lanes, followed by
 the ordered UAA-P1-087.1, UAA-P1-087.2, and UAA-P1-087.3 private boot/UI
 trial sequence. UAA-P1-066
 remains queued as a strictly read-only Local Model

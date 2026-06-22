@@ -56,13 +56,19 @@ responses: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`,
 `Content-Security-Policy`, `Permissions-Policy`, and HTTPS-only
 `Strict-Transport-Security`.
 
-Future UAA-P1-082 through UAA-P1-086 route inventory checks must record:
-explicit loopback CORS allowlist posture, local bearer/session gate posture for
-sensitive routes, idempotency key or scoped idempotency ref posture for
-mutating routes, targeted rate-limit posture for expensive/sensitive paths, and
-enforcement coverage in OpenAPI/API manifest tests. These checks are future
-work and add no auth, CORS, rate limits, dependencies, or runtime authority in
-this docs pass.
+UAA-P1-082 implements explicit loopback CORS allowlist posture for local Control
+Center dev/preview origins only: `http://localhost:5173`,
+`http://127.0.0.1:5173`, `http://[::1]:5173`,
+`http://localhost:4173`, `http://127.0.0.1:4173`, and
+`http://[::1]:4173`. Wildcard CORS and CORS credentials remain denied, and CORS
+does not grant auth or route authority.
+
+Future UAA-P1-083 through UAA-P1-086 route inventory checks must record: local
+bearer/session gate posture for sensitive routes, idempotency key or scoped
+idempotency ref posture for mutating routes, targeted rate-limit posture for
+expensive/sensitive paths, and enforcement coverage in OpenAPI/API manifest
+tests. These future checks add no auth, rate limits, dependencies, or runtime
+authority until separately implemented.
 
 ## Current route groups
 

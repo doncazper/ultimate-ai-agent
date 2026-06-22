@@ -55,8 +55,10 @@ classification in `/api/manifest`, the frozen 112-route inventory fixture,
 route-status manifest alignment, and Control Center API Routes visibility.
 UAA-P1-081 Centralized FastAPI Security Headers completes centralized response
 headers, HTTPS-only HSTS, manifest capability posture, and focused verifier
-coverage without adding CORS/auth/rate-limit authority. UAA-P1-082 through
-UAA-P1-086 remain planned/queued API boundary hardening
+coverage without adding CORS/auth/rate-limit authority. UAA-P1-082 Explicit
+Loopback CORS Allowlist completes exact local Control Center dev/preview origin
+allowlisting without wildcard CORS, CORS credentials, or auth claims.
+UAA-P1-083 through UAA-P1-086 remain planned/queued API boundary hardening
 lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
 Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native

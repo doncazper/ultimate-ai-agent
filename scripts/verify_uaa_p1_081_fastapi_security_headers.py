@@ -24,10 +24,6 @@ from ultimate_ai_agent.api.security_headers import (  # noqa: E402
 
 CONTRACT_DOC = "docs/api/UAA_P1_081_CENTRALIZED_FASTAPI_SECURITY_HEADERS.md"
 SCHEMA_DOC = "docs/schemas/api_security_headers.schema.json"
-SOURCE_FILES = [
-    "src/ultimate_ai_agent/api/security_headers.py",
-    "src/ultimate_ai_agent/api/app.py",
-]
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
         "Status: Implemented",
@@ -52,7 +48,7 @@ REQUIRED_DOC_SNIPPETS = {
         "UAA-P1-081",
         "security-header posture",
         "X-Content-Type-Options",
-        "UAA-P1-082 through UAA-P1-086",
+        "UAA-P1-083 through UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -142,10 +138,6 @@ def main() -> int:
         if blocked not in manifest["capabilities_blocked"]:
             failures.append(f"/api/manifest missing blocked capability {blocked}")
 
-    for source in SOURCE_FILES:
-        text = _read(source)
-        if "CORSMiddleware" in text:
-            failures.append(f"{source} added CORS middleware in P1-081 scope")
     app_text = _read("src/ultimate_ai_agent/api/app.py")
     if "security_headers_api_middleware" not in app_text:
         failures.append("FastAPI app missing centralized security-header middleware")

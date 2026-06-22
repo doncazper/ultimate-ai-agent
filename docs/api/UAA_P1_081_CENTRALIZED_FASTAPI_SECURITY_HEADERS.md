@@ -47,5 +47,6 @@ production-readiness claim.
 
 ## Next
 
-UAA-P1-082 Explicit Loopback CORS Allowlist remains planned/queued. CORS is
-browser hardening, not authentication, and must be scoped separately.
+UAA-P1-082 Explicit Loopback CORS Allowlist is complete as a separately scoped
+browser-hardening milestone. UAA-P1-083 Local Bearer Or Session Gate For
+Sensitive Routes remains planned/queued; CORS is not authentication.

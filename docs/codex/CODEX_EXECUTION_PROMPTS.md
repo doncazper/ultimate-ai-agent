@@ -40,6 +40,87 @@ Final summary must list files changed, tests/verifiers run, skipped checks with
 reasons, and blocked items.
 ```
 
+## 13. UAA-P1-082 Explicit Loopback CORS Allowlist Prompt
+
+Use this prompt only after UAA-P1-081 Centralized FastAPI Security Headers is
+complete, verified, committed, and pushed. This prompt implements explicit local
+Control Center CORS allowlisting only. It does not grant auth, sessions,
+idempotency enforcement, rate limits, route authority, connector authority,
+provider/model authority, action execution, public beta, distribution,
+production readiness, or production authority.
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: implement UAA-P1-082 Explicit Loopback CORS Allowlist as the next
+documented milestone after UAA-P1-081.
+
+Review these documents first:
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[openapi_contract.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/api/openapi_contract.md)
+[route_inventory.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/api/route_inventory.md)
+[LOCAL_BACKEND_CONNECTION.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/control_center/LOCAL_BACKEND_CONNECTION.md)
+
+Also inspect SPECS.md, specs.md, SDLC.md, sdlc.md if present. If absent, note
+that AGENTS.md and the listed docs are the active process/spec guidance.
+
+Scope:
+- Add a server-side CORS policy for exact local Control Center dev/preview
+  origins only: `http://localhost:5173`, `http://127.0.0.1:5173`,
+  `http://[::1]:5173`, `http://localhost:4173`,
+  `http://127.0.0.1:4173`, and `http://[::1]:4173`.
+- Allow only the browser methods and headers needed by the current local
+  Control Center contract.
+- Prove wildcard CORS, CORS credentials, external origins, LAN/private IP
+  origins, wrong local ports, `0.0.0.0`, and `null` origins remain denied.
+- Prove CORS is browser hardening, not authentication or route authority.
+- Preserve the current 112 OpenAPI paths, stable operation IDs, route
+  classifications, side-effect classes, and route behavior.
+
+Non-goals:
+- Do not add auth, sessions, idempotency enforcement, rate limiting,
+  dependencies, routes, operation IDs, connector writes, model/provider calls,
+  shell/subprocess execution, action execution, memory writes, Code apply,
+  public beta, public distribution, production readiness, or production
+  authority.
+
+Review/fix:
+- Perform adversarial self-review for wildcard CORS, broad host/port patterns,
+  credentials exposure, accidental Authorization headers, false auth claims,
+  route/OpenAPI drift, hidden production-readiness claims, stale currentness
+  docs, and P1-081 verifier drift.
+- Fix P0/P1 findings before hardening.
+
+Hardening:
+- Run focused tests:
+  `PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_cors.py tests/test_api_security_headers.py tests/test_api_manifest.py -q`
+- Run the P1-082 verifier:
+  `.venv/bin/python scripts/verify_uaa_p1_082_loopback_cors.py`
+- Run OpenAPI, documentation integrity, and frontend safety checks:
+  `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`
+  `.venv/bin/python scripts/verify_documentation_integrity.py`
+  `.venv/bin/python scripts/verify_control_center_frontend.py`
+- Run `git diff --check`.
+
+Commit/push:
+- Stage only files changed for UAA-P1-082 plus already-accepted currentness docs
+  that must stay coherent.
+- Commit with message: `implement UAA-P1-082 loopback CORS allowlist`.
+- Push the current branch. Do not force push.
+
+Next prompt:
+- After commit/push succeeds, recommend or execute UAA-P1-083 Local Bearer Or
+  Session Gate For Sensitive Routes if the conveyor continues and the scope
+  remains safe.
+- Use an incremental UAA-P1-082.1 only if loopback CORS cannot be completed
+  safely in one commit.
+```
+
 ## 12. UAA-P1-081 FastAPI Security Headers Prompt
 
 Use this prompt only after UAA-P1-080 API Route Classification And
@@ -558,10 +639,13 @@ public beta, public distribution, or production readiness.
 Current conveyor status: UAA-P1-067 through UAA-P1-080 are complete when the
 active docs show UAA-P1-080 API Route Classification And Public/Protected
 Inventory has landed with its contract, schema, fixture, verifier, tests,
-Control Center visibility, and pushed commit. UAA-P1-081 through UAA-P1-086
-remain planned/queued API boundary-hardening work. If that remaining API
-boundary lane is active, it auto-advances in order through UAA-P1-081,
-UAA-P1-082, UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then the
+Control Center visibility, and pushed commit. UAA-P1-081 and UAA-P1-082 are
+complete when active docs show centralized FastAPI security headers and
+explicit loopback CORS allowlisting have landed with verifier/test evidence and
+pushed commits. UAA-P1-083 through UAA-P1-086 remain planned/queued API
+boundary-hardening work. If that remaining API boundary lane is active, it
+auto-advances in order through UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
+then the
 UAA-P1-087 Private Operator Trial And UI Functional Tuning sequence:
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
 in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot

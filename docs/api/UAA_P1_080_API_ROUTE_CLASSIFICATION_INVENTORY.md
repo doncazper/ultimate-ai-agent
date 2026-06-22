@@ -35,10 +35,10 @@ tags, summaries, side-effect classes, `requires_auth_future=True`, and
 
 ## Non-Goals
 
-No middleware is added. No auth, session gate, CORS, security headers,
-idempotency enforcement, rate limits, dependencies, route behavior changes,
-connector writes, provider/model calls, shell/subprocess execution, action
-execution, memory writes, Code apply, public beta, public distribution,
+No middleware is added by UAA-P1-080. No auth, session gate, CORS, security
+headers, idempotency enforcement, rate limits, dependencies, route behavior
+changes, connector writes, provider/model calls, shell/subprocess execution,
+action execution, memory writes, Code apply, public beta, public distribution,
 production readiness, or production authority is added by this milestone.
 
 ## Evidence
@@ -56,6 +56,6 @@ production readiness, or production authority is added by this milestone.
 
 ## Next
 
-UAA-P1-081 Centralized FastAPI Security Headers is complete as a separate
-milestone. UAA-P1-082 Explicit Loopback CORS Allowlist remains planned/queued
-and cannot be claimed from this classification milestone.
+UAA-P1-081 Centralized FastAPI Security Headers and UAA-P1-082 Explicit
+Loopback CORS Allowlist are complete as separate milestones. UAA-P1-083 remains
+planned/queued and cannot be claimed from this classification milestone.

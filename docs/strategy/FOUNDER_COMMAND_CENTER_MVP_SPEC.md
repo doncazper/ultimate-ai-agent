@@ -29,8 +29,10 @@ implemented as a reviewable intent proposal slice. UAA-P1-080 API Route
 Classification And Public/Protected Inventory is implemented as a typed
 route-classification and inventory slice. UAA-P1-081 Centralized FastAPI
 Security Headers is implemented as centralized browser-hardening headers with
-HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082 through
-UAA-P1-086 remain planned/queued API boundary hardening lanes. UAA-P1-087 is planned after those
+HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082 Explicit
+Loopback CORS Allowlist is implemented as exact local Control Center CORS
+browser hardening with no auth claim. UAA-P1-083 through UAA-P1-086 remain
+planned/queued API boundary hardening lanes. UAA-P1-087 is planned after those
 gates as an ordered private operator trial and UI functional tuning sequence:
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
 in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
@@ -91,10 +93,12 @@ or commercialization expansion.
    `public_metadata`, `local_readonly`, `local_sensitive`, or
    `mutating_requires_authority` in `/api/manifest` and the route inventory.
    Centralized FastAPI security headers are implemented as browser hardening
-   only. Explicit loopback CORS, simple local bearer/session protection for
-   sensitive routes, mutating-route idempotency enforcement, targeted rate
-   limits, and OpenAPI/API manifest/route inventory enforcement checks remain
-   planned/queued. This is not enterprise auth and
+   only. Explicit loopback CORS is implemented for exact local Control Center
+   dev/preview origins only, with wildcard CORS and credentials denied. Simple
+   local bearer/session protection for sensitive routes, mutating-route
+   idempotency enforcement, targeted rate limits, and OpenAPI/API
+   manifest/route inventory enforcement checks remain planned/queued. This is
+   not enterprise auth and
    does not add runtime authority.
 14. Private operator trial and UI functional tuning: after UAA-P1-080 through
    UAA-P1-086, first prove local launcher/`.command` dual-surface boot
@@ -129,10 +133,10 @@ authority, public distribution, or production authority.
 Current partial API coverage is limited to OpenAPI/API manifest metadata,
 side-effect classes, route-status auth posture, bearer-gated local `/v1`
 planning, and idempotency concepts in durable run/action contracts. Centralized
-security headers, explicit loopback CORS, a broad local bearer/session gate,
-route-wide public/protected classification, mutating-route idempotency
-enforcement, targeted rate limits, and enforcement tests remain future scoped
-work.
+security headers, explicit loopback CORS, and route-wide public/protected
+classification are implemented. A broad local bearer/session gate, mutating-
+route idempotency enforcement, targeted rate limits, and enforcement tests
+remain future scoped work.
 
 UI direction: Control Center / Founder Command Center is the proprietary
 primary product UI for the loop. OpenWebUI remains a supported local/dev

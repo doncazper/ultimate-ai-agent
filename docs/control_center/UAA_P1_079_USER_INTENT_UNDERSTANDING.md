@@ -134,11 +134,14 @@ Required verification:
 
 ## Next
 
-The UAA-P1-067 through UAA-P1-081 conveyor is complete after UAA-P1-081 is
+The UAA-P1-067 through UAA-P1-082 conveyor is complete after UAA-P1-082 is
 committed, pushed, and verified.
 
 UAA-P1-080 API Route Classification And Public/Protected Inventory is complete.
-UAA-P1-081 Centralized FastAPI Security Headers is complete. Next planned lane:
-UAA-P1-082 Explicit Loopback CORS Allowlist. That lane remains planned/queued
-until separately scoped and does not grant auth, route authority, runtime
-authority, broad CORS, rate limits, or production authority by this document.
+UAA-P1-081 Centralized FastAPI Security Headers is complete. UAA-P1-082
+Explicit Loopback CORS Allowlist is complete as browser hardening only. Next
+planned lane: UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes.
+That lane remains planned/queued until separately scoped and does not grant
+enterprise auth, route authority beyond its exact sensitive-route scope,
+runtime authority, rate limits, idempotency, or production authority by this
+document.

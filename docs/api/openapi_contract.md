@@ -57,10 +57,13 @@ API boundary hardening:
   local dev loopback connect exceptions, and HSTS only for actual HTTPS
   requests. It does not add auth, sessions, CORS, idempotency enforcement,
   rate limits, dependencies, or runtime authority.
-- UAA-P1-082 will add explicit loopback CORS allowlisting for configured local
-  Control Center origins such as `localhost`, `127.0.0.1`, `[::1]`, and local
-  dev ports. CORS is browser hardening, not authentication, and wildcard CORS
-  must remain denied.
+- UAA-P1-082 adds explicit loopback CORS allowlisting for configured local
+  Control Center origins: `http://localhost:5173`,
+  `http://127.0.0.1:5173`, `http://[::1]:5173`,
+  `http://localhost:4173`, `http://127.0.0.1:4173`, and
+  `http://[::1]:4173`. CORS is browser hardening, not authentication, and
+  wildcard CORS remains denied. It does not add auth, sessions, idempotency
+  enforcement, rate limits, dependencies, route authority, or runtime authority.
 - UAA-P1-083 will add a simple local bearer/session gate for sensitive routes
   that expose logs, observability events, task runs, approvals, memory, file
   previews or write proposals, model gateway behavior, action previews, or

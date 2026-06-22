@@ -1,10 +1,21 @@
 # Local Backend Connection
 
-Status: Active under v0.22.0. Local backend connection behavior is unchanged by M15, v0.19.1 hardening, M16 timeline/trace UI, M17 evidence/file/memory viewer UI, and M18 runtime/manual-smoke UI.
+Status: Active under v0.102.3 plus UAA-P1-082 loopback CORS hardening.
+Local backend connection behavior remains local-only; UAA-P1-082 adds an
+explicit server-side CORS allowlist for local Control Center dev/preview
+origins only.
 
 The Web Control Center may connect only to the local backend API boundary. The connection layer is frontend-only and does not add backend routes or backend authority.
 
 Default local development uses the relative API base. `apps/control-center/vite.config.ts` proxies `/control-center/*` and `/runtime/*` to `http://127.0.0.1:8000` for the Vite dev server only, with origin rewriting disabled. This avoids browser CORS issues without adding backend API paths or external hosts.
+
+The backend CORS allowlist is intentionally narrower than the frontend API base
+URL parser. It allows only these local Control Center browser origins:
+`http://localhost:5173`, `http://127.0.0.1:5173`, `http://[::1]:5173`,
+`http://localhost:4173`, `http://127.0.0.1:4173`, and
+`http://[::1]:4173`. Wildcard CORS, CORS credentials, external hosts, LAN
+hosts, `0.0.0.0`, wrong local ports, and `null` origins remain denied. CORS is
+browser hardening, not authentication or route authority.
 
 Allowed API base URL forms:
 
@@ -38,7 +49,10 @@ Safety requirements:
 - partial mock fallback must be called out as degraded.
 - errors must be sanitized before display.
 - frontend requests must not add Authorization headers, cookies, API keys, credential APIs, analytics, SaaS SDKs, or external API hosts.
-- the only frontend POST target remains `/control-center/actions/preview`.
+- frontend POST targets remain bounded to `/control-center/actions/preview` and
+  the disabled-by-default local chat shell endpoint `/v1/chat/completions`.
+  Neither target adds frontend auth headers, cookies, credentials, analytics,
+  SaaS SDKs, external hosts, connector writes, or provider/model authority.
 - M14 adds no backend API path.
 - the Vite dev proxy, when used, must stay pinned to `http://127.0.0.1:8000`.
 - Vite proxy configuration and env examples must not include external targets, URL credentials, or secret-like API base strings.

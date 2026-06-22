@@ -94,6 +94,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-079 user intent understanding scan", "verify_uaa_p1_079_user_intent_understanding"),
     ("UAA-P1-080 API route classification scan", "verify_uaa_p1_080_api_route_classification"),
     ("UAA-P1-081 FastAPI security headers scan", "verify_uaa_p1_081_fastapi_security_headers"),
+    ("UAA-P1-082 loopback CORS scan", "verify_uaa_p1_082_loopback_cors"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
@@ -1082,6 +1083,16 @@ def verify_uaa_p1_081_fastapi_security_headers() -> None:
         [
             sys.executable,
             "scripts/verify_uaa_p1_081_fastapi_security_headers.py",
+        ]
+    )
+
+
+def verify_uaa_p1_082_loopback_cors() -> None:
+    print("\n[Verifier] Running UAA-P1-082 loopback CORS scan...")
+    run_cmd(
+        [
+            sys.executable,
+            "scripts/verify_uaa_p1_082_loopback_cors.py",
         ]
     )
 

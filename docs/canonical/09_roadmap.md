@@ -20,7 +20,9 @@ for the Private Beta-Readiness Gate. UAA-P1-079 is complete for User Intent
 Understanding V1. UAA-P1-080 is complete for API route classification and
 public/protected inventory truth. UAA-P1-081 is complete for centralized
 FastAPI response security headers with HTTPS-only HSTS and no CORS/auth/
-rate-limit authority. UAA-P1-082 through UAA-P1-086 remain planned/queued API
+rate-limit authority. UAA-P1-082 is complete for explicit local Control Center
+loopback CORS allowlisting with no wildcard CORS, CORS credentials, or auth
+claim. UAA-P1-083 through UAA-P1-086 remain planned/queued API
 boundary hardening lanes, followed by the UAA-P1-087
 Private Operator Trial And UI Functional Tuning sequence: UAA-P1-087.1 local
 launcher dual-surface boot readiness, UAA-P1-087.2 in-person private UI

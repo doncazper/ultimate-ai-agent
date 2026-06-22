@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/api_loopback_cors.schema.json",
+  "title": "UAA-P1-082 explicit loopback CORS allowlist",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "allow_credentials",
+    "allowed_headers",
+    "allowed_methods",
+    "allowed_origins",
+    "blocked_origins",
+    "cors_is_auth",
+    "policy_ref",
+    "wildcard_allowed"
+  ],
+  "properties": {
+    "policy_ref": {
+      "const": "cors:p1-082:loopback:v1"
+    },
+    "allowed_origins": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "http://localhost:5173",
+          "http://127.0.0.1:5173",
+          "http://[::1]:5173",
+          "http://localhost:4173",
+          "http://127.0.0.1:4173",
+          "http://[::1]:4173"
+        ]
+      }
+    },
+    "blocked_origins": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "string"
+      },
+      "not": {
+        "contains": {
+          "const": "*"
+        }
+      }
+    },
+    "allowed_methods": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "GET",
+          "POST"
+        ]
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "allowed_headers": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "Content-Type",
+          "X-Requested-With"
+        ]
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "allow_credentials": {
+      "const": false
+    },
+    "wildcard_allowed": {
+      "const": false
+    },
+    "cors_is_auth": {
+      "const": false
+    }
+  }
+}

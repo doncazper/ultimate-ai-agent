@@ -42,6 +42,43 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-082 Loopback CORS Allowlist Completed
+
+Date: 2026-06-21
+
+Thread: API boundary-hardening conveyor after UAA-P1-081.
+
+Recommendation: Complete UAA-P1-082 as an explicit local Control Center
+loopback CORS allowlist for browser-facing API access.
+
+Next prompt: Start UAA-P1-083 Local Bearer Or Session Gate For Sensitive Routes
+after reviewing the active roadmap, current board, Founder Command Center
+board, phase tasks, MVP spec, AGENTS.md, API docs, route classification
+evidence, security-header evidence, and loopback CORS evidence. Keep the scope
+to a simple local-first sensitive-route gate; do not add enterprise auth,
+multi-user auth, OAuth, roles, password flow, connector writes, provider/model
+authority, action execution, idempotency enforcement, rate limits, public beta,
+distribution, or production authority.
+
+Decision: Accepted and completed for the UAA-P1-082 browser-hardening slice.
+
+Status: completed
+
+Completed: Added fixed local Control Center CORS origins for dev/preview ports,
+blocked wildcard/credential/external/wrong-port origins, manifest
+capability/blocked-authority posture, schema/verifier coverage, focused CORS
+tests, and active currentness docs.
+
+Not done: Sensitive-route auth/session gate, mutating-route idempotency
+enforcement, targeted rate limits, public beta, distribution, and production
+authority.
+
+Evidence: `docs/api/UAA_P1_082_EXPLICIT_LOOPBACK_CORS_ALLOWLIST.md`,
+`docs/schemas/api_loopback_cors.schema.json`,
+`scripts/verify_uaa_p1_082_loopback_cors.py`,
+`src/ultimate_ai_agent/api/cors.py`, `tests/test_api_cors.py`, and
+`tests/test_api_manifest.py`.
+
 ### 2026-06-21 - UAA-P1-081 FastAPI Security Headers Completed
 
 Date: 2026-06-21
