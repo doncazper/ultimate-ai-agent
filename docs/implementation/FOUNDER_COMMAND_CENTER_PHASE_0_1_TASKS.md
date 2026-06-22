@@ -739,8 +739,8 @@ Acceptance criteria:
   and Control Center API Routes surface show the classification without adding
   routes, middleware, auth, headers, CORS, idempotency enforcement, rate limits,
   or runtime authority.
-- Public/protected posture remains inventory truth only; P1-081 through P1-086
-  remain planned/queued perimeter-hardening work.
+- Public/protected posture remains inventory truth only; P1-082 through P1-086
+  remain planned/queued perimeter-hardening work after P1-081 security headers.
 
 Tests to add/update:
 
@@ -752,13 +752,54 @@ Tests to add/update:
 
 PR size: completed as one API contract/UI/docs/test evidence slice.
 
-## Task 9n - UAA-P1-087 Private Operator Trial And UI Functional Tuning
+## Task 9n - UAA-P1-081 Centralized FastAPI Security Headers
+
+Type: API boundary hardening/test/docs
+
+Status: Done.
+
+New authority: no.
+
+Acceptance criteria:
+
+- Handled FastAPI responses receive centralized response security headers.
+- HSTS is emitted only for HTTPS requests.
+- The milestone adds no auth, sessions, CORS, idempotency enforcement, rate
+  limits, route authority, runtime authority, public beta, distribution, or
+  production authority.
+
+Tests to add/update:
+
+- `tests/test_api_security_headers.py`
+- `tests/test_api_manifest.py`
+- `scripts/verify_uaa_p1_081_fastapi_security_headers.py`
+- Documentation integrity.
+
+PR size: completed as one API middleware/docs/test evidence slice.
+
+## Task 9o - UAA-P1-087 Private Operator Trial And UI Functional Tuning
 
 Type: local trial/test/docs/UI tuning
 
 Status: Planned after UAA-P1-086.
 
 New authority: no.
+
+Sub-milestone order:
+
+- `UAA-P1-087.1` Local Launcher Dual-Surface Boot Readiness: docs and later
+  implementation should harden the existing repo-local launcher and clickable
+  macOS `.command` path before native app work. The boot flow should make
+  backend, Control Center, OpenWebUI local shell, gateway readiness,
+  stop/log-ref posture, missing image, and blocked states obvious.
+- `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: use the
+  proven local boot path for hands-on founder testing and capture friction,
+  manual smoke evidence, UI/copy tasks, Today/Actions/Memory/Evidence/Chat
+  handoff gaps, and CRM-lite follow-up gaps.
+- `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold:
+  after the `.command` boot contract is proven and UI tuning evidence exists,
+  plan/source-scaffold a native macOS boot cockpit over fixed launcher
+  contracts only.
 
 Acceptance criteria:
 
@@ -770,6 +811,10 @@ Acceptance criteria:
 - Keeps trial scope local/private and does not claim public beta, public
   distribution, production readiness, connector writes, action execution,
   memory writes, provider/model authority, Code apply, or hidden automation.
+- Keeps OpenWebUI secondary to Control Center, and denies Docker installation,
+  arbitrary shell execution, LaunchAgent setup, daemon/background worker setup,
+  signing, notarization, public distribution, OpenWebUI plugin/admin mutation,
+  product-state ownership by OpenWebUI, and production authority.
 
 Tests to add/update:
 
@@ -778,8 +823,9 @@ Tests to add/update:
 - Product-language checks.
 - Documentation integrity.
 
-PR size: one private-operator-trial readiness and UI tuning lane after
-UAA-P1-086.
+PR size: split into UAA-P1-087.1, UAA-P1-087.2, and UAA-P1-087.3 unless the
+conveyor proves a smaller docs-only slice can safely land the sequencing in
+one patch.
 
 ## Task 10 - FCC-P0-003 Test Follow-Up Add Product E2E Test For Morning Briefing
 

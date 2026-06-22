@@ -56,5 +56,6 @@ production readiness, or production authority is added by this milestone.
 
 ## Next
 
-UAA-P1-081 Centralized FastAPI Security Headers remains planned/queued. It must
-be scoped separately and cannot be claimed from this classification milestone.
+UAA-P1-081 Centralized FastAPI Security Headers is complete as a separate
+milestone. UAA-P1-082 Explicit Loopback CORS Allowlist remains planned/queued
+and cannot be claimed from this classification milestone.

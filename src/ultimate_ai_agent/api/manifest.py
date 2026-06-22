@@ -17,6 +17,7 @@ from ultimate_ai_agent.api.contracts import (
 CAPABILITIES_DECLARED = [
     "api_contract_metadata",
     "openapi_schema_export",
+    "centralized_fastapi_security_headers",
     "typed_validation_routes",
     "foundation_gate_reporting",
     "local_dev_approval_validation",
@@ -67,6 +68,9 @@ CAPABILITIES_BLOCKED = [
     "production_persistence",
     "runtime_agent_config_loading",
     "runtime_execution_routes",
+    "security_headers_as_authentication",
+    "security_headers_as_cors_policy",
+    "security_headers_as_rate_limits",
     "plugin_enablement_routes",
     "control_center_execution",
     "control_center_plugin_enablement",

@@ -49,12 +49,14 @@ API boundary hardening:
   middleware, auth, CORS, headers, rate limits, dependencies, or runtime
   authority.
 
-- UAA-P1-081 will add centralized FastAPI response security headers:
-  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` or strict
-  equivalent, `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`,
-  Permissions-Policy denying unused browser capabilities,
-  `Content-Security-Policy` with strict production posture and documented dev
-  exceptions, and HSTS only for actual HTTPS deployment.
+- UAA-P1-081 adds centralized FastAPI response security headers as an
+  implemented API boundary hardening invariant:
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+  `X-Frame-Options: DENY`, `Permissions-Policy` denying unused browser
+  capabilities, `Content-Security-Policy` with strict posture and documented
+  local dev loopback connect exceptions, and HSTS only for actual HTTPS
+  requests. It does not add auth, sessions, CORS, idempotency enforcement,
+  rate limits, dependencies, or runtime authority.
 - UAA-P1-082 will add explicit loopback CORS allowlisting for configured local
   Control Center origins such as `localhost`, `127.0.0.1`, `[::1]`, and local
   dev ports. CORS is browser hardening, not authentication, and wildcard CORS

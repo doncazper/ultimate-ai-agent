@@ -17,6 +17,7 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.mattermost import register_mattermost_routes
 from ultimate_ai_agent.api.openapi import configure_openapi_contract
 from ultimate_ai_agent.api.routes.system_service import register_system_routes
+from ultimate_ai_agent.api.security_headers import apply_fastapi_security_headers
 from ultimate_ai_agent.api.web_evidence import register_governed_web_evidence_routes
 from ultimate_ai_agent.core.contracts import (
     ExecutionContract,
@@ -537,6 +538,12 @@ async def session_log_api_middleware(request: Request, call_next: Any) -> Any:
             error_code=error_code,
             error_summary=error_summary,
         )
+
+
+@app.middleware("http")
+async def security_headers_api_middleware(request: Request, call_next: Any) -> Any:
+    response = await call_next(request)
+    return apply_fastapi_security_headers(request, response)
 
 
 register_system_routes(app)

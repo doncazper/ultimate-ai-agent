@@ -13,10 +13,16 @@ UAA-P1-074 Chat Local Operator Surface work, completed UAA-P1-075 Governed
 Code Workbench V1 work, completed UAA-P1-076 Cross-Surface Memory Intake work,
 completed UAA-P1-077 Memory-To-Loop Binding work, completed UAA-P1-078
 Private Beta-Readiness Gate work, and completed UAA-P1-079 User Intent
-Understanding V1 work, and completed UAA-P1-080 API Route Classification And
-Public/Protected Inventory work. UAA-P1-081 through UAA-P1-086 remain
-planned/queued API boundary hardening lanes, followed by UAA-P1-087 Private
-Operator Trial And UI Functional Tuning.
+Understanding V1 work, completed UAA-P1-080 API Route Classification And
+Public/Protected Inventory work, and completed UAA-P1-081 Centralized FastAPI
+Security Headers work. UAA-P1-082 through UAA-P1-086 remain planned/queued API
+boundary hardening lanes, followed by the UAA-P1-087
+Private Operator Trial And UI Functional Tuning sequence: UAA-P1-087.1 local
+launcher dual-surface boot readiness, UAA-P1-087.2 in-person private UI
+functional tuning, and UAA-P1-087.3 native SwiftUI boot cockpit
+planning/source-only scaffold after the `.command` contract is proven. The
+sequence is tracked in
+`docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -67,9 +73,11 @@ Surface, completed UAA-P1-075 Governed Code Workbench V1, and completed
 UAA-P1-076 Cross-Surface Memory Intake, and completed UAA-P1-077
 Memory-To-Loop Binding, and completed UAA-P1-078 Private Beta-Readiness Gate
 to completed UAA-P1-079 User Intent Understanding V1, and completed UAA-P1-080
-API Route Classification And Public/Protected Inventory. UAA-P1-081 through
+API Route Classification And Public/Protected Inventory, and completed
+UAA-P1-081 Centralized FastAPI Security Headers. UAA-P1-082 through
 UAA-P1-086 remain planned/queued API boundary hardening lanes, followed by
-UAA-P1-087 Private Operator Trial And UI Functional Tuning. UAA-P1-066
+the ordered UAA-P1-087.1, UAA-P1-087.2, and UAA-P1-087.3 private boot/UI
+trial sequence. UAA-P1-066
 remains queued as a strictly read-only Local Model
 Control Center inventory/status support lane.
 This sequence makes Today the product spine and keeps memory,

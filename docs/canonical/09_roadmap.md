@@ -18,9 +18,15 @@ Workbench V1, UAA-P1-076 is complete for Cross-Surface Memory Intake,
 UAA-P1-077 is complete for Memory-To-Loop Binding, and UAA-P1-078 is complete
 for the Private Beta-Readiness Gate. UAA-P1-079 is complete for User Intent
 Understanding V1. UAA-P1-080 is complete for API route classification and
-public/protected inventory truth. UAA-P1-081 through UAA-P1-086 remain
-planned/queued API boundary hardening lanes, followed by UAA-P1-087 Private
-Operator Trial And UI Functional Tuning. UAA-P1-066
+public/protected inventory truth. UAA-P1-081 is complete for centralized
+FastAPI response security headers with HTTPS-only HSTS and no CORS/auth/
+rate-limit authority. UAA-P1-082 through UAA-P1-086 remain planned/queued API
+boundary hardening lanes, followed by the UAA-P1-087
+Private Operator Trial And UI Functional Tuning sequence: UAA-P1-087.1 local
+launcher dual-surface boot readiness, UAA-P1-087.2 in-person private UI
+functional tuning, and UAA-P1-087.3 native SwiftUI boot cockpit
+planning/source-only scaffold after the `.command` contract is proven.
+UAA-P1-066
 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane. The product path now runs through UAA-P1-080
 API route classification after UAA-P1-079 added reviewable

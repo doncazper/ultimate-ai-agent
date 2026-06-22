@@ -51,13 +51,18 @@ Production runtime side effects remain blocked unless an exact scoped milestone
 grants reviewed authority and updates OpenAPI, route side-effect
 classification, Foundation Gate checks, tests, docs, and rollback guidance.
 
-Future UAA-P1-081 through UAA-P1-086 route inventory checks must record:
-centralized security-header posture, explicit loopback CORS allowlist posture,
-local bearer/session gate posture for sensitive routes, idempotency key or
-scoped idempotency ref posture for mutating routes, targeted rate-limit posture
-for expensive/sensitive paths, and enforcement coverage in OpenAPI/API manifest
-tests. These checks are future work and add no middleware, auth, CORS, headers,
-rate limits, dependencies, or runtime authority in this docs pass.
+UAA-P1-081 implements centralized security-header posture for handled FastAPI
+responses: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`,
+`Content-Security-Policy`, `Permissions-Policy`, and HTTPS-only
+`Strict-Transport-Security`.
+
+Future UAA-P1-082 through UAA-P1-086 route inventory checks must record:
+explicit loopback CORS allowlist posture, local bearer/session gate posture for
+sensitive routes, idempotency key or scoped idempotency ref posture for
+mutating routes, targeted rate-limit posture for expensive/sensitive paths, and
+enforcement coverage in OpenAPI/API manifest tests. These checks are future
+work and add no auth, CORS, rate limits, dependencies, or runtime authority in
+this docs pass.
 
 ## Current route groups
 

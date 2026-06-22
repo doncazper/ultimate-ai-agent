@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/api_security_headers.schema.json",
+  "title": "UAA-P1-081 centralized FastAPI security headers",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hsts_https_only",
+    "no_auth_added",
+    "no_cors_added",
+    "no_rate_limits_added",
+    "policy_ref",
+    "required_headers"
+  ],
+  "properties": {
+    "policy_ref": {
+      "const": "security-headers:p1-081:v1"
+    },
+    "required_headers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Content-Security-Policy",
+        "Permissions-Policy",
+        "Referrer-Policy",
+        "X-Content-Type-Options",
+        "X-Frame-Options"
+      ],
+      "properties": {
+        "Content-Security-Policy": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "default-src 'self'"
+            },
+            {
+              "pattern": "frame-ancestors 'none'"
+            },
+            {
+              "pattern": "object-src 'none'"
+            }
+          ]
+        },
+        "Permissions-Policy": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "camera=\\(\\)"
+            },
+            {
+              "pattern": "microphone=\\(\\)"
+            },
+            {
+              "pattern": "geolocation=\\(\\)"
+            }
+          ]
+        },
+        "Referrer-Policy": {
+          "const": "no-referrer"
+        },
+        "X-Content-Type-Options": {
+          "const": "nosniff"
+        },
+        "X-Frame-Options": {
+          "const": "DENY"
+        }
+      }
+    },
+    "hsts_https_only": {
+      "const": true
+    },
+    "no_auth_added": {
+      "const": true
+    },
+    "no_cors_added": {
+      "const": true
+    },
+    "no_rate_limits_added": {
+      "const": true
+    }
+  }
+}

@@ -65,14 +65,15 @@ FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
-UAA-P1-080.
+UAA-P1-080, UAA-P1-081.
 
 Candidate-next:
-UAA-P1-081 Centralized FastAPI Security Headers.
+UAA-P1-082 Explicit Loopback CORS Allowlist.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-082, UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, UAA-P1-087,
+UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, UAA-P1-087,
+UAA-P1-087.1, UAA-P1-087.2, UAA-P1-087.3,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
 ```
@@ -777,22 +778,28 @@ distribution, or production authority.
 
 ### UAA-P1-081 - Centralized FastAPI Security Headers
 
+Status: Implemented / ready for review.
+
 Epic: API Boundary, Browser-Facing Control Center
 
-Description: Add a future milestone for centralized response security headers:
+Description: Adds centralized response security headers:
 `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` or strict
 equivalent, `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`,
 Permissions-Policy denying unused browser capabilities, `Content-Security-Policy`
-with strict production posture and documented dev exceptions, and HSTS only for
-actual HTTPS deployment.
+with strict posture and documented local dev loopback connect exceptions, and
+HSTS only for actual HTTPS requests.
 
 Acceptance criteria: Security-header posture is centralized, tested, and
 documented before browser-facing production-readiness claims.
 
-Required tests/verifiers: future response-header tests and docs integrity.
+Proof: `docs/api/UAA_P1_081_CENTRALIZED_FASTAPI_SECURITY_HEADERS.md`,
+`docs/schemas/api_security_headers.schema.json`,
+`scripts/verify_uaa_p1_081_fastapi_security_headers.py`,
+`tests/test_api_security_headers.py`, and `tests/test_api_manifest.py`.
 
-Safety notes: No middleware or header implementation is added by this planning
-entry.
+Safety notes: Security headers are browser hardening only. They do not grant
+auth, sessions, CORS, idempotency enforcement, rate limits, route authority,
+runtime authority, public beta, distribution, or production authority.
 
 ### UAA-P1-082 - Explicit Loopback CORS Allowlist
 
@@ -889,6 +896,18 @@ testing and tune Today, Actions, Memory, Evidence, Chat handoff, blocked-state
 language, and CRM-lite follow-up flow before moving to P2/provider, packaging,
 public distribution, or commercialization shaping.
 
+Sub-milestone order:
+
+- `UAA-P1-087.1` Local Launcher Dual-Surface Boot Readiness: prove the existing
+  launcher and macOS `.command` path can start Control Center and the secondary
+  OpenWebUI shell with truthful readiness, stop, log-ref, and blocked states.
+- `UAA-P1-087.2` In-Person Private Operator UI Functional Tuning: run founder
+  testing through the proven boot path and capture manual smoke evidence,
+  friction notes, copy/UI tasks, and core loop gaps.
+- `UAA-P1-087.3` Native SwiftUI Boot Cockpit Planning And Source-Only Scaffold:
+  only after the `.command` contract is accepted, plan/source-scaffold the
+  native macOS boot cockpit over the same fixed launcher contracts.
+
 Acceptance criteria: Trial produces a manual smoke checklist, usability/friction
 findings, UI/copy tuning tasks, and beta-readiness evidence refs. It proves the
 core loop is functional enough to test with the founder/operator and keeps
@@ -899,7 +918,9 @@ documentation integrity, and product-language checks.
 
 Safety notes: Local/private trial only. No public beta, public distribution,
 connector writes, action execution, memory writes, provider/model authority,
-Code apply, hidden automation, or production authority.
+Code apply, hidden automation, arbitrary shell execution, Docker installation,
+LaunchAgent, daemon, signing, notarization, OpenWebUI plugin/admin mutation, or
+production authority.
 
 ### FCC-P1-014 - P1 - Lead And Follow-Up Tracker Spec
 

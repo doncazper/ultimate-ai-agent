@@ -42,6 +42,46 @@ Evidence:
 
 ## Entries
 
+### 2026-06-21 - UAA-P1-081 FastAPI Security Headers Completed
+
+Date: 2026-06-21
+
+Thread: API boundary-hardening conveyor after UAA-P1-080.
+
+Recommendation: Complete UAA-P1-081 as centralized FastAPI response security
+headers for handled browser-facing API responses, including CSP,
+Permissions-Policy, Referrer-Policy, X-Frame-Options, X-Content-Type-Options,
+and HTTPS-only HSTS.
+
+Next prompt: Start UAA-P1-082 Explicit Loopback CORS Allowlist after reviewing
+the active roadmap, current board, Founder Command Center board, phase tasks,
+MVP spec, AGENTS.md, API docs, P1-080 classification evidence, and P1-081
+security-header evidence. Keep the scope to explicit local Control Center
+loopback origins only; do not add auth/session gating, idempotency enforcement,
+rate limits, broad CORS, route authority, connector writes, provider/model
+authority, action execution, automatic memory writes, context injection, public
+beta, distribution, or production authority.
+
+Decision: Accepted and completed for the UAA-P1-081 browser-hardening slice.
+
+Status: completed
+
+Completed: Added centralized security-header middleware, policy helper,
+HTTPS-only HSTS behavior, manifest capability/blocked-authority posture,
+schema/verifier coverage, focused response-header tests, and active currentness
+docs.
+
+Not done: Explicit loopback CORS allowlist, sensitive-route auth/session gate,
+mutating-route idempotency enforcement, targeted rate limits, public beta,
+distribution, and production authority.
+
+Evidence: `docs/api/UAA_P1_081_CENTRALIZED_FASTAPI_SECURITY_HEADERS.md`,
+`docs/schemas/api_security_headers.schema.json`,
+`scripts/verify_uaa_p1_081_fastapi_security_headers.py`,
+`src/ultimate_ai_agent/api/security_headers.py`,
+`tests/test_api_security_headers.py`, `tests/test_api_manifest.py`,
+`docs/api/openapi_contract.md`, and `docs/api/route_inventory.md`.
+
 ### 2026-06-21 - UAA-P1-080 API Route Classification Completed
 
 Date: 2026-06-21

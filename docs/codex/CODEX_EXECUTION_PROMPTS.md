@@ -40,6 +40,84 @@ Final summary must list files changed, tests/verifiers run, skipped checks with
 reasons, and blocked items.
 ```
 
+## 12. UAA-P1-081 FastAPI Security Headers Prompt
+
+Use this prompt only after UAA-P1-080 API Route Classification And
+Public/Protected Inventory is complete, verified, committed, and pushed. This
+prompt implements centralized FastAPI response security headers only. It does
+not grant auth, sessions, CORS, idempotency enforcement, rate limits, route
+authority, connector authority, provider/model authority, action execution,
+public beta, distribution, production readiness, or production authority.
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: implement UAA-P1-081 Centralized FastAPI Security Headers as the next
+documented milestone after UAA-P1-080.
+
+Review these documents first:
+[AGENTS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/AGENTS.md)
+[OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
+[current_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/current_board.md)
+[founder_command_center_board.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/kanban/founder_command_center_board.md)
+[FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md)
+[FOUNDER_COMMAND_CENTER_MVP_SPEC.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md)
+[openapi_contract.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/api/openapi_contract.md)
+[route_inventory.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/api/route_inventory.md)
+[UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md)
+
+Also inspect SPECS.md, specs.md, SDLC.md, sdlc.md if present. If absent, note
+that AGENTS.md and the listed docs are the active process/spec guidance.
+
+Scope:
+- Add centralized FastAPI response security headers for handled responses:
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+  `X-Frame-Options: DENY`, `Permissions-Policy` denying unused browser
+  capabilities, `Content-Security-Policy` with strict posture and documented
+  local dev loopback exceptions, and HTTPS-only HSTS.
+- Add tests proving headers on success and handled error responses.
+- Prove HSTS is HTTPS-only and no CORS headers are introduced.
+- Add docs, schema/verifier coverage, and active currentness updates.
+- Preserve the current 112 OpenAPI paths, stable operation IDs, route
+  classifications, side-effect classes, and route behavior.
+
+Non-goals:
+- Do not add auth, sessions, CORS, idempotency enforcement, rate limiting,
+  dependencies, routes, operation IDs, connector writes, model/provider calls,
+  shell/subprocess execution, action execution, memory writes, Code apply,
+  public beta, public distribution, production readiness, or production
+  authority.
+
+Review/fix:
+- Perform adversarial self-review for route/OpenAPI drift, accidental CORS,
+  false auth/security claims, hidden production-readiness claims, missing error
+  response headers, HSTS on HTTP, and stale currentness docs.
+- Fix P0/P1 findings before hardening.
+
+Hardening:
+- Run focused tests:
+  `PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_security_headers.py tests/test_api_manifest.py -q`
+- Run the P1-081 verifier:
+  `.venv/bin/python scripts/verify_uaa_p1_081_fastapi_security_headers.py`
+- Run OpenAPI, documentation integrity, and frontend safety checks:
+  `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`
+  `.venv/bin/python scripts/verify_documentation_integrity.py`
+  `.venv/bin/python scripts/verify_control_center_frontend.py`
+- Run `git diff --check`.
+
+Commit/push:
+- Stage only files changed for UAA-P1-081 plus already-accepted currentness docs
+  that must stay coherent.
+- Commit with message: `implement UAA-P1-081 FastAPI security headers`.
+- Push the current branch. Do not force push.
+
+Next prompt:
+- After commit/push succeeds, recommend or execute UAA-P1-082 Explicit Loopback
+  CORS Allowlist if the conveyor continues and the scope remains safe.
+- Use an incremental UAA-P1-081.1 only if centralized headers cannot be
+  completed safely in one commit.
+```
+
 ## 11. UAA-P1-080 API Route Classification Prompt
 
 Use this prompt only after UAA-P1-079 User Intent Understanding V1 is complete,
@@ -483,9 +561,13 @@ Inventory has landed with its contract, schema, fixture, verifier, tests,
 Control Center visibility, and pushed commit. UAA-P1-081 through UAA-P1-086
 remain planned/queued API boundary-hardening work. If that remaining API
 boundary lane is active, it auto-advances in order through UAA-P1-081,
-UAA-P1-082, UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then UAA-P1-087
-Private Operator Trial And UI Functional Tuning before moving to P2/provider,
-packaging, public distribution, or commercialization work. The conveyor
+UAA-P1-082, UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then the
+UAA-P1-087 Private Operator Trial And UI Functional Tuning sequence:
+UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
+in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
+cockpit planning/source-only scaffold after the `.command` contract is proven,
+before moving to P2/provider, packaging, public distribution, or
+commercialization work. The conveyor
 auto-advances after each successful milestone commit/push until the active
 bounded sequence is complete, verified, and pushed. Do not stop after merely
 recommending the next prompt; create and execute the next milestone prompt in
@@ -506,9 +588,9 @@ UAA-P1-079 unless the active roadmap explicitly documents them.
 
 If a later accepted prompt starts the API Boundary Hardening Lane, use this
 extension order after UAA-P1-079: UAA-P1-080, UAA-P1-081, UAA-P1-082,
-UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then UAA-P1-087. Stop after
-UAA-P1-087 is complete and verified unless active docs explicitly document the
-next lane.
+UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086, then UAA-P1-087.1,
+UAA-P1-087.2, and UAA-P1-087.3. Stop after UAA-P1-087.3 is complete and
+verified unless active docs explicitly document the next lane.
 
 Review the following documents first:
 [OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](/Users/sambehdjou/Documents/GitHub/ultimate-ai-agent/docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md)
@@ -631,7 +713,7 @@ Execution workflow:
    docs/backlog/codex_recommendation_log.md only as conveyor state, not as a
    stopping point. Stop only when:
    - all milestones through UAA-P1-079 are complete and verified for the
-     Today-spine conveyor, or all milestones through UAA-P1-087 are complete
+     Today-spine conveyor, or all milestones through UAA-P1-087.3 are complete
      and verified when the API boundary/private-operator-trial lane is active,
    - the next slice is too large or unsafe and needs an incremental prompt that
      cannot be executed safely in the same run,

@@ -27,10 +27,16 @@ UAA-P1-078 Private Beta-Readiness Gate is implemented as a local/private
 beta-test acceptance evidence gate. UAA-P1-079 User Intent Understanding V1 is
 implemented as a reviewable intent proposal slice. UAA-P1-080 API Route
 Classification And Public/Protected Inventory is implemented as a typed
-route-classification and inventory slice. UAA-P1-081 through UAA-P1-086 remain
-planned/queued API boundary hardening lanes. UAA-P1-087 is planned after those
-gates as the private operator trial and UI functional tuning breakpoint before
-P2/provider, packaging, public distribution, or commercialization expansion.
+route-classification and inventory slice. UAA-P1-081 Centralized FastAPI
+Security Headers is implemented as centralized browser-hardening headers with
+HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082 through
+UAA-P1-086 remain planned/queued API boundary hardening lanes. UAA-P1-087 is planned after those
+gates as an ordered private operator trial and UI functional tuning sequence:
+UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
+in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
+cockpit planning/source-only scaffold after the `.command` contract is proven.
+This remains the breakpoint before P2/provider, packaging, public distribution,
+or commercialization expansion.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility
@@ -84,16 +90,21 @@ P2/provider, packaging, public distribution, or commercialization expansion.
    Code, loop binding, or beta-readiness claims, routes are classified as
    `public_metadata`, `local_readonly`, `local_sensitive`, or
    `mutating_requires_authority` in `/api/manifest` and the route inventory.
-   Centralized security headers, explicit loopback CORS, simple local
-   bearer/session protection for sensitive routes, mutating-route idempotency
-   enforcement, targeted rate limits, and OpenAPI/API manifest/route inventory
-   enforcement checks remain planned/queued. This is not enterprise auth and
+   Centralized FastAPI security headers are implemented as browser hardening
+   only. Explicit loopback CORS, simple local bearer/session protection for
+   sensitive routes, mutating-route idempotency enforcement, targeted rate
+   limits, and OpenAPI/API manifest/route inventory enforcement checks remain
+   planned/queued. This is not enterprise auth and
    does not add runtime authority.
 14. Private operator trial and UI functional tuning: after UAA-P1-080 through
-   UAA-P1-086, use local/in-person testing to tune Today, Actions, Memory,
-   Evidence, Chat handoff, blocked-state language, and CRM-lite follow-up flow.
-   Produce manual smoke evidence, friction notes, and UI/copy tasks before any
-   P2/provider, packaging, public distribution, or commercialization lane.
+   UAA-P1-086, first prove local launcher/`.command` dual-surface boot
+   readiness for Control Center plus the secondary OpenWebUI shell, then use
+   local/in-person testing to tune Today, Actions, Memory, Evidence, Chat
+   handoff, blocked-state language, and CRM-lite follow-up flow, and only then
+   plan/source-scaffold a native SwiftUI boot cockpit over the proven launcher
+   contract. Produce manual smoke evidence, friction notes, and UI/copy tasks
+   before any P2/provider, packaging, public distribution, or commercialization
+   lane.
 15. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.

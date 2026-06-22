@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-080 Complete: API Route Classification; UAA-P1-081 Planned Security Headers** |
+| Current lane | **UAA-P1-081 Complete: FastAPI Security Headers; UAA-P1-082 Planned Loopback CORS** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -77,9 +77,15 @@ intent asks the user rather than acting. UAA-P1-080 API Route Classification
 And Public/Protected Inventory is complete with typed route classifications in
 `/api/manifest`, a frozen 112-route inventory fixture, route-status manifest
 alignment, Control Center API Routes visibility, and focused verifier/tests.
-UAA-P1-081 through UAA-P1-086 remain planned/queued API boundary hardening
-lanes, followed by UAA-P1-087 Private Operator Trial And UI Functional Tuning,
-and grant no new authority here.
+UAA-P1-081 Centralized FastAPI Security Headers is complete with centralized
+response headers, HTTPS-only HSTS behavior, no CORS/auth/rate-limit authority,
+manifest capability posture, and focused verifier/tests. UAA-P1-082 through
+UAA-P1-086 remain planned/queued API boundary hardening
+lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
+Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
+UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native
+SwiftUI boot cockpit planning/source-only scaffold after the `.command`
+contract is proven. These planning entries grant no new authority here.
 UAA-P1-066 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane.
 
