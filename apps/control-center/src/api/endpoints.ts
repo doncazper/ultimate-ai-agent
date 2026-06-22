@@ -22,6 +22,38 @@ export const API_ENDPOINTS = {
   actionPreview: "/control-center/actions/preview",
 } as const;
 
+export const ACTION_DECISION_KINDS = [
+  "approve",
+  "edit",
+  "reject",
+  "defer",
+] as const;
+
+export type ActionDecisionKind = (typeof ACTION_DECISION_KINDS)[number];
+
+export function actionDecisionEndpoint(
+  actionId: string,
+  decision: ActionDecisionKind,
+): string {
+  return `/control-center/actions/${encodeURIComponent(actionRouteId(actionId))}/${decision}`;
+}
+
+export function actionReceiptEndpoint(actionId: string): string {
+  return `/control-center/actions/${encodeURIComponent(actionRouteId(actionId))}/receipt`;
+}
+
+export function isActionDecisionEndpoint(endpoint: string): boolean {
+  return /^\/control-center\/actions\/[^/]+\/(approve|edit|reject|defer)$/.test(
+    endpoint,
+  );
+}
+
+function actionRouteId(actionId: string): string {
+  return actionId.startsWith("founder-action:")
+    ? actionId.slice("founder-action:".length)
+    : actionId;
+}
+
 export const READ_ENDPOINTS = [
   API_ENDPOINTS.health,
   API_ENDPOINTS.version,

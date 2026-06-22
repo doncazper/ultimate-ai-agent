@@ -135,10 +135,10 @@
       ],
       "properties": {
         "approval_required_before_mutation": { "const": true },
-        "mutating_controls_enabled": { "const": false },
+        "mutating_controls_enabled": { "const": true },
         "execution_authorized": { "const": false },
         "action_envelope_contract_status": {
-          "const": "implemented_reviewable_action_envelopes_execution_blocked"
+          "const": "implemented_action_decision_receipts_execution_blocked"
         },
         "action_envelope_contract_ref": {
           "const": "contract-ref:plans-action-envelope:v1"
@@ -148,7 +148,7 @@
           "items": { "enum": ["approve", "edit", "reject", "defer"] }
         },
         "approval_grant_capture_enabled": { "const": false },
-        "state_change_enabled": { "const": false }
+        "state_change_enabled": { "const": true }
       }
     },
     "plans": {

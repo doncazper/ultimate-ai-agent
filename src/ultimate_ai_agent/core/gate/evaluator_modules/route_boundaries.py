@@ -227,6 +227,7 @@ M28_FORBIDDEN_BACKEND_ROUTES = (
     "/browser/execute",
     "/mobile/execute",
     "/remote/execute",
+    "/control-center/actions/execute",
 )
 EXPECTED_M29_OPENAPI_PATH_COUNT = 78
 M29_FORBIDDEN_BACKEND_ROUTES = (
@@ -2196,13 +2197,25 @@ M167_REDACTED_OBSERVABILITY_ROUTES = {
     "/observability/client-errors",
     "/observability/session-events",
 }
-FOUNDER_LOOP_CONTROL_CENTER_ROUTES = frozenset(
+FOUNDER_LOOP_ACTION_DECISION_ROUTES = frozenset(
     {
-        "/control-center/actions/inbox",
-        "/control-center/morning-briefing/summary",
-        "/control-center/storage/status",
-        "/control-center/today/summary",
+        "/control-center/actions/{action_id}/approve",
+        "/control-center/actions/{action_id}/defer",
+        "/control-center/actions/{action_id}/edit",
+        "/control-center/actions/{action_id}/reject",
     }
+)
+FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
+    frozenset(
+        {
+            "/control-center/actions/inbox",
+            "/control-center/actions/{action_id}/receipt",
+            "/control-center/morning-briefing/summary",
+            "/control-center/storage/status",
+            "/control-center/today/summary",
+        }
+    )
+    | FOUNDER_LOOP_ACTION_DECISION_ROUTES
 )
 MATTERMOST_AGENT_ROOMS_ROUTES = {
     "/integrations/mattermost/audit",

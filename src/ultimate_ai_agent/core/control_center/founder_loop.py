@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
+from ultimate_ai_agent.core.control_center.action_decisions import (
+    FounderLoopActionDecisionRequest,
+)
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
 
@@ -18,6 +23,24 @@ class FounderLoopControlCenterService:
 
     def actions_inbox(self) -> dict:
         return self.repository.actions_inbox()
+
+    def record_action_decision(
+        self,
+        *,
+        action_id: str,
+        decision: str,
+        request: FounderLoopActionDecisionRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_action_decision(
+            action_id=action_id,
+            decision=decision,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
+    def action_receipt(self, *, action_id: str) -> dict[str, Any] | None:
+        return self.repository.latest_action_receipt(action_id)
 
     def morning_briefing_summary(self) -> dict:
         return self.repository.morning_briefing()

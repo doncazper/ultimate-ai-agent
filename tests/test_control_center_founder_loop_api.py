@@ -79,10 +79,21 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
 
     inbox = client.get("/control-center/actions/inbox").json()["data"]
     assert inbox["route_ref"] == "/control-center/actions/inbox"
-    assert inbox["mutating_controls_enabled"] is False
+    assert inbox["mutating_controls_enabled"] is True
+    assert inbox["action_execution_enabled"] is False
+    assert inbox["decision_state_contract_ref"] == (
+        "contract-ref:founder-loop-action-state-machine:v1"
+    )
+    assert inbox["decision_actions"] == ["approve", "edit", "reject", "defer"]
+    assert inbox["decision_receipts_required"] is True
+    assert inbox["idempotency_replay_enabled"] is True
+    assert inbox["idempotency_conflict_rejected"] is True
+    assert "GET /control-center/actions/{action_id}/receipt" in inbox[
+        "read_only_route_refs"
+    ]
     assert "GET /control-center/storage/status" in inbox["read_only_route_refs"]
     assert "capability-ref:local-approval-authority" in inbox["local_prerequisite_refs"]
-    assert "no_approval_grant_capture_route" in inbox["blocked_states"]
+    assert "approval_ref_must_validate_exact_scope" in inbox["blocked_states"]
     assert inbox["private_beta_readiness_contract_ref"] == (
         PRIVATE_BETA_READINESS_CONTRACT_REF
     )
@@ -497,17 +508,17 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert today["user_intent_authority_posture"]["action_execution_enabled"] is False
     assert today["user_intent_hidden_authority_enabled"] is False
     assert today["plan_action_state"]["execution_authorized"] is False
-    assert today["plan_action_state"]["mutating_controls_enabled"] is False
+    assert today["plan_action_state"]["mutating_controls_enabled"] is True
     assert (
         today["plan_action_state"]["action_envelope_contract_status"]
-        == "implemented_reviewable_action_envelopes_execution_blocked"
+        == "implemented_action_decision_receipts_execution_blocked"
     )
     assert (
         today["plan_action_state"]["action_envelope_contract_ref"]
         == PLANS_ACTION_ENVELOPE_CONTRACT_REF
     )
     assert today["plan_action_state"]["approval_grant_capture_enabled"] is False
-    assert today["plan_action_state"]["state_change_enabled"] is False
+    assert today["plan_action_state"]["state_change_enabled"] is True
     assert today["stale_source_posture"]["connector_runtime_enabled"] is False
     assert today["next_safe_actions"]
     assert today["memory_review_route_ref"] == "/memory"

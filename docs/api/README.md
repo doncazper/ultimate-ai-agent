@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `112`, generated from the FastAPI application and
+Current OpenAPI path count: `117`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -34,6 +34,7 @@ docs/api/UAA_P1_083_LOCAL_BEARER_SESSION_GATE.md
 docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md
 docs/api/SAFE_STATIC_MANIFEST_CACHING.md
 docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md
+docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md
 docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md
 docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md
 ```
@@ -69,6 +70,11 @@ Current boundary summary:
   mutation perimeter. Duplicate replay behavior is defined as a future
   route-owner requirement and remains blocked until append-first receipt
   storage exists for the route.
+- FCC-V1-002 adds backend-owned Action Inbox decision routes for approve,
+  edit, reject, defer, and receipt inspection. These routes record decision
+  state and local receipt refs only; they do not execute approved actions,
+  perform connector writes, call providers, run shell/subprocess work, write
+  memory, or grant production authority.
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.

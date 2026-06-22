@@ -18,6 +18,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "model_chat": {"max_requests": 30, "window_seconds": 60},
     "task_decomposition": {"max_requests": 120, "window_seconds": 60},
     "action_preview_proposal": {"max_requests": 120, "window_seconds": 60},
+    "action_decision": {"max_requests": 60, "window_seconds": 60},
     "local_model_validation": {"max_requests": 120, "window_seconds": 60},
 }
 
@@ -59,6 +60,7 @@ LOCAL_MODEL_VALIDATION_PATHS = {
     "/models/route/preview",
     "/runtime/smoke-reports/validate",
 }
+ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,12 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "task_decomposition"
     if normalized_method == "POST" and path in ACTION_PREVIEW_PROPOSAL_PATHS:
         return "action_preview_proposal"
+    if (
+        normalized_method == "POST"
+        and path.startswith("/control-center/actions/")
+        and path.endswith(ACTION_DECISION_SUFFIXES)
+    ):
+        return "action_decision"
     if normalized_method == "POST" and path in LOCAL_MODEL_VALIDATION_PATHS:
         return "local_model_validation"
     return None

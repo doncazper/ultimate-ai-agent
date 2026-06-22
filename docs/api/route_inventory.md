@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `112`.
+Current OpenAPI path count: `117`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,8 +44,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 14 |
-| `local_sensitive` | 82 |
-| `mutating_requires_authority` | 13 |
+| `local_sensitive` | 83 |
+| `mutating_requires_authority` | 17 |
 
 Allowed current side-effect classes are:
 
@@ -101,8 +101,8 @@ FCC-V1-001 updates the frozen route inventory fixture to
 manifest-visible for every route. Mutating routes must expose local bearer
 auth posture, approval-before-mutation posture, idempotency posture, and
 rate-limit posture before real Founder Loop mutation routes can land.
-Duplicate replay behavior is a required future route-owner contract and is not
-implemented by the current API boundary.
+Duplicate replay behavior remains a route-owner contract; FCC-V1-002 implements
+it only for Action Inbox decision routes.
 
 ## Current route groups
 
@@ -180,17 +180,24 @@ readiness, or execute rollback.
 
 - `GET /control-center/today/summary`
 - `GET /control-center/actions/inbox`
+- `POST /control-center/actions/{action_id}/approve`
+- `POST /control-center/actions/{action_id}/edit`
+- `POST /control-center/actions/{action_id}/reject`
+- `POST /control-center/actions/{action_id}/defer`
+- `GET /control-center/actions/{action_id}/receipt`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/storage/status`
 
 These routes expose storage-backed Founder Loop v1 summaries for Today, Action
-Inbox, Morning Briefing, and local storage status. They return safe refs,
-bounded summaries, side-effect classes, evidence refs, blocked states, and
-backup manifest refs only. They do not approve, run, send, install, enable,
-dispatch, call providers, perform connector writes, read email/calendar data,
-deliver notifications, or expose raw prompts, raw responses, raw paths, raw
-logs, usernames, hostnames, environment dumps, credential material, or provider
-payloads.
+Inbox, Morning Briefing, local storage status, and Action Inbox decision
+receipts. The decision routes record backend-owned approve/edit/reject/defer
+state, validate exact approval scope for approve where required, handle
+idempotency replay/conflict locally, and return safe receipt refs. They do not
+execute the underlying action, run, send, install, enable, dispatch, call
+providers, perform connector writes, read email/calendar data, write memory,
+run shell/subprocess work, deliver notifications, or expose raw prompts, raw
+responses, raw paths, raw logs, usernames, hostnames, environment dumps,
+credential material, or provider payloads.
 
 ### Local model and runtime readiness
 

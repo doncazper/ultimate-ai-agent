@@ -2,7 +2,7 @@
 
 Status: active gated foundation plan
 Baseline: v0.102.3 / 0.102.3
-Current OpenAPI path count: 112
+Current OpenAPI path count: 117
 Scope: planning, extraction guardrails, and first low-risk extraction status
 
 This plan accepts the service-module boundary used by UAA-P1-058 for the first
@@ -56,7 +56,7 @@ FCC-P1-012 accepts this document as the route-extraction plan for Founder
 Command Center surfaces. It does not create a separate extraction plan, route
 inventory, route module, or product roadmap. The surface mapping below is an
 alignment layer over UAA-P1-021 and UAA-P1-052 so later FCC work can point to
-the accepted service-module boundary without changing the current 112-path API.
+the accepted service-module boundary without changing the current 117-path API.
 
 | FCC surface | Current route families or status refs | Accepted target service module | Extraction posture |
 |---|---|---|---|
@@ -100,7 +100,7 @@ the same change.
 
 | Order | Candidate | Reason | Gate before merge |
 |---:|---|---|---|
-| 1 | `system_service` for `GET /health` and `GET /version` | Smallest read-only pair, side-effect class `none`, no storage dependency, no local state mutation, no auth change, and lowest chance of product-language drift. | Implemented by UAA-P1-058 with OpenAPI count 112, operation IDs unchanged, API manifest side-effect classes unchanged, and Foundation Gate green. |
+| 1 | `system_service` for `GET /health` and `GET /version` | Smallest read-only pair, side-effect class `none`, no storage dependency, no local state mutation, no auth change, and lowest chance of product-language drift. | Implemented by UAA-P1-058 with then-current OpenAPI count 112, operation IDs unchanged, API manifest side-effect classes unchanged, and Foundation Gate green. |
 | 2 | Add `GET /api/manifest` to `system_service` only after circular-import review | Read-only metadata route, but it depends on the manifest builder and static capability declarations. | Same gates plus explicit manifest-cache behavior check. |
 | 3 | `control_center_service` read-only summary routes | Product-facing but already inspection/preview oriented. This should wait until the first system extraction proves the registration pattern. | Control Center route-status manifest agreement and focused frontend/API route tests. |
 | 4 | `contracts_service` validation-only routes | Mostly low mutation risk but broader contract surface. | Contract tests and API manifest checks. |

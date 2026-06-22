@@ -66,6 +66,7 @@ TARGETED_ROUTE_EXPECTATIONS = {
     ("POST", "/v1/chat/completions"): "model_chat",
     ("POST", "/files/review/approvals/capture"): "action_preview_proposal",
     ("POST", "/control-center/actions/preview"): "action_preview_proposal",
+    ("POST", "/control-center/actions/{action_id}/reject"): "action_decision",
     ("POST", "/task-decomposition/approval-requests"): "task_decomposition",
     ("POST", "/task-decomposition/approvals/grants/capture"): "task_decomposition",
     ("POST", "/task-decomposition/run"): "task_decomposition",
@@ -110,7 +111,7 @@ REQUIRED_EVIDENCE_REFS = {
     "docs/schemas/founder_loop_api_perimeter.schema.json",
     "src/ultimate_ai_agent/api/manifest.py",
     "src/ultimate_ai_agent/api/contracts.py",
-    "tests/fixtures/api_route_inventory_112.json",
+    "tests/fixtures/api_route_inventory_117.json",
 }
 
 
@@ -309,7 +310,8 @@ def _append_doc_claim_failures(failures: list[str], doc_text: str) -> None:
     compact = " ".join(doc_text.lower().split())
     required = [
         "status: implemented as contract and verifier coverage",
-        "duplicate replay behavior is defined here as a required future route-owner contract",
+        "duplicate replay behavior is defined here as a required route-owner contract",
+        "fcc-v1-002 implements it for action inbox decision routes",
         "manual review remains deferred",
         "rate limits are local-first backpressure, not authentication",
     ]

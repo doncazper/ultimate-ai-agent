@@ -1235,10 +1235,10 @@ PR size: one docs PR, ideally after Tasks 1-4.
 
 Type: staged full-stack productization with docs/test/manifest gates first
 
-Status: FCC-V1-000 through FCC-V1-001 implemented; FCC-V1-002 through
+Status: FCC-V1-000 through FCC-V1-002 implemented; FCC-V1-003 through
 FCC-V1-007 planned. FCC-V1-001 is contract/verifier coverage for the API
 perimeter; duplicate replay runtime remains blocked until route-owner receipt
-storage exists.
+storage exists outside routes that implement their own receipt-backed replay.
 
 New authority: no authority from this planning entry. Each implementation slice
 must separately scope its route, storage, approval, idempotency, evidence,
@@ -1260,7 +1260,10 @@ Milestones:
 - `FCC-V1-002` Action Inbox Backend State Machine: make approve, edit, reject,
   and defer backend-owned Action decisions with append-first storage,
   `LocalApprovalAuthority` validation where required, idempotency, receipts,
-  replay markers, and Control Center receipt visibility.
+  replay markers, and Control Center receipt visibility. Implemented for
+  decision state only; approved actions still do not execute and no connector,
+  shell/subprocess, provider/model, memory-write, public beta, or production
+  authority is granted.
 - `FCC-V1-003` Founder Loop V1 Vertical Slice: promote one Today item into an
   Action envelope, capture exact approval/edit/reject/defer decision, create a
   durable receipt, update Evidence Timeline, and provide CLI/repo-local

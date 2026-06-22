@@ -115,6 +115,12 @@ visibility.
 
 ## FCC-V1-002 - Action Inbox Backend State Machine
 
+Status: implemented by `src/ultimate_ai_agent/core/control_center/action_decisions.py`,
+Founder Loop storage decision tables, Control Center action decision routes,
+`docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`,
+`scripts/verify_fcc_v1_002_action_inbox_state_machine.py`, focused Python
+tests, and Control Center render tests. Action execution remains blocked.
+
 Goal: make Action Inbox decisions real backend-owned state changes.
 
 Tasks:
@@ -153,7 +159,9 @@ Tasks:
 
 Definition of done: approve, edit, reject, and defer are no longer UI-only.
 Every state change is backend-owned, idempotent, receipt-backed, and visible in
-Action Inbox.
+Action Inbox. Approved actions still do not execute and no connector,
+shell/subprocess, provider/model, memory-write, public beta, distribution, or
+production authority is granted.
 
 ## FCC-V1-003 - Founder Loop V1 Vertical Slice
 

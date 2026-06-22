@@ -518,15 +518,15 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "action_count": len(today["actions"]),
         "plan_count": len(today["plans"]),
         "approval_required_before_mutation": True,
-        "mutating_controls_enabled": False,
+        "mutating_controls_enabled": True,
         "execution_authorized": False,
         "action_envelope_contract_status": (
-            "implemented_reviewable_action_envelopes_execution_blocked"
+            "implemented_action_decision_receipts_execution_blocked"
         ),
         "action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
         "review_actions": ["approve", "edit", "reject", "defer"],
         "approval_grant_capture_enabled": False,
-        "state_change_enabled": False,
+        "state_change_enabled": True,
     }
     assert today["stale_source_posture"]["source_refresh_enabled"] is False
     assert today["stale_source_posture"]["connector_runtime_enabled"] is False
@@ -536,7 +536,15 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert today["follow_up_refs"]
     assert today["next_safe_actions"]
     assert today["actions"]
-    assert inbox["mutating_controls_enabled"] is False
+    assert inbox["mutating_controls_enabled"] is True
+    assert inbox["action_execution_enabled"] is False
+    assert inbox["decision_state_contract_ref"] == (
+        "contract-ref:founder-loop-action-state-machine:v1"
+    )
+    assert inbox["decision_actions"] == ["approve", "edit", "reject", "defer"]
+    assert inbox["decision_receipts_required"] is True
+    assert inbox["idempotency_replay_enabled"] is True
+    assert inbox["idempotency_conflict_rejected"] is True
     assert inbox["action_envelope_contract_ref"] == PLANS_ACTION_ENVELOPE_CONTRACT_REF
     assert [
         row["review_action"] for row in inbox["action_envelope_review_postures"]
@@ -544,9 +552,12 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "scope_ref" in inbox["action_envelope_required_ref_fields"]
     assert inbox["action_envelope_authority_posture"]["action_execution_enabled"] is False
     assert inbox["route_ref"] == "/control-center/actions/inbox"
+    assert "GET /control-center/actions/{action_id}/receipt" in inbox[
+        "read_only_route_refs"
+    ]
     assert "GET /control-center/storage/status" in inbox["read_only_route_refs"]
     assert "capability-ref:local-approval-authority" in inbox["local_prerequisite_refs"]
-    assert "no_approval_grant_capture_route" in inbox["blocked_states"]
+    assert "approval_ref_must_validate_exact_scope" in inbox["blocked_states"]
     assert briefing["items"]
     assert briefing["route_ref"] == "/control-center/morning-briefing/summary"
     assert "GET /control-center/storage/status" in briefing["read_only_route_refs"]

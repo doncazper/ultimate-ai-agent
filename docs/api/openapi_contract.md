@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.102.3**
 
-Current OpenAPI path count: `112`.
+Current OpenAPI path count: `117`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -39,10 +39,17 @@ Contract rules:
   records, request or response bodies, prompts, provider payloads, terminal
   output, credentials, or external telemetry.
 - `GET /control-center/today/summary`, `GET /control-center/actions/inbox`,
+  `POST /control-center/actions/{action_id}/approve`,
+  `POST /control-center/actions/{action_id}/edit`,
+  `POST /control-center/actions/{action_id}/reject`,
+  `POST /control-center/actions/{action_id}/defer`,
+  `GET /control-center/actions/{action_id}/receipt`,
   `GET /control-center/morning-briefing/summary`, and
   `GET /control-center/storage/status` expose storage-backed Founder Loop
-  summaries using SQLite and JSONL refs only. They do not grant action
-  execution, connector writes, model/provider calls, or notification delivery.
+  summaries plus Action Inbox decision receipts using SQLite and JSONL refs
+  only. Action decision routes record backend-owned state and receipt refs;
+  they do not grant action execution, connector writes, model/provider calls,
+  memory writes, shell/subprocess work, or notification delivery.
 
 API boundary hardening:
 

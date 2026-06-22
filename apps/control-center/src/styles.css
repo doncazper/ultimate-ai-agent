@@ -764,6 +764,27 @@ main {
   background: #f0f4f8;
 }
 
+.decision-controls {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1rem 0;
+}
+
+.decision-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.decision-button-row .secondary-button {
+  min-height: 2.35rem;
+}
+
+.decision-button-row .secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .text-link {
   color: #0b69a3;
   font-weight: 700;

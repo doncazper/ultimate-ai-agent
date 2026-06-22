@@ -24,7 +24,7 @@ claim, production authority, or production readiness claim.
 - The frozen API route inventory fixture is updated to schema
   `uaa-api-route-inventory.v4` so every route projection includes auth and
   approval posture.
-- The FCC-V1-001 perimeter manifest records the current 13 routes classified
+- The FCC-V1-001 perimeter manifest records the current 17 routes classified
   as `mutating_requires_authority`.
 - `scripts/verify_fcc_v1_001_api_perimeter.py` fails if the manifest, fixture,
   targeted local rate-limit groups, or mutation posture drifts.
@@ -33,8 +33,10 @@ claim, production authority, or production readiness claim.
 
 ## Duplicate Replay Contract
 
-Duplicate replay behavior is defined here as a required future route-owner
-contract, not implemented runtime replay.
+Duplicate replay behavior is defined here as a required route-owner contract.
+FCC-V1-002 implements it for Action Inbox decision routes; other Founder Loop
+mutation families remain future or blocked until their route owners add
+append-first receipt storage.
 
 Before a future Founder Loop mutation route can become a real product workflow:
 
@@ -57,7 +59,8 @@ Rate limits are local-first backpressure, not authentication.
 FCC-V1-001 keeps the UAA-P1-085 targeted local fixed-window posture for the
 first expensive or sensitive route groups: model/chat, task decomposition,
 action preview/proposal, file approval capture, and local-model validation.
-Future action decision, memory decision, and Chat handoff mutation routes must
+Action decision routes now declare `action_decision` rate-limit posture through
+FCC-V1-002. Future memory decision and Chat handoff mutation routes must
 declare rate-limit posture before they can land.
 
 ## Manual Review
@@ -71,8 +74,8 @@ complete.
 
 ## Founder Loop Mutation Families
 
-The perimeter manifest records the future mutation families that must satisfy
-this gate before runtime behavior is added:
+The perimeter manifest records mutation families that must satisfy this gate
+before runtime behavior is added:
 
 - Today to Action envelope creation
 - Action decision approve, edit, reject, defer, and expire
@@ -81,9 +84,10 @@ this gate before runtime behavior is added:
 - Evidence Timeline append/update records
 - File proposal or approval capture flows
 
-Each family remains planned or blocked until route-owner storage, idempotency
-replay, exact approval binding, receipts, and evidence timeline updates exist
-for that route.
+Action decision routes now have route-owner storage, idempotency replay,
+exact approval validation where required, and receipt refs. The other families
+remain planned or blocked until route-owner storage, idempotency replay, exact
+approval binding, receipts, and evidence timeline updates exist for that route.
 
 ## Evidence
 
@@ -93,6 +97,6 @@ for that route.
 - `tests/test_fcc_v1_001_api_perimeter.py`
 - `src/ultimate_ai_agent/api/contracts.py`
 - `src/ultimate_ai_agent/api/manifest.py`
-- `tests/fixtures/api_route_inventory_112.json`
+- `tests/fixtures/api_route_inventory_117.json`
 - `scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py`
 - `tests/test_api_boundary_enforcement.py`

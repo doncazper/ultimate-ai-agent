@@ -47,6 +47,7 @@ CAPABILITIES_DECLARED = [
     "control_center_founder_loop_storage_summaries",
     "control_center_today_summary",
     "control_center_action_inbox_summary",
+    "control_center_action_decision_state_machine",
     "control_center_morning_briefing_summary",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
@@ -104,6 +105,9 @@ CAPABILITIES_BLOCKED = [
     "targeted_rate_limits_as_production_authority",
     "plugin_enablement_routes",
     "control_center_execution",
+    "control_center_action_decisions_as_action_execution",
+    "control_center_action_decisions_without_exact_idempotency",
+    "control_center_action_decisions_without_receipts",
     "control_center_plugin_enablement",
     "control_center_frontend_native_build_control",
     "control_center_mobile_sensor_access",
@@ -206,12 +210,16 @@ LOCAL_DEV_WORKSPACE_PREFIXES = (
 )
 CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/today",
-    "/control-center/actions/inbox",
+    "/control-center/actions",
     "/control-center/morning-briefing",
     "/control-center/storage",
 )
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}
+CONTROL_CENTER_ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
+CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
+    "/control-center/actions/preview",
+}
 LOCAL_READONLY_PATHS = {
     "/control-center/dashboard",
     "/control-center/foundation-gate/summary",
@@ -355,6 +363,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.none
     if path.startswith("/web-evidence/"):
         return ApiRouteSideEffectClass.governed_network_read_only
+    if path in CONTROL_CENTER_VALIDATION_ONLY_PATHS:
+        return ApiRouteSideEffectClass.validation_only
     if path.startswith(CONTROL_CENTER_LOCAL_STATE_PREFIXES):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith(LOCAL_DEV_WORKSPACE_PREFIXES):
@@ -374,6 +384,15 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.public_metadata,
             "harmless API metadata or status route with no local user state",
+        )
+    if (
+        normalized_method == "POST"
+        and path.startswith("/control-center/actions/")
+        and path.endswith(CONTROL_CENTER_ACTION_DECISION_SUFFIXES)
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Action Inbox decision route; exact authority, idempotency, audit, and receipt posture required",
         )
     if path.endswith("/run") or any(hint in path for hint in MUTATING_LOCAL_POSTURE_HINTS):
         return (

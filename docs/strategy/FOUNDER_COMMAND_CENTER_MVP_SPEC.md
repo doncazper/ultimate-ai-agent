@@ -54,7 +54,13 @@ complete for release-status truth, manifest/schema, verifier, and focused
 tests without backend route or runtime authority changes. FCC-V1-001 API
 Perimeter For Real Mutations is complete as contract/verifier coverage with
 duplicate replay runtime still blocked until route-owner receipt storage
-exists. FCC-V1-002 Action Inbox Backend State Machine is the next
+exists outside routes that implement their own receipt-backed replay.
+FCC-V1-002 Action Inbox Backend State Machine is complete for backend-owned
+approve/edit/reject/defer decision state, exact approval validation where
+required, idempotency replay/conflict handling, local receipt refs, and Control
+Center receipt visibility. It does not execute approved actions or grant
+connector, shell/subprocess, provider/model, memory-write, public beta, or
+production authority. FCC-V1-003 Founder Loop V1 Vertical Slice is the next
 implementation lane before
 P2/provider, packaging, public distribution, or commercialization expansion.
 
@@ -66,8 +72,8 @@ proof lanes, and authority boundaries for:
 
 - Completed Control Center release surface manifest.
 - API perimeter for real mutations.
-- Action Inbox backend state machine for approve/edit/reject/defer with
-  backend receipts.
+- Completed Action Inbox backend state machine for approve/edit/reject/defer
+  with backend receipt refs and action execution still blocked.
 - Today item to Action envelope to exact approval to durable receipt to
   Evidence Timeline update.
 - Control Center Chat durable receipt and reviewable handoff.

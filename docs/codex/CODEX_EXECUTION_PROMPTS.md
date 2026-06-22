@@ -79,7 +79,7 @@ Scope:
 - Prove wildcard CORS, CORS credentials, external origins, LAN/private IP
   origins, wrong local ports, `0.0.0.0`, and `null` origins remain denied.
 - Prove CORS is browser hardening, not authentication or route authority.
-- Preserve the current 112 OpenAPI paths, stable operation IDs, route
+- Preserve the current OpenAPI path count, stable operation IDs, route
   classifications, side-effect classes, and route behavior.
 
 Non-goals:
@@ -159,7 +159,7 @@ Scope:
 - Add tests proving headers on success and handled error responses.
 - Prove HSTS is HTTPS-only and no CORS headers are introduced.
 - Add docs, schema/verifier coverage, and active currentness updates.
-- Preserve the current 112 OpenAPI paths, stable operation IDs, route
+- Preserve the current OpenAPI path count, stable operation IDs, route
   classifications, side-effect classes, and route behavior.
 
 Non-goals:
@@ -247,7 +247,7 @@ Scope:
 - Add or update route-status manifest posture so visible Control Center route
   refs can be compared against `/api/manifest`.
 - Add docs, schema/verifier coverage, and focused tests.
-- Preserve the current 112 OpenAPI paths, stable operation IDs, existing
+- Preserve the current OpenAPI path count, stable operation IDs, existing
   side-effect classes, and route behavior.
 
 Non-goals:

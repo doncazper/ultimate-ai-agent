@@ -41,7 +41,7 @@ from scripts.verification.repo import (  # noqa: E402
 CONTRACT_DOC = "docs/api/UAA_P1_085_TARGETED_RATE_LIMITS.md"
 POLICY_SCHEMA = "docs/schemas/api_targeted_rate_limits.schema.json"
 ROUTE_SCHEMA = "docs/schemas/api_route_classification.schema.json"
-ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_112.json"
+ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_117.json"
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:p1-085-verifier"}
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
@@ -77,7 +77,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     append_expected_route_count(failures, manifest)
 
     policy_schema = load_json(POLICY_SCHEMA)
-    policy_payload = api_rate_limit_policy_payload(targeted_route_count=34)
+    policy_payload = api_rate_limit_policy_payload(targeted_route_count=38)
     for error in sorted(
         Draft202012Validator(policy_schema).iter_errors(policy_payload),
         key=lambda error: error.path,
@@ -115,7 +115,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     targeted_routes = {
         key for key, route in routes_by_key.items() if route["rate_limit_targeted"] is True
     }
-    if len(targeted_routes) != 34:
+    if len(targeted_routes) != 38:
         failures.append(f"targeted rate-limit route count drifted: {len(targeted_routes)}")
     targeted_groups = {
         route["rate_limit_group"]
@@ -127,6 +127,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     for key in [
         ("POST", "/models/route/preview"),
         ("POST", "/control-center/actions/preview"),
+        ("POST", "/control-center/actions/{action_id}/reject"),
         ("POST", "/task-decomposition/run"),
         ("POST", "/v1/chat/completions"),
     ]:

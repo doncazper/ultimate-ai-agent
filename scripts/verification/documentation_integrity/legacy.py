@@ -1622,7 +1622,7 @@ ACTIVE_BASELINE_LABEL_PATTERNS = [
     ),
 ]
 
-EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 112
+EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 117
 
 
 def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
@@ -1847,7 +1847,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
             "| product shell |"
         ),
         "product truth packet must mark shipped API boundary": (
-            "shipped for the 112-path api boundary"
+            "shipped for the 117-path api boundary"
         ),
         "product truth packet must mark blocked local model claims": (
             "blocked for production-readiness claims"
@@ -4995,7 +4995,7 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),
         "gap map must include current API count": (
-            "api boundary: current fastapi manifest has 112 openapi paths"
+            "api boundary: current fastapi manifest has 117 openapi paths"
         ),
         "gap map must preserve shell authority boundary": (
             "control center and openwebui remain shells"
@@ -5100,8 +5100,10 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         failures.append("product truth packet must keep product-shell claims blocked")
 
     mock_data = read_lower("apps/control-center/src/mocks/controlCenterData.ts")
-    if "route_count: 112" not in mock_data:
-        failures.append("Control Center mock data must use current 112 route count")
+    if "route_count: 117" not in mock_data:
+        failures.append("Control Center mock data must use current 117 route count")
+    if "route_count: 112" in mock_data:
+        failures.append("Control Center mock data contains stale 112 route count")
     if "route_count: 95" in mock_data:
         failures.append("Control Center mock data contains stale 95 route count")
     if "route_count: 94" in mock_data:

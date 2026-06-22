@@ -32,14 +32,18 @@ deferred behind full UAA-P1-087.2. FCC-V1-000 Control Center Release Surface
 Manifest work is complete with release-status truth, manifest/schema, verifier,
 and focused tests. FCC-V1-001 API Perimeter For Real Mutations is complete as
 contract/verifier coverage with duplicate replay runtime still blocked until
-route-owner receipt storage exists. The next conveyor milestone is FCC-V1-002
-Action Inbox Backend State Machine. The
+route-owner receipt storage exists outside routes that implement their own
+receipt-backed replay. FCC-V1-002 Action Inbox Backend State Machine is
+complete for backend-owned approve/edit/reject/defer decision state, local
+receipt refs, and Control Center receipt visibility without action execution or
+new external authority. The next conveyor milestone is FCC-V1-003 Founder Loop
+V1 Vertical Slice. The
 sequence is tracked in
 `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`.
 The planned Founder Loop V1 productization conveyor is tracked in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` with detailed goals for
-`FCC-V1-000` through `FCC-V1-007`: completed release surface manifest and API
-perimeter, Action Inbox backend decisions, Today-to-Action vertical loop, Chat durable
+`FCC-V1-000` through `FCC-V1-007`: completed release surface manifest, API
+perimeter, and Action Inbox backend decisions, Today-to-Action vertical loop, Chat durable
 receipts and handoff, Memory Review accept/correct/reject decisions, Evidence
 Timeline productization, and promotion/proof lanes.
 
@@ -104,17 +108,18 @@ Enforcement Tests, completed UAA-P1-087.1 Local Launcher Dual-Surface Boot
 Readiness, completed UAA-P1-087.2a Private Trial Packet And UI Tuning Surface,
 and completed UAA-P1-087.2b Private Trial Findings Capture And Acceptance
 Ledger, completed UAA-P1-087.2c Private Trial Manual Review Scaffold, and
-completed FCC-V1-000 Control Center Release Surface Manifest and FCC-V1-001
-API Perimeter For Real Mutations. Full UAA-P1-087.2
+completed FCC-V1-000 Control Center Release Surface Manifest, FCC-V1-001
+API Perimeter For Real Mutations, and FCC-V1-002 Action Inbox Backend State
+Machine. Full UAA-P1-087.2
 local/private UI tuning and UAA-P1-087.3 private UI trial/native boot planning
 are deferred until the Founder Loop has more real implementation to test. The
-next conveyor milestone is FCC-V1-002. UAA-P1-066
+next conveyor milestone is FCC-V1-003. UAA-P1-066
 remains queued as a strictly read-only Local Model
 Control Center inventory/status support lane.
 `FCC-V1-000` through `FCC-V1-007` are the Founder Loop V1 productization
-conveyor after the private-trial sequencing: completed release surface truth
-and real mutation perimeter contract/verifier coverage, backend-owned
-Action decisions, Today item to Action envelope to exact approval to durable
+conveyor after the private-trial sequencing: completed release surface truth,
+real mutation perimeter contract/verifier coverage, and backend-owned
+Action decisions, then Today item to Action envelope to exact approval to durable
 receipt, Chat receipt/handoff, Memory Review decision receipts, Evidence
 Timeline productization, and proof-lane promotion.
 This sequence makes Today the product spine and keeps memory,

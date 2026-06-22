@@ -843,10 +843,12 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("endpoint allowlist helpers are missing")
         if "isRuntimeValidationEndpoint" not in text:
             failures.append("runtime validation endpoint allowlist helper is missing")
+        if "actionDecisionEndpoint" not in text or "isActionDecisionEndpoint" not in text:
+            failures.append("action decision endpoint helpers are missing")
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if post_count not in {1, 2}:
+        if post_count not in {1, 2, 3}:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
@@ -862,6 +864,18 @@ def verify(root: Path = ROOT) -> list[str]:
                 if fragment not in text:
                     failures.append(
                         f"frontend local chat probe missing safety fragment: {fragment}"
+                    )
+        if post_count >= 3:
+            required_action_decision_fragments = [
+                "submitActionDecision",
+                "actionDecisionEndpoint(actionId, decision)",
+                "\"X-UAA-Idempotency-Key\"",
+                "FounderLoopActionDecisionReceipt",
+            ]
+            for fragment in required_action_decision_fragments:
+                if fragment not in text:
+                    failures.append(
+                        f"frontend action decision post missing safety fragment: {fragment}"
                     )
         if "resolveApiBaseUrl" not in text:
             failures.append("frontend client must resolve API base through local backend policy")
@@ -954,8 +968,8 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 112:
-        failures.append("route status manifest must record the 112-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != 117:
+        failures.append("route status manifest must record the 117-path OpenAPI boundary")
     if manifest.get("operator_readiness_taxonomy_ref") != (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     ):
@@ -1260,7 +1274,7 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 112 openapi paths"
+            "api boundary: current fastapi manifest has 117 openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "

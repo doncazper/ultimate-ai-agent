@@ -34,7 +34,7 @@ with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, ask/act/defer routing, and ask-user handling for
 low-confidence or conflicting intent. UAA-P1-080 completes API Route
 Classification And Public/Protected Inventory with typed route classifications
-in `/api/manifest`, the frozen 112-route inventory fixture, route-status
+in `/api/manifest`, the frozen 117-route inventory fixture, route-status
 manifest alignment, Control Center API Routes visibility, and focused
 verifier/tests. UAA-P1-081 completes centralized FastAPI response security
 headers with HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082
@@ -64,14 +64,19 @@ runtime authority.
 FCC-V1-001 completes API perimeter contract/verifier coverage for real
 mutations with manifest-visible auth, approval, idempotency, and rate-limit
 posture. Duplicate replay runtime remains blocked until route-owner receipt
-storage exists.
+storage exists. FCC-V1-002 completes backend-owned Action Inbox
+approve/edit/reject/defer decision state with exact approval validation where
+required, idempotency replay/conflict handling, local receipt refs, and Control
+Center receipt visibility. It does not execute approved actions, perform
+connector writes, call providers, run shell/subprocess work, write memory, or
+grant production authority.
 No public beta, distribution, production readiness, or production authority
 claim is granted.
 The planned Founder Loop V1 productization conveyor is now recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`. It carries the detailed goals for completed release surface
-manifest and API perimeter coverage, then Action Inbox backend decisions, first
-Today-to-Action vertical loop, Chat durable receipts and handoff, Memory Review
+manifest, API perimeter coverage, and Action Inbox backend decisions, then the
+first Today-to-Action vertical loop, Chat durable receipts and handoff, Memory Review
 accept/correct/reject backend decisions, Evidence Timeline productization, and
 promotion/proof lane. This is contract and task-shaping only; it grants no new
 routes, controls, runtime calls, connector writes, memory writes, context

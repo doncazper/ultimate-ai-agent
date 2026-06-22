@@ -364,7 +364,7 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders Action Inbox approval-envelope posture without mutation controls", async () => {
+  it("renders Action Inbox decision receipt posture without action execution", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/actions");
     render(<App />);
@@ -374,7 +374,8 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /State posture/i })).toBeInTheDocument();
     expect(screen.getByText("/control-center/actions/inbox")).toBeInTheDocument();
-    expect(screen.getByText("Exact backend approval contract required")).toBeInTheDocument();
+    expect(screen.getByText("Action execution remains blocked")).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/actions/{action_id}/receipt")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Local prerequisites/i })).toBeInTheDocument();
     expect(screen.getByText("GET /control-center/storage/status")).toBeInTheDocument();
     expect(screen.getByText("status-ref:control-center-route-manifest")).toBeInTheDocument();
@@ -382,7 +383,9 @@ describe("Web Control Center shell", () => {
 
     expect(screen.getByText("approval-envelope:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("dry_run_ref_available")).toBeInTheDocument();
-    expect(screen.getByText("contract-ref:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:founder-loop:mock-setup-hardening").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("blocked_pending_scoped_mutation_contract")).toBeInTheDocument();
     expect(
       screen.getAllByText("receipt-plan:founder-loop:mock-setup-hardening").length,
@@ -391,6 +394,13 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("idempotency-ref:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("rollback-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("safe-disable:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:founder-loop-action-state-machine:v1").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Record approval/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Record edit/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Record rejection/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Record defer/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("action-envelope:plans:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
@@ -408,9 +418,9 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Review refs only; request a scoped state-change milestone/i),
     ).toBeInTheDocument();
-    expect(screen.getByText("Receipt refs: missing until scoped contract")).toBeInTheDocument();
-    expect(screen.getByText("no_approval_grant_capture_route")).toBeInTheDocument();
-    expect(screen.getByText("no_state_change_contract_route")).toBeInTheDocument();
+    expect(screen.getByText("approval_ref_must_validate_exact_scope")).toBeInTheDocument();
+    expect(screen.getByText("no_memory_write")).toBeInTheDocument();
+    expect(screen.getByText("no_context_injection")).toBeInTheDocument();
 
     for (const label of [
       /^approve$/i,
@@ -1055,7 +1065,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("112")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("117")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -2726,8 +2736,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 112,
-      control_center_route_count: 13,
+      route_count: 117,
+      control_center_route_count: 18,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -3562,14 +3572,14 @@ const mockApiData = {
       action_count: 1,
       plan_count: 1,
       approval_required_before_mutation: true,
-      mutating_controls_enabled: false,
+      mutating_controls_enabled: true,
       execution_authorized: false,
       action_envelope_contract_status:
-        "implemented_reviewable_action_envelopes_execution_blocked",
+        "implemented_action_decision_receipts_execution_blocked",
       action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
       review_actions: ["approve", "edit", "reject", "defer"],
       approval_grant_capture_enabled: false,
-      state_change_enabled: false,
+      state_change_enabled: true,
     },
     stale_source_posture: {
       status: "recheck_required_before_action_or_source_use",
@@ -4238,13 +4248,37 @@ const mockApiData = {
       },
     ],
     approval_required_before_mutation: true,
-    mutating_controls_enabled: false,
-    disabled_state_label: "Exact backend approval contract required",
+    mutating_controls_enabled: true,
+    action_execution_enabled: false,
+    decision_route_refs: [
+      "POST /control-center/actions/{action_id}/approve",
+      "POST /control-center/actions/{action_id}/edit",
+      "POST /control-center/actions/{action_id}/reject",
+      "POST /control-center/actions/{action_id}/defer",
+      "GET /control-center/actions/{action_id}/receipt",
+    ],
+    decision_state_contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
+    decision_statuses: [
+      "proposed",
+      "approved",
+      "edited",
+      "rejected",
+      "deferred",
+      "expired",
+      "receipt_recorded",
+      "blocked",
+    ],
+    decision_actions: ["approve", "edit", "reject", "defer"],
+    decision_receipts_required: true,
+    idempotency_replay_enabled: true,
+    idempotency_conflict_rejected: true,
+    disabled_state_label: "Action execution remains blocked",
     evidence_refs: ["evidence-ref:founder-loop:test-inbox"],
     blocked_states: [
       "no_action_execution_route",
-      "no_approval_grant_capture_route",
-      "no_state_change_contract_route",
+      "approval_ref_must_validate_exact_scope",
+      "no_memory_write",
+      "no_context_injection",
     ],
   },
   founderMorningBriefing: {

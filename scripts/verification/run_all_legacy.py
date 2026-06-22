@@ -85,6 +85,7 @@ SCAN_SEQUENCE = [
     ("control center browser smoke readiness verifier", "verify_control_center_browser_smoke_readiness_script"),
     ("FCC-V1-000 release surface manifest scan", "verify_control_center_release_surface"),
     ("FCC-V1-001 API perimeter for real mutations scan", "verify_fcc_v1_001_api_perimeter"),
+    ("FCC-V1-002 Action Inbox state machine scan", "verify_fcc_v1_002_action_inbox_state_machine"),
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("verifier maintainability scan", "verify_verifier_maintainability"),
     ("UAA-P1-071 memory review decision capture scan", "verify_uaa_p1_071_memory_review_decision_capture"),
@@ -1028,6 +1029,8 @@ def verify_control_center_release_surface() -> None:
     run_cmd([sys.executable, "scripts/verify_control_center_release_surface.py"])
 def verify_fcc_v1_001_api_perimeter() -> None:
     run_cmd([sys.executable, "scripts/verify_fcc_v1_001_api_perimeter.py"])
+def verify_fcc_v1_002_action_inbox_state_machine() -> None:
+    run_cmd([sys.executable, "scripts/verify_fcc_v1_002_action_inbox_state_machine.py"])
 def verify_documentation_integrity() -> None:
     print("\n[Verifier] Running documentation integrity scan...")
     run_cmd([sys.executable, "scripts/verify_documentation_integrity.py"])

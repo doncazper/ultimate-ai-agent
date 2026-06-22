@@ -28,15 +28,16 @@
           "action_preview_proposal",
           "local_model_validation",
           "model_chat",
+          "action_decision",
           "task_decomposition"
         ]
       },
-      "minItems": 4,
-      "maxItems": 4,
+      "minItems": 5,
+      "maxItems": 5,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 34
+      "const": 38
     },
     "posture_field": {
       "const": "rate_limit_posture"

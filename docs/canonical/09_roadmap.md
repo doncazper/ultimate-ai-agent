@@ -44,13 +44,16 @@ FCC-V1-000 Control Center Release Surface Manifest is complete for
 release-status truth, manifest/schema, verifier, and focused tests without
 backend route or runtime authority changes. FCC-V1-001 API Perimeter For Real
 Mutations is complete as contract/verifier coverage; duplicate replay runtime
-remains blocked until route-owner receipt storage exists. FCC-V1-002 Action
-Inbox Backend State Machine is the next conveyor milestone.
+remains blocked until route-owner receipt storage exists outside routes that
+implement their own receipt-backed replay. FCC-V1-002 Action Inbox Backend
+State Machine is complete for decision state and receipt refs without action
+execution. FCC-V1-003 Founder Loop V1 Vertical Slice is the next conveyor
+milestone.
 The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: completed Control Center
-release surface manifest, API perimeter for real mutations, Action Inbox
-backend state machine, Today-to-Action vertical slice, Chat durable receipts
+release surface manifest, API perimeter for real mutations, completed Action
+Inbox backend state machine, Today-to-Action vertical slice, Chat durable receipts
 and handoff, Memory Review accept/correct/reject backend decisions, Evidence
 Timeline productization, and promotion/proof lanes. The conveyor keeps running through
 those milestones before broader P2/provider, packaging, public distribution, or

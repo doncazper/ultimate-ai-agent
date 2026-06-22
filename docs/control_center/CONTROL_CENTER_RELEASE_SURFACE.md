@@ -59,5 +59,7 @@ review milestone records accepted or revised findings.
 
 FCC-V1-001 API Perimeter For Real Mutations is complete as contract/verifier
 coverage. Duplicate replay runtime remains blocked until route-owner receipt
-storage exists. The next Founder Loop V1 conveyor milestone is FCC-V1-002,
-Action Inbox Backend State Machine.
+storage exists outside routes that implement their own receipt-backed replay.
+FCC-V1-002 Action Inbox Backend State Machine is complete for decision state
+and receipt refs without action execution. The next Founder Loop V1 conveyor
+milestone is FCC-V1-003, Founder Loop V1 Vertical Slice.

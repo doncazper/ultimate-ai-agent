@@ -1,5 +1,8 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { submitActionDecision } from "../api/client";
 import type {
+  FounderLoopActionDecisionKind,
+  FounderLoopActionDecisionReceipt,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
@@ -533,6 +536,14 @@ export function ActionInboxSurfacePanel({
           <DetailTerm
             label="Mutation controls"
             value={inbox.mutating_controls_enabled ? "scoped" : "disabled"}
+          />
+          <DetailTerm
+            label="Decision contract"
+            value={inbox.decision_state_contract_ref ?? "missing"}
+          />
+          <DetailTerm
+            label="Action execution"
+            value={inbox.action_execution_enabled ? "enabled" : "blocked"}
           />
           <DetailTerm label="Disabled state" value={inbox.disabled_state_label} />
         </dl>
@@ -1629,8 +1640,13 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
             item.action_envelope_grant_capture_enabled ? "enabled" : "disabled"
           }
         />
+        <DetailTerm
+          label="Decision contract"
+          value={item.state_change_contract_ref ?? "missing until recorded"}
+        />
         <DetailTerm label="Next safe action" value={nextSafeAction} />
       </dl>
+      <ActionDecisionControls item={item} />
       {item.blocked_state ? <p className="muted">{item.blocked_state}</p> : null}
       <InlineListWithFallback
         emptyLabel="Review actions: missing"
@@ -1654,6 +1670,97 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
       />
       <RefList refs={item.evidence_refs ?? []} />
     </article>
+  );
+}
+
+const actionDecisionLabels: Record<FounderLoopActionDecisionKind, string> = {
+  approve: "Record approval",
+  edit: "Record edit",
+  reject: "Record rejection",
+  defer: "Record defer",
+};
+
+function ActionDecisionControls({ item }: { item: FounderLoopActionItem }) {
+  const [state, setState] = useState<{
+    status: "idle" | "pending" | "recorded" | "failed";
+    decision?: FounderLoopActionDecisionKind;
+    receipt?: FounderLoopActionDecisionReceipt;
+    message?: string;
+  }>({ status: "idle" });
+  const pending = state.status === "pending";
+
+  async function recordDecision(decision: FounderLoopActionDecisionKind) {
+    setState({ status: "pending", decision });
+    try {
+      const receipt = await submitActionDecision(item.item_ref, decision, {
+        decision_reason_ref: `decision-reason-ref:control-center:${decision}`,
+        edited_envelope_ref:
+          decision === "edit"
+            ? (item.action_envelope_ref ?? item.approval_envelope_ref ?? null)
+            : undefined,
+        defer_until_ref:
+          decision === "defer"
+            ? "defer-until-ref:operator-selected-later"
+            : undefined,
+        metadata_refs: [
+          `metadata-ref:control-center-action-decision:${decision}`,
+          item.item_ref,
+        ],
+        approval_grants: [],
+      });
+      setState({
+        status: "recorded",
+        decision,
+        receipt,
+        message: `${receipt.status}: ${receipt.safe_summary}`,
+      });
+    } catch (error) {
+      setState({
+        status: "failed",
+        decision,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Action decision receipt was not recorded safely.",
+      });
+    }
+  }
+
+  return (
+    <div className="decision-controls" aria-label={`${item.title} decisions`}>
+      <div className="decision-button-row">
+        {(
+          ["approve", "edit", "reject", "defer"] as FounderLoopActionDecisionKind[]
+        ).map((decision) => (
+          <button
+            className="secondary-button"
+            disabled={pending}
+            key={decision}
+            onClick={() => void recordDecision(decision)}
+            type="button"
+          >
+            {pending && state.decision === decision
+              ? "Recording"
+              : actionDecisionLabels[decision]}
+          </button>
+        ))}
+      </div>
+      {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.receipt ? (
+        <dl className="detail-list">
+          <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+          <DetailTerm label="Audit" value={state.receipt.audit_ref} />
+          <DetailTerm
+            label="Action executed"
+            value={state.receipt.action_executed ? "yes" : "no"}
+          />
+          <DetailTerm
+            label="Connector write"
+            value={state.receipt.connector_write_performed ? "yes" : "no"}
+          />
+        </dl>
+      ) : null}
+    </div>
   );
 }
 

@@ -132,6 +132,46 @@ export interface FounderLoopActionItem {
   updated_at?: string;
 }
 
+export type FounderLoopActionDecisionKind =
+  | "approve"
+  | "edit"
+  | "reject"
+  | "defer";
+
+export interface FounderLoopActionDecisionRequest {
+  decision_reason_ref: string;
+  approval_ref?: string | null;
+  edited_envelope_ref?: string | null;
+  defer_until_ref?: string | null;
+  metadata_refs?: string[];
+  approval_grants?: unknown[];
+}
+
+export interface FounderLoopActionDecisionReceipt {
+  contract_ref: string;
+  decision_ref: string;
+  item_ref: string;
+  decision: FounderLoopActionDecisionKind;
+  status: string;
+  receipt_ref: string;
+  audit_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  approval_ref?: string | null;
+  approval_status: string;
+  approval_reason_refs: string[];
+  action_executed: boolean;
+  approval_grants_execution: boolean;
+  connector_write_performed: boolean;
+  memory_write_performed: boolean;
+  raw_content_stored: boolean;
+  replayed: boolean;
+  safe_summary: string;
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  created_at: string;
+}
+
 export interface FounderLoopPlanSummary {
   plan_ref: string;
   title: string;
@@ -1160,6 +1200,14 @@ export interface FounderLoopActionsInbox {
   items: FounderLoopActionItem[];
   approval_required_before_mutation: boolean;
   mutating_controls_enabled: boolean;
+  action_execution_enabled?: boolean;
+  decision_route_refs?: string[];
+  decision_state_contract_ref?: string;
+  decision_statuses?: string[];
+  decision_actions?: FounderLoopActionDecisionKind[];
+  decision_receipts_required?: boolean;
+  idempotency_replay_enabled?: boolean;
+  idempotency_conflict_rejected?: boolean;
   action_envelope_contract_ref?: string;
   action_envelope_review_postures?: FounderLoopActionEnvelopeReviewPosture[];
   action_envelope_required_ref_fields?: string[];

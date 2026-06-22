@@ -3961,8 +3961,20 @@ class FoundationGateEvaluator:
                 and route.method == "GET"
                 and route.side_effect_class == "local_dev_workspace_only"
             )
-            if not route.validation_only and not is_founder_loop_summary:
-                failures.append(f"{path} is not read-only/preview-only")
+            is_founder_loop_decision_state = (
+                path in FOUNDER_LOOP_ACTION_DECISION_ROUTES
+                and route.method == "POST"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "action_decision"
+                and route.blocked_from_production
+            )
+            if not route.validation_only and not is_founder_loop_summary and not is_founder_loop_decision_state:
+                failures.append(f"{path} is not read-only/preview-only/action-decision-state")
         unsafe_routes = [
             path
             for path in paths

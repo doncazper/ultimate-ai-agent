@@ -17,9 +17,12 @@ import type {
   RuntimeCapabilityMatrix,
   RuntimeReadinessReport,
   ApiRouteInventory,
+  FounderLoopActionDecisionKind,
+  FounderLoopActionDecisionReceipt,
+  FounderLoopActionDecisionRequest,
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
-import { API_ENDPOINTS } from "./endpoints";
+import { API_ENDPOINTS, actionDecisionEndpoint } from "./endpoints";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 import { sanitizeForDisplay } from "./redaction";
 
@@ -200,6 +203,55 @@ export async function submitActionPreview(
     );
   }
   return decision;
+}
+
+export async function submitActionDecision(
+  actionId: string,
+  decision: FounderLoopActionDecisionKind,
+  request: FounderLoopActionDecisionRequest,
+): Promise<FounderLoopActionDecisionReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${actionDecisionEndpoint(actionId, decision)}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": actionDecisionIdempotencyRef(
+          actionId,
+          decision,
+        ),
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  const data =
+    (await response.json()) as ResultEnvelope<FounderLoopActionDecisionReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        data.error?.message ??
+          "Action decision receipt was not recorded safely.",
+      ),
+    );
+  }
+  return receipt;
+}
+
+function actionDecisionIdempotencyRef(
+  actionId: string,
+  decision: FounderLoopActionDecisionKind,
+): string {
+  const safeActionId = actionId
+    .replace(/^founder-action:/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_.:-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${Date.now()}`;
 }
 
 export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {

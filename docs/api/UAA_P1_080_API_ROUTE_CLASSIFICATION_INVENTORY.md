@@ -26,12 +26,13 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 14 |
-| `local_sensitive` | 82 |
-| `mutating_requires_authority` | 13 |
+| `local_sensitive` | 83 |
+| `mutating_requires_authority` | 17 |
 
-The OpenAPI path count remains `112`. Stable paths, methods, operation IDs,
-tags, summaries, side-effect classes, `requires_auth_future=True`, and
-`blocked_from_production=True` remain preserved.
+The current OpenAPI path count is `117` after later scoped FCC-V1-002 Action
+Inbox decision routes. UAA-P1-080 itself added no routes; stable methods,
+operation IDs, tags, summaries, side-effect classes, `requires_auth_future=True`,
+and `blocked_from_production=True` remain preserved for the current boundary.
 
 FCC-V1-001 later extends the same route inventory projection with
 manifest-visible `auth_posture` and `approval_posture` fields. That extension
@@ -49,7 +50,7 @@ production readiness, or production authority is added by this milestone.
 
 - `src/ultimate_ai_agent/api/contracts.py`
 - `src/ultimate_ai_agent/api/manifest.py`
-- `tests/fixtures/api_route_inventory_112.json`
+- `tests/fixtures/api_route_inventory_117.json`
 - `docs/schemas/api_route_classification.schema.json`
 - `scripts/verify_uaa_p1_080_api_route_classification.py`
 - `tests/test_api_manifest.py`
