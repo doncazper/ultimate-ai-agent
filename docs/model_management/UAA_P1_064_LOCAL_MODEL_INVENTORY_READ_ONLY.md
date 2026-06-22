@@ -19,9 +19,9 @@ contract and must not own model truth in React state.
 
 ## Scope
 
-- Build a read-only Python Agent Core inventory over consolidated local model
-  roots using operator-configured values, with `$HOME/Models` as the documented
-  default family.
+- Build a read-only Python Agent Core inventory over operator-configured local
+  model roots. The core inventory has no implicit home-directory scan; operators
+  must pass explicit roots through CLI `--root` values or `UAA_LOCAL_MODEL_ROOTS`.
 - Detect local model candidates from GGUF, Hugging Face/MLX-style directories,
   Ollama manifests or blobs, LM Studio-style directories, and MLX directories
   without opening model weights or making runtime model calls.

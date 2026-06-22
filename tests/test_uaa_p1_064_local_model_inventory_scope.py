@@ -106,3 +106,12 @@ def test_uaa_p1_064_scope_script_does_not_execute_commands() -> None:
     assert "import subprocess" not in text
     assert "os.system" not in text
     assert "subprocess.run" not in text
+
+
+def test_uaa_p1_064_core_does_not_default_to_home_scanning() -> None:
+    text = (ROOT / "src/ultimate_ai_agent/core/local_model_management/inventory.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "Path.home(" not in text
+    assert 'DEFAULT_LOCAL_MODEL_ROOTS: tuple[Path, ...] = ()' in text

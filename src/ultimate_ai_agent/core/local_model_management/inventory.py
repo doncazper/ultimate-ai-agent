@@ -9,14 +9,7 @@ from enum import Enum
 from pathlib import Path
 
 
-DEFAULT_LOCAL_MODEL_ROOTS = (
-    Path.home() / "Models",
-    Path.home() / "Models" / "huggingface",
-    Path.home() / "Models" / "llama.cpp" / "model-cache",
-    Path.home() / "Models" / "ollama",
-    Path.home() / "Models" / "lm-studio",
-    Path.home() / "Models" / "mlx",
-)
+DEFAULT_LOCAL_MODEL_ROOTS: tuple[Path, ...] = ()
 
 DEFAULT_SCAN_LIMIT = 600
 SAFE_REF_HASH_LEN = 12

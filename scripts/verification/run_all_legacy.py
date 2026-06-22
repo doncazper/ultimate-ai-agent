@@ -29940,8 +29940,8 @@ def verify_no_mobile_native_or_sensor_implementation() -> None:
                 continue
             text = path.read_text(encoding="utf-8").lower()
             if rel in {
-                "scripts/verify_all.py",
-                "scripts/verify_control_center_frontend.py",
+                "scripts/verify_all.py", "scripts/verify_control_center_frontend.py",
+                "scripts/verification/run_all_legacy.py",
                 "src/ultimate_ai_agent/core/gate/evaluators.py",
                 "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
                 "tests/test_control_center_frontend_safety_verifier.py",

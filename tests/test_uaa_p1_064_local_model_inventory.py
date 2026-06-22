@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from ultimate_ai_agent.core.local_model_management.inventory import (
+    default_local_model_roots,
     inspect_local_model_inventory,
     inspect_local_model_ref,
     local_model_inventory_as_json,
@@ -15,6 +16,16 @@ def _write_hf_model(path: Path) -> None:
     (path / "config.json").write_text('{"model_type":"test"}\n', encoding="utf-8")
     (path / "tokenizer.json").write_text("{}\n", encoding="utf-8")
     (path / "model-00001-of-00001.safetensors").write_bytes(b"safe metadata fixture")
+
+
+def test_default_inventory_requires_operator_configured_roots() -> None:
+    assert default_local_model_roots() == ()
+
+    report = inspect_local_model_inventory()
+
+    assert report.status == "empty"
+    assert report.roots == ()
+    assert report.models == ()
 
 
 def test_inventory_detects_supported_local_model_candidates(tmp_path: Path) -> None:
