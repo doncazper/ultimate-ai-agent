@@ -23,6 +23,11 @@ class ApiRouteIdempotencyPosture(str, Enum):
     required_before_mutation_authority = "required_before_mutation_authority"
 
 
+class ApiRouteRateLimitPosture(str, Enum):
+    not_targeted_for_route = "not_targeted_for_route"
+    targeted_local_fixed_window = "targeted_local_fixed_window"
+
+
 class ApiRouteInventoryItem(BaseModel):
     path: str = Field(..., min_length=1)
     method: str = Field(..., min_length=1)
@@ -38,6 +43,11 @@ class ApiRouteInventoryItem(BaseModel):
     idempotency_posture: ApiRouteIdempotencyPosture
     idempotency_policy_ref: Optional[str] = None
     idempotency_reason: str = Field(..., min_length=1)
+    rate_limit_targeted: bool
+    rate_limit_posture: ApiRouteRateLimitPosture
+    rate_limit_policy_ref: Optional[str] = None
+    rate_limit_group: Optional[str] = None
+    rate_limit_reason: str = Field(..., min_length=1)
     requires_auth_future: bool = True
     blocked_from_production: bool = True
 
@@ -56,6 +66,8 @@ class ApiManifest(BaseModel):
     route_classification_summary: dict[str, int] = Field(default_factory=dict)
     idempotency_audit_policy_ref: Optional[str] = None
     route_idempotency_posture_summary: dict[str, int] = Field(default_factory=dict)
+    rate_limit_policy_ref: Optional[str] = None
+    route_rate_limit_posture_summary: dict[str, int] = Field(default_factory=dict)
     foundation_gate_status: Optional[str] = None
     capabilities_declared: List[str] = Field(default_factory=list)
     capabilities_blocked: List[str] = Field(default_factory=list)

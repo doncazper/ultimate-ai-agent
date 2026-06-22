@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -24,6 +24,8 @@ CONTROL_CENTER_LOOPBACK_CORS_HEADERS: tuple[str, ...] = (
     "X-Requested-With",
 )
 CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS: tuple[str, ...] = (
+    "Retry-After",
+    "X-UAA-Rate-Limit-Policy",
     "X-UAA-Security-Headers-Policy",
 )
 
@@ -39,3 +41,14 @@ def configure_loopback_cors(app: FastAPI) -> FastAPI:
         max_age=600,
     )
     return app
+
+
+def apply_loopback_cors_response_headers(response: Response, origin: str | None) -> Response:
+    if origin not in CONTROL_CENTER_LOOPBACK_CORS_ORIGINS:
+        return response
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Expose-Headers"] = ", ".join(
+        CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS
+    )
+    response.headers.add_vary_header("Origin")
+    return response

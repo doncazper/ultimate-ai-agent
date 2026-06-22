@@ -32,10 +32,12 @@ behavior, UAA-P1-082 explicit loopback CORS allowlist, UAA-P1-083 configured
 local protected-route bearer gate, and idempotency concepts in durable
 run/action planning. UAA-P1-084 now adds a mutating-route idempotency header
 gate without durable dedupe, exactly-once execution, replay execution, rate
-limits, mutation authority, or production authority. Missing controls remain
-planned in UAA-P1-085 through UAA-P1-086: targeted rate limits and OpenAPI/API
-manifest/route inventory enforcement tests. CORS is browser hardening, not
-auth, and this gap map does not implement those later controls.
+limits, mutation authority, or production authority. UAA-P1-085 now adds
+targeted local fixed-window rate limits without auth, distributed quota,
+dependencies, billing, or production authority. The remaining planned control
+is UAA-P1-086 OpenAPI/API manifest/route inventory enforcement tests. CORS is
+browser hardening, not auth, and this gap map does not implement that later
+control.
 
 CLI is a first-class operator surface. The Control Center may expose a workflow
 only as a shell over the same Python core/API contract that can be inspected or
@@ -147,10 +149,9 @@ remaining gaps before broader product-readiness claims are:
 7. Continue expanding Evidence views beyond the FCC-P1-006 timeline only after
    durable run, evidence-index, rollback-status, and latency-report contracts
    are scoped.
-8. Complete the UAA-P1-085 through UAA-P1-086 remaining API boundary
-   hardening lane before claiming authority-heavy Plans, Chat, Code,
-   loop-binding, or private beta-readiness: targeted rate limits and
-   OpenAPI/API manifest enforcement tests.
+8. Complete the UAA-P1-086 remaining API boundary hardening lane before
+   claiming authority-heavy Plans, Chat, Code, loop-binding, or private
+   beta-readiness: OpenAPI/API manifest enforcement tests.
 9. Complete the FCC-V1 Founder Loop V1 conveyor before promoting the first
    product loop to `ship`: release surface manifest, API perimeter for real
    mutations, Action Inbox approve/edit/reject/defer backend decisions, Today

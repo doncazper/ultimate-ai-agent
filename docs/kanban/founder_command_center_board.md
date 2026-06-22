@@ -74,15 +74,16 @@ FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
-UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084.
+UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084,
+UAA-P1-085.
 
 Candidate-next:
-UAA-P1-085 Targeted Rate Limits For Expensive And Sensitive Routes.
+UAA-P1-086 API Boundary Enforcement Tests.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 FCC-V1-000 through FCC-V1-007 Founder Loop V1 productization conveyor.
 
 Blocked / future:
-UAA-P1-085, UAA-P1-086, UAA-P1-087,
+UAA-P1-086, UAA-P1-087,
 UAA-P1-087.1, UAA-P1-087.2, UAA-P1-087.3,
 FCC-V1-000, FCC-V1-001, FCC-V1-002, FCC-V1-003, FCC-V1-004,
 FCC-V1-005, FCC-V1-006, FCC-V1-007,
@@ -938,19 +939,29 @@ production readiness, or production authority.
 
 ### UAA-P1-085 - Targeted Rate Limits For Expensive And Sensitive Routes
 
+Status: Implemented.
+
 Epic: API Boundary, Performance/Safety
 
-Description: Add targeted rate limits to likely abuse or heavy paths first:
-model/chat endpoints, task decomposition endpoints, action preview/proposal
-endpoints, and routes that trigger expensive validation or local model behavior.
+Description: Added targeted local fixed-window rate limits to likely abuse or
+heavy paths first: model/chat endpoints, task decomposition endpoints, action
+preview/proposal endpoints, and routes that trigger expensive validation or
+local model behavior.
 
-Acceptance criteria: Rate limits are targeted and evidence-based; validation-only
-endpoints may remain lighter unless abuse risk is shown.
+Acceptance criteria: Rate limits are targeted and evidence-based; manifest and
+route inventory expose rate-limit posture and 429 responses include safe
+policy/group/retry metadata.
 
-Required tests/verifiers: future rate-limit tests and docs integrity.
+Required tests/verifiers: `tests/test_api_rate_limits.py`,
+`tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
+`tests/test_api_cors.py`,
+`scripts/verify_uaa_p1_085_targeted_rate_limits.py`, OpenAPI/API manifest
+checks, and docs integrity.
 
-Safety notes: No generalized framework or dependency is added by this planning
-entry.
+Safety notes: Implemented as process-local in-memory fixed-window protection
+for targeted routes only. It is not auth, a distributed quota store, a durable
+rate-limit store, billing quota, tenant quota, broad production authority,
+public beta, distribution, or production readiness.
 
 ### UAA-P1-086 - API Boundary Enforcement Tests
 

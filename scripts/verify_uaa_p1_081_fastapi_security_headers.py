@@ -49,7 +49,8 @@ REQUIRED_DOC_SNIPPETS = {
         "security-header posture",
         "X-Content-Type-Options",
         "UAA-P1-084 implements mutating-route idempotency enforcement audit posture",
-        "Future UAA-P1-085 through UAA-P1-086",
+        "UAA-P1-085 implements targeted local fixed-window rate-limit posture",
+        "Future UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [

@@ -1,0 +1,206 @@
+from __future__ import annotations
+
+import math
+import os
+import time
+from dataclasses import dataclass
+from threading import RLock
+
+from ultimate_ai_agent.api.contracts import ApiRouteRateLimitPosture
+
+
+API_TARGETED_RATE_LIMIT_POLICY_REF = "rate-limit:p1-085:targeted-local:v1"
+API_TARGETED_RATE_LIMIT_ENABLED_ENV = "UAA_API_TARGETED_RATE_LIMITS_ENABLED"
+API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV = "UAA_API_TARGETED_RATE_LIMIT_MAX_REQUESTS"
+API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV = "UAA_API_TARGETED_RATE_LIMIT_WINDOW_SECONDS"
+
+TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
+    "model_chat": {"max_requests": 30, "window_seconds": 60},
+    "task_decomposition": {"max_requests": 120, "window_seconds": 60},
+    "action_preview_proposal": {"max_requests": 120, "window_seconds": 60},
+    "local_model_validation": {"max_requests": 120, "window_seconds": 60},
+}
+
+ACTION_PREVIEW_PROPOSAL_PATHS = {
+    "/control-center/actions/preview",
+    "/files/diff/preview",
+    "/".join(("", "files", "review", "approvals", "capture")),
+    "/files/write/propose",
+}
+TASK_DECOMPOSITION_PATHS = {
+    "/task-decomposition/approval-requests",
+    "/task-decomposition/approvals",
+    "/task-decomposition/approvals/grants/capture",
+    "/task-decomposition/approvals/revoke",
+    "/task-decomposition/audit",
+    "/task-decomposition/capabilities/register",
+    "/task-decomposition/catalog",
+    "/task-decomposition/classify",
+    "/task-decomposition/decompose",
+    "/task-decomposition/examples/init",
+    "/task-decomposition/metrics",
+    "/task-decomposition/plans/execute",
+    "/task-decomposition/plans/validate",
+    "/task-decomposition/registry/export",
+    "/task-decomposition/run",
+    "/task-decomposition/status",
+}
+LOCAL_MODEL_VALIDATION_PATHS = {
+    "/local-runtime/validate",
+    "/model-runtime/local/endpoints/validate",
+    "/model-runtime/local/execution/validate",
+    "/model-runtime/local/simulate-fallback",
+    "/model-runtime/local/smoke/validate",
+    "/model-runtime/manifests/validate",
+    "/model-runtime/requests/validate",
+    "/model-runtime/responses/validate",
+    "/model-runtime/simulate",
+    "/models/profiles/validate",
+    "/models/route/preview",
+    "/runtime/smoke-reports/validate",
+}
+
+
+@dataclass(frozen=True)
+class ApiRateLimitFailure:
+    status_code: int
+    code: str
+    safe_message: str
+    retry_after_seconds: int
+    group: str
+
+
+@dataclass
+class _RateLimitBucket:
+    count: int
+    reset_at: float
+
+
+_RATE_LIMIT_BUCKETS: dict[tuple[str, str], _RateLimitBucket] = {}
+_RATE_LIMIT_LOCK = RLock()
+
+
+def _env_int(name: str, default: int, *, minimum: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return max(value, minimum)
+
+
+def targeted_rate_limits_enabled() -> bool:
+    return os.getenv(API_TARGETED_RATE_LIMIT_ENABLED_ENV, "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def route_rate_limit_group(method: str, path: str) -> str | None:
+    normalized_method = method.upper()
+    if normalized_method == "POST" and path == "/v1/chat/completions":
+        return "model_chat"
+    if normalized_method == "GET" and path == "/v1/models":
+        return "model_chat"
+    if normalized_method in {"GET", "POST"} and path in TASK_DECOMPOSITION_PATHS:
+        return "task_decomposition"
+    if normalized_method == "POST" and path in ACTION_PREVIEW_PROPOSAL_PATHS:
+        return "action_preview_proposal"
+    if normalized_method == "POST" and path in LOCAL_MODEL_VALIDATION_PATHS:
+        return "local_model_validation"
+    return None
+
+
+def route_rate_limit_posture(
+    method: str,
+    path: str,
+) -> tuple[bool, ApiRouteRateLimitPosture, str | None, str | None, str]:
+    group = route_rate_limit_group(method, path)
+    if group is None:
+        return (
+            False,
+            ApiRouteRateLimitPosture.not_targeted_for_route,
+            None,
+            None,
+            "Route is not in the UAA-P1-085 targeted expensive/sensitive route set.",
+        )
+    return (
+        True,
+        ApiRouteRateLimitPosture.targeted_local_fixed_window,
+        API_TARGETED_RATE_LIMIT_POLICY_REF,
+        group,
+        "Route is in the UAA-P1-085 targeted local fixed-window rate-limit set.",
+    )
+
+
+def rate_limit_settings_for_group(group: str) -> tuple[int, int]:
+    defaults = TARGETED_RATE_LIMIT_GROUP_DEFAULTS[group]
+    max_requests = _env_int(
+        API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV,
+        defaults["max_requests"],
+        minimum=1,
+    )
+    window_seconds = _env_int(
+        API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV,
+        defaults["window_seconds"],
+        minimum=1,
+    )
+    return max_requests, window_seconds
+
+
+def api_rate_limit_policy_payload(targeted_route_count: int) -> dict[str, object]:
+    return {
+        "policy_ref": API_TARGETED_RATE_LIMIT_POLICY_REF,
+        "targeted_groups": sorted(TARGETED_RATE_LIMIT_GROUP_DEFAULTS),
+        "targeted_route_count": targeted_route_count,
+        "posture_field": "rate_limit_posture",
+        "targeted_field": "rate_limit_targeted",
+        "runtime_middleware_added": True,
+        "local_in_memory_fixed_window": True,
+        "distributed_quota_store_added": False,
+        "dependencies_added": False,
+        "rate_limits_are_auth": False,
+        "production_authority_enabled": False,
+    }
+
+
+def reset_api_rate_limit_state() -> None:
+    with _RATE_LIMIT_LOCK:
+        _RATE_LIMIT_BUCKETS.clear()
+
+
+def rate_limit_failure(
+    *,
+    method: str,
+    path: str,
+    client_ref: str | None,
+    now: float | None = None,
+) -> ApiRateLimitFailure | None:
+    if not targeted_rate_limits_enabled():
+        return None
+    group = route_rate_limit_group(method, path)
+    if group is None:
+        return None
+    max_requests, window_seconds = rate_limit_settings_for_group(group)
+    clock = time.monotonic() if now is None else now
+    key = (group, client_ref or "local-client")
+    with _RATE_LIMIT_LOCK:
+        bucket = _RATE_LIMIT_BUCKETS.get(key)
+        if bucket is None or clock >= bucket.reset_at:
+            _RATE_LIMIT_BUCKETS[key] = _RateLimitBucket(count=1, reset_at=clock + window_seconds)
+            return None
+        if bucket.count >= max_requests:
+            retry_after = max(1, math.ceil(bucket.reset_at - clock))
+            return ApiRateLimitFailure(
+                status_code=429,
+                code="API_TARGETED_RATE_LIMITED",
+                safe_message="The local targeted rate limit was reached for this route group.",
+                retry_after_seconds=retry_after,
+                group=group,
+            )
+        bucket.count += 1
+    return None

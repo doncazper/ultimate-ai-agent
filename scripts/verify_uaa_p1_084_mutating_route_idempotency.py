@@ -57,7 +57,8 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/route_inventory.md": [
         "UAA-P1-084 implements mutating-route idempotency enforcement audit posture",
-        "Future UAA-P1-085 through UAA-P1-086",
+        "UAA-P1-085 implements targeted local fixed-window rate-limit posture",
+        "Future UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -108,6 +109,10 @@ def _fixture_routes_from_manifest(manifest: dict[str, Any]) -> list[dict[str, An
             "idempotency_required": route["idempotency_required"],
             "idempotency_posture": route["idempotency_posture"],
             "idempotency_policy_ref": route["idempotency_policy_ref"],
+            "rate_limit_targeted": route["rate_limit_targeted"],
+            "rate_limit_posture": route["rate_limit_posture"],
+            "rate_limit_policy_ref": route["rate_limit_policy_ref"],
+            "rate_limit_group": route["rate_limit_group"],
         }
         for route in manifest["routes"]
     ]

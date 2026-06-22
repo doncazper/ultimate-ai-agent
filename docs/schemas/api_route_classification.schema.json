@@ -10,12 +10,14 @@
     "route_classification_summary",
     "route_idempotency_posture_summary",
     "idempotency_audit_policy_ref",
+    "route_rate_limit_posture_summary",
+    "rate_limit_policy_ref",
     "routes",
     "schema_version"
   ],
   "properties": {
     "schema_version": {
-      "const": "uaa-api-route-inventory.v2"
+      "const": "uaa-api-route-inventory.v3"
     },
     "route_count": {
       "const": 112
@@ -83,6 +85,27 @@
     "idempotency_audit_policy_ref": {
       "const": "idempotency:p1-084:mutating-routes:v1"
     },
+    "route_rate_limit_posture_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "not_targeted_for_route",
+        "targeted_local_fixed_window"
+      ],
+      "properties": {
+        "not_targeted_for_route": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "targeted_local_fixed_window": {
+          "type": "integer",
+          "const": 34
+        }
+      }
+    },
+    "rate_limit_policy_ref": {
+      "const": "rate-limit:p1-085:targeted-local:v1"
+    },
     "routes": {
       "type": "array",
       "minItems": 112,
@@ -98,6 +121,10 @@
           "idempotency_required",
           "idempotency_posture",
           "idempotency_policy_ref",
+          "rate_limit_targeted",
+          "rate_limit_posture",
+          "rate_limit_policy_ref",
+          "rate_limit_group",
           "side_effect_class",
           "summary",
           "tags"
@@ -155,6 +182,34 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "rate_limit_targeted": {
+            "type": "boolean"
+          },
+          "rate_limit_posture": {
+            "enum": [
+              "not_targeted_for_route",
+              "targeted_local_fixed_window"
+            ]
+          },
+          "rate_limit_policy_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rate_limit_group": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "action_preview_proposal",
+              "local_model_validation",
+              "model_chat",
+              "task_decomposition",
+              null
             ]
           }
         }

@@ -64,7 +64,7 @@ V1 complete, and marks UAA-P1-080 API Route Classification And
 Public/Protected Inventory complete, and marks UAA-P1-081 Centralized FastAPI
 Security Headers complete, and marks UAA-P1-082 Explicit Loopback CORS
 Allowlist complete, and marks UAA-P1-083 Local Bearer Or Session Gate For
-Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 through UAA-P1-086 remain planned/queued API boundary hardening lanes, followed by the ordered
+Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 remains planned/queued for API boundary enforcement tests, followed by the ordered
 UAA-P1-087.1 local launcher dual-surface boot readiness, UAA-P1-087.2
 in-person private UI functional tuning, and UAA-P1-087.3 native SwiftUI boot
 cockpit planning/source-only scaffold before P2/provider, packaging, or
@@ -107,7 +107,7 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-084 are complete. The next planned/queued API boundary hardening lane is UAA-P1-085 Targeted Rate Limits For Expensive And Sensitive Routes.
+No active build item is in progress. UAA-P1-067 through UAA-P1-085 are complete. The next planned/queued API boundary hardening lane is UAA-P1-086 API Boundary Enforcement Tests.
 ```
 
 ## Ready Next
@@ -221,9 +221,15 @@ execution, rate limit, mutation authority, public beta, distribution,
 production readiness, or production authority is added by this milestone.
 
 UAA-P1-085 Targeted Rate Limits For Expensive And Sensitive Routes
+Status: Done. Targeted local fixed-window rate limits cover model/chat, task
+decomposition, action preview/proposal, and expensive validation/local-model
+route groups. `/api/manifest` and the frozen route inventory expose
+rate-limit posture and `rate-limit:p1-085:targeted-local:v1`.
 Goal: rate-limit likely abuse or heavy paths first: model/chat, task
 decomposition, action preview/proposal, and expensive validation/local-model
 behavior.
+Safety: no auth, distributed quota, dependency, billing, public beta,
+distribution, production readiness, or production authority is added here.
 
 UAA-P1-086 API Boundary Enforcement Tests
 Goal: make OpenAPI, `/api/manifest`, and route inventory checks enforce route
@@ -480,7 +486,7 @@ business memory and memory quality controls, UAA-P1-073 completed Plans to
 reviewable Action envelopes, UAA-P1-074 completed Chat local operator surface,
 UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076 completed
 Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding,
-UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 Gate met: Active docs, roadmap, current board, Founder Command Center board,
@@ -488,7 +494,7 @@ product truth, strategy/task docs, and the Codex prompt library identify Today
 as the product spine, memory as the reviewed differentiator, UAA-P1-068 as
 completed Today Product Spine Contract work, and the conveyor that now has
 UAA-P1-073, UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077, and UAA-P1-078
-complete through UAA-P1-084 with UAA-P1-085 planned/queued.
+complete through UAA-P1-085 with UAA-P1-086 planned/queued.
 UAA-P1-066
 remains queued as read-only local model support.
 `docs/codex/CODEX_EXECUTION_PROMPTS.md` records the product-loop
@@ -539,7 +545,7 @@ Plans to reviewable Action envelopes, UAA-P1-074 completed Chat local operator
 surface, UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076
 completed Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop
 Binding, UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079
-completed user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+completed user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-070 Memory Source And Provenance Model
 Gate met: `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`
@@ -562,7 +568,7 @@ UAA-P1-073 completed Plans to reviewable Action envelopes. UAA-P1-074
 completed Chat local operator surface, UAA-P1-075 completed Governed Code
 Workbench V1, UAA-P1-076 completed Cross-Surface Memory Intake, UAA-P1-077
 completed Memory-To-Loop Binding, UAA-P1-078 completed the private
-beta-readiness gate, and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+beta-readiness gate, and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-071 Memory Review Decision Capture
 Gate met: `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`
@@ -587,7 +593,7 @@ envelopes. UAA-P1-074 completed Chat local operator surface, UAA-P1-075
 completed Governed Code Workbench V1, UAA-P1-076 completed Cross-Surface
 Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding, UAA-P1-078
 completed the private beta-readiness gate, and UAA-P1-079 completed user
-intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-072 Business Memory And Memory Quality Controls
 Gate met: `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`
@@ -610,7 +616,7 @@ completed Plans to reviewable Action envelopes. UAA-P1-074 completed Chat
 local operator surface, UAA-P1-075 completed Governed Code Workbench V1, and
 UAA-P1-076 completed Cross-Surface Memory Intake, UAA-P1-077 completed
 Memory-To-Loop Binding, UAA-P1-078 completed the private beta-readiness gate,
-and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-073 Plans To Reviewable Action Envelopes
 Gate met: `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`
@@ -633,7 +639,7 @@ production readiness, or production authority. UAA-P1-074 completed Chat local
 operator surface, UAA-P1-075 completed Governed Code Workbench V1, and
 UAA-P1-076 completed Cross-Surface Memory Intake, UAA-P1-077 completed
 Memory-To-Loop Binding, UAA-P1-078 completed the private beta-readiness gate,
-and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-074 Chat Local Operator Surface
 Gate met: `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`
@@ -654,7 +660,7 @@ capture, public beta, public distribution, production readiness, or production
 authority. UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076
 completed Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop
 Binding, UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079
-completed user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+completed user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-075 Governed Code Workbench V1
 Gate met: `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md` defines
@@ -674,7 +680,7 @@ shell, shell/subprocess execution, remote execution, broad coding-agent
 autonomy, provider SDK call, web fetch, connector write, diff body storage,
 memory write, hidden context injection, public beta, public distribution,
 production readiness, or production authority. UAA-P1-077 is now complete and
-UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-076 Cross-Surface Memory Intake
 Gate met: `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`
@@ -695,7 +701,7 @@ fetch, browser import, shell history import, source import, automatic memory
 write, accepted recall, context injection, connector runtime, public beta,
 public distribution, production readiness, or production authority. UAA-P1-077
 is complete, UAA-P1-078 completed the private beta-readiness gate, and
-UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-077 Memory-To-Loop Binding
 Gate met: `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md` defines
@@ -715,7 +721,7 @@ no new route, OpenAPI operation, side-effect class, memory write, automatic
 recall, context injection, approval grant capture, action execution, connector
 write, account sync, public beta, public distribution, production readiness, or
 production authority. UAA-P1-078 completed the private beta-readiness gate,
-and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
 UAA-P1-078 Private Beta-Readiness Gate
 Gate met: `docs/control_center/UAA_P1_078_PRIVATE_BETA_READINESS_GATE.md`
@@ -738,24 +744,24 @@ provider/model authority, unrestricted shell, shell/subprocess execution,
 remote execution, account sync, CRM write, memory write, automatic memory
 write, context injection, approval grant capture, action execution, Code apply,
 or production authority. UAA-P1-079 is complete for user intent understanding;
-UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 remains planned/queued targeted rate-limit hardening.
+UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 remains planned/queued for API boundary enforcement tests.
 
-UAA-P1-084 through UAA-P1-086 API Boundary Hardening Lane
-Status: UAA-P1-083 and UAA-P1-084 implemented; UAA-P1-085 through UAA-P1-086
-remain planned/queued. Preserves existing UAA-P1-073 through UAA-P1-084
+UAA-P1-080 through UAA-P1-086 API Boundary Hardening Lane
+Status: UAA-P1-080 through UAA-P1-085 implemented; UAA-P1-086
+remains planned/queued. Preserves existing UAA-P1-073 through UAA-P1-084
 product-loop/API milestone names while requiring the remaining API perimeter
-gates before authority-heavy Plans, Chat, Code, loop-binding, or private
+gate before authority-heavy Plans, Chat, Code, loop-binding, or private
 beta-readiness claims. Existing partial coverage: OpenAPI and `/api/manifest`
 route metadata, route side-effect classes, UAA-P1-080 route classification,
 UAA-P1-081 centralized security headers, route-status auth posture,
 UAA-P1-082 explicit loopback CORS allowlist, UAA-P1-083 configured local
 protected-route bearer gate, disabled-by-default bearer-gated `/v1` local model
-shell, idempotency concepts in durable run/action planning, and UAA-P1-084
-mutating-route idempotency header gate. Missing/future work: targeted rate
-limits and OpenAPI/API manifest/route inventory enforcement tests. This lane adds no
-enterprise auth, OAuth, password flow, durable idempotency dedupe, rate limiting,
-public beta, public distribution, production readiness, or production
-authority.
+shell, idempotency concepts in durable run/action planning, UAA-P1-084
+mutating-route idempotency header gate, and UAA-P1-085 targeted local
+fixed-window rate limits. Missing/future work: OpenAPI/API manifest/route
+inventory enforcement tests. This lane adds no enterprise auth, OAuth,
+password flow, durable idempotency dedupe, distributed quota, public beta,
+public distribution, production readiness, or production authority.
 
 UAA-P1-087 Private Operator Trial And UI Functional Tuning
 Status: planned/queued after UAA-P1-086. Runs as UAA-P1-087.1 launcher/

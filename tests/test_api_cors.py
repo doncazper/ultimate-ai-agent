@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.cors import (
+    CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS,
     CONTROL_CENTER_LOOPBACK_CORS_HEADERS,
     CONTROL_CENTER_LOOPBACK_CORS_METHODS,
     CONTROL_CENTER_LOOPBACK_CORS_ORIGINS,
@@ -41,6 +42,11 @@ def test_loopback_cors_allowlist_is_explicit_and_non_credentialed() -> None:
         "X-UAA-Idempotency-Ref",
         "X-Requested-With",
     )
+    assert CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS == (
+        "Retry-After",
+        "X-UAA-Rate-Limit-Policy",
+        "X-UAA-Security-Headers-Policy",
+    )
 
 
 def test_allowed_loopback_origin_get_receives_specific_origin_only() -> None:
@@ -51,7 +57,7 @@ def test_allowed_loopback_origin_get_receives_specific_origin_only() -> None:
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == origin
     assert response.headers["Access-Control-Expose-Headers"] == (
-        "X-UAA-Security-Headers-Policy"
+        "Retry-After, X-UAA-Rate-Limit-Policy, X-UAA-Security-Headers-Policy"
     )
     assert response.headers.get("Access-Control-Allow-Credentials") is None
     assert response.headers["Access-Control-Allow-Origin"] != "*"

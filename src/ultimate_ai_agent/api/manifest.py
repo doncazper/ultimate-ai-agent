@@ -11,11 +11,16 @@ from ultimate_ai_agent.api.contracts import (
     ApiRouteClassification,
     ApiRouteIdempotencyPosture,
     ApiRouteInventoryItem,
+    ApiRouteRateLimitPosture,
     ApiRouteSideEffectClass,
 )
 from ultimate_ai_agent.api.idempotency import (
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
     route_idempotency_posture,
+)
+from ultimate_ai_agent.api.rate_limits import (
+    API_TARGETED_RATE_LIMIT_POLICY_REF,
+    route_rate_limit_posture,
 )
 
 
@@ -26,6 +31,7 @@ CAPABILITIES_DECLARED = [
     "explicit_loopback_cors_allowlist",
     "local_protected_route_bearer_gate",
     "mutating_route_idempotency_audit",
+    "targeted_local_rate_limits",
     "typed_validation_routes",
     "foundation_gate_reporting",
     "local_dev_approval_validation",
@@ -91,6 +97,9 @@ CAPABILITIES_BLOCKED = [
     "idempotency_audit_as_durable_dedupe_store",
     "idempotency_audit_as_mutation_authority",
     "idempotency_audit_as_production_authority",
+    "targeted_rate_limits_as_auth",
+    "targeted_rate_limits_as_distributed_quota",
+    "targeted_rate_limits_as_production_authority",
     "plugin_enablement_routes",
     "control_center_execution",
     "control_center_plugin_enablement",
@@ -260,6 +269,10 @@ API_MANIFEST_CACHEABLE_FIELDS = (
     "routes",
     "route_classification_vocabulary",
     "route_classification_summary",
+    "idempotency_audit_policy_ref",
+    "route_idempotency_posture_summary",
+    "rate_limit_policy_ref",
+    "route_rate_limit_posture_summary",
     "capabilities_declared",
     "capabilities_blocked",
     "no_runtime_integrations",
@@ -282,6 +295,7 @@ API_MANIFEST_CACHE_INVALIDATION_RULES = (
     "route_path_method_operation_tag_summary_change",
     "route_classification_logic_change",
     "route_idempotency_posture_logic_change",
+    "route_rate_limit_posture_logic_change",
     "capabilities_declared_change",
     "capabilities_blocked_change",
     "manual_cache_clear",
@@ -412,6 +426,13 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                 idempotency_policy_ref,
                 idempotency_reason,
             ) = route_idempotency_posture(route_classification)
+            (
+                rate_limit_targeted,
+                rate_limit_posture,
+                rate_limit_policy_ref,
+                rate_limit_group,
+                rate_limit_reason,
+            ) = route_rate_limit_posture(method, route.path)
             items.append(
                 ApiRouteInventoryItem(
                     path=route.path,
@@ -428,6 +449,11 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                     idempotency_posture=idempotency_posture,
                     idempotency_policy_ref=idempotency_policy_ref,
                     idempotency_reason=idempotency_reason,
+                    rate_limit_targeted=rate_limit_targeted,
+                    rate_limit_posture=rate_limit_posture,
+                    rate_limit_policy_ref=rate_limit_policy_ref,
+                    rate_limit_group=rate_limit_group,
+                    rate_limit_reason=rate_limit_reason,
                 )
             )
     return sorted(items, key=lambda item: (item.path, item.method))
@@ -520,9 +546,11 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
     idempotency_summary = {
         posture.value: 0 for posture in ApiRouteIdempotencyPosture
     }
+    rate_limit_summary = {posture.value: 0 for posture in ApiRouteRateLimitPosture}
     for route in static.routes:
         classification_summary[str(route.route_classification)] += 1
         idempotency_summary[str(route.idempotency_posture)] += 1
+        rate_limit_summary[str(route.rate_limit_posture)] += 1
     return ApiManifest(
         title=static.title,
         api_version=static.api_version,
@@ -537,6 +565,8 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
         route_classification_summary=classification_summary,
         idempotency_audit_policy_ref=API_IDEMPOTENCY_AUDIT_POLICY_REF,
         route_idempotency_posture_summary=idempotency_summary,
+        rate_limit_policy_ref=API_TARGETED_RATE_LIMIT_POLICY_REF,
+        route_rate_limit_posture_summary=rate_limit_summary,
         foundation_gate_status=foundation_gate_status,
         capabilities_declared=list(static.capabilities_declared),
         capabilities_blocked=list(static.capabilities_blocked),

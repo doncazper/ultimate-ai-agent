@@ -106,6 +106,10 @@ def _fixture_routes_from_manifest(manifest: dict[str, Any]) -> list[dict[str, An
             "idempotency_required": route["idempotency_required"],
             "idempotency_posture": route["idempotency_posture"],
             "idempotency_policy_ref": route["idempotency_policy_ref"],
+            "rate_limit_targeted": route["rate_limit_targeted"],
+            "rate_limit_posture": route["rate_limit_posture"],
+            "rate_limit_policy_ref": route["rate_limit_policy_ref"],
+            "rate_limit_group": route["rate_limit_group"],
         }
         for route in manifest["routes"]
     ]
@@ -158,7 +162,7 @@ def main() -> int:
             failures.append(f"{route['method']} {route['path']} blocked_from_production drifted")
 
     fixture = _load_json("tests/fixtures/api_route_inventory_112.json")
-    if fixture.get("schema_version") != "uaa-api-route-inventory.v2":
+    if fixture.get("schema_version") != "uaa-api-route-inventory.v3":
         failures.append("tests/fixtures/api_route_inventory_112.json schema_version is stale")
     if fixture.get("routes") != _fixture_routes_from_manifest(manifest):
         failures.append("tests/fixtures/api_route_inventory_112.json does not match live manifest")
@@ -172,6 +176,12 @@ def main() -> int:
         "idempotency_audit_policy_ref"
     ):
         failures.append("fixture idempotency_audit_policy_ref is stale")
+    if fixture.get("route_rate_limit_posture_summary") != manifest.get(
+        "route_rate_limit_posture_summary"
+    ):
+        failures.append("fixture route_rate_limit_posture_summary is stale")
+    if fixture.get("rate_limit_policy_ref") != manifest.get("rate_limit_policy_ref"):
+        failures.append("fixture rate_limit_policy_ref is stale")
 
     route_status = _load_json("docs/control_center/route_status_manifest.json")
     for section_name, route_key in (

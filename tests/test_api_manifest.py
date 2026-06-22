@@ -35,6 +35,7 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "explicit_loopback_cors_allowlist" in manifest["capabilities_declared"]
     assert "local_protected_route_bearer_gate" in manifest["capabilities_declared"]
     assert "mutating_route_idempotency_audit" in manifest["capabilities_declared"]
+    assert "targeted_local_rate_limits" in manifest["capabilities_declared"]
     assert "security_headers_as_authentication" in manifest["capabilities_blocked"]
     assert "security_headers_as_cors_policy" in manifest["capabilities_blocked"]
     assert "security_headers_as_rate_limits" in manifest["capabilities_blocked"]
@@ -50,6 +51,9 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "idempotency_audit_as_durable_dedupe_store" in manifest["capabilities_blocked"]
     assert "idempotency_audit_as_mutation_authority" in manifest["capabilities_blocked"]
     assert "idempotency_audit_as_production_authority" in manifest["capabilities_blocked"]
+    assert "targeted_rate_limits_as_auth" in manifest["capabilities_blocked"]
+    assert "targeted_rate_limits_as_distributed_quota" in manifest["capabilities_blocked"]
+    assert "targeted_rate_limits_as_production_authority" in manifest["capabilities_blocked"]
     assert "local_loopback_gateway_explicit_bearer_required" in manifest["capabilities_declared"]
     assert "local_loopback_gateway_allowlisted_response_shape" in manifest["capabilities_declared"]
     assert "file_api_safe_tree_preview_refs" in manifest["capabilities_declared"]
@@ -98,6 +102,11 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         "not_required_for_route_classification": 99,
         "required_before_mutation_authority": 13,
     }
+    assert manifest["rate_limit_policy_ref"] == "rate-limit:p1-085:targeted-local:v1"
+    assert manifest["route_rate_limit_posture_summary"] == {
+        "not_targeted_for_route": 78,
+        "targeted_local_fixed_window": 34,
+    }
     assert all(
         route["route_classification"] in manifest["route_classification_vocabulary"]
         for route in manifest["routes"]
@@ -112,6 +121,7 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         is (route["route_classification"] == "mutating_requires_authority")
         for route in manifest["routes"]
     )
+    assert all(route["rate_limit_reason"] for route in manifest["routes"])
     routes_by_path = {route["path"]: route for route in manifest["routes"]}
     assert routes_by_path["/health"]["route_classification"] == "public_metadata"
     assert routes_by_path["/version"]["route_classification"] == "public_metadata"
@@ -134,9 +144,25 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert routes_by_path["/task-decomposition/approvals/grants/capture"][
         "idempotency_policy_ref"
     ] == "idempotency:p1-084:mutating-routes:v1"
+    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
+        "rate_limit_posture"
+    ] == "targeted_local_fixed_window"
+    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
+        "rate_limit_group"
+    ] == "task_decomposition"
     assert routes_by_path["/files/tree/preview"]["idempotency_posture"] == (
         "not_required_for_route_classification"
     )
+    assert routes_by_path["/files/tree/preview"]["rate_limit_posture"] == (
+        "not_targeted_for_route"
+    )
+    assert routes_by_path["/models/route/preview"]["rate_limit_group"] == (
+        "local_model_validation"
+    )
+    assert routes_by_path["/control-center/actions/preview"]["rate_limit_group"] == (
+        "action_preview_proposal"
+    )
+    assert routes_by_path["/v1/chat/completions"]["rate_limit_group"] == "model_chat"
     assert routes_by_path["/v1/chat/completions"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/tree/preview"]["side_effect_class"] == "local_dev_workspace_only"
     assert routes_by_path["/files/read/preview"]["side_effect_class"] == "local_dev_workspace_only"

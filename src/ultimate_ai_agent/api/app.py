@@ -12,7 +12,10 @@ from typing import Any, List, Optional
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.contracts import ApiManifest
-from ultimate_ai_agent.api.cors import configure_loopback_cors
+from ultimate_ai_agent.api.cors import (
+    apply_loopback_cors_response_headers,
+    configure_loopback_cors,
+)
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
 from ultimate_ai_agent.api.idempotency import (
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
@@ -29,6 +32,10 @@ from ultimate_ai_agent.api.manifest import (
 )
 from ultimate_ai_agent.api.mattermost import register_mattermost_routes
 from ultimate_ai_agent.api.openapi import configure_openapi_contract
+from ultimate_ai_agent.api.rate_limits import (
+    API_TARGETED_RATE_LIMIT_POLICY_REF,
+    rate_limit_failure,
+)
 from ultimate_ai_agent.api.routes.system_service import register_system_routes
 from ultimate_ai_agent.api.security_headers import apply_fastapi_security_headers
 from ultimate_ai_agent.api.web_evidence import register_governed_web_evidence_routes
@@ -552,6 +559,37 @@ async def session_log_api_middleware(request: Request, call_next: Any) -> Any:
             error_code=error_code,
             error_summary=error_summary,
         )
+
+
+@app.middleware("http")
+async def api_targeted_rate_limit_middleware(request: Request, call_next: Any) -> Any:
+    if request.method.upper() in {"OPTIONS", "HEAD"}:
+        return await call_next(request)
+    failure = rate_limit_failure(
+        method=request.method,
+        path=request.url.path,
+        client_ref=request.client.host if request.client else None,
+    )
+    if failure is not None:
+        response = JSONResponse(
+            status_code=failure.status_code,
+            content={
+                "detail": failure.safe_message,
+                "code": failure.code,
+                "policy_ref": API_TARGETED_RATE_LIMIT_POLICY_REF,
+                "rate_limit_group": failure.group,
+                "retry_after_seconds": failure.retry_after_seconds,
+            },
+            headers={
+                "Retry-After": str(failure.retry_after_seconds),
+                "X-UAA-Rate-Limit-Policy": API_TARGETED_RATE_LIMIT_POLICY_REF,
+            },
+        )
+        return apply_loopback_cors_response_headers(
+            response,
+            request.headers.get("origin"),
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")

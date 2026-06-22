@@ -56,6 +56,10 @@ Current boundary summary:
   `X-UAA-Idempotency-Ref` before mutating handlers run, without durable dedupe,
   exactly-once execution, rate-limit, mutation authority, or production
   authority claims.
+- UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
+  decomposition, action preview/proposal, and local model validation route
+  groups. It does not add auth, distributed quota, dependencies, billing, or
+  production authority.
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.

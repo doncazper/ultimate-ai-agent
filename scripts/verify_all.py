@@ -97,6 +97,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-082 loopback CORS scan", "verify_uaa_p1_082_loopback_cors"),
     ("UAA-P1-083 local auth gate scan", "verify_uaa_p1_083_local_auth_gate"),
     ("UAA-P1-084 mutating-route idempotency scan", "verify_uaa_p1_084_mutating_route_idempotency"),
+    ("UAA-P1-085 targeted local rate-limit scan", "verify_uaa_p1_085_targeted_rate_limits"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),

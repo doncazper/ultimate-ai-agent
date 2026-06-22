@@ -44,8 +44,11 @@ configured local bearer gate for non-public route classifications with public
 metadata routes left open and no enterprise/OAuth/password-flow claim.
 UAA-P1-084 completes a runtime idempotency header gate for
 `mutating_requires_authority` routes with no durable dedupe or exactly-once
-execution claim. UAA-P1-085 through UAA-P1-086 remain planned/queued API
-boundary hardening lanes, followed by the UAA-P1-087 Private Operator Trial
+execution claim. UAA-P1-085 completes targeted local fixed-window rate limits
+for model/chat, task-decomposition, action preview/proposal, and expensive
+validation/local-model paths with no auth, distributed quota, dependency, or
+production authority claim. UAA-P1-086 remains planned/queued for API boundary
+enforcement tests, followed by the UAA-P1-087 Private Operator Trial
 And UI Functional Tuning sequence: UAA-P1-087.1 local launcher dual-surface
 boot readiness, UAA-P1-087.2 in-person private UI functional tuning, and
 UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold after

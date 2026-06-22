@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-084 Complete: Mutating Route Idempotency Gate; UAA-P1-085 Planned Targeted Rate Limits** |
+| Current lane | **UAA-P1-085 Complete: Targeted Local Rate Limits; UAA-P1-086 Planned API Boundary Enforcement Tests** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 planned: release surface manifest, API perimeter, Action decisions, vertical loop, Chat receipts/handoff, Memory decisions, Evidence productization, and proof-lane promotion** |
 | Latest repository checkpoint | **checkpoint-m168** |
@@ -90,7 +90,12 @@ no enterprise/OAuth/password-flow claim, and focused verifier/tests. UAA-P1-084
 Mutating Route Idempotency Enforcement Audit is complete with a runtime
 idempotency header gate for `mutating_requires_authority` routes, no durable
 dedupe or exactly-once execution claim, and focused verifier/tests. UAA-P1-085
-through UAA-P1-086 remain planned/queued API boundary hardening lanes,
+Targeted Rate Limits For Expensive And Sensitive Routes is complete with
+targeted local fixed-window rate limits for model/chat, task-decomposition,
+action preview/proposal, and expensive validation/local-model paths, no auth
+or distributed quota claim, no dependency addition, and focused
+verifier/tests. UAA-P1-086 remains planned/queued for API boundary enforcement
+tests,
 followed by the UAA-P1-087 Private Operator Trial And UI Functional
 Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native

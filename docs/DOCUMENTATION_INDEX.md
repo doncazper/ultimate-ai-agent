@@ -64,8 +64,12 @@ enterprise auth, OAuth, password flow, idempotency, rate-limit, or production
 authority claims. UAA-P1-084 Mutating Route Idempotency Enforcement Audit
 completes a runtime idempotency header gate for mutating route classifications
 without durable dedupe, exactly-once execution, rate-limit, mutation authority,
-or production authority claims. UAA-P1-085 through UAA-P1-086 remain
-planned/queued API boundary hardening lanes, followed by the UAA-P1-087 Private Operator Trial And UI Functional
+or production authority claims. UAA-P1-085 Targeted Rate Limits For Expensive
+And Sensitive Routes completes targeted local fixed-window rate limits for
+model/chat, task-decomposition, action preview/proposal, and expensive
+validation/local-model paths without auth, distributed quota, dependency, or
+production authority claims. UAA-P1-086 remains planned/queued for API
+boundary enforcement tests, followed by the UAA-P1-087 Private Operator Trial And UI Functional
 Tuning sequence: UAA-P1-087.1 local launcher dual-surface boot readiness,
 UAA-P1-087.2 in-person private UI functional tuning, and UAA-P1-087.3 native
 SwiftUI boot cockpit planning/source-only scaffold after the `.command`

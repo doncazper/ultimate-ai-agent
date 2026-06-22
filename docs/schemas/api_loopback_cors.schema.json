@@ -11,6 +11,7 @@
     "allowed_origins",
     "blocked_origins",
     "cors_is_auth",
+    "exposed_headers",
     "policy_ref",
     "wildcard_allowed"
   ],
@@ -71,6 +72,19 @@
       },
       "minItems": 5,
       "maxItems": 5,
+      "uniqueItems": true
+    },
+    "exposed_headers": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "Retry-After",
+          "X-UAA-Rate-Limit-Policy",
+          "X-UAA-Security-Headers-Policy"
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 3,
       "uniqueItems": true
     },
     "allow_credentials": {

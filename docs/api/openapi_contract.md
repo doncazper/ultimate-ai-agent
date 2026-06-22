@@ -75,12 +75,14 @@ API boundary hardening:
   `X-UAA-Idempotency-Key` or `X-UAA-Idempotency-Ref` before the mutating
   handler can run. It does not add durable idempotency storage, replay
   execution, mutation authority, or production authority.
-- UAA-P1-085 will add targeted rate limits for model/chat, task decomposition,
-  action preview/proposal, and expensive validation or local-model paths.
+- UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
+  decomposition, action preview/proposal, and expensive validation or
+  local-model paths. It does not add auth, distributed quota, dependencies,
+  billing, or production authority.
 - UAA-P1-086 will add OpenAPI, `/api/manifest`, and route inventory tests for
   the classification, auth, approval, idempotency, header, CORS, and rate-limit
-  posture. These controls are planned and must not be described as implemented
-  until the scoped milestones land.
+  posture. This control is planned and must not be described as implemented
+  until the scoped milestone lands.
 
 Forbidden by the current API boundary:
 

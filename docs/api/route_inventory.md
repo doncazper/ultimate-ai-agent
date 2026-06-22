@@ -82,10 +82,16 @@ can run. `/api/manifest` and the frozen route inventory expose
 This is not durable dedupe storage, exactly-once execution, replay execution,
 mutation authority, production authority, or a public beta claim.
 
-Future UAA-P1-085 through UAA-P1-086 route inventory checks must record:
-targeted rate-limit posture for expensive/sensitive paths and enforcement
-coverage in OpenAPI/API manifest tests. These future checks add no rate
-limits, dependencies, or runtime authority until separately implemented.
+UAA-P1-085 implements targeted local fixed-window rate-limit posture for
+model/chat, task decomposition, action preview/proposal, and local model
+validation route groups. `/api/manifest` and the frozen route inventory expose
+`rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
+`rate_limit_group`. This is not auth, distributed quota, billing, production
+authority, or a public beta claim.
+
+Future UAA-P1-086 route inventory checks must record enforcement coverage in
+OpenAPI/API manifest tests. This future check adds no new runtime authority
+until separately implemented.
 
 ## Current route groups
 

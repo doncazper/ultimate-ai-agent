@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.cors import (  # noqa: E402
+    CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS,
     CONTROL_CENTER_LOOPBACK_CORS_HEADERS,
     CONTROL_CENTER_LOOPBACK_CORS_METHODS,
     CONTROL_CENTER_LOOPBACK_CORS_ORIGINS,
@@ -52,7 +53,8 @@ REQUIRED_DOC_SNIPPETS = {
         "explicit loopback CORS allowlist posture",
         "UAA-P1-083 implements local protected-route bearer gate posture",
         "UAA-P1-084 implements mutating-route idempotency enforcement audit posture",
-        "Future UAA-P1-085 through UAA-P1-086",
+        "UAA-P1-085 implements targeted local fixed-window rate-limit posture",
+        "Future UAA-P1-086",
     ],
 }
 FORBIDDEN_CLAIMS = [
@@ -87,6 +89,7 @@ def _policy_payload() -> dict[str, Any]:
         ],
         "allowed_methods": list(CONTROL_CENTER_LOOPBACK_CORS_METHODS),
         "allowed_headers": list(CONTROL_CENTER_LOOPBACK_CORS_HEADERS),
+        "exposed_headers": list(CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS),
         "allow_credentials": False,
         "wildcard_allowed": False,
         "cors_is_auth": False,
@@ -149,6 +152,12 @@ def main() -> int:
         failures.append("allowed preflight missing X-UAA-Idempotency-Key header")
     if "X-UAA-Idempotency-Ref" not in preflight.headers.get("Access-Control-Allow-Headers", ""):
         failures.append("allowed preflight missing X-UAA-Idempotency-Ref header")
+    expose_headers = client.get("/health", headers={"Origin": "http://localhost:5173"}).headers.get(
+        "Access-Control-Expose-Headers", ""
+    )
+    for header_name in ["Retry-After", "X-UAA-Rate-Limit-Policy", "X-UAA-Security-Headers-Policy"]:
+        if header_name not in expose_headers:
+            failures.append(f"allowed response missing exposed header {header_name}")
     if preflight.headers.get("Access-Control-Allow-Credentials") is not None:
         failures.append("allowed preflight exposes credentials header")
     for name, value in FASTAPI_SECURITY_HEADERS.items():
