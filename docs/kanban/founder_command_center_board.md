@@ -24,8 +24,8 @@ completed Memory Review Decision Capture. UAA-P1-072 completed Business Memory
 And Memory Quality Controls. UAA-P1-073 completed Plans To Reviewable Action
 Envelopes. UAA-P1-074 completed Chat Local Operator Surface. UAA-P1-075
 completed Governed Code Workbench V1. UAA-P1-076 completed Cross-Surface
-Memory Intake. The parent board now promotes UAA-P1-077 Memory-To-Loop Binding
-as Ready Next.
+Memory Intake. UAA-P1-077 completed Memory-To-Loop Binding. The parent board
+now promotes UAA-P1-078 Private Beta-Readiness Gate as Ready Next.
 UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
@@ -63,14 +63,14 @@ FCC-MAC-001, FCC-P0-002, FCC-P0-004, FCC-P0-003, FCC-P0-005,
 FCC-P1-007, FCC-P1-008, FCC-P1-006, FCC-P1-009, FCC-P1-010,
 FCC-P1-011, FCC-P1-012, UAA-P1-067, UAA-P1-068, UAA-P1-069,
 UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
-UAA-P1-075, UAA-P1-076.
+UAA-P1-075, UAA-P1-076, UAA-P1-077.
 
 Candidate-next:
-UAA-P1-077 Memory-To-Loop Binding.
+UAA-P1-078 Private Beta-Readiness Gate.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 
 Blocked / future:
-UAA-P1-078, UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
+UAA-P1-079, UAA-P1-080, UAA-P1-081, UAA-P1-082,
 UAA-P1-083, UAA-P1-084, UAA-P1-085, UAA-P1-086,
 FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
@@ -146,7 +146,8 @@ spec, phase tasks, and Codex prompt library identify UAA-P1-067 as complete,
 UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
 UAA-P1-071 as complete, UAA-P1-072 as complete, UAA-P1-073 as complete,
 UAA-P1-074 as complete, UAA-P1-075 as complete, UAA-P1-076 as complete,
-UAA-P1-077 as Ready Next, and UAA-P1-066 as read-only local model support.
+UAA-P1-077 as complete, UAA-P1-078 as Ready Next, and UAA-P1-066 as read-only
+local model support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,
@@ -676,16 +677,22 @@ history, provider payloads, account content, or raw files.
 
 Epic: Product/UX, Memory/Knowledge
 
-Description: Make Today, Action Inbox, Evidence Timeline, and Weekly CEO Review
-show memory candidates, accepted recall refs, corrections, rejected items,
-follow-up commitments, stale-state posture, and missing-evidence blockers.
+Status: Done.
+
+Description: Today, Action Inbox, Evidence Timeline, Memory Review, and Weekly
+CEO Review show memory candidates, accepted recall display-only refs,
+corrections, rejected items, follow-up commitments, stale-state posture,
+memory-derived Action proposals, and missing-evidence blockers.
 
 Acceptance criteria: Memory is visible as part of the daily operating loop,
 not a hidden background store. Every memory-derived action proposal names its
 source refs, evidence refs, side-effect class, and approval posture.
 
-Required tests/verifiers: Control Center render tests, Founder Loop storage/API
-tests if route payloads change, frontend safety verifier, and docs integrity.
+Proof: `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`,
+`docs/schemas/memory_to_loop_binding.schema.json`,
+`scripts/verify_uaa_p1_077_memory_to_loop_binding.py`,
+`tests/test_uaa_p1_077_memory_to_loop_binding.py`, Founder Loop storage/API
+tests, and Control Center render tests.
 
 Safety notes: Memory-derived UI does not grant approval, execute work, inject
 context, or mutate external systems.

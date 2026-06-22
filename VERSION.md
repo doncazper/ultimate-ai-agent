@@ -24,9 +24,11 @@ apply and rollback receipt refs, Evidence Timeline binding, blocked authority
 states, and read-only Control Center metadata shape, and UAA-P1-076 completes
 Cross-Surface Memory Intake with review-only memory proposals from Today, Chat,
 Plans, Actions, Evidence, local coding, and manual external-assistant review
-imports. The active product path now promotes UAA-P1-077 Memory-To-Loop
-Binding. No public beta, distribution, production readiness, or production
-authority claim is granted.
+imports. UAA-P1-077 completes Memory-To-Loop Binding with read-only loop refs,
+memory-derived Action proposals, Evidence Timeline history, Memory Review
+visibility, and Weekly CEO Review rollup metadata. The active product path now
+promotes UAA-P1-078 Private Beta-Readiness Gate. No public beta, distribution,
+production readiness, or production authority claim is granted.
 Already-pushed tags remain immutable historical internal milestone tags. Beta
 and public distribution begin only after supporting safety/product work is
 reviewed, accepted, and explicitly promoted by a later roadmap patch.

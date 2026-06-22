@@ -191,7 +191,7 @@ def test_founder_loop_today_binds_cross_surface_memory_intake(
 
     module_feeds = {item["module"]: item for item in today["module_feed_contract"]}
     assert module_feeds["Memory"]["status"] == (
-        "implemented_review_queue_quality_and_intake_metadata_contract"
+        "implemented_review_queue_quality_intake_and_loop_binding_contract"
     )
     assert CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF in module_feeds["Memory"][
         "current_feed_refs"

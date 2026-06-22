@@ -256,9 +256,10 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
 
     module_feeds = {item["module"]: item for item in today["module_feed_contract"]}
     memory_feed = module_feeds.get("Memory", {})
-    if memory_feed.get("status") != (
-        "implemented_review_queue_quality_and_intake_metadata_contract"
-    ):
+    if memory_feed.get("status") not in {
+        "implemented_review_queue_quality_and_intake_metadata_contract",
+        "implemented_review_queue_quality_intake_and_loop_binding_contract",
+    }:
         failures.append("Today module feed does not mark Memory intake implemented")
     if CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF not in (
         memory_feed.get("current_feed_refs") or []

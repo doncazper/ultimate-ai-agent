@@ -123,6 +123,20 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("implemented_reviewable_action_envelopes_execution_blocked").length,
     ).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Memory-to-loop binding/i })).toBeInTheDocument();
+    expect(screen.getAllByText("contract-ref:memory-to-loop-binding:v1").length).toBeGreaterThan(0);
+    expect(screen.getByText("Loop items").nextElementSibling).toHaveTextContent("4");
+    expect(screen.getByText("Memory-derived actions").nextElementSibling).toHaveTextContent("1");
+    expect(screen.getByText("Accepted recall").nextElementSibling).toHaveTextContent("display-only");
+    expect(screen.getByRole("heading", { name: /Weekly CEO Review/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByText("weekly-review-ref:memory-to-loop-binding").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Memory loop states/i })).toBeInTheDocument();
+    expect(screen.getByText(/Action Inbox: follow_up_commitment/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText("accepted-recall-ref:not-authorized:memory-review-founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-action-execution").length).toBeGreaterThan(0);
@@ -289,6 +303,15 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("action-envelope:plans:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
     expect(screen.getAllByText("scope-ref:plans-action-envelope:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-approval-grant-capture").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Memory-derived proposals/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByText("memory-derived-action-proposal:memory-review-founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("memory-loop-binding:today:business-memory-candidate-preference-memory-review-founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("approval_required_before_any_memory_derived_action").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-memory-write").length).toBeGreaterThan(0);
     expect(
       screen.getByText(/Review refs only; request a scoped state-change milestone/i),
     ).toBeInTheDocument();
@@ -1887,7 +1910,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "storage_backed_review_queue_with_business_quality_metadata",
+        "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata",
       ),
     ).toBeInTheDocument();
     expect(
@@ -1991,6 +2014,19 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("memory-intake-proposal:external-assistant-review").length,
     ).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Memory-to-loop/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:memory-to-loop-binding:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("memory-loop-binding:today:business-memory-candidate-preference-memory-review-founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("follow-up-commitment-ref:memory-review-founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("memory-derived-action-proposal:memory-review-founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("Local Coding").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("External Assistant Review").length,
@@ -2027,6 +2063,14 @@ describe("Web Control Center shell", () => {
       /^resolve conflict$/i,
       /^mark reviewed$/i,
       /^promote to recall$/i,
+      /^accept recall$/i,
+      /^bind memory$/i,
+      /^create follow-up$/i,
+      /^create action$/i,
+      /^use in context$/i,
+      /^inject context$/i,
+      /^resolve blocker$/i,
+      /^mark accepted$/i,
       /^import$/i,
       /^quality control$/i,
       /^export$/i,
@@ -2939,7 +2983,7 @@ const mockApiData = {
       },
       {
         module: "Memory",
-        status: "implemented_review_queue_quality_and_intake_metadata_contract",
+        status: "implemented_review_queue_quality_intake_and_loop_binding_contract",
         required_loop_outputs: [
           "today_memory_review_count",
           "action_or_follow_up_candidate",
@@ -2951,6 +2995,7 @@ const mockApiData = {
           "contract-ref:memory-review-decision:v1",
           "contract-ref:business-memory-quality-controls:v1",
           "contract-ref:cross-surface-memory-intake:v1",
+          "contract-ref:memory-to-loop-binding:v1",
         ],
         standalone_complete_allowed: false,
       },
@@ -3450,7 +3495,7 @@ const mockApiData = {
       plan_count: 1,
       memory_review_count: 1,
       briefing_count: 1,
-      evidence_timeline_count: 6,
+      evidence_timeline_count: 8,
     },
     actions: [
       {
@@ -3789,7 +3834,7 @@ const mockApiData = {
     memory_review_route_ref: "/memory",
     memory_review_backend_route_ref: "GET /control-center/today/summary",
     memory_review_status:
-      "storage_backed_review_queue_with_business_quality_metadata",
+      "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata",
     memory_review_authority_boundary:
       "Review-only memory candidates; recall is not truth, and writes, deletes, context injection, connector writes, model/provider calls, and background sync are unscoped.",
     memory_write_enabled: false,

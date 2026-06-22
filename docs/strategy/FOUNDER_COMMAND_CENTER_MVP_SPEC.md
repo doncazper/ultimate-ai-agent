@@ -22,7 +22,8 @@ Operator Surface is implemented as a first-party local operator truth slice.
 UAA-P1-075 Governed Code Workbench V1 is implemented as a governed repo-local
 Code proposal and Evidence Timeline metadata slice. UAA-P1-076 Cross-Surface
 Memory Intake is implemented as a review-only proposal/intake slice. UAA-P1-077
-Memory-To-Loop Binding is the next incomplete lane.
+Memory-To-Loop Binding is implemented as a read-only loop-binding slice.
+UAA-P1-078 Private Beta-Readiness Gate is the next incomplete lane.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility

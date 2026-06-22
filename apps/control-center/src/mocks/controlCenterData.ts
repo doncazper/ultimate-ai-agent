@@ -436,6 +436,236 @@ const crossSurfaceMemoryIntakeProposals =
     };
   });
 
+const memoryToLoopBindingContractRef =
+  "contract-ref:memory-to-loop-binding:v1";
+
+const memoryToLoopRequiredSurfaces = [
+  "Today",
+  "Action Inbox",
+  "Evidence Timeline",
+  "Weekly CEO Review",
+];
+
+const memoryToLoopRequiredRefFields = [
+  "loop_item_ref",
+  "surface",
+  "loop_binding_state",
+  "memory_candidate_ref",
+  "source_refs",
+  "evidence_refs",
+  "accepted_recall_refs",
+  "correction_refs",
+  "rejected_item_refs",
+  "follow_up_commitment_refs",
+  "stale_state",
+  "missing_evidence_refs",
+  "blocked_state_refs",
+  "next_safe_action",
+];
+
+const memoryDerivedActionRequiredRefFields = [
+  "proposal_ref",
+  "source_memory_ref",
+  "source_loop_item_ref",
+  "source_review_ref",
+  "source_refs",
+  "provenance_refs",
+  "evidence_refs",
+  "side_effect_class",
+  "risk_class",
+  "approval_required",
+  "approval_posture",
+  "approval_requirement_ref",
+  "action_envelope_ref",
+  "scope_ref",
+  "review_posture_refs",
+  "expected_receipt_refs",
+  "next_safe_action",
+  "blocked_state_refs",
+];
+
+const memoryToLoopBlockedRefs = [
+  "blocked-state:no-memory-write",
+  "blocked-state:no-automatic-recall",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-approval-grant-capture",
+  "blocked-state:no-action-execution",
+  "blocked-state:no-connector-write",
+  "blocked-state:no-account-sync",
+  "blocked-state:no-source-truth-authority",
+  "blocked-state:no-public-beta-or-distribution",
+  "blocked-state:no-production-authority",
+];
+
+const memoryToLoopAuthorityPosture = {
+  safe_refs_only: true,
+  review_required: true,
+  memory_write_authorized: false,
+  automatic_recall_enabled: false,
+  context_injection_authorized: false,
+  approval_grant_capture_enabled: false,
+  action_execution_enabled: false,
+  connector_write_enabled: false,
+  account_sync_enabled: false,
+  source_truth_authority: false,
+  public_beta_claim_enabled: false,
+  public_distribution_claim_enabled: false,
+  production_authority_enabled: false,
+};
+
+const memoryCandidateRefs = [
+  "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+];
+const acceptedRecallRefs = [
+  "accepted-recall-ref:not-authorized:memory-review-founder-loop-preferences",
+];
+const correctionRefs = [
+  "correction-ref:correction-requires-scoped-memory-write-contract",
+];
+const rejectedItemRefs = [
+  "rejected-memory-ref:rejection-is-review-state-only-until-capture-contract",
+];
+const followUpCommitmentRefs = [
+  "follow-up-commitment-ref:memory-review-founder-loop-preferences",
+];
+const staleMemoryRefs = ["stale-memory-ref:recheck-source-refs-before-memory-use"];
+const missingEvidenceBlockerRefs = [
+  "contract-ref:memory-write-policy-binding-missing",
+  "contract-ref:memory-retention-delete-missing",
+  "contract-ref:context-injection-missing",
+];
+
+const memoryToLoopStateBySurface: Record<string, string> = {
+  Today: "candidate",
+  "Action Inbox": "follow_up_commitment",
+  "Evidence Timeline": "missing_evidence_blocker",
+  "Weekly CEO Review": "stale",
+};
+
+const memoryToLoopItems = memoryToLoopRequiredSurfaces.map((surface) => {
+  const surfaceSlug = surface.toLowerCase().replaceAll(" ", "-");
+  const state = memoryToLoopStateBySurface[surface];
+  return {
+    contract_ref: memoryToLoopBindingContractRef,
+    loop_item_ref: `memory-loop-binding:${surfaceSlug}:business-memory-candidate-preference-memory-review-founder-loop-preferences`,
+    surface,
+    loop_binding_state: state,
+    memory_candidate_ref: memoryCandidateRefs[0],
+    review_ref: "memory-review:founder-loop-preferences",
+    safe_summary: `${surface} shows reviewed memory state as safe refs only; recall is not truth and action remains approval-bound.`,
+    source_refs: ["source-ref:manual-note:founder-loop-storage"],
+    evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
+    accepted_recall_refs: state === "accepted_recall" ? acceptedRecallRefs : [],
+    correction_refs: state === "correction" ? correctionRefs : [],
+    rejected_item_refs: state === "rejected" ? rejectedItemRefs : [],
+    follow_up_commitment_refs:
+      state === "follow_up_commitment" ? followUpCommitmentRefs : [],
+    stale_state: "recheck_source_refs_before_memory_use",
+    missing_evidence_refs:
+      state === "missing_evidence_blocker" ? missingEvidenceBlockerRefs : [],
+    missing_evidence_posture: "missing_evidence_blocks_memory_derived_action",
+    side_effect_class: "local_dev_workspace_only",
+    approval_posture: "approval_refs_are_identifiers_only_not_authority",
+    next_safe_action:
+      "Review memory source, evidence, stale-state, and approval posture before creating or changing any action.",
+    review_required: true,
+    safe_refs_only: true,
+    memory_write_authorized: false,
+    automatic_recall_enabled: false,
+    context_injection_authorized: false,
+    approval_grant_capture_enabled: false,
+    action_execution_enabled: false,
+    connector_write_enabled: false,
+    account_sync_enabled: false,
+    source_truth_authority: false,
+    public_beta_claim_enabled: false,
+    public_distribution_claim_enabled: false,
+    production_authority_enabled: false,
+    blocked_state_refs: memoryToLoopBlockedRefs,
+  };
+});
+
+const memoryDerivedActionProposals = [
+  {
+    contract_ref: memoryToLoopBindingContractRef,
+    proposal_ref:
+      "memory-derived-action-proposal:memory-review-founder-loop-preferences",
+    source_memory_ref: memoryCandidateRefs[0],
+    source_loop_item_ref: memoryToLoopItems[0].loop_item_ref,
+    source_review_ref: "memory-review:founder-loop-preferences",
+    source_intake_proposal_ref: "memory-intake-proposal:today",
+    safe_summary:
+      "A memory-derived follow-up can be reviewed as an Action proposal; execution and approval capture remain blocked.",
+    source_refs: ["source-ref:manual-note:founder-loop-storage"],
+    provenance_refs: ["provenance-ref:manual-note:mock-preferences"],
+    evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
+    side_effect_class: "local_dev_workspace_only",
+    risk_class: "medium",
+    approval_required: true,
+    approval_posture: "approval_required_before_any_memory_derived_action",
+    approval_requirement_ref: "approval-requirement:memory-derived-action",
+    action_envelope_ref: "action-envelope:memory-derived-action-review",
+    scope_ref: "scope-ref:memory-derived-action-review-only",
+    review_posture_refs: ["review-posture:approve-edit-reject-defer"],
+    expected_receipt_refs: ["receipt-plan:memory-derived-action-review"],
+    idempotency_key_ref: "idempotency-ref:memory-derived-action-review",
+    expires_at: "review_required_before_action",
+    rollback_ref: "rollback-plan:memory-derived-action-no-mutation",
+    safe_disable_ref: "safe-disable:memory-derived-action-review",
+    next_safe_action:
+      "Review the memory-derived proposal in Action Inbox before any later scoped state-change contract.",
+    stale_state: "recheck_memory_refs_before_action_review",
+    missing_evidence_refs: missingEvidenceBlockerRefs,
+    blocked_state_refs: memoryToLoopBlockedRefs,
+    memory_write_authorized: false,
+    automatic_recall_enabled: false,
+    context_injection_authorized: false,
+    approval_grant_capture_enabled: false,
+    action_execution_enabled: false,
+    connector_write_enabled: false,
+    account_sync_enabled: false,
+    source_truth_authority: false,
+    public_beta_claim_enabled: false,
+    public_distribution_claim_enabled: false,
+    production_authority_enabled: false,
+  },
+];
+
+const memoryToLoopSurfaceBindings = memoryToLoopRequiredSurfaces.map((surface) => ({
+  surface,
+  feed_status: "implemented_read_only_memory_loop_refs",
+  feed_ref: `memory-loop-binding:${surface.toLowerCase().replaceAll(" ", "-")}`,
+  authority_boundary:
+    "Memory loop bindings are review-only safe refs and cannot write memory, inject context, approve work, or execute actions.",
+}));
+
+const memoryToLoopWeeklyReviewRefs = memoryToLoopItems.map(
+  (item) => `weekly-review-ref:${item.loop_item_ref.replaceAll(":", "-")}`,
+);
+
+const weeklyCeoReviewSummary = {
+  weekly_review_ref: "weekly-review-ref:memory-to-loop-binding",
+  input_refs: [
+    ...memoryToLoopWeeklyReviewRefs,
+    "source-ref:manual-note:founder-loop-storage",
+  ],
+  decision_refs: acceptedRecallRefs,
+  commitment_refs: followUpCommitmentRefs,
+  carry_forward_task_refs: memoryDerivedActionProposals.map(
+    (proposal) => proposal.proposal_ref,
+  ),
+  unresolved_blocker_refs: memoryToLoopBlockedRefs,
+  memory_correction_refs: correctionRefs,
+  rejected_item_refs: rejectedItemRefs,
+  stale_memory_refs: staleMemoryRefs,
+  missing_evidence_blocker_refs: missingEvidenceBlockerRefs,
+  follow_up_opportunity_refs: followUpCommitmentRefs,
+  authority_boundary:
+    "Weekly CEO Review carries memory refs forward for review only; it does not write memory, inject context, approve work, or sync accounts.",
+  next_safe_action:
+    "Review carry-forward memory refs before any later action, recall, or memory-write milestone.",
+};
+
 const plansActionEnvelopeReviewPostures =
   plansActionEnvelopeReviewActions.map((reviewAction) => ({
     review_action: reviewAction,
@@ -2264,7 +2494,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         module: "Memory",
-        status: "implemented_review_queue_quality_and_intake_metadata_contract",
+        status: "implemented_review_queue_quality_intake_and_loop_binding_contract",
         required_loop_outputs: [
           "today_memory_review_count",
           "action_or_follow_up_candidate",
@@ -2276,6 +2506,7 @@ export const mockControlCenterData: ControlCenterData = {
           "contract-ref:memory-review-decision:v1",
           "contract-ref:business-memory-quality-controls:v1",
           crossSurfaceMemoryIntakeContractRef,
+          memoryToLoopBindingContractRef,
         ],
         standalone_complete_allowed: false,
       },
@@ -2731,6 +2962,33 @@ export const mockControlCenterData: ControlCenterData = {
       crossSurfaceMemoryIntakeAuthorityPosture,
     cross_surface_memory_intake_blocked_state_refs:
       crossSurfaceMemoryIntakeBlockedRefs,
+    memory_to_loop_binding_contract_ref: memoryToLoopBindingContractRef,
+    memory_to_loop_binding_status:
+      "implemented_read_only_memory_loop_binding_contract",
+    memory_to_loop_required_surfaces: memoryToLoopRequiredSurfaces,
+    memory_to_loop_required_ref_fields: memoryToLoopRequiredRefFields,
+    memory_derived_action_required_ref_fields:
+      memoryDerivedActionRequiredRefFields,
+    memory_to_loop_required_blocked_refs: memoryToLoopBlockedRefs,
+    memory_to_loop_item_count: memoryToLoopItems.length,
+    memory_to_loop_items: memoryToLoopItems,
+    memory_derived_action_proposal_count: memoryDerivedActionProposals.length,
+    memory_derived_action_proposals: memoryDerivedActionProposals,
+    memory_candidate_refs: memoryCandidateRefs,
+    accepted_recall_refs: acceptedRecallRefs,
+    correction_refs: correctionRefs,
+    rejected_item_refs: rejectedItemRefs,
+    follow_up_commitment_refs: followUpCommitmentRefs,
+    stale_memory_refs: staleMemoryRefs,
+    missing_evidence_blocker_refs: missingEvidenceBlockerRefs,
+    memory_derived_action_proposal_refs: memoryDerivedActionProposals.map(
+      (proposal) => proposal.proposal_ref,
+    ),
+    memory_to_loop_surface_bindings: memoryToLoopSurfaceBindings,
+    memory_to_loop_authority_posture: memoryToLoopAuthorityPosture,
+    memory_to_loop_weekly_review_refs: memoryToLoopWeeklyReviewRefs,
+    weekly_ceo_review_summary: weeklyCeoReviewSummary,
+    memory_to_loop_blocked_state_refs: memoryToLoopBlockedRefs,
     chat_local_operator_contract_ref: chatLocalOperatorContractRef,
     chat_local_operator_status: "implemented_local_turn_truth_surface",
     chat_local_operator_turn_ref: "chat-turn:local-operator:local-chat-gateway",
@@ -2857,7 +3115,7 @@ export const mockControlCenterData: ControlCenterData = {
       plan_count: 1,
       memory_review_count: 1,
       briefing_count: 2,
-      evidence_timeline_count: 7,
+      evidence_timeline_count: 8,
     },
     actions: [
       {
@@ -3129,7 +3387,7 @@ export const mockControlCenterData: ControlCenterData = {
     memory_review_route_ref: "/memory",
     memory_review_backend_route_ref: "GET /control-center/today/summary",
     memory_review_status:
-      "storage_backed_review_queue_with_business_quality_metadata",
+      "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata",
     memory_review_authority_boundary:
       "Review-only memory candidates; recall is not truth, and writes, deletes, context injection, connector writes, model/provider calls, and background sync are unscoped.",
     memory_write_enabled: false,
@@ -3443,6 +3701,54 @@ export const mockControlCenterData: ControlCenterData = {
           "Review candidate refs in the Memory inbox before any later memory decision milestone.",
       },
       {
+        timeline_item_ref:
+          "evidence-timeline:memory-loop/contract-ref/memory-to-loop-binding/v1",
+        item_kind: "memory_to_loop_binding_ref",
+        title: "Memory-to-loop binding",
+        safe_summary:
+          "Today, Action Inbox, Evidence Timeline, and Weekly CEO Review show memory candidates, recall posture, corrections, rejections, follow-up commitments, stale state, and blockers as safe refs only.",
+        history_contract_ref: "contract-ref:evidence-history-grammar:v1",
+        history_answers: evidenceHistoryAnswers(memoryToLoopBindingContractRef),
+        source_refs: [
+          ...memoryToLoopItems.map((item) => item.loop_item_ref),
+          "source-ref:manual-note:founder-loop-storage",
+        ],
+        status_refs: [
+          memoryToLoopBindingContractRef,
+          "contract-ref:memory-review-decision:v1",
+          "contract-ref:business-memory-quality-controls:v1",
+          crossSurfaceMemoryIntakeContractRef,
+        ],
+        related_route_refs: [
+          "GET /control-center/today/summary",
+          "GET /control-center/actions/inbox",
+          "/evidence",
+        ],
+        side_effect_class: "local_dev_workspace_only",
+        authority_posture:
+          "Memory-to-loop binding is review-only metadata; memory writes, recall promotion, approval capture, execution, and context injection remain unscoped.",
+        approval_posture: "approval-status:memory-derived-actions-not-authorized",
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        raw_evidence_included: false,
+        receipt_refs: [],
+        audit_refs: ["evidence-ref:founder-loop:mock-memory"],
+        replay_refs: ["replay-ref:memory-to-loop-binding:review"],
+        rollback_refs: [],
+        rollback_blockers: ["memory_loop_binding_no_mutation_to_rollback"],
+        latency_refs: [],
+        foundation_gate_refs: [],
+        redaction_status: "redacted_summary_only",
+        stale_state: "recheck_memory_loop_refs_before_action_review",
+        missing_evidence_posture:
+          "missing_evidence_blocks_memory_derived_action",
+        blocked_states: memoryToLoopBlockedRefs,
+        next_safe_action:
+          "Review memory-derived Action proposal refs before any later state-change or memory-write milestone.",
+      },
+      {
         timeline_item_ref: "evidence-timeline:memory/memory-review/founder-loop-preferences",
         item_kind: "memory_review_evidence_ref",
         title: "Founder Loop memory review",
@@ -3692,6 +3998,13 @@ export const mockControlCenterData: ControlCenterData = {
     action_envelope_review_postures: plansActionEnvelopeReviewPostures,
     action_envelope_required_ref_fields: plansActionEnvelopeRequiredRefFields,
     action_envelope_authority_posture: plansActionEnvelopeAuthorityPosture,
+    memory_to_loop_binding_contract_ref: memoryToLoopBindingContractRef,
+    memory_to_loop_binding_status:
+      "implemented_read_only_memory_loop_binding_contract",
+    memory_derived_action_proposals: memoryDerivedActionProposals,
+    memory_to_loop_authority_posture: memoryToLoopAuthorityPosture,
+    memory_to_loop_blocked_state_refs: memoryToLoopBlockedRefs,
+    weekly_ceo_review_summary: weeklyCeoReviewSummary,
     disabled_state_label: "Exact backend approval contract required",
     evidence_refs: ["evidence-ref:founder-loop:mock-action-inbox"],
     blocked_states: [

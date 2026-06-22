@@ -71,7 +71,7 @@ They do not mark the capability shipped and do not grant new authority.
 |---|---|---|---|
 | Decide product posture | `UAA-STRAT-001` Two-layer architecture: governance kernel plus operator cockpit | P0 | README/product truth/roadmap wording remains consistent and says guardrails allow scoped product actions only through policy, approval, audit, rollback, redaction, and verifier gates |
 | Preserve the first readable operator-loop baseline before broadening product surfaces | `UAA-P1-011` Done: task decomposition operator loop baseline | P0 | Runtime health, local model readiness, UAA `/v1` chat, plan creation, one safe approval, receipt/audit/latency/rollback inspection are covered without hidden authority |
-| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Done: Plans To Reviewable Action Envelopes; `UAA-P1-074` Done: Chat Local Operator Surface; `UAA-P1-075` Done: Governed Code Workbench V1; `UAA-P1-076` Done: Cross-Surface Memory Intake; `UAA-P1-077` Ready Next: Memory-To-Loop Binding; then `UAA-P1-078` for beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, Chat operator truth refs, governed Code proposal refs, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
+| Promote a Today-spine, memory-first private beta path | `UAA-P1-067` Done: Today-Spine Founder Command Center beta-readiness planning/currentness path; `UAA-P1-068` Done: Today Product Spine Contract; `UAA-P1-069` Done: Evidence History Grammar; `UAA-P1-070` Done: Memory Source And Provenance Model; `UAA-P1-071` Done: Memory Review Decision Capture; `UAA-P1-072` Done: Business Memory And Memory Quality Controls; `UAA-P1-073` Done: Plans To Reviewable Action Envelopes; `UAA-P1-074` Done: Chat Local Operator Surface; `UAA-P1-075` Done: Governed Code Workbench V1; `UAA-P1-076` Done: Cross-Surface Memory Intake; `UAA-P1-077` Done: Memory-To-Loop Binding; then `UAA-P1-078` Ready Next for beta-readiness evidence | P0 | Today becomes the product spine; every module feeds Today, Actions, Evidence, and Memory. Memory becomes the product differentiator only after the loop has reviewable evidence, action envelopes, Chat operator truth refs, governed Code proposal refs, safe source refs from ChatGPT/manual review/local coding/calendar/email metadata, memory-to-loop refs, no hidden prompt injection, no raw private content, and no public beta or connector authority claim |
 | Reconcile Founder Command Center planning before the next UI pass | `UAA-P1-065` Done: Founder Command Center review/cleanup lane | P0/P1 | The subordinate FCC board is classified, stale sequencing is removed, and exactly one later UI/readability task is promoted without adding routes, frontend implementation, connector runtime, setup mutation, model/provider calls, or runtime authority |
 | Split the API into clearer service modules | `UAA-P1-021` FastAPI route grouping and side-effect classes, `UAA-P1-052` API service-module extraction plan | P1 | OpenAPI path count, operation IDs, route side-effect classes, auth posture, and API manifest remain unchanged or intentionally updated with tests |
 | Harden the browser-facing API perimeter before new authority | `UAA-P1-080` through `UAA-P1-086` planned: route classification, security headers, loopback CORS, local auth gate, idempotency audit, targeted rate limits, and OpenAPI/API manifest enforcement | P1 | Control Center remains local-first while every route gets an explicit public/protected classification and sensitive or mutating paths have auth, approval, idempotency, redaction, and test posture before authority-heavy Plans, Chat, Code, loop-binding, or beta-readiness claims |
@@ -441,11 +441,12 @@ Tasks:
   manual external-assistant review imports as review-only proposal refs. It
   does not call providers, fetch accounts, import browser state, read shell
   history, import source payloads, write memory, or inject context.
-- `UAA-P1-077` Ready Next: Memory-to-loop binding: Today, Action Inbox, Evidence Timeline,
-  and Weekly CEO Review must show memory candidates, accepted recall refs,
-  corrections, rejected items, follow-up commitments, and missing-evidence
-  blockers in human-readable form.
-- `UAA-P1-078` Private beta-readiness gate: define local/private beta-test
+- `UAA-P1-077` Done: Memory-to-loop binding: Today, Action Inbox, Evidence
+  Timeline, Memory Review, and Weekly CEO Review show memory candidates,
+  accepted recall display-only refs, corrections, rejected items, follow-up
+  commitments, memory-derived Action proposals, stale refs, and
+  missing-evidence blockers in human-readable form.
+- `UAA-P1-078` Ready Next: Private beta-readiness gate: define local/private beta-test
   acceptance evidence for Morning Briefing, Action Inbox, Memory Review,
   Evidence Timeline, safe local Chat/Plans handoff, governed Code proposal
   refs, and CRM-lite follow-ups. This gate is not public beta, public
@@ -833,9 +834,9 @@ Verification:
 - `UAA-P1-076` Done: cross-surface memory intake from Today, Chat, Plans,
   Actions, Evidence, local coding summaries, and manual external-assistant
   review imports as review-only proposal refs.
-- `UAA-P1-077` Ready Next: bind memory state into Today, Action Inbox, Evidence
-  Timeline, and Weekly CEO Review.
-- `UAA-P1-078` Shape: private beta-readiness gate for the local Founder Command
+- `UAA-P1-077` Done: bind memory state into Today, Action Inbox, Evidence
+  Timeline, Memory Review, and Weekly CEO Review.
+- `UAA-P1-078` Ready Next: private beta-readiness gate for the local Founder Command
   Center loop without public beta/distribution claims.
 - `UAA-P1-079` Later: user-intent understanding v1 after memory, evidence,
   Chat, Plans, Code, and Actions produce reviewable loop evidence.

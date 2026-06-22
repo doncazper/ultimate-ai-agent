@@ -644,15 +644,16 @@ distribution, and production authority blocked.
 
 Type: full-stack read-only product-surface binding
 
-Status: Ready Next.
+Status: Done.
 
 New authority: no.
 
 Acceptance criteria:
 
-- Today, Action Inbox, Evidence Timeline, and Weekly CEO Review show memory
-  candidates, accepted recall refs, corrections, rejected items, follow-up
-  commitments, stale-state posture, and missing-evidence blockers.
+- Today, Action Inbox, Evidence Timeline, Memory Review, and Weekly CEO Review
+  show memory candidates, accepted recall display-only refs, corrections,
+  rejected items, follow-up commitments, stale-state posture, memory-derived
+  Action proposals, and missing-evidence blockers.
 - Every memory-derived action proposal names source refs, evidence refs,
   side-effect class, approval posture, and next safe action.
 
@@ -661,9 +662,11 @@ Tests to add/update:
 - Founder Loop storage/API tests.
 - `apps/control-center/src/App.test.tsx`
 - `make frontend-check`
+- `scripts/verify_uaa_p1_077_memory_to_loop_binding.py`.
+- `docs/schemas/memory_to_loop_binding.schema.json`.
 - Documentation integrity.
 
-PR size: one read-only UI/API binding PR after Tasks 9a-9i.
+PR size: complete as one read-only UI/API binding PR after Tasks 9a-9i.
 
 ## Task 9k - UAA-P1-078 Private Beta-Readiness Gate
 

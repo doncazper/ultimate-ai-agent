@@ -106,6 +106,82 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         </article>
         <article className="status-card">
           <div className="status-card-header">
+            <h3>Memory-to-loop binding</h3>
+            <span>{today.memory_to_loop_binding_status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.memory_to_loop_binding_contract_ref}
+            />
+            <DetailTerm
+              label="Loop items"
+              value={String(today.memory_to_loop_item_count)}
+            />
+            <DetailTerm
+              label="Memory-derived actions"
+              value={String(today.memory_derived_action_proposal_count)}
+            />
+            <DetailTerm
+              label="Accepted recall"
+              value={
+                today.memory_to_loop_authority_posture.automatic_recall_enabled
+                  ? "enabled"
+                  : "display-only"
+              }
+            />
+            <DetailTerm
+              label="Execution"
+              value={
+                today.memory_to_loop_authority_posture.action_execution_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Memory candidates: none"
+            refs={today.memory_candidate_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Accepted recall refs: none"
+            refs={today.accepted_recall_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Follow-up commitments: none"
+            refs={today.follow_up_commitment_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Missing evidence blockers: none"
+            refs={today.missing_evidence_blocker_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Weekly CEO Review</h3>
+            <span>{today.weekly_ceo_review_summary.weekly_review_ref}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Next safe action"
+              value={today.weekly_ceo_review_summary.next_safe_action}
+            />
+            <DetailTerm
+              label="Authority"
+              value={today.weekly_ceo_review_summary.authority_boundary}
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Carry-forward tasks: none"
+            refs={today.weekly_ceo_review_summary.carry_forward_task_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Unresolved blockers: none"
+            refs={today.weekly_ceo_review_summary.unresolved_blocker_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
             <h3>Action envelope contract</h3>
             <span>{today.plans_action_envelope_status}</span>
           </div>
@@ -164,6 +240,19 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         </article>
       </div>
       <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Memory loop states</h3>
+            <span>{today.memory_to_loop_items.length}</span>
+          </div>
+          <ul className="ref-list">
+            {today.memory_to_loop_items.map((item) => (
+              <li key={item.loop_item_ref}>
+                {item.surface}: {item.loop_binding_state}; {item.next_safe_action}
+              </li>
+            ))}
+          </ul>
+        </article>
         <article className="status-card">
           <div className="status-card-header">
             <h3>Module feed contract</h3>
@@ -372,6 +461,48 @@ export function ActionInboxSurfacePanel({
         />
         <RefList refs={inbox.action_envelope_required_ref_fields ?? []} />
       </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Memory-derived proposals</h3>
+          <span>{inbox.memory_to_loop_binding_status ?? "read-only"}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract ref"
+            value={inbox.memory_to_loop_binding_contract_ref ?? "missing"}
+          />
+          <DetailTerm
+            label="Execution"
+            value={
+              inbox.memory_to_loop_authority_posture?.action_execution_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Approval capture"
+            value={
+              inbox.memory_to_loop_authority_posture?.approval_grant_capture_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="Memory-derived proposal refs: none"
+          refs={(inbox.memory_derived_action_proposals ?? []).map(
+            (proposal) => proposal.proposal_ref,
+          )}
+        />
+      </article>
+      <div className="review-grid">
+        {(inbox.memory_derived_action_proposals ?? []).map((proposal) => (
+          <MemoryDerivedActionProposalCard
+            key={proposal.proposal_ref}
+            proposal={proposal}
+          />
+        ))}
+      </div>
       <div className="review-grid">
         {inbox.items.map((item) => (
           <ActionItemCard item={item} key={item.item_ref} />
@@ -379,6 +510,51 @@ export function ActionInboxSurfacePanel({
       </div>
       <BlockedStateList states={inbox.blocked_states ?? []} />
     </section>
+  );
+}
+
+function MemoryDerivedActionProposalCard({
+  proposal,
+}: {
+  proposal: NonNullable<
+    FounderLoopActionsInbox["memory_derived_action_proposals"]
+  >[number];
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>{proposal.proposal_ref}</h3>
+        <span>{proposal.side_effect_class}</span>
+      </div>
+      <p>{proposal.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Source memory" value={proposal.source_memory_ref} />
+        <DetailTerm label="Source loop item" value={proposal.source_loop_item_ref} />
+        <DetailTerm label="Approval posture" value={proposal.approval_posture} />
+        <DetailTerm label="Risk" value={proposal.risk_class} />
+        <DetailTerm
+          label="Execution"
+          value={proposal.action_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={proposal.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm label="Next safe action" value={proposal.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Source refs: missing"
+        refs={proposal.source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: missing"
+        refs={proposal.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked states: missing"
+        refs={proposal.blocked_state_refs}
+      />
+    </article>
   );
 }
 
@@ -720,6 +896,58 @@ export function MemoryReviewSurfacePanel({
             items={today.cross_surface_memory_intake_required_surfaces}
           />
           <RefList refs={today.cross_surface_memory_intake_required_blocked_refs} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Memory-to-loop</h3>
+            <span>{today.memory_to_loop_binding_status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Contract ref"
+              value={today.memory_to_loop_binding_contract_ref}
+            />
+            <DetailTerm
+              label="Loop items"
+              value={String(today.memory_to_loop_item_count)}
+            />
+            <DetailTerm
+              label="Memory-derived actions"
+              value={String(today.memory_derived_action_proposal_count)}
+            />
+            <DetailTerm
+              label="Accepted recall"
+              value={
+                today.memory_to_loop_authority_posture.automatic_recall_enabled
+                  ? "enabled"
+                  : "display-only"
+              }
+            />
+            <DetailTerm
+              label="Execution"
+              value={
+                today.memory_to_loop_authority_posture.action_execution_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Memory loop refs: none"
+            refs={today.memory_to_loop_items.map((item) => item.loop_item_ref)}
+          />
+          <RefListWithFallback
+            emptyLabel="Accepted recall refs: none"
+            refs={today.accepted_recall_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Follow-up commitments: none"
+            refs={today.follow_up_commitment_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Memory-derived proposal refs: none"
+            refs={today.memory_derived_action_proposal_refs}
+          />
         </article>
       </div>
       <div className="review-grid">

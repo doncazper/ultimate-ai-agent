@@ -1,0 +1,443 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/memory_to_loop_binding.schema.json",
+  "title": "UAA-P1-077 Memory-To-Loop Binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "memory_to_loop_binding_contract_ref",
+    "memory_to_loop_binding_status",
+    "memory_to_loop_required_surfaces",
+    "memory_to_loop_required_ref_fields",
+    "memory_derived_action_required_ref_fields",
+    "memory_to_loop_required_blocked_refs",
+    "memory_to_loop_item_count",
+    "memory_to_loop_items",
+    "memory_derived_action_proposal_count",
+    "memory_derived_action_proposals",
+    "memory_candidate_refs",
+    "accepted_recall_refs",
+    "correction_refs",
+    "rejected_item_refs",
+    "follow_up_commitment_refs",
+    "stale_memory_refs",
+    "missing_evidence_blocker_refs",
+    "memory_derived_action_proposal_refs",
+    "memory_to_loop_surface_bindings",
+    "memory_to_loop_authority_posture",
+    "memory_to_loop_weekly_review_refs",
+    "weekly_ceo_review_summary",
+    "memory_to_loop_blocked_state_refs"
+  ],
+  "properties": {
+    "memory_to_loop_binding_contract_ref": {
+      "const": "contract-ref:memory-to-loop-binding:v1"
+    },
+    "memory_to_loop_binding_status": {
+      "const": "implemented_read_only_memory_loop_binding_contract"
+    },
+    "memory_to_loop_required_surfaces": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "enum": [
+          "Today",
+          "Action Inbox",
+          "Evidence Timeline",
+          "Weekly CEO Review"
+        ]
+      }
+    },
+    "memory_to_loop_required_ref_fields": {
+      "type": "array",
+      "minItems": 14,
+      "items": { "type": "string" }
+    },
+    "memory_derived_action_required_ref_fields": {
+      "type": "array",
+      "minItems": 18,
+      "items": { "type": "string" }
+    },
+    "memory_to_loop_required_blocked_refs": {
+      "type": "array",
+      "minItems": 10,
+      "items": { "type": "string" }
+    },
+    "memory_to_loop_item_count": { "const": 4 },
+    "memory_to_loop_items": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/memory_loop_item" }
+    },
+    "memory_derived_action_proposal_count": { "const": 1 },
+    "memory_derived_action_proposals": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/memory_derived_action_proposal" }
+    },
+    "memory_candidate_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "accepted_recall_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "correction_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "rejected_item_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "follow_up_commitment_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "stale_memory_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "missing_evidence_blocker_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "memory_derived_action_proposal_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "memory_to_loop_surface_bindings": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/surface_binding" }
+    },
+    "memory_to_loop_authority_posture": {
+      "$ref": "#/$defs/authority_posture"
+    },
+    "memory_to_loop_weekly_review_refs": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string" }
+    },
+    "weekly_ceo_review_summary": {
+      "$ref": "#/$defs/weekly_ceo_review_summary"
+    },
+    "memory_to_loop_blocked_state_refs": {
+      "type": "array",
+      "minItems": 10,
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "nonempty_string_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "memory_loop_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_ref",
+        "loop_item_ref",
+        "surface",
+        "loop_binding_state",
+        "memory_candidate_ref",
+        "review_ref",
+        "safe_summary",
+        "source_refs",
+        "evidence_refs",
+        "accepted_recall_refs",
+        "correction_refs",
+        "rejected_item_refs",
+        "follow_up_commitment_refs",
+        "stale_state",
+        "missing_evidence_refs",
+        "missing_evidence_posture",
+        "side_effect_class",
+        "approval_posture",
+        "next_safe_action",
+        "review_required",
+        "safe_refs_only",
+        "memory_write_authorized",
+        "automatic_recall_enabled",
+        "context_injection_authorized",
+        "approval_grant_capture_enabled",
+        "action_execution_enabled",
+        "connector_write_enabled",
+        "account_sync_enabled",
+        "source_truth_authority",
+        "public_beta_claim_enabled",
+        "public_distribution_claim_enabled",
+        "production_authority_enabled",
+        "blocked_state_refs"
+      ],
+      "properties": {
+        "contract_ref": {
+          "const": "contract-ref:memory-to-loop-binding:v1"
+        },
+        "loop_item_ref": { "type": "string" },
+        "surface": {
+          "enum": [
+            "Today",
+            "Action Inbox",
+            "Evidence Timeline",
+            "Weekly CEO Review"
+          ]
+        },
+        "loop_binding_state": {
+          "enum": [
+            "candidate",
+            "accepted_recall",
+            "correction",
+            "rejected",
+            "follow_up_commitment",
+            "stale",
+            "missing_evidence_blocker"
+          ]
+        },
+        "memory_candidate_ref": { "type": "string" },
+        "review_ref": { "type": "string" },
+        "safe_summary": { "type": "string" },
+        "source_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "evidence_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "accepted_recall_refs": { "$ref": "#/$defs/string_array" },
+        "correction_refs": { "$ref": "#/$defs/string_array" },
+        "rejected_item_refs": { "$ref": "#/$defs/string_array" },
+        "follow_up_commitment_refs": { "$ref": "#/$defs/string_array" },
+        "stale_state": { "type": "string" },
+        "missing_evidence_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "missing_evidence_posture": {
+          "const": "missing_evidence_blocks_memory_derived_action"
+        },
+        "side_effect_class": { "const": "local_dev_workspace_only" },
+        "approval_posture": {
+          "const": "approval_refs_are_identifiers_only_not_authority"
+        },
+        "next_safe_action": { "type": "string" },
+        "review_required": { "const": true },
+        "safe_refs_only": { "const": true },
+        "memory_write_authorized": { "const": false },
+        "automatic_recall_enabled": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "account_sync_enabled": { "const": false },
+        "source_truth_authority": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "public_distribution_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false },
+        "blocked_state_refs": {
+          "type": "array",
+          "minItems": 10,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "memory_derived_action_proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_ref",
+        "proposal_ref",
+        "source_memory_ref",
+        "source_loop_item_ref",
+        "source_review_ref",
+        "source_intake_proposal_ref",
+        "safe_summary",
+        "source_refs",
+        "provenance_refs",
+        "evidence_refs",
+        "side_effect_class",
+        "risk_class",
+        "approval_required",
+        "approval_posture",
+        "approval_requirement_ref",
+        "action_envelope_ref",
+        "scope_ref",
+        "review_posture_refs",
+        "expected_receipt_refs",
+        "idempotency_key_ref",
+        "expires_at",
+        "rollback_ref",
+        "safe_disable_ref",
+        "next_safe_action",
+        "stale_state",
+        "missing_evidence_refs",
+        "blocked_state_refs",
+        "memory_write_authorized",
+        "automatic_recall_enabled",
+        "context_injection_authorized",
+        "approval_grant_capture_enabled",
+        "action_execution_enabled",
+        "connector_write_enabled",
+        "account_sync_enabled",
+        "source_truth_authority",
+        "public_beta_claim_enabled",
+        "public_distribution_claim_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "contract_ref": {
+          "const": "contract-ref:memory-to-loop-binding:v1"
+        },
+        "proposal_ref": { "type": "string" },
+        "source_memory_ref": { "type": "string" },
+        "source_loop_item_ref": { "type": "string" },
+        "source_review_ref": { "type": "string" },
+        "source_intake_proposal_ref": {
+          "type": ["string", "null"]
+        },
+        "safe_summary": { "type": "string" },
+        "source_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "provenance_refs": { "$ref": "#/$defs/string_array" },
+        "evidence_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "side_effect_class": { "const": "local_dev_workspace_only" },
+        "risk_class": { "type": "string" },
+        "approval_required": { "const": true },
+        "approval_posture": {
+          "const": "approval_required_before_any_memory_derived_action"
+        },
+        "approval_requirement_ref": { "type": "string" },
+        "action_envelope_ref": { "type": "string" },
+        "scope_ref": { "type": "string" },
+        "review_posture_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "expected_receipt_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "idempotency_key_ref": { "type": "string" },
+        "expires_at": { "type": "string" },
+        "rollback_ref": { "type": "string" },
+        "safe_disable_ref": { "type": "string" },
+        "next_safe_action": { "type": "string" },
+        "stale_state": { "type": "string" },
+        "missing_evidence_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "blocked_state_refs": {
+          "type": "array",
+          "minItems": 10,
+          "items": { "type": "string" }
+        },
+        "memory_write_authorized": { "const": false },
+        "automatic_recall_enabled": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "account_sync_enabled": { "const": false },
+        "source_truth_authority": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "public_distribution_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false }
+      }
+    },
+    "surface_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "feed_status",
+        "feed_ref",
+        "authority_boundary"
+      ],
+      "properties": {
+        "surface": { "type": "string" },
+        "feed_status": { "const": "implemented_read_only_memory_loop_refs" },
+        "feed_ref": { "type": "string" },
+        "authority_boundary": { "type": "string" }
+      }
+    },
+    "authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "safe_refs_only",
+        "review_required",
+        "memory_write_authorized",
+        "automatic_recall_enabled",
+        "context_injection_authorized",
+        "approval_grant_capture_enabled",
+        "action_execution_enabled",
+        "connector_write_enabled",
+        "account_sync_enabled",
+        "source_truth_authority",
+        "public_beta_claim_enabled",
+        "public_distribution_claim_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "safe_refs_only": { "const": true },
+        "review_required": { "const": true },
+        "memory_write_authorized": { "const": false },
+        "automatic_recall_enabled": { "const": false },
+        "context_injection_authorized": { "const": false },
+        "approval_grant_capture_enabled": { "const": false },
+        "action_execution_enabled": { "const": false },
+        "connector_write_enabled": { "const": false },
+        "account_sync_enabled": { "const": false },
+        "source_truth_authority": { "const": false },
+        "public_beta_claim_enabled": { "const": false },
+        "public_distribution_claim_enabled": { "const": false },
+        "production_authority_enabled": { "const": false }
+      }
+    },
+    "weekly_ceo_review_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "weekly_review_ref",
+        "input_refs",
+        "decision_refs",
+        "commitment_refs",
+        "carry_forward_task_refs",
+        "unresolved_blocker_refs",
+        "memory_correction_refs",
+        "rejected_item_refs",
+        "stale_memory_refs",
+        "missing_evidence_blocker_refs",
+        "follow_up_opportunity_refs",
+        "authority_boundary",
+        "next_safe_action"
+      ],
+      "properties": {
+        "weekly_review_ref": {
+          "const": "weekly-review-ref:memory-to-loop-binding"
+        },
+        "input_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "decision_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "commitment_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "carry_forward_task_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "unresolved_blocker_refs": {
+          "type": "array",
+          "minItems": 10,
+          "items": { "type": "string" }
+        },
+        "memory_correction_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "rejected_item_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "stale_memory_refs": { "$ref": "#/$defs/nonempty_string_array" },
+        "missing_evidence_blocker_refs": {
+          "$ref": "#/$defs/nonempty_string_array"
+        },
+        "follow_up_opportunity_refs": {
+          "$ref": "#/$defs/nonempty_string_array"
+        },
+        "authority_boundary": { "type": "string" },
+        "next_safe_action": { "type": "string" }
+      }
+    }
+  }
+}

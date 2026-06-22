@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **UAA-P1-077 Ready Next: Memory-To-Loop Binding** |
+| Current lane | **UAA-P1-078 Ready Next: Private Beta-Readiness Gate** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Latest repository checkpoint | **checkpoint-m168** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
@@ -62,7 +62,12 @@ intake proposals from Today, Chat, Plans, Actions, Evidence, local coding, and
 manual external-assistant review imports; memory writes, automatic recall,
 context injection, provider calls, account fetch, browser import, shell-history
 import, and source import remain blocked. UAA-P1-077 Memory-To-Loop Binding is
-now Ready Next before private local beta-readiness gates can be claimed.
+complete with read-only loop refs across Today, Action Inbox, Evidence
+Timeline, Memory Review, and Weekly CEO Review; accepted recall remains
+display-only, memory-derived actions remain approval-bound proposals, and
+memory writes, context injection, execution, connector writes, account sync,
+public beta, distribution, and production authority remain blocked. UAA-P1-078
+Private Beta-Readiness Gate is now Ready Next.
 UAA-P1-066 remains queued as a strictly read-only Local Model Control Center
 inventory/status support lane.
 

@@ -40,6 +40,17 @@ from ultimate_ai_agent.core.memory.intake import (
     cross_surface_memory_intake_proposals,
     cross_surface_memory_intake_surface_bindings,
 )
+from ultimate_ai_agent.core.memory.loop_binding import (
+    MEMORY_DERIVED_ACTION_REQUIRED_REF_FIELDS,
+    MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
+    MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+    MEMORY_TO_LOOP_REQUIRED_REF_FIELDS,
+    MEMORY_TO_LOOP_REQUIRED_SURFACES,
+    build_memory_derived_action_proposal,
+    build_memory_to_loop_binding_item,
+    memory_to_loop_authority_posture,
+    memory_to_loop_surface_bindings,
+)
 from ultimate_ai_agent.core.memory.source_provenance import (
     MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
     MEMORY_SOURCE_PROVENANCE_DENIED_CONTENT_REFS,
@@ -267,7 +278,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
     },
     {
         "module": "Memory",
-        "status": "implemented_review_queue_quality_and_intake_metadata_contract",
+        "status": "implemented_review_queue_quality_intake_and_loop_binding_contract",
         "required_loop_outputs": [
             "today_memory_review_count",
             "action_or_follow_up_candidate",
@@ -279,6 +290,7 @@ TODAY_PRODUCT_SPINE_MODULE_FEEDS = [
             MEMORY_REVIEW_DECISION_CONTRACT_REF,
             BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
             CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
+            MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
         ],
         "standalone_complete_allowed": False,
     },
@@ -1441,6 +1453,196 @@ def _cross_surface_memory_intake_contract_payload() -> dict[str, Any]:
     }
 
 
+def _memory_to_loop_binding_contract_payload(
+    *,
+    memory_items: list[dict[str, Any]],
+    cross_surface_memory_intake_contract: dict[str, Any],
+) -> dict[str, Any]:
+    intake_proposals = list(
+        cross_surface_memory_intake_contract["cross_surface_memory_intake_proposals"]
+    )
+    loop_source_items = memory_items or [
+        {
+            "review_ref": proposal["review_queue_ref"],
+            "business_memory_candidate_ref": proposal["candidate_ref"],
+            "safe_summary": proposal["safe_summary"],
+            "source_refs": proposal["source_refs"],
+            "evidence_refs": proposal["evidence_refs"],
+            "missing_contract_refs": proposal["missing_evidence_refs"],
+            "correction_posture": "correction_requires_scoped_memory_write_contract",
+            "rejection_posture": "rejection_is_review_state_only_until_capture_contract",
+            "stale_state": proposal["stale_state"],
+            "next_safe_action": proposal["next_safe_action"],
+        }
+        for proposal in intake_proposals[:1]
+    ]
+    primary = loop_source_items[0]
+    memory_candidate_ref = str(
+        primary.get("business_memory_candidate_ref")
+        or f"business-memory-candidate:{str(primary['review_ref']).replace(':', '-')}"
+    )
+    review_ref = str(primary["review_ref"])
+    source_refs = list(primary.get("source_refs") or ["source-ref:memory-loop:review"])
+    evidence_refs = list(
+        primary.get("evidence_refs") or ["evidence-ref:memory-loop:review"]
+    )
+    missing_evidence_refs = list(
+        primary.get("missing_contract_refs")
+        or ["missing-evidence-ref:memory-loop:review"]
+    )
+    correction_refs = [
+        _status_ref(
+        "correction-ref",
+        str(primary.get("correction_posture", "correction_requires_scoped_contract")),
+        )
+    ]
+    rejected_item_refs = [
+        _status_ref(
+            "rejected-memory-ref",
+            str(primary.get("rejection_posture", "rejection_is_review_state_only")),
+        )
+    ]
+    follow_up_commitment_refs = [
+        f"follow-up-commitment-ref:{review_ref.replace(':', '-')}"
+    ]
+    accepted_recall_refs = [
+        f"accepted-recall-ref:not-authorized:{review_ref.replace(':', '-')}"
+    ]
+    stale_memory_refs = [
+        _status_ref(
+            "stale-memory-ref",
+            str(primary.get("stale_state", "recheck_memory_refs_before_loop_use")),
+        )
+    ]
+    state_by_surface = {
+        "Today": "candidate",
+        "Action Inbox": "follow_up_commitment",
+        "Evidence Timeline": "missing_evidence_blocker",
+        "Weekly CEO Review": "stale",
+    }
+    loop_items = [
+        build_memory_to_loop_binding_item(
+            surface=surface,
+            loop_binding_state=state_by_surface[surface],
+            memory_candidate_ref=memory_candidate_ref,
+            review_ref=review_ref,
+            safe_summary=(
+                f"{surface} shows reviewed memory state as safe refs only; "
+                "recall is not truth and action remains approval-bound."
+            ),
+            source_refs=source_refs,
+            evidence_refs=evidence_refs,
+            missing_evidence_refs=missing_evidence_refs,
+            stale_state=str(
+                primary.get("stale_state", "recheck_memory_refs_before_loop_use")
+            ),
+            correction_refs=(
+                correction_refs if state_by_surface[surface] == "correction" else []
+            ),
+            rejected_item_refs=(
+                rejected_item_refs if state_by_surface[surface] == "rejected" else []
+            ),
+            follow_up_commitment_refs=(
+                follow_up_commitment_refs
+                if state_by_surface[surface] == "follow_up_commitment"
+                else []
+            ),
+            accepted_recall_refs=(
+                accepted_recall_refs
+                if state_by_surface[surface] == "accepted_recall"
+                else []
+            ),
+            next_safe_action=(
+                "Review memory source, evidence, stale-state, and approval posture "
+                "before creating or changing any action."
+            ),
+        ).model_dump(mode="json")
+        for surface in MEMORY_TO_LOOP_REQUIRED_SURFACES
+    ]
+    source_loop_item_ref = loop_items[0]["loop_item_ref"]
+    source_intake_proposal_ref = (
+        intake_proposals[0]["proposal_ref"] if intake_proposals else None
+    )
+    memory_derived_action_proposals = [
+        build_memory_derived_action_proposal(
+            proposal_ref=f"memory-derived-action-proposal:{review_ref.replace(':', '-')}",
+            source_memory_ref=memory_candidate_ref,
+            source_loop_item_ref=source_loop_item_ref,
+            source_review_ref=review_ref,
+            source_intake_proposal_ref=source_intake_proposal_ref,
+            safe_summary=(
+                "A memory-derived follow-up can be reviewed as an Action proposal; "
+                "execution and approval capture remain blocked."
+            ),
+            source_refs=source_refs,
+            provenance_refs=list(primary.get("provenance_refs") or []),
+            evidence_refs=evidence_refs,
+            missing_evidence_refs=missing_evidence_refs,
+            next_safe_action=(
+                "Review the memory-derived proposal in Action Inbox before any "
+                "later scoped state-change contract."
+            ),
+        ).model_dump(mode="json")
+    ]
+    weekly_review_refs = [
+        f"weekly-review-ref:{item['loop_item_ref'].replace(':', '-')}"
+        for item in loop_items
+    ]
+    memory_derived_action_proposal_refs = [
+        proposal["proposal_ref"] for proposal in memory_derived_action_proposals
+    ]
+    weekly_ceo_review_summary = {
+        "weekly_review_ref": "weekly-review-ref:memory-to-loop-binding",
+        "input_refs": [*weekly_review_refs, *source_refs],
+        "decision_refs": accepted_recall_refs,
+        "commitment_refs": follow_up_commitment_refs,
+        "carry_forward_task_refs": memory_derived_action_proposal_refs,
+        "unresolved_blocker_refs": MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+        "memory_correction_refs": correction_refs,
+        "rejected_item_refs": rejected_item_refs,
+        "stale_memory_refs": stale_memory_refs,
+        "missing_evidence_blocker_refs": missing_evidence_refs,
+        "follow_up_opportunity_refs": follow_up_commitment_refs,
+        "authority_boundary": (
+            "Weekly CEO Review carries memory refs forward for review only; it "
+            "does not write memory, inject context, approve work, or sync accounts."
+        ),
+        "next_safe_action": (
+            "Review carry-forward memory refs before any later action, recall, "
+            "or memory-write milestone."
+        ),
+    }
+    return {
+        "memory_to_loop_binding_contract_ref": MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
+        "memory_to_loop_binding_status": (
+            "implemented_read_only_memory_loop_binding_contract"
+        ),
+        "memory_to_loop_required_surfaces": MEMORY_TO_LOOP_REQUIRED_SURFACES,
+        "memory_to_loop_required_ref_fields": MEMORY_TO_LOOP_REQUIRED_REF_FIELDS,
+        "memory_derived_action_required_ref_fields": (
+            MEMORY_DERIVED_ACTION_REQUIRED_REF_FIELDS
+        ),
+        "memory_to_loop_required_blocked_refs": MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+        "memory_to_loop_item_count": len(loop_items),
+        "memory_to_loop_items": loop_items,
+        "memory_derived_action_proposal_count": len(memory_derived_action_proposals),
+        "memory_derived_action_proposals": memory_derived_action_proposals,
+        "memory_candidate_refs": [memory_candidate_ref],
+        "accepted_recall_refs": accepted_recall_refs,
+        "correction_refs": correction_refs,
+        "rejected_item_refs": rejected_item_refs,
+        "follow_up_commitment_refs": follow_up_commitment_refs,
+        "stale_memory_refs": stale_memory_refs,
+        "missing_evidence_blocker_refs": missing_evidence_refs,
+        "memory_derived_action_proposal_refs": memory_derived_action_proposal_refs,
+        "memory_to_loop_surface_bindings": memory_to_loop_surface_bindings(),
+        "memory_to_loop_authority_posture": memory_to_loop_authority_posture(),
+        "memory_to_loop_weekly_review_refs": weekly_review_refs,
+        "weekly_ceo_review_summary": weekly_ceo_review_summary,
+        "memory_to_loop_blocked_state_refs": MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+    }
+
+
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
@@ -1494,12 +1696,17 @@ class FounderLoopRepository:
         cross_surface_memory_intake_contract = (
             _cross_surface_memory_intake_contract_payload()
         )
+        memory_to_loop_binding_contract = _memory_to_loop_binding_contract_payload(
+            memory_items=memory_items,
+            cross_surface_memory_intake_contract=cross_surface_memory_intake_contract,
+        )
         evidence_timeline = self._build_evidence_timeline(
             actions=actions,
             plans=plans,
             memory_items=memory_items,
             briefing_items=briefing_items,
             cross_surface_memory_intake_contract=cross_surface_memory_intake_contract,
+            memory_to_loop_binding_contract=memory_to_loop_binding_contract,
         )
         next_safe_actions = _next_safe_actions(
             actions=actions,
@@ -1580,6 +1787,7 @@ class FounderLoopRepository:
                 "implemented_review_queue_safe_ref_quality_metadata_contract"
             ),
             **cross_surface_memory_intake_contract,
+            **memory_to_loop_binding_contract,
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
             "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
@@ -1654,7 +1862,7 @@ class FounderLoopRepository:
             "memory_review_route_ref": "/memory",
             "memory_review_backend_route_ref": "GET /control-center/today/summary",
             "memory_review_status": (
-                "storage_backed_review_queue_with_business_quality_metadata"
+                "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata"
             ),
             "memory_review_authority_boundary": (
                 "Review-only memory candidates; recall is not truth, and writes, "
@@ -1718,6 +1926,7 @@ class FounderLoopRepository:
         memory_items: list[dict[str, Any]],
         briefing_items: list[dict[str, Any]],
         cross_surface_memory_intake_contract: dict[str, Any],
+        memory_to_loop_binding_contract: dict[str, Any],
     ) -> list[dict[str, Any]]:
         timeline: list[FounderLoopEvidenceTimelineItem] = []
         for action in actions:
@@ -2262,6 +2471,134 @@ class FounderLoopRepository:
                 ),
             )
         )
+        memory_loop_items = list(
+            memory_to_loop_binding_contract["memory_to_loop_items"]
+        )
+        memory_derived_actions = list(
+            memory_to_loop_binding_contract["memory_derived_action_proposals"]
+        )
+        memory_loop_refs = [str(item["loop_item_ref"]) for item in memory_loop_items]
+        memory_loop_source_refs = [
+            ref
+            for item in memory_loop_items
+            for ref in item.get("source_refs", [])
+        ]
+        memory_loop_evidence_refs = [
+            ref
+            for item in memory_loop_items
+            for ref in item.get("evidence_refs", [])
+        ]
+        memory_loop_missing_refs = [
+            ref
+            for item in memory_loop_items
+            for ref in item.get("missing_evidence_refs", [])
+        ]
+        timeline.append(
+            FounderLoopEvidenceTimelineItem(
+                timeline_item_ref=_timeline_ref(
+                    "memory-loop",
+                    memory_to_loop_binding_contract[
+                        "memory_to_loop_binding_contract_ref"
+                    ],
+                ),
+                item_kind="memory_to_loop_binding_ref",
+                title="Memory-to-loop binding",
+                safe_summary=(
+                    "Today, Action Inbox, Evidence Timeline, and Weekly CEO "
+                    "Review show memory candidates, recall posture, corrections, "
+                    "rejections, follow-up commitments, stale state, and blockers "
+                    "as safe refs only."
+                ),
+                history_answers=_history_answers(
+                    proposed=_history_answer(
+                        "proposed",
+                        "Memory loop bindings and memory-derived Action proposals were proposed as review-only safe refs.",
+                        refs=[
+                            MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
+                            *memory_loop_refs,
+                            *[
+                                proposal["proposal_ref"]
+                                for proposal in memory_derived_actions
+                            ],
+                        ],
+                    ),
+                    approved=_history_answer(
+                        "approved",
+                        "No memory write, accepted recall, approval grant, action execution, context injection, connector write, or production authority is approved.",
+                        refs=MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+                        status="blocked",
+                    ),
+                    happened=_history_answer(
+                        "happened",
+                        "Only memory-to-loop binding metadata was produced for review surfaces.",
+                        refs=memory_loop_evidence_refs,
+                        status="safe_refs_only",
+                    ),
+                    changed=_history_answer(
+                        "changed",
+                        "No memory record, action state, context pack, connector, account, model, shell, or repo state changed.",
+                        refs=["change-status:no-memory-loop-state-change"],
+                        status="not_applicable",
+                    ),
+                    undoable=_history_answer(
+                        "undoable",
+                        "There is no rollback execution because no loop-binding mutation was performed.",
+                        refs=["rollback-status:memory-loop-no-mutation"],
+                        status="not_applicable",
+                    ),
+                    stale=_history_answer(
+                        "stale",
+                        "Memory-derived actions must recheck stale and missing-evidence refs before any later review decision.",
+                        refs=[
+                            *[
+                                _status_ref("stale-ref", str(item["stale_state"]))
+                                for item in memory_loop_items
+                            ],
+                            *memory_loop_missing_refs,
+                        ],
+                        status="recheck_required",
+                    ),
+                    blocked=_history_answer(
+                        "blocked",
+                        "Memory writes, automatic recall, context injection, approval capture, action execution, connector writes, account sync, source truth authority, and production authority remain blocked.",
+                        refs=MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+                        status="blocked",
+                    ),
+                ),
+                source_refs=memory_loop_refs + memory_loop_source_refs,
+                status_refs=[
+                    MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
+                    MEMORY_REVIEW_DECISION_CONTRACT_REF,
+                    BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
+                    CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF,
+                ],
+                related_route_refs=[
+                    "GET /control-center/today/summary",
+                    "GET /control-center/actions/inbox",
+                    "/evidence",
+                ],
+                side_effect_class="local_dev_workspace_only",
+                authority_posture=(
+                    "Memory-to-loop binding is review-only metadata; memory "
+                    "writes, recall promotion, approval capture, execution, and "
+                    "context injection remain unscoped."
+                ),
+                approval_posture="approval-status:memory-derived-actions-not-authorized",
+                receipt_refs=[],
+                audit_refs=memory_loop_evidence_refs,
+                replay_refs=["replay-ref:memory-to-loop-binding:review"],
+                rollback_refs=[],
+                rollback_blockers=["memory_loop_binding_no_mutation_to_rollback"],
+                redaction_status="redacted_summary_only",
+                stale_state="recheck_memory_loop_refs_before_action_review",
+                missing_evidence_posture="missing_evidence_blocks_memory_derived_action",
+                blocked_states=MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+                next_safe_action=(
+                    "Review memory-derived Action proposal refs before any later "
+                    "state-change or memory-write milestone."
+                ),
+            )
+        )
         for item in memory_items:
             review_ref = str(item["review_ref"])
             missing_contract_refs = list(item.get("missing_contract_refs") or [])
@@ -2543,6 +2880,12 @@ class FounderLoopRepository:
 
     def actions_inbox(self, *, limit: int = 50) -> dict[str, Any]:
         items = self.list_action_inbox(limit=limit)
+        memory_to_loop_binding_contract = _memory_to_loop_binding_contract_payload(
+            memory_items=self.list_memory_review_queue(limit=3),
+            cross_surface_memory_intake_contract=(
+                _cross_surface_memory_intake_contract_payload()
+            ),
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_review_queue",
@@ -2575,6 +2918,7 @@ class FounderLoopRepository:
             "action_envelope_authority_posture": (
                 plans_action_envelope_authority_posture()
             ),
+            **memory_to_loop_binding_contract,
             "disabled_state_label": "Exact backend approval contract required",
             "evidence_refs": ["evidence-ref:founder-loop:action-inbox"],
             "blocked_states": [

@@ -648,6 +648,122 @@ export interface FounderLoopCrossSurfaceMemoryIntakeAuthorityPosture {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopMemoryToLoopItem {
+  contract_ref: string;
+  loop_item_ref: string;
+  surface: string;
+  loop_binding_state: string;
+  memory_candidate_ref: string;
+  review_ref: string;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  accepted_recall_refs: string[];
+  correction_refs: string[];
+  rejected_item_refs: string[];
+  follow_up_commitment_refs: string[];
+  stale_state: string;
+  missing_evidence_refs: string[];
+  missing_evidence_posture: string;
+  side_effect_class: string;
+  approval_posture: string;
+  next_safe_action: string;
+  review_required: boolean;
+  safe_refs_only: boolean;
+  memory_write_authorized: boolean;
+  automatic_recall_enabled: boolean;
+  context_injection_authorized: boolean;
+  approval_grant_capture_enabled: boolean;
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  account_sync_enabled: boolean;
+  source_truth_authority: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+}
+
+export interface FounderLoopMemoryDerivedActionProposal {
+  contract_ref: string;
+  proposal_ref: string;
+  source_memory_ref: string;
+  source_loop_item_ref: string;
+  source_review_ref: string;
+  source_intake_proposal_ref?: string | null;
+  safe_summary: string;
+  source_refs: string[];
+  provenance_refs: string[];
+  evidence_refs: string[];
+  side_effect_class: string;
+  risk_class: string;
+  approval_required: boolean;
+  approval_posture: string;
+  approval_requirement_ref: string;
+  action_envelope_ref: string;
+  scope_ref: string;
+  review_posture_refs: string[];
+  expected_receipt_refs: string[];
+  idempotency_key_ref: string;
+  expires_at: string;
+  rollback_ref: string;
+  safe_disable_ref: string;
+  next_safe_action: string;
+  stale_state: string;
+  missing_evidence_refs: string[];
+  blocked_state_refs: string[];
+  memory_write_authorized: boolean;
+  automatic_recall_enabled: boolean;
+  context_injection_authorized: boolean;
+  approval_grant_capture_enabled: boolean;
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  account_sync_enabled: boolean;
+  source_truth_authority: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryToLoopSurfaceBinding {
+  surface: string;
+  feed_status: string;
+  feed_ref: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopMemoryToLoopAuthorityPosture {
+  safe_refs_only: boolean;
+  review_required: boolean;
+  memory_write_authorized: boolean;
+  automatic_recall_enabled: boolean;
+  context_injection_authorized: boolean;
+  approval_grant_capture_enabled: boolean;
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  account_sync_enabled: boolean;
+  source_truth_authority: boolean;
+  public_beta_claim_enabled: boolean;
+  public_distribution_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopWeeklyCeoReviewSummary {
+  weekly_review_ref: string;
+  input_refs: string[];
+  decision_refs: string[];
+  commitment_refs: string[];
+  carry_forward_task_refs: string[];
+  unresolved_blocker_refs: string[];
+  memory_correction_refs: string[];
+  rejected_item_refs: string[];
+  stale_memory_refs: string[];
+  missing_evidence_blocker_refs: string[];
+  follow_up_opportunity_refs: string[];
+  authority_boundary: string;
+  next_safe_action: string;
+}
+
 export interface FounderLoopTodaySignal {
   signal: string;
   source: string;
@@ -737,6 +853,29 @@ export interface FounderLoopTodaySummary {
   cross_surface_memory_intake_surface_bindings: FounderLoopCrossSurfaceMemoryIntakeSurfaceBinding[];
   cross_surface_memory_intake_authority_posture: FounderLoopCrossSurfaceMemoryIntakeAuthorityPosture;
   cross_surface_memory_intake_blocked_state_refs: string[];
+  memory_to_loop_binding_contract_ref: string;
+  memory_to_loop_binding_status: string;
+  memory_to_loop_required_surfaces: string[];
+  memory_to_loop_required_ref_fields: string[];
+  memory_derived_action_required_ref_fields: string[];
+  memory_to_loop_required_blocked_refs: string[];
+  memory_to_loop_item_count: number;
+  memory_to_loop_items: FounderLoopMemoryToLoopItem[];
+  memory_derived_action_proposal_count: number;
+  memory_derived_action_proposals: FounderLoopMemoryDerivedActionProposal[];
+  memory_candidate_refs: string[];
+  accepted_recall_refs: string[];
+  correction_refs: string[];
+  rejected_item_refs: string[];
+  follow_up_commitment_refs: string[];
+  stale_memory_refs: string[];
+  missing_evidence_blocker_refs: string[];
+  memory_derived_action_proposal_refs: string[];
+  memory_to_loop_surface_bindings: FounderLoopMemoryToLoopSurfaceBinding[];
+  memory_to_loop_authority_posture: FounderLoopMemoryToLoopAuthorityPosture;
+  memory_to_loop_weekly_review_refs: string[];
+  weekly_ceo_review_summary: FounderLoopWeeklyCeoReviewSummary;
+  memory_to_loop_blocked_state_refs: string[];
   chat_local_operator_contract_ref: string;
   chat_local_operator_status: string;
   chat_local_operator_turn_ref: string;
@@ -832,6 +971,12 @@ export interface FounderLoopActionsInbox {
   action_envelope_review_postures?: FounderLoopActionEnvelopeReviewPosture[];
   action_envelope_required_ref_fields?: string[];
   action_envelope_authority_posture?: FounderLoopActionEnvelopeAuthorityPosture;
+  memory_to_loop_binding_contract_ref?: string;
+  memory_to_loop_binding_status?: string;
+  memory_derived_action_proposals?: FounderLoopMemoryDerivedActionProposal[];
+  memory_to_loop_authority_posture?: FounderLoopMemoryToLoopAuthorityPosture;
+  memory_to_loop_blocked_state_refs?: string[];
+  weekly_ceo_review_summary?: FounderLoopWeeklyCeoReviewSummary;
   disabled_state_label: string;
   evidence_refs: string[];
   blocked_states: string[];

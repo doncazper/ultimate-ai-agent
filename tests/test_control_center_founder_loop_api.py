@@ -15,6 +15,11 @@ from ultimate_ai_agent.core.memory import (
     CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
     CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_REF_FIELDS,
     CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_SURFACES,
+    MEMORY_DERIVED_ACTION_REQUIRED_REF_FIELDS,
+    MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
+    MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+    MEMORY_TO_LOOP_REQUIRED_REF_FIELDS,
+    MEMORY_TO_LOOP_REQUIRED_SURFACES,
 )
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
@@ -271,7 +276,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     )
     assert (
         module_feeds["Memory"]["status"]
-        == "implemented_review_queue_quality_and_intake_metadata_contract"
+        == "implemented_review_queue_quality_intake_and_loop_binding_contract"
     )
     assert (
         MEMORY_REVIEW_DECISION_CONTRACT_REF
@@ -283,6 +288,10 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     )
     assert (
         CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF
+        in module_feeds["Memory"]["current_feed_refs"]
+    )
+    assert (
+        MEMORY_TO_LOOP_BINDING_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
     )
     assert module_feeds["Plans"]["status"] == (
@@ -368,6 +377,26 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         ]
         is False
     )
+    assert today["memory_to_loop_binding_contract_ref"] == (
+        MEMORY_TO_LOOP_BINDING_CONTRACT_REF
+    )
+    assert today["memory_to_loop_required_surfaces"] == MEMORY_TO_LOOP_REQUIRED_SURFACES
+    assert today["memory_to_loop_required_ref_fields"] == (
+        MEMORY_TO_LOOP_REQUIRED_REF_FIELDS
+    )
+    assert today["memory_derived_action_required_ref_fields"] == (
+        MEMORY_DERIVED_ACTION_REQUIRED_REF_FIELDS
+    )
+    assert set(MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS) <= set(
+        today["memory_to_loop_blocked_state_refs"]
+    )
+    assert today["memory_to_loop_items"]
+    assert today["memory_derived_action_proposals"]
+    assert today["weekly_ceo_review_summary"]["weekly_review_ref"] == (
+        "weekly-review-ref:memory-to-loop-binding"
+    )
+    assert today["memory_to_loop_authority_posture"]["automatic_recall_enabled"] is False
+    assert today["memory_to_loop_authority_posture"]["action_execution_enabled"] is False
     assert today["plan_action_state"]["execution_authorized"] is False
     assert today["plan_action_state"]["mutating_controls_enabled"] is False
     assert (
@@ -387,7 +416,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         today["memory_review_backend_route_ref"] == "GET /control-center/today/summary"
     )
     assert today["memory_review_status"] == (
-        "storage_backed_review_queue_with_business_quality_metadata"
+        "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata"
     )
     assert today["memory_write_enabled"] is False
     assert today["memory_delete_enabled"] is False
@@ -610,6 +639,20 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert memory_intake_item["context_injection_authorized"] is False
     assert set(CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS) <= set(
         memory_intake_item["blocked_states"]
+    )
+    memory_loop_item = next(
+        item
+        for item in timeline
+        if item["item_kind"] == "memory_to_loop_binding_ref"
+    )
+    assert MEMORY_TO_LOOP_BINDING_CONTRACT_REF in memory_loop_item["status_refs"]
+    assert memory_loop_item["history_answers"]["approved"]["status"] == "blocked"
+    assert memory_loop_item["memory_truth_authority"] is False
+    assert memory_loop_item["context_injection_authorized"] is False
+    assert memory_loop_item["approval_ref_authority"] is False
+    assert memory_loop_item["rollback_execution_enabled"] is False
+    assert set(MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS) <= set(
+        memory_loop_item["blocked_states"]
     )
 
 

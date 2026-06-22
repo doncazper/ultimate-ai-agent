@@ -15,12 +15,13 @@ complete for Business Memory And Memory Quality Controls, UAA-P1-073 is
 complete for Plans To Reviewable Action Envelopes, UAA-P1-074 is complete for
 Chat Local Operator Surface, UAA-P1-075 is complete for Governed Code
 Workbench V1, UAA-P1-076 is complete for Cross-Surface Memory Intake, and
-UAA-P1-077 is the Ready Next Memory-To-Loop Binding lane. UAA-P1-066
+UAA-P1-077 is complete for Memory-To-Loop Binding. UAA-P1-078 is the Ready
+Next Private Beta-Readiness Gate. UAA-P1-066
 remains queued as a strictly read-only Local Model Control Center
-inventory/status support lane. The product path runs through UAA-P1-077 to
-UAA-P1-078: Today/Action/Evidence/Memory binding and private local beta-readiness
-evidence. UAA-P1-079 is the later user-intent-understanding lane after that
-loop has evidence. This path adds no production authority, public beta, public
+inventory/status support lane. The product path now runs through UAA-P1-078
+private local beta-readiness evidence. UAA-P1-079 is the later
+user-intent-understanding lane after that loop has evidence. This path adds no
+production authority, public beta, public
 distribution, connector writes, provider/model authority, unrestricted shell,
 automatic memory writes, hidden context injection, or raw private-content
 export.

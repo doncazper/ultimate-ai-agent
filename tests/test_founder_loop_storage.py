@@ -14,6 +14,11 @@ from ultimate_ai_agent.core.memory import (
     CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS,
     CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_REF_FIELDS,
     CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_SURFACES,
+    MEMORY_DERIVED_ACTION_REQUIRED_REF_FIELDS,
+    MEMORY_TO_LOOP_BINDING_CONTRACT_REF,
+    MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS,
+    MEMORY_TO_LOOP_REQUIRED_REF_FIELDS,
+    MEMORY_TO_LOOP_REQUIRED_SURFACES,
 )
 from ultimate_ai_agent.core.storage import (
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
@@ -233,7 +238,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         assert feed["current_feed_refs"]
     assert (
         module_feeds["Memory"]["status"]
-        == "implemented_review_queue_quality_and_intake_metadata_contract"
+        == "implemented_review_queue_quality_intake_and_loop_binding_contract"
     )
     assert (
         MEMORY_REVIEW_DECISION_CONTRACT_REF
@@ -245,6 +250,10 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     )
     assert (
         CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF
+        in module_feeds["Memory"]["current_feed_refs"]
+    )
+    assert (
+        MEMORY_TO_LOOP_BINDING_CONTRACT_REF
         in module_feeds["Memory"]["current_feed_refs"]
     )
     assert (
@@ -341,6 +350,35 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         ]
         is False
     )
+    assert today["memory_to_loop_binding_contract_ref"] == (
+        MEMORY_TO_LOOP_BINDING_CONTRACT_REF
+    )
+    assert today["memory_to_loop_required_surfaces"] == MEMORY_TO_LOOP_REQUIRED_SURFACES
+    assert today["memory_to_loop_required_ref_fields"] == (
+        MEMORY_TO_LOOP_REQUIRED_REF_FIELDS
+    )
+    assert today["memory_derived_action_required_ref_fields"] == (
+        MEMORY_DERIVED_ACTION_REQUIRED_REF_FIELDS
+    )
+    assert set(MEMORY_TO_LOOP_REQUIRED_BLOCKED_REFS) <= set(
+        today["memory_to_loop_blocked_state_refs"]
+    )
+    assert today["memory_to_loop_item_count"] == len(MEMORY_TO_LOOP_REQUIRED_SURFACES)
+    assert today["memory_derived_action_proposal_count"] == len(
+        today["memory_derived_action_proposals"]
+    )
+    assert today["accepted_recall_refs"]
+    assert today["correction_refs"]
+    assert today["rejected_item_refs"]
+    assert today["follow_up_commitment_refs"]
+    assert today["stale_memory_refs"]
+    assert today["missing_evidence_blocker_refs"]
+    assert today["weekly_ceo_review_summary"]["weekly_review_ref"] == (
+        "weekly-review-ref:memory-to-loop-binding"
+    )
+    assert today["memory_to_loop_authority_posture"]["automatic_recall_enabled"] is False
+    assert today["memory_to_loop_authority_posture"]["context_injection_authorized"] is False
+    assert today["memory_to_loop_authority_posture"]["action_execution_enabled"] is False
     assert today["module_completion_contract"] == {
         "visibility_requirement": (
             "Module state must be visible in Today, Actions, Evidence, and "
@@ -408,7 +446,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         today["memory_review_backend_route_ref"] == "GET /control-center/today/summary"
     )
     assert today["memory_review_status"] == (
-        "storage_backed_review_queue_with_business_quality_metadata"
+        "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata"
     )
     assert today["memory_write_enabled"] is False
     assert today["memory_delete_enabled"] is False
@@ -686,6 +724,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "plan_action_envelope_ref" in timeline_kinds
     assert "governed_code_workbench_proposal_ref" in timeline_kinds
     assert "cross_surface_memory_intake_proposal_ref" in timeline_kinds
+    assert "memory_to_loop_binding_ref" in timeline_kinds
     assert "memory_review_evidence_ref" in timeline_kinds
     assert "source_readiness_evidence_ref" in timeline_kinds
     assert "foundation_gate_latency_ref" in timeline_kinds
@@ -822,6 +861,17 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert set(CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_BLOCKED_REFS) <= set(
         memory_intake_item["blocked_states"]
     )
+    memory_loop_item = next(
+        item
+        for item in today["evidence_timeline"]
+        if item["item_kind"] == "memory_to_loop_binding_ref"
+    )
+    assert MEMORY_TO_LOOP_BINDING_CONTRACT_REF in memory_loop_item["status_refs"]
+    assert memory_loop_item["history_answers"]["approved"]["status"] == "blocked"
+    assert memory_loop_item["memory_truth_authority"] is False
+    assert memory_loop_item["context_injection_authorized"] is False
+    assert memory_loop_item["approval_ref_authority"] is False
+    assert memory_loop_item["rollback_execution_enabled"] is False
 
     memory_timeline_item = next(
         item for item in timeline if item["item_kind"] == "memory_review_evidence_ref"
