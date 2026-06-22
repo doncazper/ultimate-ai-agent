@@ -15,7 +15,7 @@ runner.
 |---|---|
 | Active baseline | **v0.102.3** / `0.102.3` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **FCC-V1-007 Complete: Founder Loop V1 proofed route surfaces; UAA-P1-087.2 Private UI Testing Deferred** |
+| Current lane | **No active build item: FCC-V1-007 proof lane complete; UAA-P1-087.2 Private UI Testing Deferred** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 complete for the bounded proofed route-surface lane** |
 | Latest repository checkpoint | **checkpoint-m168** |

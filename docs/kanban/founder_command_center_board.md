@@ -80,12 +80,11 @@ UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
 UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084,
 UAA-P1-085, UAA-P1-086, UAA-P1-087.1, UAA-P1-087.2a,
 UAA-P1-087.2b, UAA-P1-087.2c, FCC-V1-000, FCC-V1-001,
-FCC-V1-002, FCC-V1-003.
+FCC-V1-002, FCC-V1-003, FCC-V1-004, FCC-V1-005, FCC-V1-006,
+FCC-V1-007.
 
-Candidate-next:
-FCC-V1-004 Control Center Chat Durable Receipt And Handoff.
+Parked candidate-next:
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
-FCC-V1-000 through FCC-V1-007 Founder Loop V1 productization conveyor.
 
 Blocked / future:
 UAA-P1-087.2, UAA-P1-087.3,
@@ -93,7 +92,7 @@ FCC-P1-014, FCC-P1-016, FCC-P1-015, FCC-P2-016, FCC-BLOCK-001,
 FCC-BLOCK-002, FCC-BLOCK-003.
 ```
 
-## Candidate Next
+## Completed Conveyor
 
 ### FCC-V1-000 through FCC-V1-007 - Founder Loop V1 Productization Conveyor
 
@@ -149,23 +148,23 @@ Milestone order:
 Acceptance criteria: Each milestone's detailed goal, tasks, expected routes,
 model fields, storage behavior, UI result, proof lane, and authority boundary
 are recorded in
-`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`. The conveyor does not
-stop until route truth, idempotency, backend-owned decisions, durable receipts,
-Evidence Timeline updates, CLI/repo-local inspection parity, frontend
-rendering, and raw-content leak checks exist for the scoped Founder Loop V1
-behavior.
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`. The scoped Founder Loop
+V1 behavior now has route truth, idempotency, backend-owned decisions, durable
+receipts, Evidence Timeline updates, CLI/repo-local inspection parity,
+frontend rendering, and raw-content leak checks for the bounded proofed route
+surfaces.
 
 Required tests/verifiers: release surface verifier, OpenAPI/API manifest
 checks, focused Action lifecycle tests, Chat receipt/handoff tests, Memory
 decision tests, Evidence Timeline tests, Control Center route/render tests,
-documentation integrity, and the planned
-`scripts/verify_founder_loop_v1.py` proof command, implemented for the bounded route-surface proof lane.
+documentation integrity, and
+`scripts/verify_founder_loop_v1.py`, implemented for the bounded route-surface
+proof lane.
 
-Safety notes: Planning only until separate implementation slices land. No
-runtime model calls, connector writes, shell/subprocess execution, browser
-automation, automatic memory writes, context injection, CRM sync, action
-execution, public beta, public distribution, or production authority; this
-board entry grants none of those.
+Safety notes: The completed conveyor does not add runtime model calls,
+connector writes, shell/subprocess execution, browser automation, automatic
+memory writes, context injection, CRM sync, action execution, public beta,
+public distribution, or production authority.
 
 ### UAA-P1-077 - Memory-To-Loop Binding
 

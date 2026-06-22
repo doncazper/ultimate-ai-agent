@@ -55,17 +55,15 @@ Routes may validate, preview, summarize, or expose metadata. Runtime authority
 requires an accepted scoped milestone, explicit approval model, side-effect
 class, tests, and verifier updates.
 
-Because Control Center is browser-facing, the target FastAPI boundary also needs
-a small local-first API perimeter before broader authority is claimed. Planned
-UAA-P1-080 through UAA-P1-086 work will classify every route as
-`public_metadata`, `local_readonly`, `local_sensitive`, or
-`mutating_requires_authority`; add centralized security headers; allow only
-explicit loopback Control Center origins through CORS; add a simple local bearer
-or session gate for sensitive routes; audit mutating routes for idempotency keys
-or scoped idempotency refs; add targeted rate limits for expensive/sensitive
-paths; and enforce the posture through OpenAPI, `/api/manifest`, and route
-inventory tests. These are planned perimeter controls, not implemented by this
-document.
+Because Control Center is browser-facing, the FastAPI boundary now includes the
+UAA-P1-080 through UAA-P1-086 local-first API perimeter: every route is
+classified as `public_metadata`, `local_readonly`, `local_sensitive`, or
+`mutating_requires_authority`; centralized security headers are present;
+loopback Control Center CORS origins are explicit; sensitive routes have a
+local bearer/session gate; mutating routes require idempotency keys or scoped
+idempotency refs; targeted local rate limits cover selected expensive/sensitive
+paths; and OpenAPI, `/api/manifest`, and route inventory tests enforce the
+posture. These controls do not grant broader runtime authority.
 
 ### Control Center App Shell
 
@@ -98,14 +96,16 @@ The workflow layer should compose existing contracts before adding routes. It
 must keep planned, partial, blocked, skipped, mock-only, and implemented states
 distinct.
 
-The first workflow promoted from posture to real product behavior is the
-planned FCC-V1 conveyor in
-`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`. A Founder Command Center
-loop is not architecturally complete until one Today item can become an Action
-envelope, receive an exact approve/edit/reject/defer decision, produce a
-durable receipt, and update Evidence Timeline through backend-owned state with
-CLI/core/API inspection parity. Chat receipt/handoff and Memory Review
-accept/correct/reject decisions follow the same receipt/evidence boundary.
+The first workflow promoted from posture to backend-owned product behavior is
+the completed bounded FCC-V1 conveyor in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`. One Today item can become
+an Action envelope, receive an exact approve/edit/reject/defer decision,
+produce a durable receipt, and update Evidence Timeline through backend-owned
+state with CLI/core/API inspection parity. Chat receipt/handoff and Memory
+Review accept/correct/reject decisions follow the same receipt/evidence
+boundary. FCC-V1-007 promotes only `/actions`, `/chat`, `/memory`, and
+`/evidence`; `/today` and the broader product loop remain partial until later
+scoped work.
 
 ### Task Decomposition
 

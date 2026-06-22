@@ -1,7 +1,7 @@
 # Documentation Organization Policy
 
 Status: active
-Current through: v0.32.1
+Current through: v0.102.3 plus completed FCC-V1-007
 Purpose: Keep active documentation current while preserving historical release artifacts safely.
 
 ## Root Directory Policy
@@ -93,6 +93,9 @@ Active roadmap docs are:
 
 ```text
 docs/canonical/09_roadmap.md
+docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
+docs/kanban/current_board.md
 docs/roadmap/MILESTONE_CHARTERS.md
 docs/roadmap/M21_M40_CAPABILITY_CHARTERS.md
 docs/roadmap/POST_M20_CAPABILITY_LAYER_ROADMAP.md

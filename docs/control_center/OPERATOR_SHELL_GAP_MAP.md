@@ -125,12 +125,13 @@ and redacted evidence before they can be treated as operator-relevant product
 behavior. A React-only implementation is local presentation state, not product
 workflow completion evidence.
 
-The planned FCC-V1 conveyor in
-`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` is the active gap-closure
-path for converting posture into one receipt-bearing Founder loop. Until those
-milestones land, `/actions`, `/chat`, `/memory`, and `/evidence` remain partial
-for real backend-owned decisions, durable receipts, handoff refs, and actual
-Evidence Timeline updates.
+The bounded FCC-V1 conveyor in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` is complete through
+FCC-V1-007 for converting posture into one receipt-bearing Founder loop.
+`/actions`, `/chat`, `/memory`, and `/evidence` are proofed only for their
+exact backend-owned route-surface behavior; `/today`, `/inbox`, `/settings`,
+model lifecycle, action execution, connector workflows, and product-readiness
+claims remain partial, blocked, or future-scoped.
 
 ## First Product Loop Gaps
 

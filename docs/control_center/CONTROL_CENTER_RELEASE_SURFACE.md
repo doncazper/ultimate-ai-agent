@@ -23,9 +23,11 @@ The status vocabulary is exactly:
 - `experimental`: mock, preview, packet, scaffold, local UI state, or
   proof-of-shape only. This status is not release proof.
 
-No route is promoted to `ship` by FCC-V1-000. Routes may be partial, blocked,
-or experimental while the Founder Loop V1 conveyor builds the missing
-receipt-bearing workflow.
+At FCC-V1-000, no route was promoted to `ship`. FCC-V1-007 later proofed only
+the `/actions`, `/chat`, `/memory`, and `/evidence` route surfaces for their
+exact backend-owned behavior. Other routes remain partial, blocked, or
+experimental until a later scoped milestone supplies the missing
+receipt-bearing workflow proof.
 
 ## Promotion Rules
 
@@ -67,5 +69,10 @@ Evidence Timeline update, and CLI inspection path without action execution.
 FCC-V1-004 Chat Durable Receipt And Handoff is complete for safe Chat turn
 receipts and reviewable Actions/Plans handoff receipts without action
 execution, memory writes, model-output authority, connector writes, or
-provider calls. The next Founder Loop V1 conveyor milestone is FCC-V1-005,
-Memory Review Decisions.
+provider calls. FCC-V1-005 Memory Review Decisions is complete for
+backend-owned accept/correct/reject receipts. FCC-V1-006 Evidence Timeline
+Productization is complete for the backend-owned timeline index. FCC-V1-007
+Promotion And Proof Lane is complete for proofing only `/actions`, `/chat`,
+`/memory`, and `/evidence`; `/today`, `/inbox`, `/settings`, model lifecycle,
+product-readiness claims, public beta, public distribution, and production
+authority remain outside this release-surface proof.

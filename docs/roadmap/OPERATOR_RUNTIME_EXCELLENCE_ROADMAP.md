@@ -467,7 +467,7 @@ Tasks:
   `UAA-P1-083` Done: simple configured local bearer gate for protected routes;
   `UAA-P1-084` Done: mutating-route idempotency header gate;
   `UAA-P1-085` Done: targeted local rate limits for expensive/sensitive routes; and
-  `UAA-P1-086` OpenAPI/API manifest/route inventory enforcement tests.
+  `UAA-P1-086` Done: OpenAPI/API manifest/route inventory enforcement tests.
   UAA-P1-080 adds classification truth only. UAA-P1-081 and UAA-P1-082 add
   browser hardening only. UAA-P1-083 adds local protected-route bearer posture
   only; it is not enterprise auth, OAuth, a password flow, or production
@@ -901,15 +901,14 @@ Verification:
   evidence after more Founder Loop implementation exists; `UAA-P1-087.3`
   native SwiftUI boot cockpit planning/source-only scaffold remains deferred
   behind that deferred local/private UI tuning milestone. `FCC-V1-000` is
-complete for release-surface truth; `FCC-V1-001` is complete for API perimeter
+  complete for release-surface truth; `FCC-V1-001` is complete for API perimeter
   contract/verifier coverage; `FCC-V1-002` is complete for Action Inbox
   backend decision state; `FCC-V1-003` is complete for the first
   Today-to-Action receipt loop; `FCC-V1-004` is complete for durable Chat
   receipts and reviewable handoffs; `FCC-V1-005` is complete for Memory Review
   decision receipts; `FCC-V1-006` is complete for Evidence Timeline
-  productization; and `FCC-V1-007` completes the focused proof-lane conveyor milestone
-  before
-  P2/provider/packaging/commercialization expansion.
+  productization; and `FCC-V1-007` is complete for the focused proof-lane
+  conveyor milestone before P2/provider/packaging/commercialization expansion.
 - `UAA-P2-056` Shape: extension trust product surface.
 - `UAA-P2-058` Shape: Provider Credential Vault Adapter v1 as a
   disabled-by-default opaque-ref adapter contract. This gate must not collect,

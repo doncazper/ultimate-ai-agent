@@ -267,17 +267,16 @@ product loop readability, shape the Action Inbox / approval envelope UX, add a
 Morning Briefing skeleton, and defer read-only email/calendar integration
 contracts until those surfaces are legible.
 
-The next productization conveyor is recorded in
-`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
-`FCC-V1-007`. It adds the detailed goals for release surface truth, API
-perimeter for real mutations, Action Inbox approve/edit/reject/defer backend
-decisions, the first Today item to Action envelope to exact approval to durable
-receipt to Evidence Timeline loop, Chat durable receipts and handoff, Memory
-Review accept/correct/reject backend decisions, Evidence Timeline
-productization, and proof-lane promotion. The conveyor should continue until
-all FCC-V1 tasks are complete before broader P2/provider, packaging, public
-distribution, commercialization, or new runtime-authority expansion displaces
-the first real Founder loop.
+The bounded Founder Loop V1 productization conveyor is complete through
+`FCC-V1-007` in
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`. It records release surface
+truth, API perimeter for real mutations, Action Inbox approve/edit/reject/defer
+backend decisions, the first Today item to Action envelope to exact approval to
+durable receipt to Evidence Timeline loop, Chat durable receipts and handoff,
+Memory Review accept/correct/reject backend decisions, Evidence Timeline
+productization, and proof-lane promotion. Broader P2/provider, packaging,
+public distribution, commercialization, or new runtime-authority expansion must
+still wait for a separate scoped milestone.
 
 This lane grants no new authority. The 30/60/90-day plan below still requires
 scoped tasks, tests, evidence, and gates before any route, runtime, connector,

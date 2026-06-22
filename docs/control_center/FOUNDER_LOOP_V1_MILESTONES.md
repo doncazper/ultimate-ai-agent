@@ -1,6 +1,6 @@
 # Founder Loop V1 Milestone Conveyor
 
-Status: planned productization milestone list
+Status: completed bounded productization milestone record
 Baseline: v0.102.3 / 0.102.3
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`
 Related boards: `docs/kanban/current_board.md`,
@@ -15,12 +15,12 @@ Today item -> Action envelope -> exact approval -> durable receipt ->
 Evidence Timeline update
 ```
 
-The conveyor must keep running through `FCC-V1-000` through `FCC-V1-007`
-before broader P2/provider, packaging, public distribution, commercialization,
-or new runtime-authority expansion displaces it. If a milestone is too large,
-split it into scoped `.1`, `.2`, or lettered hardening slices, but do not skip
-the release-surface truth, API perimeter, receipt, evidence, and CLI/core/API
-inspection requirements.
+The conveyor is complete through `FCC-V1-000` through `FCC-V1-007` for the
+bounded Founder Loop V1 route-surface proof lane. Broader P2/provider,
+packaging, public distribution, commercialization, or new runtime-authority
+expansion still requires a separate scoped milestone. Future follow-up slices
+must not skip release-surface truth, API perimeter, receipt, evidence, and
+CLI/core/API inspection requirements.
 
 This milestone list is planning and task-shaping only. It does not add backend
 routes, Control Center controls, runtime model calls, connector runtime,
@@ -53,8 +53,10 @@ Status: implemented by `docs/control_center/release_surface_manifest.json`,
 `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`,
 `docs/schemas/control_center_release_surface.schema.json`,
 `scripts/verify_control_center_release_surface.py`, and
-`tests/test_control_center_release_surface_manifest.py`. No route is promoted
-to `ship`, and no backend route or runtime authority is added.
+`tests/test_control_center_release_surface_manifest.py`. At FCC-V1-000 no
+route was promoted to `ship`, and no backend route or runtime authority was
+added; FCC-V1-007 later promoted only `/actions`, `/chat`, `/memory`, and
+`/evidence` through the focused proof lane.
 
 Goal: make every visible route tell the truth before any workflow is promoted.
 

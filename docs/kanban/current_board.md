@@ -286,8 +286,9 @@ Goal met: every visible Control Center route has release-surface truth in
 `docs/control_center/release_surface_manifest.json` with `ship`, `partial`,
 `blocked`, or `experimental` status, backend refs, side-effect class,
 classification, approval posture, proof lanes, blocked capabilities, evidence
-refs, and owner. No route is promoted to `ship` by this milestone, and no
-backend route or runtime authority is added.
+refs, and owner. At FCC-V1-000 no route was promoted to `ship`, and no backend
+route or runtime authority was added; FCC-V1-007 later promoted only the
+proofed `/actions`, `/chat`, `/memory`, and `/evidence` route surfaces.
 
 FCC-V1-001 API Perimeter For Real Mutations
 Goal met: `/api/manifest`, the frozen API route inventory, the Founder Loop

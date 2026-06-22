@@ -52,7 +52,10 @@ Implemented / ready for review:
 - FCC-P1-011 Settings Kill-Switch And Feature-Flag Spec
 - FCC-P1-012 FastAPI Service-Module Extraction Plan
 
-Candidate-next:
+Candidate-next from the UAA-P1-065 review:
+
+This candidate remains parked on the current Founder Command Center board after
+the bounded FCC-V1 proof-lane conveyor completed through FCC-V1-007.
 
 - FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces
 
