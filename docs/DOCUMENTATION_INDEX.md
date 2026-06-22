@@ -16,6 +16,7 @@ This index is the active entrypoint for documentation navigation. Historical rel
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
 | Verification maintainability | `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Release evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md` |
 | Governed web evidence | `docs/truth/GOVERNED_WEB_EVIDENCE.md` |
@@ -171,6 +172,8 @@ docs/control_center/ROUTE_STATUS_MANIFEST.md
 docs/control_center/route_status_manifest.json
 docs/verification/milestone_status_manifest.json
 docs/verification/verification_maintainability_policy.json
+docs/cua/COMPUTER_USE_CUA_CONTRACT.md
+docs/cua/cua_release_surface_manifest.json
 docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/kanban/current_board.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md

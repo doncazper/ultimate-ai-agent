@@ -100,6 +100,7 @@ SCAN_SEQUENCE = [
     ("UAA-P1-083 local auth gate scan", "verify_uaa_p1_083_local_auth_gate"),
     ("UAA-P1-084 mutating-route idempotency scan", "verify_uaa_p1_084_mutating_route_idempotency"),
     ("UAA-P1-085 targeted local rate-limit scan", "verify_uaa_p1_085_targeted_rate_limits"),
+    ("Computer Use / CUA contract lane scan", "verify_cua_contract_lane"),
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
@@ -1107,6 +1108,11 @@ def verify_uaa_p1_084_mutating_route_idempotency() -> None:
 def verify_uaa_p1_085_targeted_rate_limits() -> None:
     print("\n[Verifier] Running UAA-P1-085 targeted local rate-limit scan...")
     _run_p1_api_verifier_lane_once()
+
+
+def verify_cua_contract_lane() -> None:
+    print("\n[Verifier] Running Computer Use / CUA contract lane scan...")
+    run_cmd([sys.executable, "scripts/verify_cua_contract_lane.py"])
 
 
 def _run_p1_api_verifier_lane_once() -> None:

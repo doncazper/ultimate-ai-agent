@@ -1,0 +1,53 @@
+{
+  "schema_version": "uaa-cua-release-surface.v1",
+  "surface_ref": "release-surface:cua-blocked-contract-only",
+  "capability_ref": "cua-capability:contract-only",
+  "lane_ref": "cua-lane:contract-only",
+  "status": "blocked",
+  "implementation_status": "contracts_verifiers_docs_only",
+  "backend_ref": "cua-backend:none",
+  "driver_presence": "absent",
+  "browser_automation_lane_ref": "browser-automation:separate-lane",
+  "native_desktop_lane_ref": "native-desktop-cua:future-separate-lane",
+  "driver_lifecycle_states": [
+    "absent",
+    "noop",
+    "degraded",
+    "untrusted",
+    "available_untrusted"
+  ],
+  "proofs": {
+    "no_runtime_driver": true,
+    "no_click_type_route": true,
+    "no_screenshot_capture": true,
+    "no_os_accessibility_access": true,
+    "no_subprocess_cua_launch": true,
+    "no_browser_automation_under_cua": true,
+    "no_connector_write": true,
+    "contracts_verifiers_docs_only": true
+  },
+  "blocked_action_refs": [
+    "cua-action:password-entry",
+    "cua-action:credential-entry",
+    "cua-action:two-factor-handling",
+    "cua-action:permission-dialog",
+    "cua-action:security-settings-change",
+    "cua-action:account-deletion",
+    "cua-action:billing-change",
+    "cua-action:connector-write",
+    "cua-action:shell-payload-typing",
+    "cua-action:prompt-screenshot-instruction-authority",
+    "cua-action:automatic-execution"
+  ],
+  "future_milestone_order": [
+    "contract-only",
+    "observe-only redacted capture proposal",
+    "manual handoff receipt",
+    "exact-approved proposal-only actions",
+    "narrow low-risk execution only after a future accepted milestone"
+  ],
+  "evidence_refs": [
+    "docs/cua/COMPUTER_USE_CUA_CONTRACT.md",
+    "scripts/verify_cua_contract_lane.py"
+  ]
+}

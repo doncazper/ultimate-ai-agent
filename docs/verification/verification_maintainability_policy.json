@@ -10,6 +10,9 @@
     },
     "verifier_modules": {
       "max_lines": 700,
+      "paths": [
+        "scripts/verify_cua_contract_lane.py"
+      ],
       "globs": [
         "scripts/verify_uaa_p1_0*.py",
         "scripts/verification/**/*.py"

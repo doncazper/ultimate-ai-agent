@@ -51,6 +51,7 @@ current implementation claims.
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
 | Verification maintainability | `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md` |
 
@@ -122,6 +123,7 @@ provider payload export, or no-secret-output regression.
 | Local model operations | `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Release verification and evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `docs/production/BACKUP_RESTORE_VERIFICATION.md`, `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`, `docs/production/LOCAL_RUNTIME_PACKAGING.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
 | Verification maintainability | `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Performance and API cache | `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md`, `docs/api/SAFE_STATIC_MANIFEST_CACHING.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
 | Plugin/skill ecosystem boundary | `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`, `docs/schemas/plugin_skill_trust_manifest.schema.json`, `docs/schemas/inspectable_extension_catalog.schema.json`, `docs/schemas/extension_activation_grant.schema.json` |
