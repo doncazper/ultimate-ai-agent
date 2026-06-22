@@ -47,6 +47,11 @@ evidence, and system surfaces remain reachable but do not visually displace the
 daily loop. `/inbox` is a blocked/planned frontend posture surface only; it has
 no backend email/calendar connector route, account auth, draft proposal route,
 send/write/archive/delete authority, or connector runtime.
+FCC-V1-000 adds `releaseStatus` route metadata and
+`docs/control_center/release_surface_manifest.json`; the sidebar and command
+palette render the conservative `ship`/`partial`/`blocked`/`experimental`
+release status, while older descriptive route badges remain metadata for
+keywords and audit context.
 `/private-trial` is the UAA-P1-087.2a/087.2b/087.2c read-only packet,
 acceptance ledger, and unanswered manual-review scaffold surface only. It
 renders safe refs from

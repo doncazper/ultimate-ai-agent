@@ -112,7 +112,8 @@ describe("Web Control Center shell", () => {
     expect(within(navigation).getByRole("link", { name: "Setup" })).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "API Routes" })).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "Differentiators" })).toBeInTheDocument();
-    expect(within(navigation).getByText("blocked/planned")).toBeInTheDocument();
+    expect(within(navigation).getAllByText("blocked").length).toBeGreaterThan(0);
+    expect(within(navigation).queryByText("blocked/planned")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Product spine contract/i })).toBeInTheDocument();
     expect(screen.getByText("contract-ref:today-product-spine:v1")).toBeInTheDocument();
     expect(screen.getByText("Loop visibility sufficient").nextElementSibling).toHaveTextContent("no");
@@ -484,7 +485,13 @@ describe("Web Control Center shell", () => {
     });
 
     expect(palette).toHaveTextContent("Storage");
-    expect(palette).toHaveTextContent("local state");
+    expect(palette).toHaveTextContent("Runtime - partial");
+
+    fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
+      target: { value: "local state" },
+    });
+    expect(palette).toHaveTextContent("Storage");
+    expect(palette).toHaveTextContent("Runtime - partial");
 
     fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
       target: { value: "state change" },

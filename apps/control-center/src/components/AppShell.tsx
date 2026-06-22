@@ -113,7 +113,7 @@ function NavLink({
       href={item.path}
     >
       <span>{item.label}</span>
-      <small>{item.status}</small>
+      <small>{item.releaseStatus}</small>
     </a>
   );
 }

@@ -1235,7 +1235,7 @@ PR size: one docs PR, ideally after Tasks 1-4.
 
 Type: staged full-stack productization with docs/test/manifest gates first
 
-Status: planned.
+Status: FCC-V1-000 implemented; FCC-V1-001 through FCC-V1-007 planned.
 
 New authority: no authority from this planning entry. Each implementation slice
 must separately scope its route, storage, approval, idempotency, evidence,
@@ -1247,9 +1247,10 @@ Source of detailed goals:
 
 Milestones:
 
-- `FCC-V1-000` Control Center Release Surface Manifest: create the
-  `ship`/`partial`/`blocked`/`experimental` manifest for every visible Control
-  Center route, human-readable release surface docs, and drift verifier.
+- `FCC-V1-000` Control Center Release Surface Manifest: implemented. The
+  `ship`/`partial`/`blocked`/`experimental` manifest, schema, human-readable
+  release surface docs, drift verifier, and focused tests now cover every
+  visible Control Center route without promoting any route to `ship`.
 - `FCC-V1-001` API Perimeter For Real Mutations: finish idempotency,
   route-classification, auth, approval, rate-limit, manifest, and enforcement
   posture before any Founder Loop mutation lands.

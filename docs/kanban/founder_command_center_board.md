@@ -31,9 +31,10 @@ UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
 lane and does not add lifecycle, switching, activation, download, runtime
 adapter, or production authority.
 
-The planned Founder Loop V1 conveyor is `FCC-V1-000` through `FCC-V1-007`.
-It is the next productization spine for release surface truth, API perimeter
-for real mutations, backend-owned Action decisions, the first Today-to-Action
+FCC-V1-000 Control Center Release Surface Manifest is complete. The planned
+Founder Loop V1 conveyor is `FCC-V1-000` through `FCC-V1-007`. It is the next
+productization spine for completed release surface truth, API perimeter for
+real mutations, backend-owned Action decisions, the first Today-to-Action
 receipt loop, Chat receipts and handoff, Memory Review accept/correct/reject
 backend decisions, Evidence Timeline productization, and proof-lane promotion.
 The detailed milestone goals, routes, fields, storage semantics, UI outcomes,
@@ -76,10 +77,10 @@ UAA-P1-070, UAA-P1-071, UAA-P1-072, UAA-P1-073, UAA-P1-074,
 UAA-P1-075, UAA-P1-076, UAA-P1-077, UAA-P1-078, UAA-P1-079,
 UAA-P1-080, UAA-P1-081, UAA-P1-082, UAA-P1-083, UAA-P1-084,
 UAA-P1-085, UAA-P1-086, UAA-P1-087.1, UAA-P1-087.2a,
-UAA-P1-087.2b, UAA-P1-087.2c.
+UAA-P1-087.2b, UAA-P1-087.2c, FCC-V1-000.
 
 Candidate-next:
-FCC-V1-000 Control Center Release Surface Manifest.
+FCC-V1-001 API Perimeter For Real Mutations.
 FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 FCC-V1-000 through FCC-V1-007 Founder Loop V1 productization conveyor.
 
@@ -93,7 +94,8 @@ FCC-BLOCK-002, FCC-BLOCK-003.
 
 ### FCC-V1-000 through FCC-V1-007 - Founder Loop V1 Productization Conveyor
 
-Status: Planned.
+Status: In progress through completed FCC-V1-000; FCC-V1-001 through
+FCC-V1-007 remain planned.
 
 Epic: Product/UX, Safety/Permissions, Memory/Knowledge, Business Cofounder
 Workflows
@@ -112,7 +114,7 @@ promotes only routes that pass proof lanes.
 
 Milestone order:
 
-- `FCC-V1-000` Control Center Release Surface Manifest.
+- `FCC-V1-000` Control Center Release Surface Manifest: implemented.
 - `FCC-V1-001` API Perimeter For Real Mutations.
 - `FCC-V1-002` Action Inbox Backend State Machine.
 - `FCC-V1-003` Founder Loop V1 Vertical Slice.

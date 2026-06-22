@@ -51,12 +51,14 @@ export type NavGroup =
   | "System";
 
 export type NavRole = "primary" | "supporting";
+export type ReleaseSurfaceStatus = "ship" | "partial" | "blocked" | "experimental";
 
 export type NavItem = {
   path: string;
   label: string;
   group: NavGroup;
   status: string;
+  releaseStatus: ReleaseSurfaceStatus;
   role: NavRole;
 };
 
@@ -71,39 +73,39 @@ export type CommandPaletteItem = {
 };
 
 export const navItems: NavItem[] = [
-  { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", role: "primary" },
-  { path: "/inbox", label: "Inbox", group: "Founder Loop", status: "blocked/planned", role: "primary" },
-  { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", role: "primary" },
-  { path: "/actions", label: "Actions", group: "Founder Loop", status: "storage-backed", role: "primary" },
-  { path: "/memory", label: "Memory", group: "Founder Loop", status: "review queue", role: "primary" },
-  { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", role: "primary" },
-  { path: "/settings", label: "Settings", group: "Founder Loop", status: "blocked", role: "primary" },
-  { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", role: "supporting" },
-  { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a-2c packet", role: "supporting" },
-  { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", role: "supporting" },
-  { path: "/setup", label: "Setup", group: "Review", status: "dry-run", role: "supporting" },
-  { path: "/chat", label: "Chat", group: "Review", status: "local gated", role: "supporting" },
-  { path: "/models", label: "Models", group: "Review", status: "partial", role: "supporting" },
-  { path: "/approvals", label: "Approvals", group: "Review", status: "summary", role: "supporting" },
-  { path: "/files", label: "Files", group: "Review", status: "safe refs", role: "supporting" },
-  { path: "/files/review", label: "File Review", group: "Review", status: "review-only", role: "supporting" },
-  { path: "/context/proposals", label: "Context Proposals", group: "Review", status: "review-only", role: "supporting" },
-  { path: "/action-preview", label: "Action Preview", group: "Review", status: "preview-only", role: "supporting" },
-  { path: "/runtime", label: "Runtime", group: "Runtime", status: "summary", role: "supporting" },
-  { path: "/storage", label: "Storage", group: "Runtime", status: "local state", role: "supporting" },
-  { path: "/runtime/local", label: "Local Runtime", group: "Runtime", status: "manual", role: "supporting" },
-  { path: "/runtime/manual-smoke", label: "Manual Smoke", group: "Runtime", status: "validation", role: "supporting" },
-  { path: "/remote-workers", label: "Remote Workers", group: "Runtime", status: "dry-run", role: "supporting" },
-  { path: "/mobile-planning", label: "Mobile Planning", group: "Runtime", status: "planned", role: "supporting" },
-  { path: "/plugin-governance", label: "Plugin Governance", group: "Runtime", status: "planned", role: "supporting" },
-  { path: "/foundation-gate", label: "Foundation Gate", group: "Evidence", status: "summary", role: "supporting" },
-  { path: "/receipts", label: "Receipts", group: "Evidence", status: "summary", role: "supporting" },
-  { path: "/events", label: "Events", group: "Evidence", status: "summary", role: "supporting" },
-  { path: "/events/timeline", label: "Timeline", group: "Evidence", status: "mock", role: "supporting" },
-  { path: "/", label: "Overview", group: "System", status: "read-only", role: "supporting" },
-  { path: "/dashboard", label: "Dashboard", group: "System", status: "read-only", role: "supporting" },
-  { path: "/api-routes", label: "API Routes", group: "System", status: "contract", role: "supporting" },
-  { path: "/differentiators", label: "Differentiators", group: "System", status: "operator proof", role: "supporting" },
+  { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
+  { path: "/inbox", label: "Inbox", group: "Founder Loop", status: "blocked/planned", releaseStatus: "blocked", role: "primary" },
+  { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
+  { path: "/actions", label: "Actions", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
+  { path: "/memory", label: "Memory", group: "Founder Loop", status: "review queue", releaseStatus: "partial", role: "primary" },
+  { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", releaseStatus: "partial", role: "primary" },
+  { path: "/settings", label: "Settings", group: "Founder Loop", status: "blocked", releaseStatus: "blocked", role: "primary" },
+  { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "supporting" },
+  { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a-2c packet", releaseStatus: "experimental", role: "supporting" },
+  { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", releaseStatus: "partial", role: "supporting" },
+  { path: "/setup", label: "Setup", group: "Review", status: "dry-run", releaseStatus: "partial", role: "supporting" },
+  { path: "/chat", label: "Chat", group: "Review", status: "local gated", releaseStatus: "partial", role: "supporting" },
+  { path: "/models", label: "Models", group: "Review", status: "partial", releaseStatus: "blocked", role: "supporting" },
+  { path: "/approvals", label: "Approvals", group: "Review", status: "summary", releaseStatus: "partial", role: "supporting" },
+  { path: "/files", label: "Files", group: "Review", status: "safe refs", releaseStatus: "partial", role: "supporting" },
+  { path: "/files/review", label: "File Review", group: "Review", status: "review-only", releaseStatus: "experimental", role: "supporting" },
+  { path: "/context/proposals", label: "Context Proposals", group: "Review", status: "review-only", releaseStatus: "experimental", role: "supporting" },
+  { path: "/action-preview", label: "Action Preview", group: "Review", status: "preview-only", releaseStatus: "experimental", role: "supporting" },
+  { path: "/runtime", label: "Runtime", group: "Runtime", status: "summary", releaseStatus: "partial", role: "supporting" },
+  { path: "/storage", label: "Storage", group: "Runtime", status: "local state", releaseStatus: "partial", role: "supporting" },
+  { path: "/runtime/local", label: "Local Runtime", group: "Runtime", status: "manual", releaseStatus: "partial", role: "supporting" },
+  { path: "/runtime/manual-smoke", label: "Manual Smoke", group: "Runtime", status: "validation", releaseStatus: "partial", role: "supporting" },
+  { path: "/remote-workers", label: "Remote Workers", group: "Runtime", status: "dry-run", releaseStatus: "experimental", role: "supporting" },
+  { path: "/mobile-planning", label: "Mobile Planning", group: "Runtime", status: "planned", releaseStatus: "experimental", role: "supporting" },
+  { path: "/plugin-governance", label: "Plugin Governance", group: "Runtime", status: "planned", releaseStatus: "experimental", role: "supporting" },
+  { path: "/foundation-gate", label: "Foundation Gate", group: "Evidence", status: "summary", releaseStatus: "partial", role: "supporting" },
+  { path: "/receipts", label: "Receipts", group: "Evidence", status: "summary", releaseStatus: "partial", role: "supporting" },
+  { path: "/events", label: "Events", group: "Evidence", status: "summary", releaseStatus: "partial", role: "supporting" },
+  { path: "/events/timeline", label: "Timeline", group: "Evidence", status: "mock", releaseStatus: "experimental", role: "supporting" },
+  { path: "/", label: "Overview", group: "System", status: "read-only", releaseStatus: "partial", role: "supporting" },
+  { path: "/dashboard", label: "Dashboard", group: "System", status: "read-only", releaseStatus: "partial", role: "supporting" },
+  { path: "/api-routes", label: "API Routes", group: "System", status: "contract", releaseStatus: "partial", role: "supporting" },
+  { path: "/differentiators", label: "Differentiators", group: "System", status: "operator proof", releaseStatus: "partial", role: "supporting" },
 ];
 
 export const primaryNavItems = navItems.filter((item) => item.role === "primary");
@@ -144,8 +146,8 @@ export const commandPaletteItems: CommandPaletteItem[] = [
     label: item.label,
     group: item.group,
     path: item.path,
-    status: item.status,
-    keywords: [item.path, item.group, item.status],
+    status: item.releaseStatus,
+    keywords: [item.path, item.group, item.status, item.releaseStatus],
   })),
   ...disabledCommandItems,
 ];

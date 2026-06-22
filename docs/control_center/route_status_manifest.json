@@ -844,12 +844,20 @@
       "frontend_route": "/models",
       "owner": "local-model-management",
       "auth_posture": "blocked_placeholder_only",
-      "side_effect_class": "local_ui_state_only",
+      "side_effect_class": "local_dev_workspace_only",
       "risk_class": "high",
       "release_status": "blocked_missing_backend",
       "approval_requirement": "Approved GGUF/model refs and reviewed local runtime settings are required before live local use.",
-      "evidence_audit_output": "No durable evidence output from the placeholder page.",
-      "backend_routes": [],
+      "evidence_audit_output": "Local gateway model-list status and blocked local-model lifecycle refs only; no loaded, running, switched, downloaded, identity-updated, or production-ready model claim.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "operation_id": "get_v1_models",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
       "missing_backend_routes": [
         "gguf-selection-status",
         "llama-cpp-reviewed-settings-status",

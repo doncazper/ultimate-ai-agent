@@ -49,7 +49,10 @@ is complete. UAA-P1-087.2c private trial manual review scaffold is complete
 with unanswered pending answer refs only. Full UAA-P1-087.2 in-person private
 UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit
 planning/source-only scaffold are deferred until more Founder Loop
-implementation exists. FCC-V1-000 is the next implementation lane before
+implementation exists. FCC-V1-000 Control Center Release Surface Manifest is
+complete for release-status truth, manifest/schema, verifier, and focused
+tests without backend route or runtime authority changes. FCC-V1-001 API
+Perimeter For Real Mutations is the next implementation lane before
 P2/provider, packaging, public distribution, or commercialization expansion.
 
 Founder Loop V1 productization is now tracked as `FCC-V1-000` through
@@ -58,7 +61,7 @@ Founder Loop V1 productization is now tracked as `FCC-V1-000` through
 detailed goals, tasks, routes, model fields, storage semantics, UI outcomes,
 proof lanes, and authority boundaries for:
 
-- Control Center release surface manifest.
+- Completed Control Center release surface manifest.
 - API perimeter for real mutations.
 - Action Inbox backend state machine for approve/edit/reject/defer with
   backend receipts.

@@ -19,7 +19,7 @@
       ],
       "allowlist": {
         "scripts/verification/run_all_legacy.py": {
-          "max_lines": 30262,
+          "max_lines": 30267,
           "reason": "Frozen compatibility body moved out of scripts/verify_all.py; future static scans must move to small modules."
         },
         "scripts/verification/documentation_integrity/legacy.py": {

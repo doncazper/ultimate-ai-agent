@@ -656,10 +656,11 @@ and acceptance ledger, and UAA-P1-087.2c is complete for the unanswered manual
 review scaffold. Full UAA-P1-087.2 in-person private UI functional tuning and
 UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are
 deferred until more Founder Loop implementation exists and accepted or revised
-local/private findings can be recorded later. The conveyor now advances through
-the planned FCC-V1 productization lane: FCC-V1-000 Control Center Release
-Surface Manifest, FCC-V1-001 API
-Perimeter For Real Mutations, FCC-V1-002 Action Inbox Backend State Machine,
+local/private findings can be recorded later. FCC-V1-000 Control Center
+Release Surface Manifest is complete for route-status truth, manifest/schema,
+verifier, and focused tests without adding backend routes or runtime authority.
+The conveyor now advances through the remaining FCC-V1 productization lane:
+FCC-V1-001 API Perimeter For Real Mutations, FCC-V1-002 Action Inbox Backend State Machine,
 FCC-V1-003 Founder Loop V1 Vertical Slice, FCC-V1-004 Chat Durable Receipt And
 Handoff, FCC-V1-005 Memory Review Decisions, FCC-V1-006 Evidence Timeline
 Productization, and FCC-V1-007 Promotion And Proof Lane before broader

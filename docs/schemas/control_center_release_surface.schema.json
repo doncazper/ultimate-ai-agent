@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/control_center_release_surface.schema.json",
+  "title": "Control Center Release Surface Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "baseline",
+    "milestone_ref",
+    "source_routes_ref",
+    "route_status_manifest_ref",
+    "status_vocabulary",
+    "promotion_rules_ref",
+    "release_claims_enabled",
+    "runtime_authority_added",
+    "public_beta_claim_enabled",
+    "production_readiness_claim_enabled",
+    "routes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa-control-center-release-surface.v1"
+    },
+    "status": {
+      "type": "string",
+      "pattern": "^[a-z0-9_:-]+$"
+    },
+    "baseline": {
+      "type": "string"
+    },
+    "milestone_ref": {
+      "const": "FCC-V1-000"
+    },
+    "source_routes_ref": {
+      "const": "apps/control-center/src/routes.tsx"
+    },
+    "route_status_manifest_ref": {
+      "const": "docs/control_center/route_status_manifest.json"
+    },
+    "status_vocabulary": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "ship"
+        },
+        {
+          "const": "partial"
+        },
+        {
+          "const": "blocked"
+        },
+        {
+          "const": "experimental"
+        }
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "promotion_rules_ref": {
+      "const": "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+    },
+    "release_claims_enabled": {
+      "const": false
+    },
+    "runtime_authority_added": {
+      "const": false
+    },
+    "public_beta_claim_enabled": {
+      "const": false
+    },
+    "production_readiness_claim_enabled": {
+      "const": false
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/route"
+      }
+    }
+  },
+  "$defs": {
+    "backend_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "path",
+        "operation_id",
+        "side_effect_class",
+        "route_classification"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "operation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "side_effect_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "route_classification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "label",
+        "group",
+        "ui_status",
+        "status",
+        "backend_routes",
+        "side_effect_class",
+        "route_classification",
+        "approval_required",
+        "proof_lanes",
+        "blocked_capabilities",
+        "evidence_refs",
+        "owner"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ui_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "ship",
+            "partial",
+            "blocked",
+            "experimental"
+          ]
+        },
+        "backend_routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/backend_route"
+          }
+        },
+        "side_effect_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "route_classification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_required": {
+          "type": "boolean"
+        },
+        "proof_lanes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "blocked_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

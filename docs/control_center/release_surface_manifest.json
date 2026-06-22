@@ -1,0 +1,1338 @@
+{
+  "schema_version": "uaa-control-center-release-surface.v1",
+  "status": "implemented_fcc_v1_000_release_surface_manifest_authority_blocked",
+  "baseline": "v0.102.3 / 0.102.3",
+  "milestone_ref": "FCC-V1-000",
+  "source_routes_ref": "apps/control-center/src/routes.tsx",
+  "route_status_manifest_ref": "docs/control_center/route_status_manifest.json",
+  "status_vocabulary": [
+    "ship",
+    "partial",
+    "blocked",
+    "experimental"
+  ],
+  "promotion_rules_ref": "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+  "release_claims_enabled": false,
+  "runtime_authority_added": false,
+  "public_beta_claim_enabled": false,
+  "production_readiness_claim_enabled": false,
+  "routes": [
+    {
+      "path": "/today",
+      "label": "Today",
+      "group": "Founder Loop",
+      "ui_status": "storage-backed",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:today-action-mutation-contract",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop"
+    },
+    {
+      "path": "/inbox",
+      "label": "Inbox",
+      "group": "Founder Loop",
+      "ui_status": "blocked/planned",
+      "status": "blocked",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:calendar-read-only-contract",
+        "missing_backend:email-read-only-contract",
+        "missing_backend:draft-only-response-proposal-contract",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop"
+    },
+    {
+      "path": "/plans",
+      "label": "Plans",
+      "group": "Founder Loop",
+      "ui_status": "partial",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:control-center-plans-surface-status",
+        "missing_backend:durable-run-lifecycle-summary",
+        "missing_backend:replay-summary",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "task-decomposition"
+    },
+    {
+      "path": "/actions",
+      "label": "Actions",
+      "group": "Founder Loop",
+      "ui_status": "storage-backed",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/actions/inbox",
+          "operation_id": "get_control_center_actions_inbox",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:action-inbox-state-change-contract",
+        "missing_backend:approval-envelope-capture-contract",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop"
+    },
+    {
+      "path": "/memory",
+      "label": "Memory",
+      "group": "Founder Loop",
+      "ui_status": "review queue",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:memory-write-policy-binding",
+        "missing_backend:memory-retention-delete-contract",
+        "missing_backend:memory-export-execution-contract",
+        "missing_backend:external-crm-write-sync-contract",
+        "missing_backend:context-injection-contract",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop"
+    },
+    {
+      "path": "/evidence",
+      "label": "Evidence",
+      "group": "Founder Loop",
+      "ui_status": "timeline",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/task-decomposition/audit",
+          "operation_id": "get_task_decomposition_audit",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "mixed",
+      "route_classification": "mixed",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:release-evidence-index",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "evidence-and-audit"
+    },
+    {
+      "path": "/settings",
+      "label": "Settings",
+      "group": "Founder Loop",
+      "ui_status": "blocked",
+      "status": "blocked",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:settings-manifest",
+        "missing_backend:loopback-auth-status",
+        "missing_backend:feature-flag-status",
+        "missing_backend:kill-switch-status",
+        "missing_backend:reviewed-local-runtime-settings",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "operator-settings"
+    },
+    {
+      "path": "/briefing",
+      "label": "Briefing",
+      "group": "Founder Loop",
+      "ui_status": "storage-backed",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/morning-briefing/summary",
+          "operation_id": "get_control_center_morning_briefing_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:email-calendar-read-only-contract",
+        "missing_backend:briefing-refresh-contract",
+        "missing_backend:briefing-notification-contract",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop"
+    },
+    {
+      "path": "/private-trial",
+      "label": "Trial Packet",
+      "group": "Founder Loop",
+      "ui_status": "087.2a-2c packet",
+      "status": "experimental",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:full-private-ui-tuning-acceptance-evidence",
+        "missing_backend:accepted-private-trial-manual-review-answers",
+        "missing_backend:accepted-ui-copy-task-ledger",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop"
+    },
+    {
+      "path": "/operator-loop",
+      "label": "Operator Loop",
+      "group": "Review",
+      "ui_status": "readable proof",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/capability-matrix",
+          "operation_id": "get_runtime_capability_matrix",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "control-center"
+    },
+    {
+      "path": "/setup",
+      "label": "Setup",
+      "group": "Review",
+      "ui_status": "dry-run",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/setup-assistant/summary",
+          "operation_id": "get_control_center_setup_assistant_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:setup-approval-grant-capture-route",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "macos-setup-assistant"
+    },
+    {
+      "path": "/chat",
+      "label": "Chat",
+      "group": "Review",
+      "ui_status": "local gated",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/v1/chat/completions",
+          "operation_id": "post_v1_chat_completions",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mixed",
+      "approval_required": true,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:chat-receipt-summary",
+        "missing_backend:tools-functions-streaming-denial-summary",
+        "missing_backend:governed-chat-handoff-workflow",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "local-model-runtime"
+    },
+    {
+      "path": "/models",
+      "label": "Models",
+      "group": "Review",
+      "ui_status": "partial",
+      "status": "blocked",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "operation_id": "get_v1_models",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:gguf-selection-status",
+        "missing_backend:llama-cpp-reviewed-settings-status",
+        "missing_backend:local-model-rollback-status",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "local-model-management"
+    },
+    {
+      "path": "/approvals",
+      "label": "Approvals",
+      "group": "Review",
+      "ui_status": "summary",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/summary",
+          "operation_id": "get_control_center_approvals_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:control-center-live-approval-capture-binding",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "approval-authority"
+    },
+    {
+      "path": "/files",
+      "label": "Files",
+      "group": "Review",
+      "ui_status": "safe refs",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/files/refs/validate",
+          "operation_id": "post_files_refs_validate",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/files/read/preview",
+          "operation_id": "post_files_read_preview",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:file-tree-safe-ref",
+        "missing_backend:file-operation-status",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "local-file-workbench"
+    },
+    {
+      "path": "/files/review",
+      "label": "File Review",
+      "group": "Review",
+      "ui_status": "review-only",
+      "status": "experimental",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/files/review/approvals/capture",
+          "operation_id": "post_files_review_approvals_capture",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "approval_required": true,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:control-center-file-review-binding",
+        "missing_backend:rollback-receipt",
+        "missing_backend:control-center-file-review-approval-binding",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "local-file-workbench"
+    },
+    {
+      "path": "/context/proposals",
+      "label": "Context Proposals",
+      "group": "Review",
+      "ui_status": "review-only",
+      "status": "experimental",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:safe-context-proposal-status",
+        "missing_backend:context-handoff-denial-summary",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "context-governance"
+    },
+    {
+      "path": "/action-preview",
+      "label": "Action Preview",
+      "group": "Review",
+      "ui_status": "preview-only",
+      "status": "experimental",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/control-center/actions/preview",
+          "operation_id": "post_control_center_actions_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "control-center"
+    },
+    {
+      "path": "/runtime",
+      "label": "Runtime",
+      "group": "Runtime",
+      "ui_status": "summary",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/capability-matrix",
+          "operation_id": "get_runtime_capability_matrix",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:latency-report-summary",
+        "missing_backend:storage-status",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "runtime-readiness"
+    },
+    {
+      "path": "/storage",
+      "label": "Storage",
+      "group": "Runtime",
+      "ui_status": "local state",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/storage/status",
+          "operation_id": "get_control_center_storage_status",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:postgres-sync-adapter-contract",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop"
+    },
+    {
+      "path": "/runtime/local",
+      "label": "Local Runtime",
+      "group": "Runtime",
+      "ui_status": "manual",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/capability-matrix",
+          "operation_id": "get_runtime_capability_matrix",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:loopback-lifecycle-reviewed-settings-status",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "runtime-readiness"
+    },
+    {
+      "path": "/runtime/manual-smoke",
+      "label": "Manual Smoke",
+      "group": "Runtime",
+      "ui_status": "validation",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/runtime/smoke-reports/validate",
+          "operation_id": "post_runtime_smoke_reports_validate",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:manual-smoke-result-index",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "runtime-readiness"
+    },
+    {
+      "path": "/remote-workers",
+      "label": "Remote Workers",
+      "group": "Runtime",
+      "ui_status": "dry-run",
+      "status": "experimental",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:remote-worker-route-status",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "remote-worker-governance"
+    },
+    {
+      "path": "/mobile-planning",
+      "label": "Mobile Planning",
+      "group": "Runtime",
+      "ui_status": "planned",
+      "status": "experimental",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:mobile-permission-status",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "mobile-governance"
+    },
+    {
+      "path": "/plugin-governance",
+      "label": "Plugin Governance",
+      "group": "Runtime",
+      "ui_status": "planned",
+      "status": "experimental",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:plugin-activation-status",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "plugin-governance"
+    },
+    {
+      "path": "/foundation-gate",
+      "label": "Foundation Gate",
+      "group": "Evidence",
+      "ui_status": "summary",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "foundation-gate"
+    },
+    {
+      "path": "/receipts",
+      "label": "Receipts",
+      "group": "Evidence",
+      "ui_status": "summary",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/receipts/preview",
+          "operation_id": "post_receipts_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:run-receipt-trace",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "evidence-and-audit"
+    },
+    {
+      "path": "/events",
+      "label": "Events",
+      "group": "Evidence",
+      "ui_status": "summary",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/events/validate",
+          "operation_id": "post_events_validate",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:event-timeline-live-summary",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "event-ledger"
+    },
+    {
+      "path": "/events/timeline",
+      "label": "Timeline",
+      "group": "Evidence",
+      "ui_status": "mock",
+      "status": "experimental",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:event-timeline-live-summary",
+        "missing_backend:run-receipt-trace",
+        "missing_backend:selected-detail-evidence-binding",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "mixed"
+    },
+    {
+      "path": "/",
+      "label": "Overview",
+      "group": "System",
+      "ui_status": "read-only",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/manifest",
+          "operation_id": "get_control_center_manifest",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/status",
+          "operation_id": "get_control_center_status",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "control-center"
+    },
+    {
+      "path": "/dashboard",
+      "label": "Dashboard",
+      "group": "System",
+      "ui_status": "read-only",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_readonly",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "control-center"
+    },
+    {
+      "path": "/api-routes",
+      "label": "API Routes",
+      "group": "System",
+      "ui_status": "contract",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/api/manifest",
+          "operation_id": "get_api_manifest",
+          "side_effect_class": "none",
+          "route_classification": "public_metadata"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/routes",
+          "operation_id": "get_control_center_routes",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "mixed",
+      "route_classification": "mixed",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "api-boundary"
+    },
+    {
+      "path": "/differentiators",
+      "label": "Differentiators",
+      "group": "System",
+      "ui_status": "operator proof",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/api/manifest",
+          "operation_id": "get_api_manifest",
+          "side_effect_class": "none",
+          "route_classification": "public_metadata"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/routes",
+          "operation_id": "get_control_center_routes",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        }
+      ],
+      "side_effect_class": "mixed",
+      "route_classification": "mixed",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "control-center"
+    }
+  ]
+}

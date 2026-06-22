@@ -49,6 +49,13 @@ Every FCC-V1 implementation slice must keep these requirements visible:
 
 ## FCC-V1-000 - Control Center Release Surface Manifest
 
+Status: implemented by `docs/control_center/release_surface_manifest.json`,
+`docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`,
+`docs/schemas/control_center_release_surface.schema.json`,
+`scripts/verify_control_center_release_surface.py`, and
+`tests/test_control_center_release_surface_manifest.py`. No route is promoted
+to `ship`, and no backend route or runtime authority is added.
+
 Goal: make every visible route tell the truth before any workflow is promoted.
 
 Tasks:

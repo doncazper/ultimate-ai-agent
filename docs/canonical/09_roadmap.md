@@ -40,15 +40,17 @@ UI functional tuning is not complete. UAA-P1-087.2c is complete for the
 unanswered manual review scaffold and pending answer refs only. Full
 UAA-P1-087.2 and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only
 scaffold are deferred until more Founder Loop implementation exists.
-FCC-V1-000 Control Center Release Surface Manifest is the next conveyor
-milestone.
+FCC-V1-000 Control Center Release Surface Manifest is complete for
+release-status truth, manifest/schema, verifier, and focused tests without
+backend route or runtime authority changes. FCC-V1-001 API Perimeter For Real
+Mutations is the next conveyor milestone.
 The planned Founder Loop V1 productization conveyor is `FCC-V1-000` through
 `FCC-V1-007`, recorded in
-`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: Control Center release
-surface manifest, API perimeter for real mutations, Action Inbox backend state
-machine, Today-to-Action vertical slice, Chat durable receipts and handoff,
-Memory Review accept/correct/reject backend decisions, Evidence Timeline
-productization, and promotion/proof lanes. The conveyor keeps running through
+`docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`: completed Control Center
+release surface manifest, API perimeter for real mutations, Action Inbox
+backend state machine, Today-to-Action vertical slice, Chat durable receipts
+and handoff, Memory Review accept/correct/reject backend decisions, Evidence
+Timeline productization, and promotion/proof lanes. The conveyor keeps running through
 those milestones before broader P2/provider, packaging, public distribution, or
 commercialization expansion displaces the first receipt-bearing Founder loop.
 UAA-P1-066

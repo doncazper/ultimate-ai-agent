@@ -160,13 +160,13 @@ remaining gaps before broader product-readiness claims are:
 8. Treat UAA-P1-086 as the completed API boundary enforcement-test checkpoint
    before any authority-heavy Plans, Chat, Code, loop-binding, or private
    beta-readiness claims can advance on later workflow evidence.
-9. Complete the FCC-V1 Founder Loop V1 conveyor before promoting the first
-   product loop to `ship`: release surface manifest, API perimeter for real
-   mutations, Action Inbox approve/edit/reject/defer backend decisions, Today
-   item to Action envelope to exact approval to durable receipt to Evidence
-   update, Chat durable receipt and handoff, Memory Review accept/correct/
-   reject backend decisions, Evidence Timeline productization, and proof-lane
-   promotion.
+9. Continue the FCC-V1 Founder Loop V1 conveyor before promoting the first
+   product loop to `ship`: FCC-V1-000 release surface manifest is complete,
+   while API perimeter for real mutations, Action Inbox approve/edit/reject/
+   defer backend decisions, Today item to Action envelope to exact approval to
+   durable receipt to Evidence update, Chat durable receipt and handoff, Memory
+   Review accept/correct/reject backend decisions, Evidence Timeline
+   productization, and proof-lane promotion remain ahead.
 
 These remaining gaps are release blockers for M172 product-readiness claims.
 
