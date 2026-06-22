@@ -2430,6 +2430,10 @@ function MemoryReviewDecisionControls({
         <dl className="detail-list">
           <DetailTerm label="Decision state" value={state.status} />
           <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+          <DetailTerm
+            label="Recall record"
+            value={state.receipt.reviewed_recall_record_ref ?? "not created"}
+          />
           <DetailTerm label="Audit" value={state.receipt.audit_ref} />
           <DetailTerm
             label="Evidence event"

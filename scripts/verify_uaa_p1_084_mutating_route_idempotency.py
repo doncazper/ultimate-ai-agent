@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from ultimate_ai_agent.api.idempotency import (  # noqa: E402
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
     api_idempotency_audit_policy_payload,
 )
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 from scripts.verification.api_routes import (  # noqa: E402
     EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY,
     EXPECTED_MUTATING_ROUTES,
@@ -36,7 +38,7 @@ from scripts.verification.repo import (  # noqa: E402
 CONTRACT_DOC = "docs/api/UAA_P1_084_MUTATING_ROUTE_IDEMPOTENCY_AUDIT.md"
 POLICY_SCHEMA = "docs/schemas/api_mutating_route_idempotency_audit.schema.json"
 ROUTE_SCHEMA = "docs/schemas/api_route_classification.schema.json"
-ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_126.json"
+ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_127.json"
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:p1-084-verifier"}
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
@@ -139,30 +141,48 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
             failures.append(f"{key[0]} {key[1]} idempotency policy ref drifted")
 
     client = context.client
-    for _method, path in sorted(EXPECTED_MUTATING_ROUTES):
-        missing = _post(client, path)
-        invalid = _post(client, path, headers={"X-UAA-Idempotency-Key": "short"})
-        if missing.status_code != 428:
-            failures.append(f"{path} without idempotency returned {missing.status_code}")
-        if invalid.status_code != 400:
-            failures.append(f"{path} with invalid idempotency returned {invalid.status_code}")
-        if "raw request should not echo" in missing.text or "short" in invalid.text:
-            failures.append(f"{path} idempotency failure echoed unsafe input")
-        if missing.headers.get("X-Content-Type-Options") != "nosniff":
-            failures.append(f"{path} idempotency failure missing security headers")
+    old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+    bearer = "uaa-p1-084-local-bearer"
+    auth_headers = {"Authorization": f"Bearer {bearer}"}
+    os.environ[LOCAL_API_BEARER_ENV] = bearer
+    try:
+        for _method, path in sorted(EXPECTED_MUTATING_ROUTES):
+            missing = _post(client, path, headers=auth_headers)
+            invalid = _post(
+                client,
+                path,
+                headers={**auth_headers, "X-UAA-Idempotency-Key": "short"},
+            )
+            if missing.status_code != 428:
+                failures.append(f"{path} without idempotency returned {missing.status_code}")
+            if invalid.status_code != 400:
+                failures.append(f"{path} with invalid idempotency returned {invalid.status_code}")
+            if "raw request should not echo" in missing.text or "short" in invalid.text:
+                failures.append(f"{path} idempotency failure echoed unsafe input")
+            if missing.headers.get("X-Content-Type-Options") != "nosniff":
+                failures.append(f"{path} idempotency failure missing security headers")
 
-    allowed_to_handler = _post(
-        client,
-        "/task-decomposition/run",
-        headers=IDEMPOTENCY_HEADERS,
-        json_body={"raw_request": "safe summary"},
-    )
-    if allowed_to_handler.status_code != 403:
-        failures.append("valid idempotency did not reach existing task-decomposition authority check")
+        allowed_to_handler = _post(
+            client,
+            "/task-decomposition/run",
+            headers={**auth_headers, **IDEMPOTENCY_HEADERS},
+            json_body={"raw_request": "safe summary"},
+        )
+        if allowed_to_handler.status_code != 403:
+            failures.append("valid idempotency did not reach existing task-decomposition authority check")
 
-    non_mutating = client.post("/files/tree/preview", json={"unsafe": "shape"})
-    if non_mutating.status_code == 428:
-        failures.append("local_sensitive non-mutating route required idempotency")
+        non_mutating = client.post(
+            "/files/tree/preview",
+            json={"unsafe": "shape"},
+            headers=auth_headers,
+        )
+        if non_mutating.status_code == 428:
+            failures.append("local_sensitive non-mutating route required idempotency")
+    finally:
+        if old_bearer is None:
+            os.environ.pop(LOCAL_API_BEARER_ENV, None)
+        else:
+            os.environ[LOCAL_API_BEARER_ENV] = old_bearer
 
     preflight = client.options(
         "/contracts/validate",

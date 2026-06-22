@@ -21,9 +21,11 @@ from scripts.verification.repo import (  # noqa: E402
     load_json,
     print_failures_or_success,
 )
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
 )
+from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
 
 SUCCESS_MESSAGE = "FCC-V1-005 Memory Review decision receipt verification passed."
@@ -32,6 +34,10 @@ RELEASE_SURFACE_PATH = "docs/control_center/release_surface_manifest.json"
 ROUTE_STATUS_PATH = "docs/control_center/route_status_manifest.json"
 MILESTONE_STATUS_PATH = "docs/verification/milestone_status_manifest.json"
 MEMORY_REVIEW_GET_ROUTE = ("GET", "/control-center/memory/review")
+MEMORY_REVIEW_RECEIPT_ROUTE = (
+    "GET",
+    "/control-center/memory/review/{candidate_ref}/receipt",
+)
 FOUNDER_LOOP_V1_PROOF_REF = "scripts/verify_founder_loop_v1.py"
 FOUNDER_LOOP_V1_PROOFED_STATUS = "founder_loop_v1_proofed"
 MEMORY_REVIEW_DECISION_ROUTES = {
@@ -60,6 +66,13 @@ MEMORY_REVIEW_DECISION_ROUTES = {
 ROUTES = {
     MEMORY_REVIEW_GET_ROUTE: {
         "operation_id": "get_control_center_memory_review",
+        "route_classification": "local_sensitive",
+        "side_effect_class": "local_dev_workspace_only",
+        "idempotency_required": False,
+        "rate_limit_group": None,
+    },
+    MEMORY_REVIEW_RECEIPT_ROUTE: {
+        "operation_id": "get_control_center_memory_review_candidate_ref_receipt",
         "route_classification": "local_sensitive",
         "side_effect_class": "local_dev_workspace_only",
         "idempotency_required": False,
@@ -260,9 +273,12 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "Status: implemented for backend-owned Memory Review decision receipts",
                 FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
                 "GET /control-center/memory/review",
+                "GET /control-center/memory/review/{candidate_ref}/receipt",
                 "POST /control-center/memory/review/{candidate_ref}/accept",
                 "POST /control-center/memory/review/{candidate_ref}/correct",
                 "POST /control-center/memory/review/{candidate_ref}/reject",
+                "reviewed_recall_record_ref",
+                "LocalMemoryStore",
                 "Correct stores corrected_summary_ref only",
                 "Accept records reviewed recall only; it is not truth authority",
                 "scripts/verify_fcc_v1_005_memory_review_decisions.py",
@@ -280,24 +296,52 @@ def _append_behavior_failures(
     context: ApiVerifierContext,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+    bearer = "fcc-v1-005-local-bearer"
+    auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
-            candidate_ref = _candidate_ref(context)
-            accept = _exercise_decision(failures, context, candidate_ref, "accept")
-            _exercise_correction(failures, context, candidate_ref)
-            reject = _exercise_decision(failures, context, candidate_ref, "reject")
-            _append_today_summary_failures(failures, context, reject or accept)
-            _append_memory_review_failures(failures, context, reject or accept)
+            candidate_ref = _candidate_ref(context, auth_headers)
+            accept = _exercise_decision(
+                failures,
+                context,
+                candidate_ref,
+                "accept",
+                auth_headers,
+            )
+            _exercise_correction(failures, context, candidate_ref, auth_headers)
+            reject = _exercise_decision(
+                failures,
+                context,
+                candidate_ref,
+                "reject",
+                auth_headers,
+            )
+            _append_recall_record_failures(failures, accept)
+            _append_receipt_lookup_failures(
+                failures,
+                context,
+                candidate_ref,
+                reject,
+                auth_headers,
+            )
+            _append_today_summary_failures(failures, context, reject or accept, auth_headers)
+            _append_memory_review_failures(failures, context, reject or accept, auth_headers)
         finally:
             if old_state_dir is None:
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
 
 
-def _candidate_ref(context: ApiVerifierContext) -> str:
-    response = context.client.get("/control-center/memory/review")
+def _candidate_ref(context: ApiVerifierContext, auth_headers: dict[str, str]) -> str:
+    response = context.client.get("/control-center/memory/review", headers=auth_headers)
     data = response.json().get("data", {}) if response.status_code == 200 else {}
     items = data.get("items") or []
     if not items:
@@ -314,14 +358,19 @@ def _exercise_decision(
     context: ApiVerifierContext,
     candidate_ref: str,
     decision: str,
+    auth_headers: dict[str, str],
 ) -> dict[str, Any]:
     body = _decision_body(decision)
     route = f"/control-center/memory/review/{candidate_ref}/{decision}"
-    missing = context.client.post(route, json=body)
+    missing = context.client.post(route, json=body, headers=auth_headers)
     if missing.status_code != 428:
         failures.append(f"Memory Review {decision} must reject missing idempotency")
     key = f"idempotency-ref:fcc-v1-005-memory-{decision}"
-    first = context.client.post(route, json=body, headers={"x-uaa-idempotency-key": key})
+    first = context.client.post(
+        route,
+        json=body,
+        headers={**auth_headers, "x-uaa-idempotency-key": key},
+    )
     if first.status_code != 200:
         failures.append(f"Memory Review {decision} failed with {first.status_code}")
         return {}
@@ -331,13 +380,21 @@ def _exercise_decision(
         failures.append(f"Memory Review {decision} contract ref drifted")
     if receipt.get("decision") != decision:
         failures.append(f"Memory Review {decision} receipt decision drifted")
-    replay = context.client.post(route, json=body, headers={"x-uaa-idempotency-key": key})
+    if decision in {"accept", "correct"} and not receipt.get("reviewed_recall_record_ref"):
+        failures.append(f"Memory Review {decision} must create reviewed recall record ref")
+    if decision == "reject" and receipt.get("reviewed_recall_record_ref"):
+        failures.append("Memory Review reject must not create reviewed recall record ref")
+    replay = context.client.post(
+        route,
+        json=body,
+        headers={**auth_headers, "x-uaa-idempotency-key": key},
+    )
     if replay.status_code != 200 or replay.json().get("data", {}).get("replayed") is not True:
         failures.append(f"Memory Review {decision} must replay matching payload")
     conflict = context.client.post(
         route,
         json={**body, "reviewer_ref": f"actor-ref:fcc-v1-005-{decision}-changed"},
-        headers={"x-uaa-idempotency-key": key},
+        headers={**auth_headers, "x-uaa-idempotency-key": key},
     )
     if conflict.status_code != 409:
         failures.append(f"Memory Review {decision} must reject idempotency conflict")
@@ -348,20 +405,26 @@ def _exercise_correction(
     failures: list[str],
     context: ApiVerifierContext,
     candidate_ref: str,
+    auth_headers: dict[str, str],
 ) -> None:
     route = f"/control-center/memory/review/{candidate_ref}/correct"
     missing_ref = context.client.post(
         route,
         json=_decision_body("correct", corrected_summary_ref=None),
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-005-correct-missing"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-005-correct-missing",
+        },
     )
     if missing_ref.status_code != 400:
         failures.append("Memory Review correction must require corrected_summary_ref")
-    receipt = _exercise_decision(failures, context, candidate_ref, "correct")
+    receipt = _exercise_decision(failures, context, candidate_ref, "correct", auth_headers)
     if "corrected_summary" in receipt:
         failures.append("Memory Review correction receipt must not store raw corrected content")
     if receipt.get("corrected_summary_ref") != "safe-summary-ref:fcc-v1-005-correction":
         failures.append("Memory Review correction must store corrected_summary_ref")
+    if not receipt.get("reviewed_recall_record_ref"):
+        failures.append("Memory Review correction must create reviewed recall record ref")
 
 
 def _decision_body(
@@ -407,12 +470,79 @@ def _append_receipt_shape_failures(
         failures.append(f"{label} receipt contains unsafe raw/provider wording")
 
 
+def _append_recall_record_failures(
+    failures: list[str],
+    receipt: dict[str, Any],
+) -> None:
+    if not receipt:
+        return
+    repo = FounderLoopRepository.from_env()
+    records = repo.list_memory_review_recall_records()
+    if not records:
+        failures.append("Memory Review accept/correct must create LocalMemoryStore recall records")
+        return
+    receipt_ref = receipt.get("receipt_ref")
+    matching = [
+        record
+        for record in records
+        if receipt_ref in set(record.get("receipt_refs") or [])
+    ]
+    if not matching:
+        failures.append("Memory Review recall records must include decision receipt refs")
+        return
+    record = matching[0]
+    if record.get("authority_level") != "recall_only":
+        failures.append("Memory Review recall record must remain recall_only")
+    if record.get("review_state") != "user_reviewed":
+        failures.append("Memory Review recall record must be user_reviewed")
+    recall_metadata = record.get("recall_metadata") or {}
+    if recall_metadata.get("context_pack_eligible") is not False:
+        failures.append("Memory Review recall record must not be context-pack eligible")
+    if recall_metadata.get("injection_priority") != 0:
+        failures.append("Memory Review recall record must keep zero injection priority")
+    metadata = record.get("metadata") or {}
+    for field in [
+        "context_injection_authorized",
+        "source_truth_authority",
+        "connector_write_authorized",
+        "automatic_action_execution_authorized",
+    ]:
+        if metadata.get(field) is not False:
+            failures.append(f"Memory Review recall record metadata {field} must be false")
+
+
+def _append_receipt_lookup_failures(
+    failures: list[str],
+    context: ApiVerifierContext,
+    candidate_ref: str,
+    receipt: dict[str, Any],
+    auth_headers: dict[str, str],
+) -> None:
+    response = context.client.get(
+        f"/control-center/memory/review/{candidate_ref}/receipt",
+        headers=auth_headers,
+    )
+    if response.status_code != 200:
+        failures.append("Memory Review receipt lookup route must return latest receipt")
+        return
+    data = response.json().get("data", {})
+    if receipt and data.get("receipt_ref") != receipt.get("receipt_ref"):
+        failures.append("Memory Review receipt lookup must return latest candidate receipt")
+    missing = context.client.get(
+        "/control-center/memory/review/business-memory-candidate:missing/receipt",
+        headers=auth_headers,
+    )
+    if missing.status_code != 404:
+        failures.append("Memory Review receipt lookup must return 404 when absent")
+
+
 def _append_today_summary_failures(
     failures: list[str],
     context: ApiVerifierContext,
     receipt: dict[str, Any],
+    auth_headers: dict[str, str],
 ) -> None:
-    response = context.client.get("/control-center/today/summary")
+    response = context.client.get("/control-center/today/summary", headers=auth_headers)
     if response.status_code != 200:
         failures.append("Today summary failed after Memory Review decision")
         return
@@ -434,8 +564,9 @@ def _append_memory_review_failures(
     failures: list[str],
     context: ApiVerifierContext,
     receipt: dict[str, Any],
+    auth_headers: dict[str, str],
 ) -> None:
-    response = context.client.get("/control-center/memory/review")
+    response = context.client.get("/control-center/memory/review", headers=auth_headers)
     if response.status_code != 200:
         failures.append("Memory Review GET failed after decisions")
         return

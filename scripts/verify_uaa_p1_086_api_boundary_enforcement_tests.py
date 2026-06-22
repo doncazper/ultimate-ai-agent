@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.api.idempotency import API_IDEMPOTENCY_AUDIT_POLICY_REF  # noqa: E402
 from ultimate_ai_agent.api.local_auth import (  # noqa: E402
+    LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
     LOCAL_API_AUTH_ENABLED_ENV,
     LOCAL_API_BEARER_ENV,
 )
@@ -282,6 +283,7 @@ def _append_runtime_boundary_sample_failures(
     )
 
     env = {
+        LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "",
         LOCAL_API_AUTH_ENABLED_ENV: "1",
         LOCAL_API_BEARER_ENV: "p1-086-local-bearer",
     }
@@ -299,24 +301,39 @@ def _append_runtime_boundary_sample_failures(
         failures.append("local auth failure echoed bearer material")
     _append_security_header_failures(failures, "local auth failure", missing_auth)
 
-    missing_idempotency = context.client.post(
-        "/task-decomposition/run",
-        json={"raw_request": "safe summary"},
-    )
+    env = {
+        LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "",
+        LOCAL_API_BEARER_ENV: "p1-086-local-bearer",
+    }
+    with patch.dict(os.environ, env, clear=False):
+        missing_idempotency = context.client.post(
+            "/task-decomposition/run",
+            headers={"Authorization": "Bearer p1-086-local-bearer"},
+            json={"raw_request": "safe summary"},
+        )
     if missing_idempotency.status_code != 428:
         failures.append(f"mutating route without idempotency returned {missing_idempotency.status_code}")
     _append_security_header_failures(failures, "idempotency failure", missing_idempotency)
 
     env = {
+        LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "",
+        LOCAL_API_BEARER_ENV: "p1-086-local-bearer",
         API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV: "1",
         API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV: "60",
     }
     with patch.dict(os.environ, env, clear=False):
         reset_api_rate_limit_state()
-        context.client.post("/models/route/preview", json={"unsafe": "safe summary"})
+        context.client.post(
+            "/models/route/preview",
+            headers={"Authorization": "Bearer p1-086-local-bearer"},
+            json={"unsafe": "safe summary"},
+        )
         rate_limited = context.client.post(
             "/models/route/preview",
-            headers={"Origin": "http://localhost:5173"},
+            headers={
+                "Authorization": "Bearer p1-086-local-bearer",
+                "Origin": "http://localhost:5173",
+            },
             json={"unsafe": "safe summary"},
         )
     if rate_limited.status_code != 429:

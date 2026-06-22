@@ -70,6 +70,30 @@ def get_control_center_memory_review() -> ResultEnvelope:
     )
 
 
+@router.get("/memory/review/{candidate_ref}/receipt", response_model=ResultEnvelope)
+def get_control_center_memory_review_receipt(candidate_ref: str) -> ResultEnvelope:
+    data = get_founder_loop_service().memory_review_receipt(
+        candidate_ref=candidate_ref
+    )
+    if data is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_DECISION_RECEIPT_NOT_FOUND",
+                "safe_message": "No Memory Review decision receipt exists for this safe candidate ref.",
+            },
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_review_receipt",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-review-receipt",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-review-decision"}],
+        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+    )
+
+
 @router.get("/evidence/timeline", response_model=ResultEnvelope)
 def get_control_center_evidence_timeline() -> ResultEnvelope:
     data = get_founder_loop_service().evidence_timeline()

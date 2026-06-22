@@ -24,9 +24,9 @@ CLI/core/API inspection requirements.
 
 This milestone list is planning and task-shaping only. It does not add backend
 routes, Control Center controls, runtime model calls, connector runtime,
-connector writes, shell/subprocess behavior, browser automation, memory writes,
-context injection, CRM sync, public beta, public distribution, or production
-authority by itself.
+connector writes, shell/subprocess behavior, browser automation, automatic
+memory writes, context injection, CRM sync, public beta, public distribution,
+or production authority by itself.
 
 ## Shared Definition Of Done
 
@@ -263,12 +263,14 @@ Tasks:
 - Store correction summaries as redacted safe refs only.
 - Add routes:
   - `GET /control-center/memory/review`
+  - `GET /control-center/memory/review/{candidate_ref}/receipt`
   - `POST /control-center/memory/review/{candidate_ref}/accept`
   - `POST /control-center/memory/review/{candidate_ref}/correct`
   - `POST /control-center/memory/review/{candidate_ref}/reject`
 - Preserve authority boundaries.
-- Accept means "reviewed recall record", not automatic prompt injection.
-- Correct stores a safe corrected summary, not raw content.
+- Accept/correct create reviewed recall-only `LocalMemoryStore` records, not
+  truth authority or automatic prompt/context injection.
+- Correct stores a safe corrected summary ref posture, not raw content.
 - Reject blocks promotion and records evidence.
 - No context injection, connector write, CRM sync, or automatic action
   execution.
@@ -277,8 +279,9 @@ Tasks:
 - Add an Evidence Timeline entry for every memory decision.
 
 Definition of done: Memory Review decisions are backend-owned, receipt-backed,
-evidence-visible, and still do not grant context injection or production
-authority.
+evidence-visible, create reviewed recall-only records for accept/correct, and
+still do not grant context injection, truth authority, CRM/account sync,
+connector writes, action execution, public beta, or production authority.
 
 Proof refs:
 

@@ -21,6 +21,7 @@ from scripts.verification.repo import (  # noqa: E402
     load_json,
     print_failures_or_success,
 )
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
@@ -258,11 +259,18 @@ def _append_behavior_failures(
     context: ApiVerifierContext,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+    bearer = "fcc-v1-006-local-bearer"
+    auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
-            receipts = _exercise_loop(failures, context)
-            response = context.client.get("/control-center/evidence/timeline")
+            receipts = _exercise_loop(failures, context, auth_headers)
+            response = context.client.get(
+                "/control-center/evidence/timeline",
+                headers=auth_headers,
+            )
             if response.status_code != 200:
                 failures.append("Evidence Timeline route did not return 200")
                 return
@@ -301,14 +309,19 @@ def _append_behavior_failures(
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
 
 
 def _exercise_loop(
     failures: list[str],
     context: ApiVerifierContext,
+    auth_headers: dict[str, str],
 ) -> list[str]:
     receipts: list[str] = []
-    inbox = context.client.get("/control-center/actions/inbox")
+    inbox = context.client.get("/control-center/actions/inbox", headers=auth_headers)
     if inbox.status_code != 200:
         failures.append("Action Inbox unavailable for Evidence Timeline exercise")
         return receipts
@@ -319,7 +332,10 @@ def _exercise_loop(
             "decision_reason_ref": "decision-reason-ref:fcc-v1-006-action",
             "metadata_refs": ["metadata-ref:fcc-v1-006-action"],
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-action"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-action",
+        },
     )
     if action.status_code == 200:
         receipts.append(str(action.json().get("data", {}).get("receipt_ref", "")))
@@ -338,7 +354,10 @@ def _exercise_loop(
             "safe_summary_ref": "safe-summary-ref:fcc-v1-006-chat",
             "evidence_refs": ["evidence-ref:fcc-v1-006-chat"],
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-chat"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-chat",
+        },
     )
     if chat.status_code == 200:
         receipts.append(str(chat.json().get("data", {}).get("receipt_ref", "")))
@@ -347,14 +366,17 @@ def _exercise_loop(
     handoff = context.client.post(
         "/control-center/chat/turns/chat-turn:fcc-v1-006/handoff",
         json={"handoff_target": "actions"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-handoff"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-handoff",
+        },
     )
     if handoff.status_code == 200:
         receipts.append(str(handoff.json().get("data", {}).get("receipt_ref", "")))
     else:
         failures.append(f"Chat handoff exercise failed with {handoff.status_code}")
 
-    memory = context.client.get("/control-center/memory/review")
+    memory = context.client.get("/control-center/memory/review", headers=auth_headers)
     if memory.status_code == 200 and memory.json().get("data", {}).get("items"):
         candidate_ref = memory.json()["data"]["items"][0]["business_memory_candidate_ref"]
         decision = context.client.post(
@@ -364,7 +386,10 @@ def _exercise_loop(
                 "source_refs": ["source-ref:fcc-v1-006-memory"],
                 "evidence_refs": ["evidence-ref:fcc-v1-006-memory"],
             },
-            headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-memory"},
+            headers={
+                **auth_headers,
+                "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-memory",
+            },
         )
         if decision.status_code == 200:
             receipts.append(str(decision.json().get("data", {}).get("receipt_ref", "")))

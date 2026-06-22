@@ -104,6 +104,9 @@ class FounderLoopControlCenterService:
             idempotency_key_ref=idempotency_key_ref,
         )
 
+    def memory_review_receipt(self, *, candidate_ref: str) -> dict[str, Any] | None:
+        return self.repository.latest_memory_review_receipt(candidate_ref)
+
     def morning_briefing_summary(self) -> dict:
         return self.repository.morning_briefing()
 

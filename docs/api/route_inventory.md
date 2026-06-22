@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `126`.
+Current OpenAPI path count: `127`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 14 |
-| `local_sensitive` | 85 |
+| `local_sensitive` | 87 |
 | `mutating_requires_authority` | 23 |
 
 Allowed current side-effect classes are:
@@ -73,9 +73,10 @@ does not grant auth or route authority.
 UAA-P1-083 implements local protected-route bearer gate posture for non-public
 route classifications. `GET /health`, `GET /version`, `GET /api/manifest`, and
 `GET /openapi.json` remain public metadata; `local_readonly`,
-`local_sensitive`, and `mutating_requires_authority` routes require the
-configured local bearer when the gate is enabled. This is not enterprise auth,
-OAuth, a password flow, production authority, or a public beta claim.
+`local_sensitive`, and `mutating_requires_authority` routes fail closed unless
+the configured local bearer is sent or the explicit local-dev bypass is set.
+This is not enterprise auth, OAuth, a password flow, production authority, or a
+public beta claim.
 
 UAA-P1-084 implements mutating-route idempotency enforcement audit posture.
 Routes classified as `mutating_requires_authority` now require
@@ -210,9 +211,10 @@ credential material, or provider payloads.
 - runtime readiness and smoke-report routes remain status/validation only
 
 UAA-P1-083 adds the general local protected-route bearer gate around the
-current non-public route classifications. Local `/v1` and task-decomposition
-routes can still keep their narrower disabled-by-default bearer gates; P1-083
-does not grant execution, provider, connector, or production authority.
+current non-public route classifications. Protected routes fail closed by
+default; local `/v1` and task-decomposition routes can still keep their
+narrower disabled-by-default bearer gates; P1-083 does not grant execution,
+provider, connector, or production authority.
 
 ### Task, file, tool, provider, memory, truth, approval, consent, cost, gate, and remote-worker groups
 

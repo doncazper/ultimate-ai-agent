@@ -123,6 +123,14 @@ from ultimate_ai_agent.core.memory.business_memory import (
     business_memory_quality_state_rows,
     business_memory_surface_bindings,
 )
+from ultimate_ai_agent.core.memory.enums import (
+    MemoryDataClassification,
+    MemoryLayer,
+    MemoryProviderKind,
+    MemoryRecordKind,
+)
+from ultimate_ai_agent.core.memory.local_store import LocalMemoryStore
+from ultimate_ai_agent.core.memory.provider import MemoryProviderWriteRequest
 from ultimate_ai_agent.core.memory.review_decisions import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
@@ -2067,6 +2075,7 @@ class FounderLoopRepository:
     def __init__(self, state_dir: Path, *, seed_defaults: bool = True) -> None:
         self.state_dir = state_dir
         self.db_path = self.state_dir / "founder_loop.sqlite3"
+        self.memory_review_recall_db_path = self.state_dir / "memory_review_recall.sqlite3"
         self.logs_dir = self.state_dir / "logs"
         self.seed_defaults = seed_defaults
         self._ensure_storage()
@@ -5549,6 +5558,18 @@ class FounderLoopRepository:
             if decision == "reject"
             else None
         )
+        reviewed_recall_record_ref = (
+            self._write_memory_review_recall_record(
+                candidate=candidate,
+                decision=decision,
+                request=enriched_request,
+                receipt_ref=receipt_ref,
+                evidence_ref=evidence_ref,
+                reviewed_recall_ref=reviewed_recall_ref,
+            )
+            if decision in {"accept", "correct"} and reviewed_recall_ref is not None
+            else None
+        )
         receipt = MemoryReviewDecision(
             candidate_ref=candidate_ref,
             review_ref=review_ref,
@@ -5571,6 +5592,7 @@ class FounderLoopRepository:
             payload_fingerprint_ref=payload_fingerprint_ref,
             evidence_timeline_event_ref=evidence_ref,
             reviewed_recall_ref=reviewed_recall_ref,
+            reviewed_recall_record_ref=reviewed_recall_record_ref,
             correction_ref=correction_ref,
             rejection_ref=rejection_ref,
             safe_summary_ref=f"safe-summary-ref:memory-review:{decision}",
@@ -5649,6 +5671,118 @@ class FounderLoopRepository:
             (self._bounded_limit(limit),),
         )
         return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+
+    def latest_memory_review_receipt(self, candidate_ref: str) -> dict[str, Any] | None:
+        _validate_safe_ref(candidate_ref, "candidate_ref")
+        candidate = self._memory_review_payload_for_ref(candidate_ref)
+        candidate_refs = [candidate_ref]
+        if candidate is not None:
+            candidate_refs.extend(
+                [
+                    str(candidate.get("review_ref") or ""),
+                    str(candidate.get("business_memory_candidate_ref") or ""),
+                ]
+            )
+        candidate_refs = list(dict.fromkeys(ref for ref in candidate_refs if ref))
+        placeholders = ", ".join("?" for _ in candidate_refs)
+        rows = self._fetch_all(
+            f"""
+            SELECT receipt_json
+            FROM memory_review_decisions
+            WHERE candidate_ref IN ({placeholders}) OR review_ref IN ({placeholders})
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            tuple([*candidate_refs, *candidate_refs]),
+        )
+        if not rows:
+            return None
+        return dict(json.loads(str(rows[0]["receipt_json"])))
+
+    def list_memory_review_recall_records(self) -> list[dict[str, Any]]:
+        store = self._memory_review_recall_store()
+        try:
+            return [record.model_dump(mode="json") for record in store.list_records()]
+        finally:
+            store.close()
+
+    def _write_memory_review_recall_record(
+        self,
+        *,
+        candidate: dict[str, Any],
+        decision: MemoryReviewDecisionKind,
+        request: MemoryReviewDecisionRequest,
+        receipt_ref: str,
+        evidence_ref: str,
+        reviewed_recall_ref: str,
+    ) -> str:
+        safe_summary = str(candidate.get("safe_summary") or "").strip()
+        if decision == "correct":
+            safe_summary = (
+                "Reviewed memory correction recorded from corrected-summary ref "
+                f"{request.corrected_summary_ref}."
+            )
+        memory_request = MemoryProviderWriteRequest(
+            request_id=f"memory-review-recall-write:{receipt_ref}",
+            provider_ref="provider-ref:local-memory-store:memory-review",
+            memory_kind=(
+                MemoryRecordKind.correction
+                if decision == "correct"
+                else MemoryRecordKind.structured_fact
+            ),
+            memory_layer=MemoryLayer.record,
+            provider_kind=MemoryProviderKind.local_sqlite,
+            safe_summary=safe_summary,
+            source_refs=request.source_refs,
+            evidence_refs=list(dict.fromkeys([*request.evidence_refs, evidence_ref])),
+            event_refs=[evidence_ref],
+            receipt_refs=[receipt_ref],
+            user_reviewed=True,
+            automatic_write=False,
+            data_classification=MemoryDataClassification.internal,
+            confidence_score=0.7,
+            trust_score=0.7,
+            dedup_key=reviewed_recall_ref,
+            context_pack_eligible=False,
+            injection_priority=0,
+            tags=[
+                "memory-review-decision",
+                f"memory-review-decision:{decision}",
+            ],
+            metadata_refs=list(
+                dict.fromkeys(
+                    ref
+                    for ref in [
+                        reviewed_recall_ref,
+                        str(candidate.get("review_ref") or ""),
+                        str(candidate.get("business_memory_candidate_ref") or ""),
+                    ]
+                    if ref
+                )
+            ),
+            metadata={
+                "authority_boundary_ref": (
+                    "memory-review-recall-record-is-not-truth-or-context-injection"
+                ),
+                "decision": decision,
+                "reviewed_recall_ref": reviewed_recall_ref,
+                "context_injection_authorized": False,
+                "source_truth_authority": False,
+                "connector_write_authorized": False,
+                "automatic_action_execution_authorized": False,
+            },
+        )
+        store = self._memory_review_recall_store()
+        try:
+            decision_result = store.put_record(memory_request)
+        finally:
+            store.close()
+        if not getattr(decision_result, "allowed", False) or not decision_result.memory_id:
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_RECALL_RECORD_DENIED")
+        return f"memory-record-ref:{decision_result.memory_id}"
+
+    def _memory_review_recall_store(self) -> LocalMemoryStore:
+        return LocalMemoryStore(storage_path=self.memory_review_recall_db_path)
 
     def _memory_review_payload_for_ref(
         self,

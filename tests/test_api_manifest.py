@@ -12,6 +12,9 @@ from ultimate_ai_agent.api.manifest import (
     api_manifest_cache_policy,
     build_api_manifest,
     clear_api_manifest_static_cache,
+    route_classification_for_path,
+    route_group_for_path,
+    route_side_effect_class,
 )
 from ultimate_ai_agent.api.openapi import forbidden_raw_provider_schema_fields, forbidden_raw_secret_schema_fields
 from scripts.verification.api_routes import (
@@ -40,6 +43,8 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "centralized_fastapi_security_headers" in manifest["capabilities_declared"]
     assert "explicit_loopback_cors_allowlist" in manifest["capabilities_declared"]
     assert "local_protected_route_bearer_gate" in manifest["capabilities_declared"]
+    assert "local_protected_route_fail_closed_by_default" in manifest["capabilities_declared"]
+    assert "local_protected_route_dev_only_bypass_manifest_visible" in manifest["capabilities_declared"]
     assert "mutating_route_idempotency_audit" in manifest["capabilities_declared"]
     assert "targeted_local_rate_limits" in manifest["capabilities_declared"]
     assert "security_headers_as_authentication" in manifest["capabilities_blocked"]
@@ -53,6 +58,13 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "local_protected_route_gate_as_oauth" in manifest["capabilities_blocked"]
     assert "local_protected_route_gate_as_password_flow" in manifest["capabilities_blocked"]
     assert "local_protected_route_gate_as_production_authority" in manifest["capabilities_blocked"]
+    assert "local_protected_route_dev_only_bypass_as_production_authority" in manifest["capabilities_blocked"]
+    assert manifest["local_auth_policy"]["fail_closed_by_default"] is True
+    assert (
+        manifest["local_auth_policy"]["dev_only_bypass_env"]
+        == "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY"
+    )
+    assert manifest["local_auth_policy"]["dev_only_bypass_production_authority"] is False
     assert "idempotency_audit_as_exactly_once_execution" in manifest["capabilities_blocked"]
     assert "idempotency_audit_as_durable_dedupe_store" in manifest["capabilities_blocked"]
     assert "idempotency_audit_as_mutation_authority" in manifest["capabilities_blocked"]
@@ -82,6 +94,29 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert any(route["path"] == "/api/manifest" and route["method"] == "GET" for route in manifest["routes"])
     assert any(route["path"] == "/extensions/catalog" and route["method"] == "GET" for route in manifest["routes"])
     assert any(route["path"] == "/observability/session-events" and route["method"] == "GET" for route in manifest["routes"])
+
+
+def test_unknown_non_read_routes_fail_into_authority_classification() -> None:
+    classification, reason = route_classification_for_path(
+        "POST",
+        "/unregistered/side-effect",
+        route_side_effect_class("/unregistered/side-effect"),
+    )
+
+    assert classification == "mutating_requires_authority"
+    assert "unknown non-read route" in reason
+
+
+def test_registered_routes_do_not_depend_on_implicit_api_boundary_fallback() -> None:
+    manifest = client.get("/api/manifest").json()
+    implicit_fallback_routes = [
+        f"{route['method']} {route['path']}"
+        for route in manifest["routes"]
+        if route["path"] != "/api/manifest"
+        and route_group_for_path(route["path"]) == "api-boundary"
+    ]
+
+    assert implicit_fallback_routes == []
 
 
 def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_classes() -> None:
@@ -250,6 +285,7 @@ def test_api_manifest_static_cache_policy_excludes_authority_and_private_state()
     assert "route_groups" in API_MANIFEST_CACHEABLE_FIELDS
     assert "capabilities_declared" in API_MANIFEST_CACHEABLE_FIELDS
     assert "foundation_gate_status" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
+    assert "local_auth_policy" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
     assert "policy_decisions" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
     assert "approvals" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
     assert "runtime_authority" in API_MANIFEST_CACHE_EXCLUDED_FIELDS

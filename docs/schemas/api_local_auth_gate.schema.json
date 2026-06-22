@@ -6,8 +6,11 @@
   "additionalProperties": false,
   "required": [
     "policy_ref",
+    "fail_closed_by_default",
     "enabled_env",
     "bearer_env",
+    "dev_only_bypass_env",
+    "dev_only_bypass_enabled",
     "public_metadata_paths",
     "protected_route_classifications",
     "minimum_bearer_length",
@@ -17,17 +20,27 @@
     "multi_user_auth_enabled",
     "oauth_enabled",
     "password_flow_enabled",
+    "dev_only_bypass_production_authority",
     "production_authority_enabled"
   ],
   "properties": {
     "policy_ref": {
       "const": "auth:p1-083:local-protected-routes:v1"
     },
+    "fail_closed_by_default": {
+      "const": true
+    },
     "enabled_env": {
       "const": "UAA_API_LOCAL_AUTH_ENABLED"
     },
     "bearer_env": {
       "const": "UAA_API_LOCAL_BEARER"
+    },
+    "dev_only_bypass_env": {
+      "const": "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY"
+    },
+    "dev_only_bypass_enabled": {
+      "type": "boolean"
     },
     "public_metadata_paths": {
       "type": "array",
@@ -74,6 +87,9 @@
       "const": false
     },
     "password_flow_enabled": {
+      "const": false
+    },
+    "dev_only_bypass_production_authority": {
       "const": false
     },
     "production_authority_enabled": {

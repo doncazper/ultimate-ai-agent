@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `126`, generated from the FastAPI application and
+Current OpenAPI path count: `127`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -54,10 +54,11 @@ Current boundary summary:
 - UAA-P1-082 adds an explicit local Control Center loopback CORS allowlist with
   exact dev/preview origins, no credentials, no wildcard CORS, and no auth
   claim.
-- UAA-P1-083 adds a configured local bearer gate for non-public route
+- UAA-P1-083 adds a fail-closed local bearer gate for non-public route
   classifications while keeping `GET /health`, `GET /version`,
-  `GET /api/manifest`, and `GET /openapi.json` public metadata. It is not
-  enterprise auth, OAuth, a password flow, or production authority.
+  `GET /api/manifest`, and `GET /openapi.json` public metadata. An explicit
+  local-dev bypass exists for harnesses only. It is not enterprise auth, OAuth,
+  a password flow, or production authority.
 - UAA-P1-084 adds a runtime idempotency header gate for
   `mutating_requires_authority` routes. It requires `X-UAA-Idempotency-Key` or
   `X-UAA-Idempotency-Ref` before mutating handlers run, without durable dedupe,

@@ -24,6 +24,7 @@ from scripts.verification.repo import (  # noqa: E402
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
     FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
 )
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 
 
 SUCCESS_MESSAGE = "FCC-V1-002 Action Inbox state machine verification passed."
@@ -123,8 +124,8 @@ def _append_manifest_failures(
     context: ApiVerifierContext,
 ) -> None:
     manifest = context.manifest
-    if manifest.get("route_count") != 126:
-        failures.append("FCC-V1-002 expects current API route_count 126")
+    if manifest.get("route_count") != 127:
+        failures.append("FCC-V1-002 expects current API route_count 127")
     if manifest.get("route_classification_summary", {}).get("mutating_requires_authority") != 23:
         failures.append("FCC-V1-002 expects 23 mutating routes")
     for key, (operation_id, route_classification) in ACTION_ROUTES.items():
@@ -248,20 +249,28 @@ def _append_api_behavior_failures(
     context: ApiVerifierContext,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+    bearer = "fcc-v1-002-local-bearer"
+    auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
             body = {"decision_reason_ref": "decision-reason-ref:verifier-reject"}
             missing = context.client.post(
                 "/control-center/actions/setup-assistant-hardening/reject",
                 json=body,
+                headers=auth_headers,
             )
             if missing.status_code != 428:
                 failures.append("Action decision route must reject missing idempotency")
             first = context.client.post(
                 "/control-center/actions/setup-assistant-hardening/reject",
                 json=body,
-                headers={"x-uaa-idempotency-key": "idempotency-ref:verifier-reject"},
+                headers={
+                    **auth_headers,
+                    "x-uaa-idempotency-key": "idempotency-ref:verifier-reject",
+                },
             )
             if first.status_code != 200:
                 failures.append("Action decision route did not return first receipt")
@@ -272,19 +281,26 @@ def _append_api_behavior_failures(
             replay = context.client.post(
                 "/control-center/actions/setup-assistant-hardening/reject",
                 json=body,
-                headers={"x-uaa-idempotency-key": "idempotency-ref:verifier-reject"},
+                headers={
+                    **auth_headers,
+                    "x-uaa-idempotency-key": "idempotency-ref:verifier-reject",
+                },
             )
             if replay.status_code != 200 or replay.json().get("data", {}).get("replayed") is not True:
                 failures.append("Action decision route must replay matching idempotency payload")
             conflict = context.client.post(
                 "/control-center/actions/setup-assistant-hardening/reject",
                 json={"decision_reason_ref": "decision-reason-ref:verifier-changed"},
-                headers={"x-uaa-idempotency-key": "idempotency-ref:verifier-reject"},
+                headers={
+                    **auth_headers,
+                    "x-uaa-idempotency-key": "idempotency-ref:verifier-reject",
+                },
             )
             if conflict.status_code != 409:
                 failures.append("Action decision route must reject idempotency conflict")
             receipt_response = context.client.get(
-                "/control-center/actions/setup-assistant-hardening/receipt"
+                "/control-center/actions/setup-assistant-hardening/receipt",
+                headers=auth_headers,
             )
             if receipt_response.status_code != 200:
                 failures.append("Action receipt route did not return stored receipt")
@@ -293,6 +309,10 @@ def _append_api_behavior_failures(
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
 
 
 def _append_backend_route_set_failures(

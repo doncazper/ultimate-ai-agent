@@ -2221,6 +2221,7 @@ FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES = frozenset(
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
         "/control-center/memory/review/{candidate_ref}/reject",
+        "/control-center/memory/review/{candidate_ref}/receipt",
     }
 )
 FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
