@@ -497,6 +497,9 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     assert committed["local_task_commit_eligible"] is False
     assert committed["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     assert committed["local_task_ref"] == receipt["local_task_ref"]
+    assert committed["action_group_id"] == "receipt_recorded"
+    action_groups = {group["group_id"]: group for group in inbox["action_groups"]}
+    assert action_groups["receipt_recorded"]["count"] == 1
 
     timeline = api_client.get("/control-center/evidence/timeline").json()["data"]
     assert "local_task_created" in timeline["event_types"]

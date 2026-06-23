@@ -764,6 +764,32 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("GET /control-center/storage/status")).toBeInTheDocument();
     expect(screen.getByText("status-ref:control-center-route-manifest")).toBeInTheDocument();
     expect(screen.getByText("capability-ref:local-approval-authority")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^Ready for decision$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^Approved local task lane$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^Blocked by authority$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^Expired\/stale$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^Receipt recorded$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /^Proposal-only \/ no execution path$/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("ready_for_decision").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("approved_local_task_lane").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked_by_authority").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("proposal_only_no_execution_path").length,
+    ).toBeGreaterThan(0);
 
     expect(screen.getByText("approval-envelope:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("dry_run_ref_available")).toBeInTheDocument();
@@ -781,11 +807,29 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("contract-ref:founder-loop-action-state-machine:v1").length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Record approval/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Record edit/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Record rejection/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Record defer/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Record approval/i })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Record edit/i })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Record rejection/i })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Record defer/i })).toHaveLength(1);
     expect(screen.getByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
+    const blockedLane = screen
+      .getByRole("heading", { name: /^Blocked by authority$/i })
+      .closest("section");
+    expect(blockedLane).not.toBeNull();
+    expect(
+      within(blockedLane as HTMLElement).queryByRole("button", {
+        name: /Record approval|Commit local task/i,
+      }),
+    ).not.toBeInTheDocument();
+    const proposalLane = screen
+      .getByRole("heading", { name: /^Proposal-only \/ no execution path$/i })
+      .closest("section");
+    expect(proposalLane).not.toBeNull();
+    expect(
+      within(proposalLane as HTMLElement).queryByRole("button", {
+        name: /Record approval|Commit local task/i,
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:founder-loop-local-task-commit:v1").length,
     ).toBeGreaterThan(0);

@@ -1277,6 +1277,82 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
     assert local_task_events[0]["receipt_refs"] == [receipt["receipt_ref"]]
 
 
+def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+
+    inbox = repo.actions_inbox()
+    groups = {group["group_id"]: group for group in inbox["action_groups"]}
+    assert list(groups) == [
+        "ready_for_decision",
+        "approved_local_task_lane",
+        "blocked_by_authority",
+        "expired_stale",
+        "receipt_recorded",
+        "proposal_only_no_execution_path",
+    ]
+    assert groups["ready_for_decision"]["count"] == 1
+    assert groups["blocked_by_authority"]["count"] == 1
+    assert groups["proposal_only_no_execution_path"]["count"] == 1
+    by_ref = {item["item_ref"]: item for item in inbox["items"]}
+    assert (
+        by_ref["founder-action:local-task-create-scorecard"]["action_group_id"]
+        == "ready_for_decision"
+    )
+    assert (
+        by_ref["founder-action:setup-assistant-hardening"]["action_group_id"]
+        == "blocked_by_authority"
+    )
+    assert (
+        by_ref["founder-action:morning-briefing-skeleton"]["action_group_id"]
+        == "proposal_only_no_execution_path"
+    )
+
+    approved = _approve_local_task_seed_action(repo)
+    assert approved["action_group_id"] == "approved_local_task_lane"
+    assert approved["action_group_label"] == "Approved local task lane"
+
+    receipt = repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=_local_task_commit_request_for_action(approved),
+        idempotency_key_ref="idempotency-ref:test-local-task-group-commit",
+    )
+    committed = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert committed["action_group_id"] == "receipt_recorded"
+    assert committed["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+
+    repo.upsert_action(
+        FounderLoopActionRecord(
+            item_ref="founder-action:expired-demo",
+            title="Expired demo action",
+            safe_summary="Expired safe-ref action used to verify lane grouping.",
+            surface="Actions",
+            priority="medium",
+            risk_class="medium",
+            status="expired",
+            side_effect_class="validation_only",
+            approval_required=True,
+            approval_envelope_ref="approval-envelope:founder-loop:expired-demo",
+            state_change_contract_ref="contract-ref:founder-loop:expired-demo",
+            state_change_readiness="blocked_expired_state",
+            stale_state="expired_evidence_window",
+            expires_at="2026-01-01T00:00:00+00:00",
+            rollback_ref="rollback-plan:founder-loop:expired-demo",
+            safe_disable_ref="safe-disable:founder-loop:expired-demo",
+            next_safe_action="Recheck evidence refs before any later decision.",
+        )
+    )
+    expired = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:expired-demo"
+    )
+    assert expired["action_group_id"] == "expired_stale"
+
+
 def test_action_inbox_local_task_commit_rejects_unsupported_action_kind(
     tmp_path: Path,
 ) -> None:

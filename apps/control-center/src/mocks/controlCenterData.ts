@@ -5185,7 +5185,136 @@ export const mockControlCenterData: ControlCenterData = {
       "status-ref:control-center-route-manifest",
       "capability-ref:local-approval-authority",
     ],
+    action_group_order: [
+      "ready_for_decision",
+      "approved_local_task_lane",
+      "blocked_by_authority",
+      "expired_stale",
+      "receipt_recorded",
+      "proposal_only_no_execution_path",
+    ],
+    action_groups: [
+      {
+        group_id: "ready_for_decision",
+        label: "Ready for decision",
+        safe_summary:
+          "Items with backend-known exact scope that can record approve, edit, reject, or defer receipts without executing work.",
+        available_action: "Record a backend-owned decision receipt.",
+        count: 1,
+      },
+      {
+        group_id: "approved_local_task_lane",
+        label: "Approved local task lane",
+        safe_summary:
+          "Exact-approved local_task_create items that can be committed only through the typed local task route.",
+        available_action:
+          "Inspect approval posture or commit the local task lane.",
+        count: 1,
+      },
+      {
+        group_id: "blocked_by_authority",
+        label: "Blocked by authority",
+        safe_summary:
+          "Items blocked by missing authority, missing exact scope, policy posture, or disallowed external capability.",
+        available_action:
+          "Inspect blockers; no decision or commit control is exposed.",
+        count: 1,
+      },
+      {
+        group_id: "expired_stale",
+        label: "Expired/stale",
+        safe_summary:
+          "Items whose approval window, evidence, or state is no longer fresh enough for a decision.",
+        available_action: "Recheck source and evidence refs before any decision.",
+        count: 0,
+      },
+      {
+        group_id: "receipt_recorded",
+        label: "Receipt recorded",
+        safe_summary:
+          "Items with backend decision, commit, or evidence receipts already recorded.",
+        available_action: "Inspect receipt and evidence refs.",
+        count: 0,
+      },
+      {
+        group_id: "proposal_only_no_execution_path",
+        label: "Proposal-only / no execution path",
+        safe_summary:
+          "Planning, documentation, or review-only items without a validated core/API/CLI execution path.",
+        available_action: "Review proposal refs only.",
+        count: 1,
+      },
+    ],
     items: [
+      {
+        item_ref: "founder-action:mock-local-task-review",
+        title: "Review local task creation lane",
+        safe_summary:
+          "Exact-scope local task proposal is ready for backend-owned approve, edit, reject, or defer receipt recording.",
+        surface: "Actions",
+        priority: "high",
+        risk_class: "medium",
+        action_kind: "local_task_create",
+        status: "review_ready",
+        side_effect_class: "local_dev_workspace_only",
+        authority_boundary:
+          "Exact LocalApprovalAuthority scope is required before the local task can be committed.",
+        approval_required: true,
+        approval_envelope_ref:
+          "approval-envelope:founder-loop:mock-local-task-review",
+        approval_envelope_status: "review_ready_exact_scope_required",
+        state_change_contract_ref:
+          "contract-ref:founder-loop-local-task-commit:v1",
+        state_change_readiness: "execution_ready_contract_requires_approval",
+        blocked_state:
+          "Local task commit is blocked until this Action item is approved with exact scope and idempotency.",
+        evidence_refs: ["evidence-ref:founder-loop:local-task-review"],
+        receipt_refs: [
+          "receipt-plan:founder-loop:mock-local-task-review",
+        ],
+        audit_refs: ["audit-plan:founder-loop:mock-local-task-review"],
+        idempotency_key_ref:
+          "idempotency-ref:founder-loop:mock-local-task-review",
+        expires_at: "review_required_before_local_task_commit",
+        stale_state: "recheck_action_approval_before_local_task_commit",
+        rollback_ref: "rollback-not-applicable:local-task-safe-disable",
+        safe_disable_ref: "safe-disable:founder-loop:mock-local-task-review",
+        ...actionEnvelopeFields("founder-action:mock-local-task-review", [
+          "receipt-plan:founder-loop:mock-local-task-review",
+        ]),
+        local_task_commit_contract_ref:
+          "contract-ref:founder-loop-local-task-commit:v1",
+        local_task_commit_route_ref:
+          "POST /control-center/actions/{action_id}/local-task/commit",
+        local_task_ref: "local-task:founder-loop:mock-local-task-review",
+        local_task_commit_approval_ref: null,
+        local_task_commit_approval_status: "missing",
+        local_task_commit_eligible: false,
+        local_task_commit_receipt_ref: null,
+        local_task_commit_blocked_reasons: [
+          "blocked-state:action-not-approved",
+          "blocked-state:backend-owned-approval-missing",
+        ],
+        local_task_commit_next_safe_action:
+          "Record an exact backend approval receipt before local task commit.",
+        local_task_commit_external_authority_blocked_refs: [
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-memory-write",
+          "blocked-state:no-context-injection",
+          "blocked-state:no-external-side-effect",
+          "blocked-state:no-production-authority",
+        ],
+        action_group_id: "ready_for_decision",
+        action_group_label: "Ready for decision",
+        action_group_reason:
+          "Exact scope and approval posture are present for a backend decision receipt.",
+        action_group_available_action:
+          "Record a backend-owned decision receipt.",
+        next_safe_action:
+          "Record approval, edit, rejection, or defer receipt before any commit path.",
+      },
       {
         item_ref: "founder-action:mock-local-task-create",
         title: "Operational maturity scorecard task",
@@ -5240,6 +5369,12 @@ export const mockControlCenterData: ControlCenterData = {
           "blocked-state:no-external-side-effect",
           "blocked-state:no-production-authority",
         ],
+        action_group_id: "approved_local_task_lane",
+        action_group_label: "Approved local task lane",
+        action_group_reason:
+          "Exact backend approval is recorded and the typed local-task commit lane is eligible.",
+        action_group_available_action:
+          "Inspect approval posture or commit the local task lane.",
         next_safe_action:
           "Commit this approved local task or inspect its exact blocked external authority refs.",
       },
@@ -5273,6 +5408,12 @@ export const mockControlCenterData: ControlCenterData = {
         ...actionEnvelopeFields("founder-action:mock-setup-hardening", [
           "receipt-plan:founder-loop:mock-setup-hardening",
         ]),
+        action_group_id: "blocked_by_authority",
+        action_group_label: "Blocked by authority",
+        action_group_reason:
+          "The item requires authority, scope, or a capability that is not currently granted.",
+        action_group_available_action:
+          "Inspect blockers; no decision or commit control is exposed.",
         next_safe_action:
           "Review refs only; request a scoped state-change milestone before mutation.",
       },
@@ -5303,6 +5444,11 @@ export const mockControlCenterData: ControlCenterData = {
         rollback_ref: null,
         safe_disable_ref: "safe-disable:founder-loop:mock-briefing-surface",
         ...actionEnvelopeFields("founder-action:mock-briefing", []),
+        action_group_id: "proposal_only_no_execution_path",
+        action_group_label: "Proposal-only / no execution path",
+        action_group_reason:
+          "This is review or planning posture only; no validated execution path is available.",
+        action_group_available_action: "Review proposal refs only.",
         next_safe_action:
           "Define read-only briefing source refs before source reads.",
       },

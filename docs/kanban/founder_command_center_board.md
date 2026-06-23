@@ -230,6 +230,13 @@ state, and rollback/safe-disable posture visible before any decision.
 envelope presentation, receipt visibility, blocked-authority labels, and UI
 tests that decisions stay backend-owned.
 
+**Current Slice:** Queue organization is implemented as backend-classified
+Action Inbox lanes for ready decisions, approved local-task items,
+authority-blocked items, expired/stale items, recorded receipts, and
+proposal-only/no-execution items. This adds scanability only; it does not add
+generic execution, connector writes, shell/subprocess execution, provider/model
+authority, memory writes, context injection, or production authority.
+
 **Done Gate:** A user can compare action proposals, memory candidates, drafts,
 CRM updates, recommendations, and patch proposals through one review language,
 with decision receipts visible where existing backend contracts support them.

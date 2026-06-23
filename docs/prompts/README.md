@@ -49,3 +49,12 @@ The first implementation should load prompts by `prompt_id`, not by hard-coded p
 Added `agent_gateway_guard.system.md` to protect the API boundary and prevent OpenWebUI or UI clients from bypassing Agent Core policy.
 
 Active registry: `prompt_registry_v0_5_2.json`.
+
+## Founder Command Center authority ramp prompts
+
+Stored execution prompts for `FCC-AUTH-RAMP-001` live in
+`docs/prompts/fcc_authority_ramp/`. They are operator-run prompts, not runtime
+system prompts, and they do not grant authority by themselves. Use
+`docs/prompts/fcc_authority_ramp/00_execute_all_review_verify_harden.prompt.md`
+to run the sequence from charter through read-only/proposal foundation,
+authority candidate ranking, and the first exact micro-lane gate.

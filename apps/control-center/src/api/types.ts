@@ -139,8 +139,28 @@ export interface FounderLoopActionItem {
   local_task_commit_blocked_reasons?: string[];
   local_task_commit_next_safe_action?: string;
   local_task_commit_external_authority_blocked_refs?: string[];
+  action_group_id?: FounderLoopActionGroupId;
+  action_group_label?: string;
+  action_group_reason?: string;
+  action_group_available_action?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export type FounderLoopActionGroupId =
+  | "ready_for_decision"
+  | "approved_local_task_lane"
+  | "blocked_by_authority"
+  | "expired_stale"
+  | "receipt_recorded"
+  | "proposal_only_no_execution_path";
+
+export interface FounderLoopActionGroupSummary {
+  group_id: FounderLoopActionGroupId;
+  label: string;
+  safe_summary: string;
+  available_action: string;
+  count: number;
 }
 
 export type FounderLoopActionDecisionKind =
@@ -1677,6 +1697,8 @@ export interface FounderLoopActionsInbox {
   route_ref: string;
   read_only_route_refs: string[];
   local_prerequisite_refs: string[];
+  action_group_order?: FounderLoopActionGroupId[];
+  action_groups?: FounderLoopActionGroupSummary[];
   items: FounderLoopActionItem[];
   approval_required_before_mutation: boolean;
   mutating_controls_enabled: boolean;

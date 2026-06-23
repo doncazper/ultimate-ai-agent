@@ -52,6 +52,13 @@ storage mutation, maturity promotion, or React-owned product truth. `/inbox` is
 a blocked/planned frontend posture surface only; it has no backend
 email/calendar connector route, account auth, draft proposal route,
 send/write/archive/delete authority, or connector runtime.
+`/actions` renders backend-classified Action Inbox queue lanes from
+`GET /control-center/actions/inbox` so ready, approved local-task,
+authority-blocked, expired/stale, receipt-recorded, and proposal-only items are
+visibly distinct. The grouping is read-only metadata from Python core storage;
+it adds no generic execute button, connector write, shell/subprocess execution,
+provider/model authority, memory write, context injection, or production
+authority.
 FCC-V1-000 adds `releaseStatus` route metadata and
 `docs/control_center/release_surface_manifest.json`; the sidebar and command
 palette render the conservative `ship`/`partial`/`blocked`/`experimental`
@@ -84,6 +91,12 @@ Backend API endpoints consumed:
 - `GET /control-center/setup-assistant/summary`
 - `GET /control-center/today/summary`
 - `GET /control-center/actions/inbox`
+- `GET /control-center/actions/{action_id}/receipt`
+- `POST /control-center/actions/{action_id}/approve`
+- `POST /control-center/actions/{action_id}/edit`
+- `POST /control-center/actions/{action_id}/reject`
+- `POST /control-center/actions/{action_id}/defer`
+- `POST /control-center/actions/{action_id}/local-task/commit`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/storage/status`
 - `GET /runtime/readiness`

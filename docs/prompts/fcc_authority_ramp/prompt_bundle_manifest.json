@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "fcc-auth-ramp-001",
+  "version": "1.0.0",
+  "purpose": "Stored execution prompts for the Founder Command Center proposal-to-authority conveyor.",
+  "developer_prompt_refs": [
+    "docs/prompts/fcc_authority_ramp/00_execute_all_review_verify_harden.prompt.md",
+    "docs/prompts/fcc_authority_ramp/01_fcc_auth_ramp_charter.prompt.md",
+    "docs/prompts/fcc_authority_ramp/02_read_only_proposal_foundation.prompt.md",
+    "docs/prompts/fcc_authority_ramp/03_authority_candidate_ranking.prompt.md",
+    "docs/prompts/fcc_authority_ramp/04_first_micro_lane_graduation.prompt.md"
+  ],
+  "bundle_hash": "sha256:3e044f8f978155971d624110f1d67f23d819310380adb7984569a613a019fd5d",
+  "stable_within_run": true,
+  "created_at": "2026-06-23"
+}

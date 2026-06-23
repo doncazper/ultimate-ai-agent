@@ -256,6 +256,65 @@ EVIDENCE_TIMELINE_PRODUCTIZED_GROUP_KINDS = (
     "chat_turn",
     "memory_candidate",
 )
+ACTION_INBOX_GROUP_DEFINITIONS = (
+    {
+        "group_id": "ready_for_decision",
+        "label": "Ready for decision",
+        "safe_summary": (
+            "Items with backend-known exact scope that can record approve, edit, "
+            "reject, or defer receipts without executing work."
+        ),
+        "available_action": "Record a backend-owned decision receipt.",
+    },
+    {
+        "group_id": "approved_local_task_lane",
+        "label": "Approved local task lane",
+        "safe_summary": (
+            "Exact-approved local_task_create items that can be committed only "
+            "through the typed local task route."
+        ),
+        "available_action": "Inspect approval posture or commit the local task lane.",
+    },
+    {
+        "group_id": "blocked_by_authority",
+        "label": "Blocked by authority",
+        "safe_summary": (
+            "Items blocked by missing authority, missing exact scope, policy "
+            "posture, or disallowed external capability."
+        ),
+        "available_action": "Inspect blockers; no decision or commit control is exposed.",
+    },
+    {
+        "group_id": "expired_stale",
+        "label": "Expired/stale",
+        "safe_summary": (
+            "Items whose approval window, evidence, or state is no longer fresh "
+            "enough for a decision."
+        ),
+        "available_action": "Recheck source and evidence refs before any decision.",
+    },
+    {
+        "group_id": "receipt_recorded",
+        "label": "Receipt recorded",
+        "safe_summary": (
+            "Items with backend decision, commit, or evidence receipts already "
+            "recorded."
+        ),
+        "available_action": "Inspect receipt and evidence refs.",
+    },
+    {
+        "group_id": "proposal_only_no_execution_path",
+        "label": "Proposal-only / no execution path",
+        "safe_summary": (
+            "Planning, documentation, or review-only items without a validated "
+            "core/API/CLI execution path."
+        ),
+        "available_action": "Review proposal refs only.",
+    },
+)
+ACTION_INBOX_GROUP_ORDER = tuple(
+    str(group["group_id"]) for group in ACTION_INBOX_GROUP_DEFINITIONS
+)
 TODAY_PRODUCT_SPINE_LOOP_SURFACES = ["Today", "Actions", "Evidence", "Memory"]
 EVIDENCE_HISTORY_GRAMMAR_KEYS = (
     "proposed",
@@ -1260,6 +1319,153 @@ def _is_future_iso_datetime(value: Any) -> bool:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=utc_now().tzinfo)
     return parsed > utc_now()
+
+
+def _has_actual_receipt_ref(action: dict[str, Any]) -> bool:
+    return any(str(ref).startswith("receipt:") for ref in action.get("receipt_refs") or [])
+
+
+def _has_expired_or_stale_marker(action: dict[str, Any]) -> bool:
+    status = str(action.get("status") or "").lower()
+    stale_state = str(action.get("stale_state") or "").lower()
+    expires_at = action.get("expires_at")
+    if status in {"expired", "stale", "superseded"}:
+        return True
+    if isinstance(expires_at, str) and expires_at and not _is_future_iso_datetime(expires_at):
+        try:
+            datetime.fromisoformat(expires_at)
+        except ValueError:
+            pass
+        else:
+            return True
+    return any(marker in stale_state for marker in ["expired", "stale", "superseded", "outdated"])
+
+
+def _has_authority_blocker(action: dict[str, Any]) -> bool:
+    state_change_readiness = str(action.get("state_change_readiness") or "").lower()
+    blocked_state = str(action.get("blocked_state") or "").lower()
+    local_task_blockers = list(action.get("local_task_commit_blocked_reasons") or [])
+    if str(action.get("status") or "").lower() == "blocked":
+        return True
+    if "blocked" in state_change_readiness:
+        return True
+    if any(marker in blocked_state for marker in ["blocked", "not scoped", "unscoped"]):
+        return True
+    return any(
+        str(ref)
+        in {
+            "blocked-state:exact-scope-ref-missing",
+            "blocked-state:action-envelope-ref-missing",
+            "blocked-state:local-task-contract-missing",
+            "blocked-state:unsupported-action-kind",
+            "blocked-state:backend-owned-approval-not-approved",
+        }
+        for ref in local_task_blockers
+    )
+
+
+def _has_ready_exact_scope(action: dict[str, Any]) -> bool:
+    return all(
+        isinstance(action.get(key), str) and bool(action.get(key))
+        for key in [
+            "action_envelope_ref",
+            "action_scope_ref",
+            "action_approval_requirement_ref",
+            "rollback_ref",
+            "safe_disable_ref",
+        ]
+    )
+
+
+def _action_inbox_group_projection(action: dict[str, Any]) -> dict[str, Any]:
+    group_id, reason = _classify_action_inbox_group(action)
+    definition = _action_group_definition(group_id)
+    return {
+        "action_group_id": group_id,
+        "action_group_label": definition["label"],
+        "action_group_reason": reason,
+        "action_group_available_action": definition["available_action"],
+    }
+
+
+def _classify_action_inbox_group(action: dict[str, Any]) -> tuple[str, str]:
+    status = str(action.get("status") or "").lower()
+    action_kind = str(action.get("action_kind") or "review_only")
+    is_local_task = action_kind == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+
+    if (
+        is_local_task
+        and status == "approved"
+        and action.get("local_task_commit_eligible") is True
+    ):
+        return (
+            "approved_local_task_lane",
+            "Exact backend approval is recorded and the typed local-task commit lane is eligible.",
+        )
+    if (
+        status in {"edited", "rejected", "deferred", "receipt_recorded"}
+        or action.get("local_task_commit_receipt_ref")
+        or (_has_actual_receipt_ref(action) and not (status == "approved" and is_local_task))
+    ):
+        return (
+            "receipt_recorded",
+            "A backend decision, local task, or evidence receipt ref is already recorded.",
+        )
+    if _has_expired_or_stale_marker(action):
+        return (
+            "expired_stale",
+            "The item has expired, stale, superseded, or outdated state markers.",
+        )
+    if (
+        status in {"review_ready", "proposed"}
+        and action.get("approval_required") is True
+        and _has_ready_exact_scope(action)
+        and "blocked" not in str(action.get("state_change_readiness") or "").lower()
+    ):
+        return (
+            "ready_for_decision",
+            "Exact scope and approval posture are present for a backend decision receipt.",
+        )
+    if action.get("approval_required") is False or not action.get("state_change_contract_ref"):
+        return (
+            "proposal_only_no_execution_path",
+            "This is review or planning posture only; no validated execution path is available.",
+        )
+    if _has_authority_blocker(action):
+        return (
+            "blocked_by_authority",
+            "The item requires authority, scope, or a capability that is not currently granted.",
+        )
+    if action_kind == "review_only":
+        return (
+            "proposal_only_no_execution_path",
+            "This is review or planning posture only; no validated execution path is available.",
+        )
+    return (
+        "proposal_only_no_execution_path",
+        "No backend-validated execution path is available for this item.",
+    )
+
+
+def _action_group_definition(group_id: str) -> dict[str, Any]:
+    for definition in ACTION_INBOX_GROUP_DEFINITIONS:
+        if definition["group_id"] == group_id:
+            return definition
+    return ACTION_INBOX_GROUP_DEFINITIONS[-1]
+
+
+def _action_group_summaries(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    counts = {group_id: 0 for group_id in ACTION_INBOX_GROUP_ORDER}
+    for item in items:
+        group_id = str(item.get("action_group_id") or "proposal_only_no_execution_path")
+        counts[group_id] = counts.get(group_id, 0) + 1
+    return [
+        {
+            **definition,
+            "count": counts[str(definition["group_id"])],
+        }
+        for definition in ACTION_INBOX_GROUP_DEFINITIONS
+    ]
 
 
 def _priority_refs(
@@ -5003,6 +5209,8 @@ class FounderLoopRepository:
                 "status-ref:control-center-route-manifest",
                 "capability-ref:local-approval-authority",
             ],
+            "action_group_order": list(ACTION_INBOX_GROUP_ORDER),
+            "action_groups": _action_group_summaries(items),
             "items": items,
             "approval_required_before_mutation": True,
             "mutating_controls_enabled": True,
@@ -5272,14 +5480,20 @@ class FounderLoopRepository:
             (self._bounded_limit(limit),),
         )
         actions = [_row_to_payload(row) for row in rows]
-        return [
-            {
+        projected_actions: list[dict[str, Any]] = []
+        for action in actions:
+            projected = {
                 **action,
                 **_action_envelope_contract_payload(action),
                 **self._local_task_commit_projection(action),
             }
-            for action in actions
-        ]
+            projected_actions.append(
+                {
+                    **projected,
+                    **_action_inbox_group_projection(projected),
+                }
+            )
+        return projected_actions
 
     def record_chat_turn_receipt(
         self,

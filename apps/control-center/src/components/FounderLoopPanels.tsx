@@ -9,6 +9,8 @@ import type {
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
   FounderLoopActionEnvelopePromotionReceipt,
+  FounderLoopActionGroupId,
+  FounderLoopActionGroupSummary,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
@@ -35,6 +37,57 @@ const evidenceHistoryKeys = [
   "stale",
   "blocked",
 ] as const;
+
+const actionGroupFallbacks: FounderLoopActionGroupSummary[] = [
+  {
+    group_id: "ready_for_decision",
+    label: "Ready for decision",
+    safe_summary:
+      "Items with backend-known exact scope that can record approve, edit, reject, or defer receipts without executing work.",
+    available_action: "Record a backend-owned decision receipt.",
+    count: 0,
+  },
+  {
+    group_id: "approved_local_task_lane",
+    label: "Approved local task lane",
+    safe_summary:
+      "Exact-approved local_task_create items that can be committed only through the typed local task route.",
+    available_action: "Inspect approval posture or commit the local task lane.",
+    count: 0,
+  },
+  {
+    group_id: "blocked_by_authority",
+    label: "Blocked by authority",
+    safe_summary:
+      "Items blocked by missing authority, missing exact scope, policy posture, or disallowed external capability.",
+    available_action: "Inspect blockers; no decision or commit control is exposed.",
+    count: 0,
+  },
+  {
+    group_id: "expired_stale",
+    label: "Expired/stale",
+    safe_summary:
+      "Items whose approval window, evidence, or state is no longer fresh enough for a decision.",
+    available_action: "Recheck source and evidence refs before any decision.",
+    count: 0,
+  },
+  {
+    group_id: "receipt_recorded",
+    label: "Receipt recorded",
+    safe_summary:
+      "Items with backend decision, commit, or evidence receipts already recorded.",
+    available_action: "Inspect receipt and evidence refs.",
+    count: 0,
+  },
+  {
+    group_id: "proposal_only_no_execution_path",
+    label: "Proposal-only / no execution path",
+    safe_summary:
+      "Planning, documentation, or review-only items without a validated core/API/CLI execution path.",
+    available_action: "Review proposal refs only.",
+    count: 0,
+  },
+];
 
 type FounderLoopPrimarySurface =
   | "Today"
@@ -1138,6 +1191,8 @@ export function ActionInboxSurfacePanel({
 }: {
   inbox: FounderLoopActionsInbox;
 }) {
+  const actionGroups = buildActionLaneGroups(inbox);
+
   return (
     <section className="page-section" aria-labelledby="actions-surface-heading">
       <div className="section-heading">
@@ -1356,12 +1411,78 @@ export function ActionInboxSurfacePanel({
           />
         ))}
       </div>
-      <div className="review-grid">
-        {inbox.items.map((item) => (
-          <ActionItemCard item={item} key={item.item_ref} />
+      <div className="action-lane-stack" aria-label="Action Inbox queue lanes">
+        {actionGroups.map((group) => (
+          <ActionLaneSection group={group} key={group.summary.group_id} />
         ))}
       </div>
       <BlockedStateList states={inbox.blocked_states ?? []} />
+    </section>
+  );
+}
+
+type ActionLaneGroup = {
+  summary: FounderLoopActionGroupSummary;
+  items: FounderLoopActionItem[];
+};
+
+function buildActionLaneGroups(inbox: FounderLoopActionsInbox): ActionLaneGroup[] {
+  const summaryById = new Map<FounderLoopActionGroupId, FounderLoopActionGroupSummary>();
+  for (const summary of actionGroupFallbacks) {
+    summaryById.set(summary.group_id, { ...summary });
+  }
+  for (const summary of inbox.action_groups ?? []) {
+    summaryById.set(summary.group_id, summary);
+  }
+  const groupOrder = inbox.action_group_order?.length
+    ? inbox.action_group_order
+    : actionGroupFallbacks.map((group) => group.group_id);
+  return groupOrder.map((groupId) => {
+    const fallback =
+      summaryById.get(groupId) ??
+      actionGroupFallbacks.find((group) => group.group_id === groupId) ??
+      actionGroupFallbacks[actionGroupFallbacks.length - 1];
+    const items = inbox.items.filter(
+      (item) =>
+        (item.action_group_id ?? "proposal_only_no_execution_path") === groupId,
+    );
+    return {
+      summary: {
+        ...fallback,
+        count: items.length,
+      },
+      items,
+    };
+  });
+}
+
+function ActionLaneSection({ group }: { group: ActionLaneGroup }) {
+  const headingId = `action-lane-${group.summary.group_id}`;
+  return (
+    <section
+      aria-labelledby={headingId}
+      className={`action-lane ${group.summary.group_id}`}
+    >
+      <div className="action-lane-header">
+        <div>
+          <p className="eyebrow">Queue lane</p>
+          <h3 id={headingId}>{group.summary.label}</h3>
+        </div>
+        <span className="status-pill compact">{group.summary.count}</span>
+      </div>
+      <p className="section-copy">{group.summary.safe_summary}</p>
+      <p className="muted">{group.summary.available_action}</p>
+      {group.items.length ? (
+        <div className="review-grid">
+          {group.items.map((item) => (
+            <ActionItemCard item={item} key={item.item_ref} />
+          ))}
+        </div>
+      ) : (
+        <p className="empty-state">
+          No Action Inbox items are currently classified in this lane.
+        </p>
+      )}
     </section>
   );
 }
@@ -2529,17 +2650,29 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
   const actionScopeRef = item.action_scope_ref ?? "scope ref missing";
   const actionApprovalRequirement =
     item.action_approval_requirement_ref ?? "approval requirement ref missing";
+  const actionGroupId = item.action_group_id ?? "proposal_only_no_execution_path";
+  const actionGroupLabel = item.action_group_label ?? "Proposal-only / no execution path";
+  const actionGroupReason =
+    item.action_group_reason ??
+    "No backend-classified execution path is available for this item.";
+  const availableAction =
+    item.action_group_available_action ?? "Review proposal refs only.";
 
   return (
     <article className="review-card">
       <div className="review-card-heading">
         <h3>{item.title}</h3>
-        <span>{item.priority} / {riskClass}</span>
+        <span>{actionGroupLabel}</span>
       </div>
       <p>{item.safe_summary}</p>
+      <p className="muted">
+        {actionGroupReason} Available operator action: {availableAction}
+      </p>
       <dl className="detail-list">
         <DetailTerm label="Item ref" value={item.item_ref} />
+        <DetailTerm label="Queue lane" value={actionGroupId} />
         <DetailTerm label="Status" value={item.status} />
+        <DetailTerm label="Priority" value={item.priority} />
         <DetailTerm label="Risk" value={riskClass} />
         <DetailTerm label="Side effect" value={item.side_effect_class} />
         <DetailTerm label="Authority boundary" value={authorityBoundary} />
@@ -2615,8 +2748,12 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
         />
         <DetailTerm label="Next safe action" value={nextSafeAction} />
       </dl>
-      <ActionDecisionControls item={item} />
-      <LocalTaskCommitControls item={item} />
+      {actionGroupId === "ready_for_decision" ? (
+        <ActionDecisionControls item={item} />
+      ) : null}
+      {actionGroupId === "approved_local_task_lane" ? (
+        <LocalTaskCommitControls item={item} />
+      ) : null}
       {item.blocked_state ? <p className="muted">{item.blocked_state}</p> : null}
       <InlineListWithFallback
         emptyLabel="Review actions: missing"

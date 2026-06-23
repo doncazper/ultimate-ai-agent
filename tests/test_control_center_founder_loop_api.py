@@ -88,6 +88,18 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert inbox["decision_receipts_required"] is True
     assert inbox["idempotency_replay_enabled"] is True
     assert inbox["idempotency_conflict_rejected"] is True
+    assert inbox["action_group_order"] == [
+        "ready_for_decision",
+        "approved_local_task_lane",
+        "blocked_by_authority",
+        "expired_stale",
+        "receipt_recorded",
+        "proposal_only_no_execution_path",
+    ]
+    action_groups = {group["group_id"]: group for group in inbox["action_groups"]}
+    assert action_groups["ready_for_decision"]["count"] == 1
+    assert action_groups["blocked_by_authority"]["count"] == 1
+    assert action_groups["proposal_only_no_execution_path"]["count"] == 1
     assert "GET /control-center/actions/{action_id}/receipt" in inbox[
         "read_only_route_refs"
     ]
@@ -106,6 +118,20 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert inbox["user_intent_proposals"]
     assert inbox["user_intent_authority_posture"]["low_confidence_asks_user"] is True
     assert inbox["user_intent_authority_posture"]["action_execution_enabled"] is False
+
+    action_items = {item["item_ref"]: item for item in inbox["items"]}
+    assert (
+        action_items["founder-action:local-task-create-scorecard"]["action_group_id"]
+        == "ready_for_decision"
+    )
+    assert (
+        action_items["founder-action:setup-assistant-hardening"]["action_group_id"]
+        == "blocked_by_authority"
+    )
+    assert (
+        action_items["founder-action:morning-briefing-skeleton"]["action_group_id"]
+        == "proposal_only_no_execution_path"
+    )
 
     setup_item = next(
         item
