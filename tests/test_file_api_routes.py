@@ -38,6 +38,7 @@ def test_file_read_preview_endpoint_returns_metadata_only(monkeypatch: pytest.Mo
     response = client.post(
         "/files/read/preview",
         json={
+            "safe_root_ref": "local_dev_workspace",
             "request": {
                 "request_id": "frr_api",
                 "run_id": "run_123",
@@ -64,6 +65,7 @@ def test_file_read_preview_endpoint_rejects_caller_selected_workspace_root(tmp_p
         "/files/read/preview",
         json={
             "workspace_root": str(tmp_path),
+            "safe_root_ref": "local_dev_workspace",
             "request": {
                 "request_id": "frr_caller_root",
                 "run_id": "run_123",
@@ -79,12 +81,57 @@ def test_file_read_preview_endpoint_rejects_caller_selected_workspace_root(tmp_p
     assert str(tmp_path) not in response.text
 
 
+def test_file_read_preview_endpoint_requires_explicit_safe_root_ref(tmp_path: Path) -> None:
+    response = client.post(
+        "/files/read/preview",
+        json={
+            "request": {
+                "request_id": "frr_missing_safe_ref",
+                "run_id": "run_123",
+                "actor_context": actor_payload(),
+                "path": "note.txt",
+                "purpose": "preview",
+                "max_bytes": 100,
+            },
+        },
+    )
+
+    assert response.status_code == 422
+    assert str(tmp_path) not in response.text
+
+
+def test_file_read_preview_endpoint_requires_configured_safe_root_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("UAA_FILE_API_SAFE_ROOT", raising=False)
+    response = client.post(
+        "/files/read/preview",
+        json={
+            "safe_root_ref": "local_dev_workspace",
+            "request": {
+                "request_id": "frr_missing_env",
+                "run_id": "run_123",
+                "actor_context": actor_payload(),
+                "path": "note.txt",
+                "purpose": "preview",
+                "max_bytes": 100,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "UAA_FILE_API_SAFE_ROOT" not in response.text
+    assert "note.txt" not in response.text
+
+
 def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     hostile_path = "notes/api_key=supersecretvalue123.txt"
     response = client.post(
         "/files/read/preview",
         json={
+            "safe_root_ref": "local_dev_workspace",
             "request": {
                 "request_id": "frr_hostile",
                 "run_id": "run_123",
@@ -110,6 +157,7 @@ def test_file_tree_preview_endpoint_returns_safe_refs_only(monkeypatch: pytest.M
     response = client.post(
         "/files/tree/preview",
         json={
+            "safe_root_ref": "local_dev_workspace",
             "request": {
                 "request_id": "ftp_api",
                 "run_id": "run_123",
@@ -141,6 +189,7 @@ def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(monkeyp
     response = client.post(
         "/files/tree/preview",
         json={
+            "safe_root_ref": "local_dev_workspace",
             "request": {
                 "request_id": "ftp_hostile",
                 "run_id": "run_123",
@@ -162,6 +211,7 @@ def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(monkeyp
 def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     payload = {
+        "safe_root_ref": "local_dev_workspace",
         "proposal": {
             "proposal_id": "fwp_api",
             "run_id": "run_123",
@@ -190,6 +240,7 @@ def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch: pyt
 def test_file_write_propose_endpoint_reports_failure_when_blocked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     payload = {
+        "safe_root_ref": "local_dev_workspace",
         "proposal": {
             "proposal_id": "fwp_api_blocked",
             "run_id": "run_123",

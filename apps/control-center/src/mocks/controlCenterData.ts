@@ -1532,8 +1532,8 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
 	    api_summary: {
-	      route_count: 126,
-	      control_center_route_count: 24,
+	      route_count: 129,
+	      control_center_route_count: 30,
 	      operation_ids_unique: true,
 	      execution_routes_present: false,
 	    },

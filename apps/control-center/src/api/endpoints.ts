@@ -69,6 +69,10 @@ export function memoryReviewDecisionEndpoint(
   return `/control-center/memory/review/${encodeURIComponent(candidateRef)}/${decision}`;
 }
 
+export function memoryReviewReceiptEndpoint(candidateRef: string): string {
+  return `/control-center/memory/review/${encodeURIComponent(candidateRef)}/receipt`;
+}
+
 export function isActionDecisionEndpoint(endpoint: string): boolean {
   return /^\/control-center\/actions\/[^/]+\/(approve|edit|reject|defer)$/.test(
     endpoint,

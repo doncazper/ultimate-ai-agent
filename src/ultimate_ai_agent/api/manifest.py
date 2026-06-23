@@ -32,6 +32,8 @@ CAPABILITIES_DECLARED = [
     "centralized_fastapi_security_headers",
     "explicit_loopback_cors_allowlist",
     "local_protected_route_bearer_gate",
+    "local_protected_route_fail_closed_by_default",
+    "local_protected_route_dev_only_bypass_manifest_visible",
     "mutating_route_idempotency_audit",
     "targeted_local_rate_limits",
     "typed_validation_routes",
@@ -52,6 +54,8 @@ CAPABILITIES_DECLARED = [
     "control_center_chat_durable_receipts",
     "control_center_chat_reviewable_handoffs",
     "control_center_memory_review_decision_receipts",
+    "control_center_memory_l1_hot_local_index",
+    "control_center_memory_l2_factual_graph_temporal_index",
     "control_center_evidence_timeline_productization",
     "control_center_morning_briefing_summary",
     "control_center_storage_status",
@@ -101,6 +105,7 @@ CAPABILITIES_BLOCKED = [
     "local_protected_route_gate_as_oauth",
     "local_protected_route_gate_as_password_flow",
     "local_protected_route_gate_as_production_authority",
+    "local_protected_route_dev_only_bypass_as_production_authority",
     "idempotency_audit_as_exactly_once_execution",
     "idempotency_audit_as_durable_dedupe_store",
     "idempotency_audit_as_mutation_authority",
@@ -127,6 +132,33 @@ CAPABILITIES_BLOCKED = [
     "control_center_memory_review_crm_sync",
     "control_center_memory_review_action_execution",
     "control_center_memory_review_truth_authority",
+    "control_center_memory_l1_index_context_injection",
+    "control_center_memory_l1_index_automatic_recall",
+    "control_center_memory_l1_index_automatic_writes",
+    "control_center_memory_l1_index_embeddings",
+    "control_center_memory_l1_index_vector_db",
+    "control_center_memory_l1_index_semantic_search",
+    "control_center_memory_l1_index_background_indexing",
+    "control_center_memory_l1_index_truth_authority",
+    "control_center_memory_l1_index_connector_writes",
+    "control_center_memory_l1_index_crm_sync",
+    "control_center_memory_l1_index_action_execution",
+    "control_center_memory_l2_index_truth_authority",
+    "control_center_memory_l2_index_context_injection",
+    "control_center_memory_l2_index_automatic_recall",
+    "control_center_memory_l2_index_automatic_writes",
+    "control_center_memory_l2_index_embeddings",
+    "control_center_memory_l2_index_vector_db",
+    "control_center_memory_l2_index_semantic_search",
+    "control_center_memory_l2_index_llm_entity_extraction",
+    "control_center_memory_l2_index_provider_model_calls",
+    "control_center_memory_l2_index_background_indexing",
+    "control_center_memory_l2_index_context_pack_injection",
+    "control_center_memory_l2_index_connector_writes",
+    "control_center_memory_l2_index_crm_sync",
+    "control_center_memory_l2_index_account_sync",
+    "control_center_memory_l2_index_action_execution",
+    "control_center_memory_l2_index_phase4_identity_session_modeling",
     "control_center_plugin_enablement",
     "control_center_frontend_native_build_control",
     "control_center_mobile_sensor_access",
@@ -317,6 +349,7 @@ API_MANIFEST_CACHEABLE_FIELDS = (
 )
 API_MANIFEST_CACHE_EXCLUDED_FIELDS = (
     "foundation_gate_status",
+    "local_auth_policy",
     "policy_decisions",
     "policy_outcomes",
     "approvals",
@@ -406,6 +439,13 @@ def route_classification_for_path(
     side_effect_class: ApiRouteSideEffectClass,
 ) -> tuple[ApiRouteClassification, str]:
     normalized_method = method.upper()
+    unknown_route_group = route_group_for_path(path) == "api-boundary" and path != "/api/manifest"
+    explicit_non_mutating_posture = (
+        side_effect_class == ApiRouteSideEffectClass.governed_network_read_only
+        or any(hint in path for hint in NON_MUTATING_LOCAL_POSTURE_HINTS)
+        or path in LOCAL_READONLY_PATHS
+        or path in CONTROL_CENTER_VALIDATION_ONLY_PATHS
+    )
     if normalized_method == "GET" and path in PUBLIC_METADATA_PATHS:
         return (
             ApiRouteClassification.public_metadata,
@@ -441,6 +481,11 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "mutation-like local route; exact authority, idempotency, audit, and rollback posture required",
+        )
+    if normalized_method not in {"GET", "HEAD", "OPTIONS"} and unknown_route_group and not explicit_non_mutating_posture:
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "unknown non-read route without an explicit preview/validation posture; authority required by default",
         )
     if (
         side_effect_class == ApiRouteSideEffectClass.local_dev_workspace_only
@@ -629,6 +674,8 @@ def _get_api_manifest_static_cache_entry(app: FastAPI) -> _ApiManifestStaticCach
 
 
 def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) -> ApiManifest:
+    from ultimate_ai_agent.api.local_auth import local_api_auth_policy_payload
+
     static = _get_api_manifest_static_cache_entry(app)
     classification_summary = {classification.value: 0 for classification in ROUTE_CLASSIFICATION_VOCABULARY}
     auth_posture_summary = {posture.value: 0 for posture in ApiRouteAuthPosture}
@@ -661,6 +708,7 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
         route_idempotency_posture_summary=idempotency_summary,
         rate_limit_policy_ref=API_TARGETED_RATE_LIMIT_POLICY_REF,
         route_rate_limit_posture_summary=rate_limit_summary,
+        local_auth_policy=local_api_auth_policy_payload(),
         foundation_gate_status=foundation_gate_status,
         capabilities_declared=list(static.capabilities_declared),
         capabilities_blocked=list(static.capabilities_blocked),

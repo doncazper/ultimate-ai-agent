@@ -18,3 +18,4 @@ def foundation_gate_results(foundation_gate_report: Any) -> Any:
 def clear_local_api_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("UAA_API_LOCAL_AUTH_ENABLED", raising=False)
     monkeypatch.delenv("UAA_API_LOCAL_BEARER", raising=False)
+    monkeypatch.setenv("UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY", "1")

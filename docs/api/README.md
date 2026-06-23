@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `126`, generated from the FastAPI application and
+Current OpenAPI path count: `129`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -54,10 +54,11 @@ Current boundary summary:
 - UAA-P1-082 adds an explicit local Control Center loopback CORS allowlist with
   exact dev/preview origins, no credentials, no wildcard CORS, and no auth
   claim.
-- UAA-P1-083 adds a configured local bearer gate for non-public route
+- UAA-P1-083 adds a fail-closed local bearer gate for non-public route
   classifications while keeping `GET /health`, `GET /version`,
-  `GET /api/manifest`, and `GET /openapi.json` public metadata. It is not
-  enterprise auth, OAuth, a password flow, or production authority.
+  `GET /api/manifest`, and `GET /openapi.json` public metadata. An explicit
+  local-dev bypass exists for harnesses only. It is not enterprise auth, OAuth,
+  a password flow, or production authority.
 - UAA-P1-084 adds a runtime idempotency header gate for
   `mutating_requires_authority` routes. It requires `X-UAA-Idempotency-Key` or
   `X-UAA-Idempotency-Ref` before mutating handlers run, without durable dedupe,
@@ -84,6 +85,17 @@ Current boundary summary:
   Timeline visibility only; they do not inject context, make memory/source truth
   authoritative, sync CRM/accounts, perform connector writes, execute actions,
   or grant public beta or production authority.
+- Governed Cognitive Memory Spine Phase 2 adds
+  `GET /control-center/memory/l1-index` as a read-only derived preview over
+  reviewed recall-only Memory Review records. It does not add embeddings,
+  vector DBs, semantic search, background indexing, automatic writes, context
+  injection, connector writes, action execution, or production authority.
+- Governed Cognitive Memory Spine Phase 3 adds
+  `GET /control-center/memory/l2-index` as read-only deterministic
+  factual/graph/temporal ref projection over L1 previews. It does not add
+  truth authority, embeddings, vector DBs, semantic search, LLM extraction,
+  background indexing, automatic writes, context injection, connector writes,
+  action execution, or production authority.
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.

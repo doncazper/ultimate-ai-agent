@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.api.local_auth import (  # noqa: E402
+    LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
     LOCAL_API_AUTH_ENABLED_ENV,
     LOCAL_API_BEARER_ENV,
     local_api_auth_policy_payload,
@@ -51,7 +52,9 @@ REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
         "Status: Implemented",
         "auth:p1-083:local-protected-routes:v1",
+        "fails closed by default",
         "UAA_API_LOCAL_BEARER",
+        "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY",
         "public_metadata",
         "local_readonly",
         "local_sensitive",
@@ -106,6 +109,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
 
     client = context.client
     env = {
+        LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "",
         LOCAL_API_AUTH_ENABLED_ENV: "1",
         LOCAL_API_BEARER_ENV: LOCAL_TEST_BEARER,
     }
@@ -159,6 +163,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
             failures.append("CORS preflight exposed credentials after P1-083")
 
     route_specific_env = {
+        LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "",
         LOCAL_API_BEARER_ENV: LOCAL_TEST_BEARER,
         MATTERMOST_BRIDGE_ENV: "1",
         MATTERMOST_BRIDGE_BEARER_ENV: MATTERMOST_TEST_BEARER,
@@ -173,7 +178,14 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         if MATTERMOST_TEST_BEARER in response.text:
             failures.append("route-specific local bearer value was echoed")
 
-    with patch.dict(os.environ, {LOCAL_API_AUTH_ENABLED_ENV: "1"}, clear=False):
+    with patch.dict(
+        os.environ,
+        {
+            LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "",
+            LOCAL_API_AUTH_ENABLED_ENV: "1",
+        },
+        clear=False,
+    ):
         os.environ.pop(LOCAL_API_BEARER_ENV, None)
         response = client.get("/control-center/routes")
         if response.status_code != 503:
@@ -181,15 +193,51 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         if LOCAL_API_BEARER_ENV in response.text:
             failures.append("local auth failure echoed bearer env name")
 
+    with patch.dict(
+        os.environ,
+        {
+            LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "",
+        },
+        clear=False,
+    ):
+        os.environ.pop(LOCAL_API_AUTH_ENABLED_ENV, None)
+        os.environ.pop(LOCAL_API_BEARER_ENV, None)
+        response = client.get("/control-center/routes")
+        if response.status_code != 503:
+            failures.append("local auth gate did not fail closed by default without bearer")
+
+    with patch.dict(
+        os.environ,
+        {
+            LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "1",
+        },
+        clear=False,
+    ):
+        os.environ.pop(LOCAL_API_AUTH_ENABLED_ENV, None)
+        os.environ.pop(LOCAL_API_BEARER_ENV, None)
+        response = client.get("/control-center/routes")
+        if response.status_code != 200:
+            failures.append("explicit dev-only local auth bypass did not keep local harness open")
+
     manifest = context.manifest
     if "local_protected_route_bearer_gate" not in manifest["capabilities_declared"]:
         failures.append("/api/manifest missing local_protected_route_bearer_gate")
+    if "local_protected_route_fail_closed_by_default" not in manifest["capabilities_declared"]:
+        failures.append("/api/manifest missing local_protected_route_fail_closed_by_default")
+    auth_policy = manifest.get("local_auth_policy", {})
+    if auth_policy.get("fail_closed_by_default") is not True:
+        failures.append("/api/manifest missing fail-closed local auth policy truth")
+    if auth_policy.get("dev_only_bypass_env") != LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV:
+        failures.append("/api/manifest missing explicit dev-only bypass env")
+    if auth_policy.get("dev_only_bypass_production_authority") is not False:
+        failures.append("/api/manifest overclaims dev-only bypass production authority")
     for blocked in [
         "local_protected_route_gate_as_enterprise_auth",
         "local_protected_route_gate_as_multi_user_auth",
         "local_protected_route_gate_as_oauth",
         "local_protected_route_gate_as_password_flow",
         "local_protected_route_gate_as_production_authority",
+        "local_protected_route_dev_only_bypass_as_production_authority",
     ]:
         if blocked not in manifest["capabilities_blocked"]:
             failures.append(f"/api/manifest missing blocked capability {blocked}")

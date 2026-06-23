@@ -11,7 +11,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
+from ultimate_ai_agent.api.local_auth import (  # noqa: E402
+    LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
+    LOCAL_API_BEARER_ENV,
+)
 from ultimate_ai_agent.api.rate_limits import (  # noqa: E402
     API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV,
     API_TARGETED_RATE_LIMIT_POLICY_REF,
@@ -41,7 +44,7 @@ from scripts.verification.repo import (  # noqa: E402
 CONTRACT_DOC = "docs/api/UAA_P1_085_TARGETED_RATE_LIMITS.md"
 POLICY_SCHEMA = "docs/schemas/api_targeted_rate_limits.schema.json"
 ROUTE_SCHEMA = "docs/schemas/api_route_classification.schema.json"
-ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_126.json"
+ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_129.json"
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:p1-085-verifier"}
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
@@ -147,11 +150,22 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     env = {
         API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV: "1",
         API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV: "60",
+        LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV: "",
+        LOCAL_API_BEARER_ENV: "p1-085-local-bearer",
     }
+    auth_headers = {"Authorization": "Bearer p1-085-local-bearer"}
     with patch.dict("os.environ", env, clear=False):
         reset_api_rate_limit_state()
-        first = client.post("/models/route/preview", json={"unsafe": "raw prompt should not echo"})
-        second = client.post("/models/route/preview", json={"unsafe": "raw prompt should not echo"})
+        first = client.post(
+            "/models/route/preview",
+            headers=auth_headers,
+            json={"unsafe": "raw prompt should not echo"},
+        )
+        second = client.post(
+            "/models/route/preview",
+            headers=auth_headers,
+            json={"unsafe": "raw prompt should not echo"},
+        )
         if first.status_code == 429:
             failures.append("first targeted local-model validation request was rate limited")
         if second.status_code != 429:
@@ -166,7 +180,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
             failures.append("rate-limit response echoed unsafe input")
 
         reset_api_rate_limit_state()
-        origin_headers = {"Origin": "http://localhost:5173"}
+        origin_headers = {**auth_headers, "Origin": "http://localhost:5173"}
         client.post(
             "/models/route/preview",
             headers=origin_headers,
@@ -187,27 +201,34 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
                 failures.append(f"rate-limit 429 CORS does not expose {header_name}")
 
         reset_api_rate_limit_state()
-        missing_one = client.post("/task-decomposition/run", json={"raw_request": "safe summary"})
-        missing_two = client.post("/task-decomposition/run", json={"raw_request": "safe summary"})
+        missing_one = client.post(
+            "/task-decomposition/run",
+            json={"raw_request": "safe summary"},
+            headers=auth_headers,
+        )
+        missing_two = client.post(
+            "/task-decomposition/run",
+            json={"raw_request": "safe summary"},
+            headers=auth_headers,
+        )
         if missing_one.status_code != 428 or missing_two.status_code != 428:
             failures.append("rate limit masked missing idempotency on mutating route")
 
         reset_api_rate_limit_state()
-        with patch.dict("os.environ", {LOCAL_API_BEARER_ENV: "p1-085-local-bearer"}, clear=False):
-            auth_one = client.post("/models/route/preview", json={"unsafe": "safe summary"})
-            auth_two = client.post("/models/route/preview", json={"unsafe": "safe summary"})
+        auth_one = client.post("/models/route/preview", json={"unsafe": "safe summary"})
+        auth_two = client.post("/models/route/preview", json={"unsafe": "safe summary"})
         if auth_one.status_code != 401 or auth_two.status_code != 401:
             failures.append("rate limit masked local auth failure")
 
         reset_api_rate_limit_state()
         valid_one = client.post(
             "/task-decomposition/run",
-            headers=IDEMPOTENCY_HEADERS,
+            headers={**auth_headers, **IDEMPOTENCY_HEADERS},
             json={"raw_request": "safe summary"},
         )
         valid_two = client.post(
             "/task-decomposition/run",
-            headers=IDEMPOTENCY_HEADERS,
+            headers={**auth_headers, **IDEMPOTENCY_HEADERS},
             json={"raw_request": "safe summary"},
         )
         if valid_one.status_code != 403:

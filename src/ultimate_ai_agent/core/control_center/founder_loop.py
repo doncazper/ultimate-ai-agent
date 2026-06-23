@@ -33,6 +33,25 @@ class FounderLoopControlCenterService:
     def memory_review(self) -> dict:
         return self.repository.memory_review()
 
+    def memory_l1_hot_index(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_l1_hot_index(query_ref=query_ref, limit=limit)
+
+    def memory_l2_factual_graph_temporal_index(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_l2_factual_graph_temporal_index(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
     def promote_today_item_to_action_envelope(
         self,
         *,
@@ -103,6 +122,9 @@ class FounderLoopControlCenterService:
             request=request,
             idempotency_key_ref=idempotency_key_ref,
         )
+
+    def memory_review_receipt(self, *, candidate_ref: str) -> dict[str, Any] | None:
+        return self.repository.latest_memory_review_receipt(candidate_ref)
 
     def morning_briefing_summary(self) -> dict:
         return self.repository.morning_briefing()

@@ -1,13 +1,14 @@
 # FCC-V1-005 Memory Review Decisions
 
 Status: implemented for backend-owned Memory Review decision receipts.
-Baseline: v0.102.3 / 0.102.3.
+Baseline: v0.103.0 / 0.103.0.
 
 FCC-V1-005 makes Memory Review accept, correct, and reject decisions real
 backend-owned receipt state. Memory remains recall, not truth or authority.
-These decisions do not write memory records, inject context, sync CRM/accounts,
-write connectors, execute actions, call providers, or grant public beta or
-production authority.
+Accept/correct decisions create reviewed recall-only `LocalMemoryStore` records
+with safe summaries and refs. These decisions do not automatically write memory,
+inject context, sync CRM/accounts, write connectors, execute actions, call
+providers, or grant public beta or production authority.
 
 ## Contract
 
@@ -17,6 +18,7 @@ The Memory Review decision contract is
 Implemented routes:
 
 - `GET /control-center/memory/review`
+- `GET /control-center/memory/review/{candidate_ref}/receipt`
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`
 - `POST /control-center/memory/review/{candidate_ref}/reject`
@@ -36,6 +38,7 @@ returns a conflict.
 - `idempotency_key_ref`
 - `payload_fingerprint_ref`
 - `evidence_timeline_event_ref`
+- `reviewed_recall_record_ref` for accept/correct only
 - `reviewer_ref`
 - `source_refs`
 - `evidence_refs`
@@ -43,9 +46,10 @@ returns a conflict.
 - `created_at`
 
 Accept records reviewed recall only; it is not truth authority and does not
-authorize context injection. Correct stores corrected_summary_ref only; raw
-corrected content is not stored. Reject preserves the candidate as rejected
-review state so stale candidates do not silently return as fresh.
+authorize context injection. Correct stores corrected_summary_ref only and
+writes a reviewed recall-only safe-summary record; raw corrected content is not
+stored. Reject preserves the candidate as rejected review state so stale
+candidates do not silently return as fresh and does not create a recall record.
 
 Denied authority flags stay false: no context injection, no source truth
 authority, no connector/CRM/account sync, no action execution, and no production
@@ -61,7 +65,9 @@ Evidence Timeline entries answer:
 - what remains blocked
 - what can be undone or why rollback is not applicable
 
-Receipts and audit refs are durable inspection refs, not memory-write authority.
+Receipts, audit refs, and reviewed recall record refs are durable inspection
+refs, not truth authority, hidden context, connector authority, or execution
+authority.
 
 ## Proof
 
@@ -69,6 +75,7 @@ Primary proof lanes:
 
 - `scripts/verify_fcc_v1_005_memory_review_decisions.py`
 - `tests/test_fcc_v1_005_memory_review_decisions.py`
+- `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
 - `apps/control-center/src/components/FounderLoopPanels.tsx`
 - `docs/control_center/release_surface_manifest.json`
 - `docs/control_center/route_status_manifest.json`

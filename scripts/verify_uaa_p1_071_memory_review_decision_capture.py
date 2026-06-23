@@ -101,6 +101,33 @@ def _require_absent(path: Path, snippets: list[str], failures: list[str]) -> Non
             failures.append(f"{path.relative_to(ROOT)} contains forbidden {snippet!r}")
 
 
+def _require_no_unscoped_legacy_memory_calls(path: Path, failures: list[str]) -> None:
+    text = _read(path)
+    if path != FOUNDER_LOOP:
+        _require_absent(path, FORBIDDEN_LEGACY_MEMORY_CALLS, failures)
+        return
+    scoped_fcc_v1_005_allowance = [
+        "def _write_memory_review_recall_record(",
+        "def _memory_review_recall_store(",
+        "self.memory_review_recall_db_path",
+        "LocalMemoryStore(storage_path=self.memory_review_recall_db_path)",
+        "store.put_record(memory_request)",
+        "automatic_write=False",
+        "context_pack_eligible=False",
+        "injection_priority=0",
+        "Memory Review decisions are backend-owned receipt state only.",
+    ]
+    if all(snippet in text for snippet in scoped_fcc_v1_005_allowance):
+        forbidden = [
+            "mark_deleted",
+            "export_records",
+            "memory/write/evaluate",
+        ]
+    else:
+        forbidden = FORBIDDEN_LEGACY_MEMORY_CALLS
+    _require_absent(path, forbidden, failures)
+
+
 def _extract(today: dict) -> dict:
     return {
         "memory_review_decision_contract_ref": today[
@@ -393,7 +420,7 @@ def main() -> int:
         failures,
     )
     for path in [REVIEW_DECISIONS, FOUNDER_LOOP]:
-        _require_absent(path, FORBIDDEN_LEGACY_MEMORY_CALLS, failures)
+        _require_no_unscoped_legacy_memory_calls(path, failures)
 
     if not failures:
         schema = json.loads(_read(SCHEMA))

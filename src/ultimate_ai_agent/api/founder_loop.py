@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, FastAPI, Header, HTTPException
+from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
 
 from ultimate_ai_agent.api.dependencies import get_founder_loop_service
 from ultimate_ai_agent.api.idempotency import IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_REF_HEADER
@@ -67,6 +67,100 @@ def get_control_center_memory_review() -> ResultEnvelope:
             "bounded_summaries_only",
             "raw_content_omitted",
         ],
+    )
+
+
+@router.get("/memory/l1-index", response_model=ResultEnvelope)
+def get_control_center_memory_l1_index(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_l1_hot_index(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_L1_INDEX_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory L1 index query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_l1_index",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-l1-index",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-l1-index"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_context_injection",
+        ],
+    )
+
+
+@router.get("/memory/l2-index", response_model=ResultEnvelope)
+def get_control_center_memory_l2_index(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_l2_factual_graph_temporal_index(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_L2_INDEX_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory L2 index query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_l2_index",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-l2-index",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-l2-index"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_truth_authority",
+            "no_context_injection",
+            "no_semantic_extraction",
+        ],
+    )
+
+
+@router.get("/memory/review/{candidate_ref}/receipt", response_model=ResultEnvelope)
+def get_control_center_memory_review_receipt(candidate_ref: str) -> ResultEnvelope:
+    data = get_founder_loop_service().memory_review_receipt(
+        candidate_ref=candidate_ref
+    )
+    if data is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_DECISION_RECEIPT_NOT_FOUND",
+                "safe_message": "No Memory Review decision receipt exists for this safe candidate ref.",
+            },
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_review_receipt",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-review-receipt",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-review-decision"}],
+        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
     )
 
 

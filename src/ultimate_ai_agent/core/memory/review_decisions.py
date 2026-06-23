@@ -23,6 +23,7 @@ MEMORY_REVIEW_DECISION_CONTRACT_REF = "contract-ref:memory-review-decision:v1"
 FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF = "contract-ref:fcc-v1-005-memory-review-decisions:v1"
 MEMORY_REVIEW_DECISION_ROUTE_REFS = (
     "GET /control-center/memory/review",
+    "GET /control-center/memory/review/{candidate_ref}/receipt",
     "POST /control-center/memory/review/{candidate_ref}/accept",
     "POST /control-center/memory/review/{candidate_ref}/correct",
     "POST /control-center/memory/review/{candidate_ref}/reject",
@@ -373,6 +374,7 @@ class MemoryReviewDecisionReceipt(BaseModel):
     payload_fingerprint_ref: str = Field(..., min_length=1)
     evidence_timeline_event_ref: str = Field(..., min_length=1)
     reviewed_recall_ref: str | None = Field(default=None, min_length=1)
+    reviewed_recall_record_ref: str | None = Field(default=None, min_length=1)
     correction_ref: str | None = Field(default=None, min_length=1)
     rejection_ref: str | None = Field(default=None, min_length=1)
     safe_summary_ref: str = Field(..., min_length=1)
@@ -424,6 +426,7 @@ class MemoryReviewDecisionReceipt(BaseModel):
         for field_name in [
             "corrected_summary_ref",
             "reviewed_recall_ref",
+            "reviewed_recall_record_ref",
             "correction_ref",
             "rejection_ref",
         ]:
@@ -442,6 +445,10 @@ class MemoryReviewDecisionReceipt(BaseModel):
             raise ValueError("corrected_summary_ref belongs only to correct decisions")
         if self.decision in {"accept", "correct"} and self.reviewed_recall_ref is None:
             raise ValueError("accept/correct decisions require reviewed recall ref")
+        if self.decision in {"accept", "correct"} and self.reviewed_recall_record_ref is None:
+            raise ValueError("accept/correct decisions require reviewed recall record ref")
+        if self.decision == "reject" and self.reviewed_recall_record_ref is not None:
+            raise ValueError("reject decisions must not create reviewed recall records")
         if self.decision == "reject" and self.rejection_ref is None:
             raise ValueError("reject decisions require rejection ref")
         denied_flags = [

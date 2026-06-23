@@ -104,6 +104,6 @@ route.
 - `tests/test_fcc_v1_001_api_perimeter.py`
 - `src/ultimate_ai_agent/api/contracts.py`
 - `src/ultimate_ai_agent/api/manifest.py`
-- `tests/fixtures/api_route_inventory_126.json`
+- `tests/fixtures/api_route_inventory_129.json`
 - `scripts/verify_uaa_p1_086_api_boundary_enforcement_tests.py`
 - `tests/test_api_boundary_enforcement.py`

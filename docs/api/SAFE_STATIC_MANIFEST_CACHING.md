@@ -31,6 +31,7 @@ baseline label, and static capability declarations.
 The cache must not store:
 
 - `foundation_gate_status`
+- `local_auth_policy`
 - policy decisions or policy outcomes
 - approvals or approval decisions
 - runtime authority
@@ -40,9 +41,10 @@ The cache must not store:
 - prompts, responses, provider payloads, logs, hostnames, usernames,
   environment dumps, raw local paths, or credential material
 
-`foundation_gate_status` is attached after the static cache lookup so each call
-can carry the live caller-provided status. PolicyEngine and
-LocalApprovalAuthority decisions remain outside the manifest cache.
+`foundation_gate_status` and `local_auth_policy` are attached after the static
+cache lookup so each call can carry the live caller-provided status and current
+dev-only bypass posture. PolicyEngine and LocalApprovalAuthority decisions
+remain outside the manifest cache.
 
 ## Invalidation
 

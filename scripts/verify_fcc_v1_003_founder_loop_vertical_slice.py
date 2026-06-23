@@ -22,6 +22,7 @@ from scripts.verification.repo import (  # noqa: E402
     load_json,
     print_failures_or_success,
 )
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
     FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
@@ -217,33 +218,49 @@ def _append_behavior_failures(
     root: Path,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+    bearer = "fcc-v1-003-local-bearer"
+    auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         state_dir = str(Path(temp_dir) / "founder_loop")
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = state_dir
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
-            item_ref = _exercise_promotion_api(failures, context)
+            item_ref = _exercise_promotion_api(failures, context, auth_headers)
             _exercise_cli(failures, root, state_dir)
-            _exercise_decisions(failures, context, state_dir, item_ref)
-            _append_timeline_failures(failures, context, item_ref)
+            _exercise_decisions(failures, context, state_dir, item_ref, auth_headers)
+            _append_timeline_failures(failures, context, item_ref, auth_headers)
         finally:
             if old_state_dir is None:
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
 
 
 def _exercise_promotion_api(
     failures: list[str],
     context: ApiVerifierContext,
+    auth_headers: dict[str, str],
 ) -> str:
     body = {"today_item_ref": TODAY_ITEM_REF}
-    missing = context.client.post("/control-center/today/action-envelope", json=body)
+    missing = context.client.post(
+        "/control-center/today/action-envelope",
+        json=body,
+        headers=auth_headers,
+    )
     if missing.status_code != 428:
         failures.append("Today-to-Action route must reject missing idempotency")
     first = context.client.post(
         "/control-center/today/action-envelope",
         json=body,
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-003-promote"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-003-promote",
+        },
     )
     if first.status_code != 200:
         failures.append("Today-to-Action route did not create first receipt")
@@ -255,14 +272,20 @@ def _exercise_promotion_api(
     replay = context.client.post(
         "/control-center/today/action-envelope",
         json=body,
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-003-promote"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-003-promote",
+        },
     )
     if replay.status_code != 200 or replay.json().get("data", {}).get("replayed") is not True:
         failures.append("Today-to-Action route must replay matching idempotency payload")
     conflict = context.client.post(
         "/control-center/today/action-envelope",
         json={**body, "priority": "high"},
-        headers={"x-uaa-idempotency-key": "idempotency-ref:fcc-v1-003-promote"},
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-003-promote",
+        },
     )
     if conflict.status_code != 409:
         failures.append("Today-to-Action route must reject idempotency conflict")
@@ -303,6 +326,7 @@ def _exercise_decisions(
     context: ApiVerifierContext,
     state_dir: str,
     item_ref: str,
+    auth_headers: dict[str, str],
 ) -> None:
     approval = _approval_body(state_dir, item_ref)
     action_path = f"/control-center/actions/{item_ref}"
@@ -316,7 +340,10 @@ def _exercise_decisions(
         response = context.client.post(
             f"{action_path}/{decision}",
             json=body,
-            headers={"x-uaa-idempotency-key": f"idempotency-ref:fcc-v1-003-{decision}"},
+            headers={
+                **auth_headers,
+                "x-uaa-idempotency-key": f"idempotency-ref:fcc-v1-003-{decision}",
+            },
         )
         if response.status_code != 200:
             failures.append(f"Action {decision} did not return a receipt")
@@ -362,8 +389,9 @@ def _append_timeline_failures(
     failures: list[str],
     context: ApiVerifierContext,
     item_ref: str,
+    auth_headers: dict[str, str],
 ) -> None:
-    response = context.client.get("/control-center/today/summary")
+    response = context.client.get("/control-center/today/summary", headers=auth_headers)
     if response.status_code != 200:
         failures.append("Today summary did not return after vertical slice decisions")
         return

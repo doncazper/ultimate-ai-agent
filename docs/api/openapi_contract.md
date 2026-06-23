@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `126`.
+Current OpenAPI path count: `129`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -48,7 +48,10 @@ Contract rules:
   `POST /control-center/chat/turns`,
   `GET /control-center/chat/turns/{turn_ref}/receipt`,
   `POST /control-center/chat/turns/{turn_ref}/handoff`,
+  `GET /control-center/memory/l1-index`,
+  `GET /control-center/memory/l2-index`,
   `GET /control-center/memory/review`,
+  `GET /control-center/memory/review/{candidate_ref}/receipt`,
   `POST /control-center/memory/review/{candidate_ref}/accept`,
   `POST /control-center/memory/review/{candidate_ref}/correct`,
   `POST /control-center/memory/review/{candidate_ref}/reject`,
@@ -56,10 +59,15 @@ Contract rules:
   `GET /control-center/storage/status` expose storage-backed Founder Loop
   summaries plus Action Inbox and Chat receipts using SQLite and JSONL refs
   only. Today to Action envelope, Action decision, Chat handoff, and Memory
-  Review decision routes record backend-owned review state and receipt refs; they
-  do not grant action execution, connector writes, CRM/account sync,
-  model/provider calls, memory writes, context injection, shell/subprocess work,
-  or notification delivery.
+  Review decision routes record backend-owned review state and receipt refs;
+  accept/correct create reviewed recall-only records. The L1 and L2 index
+  routes provide derived read-only recall previews and factual/graph/temporal
+  ref projections from those reviewed records with source, evidence, and
+  receipt refs. They do not grant action execution,
+  connector writes, CRM/account sync, model/provider calls, automatic memory
+  writes, context injection, shell/subprocess work, embeddings/vector search,
+  semantic search, LLM extraction, background indexing, or notification
+  delivery.
 
 API boundary hardening:
 
@@ -85,8 +93,9 @@ API boundary hardening:
   enforcement, rate limits, dependencies, route authority, or runtime authority.
 - UAA-P1-083 adds a simple local bearer gate for protected routes classified
   as `local_readonly`, `local_sensitive`, or
-  `mutating_requires_authority`. The gate is enabled by
-  `UAA_API_LOCAL_AUTH_ENABLED=1` or a configured `UAA_API_LOCAL_BEARER`; it is
+  `mutating_requires_authority`. Protected routes fail closed unless a valid
+  `UAA_API_LOCAL_BEARER` is configured and sent, or the explicit
+  `UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY=1` local-dev bypass is set; it is
   not enterprise auth, multi-user auth, OAuth, roles, or a password flow.
 - UAA-P1-084 adds a runtime boundary check for routes classified as
   `mutating_requires_authority`: requests must carry

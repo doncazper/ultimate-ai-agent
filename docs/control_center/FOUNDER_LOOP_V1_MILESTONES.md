@@ -24,9 +24,9 @@ CLI/core/API inspection requirements.
 
 This milestone list is planning and task-shaping only. It does not add backend
 routes, Control Center controls, runtime model calls, connector runtime,
-connector writes, shell/subprocess behavior, browser automation, memory writes,
-context injection, CRM sync, public beta, public distribution, or production
-authority by itself.
+connector writes, shell/subprocess behavior, browser automation, automatic
+memory writes, context injection, CRM sync, public beta, public distribution,
+or production authority by itself.
 
 ## Shared Definition Of Done
 
@@ -263,12 +263,25 @@ Tasks:
 - Store correction summaries as redacted safe refs only.
 - Add routes:
   - `GET /control-center/memory/review`
+  - `GET /control-center/memory/review/{candidate_ref}/receipt`
   - `POST /control-center/memory/review/{candidate_ref}/accept`
   - `POST /control-center/memory/review/{candidate_ref}/correct`
   - `POST /control-center/memory/review/{candidate_ref}/reject`
 - Preserve authority boundaries.
-- Accept means "reviewed recall record", not automatic prompt injection.
-- Correct stores a safe corrected summary, not raw content.
+- Accept/correct create reviewed recall-only `LocalMemoryStore` records, not
+  truth authority or automatic prompt/context injection.
+- Governed Cognitive Memory Spine Phase 2 derives a read-only L1 hot local
+  memory index from these reviewed recall-only records at
+  `GET /control-center/memory/l1-index`; it does not add hidden context
+  injection, automatic recall, embeddings/vector search, semantic search,
+  background indexing, or authority.
+- Governed Cognitive Memory Spine Phase 3 derives a read-only L2
+  factual/graph/temporal index from the L1 previews at
+  `GET /control-center/memory/l2-index`; it remains deterministic safe-ref
+  projection only and adds no truth authority, semantic extraction, context
+  injection, automatic recall, connector writes, action execution, public beta,
+  or production authority.
+- Correct stores a safe corrected summary ref posture, not raw content.
 - Reject blocks promotion and records evidence.
 - No context injection, connector write, CRM sync, or automatic action
   execution.
@@ -277,14 +290,16 @@ Tasks:
 - Add an Evidence Timeline entry for every memory decision.
 
 Definition of done: Memory Review decisions are backend-owned, receipt-backed,
-evidence-visible, and still do not grant context injection or production
-authority.
+evidence-visible, create reviewed recall-only records for accept/correct, and
+still do not grant context injection, truth authority, CRM/account sync,
+connector writes, action execution, public beta, or production authority.
 
 Proof refs:
 
 - `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`
 - `scripts/verify_fcc_v1_005_memory_review_decisions.py`
 - `tests/test_fcc_v1_005_memory_review_decisions.py`
+- `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
 - `apps/control-center/src/components/FounderLoopPanels.tsx`
 
 ## FCC-V1-006 - Evidence Timeline Productization

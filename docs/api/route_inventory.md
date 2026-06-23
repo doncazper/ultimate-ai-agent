@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `126`.
+Current OpenAPI path count: `129`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 14 |
-| `local_sensitive` | 85 |
+| `local_sensitive` | 89 |
 | `mutating_requires_authority` | 23 |
 
 Allowed current side-effect classes are:
@@ -73,9 +73,10 @@ does not grant auth or route authority.
 UAA-P1-083 implements local protected-route bearer gate posture for non-public
 route classifications. `GET /health`, `GET /version`, `GET /api/manifest`, and
 `GET /openapi.json` remain public metadata; `local_readonly`,
-`local_sensitive`, and `mutating_requires_authority` routes require the
-configured local bearer when the gate is enabled. This is not enterprise auth,
-OAuth, a password flow, production authority, or a public beta claim.
+`local_sensitive`, and `mutating_requires_authority` routes fail closed unless
+the configured local bearer is sent or the explicit local-dev bypass is set.
+This is not enterprise auth, OAuth, a password flow, production authority, or a
+public beta claim.
 
 UAA-P1-084 implements mutating-route idempotency enforcement audit posture.
 Routes classified as `mutating_requires_authority` now require
@@ -189,17 +190,30 @@ readiness, or execute rollback.
 - `POST /control-center/actions/{action_id}/reject`
 - `POST /control-center/actions/{action_id}/defer`
 - `GET /control-center/actions/{action_id}/receipt`
+- `GET /control-center/memory/review`
+- `GET /control-center/memory/l1-index`
+- `GET /control-center/memory/l2-index`
+- `GET /control-center/memory/review/{candidate_ref}/receipt`
+- `POST /control-center/memory/review/{candidate_ref}/accept`
+- `POST /control-center/memory/review/{candidate_ref}/correct`
+- `POST /control-center/memory/review/{candidate_ref}/reject`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/storage/status`
 
 These routes expose storage-backed Founder Loop v1 summaries for Today, Action
-Inbox, Morning Briefing, local storage status, and Action Inbox decision
-receipts. The decision routes record backend-owned approve/edit/reject/defer
-state, validate exact approval scope for approve where required, handle
-idempotency replay/conflict locally, and return safe receipt refs. They do not
-execute the underlying action, run, send, install, enable, dispatch, call
-providers, perform connector writes, read email/calendar data, write memory,
-run shell/subprocess work, deliver notifications, or expose raw prompts, raw
+Inbox, Memory Review, Morning Briefing, local storage status, Action Inbox
+decision receipts, Memory Review decision receipts, and read-only L1 hot local
+memory index previews. Action decision routes record backend-owned
+approve/edit/reject/defer state, validate exact approval scope for approve where
+required, handle idempotency replay/conflict locally, and return safe receipt
+refs. Memory Review accept/correct/reject routes are backend-owned,
+idempotency-required receipt routes; accept/correct create reviewed recall-only
+records, and reject preserves blocked review state. The L1 route derives safe
+recall previews from reviewed recall-only records only. They do not execute the
+underlying action, run, send, install, enable, dispatch, call providers, perform
+connector writes, read email/calendar data, automatically write memory, inject
+context, run shell/subprocess work, deliver notifications, use embeddings or
+vector DBs, run semantic search/background indexing, or expose raw prompts, raw
 responses, raw paths, raw logs, usernames, hostnames, environment dumps,
 credential material, or provider payloads.
 
@@ -210,9 +224,10 @@ credential material, or provider payloads.
 - runtime readiness and smoke-report routes remain status/validation only
 
 UAA-P1-083 adds the general local protected-route bearer gate around the
-current non-public route classifications. Local `/v1` and task-decomposition
-routes can still keep their narrower disabled-by-default bearer gates; P1-083
-does not grant execution, provider, connector, or production authority.
+current non-public route classifications. Protected routes fail closed by
+default; local `/v1` and task-decomposition routes can still keep their
+narrower disabled-by-default bearer gates; P1-083 does not grant execution,
+provider, connector, or production authority.
 
 ### Task, file, tool, provider, memory, truth, approval, consent, cost, gate, and remote-worker groups
 
