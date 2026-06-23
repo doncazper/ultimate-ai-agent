@@ -96,6 +96,9 @@ memory writes, shell/subprocess local maintenance, browser automation,
 provider/model authority, and context injection are ranked there but not
 selected for a new micro-lane. The current first micro-lane decision is no-go;
 Action Inbox `local_task_create` remains the only rank 5 local execution lane.
+That rank 5 lane depends on explicit safe-disable/rollback posture refs and
+backend denial when the lane is disabled; it is not a rank 6 rollback execution
+or broader action-execution promotion.
 
 Implementation note: a bounded daily-loop product behavior slice now deepens
 the existing read routes without adding authority. Morning Briefing and Today

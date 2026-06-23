@@ -57,6 +57,8 @@
         "real_local_mutation",
         "durable_receipt",
         "evidence_timeline_event",
+        "rollback_or_safe_disable_required",
+        "rollback_or_safe_disable_refs",
         "cli_parity_ref",
         "focused_test_refs"
       ],
@@ -72,6 +74,11 @@
         "real_local_mutation": { "type": "boolean" },
         "durable_receipt": { "type": "boolean" },
         "evidence_timeline_event": { "type": "boolean" },
+        "rollback_or_safe_disable_required": { "type": "boolean" },
+        "rollback_or_safe_disable_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "cli_parity_ref": { "type": ["string", "null"] },
         "focused_test_refs": { "type": "array", "items": { "type": "string" } }
       }

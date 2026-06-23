@@ -58,6 +58,12 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF,
+    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_POSTURE_REF,
     FounderLoopLocalTaskCommitRequest,
 )
 from ultimate_ai_agent.core.storage.founder_loop import (
@@ -635,10 +641,38 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "GET /control-center/storage/status" in inbox["read_only_route_refs"]
     assert "capability-ref:local-approval-authority" in inbox["local_prerequisite_refs"]
     assert "approval_ref_must_validate_exact_scope" in inbox["blocked_states"]
+    facet_ids = {facet["facet_id"] for facet in inbox["review_filter_facets"]}
+    assert facet_ids == {
+        "status",
+        "action_kind",
+        "risk",
+        "authority_requirement",
+        "receipt_state",
+        "source_surface",
+    }
+    assert all(
+        facet["backend_owned"] is True for facet in inbox["review_filter_facets"]
+    )
+    source_posture = today["source_readiness_posture"]
+    assert source_posture["schema_version"] == (
+        "founder_loop_source_readiness_posture.v1"
+    )
+    assert source_posture["backend_owned"] is True
+    assert source_posture["connector_runtime_enabled"] is False
+    assert source_posture["source_refresh_enabled"] is False
+    assert source_posture["notification_delivery_enabled"] is False
+    assert (
+        "contract-ref:email-read-only-missing"
+        in source_posture["missing_contract_refs"]
+    )
+    assert (
+        "blocked-state:no-email-read-authority" in source_posture["blocked_state_refs"]
+    )
     assert briefing["items"]
     assert briefing["route_ref"] == "/control-center/morning-briefing/summary"
     assert "GET /control-center/storage/status" in briefing["read_only_route_refs"]
     assert "contract-ref:email-read-only-missing" in briefing["missing_contract_refs"]
+    assert briefing["source_readiness_posture"] == source_posture
     assert briefing["source_readiness"] == (
         "blocked_missing_email_calendar_notification_contracts"
     )
@@ -647,7 +681,6 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert briefing["notification_delivery_enabled"] is False
     assert "no_background_refresh" in briefing["blocked_states"]
     assert "no_notification_delivery" in briefing["blocked_states"]
-
 
     assert today["memory_review_route_ref"] == "/memory"
     assert (
@@ -1180,6 +1213,20 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
     action = _approve_local_task_seed_action(repo)
     assert action["action_kind"] == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
     assert action["local_task_commit_eligible"] is True
+    assert (
+        action["local_task_safe_disable_ref"]
+        == FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
+    )
+    assert action["local_task_rollback_ref"] == FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
+    assert action["local_task_safe_disable_active"] is False
+    assert action["local_task_safe_disable_posture_ref"] == (
+        FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF
+    )
+    assert action["local_task_rollback_execution_enabled"] is False
+    assert action["local_task_rollback_blocker_refs"] == [
+        FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF
+    ]
+    assert action["local_task_safe_disable_posture"]["backend_owned"] is True
 
     missing_approval = FounderLoopLocalTaskCommitRequest(
         approval_ref="approval-ref:test-local-task-missing"
@@ -1205,6 +1252,16 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
     assert receipt["action_kind"] == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
     assert receipt["status"] == "local_task_created"
     assert receipt["local_task_created"] is True
+    assert receipt["safe_disable_ref"] == FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
+    assert receipt["rollback_ref"] == FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
+    assert receipt["safe_disable_posture_ref"] == (
+        FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF
+    )
+    assert receipt["safe_disable_enabled"] is True
+    assert receipt["rollback_execution_enabled"] is False
+    assert receipt["rollback_blocker_refs"] == [
+        FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF
+    ]
     assert receipt["connector_write_performed"] is False
     assert receipt["shell_subprocess_execution_performed"] is False
     assert receipt["model_provider_authority_used"] is False
@@ -1265,15 +1322,16 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
     assert committed_action["local_task_commit_eligible"] is False
     assert committed_action["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     assert committed_action["local_task_ref"] == receipt["local_task_ref"]
+    assert committed_action["local_task_safe_disable_posture"]["backend_owned"] is True
+    assert committed_action["local_task_safe_disable_active"] is False
+    assert committed_action["local_task_rollback_execution_enabled"] is False
     receipt_visibility = committed_action["receipt_visibility"]
     assert receipt_visibility["backend_owned"] is True
     assert receipt_visibility["decision_receipt_ref"].startswith(
         "receipt:founder-loop-action:"
     )
     assert receipt_visibility["local_task_ref"] == receipt["local_task_ref"]
-    assert (
-        receipt_visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
-    )
+    assert receipt_visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     assert (
         receipt_visibility["evidence_timeline_event_ref"]
         == receipt["evidence_timeline_event_ref"]
@@ -1293,6 +1351,52 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
     ]
     assert local_task_events
     assert local_task_events[0]["receipt_refs"] == [receipt["receipt_ref"]]
+
+
+def test_action_inbox_local_task_commit_denies_when_safe_disabled(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    _approve_local_task_seed_action(repo)
+
+    posture = repo._disable_local_task_create_lane_for_test(
+        disabled_reason_refs=["safe-disable-reason:test-local-task-disabled"],
+    )
+    assert posture["local_task_commits_enabled"] is False
+    assert posture["safe_disable_active"] is True
+    assert posture["safe_disable_posture_ref"] == (
+        FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_POSTURE_REF
+    )
+    assert (
+        FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF
+        in posture["blocked_state_refs"]
+    )
+
+    disabled_action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert disabled_action["local_task_commit_eligible"] is False
+    assert disabled_action["local_task_safe_disable_active"] is True
+    assert (
+        FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF
+        in disabled_action["local_task_commit_blocked_reasons"]
+    )
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED",
+    ):
+        repo.commit_local_task(
+            action_id="local-task-create-scorecard",
+            request=_local_task_commit_request_for_action(disabled_action),
+            idempotency_key_ref="idempotency-ref:test-local-task-safe-disabled",
+        )
+
+    status = repo.storage_status()
+    assert status["counts"]["local_tasks"] == 0
+    assert status["counts"]["local_task_commit_receipts"] == 0
 
 
 def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> None:
@@ -1332,8 +1436,7 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
         assert "credential" not in serialized
         visibility = item["receipt_visibility"]
         assert (
-            visibility["schema_version"]
-            == "founder_loop_action_receipt_visibility.v1"
+            visibility["schema_version"] == "founder_loop_action_receipt_visibility.v1"
         )
         assert visibility["contract_ref"] == (
             "contract-ref:founder-loop-action-receipt-visibility:v1"
@@ -1366,9 +1469,10 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
         "approval_envelope"
     ]
     assert briefing_envelope["approval_requirement"] == "not_applicable"
-    assert "blocked-state:no-action-execution" in briefing_envelope[
-        "blocked_authority_refs"
-    ]
+    assert (
+        "blocked-state:no-action-execution"
+        in briefing_envelope["blocked_authority_refs"]
+    )
 
     approved = _approve_local_task_seed_action(repo)
     assert approved["action_group_id"] == "approved_local_task_lane"
@@ -1405,9 +1509,7 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
     assert committed["action_group_id"] == "receipt_recorded"
     assert committed["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     visibility = committed["receipt_visibility"]
-    assert visibility["decision_receipt_ref"].startswith(
-        "receipt:founder-loop-action:"
-    )
+    assert visibility["decision_receipt_ref"].startswith("receipt:founder-loop-action:")
     assert visibility["local_task_ref"] == receipt["local_task_ref"]
     assert visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     assert (
@@ -1415,9 +1517,7 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
         == receipt["evidence_timeline_event_ref"]
     )
     assert visibility["replay_posture"] == "idempotency_replay_available"
-    assert (
-        visibility["conflict_posture"] == "conflicting_idempotency_payload_rejected"
-    )
+    assert visibility["conflict_posture"] == "conflicting_idempotency_payload_rejected"
     assert visibility["missing_field_states"] == ["none"]
 
     repo.upsert_action(
@@ -1479,9 +1579,10 @@ def test_action_inbox_local_task_commit_rejects_unsupported_action_kind(
     )
 
     assert action["local_task_commit_eligible"] is False
-    assert "blocked-state:unsupported-action-kind" in action[
-        "local_task_commit_blocked_reasons"
-    ]
+    assert (
+        "blocked-state:unsupported-action-kind"
+        in action["local_task_commit_blocked_reasons"]
+    )
     with pytest.raises(
         FounderLoopStorageError,
         match="FOUNDER_LOOP_LOCAL_TASK_UNSUPPORTED_ACTION_KIND",
@@ -1517,9 +1618,10 @@ def test_action_inbox_local_task_commit_rejects_expired_backend_approval(
         if item["item_ref"] == "founder-action:local-task-create-scorecard"
     )
     assert expired_action["local_task_commit_eligible"] is False
-    assert "blocked-state:local-task-approval-expired" in expired_action[
-        "local_task_commit_blocked_reasons"
-    ]
+    assert (
+        "blocked-state:local-task-approval-expired"
+        in expired_action["local_task_commit_blocked_reasons"]
+    )
 
     with pytest.raises(
         FounderLoopStorageError,

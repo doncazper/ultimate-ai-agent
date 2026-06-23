@@ -9,9 +9,11 @@
     "docs/prompts/fcc_action_inbox_loop/02_local_task_receipt_refresh_reconciliation.prompt.md",
     "docs/prompts/fcc_action_inbox_loop/03_action_inbox_review_ergonomics.prompt.md",
     "docs/prompts/fcc_action_inbox_loop/04_morning_briefing_source_readiness.prompt.md",
-    "docs/prompts/fcc_action_inbox_loop/05_recommended_next_local_task_create_gate.prompt.md"
+    "docs/prompts/fcc_action_inbox_loop/05_recommended_next_local_task_create_gate.prompt.md",
+    "docs/prompts/fcc_action_inbox_loop/06_execute_next_planned_steps.prompt.md",
+    "docs/prompts/fcc_action_inbox_loop/07_recommended_next_safe_disable_ui_followup.prompt.md"
   ],
-  "bundle_hash": "sha256:6330dbeadb3157cbe2e2f48d4fb4cdb93a08f13061331afb883fe6fa97e6d45a",
+  "bundle_hash": "sha256:66c0d814baa52e5ec54998bef0faabdf6f0eeec31d07e2ffad2f0cfb2b5461d0",
   "stable_within_run": true,
   "created_at": "2026-06-23"
 }

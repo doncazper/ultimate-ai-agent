@@ -16,6 +16,11 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF,
+    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF,
     FounderLoopLocalTaskCommitRequest,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
@@ -198,6 +203,10 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     assert today["daily_loop_summary"]["home_surface"] == "Morning Briefing"
     assert today["daily_loop_summary"]["action_execution_enabled"] is False
     assert today["source_readiness_items"]
+    assert today["source_readiness_posture"]["backend_owned"] is True
+    assert today["source_readiness_posture"]["connector_runtime_enabled"] is False
+    assert today["source_readiness_posture"]["source_refresh_enabled"] is False
+    assert today["source_readiness_posture"]["notification_delivery_enabled"] is False
     assert today["crm_lite_followups"]
     assert today["memory_why_shown_items"]
     assert today["weekly_review_narrative"]["status"] == "safe_ref_history_ready"
@@ -205,6 +214,14 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     assert today["dogfood_capture"]["auto_apply_enabled"] is False
 
     assert actions["review_queue_groups"]
+    assert {facet["facet_id"] for facet in actions["review_filter_facets"]} == {
+        "status",
+        "action_kind",
+        "risk",
+        "authority_requirement",
+        "receipt_state",
+        "source_surface",
+    }
     assert actions["dogfood_capture"]["action_execution_enabled"] is False
     assert actions["crm_lite_followups"][0]["crm_write_enabled"] is False
     for item in actions["items"]:
@@ -226,8 +243,7 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
         assert envelope["evidence_refs"]
         visibility = item["receipt_visibility"]
         assert (
-            visibility["schema_version"]
-            == "founder_loop_action_receipt_visibility.v1"
+            visibility["schema_version"] == "founder_loop_action_receipt_visibility.v1"
         )
         assert visibility["contract_ref"] == (
             "contract-ref:founder-loop-action-receipt-visibility:v1"
@@ -244,6 +260,7 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     assert briefing["daily_loop_summary"]["home_surface"] == "Morning Briefing"
     assert briefing["daily_loop_sections"]
     assert briefing["source_readiness_items"][0]["source_kind"] == "inbox"
+    assert briefing["source_readiness_posture"] == today["source_readiness_posture"]
     assert briefing["dogfood_capture"]["public_distribution_enabled"] is False
 
 
@@ -471,9 +488,7 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
         "/control-center/actions/local-task-create-scorecard/local-task/commit",
         json={"approval_ref": "approval-ref:api-local-task-missing-approval"},
         headers={
-            "x-uaa-idempotency-key": (
-                "idempotency-ref:api-local-task-missing-approval"
-            )
+            "x-uaa-idempotency-key": ("idempotency-ref:api-local-task-missing-approval")
         },
     )
     assert missing_approval.status_code == 403
@@ -512,6 +527,16 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     assert receipt["contract_ref"] == FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF
     assert receipt["action_kind"] == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
     assert receipt["local_task_created"] is True
+    assert receipt["safe_disable_ref"] == FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
+    assert receipt["rollback_ref"] == FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
+    assert receipt["safe_disable_posture_ref"] == (
+        FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF
+    )
+    assert receipt["safe_disable_enabled"] is True
+    assert receipt["rollback_execution_enabled"] is False
+    assert receipt["rollback_blocker_refs"] == [
+        FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF
+    ]
     assert receipt["raw_content_stored"] is False
     assert receipt["external_side_effect_performed"] is False
 
@@ -531,10 +556,15 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     assert committed["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     assert committed["local_task_ref"] == receipt["local_task_ref"]
     assert committed["action_group_id"] == "receipt_recorded"
-    visibility = committed["receipt_visibility"]
-    assert visibility["decision_receipt_ref"].startswith(
-        "receipt:founder-loop-action:"
+    assert committed["local_task_safe_disable_ref"] == (
+        FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
     )
+    assert committed["local_task_rollback_ref"] == FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
+    assert committed["local_task_safe_disable_active"] is False
+    assert committed["local_task_rollback_execution_enabled"] is False
+    assert committed["local_task_safe_disable_posture"]["backend_owned"] is True
+    visibility = committed["receipt_visibility"]
+    assert visibility["decision_receipt_ref"].startswith("receipt:founder-loop-action:")
     assert visibility["local_task_ref"] == receipt["local_task_ref"]
     assert visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     assert (
@@ -542,9 +572,7 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
         == receipt["evidence_timeline_event_ref"]
     )
     assert visibility["replay_posture"] == "idempotency_replay_available"
-    assert (
-        visibility["conflict_posture"] == "conflicting_idempotency_payload_rejected"
-    )
+    assert visibility["conflict_posture"] == "conflicting_idempotency_payload_rejected"
     action_groups = {group["group_id"]: group for group in inbox["action_groups"]}
     assert action_groups["receipt_recorded"]["count"] == 1
 
@@ -555,6 +583,46 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
         and event["receipt_refs"] == [receipt["receipt_ref"]]
         for event in timeline["events"]
     )
+
+
+def test_control_center_action_local_task_commit_denies_safe_disabled_lane(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    api_client = TestClient(app)
+    repo = FounderLoopRepository.from_env()
+    action = _approve_local_task_seed_action(repo)
+    repo._disable_local_task_create_lane_for_test(
+        disabled_reason_refs=["safe-disable-reason:api-local-task-disabled"],
+    )
+
+    inbox = api_client.get("/control-center/actions/inbox").json()["data"]
+    disabled = next(
+        item
+        for item in inbox["items"]
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert disabled["local_task_commit_eligible"] is False
+    assert disabled["local_task_safe_disable_active"] is True
+    assert (
+        FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF
+        in disabled["local_task_commit_blocked_reasons"]
+    )
+
+    response = api_client.post(
+        "/control-center/actions/local-task-create-scorecard/local-task/commit",
+        json=_local_task_commit_api_body(action),
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:api-local-task-safe-disabled"
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == (
+        "FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED"
+    )
+    assert repo.storage_status()["counts"]["local_tasks"] == 0
 
 
 def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
@@ -764,7 +832,10 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready() ->
     for action in actions.values():
         if not action["backend_routes"]:
             assert action["release_status"] not in release_available
-        if action["missing_backend_routes"] and action["release_status"] in release_available:
+        if (
+            action["missing_backend_routes"]
+            and action["release_status"] in release_available
+        ):
             assert action["action_id"] == "navigate-settings"
 
 

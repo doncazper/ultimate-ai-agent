@@ -74,6 +74,12 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF,
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF,
+    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_POSTURE_REF,
     FounderLoopLocalTaskCommitReceipt,
     FounderLoopLocalTaskCommitRequest,
     local_task_commit_approval_request,
@@ -1322,7 +1328,9 @@ def _is_future_iso_datetime(value: Any) -> bool:
 
 
 def _has_actual_receipt_ref(action: dict[str, Any]) -> bool:
-    return any(str(ref).startswith("receipt:") for ref in action.get("receipt_refs") or [])
+    return any(
+        str(ref).startswith("receipt:") for ref in action.get("receipt_refs") or []
+    )
 
 
 def _has_expired_or_stale_marker(action: dict[str, Any]) -> bool:
@@ -1331,14 +1339,21 @@ def _has_expired_or_stale_marker(action: dict[str, Any]) -> bool:
     expires_at = action.get("expires_at")
     if status in {"expired", "stale", "superseded"}:
         return True
-    if isinstance(expires_at, str) and expires_at and not _is_future_iso_datetime(expires_at):
+    if (
+        isinstance(expires_at, str)
+        and expires_at
+        and not _is_future_iso_datetime(expires_at)
+    ):
         try:
             datetime.fromisoformat(expires_at)
         except ValueError:
             pass
         else:
             return True
-    return any(marker in stale_state for marker in ["expired", "stale", "superseded", "outdated"])
+    return any(
+        marker in stale_state
+        for marker in ["expired", "stale", "superseded", "outdated"]
+    )
 
 
 def _has_authority_blocker(action: dict[str, Any]) -> bool:
@@ -1405,7 +1420,10 @@ def _classify_action_inbox_group(action: dict[str, Any]) -> tuple[str, str]:
     if (
         status in {"edited", "rejected", "deferred", "receipt_recorded"}
         or action.get("local_task_commit_receipt_ref")
-        or (_has_actual_receipt_ref(action) and not (status == "approved" and is_local_task))
+        or (
+            _has_actual_receipt_ref(action)
+            and not (status == "approved" and is_local_task)
+        )
     ):
         return (
             "receipt_recorded",
@@ -1426,7 +1444,9 @@ def _classify_action_inbox_group(action: dict[str, Any]) -> tuple[str, str]:
             "ready_for_decision",
             "Exact scope and approval posture are present for a backend decision receipt.",
         )
-    if action.get("approval_required") is False or not action.get("state_change_contract_ref"):
+    if action.get("approval_required") is False or not action.get(
+        "state_change_contract_ref"
+    ):
         return (
             "proposal_only_no_execution_path",
             "This is review or planning posture only; no validated execution path is available.",
@@ -1716,6 +1736,125 @@ def _source_readiness_items(
             ),
         },
     ]
+
+
+def _source_readiness_posture(
+    source_readiness_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    missing_contract_refs = _unique_sorted_refs(
+        ref
+        for item in source_readiness_items
+        for ref in item.get("source_refs", [])
+        if str(ref).startswith("contract-ref:")
+    )
+    blocked_state_refs = _unique_sorted_refs(
+        ref
+        for item in source_readiness_items
+        for ref in item.get("blocked_state_refs", [])
+    )
+    posture = {
+        "schema_version": "founder_loop_source_readiness_posture.v1",
+        "source": "python_core_morning_briefing_read_model",
+        "backend_owned": True,
+        "status": "read_only_posture_missing_external_source_contracts",
+        "source_count": len(source_readiness_items),
+        "ready_source_count": sum(
+            1 for item in source_readiness_items if item.get("status") == "ready"
+        ),
+        "contract_only_source_count": sum(
+            1
+            for item in source_readiness_items
+            if item.get("status") == "contract_only"
+        ),
+        "missing_contract_refs": missing_contract_refs,
+        "blocked_state_refs": blocked_state_refs,
+        "connector_runtime_enabled": False,
+        "source_refresh_enabled": False,
+        "notification_delivery_enabled": False,
+        "authority_boundary": (
+            "Source readiness is a read-only posture summary. It does not grant "
+            "email, calendar, connector, polling, refresh, notification, or "
+            "delivery authority."
+        ),
+        "next_safe_action": (
+            "Review missing source contracts and keep source reads, refresh, "
+            "notifications, and connector runtime blocked."
+        ),
+    }
+    _validate_safe_payload(posture, "source_readiness_posture")
+    return posture
+
+
+def _action_inbox_review_filter_facets(
+    actions: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    def build_facet(
+        facet_id: str,
+        label: str,
+        values: list[str],
+    ) -> dict[str, Any]:
+        counts = {value: values.count(value) for value in sorted(set(values))}
+        return {
+            "facet_id": facet_id,
+            "label": label,
+            "backend_owned": True,
+            "options": [
+                {
+                    "option_ref": _status_ref(f"action-filter-{facet_id}", value),
+                    "label": value,
+                    "count": count,
+                }
+                for value, count in counts.items()
+            ],
+        }
+
+    def receipt_state(action: dict[str, Any]) -> str:
+        visibility = action.get("receipt_visibility") or {}
+        local_task_receipt = str(visibility.get("local_task_commit_receipt_ref") or "")
+        decision_receipt = str(visibility.get("decision_receipt_ref") or "")
+        if local_task_receipt.startswith("receipt:founder-loop-local-task:"):
+            return "local_task_receipt_recorded"
+        if decision_receipt.startswith("receipt:founder-loop-action:"):
+            return "decision_receipt_recorded"
+        if local_task_receipt == "pending" or decision_receipt == "pending":
+            return "receipt_pending"
+        return "receipt_not_applicable"
+
+    facets = [
+        build_facet("status", "Status", [str(item["status"]) for item in actions]),
+        build_facet(
+            "action_kind",
+            "Action kind",
+            [str(item.get("action_kind", "review_only")) for item in actions],
+        ),
+        build_facet(
+            "risk",
+            "Risk",
+            [str(item.get("risk_class", "medium")) for item in actions],
+        ),
+        build_facet(
+            "authority_requirement",
+            "Authority requirement",
+            [
+                "approval_required"
+                if bool(item.get("approval_required"))
+                else "approval_not_required"
+                for item in actions
+            ],
+        ),
+        build_facet(
+            "receipt_state",
+            "Receipt state",
+            [receipt_state(item) for item in actions],
+        ),
+        build_facet(
+            "source_surface",
+            "Source surface",
+            [str(item["surface"]) for item in actions],
+        ),
+    ]
+    _validate_safe_payload(facets, "action_inbox_review_filter_facets")
+    return facets
 
 
 def _crm_lite_followups(
@@ -2800,7 +2939,9 @@ def _action_receipt_visibility_read_model(
         str(local_task_receipt["evidence_timeline_event_ref"])
         if local_task_receipt and local_task_receipt.get("evidence_timeline_event_ref")
         else (
-            _evidence_event_ref("action_decision_recorded", _timeline_ref("action", item_ref))
+            _evidence_event_ref(
+                "action_decision_recorded", _timeline_ref("action", item_ref)
+            )
             if latest_decision_receipt
             else ("pending" if approval_required else "not_applicable")
         )
@@ -3294,6 +3435,7 @@ class FounderLoopRepository:
             ),
             "local_tasks": self._count("local_tasks"),
             "local_task_commit_receipts": self._count("local_task_commit_receipts"),
+            "local_task_lane_postures": self._count("local_task_lane_postures"),
             "chat_turn_receipts": self._count("chat_turn_receipts"),
             "chat_handoff_receipts": self._count("chat_handoff_receipts"),
             "briefing_items": self._count("briefing_items"),
@@ -3370,6 +3512,7 @@ class FounderLoopRepository:
         source_readiness_items = _source_readiness_items(
             briefing_items=briefing_items,
         )
+        source_readiness_posture = _source_readiness_posture(source_readiness_items)
         crm_lite_followups = _crm_lite_followups(
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
             memory_items=memory_items,
@@ -3497,6 +3640,7 @@ class FounderLoopRepository:
             **governed_code_workbench_contract,
             "daily_loop_summary": daily_loop_summary,
             "source_readiness_items": source_readiness_items,
+            "source_readiness_posture": source_readiness_posture,
             "crm_lite_followups": crm_lite_followups,
             "memory_why_shown_items": memory_why_shown_items,
             "review_queue_groups": review_queue_groups,
@@ -5416,6 +5560,7 @@ class FounderLoopRepository:
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
             private_beta_readiness_gate_contract=private_beta_readiness_gate_contract,
         )
+        review_filter_facets = _action_inbox_review_filter_facets(items)
         dogfood_capture = _dogfood_capture_summary(
             actions=items,
             memory_items=memory_items,
@@ -5486,6 +5631,7 @@ class FounderLoopRepository:
             "crm_lite_followups": crm_lite_followups,
             "memory_why_shown_items": memory_why_shown_items,
             "review_queue_groups": review_queue_groups,
+            "review_filter_facets": review_filter_facets,
             "dogfood_capture": dogfood_capture,
             "disabled_state_label": "Action execution remains blocked",
             "evidence_refs": ["evidence-ref:founder-loop:action-inbox"],
@@ -5517,6 +5663,7 @@ class FounderLoopRepository:
             _private_beta_readiness_gate_contract_payload()
         )
         source_readiness_items = _source_readiness_items(briefing_items=items)
+        source_readiness_posture = _source_readiness_posture(source_readiness_items)
         crm_lite_followups = _crm_lite_followups(
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
             memory_items=memory_items,
@@ -5590,6 +5737,7 @@ class FounderLoopRepository:
                 "contract-ref:calendar-read-only-missing",
                 "contract-ref:notification-delivery-missing",
             ],
+            "source_readiness_posture": source_readiness_posture,
             "daily_loop_summary": daily_loop_summary,
             "daily_loop_sections": [
                 {
@@ -6786,6 +6934,108 @@ class FounderLoopRepository:
             return None
         return dict(json.loads(str(rows[0]["receipt_json"])))
 
+    def local_task_safe_disable_posture(self) -> dict[str, Any]:
+        rows = self._fetch_all(
+            """
+            SELECT lane_id, enabled, safe_disable_ref, rollback_ref,
+                   safe_disable_posture_ref, disabled_reason_refs_json,
+                   blocked_state_refs_json, updated_at
+            FROM local_task_lane_postures
+            WHERE lane_id = ?
+            LIMIT 1
+            """,
+            (FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,),
+        )
+        if not rows:
+            with self._connect() as conn:
+                self._ensure_local_task_lane_posture(conn)
+            rows = self._fetch_all(
+                """
+                SELECT lane_id, enabled, safe_disable_ref, rollback_ref,
+                       safe_disable_posture_ref, disabled_reason_refs_json,
+                       blocked_state_refs_json, updated_at
+                FROM local_task_lane_postures
+                WHERE lane_id = ?
+                LIMIT 1
+                """,
+                (FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,),
+            )
+        payload = _row_to_payload(rows[0])
+        enabled = bool(payload.get("enabled"))
+        disabled_reason_refs = list(payload.get("disabled_reason_refs") or [])
+        blocked_state_refs = list(payload.get("blocked_state_refs") or [])
+        if (
+            not enabled
+            and FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF
+            not in blocked_state_refs
+        ):
+            blocked_state_refs.append(FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF)
+        posture = {
+            "schema_version": "founder_loop_local_task_safe_disable_posture.v1",
+            "source": "python_core_founder_loop_storage",
+            "backend_owned": True,
+            "lane_id": FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+            "action_kind": FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+            "local_task_commits_enabled": enabled,
+            "safe_disable_active": not enabled,
+            "safe_disable_ref": str(payload["safe_disable_ref"]),
+            "rollback_ref": str(payload["rollback_ref"]),
+            "safe_disable_posture_ref": str(payload["safe_disable_posture_ref"]),
+            "disabled_reason_refs": disabled_reason_refs,
+            "blocked_state_refs": blocked_state_refs,
+            "rollback_execution_enabled": False,
+            "rollback_blocker_refs": [FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF],
+            "next_safe_action": (
+                "Commit exact-scoped approved local tasks through the local-task route."
+                if enabled
+                else "Keep local task creation disabled until backend posture is re-enabled."
+            ),
+            "updated_at": str(payload["updated_at"]),
+        }
+        _validate_safe_payload(posture, "local_task_safe_disable_posture")
+        return posture
+
+    def _disable_local_task_create_lane_for_test(
+        self,
+        *,
+        disabled_reason_refs: list[str] | None = None,
+    ) -> dict[str, Any]:
+        reason_refs = list(disabled_reason_refs or [])
+        if not reason_refs:
+            reason_refs = ["safe-disable-reason:local-task-create-disabled"]
+        for ref_value in reason_refs:
+            _validate_safe_ref(ref_value, "disabled_reason_refs")
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO local_task_lane_postures (
+                    lane_id, enabled, safe_disable_ref, rollback_ref,
+                    safe_disable_posture_ref, disabled_reason_refs_json,
+                    blocked_state_refs_json, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(lane_id) DO UPDATE SET
+                    enabled = excluded.enabled,
+                    safe_disable_ref = excluded.safe_disable_ref,
+                    rollback_ref = excluded.rollback_ref,
+                    safe_disable_posture_ref = excluded.safe_disable_posture_ref,
+                    disabled_reason_refs_json = excluded.disabled_reason_refs_json,
+                    blocked_state_refs_json = excluded.blocked_state_refs_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+                    0,
+                    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+                    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+                    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_POSTURE_REF,
+                    _json_dumps(reason_refs),
+                    _json_dumps([FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF]),
+                    _utc_iso(),
+                ),
+            )
+        return self.local_task_safe_disable_posture()
+
     def commit_local_task(
         self,
         *,
@@ -6800,7 +7050,9 @@ class FounderLoopRepository:
             raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_NOT_FOUND")
         action = {**action, **_action_envelope_contract_payload(action)}
         if action.get("action_kind") != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND:
-            raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_UNSUPPORTED_ACTION_KIND")
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_UNSUPPORTED_ACTION_KIND"
+            )
 
         payload_fingerprint_ref = local_task_commit_payload_fingerprint_ref(
             local_task_commit_payload_for_fingerprint(
@@ -6822,6 +7074,7 @@ class FounderLoopRepository:
             }
 
         local_task_ref = local_task_ref_for_action(item_ref)
+        safe_disable_posture = self.local_task_safe_disable_posture()
         if self._latest_local_task_commit_receipt_for_item_ref(item_ref) is not None:
             raise FounderLoopStorageDuplicateError(
                 "FOUNDER_LOOP_LOCAL_TASK_ALREADY_COMMITTED"
@@ -6834,10 +7087,15 @@ class FounderLoopRepository:
             local_task_ref=local_task_ref,
             receipt=None,
             approval_receipt=approval_receipt,
+            safe_disable_posture=safe_disable_posture,
         )
         if blocked_reasons:
+            if FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF in blocked_reasons:
+                raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED")
             if "blocked-state:action-not-approved" in blocked_reasons:
-                raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_APPROVAL_REQUIRED")
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_REQUIRED"
+                )
             raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED")
         approval_status, approval_reason_refs = self._local_task_approval_status(
             action=action,
@@ -6873,6 +7131,18 @@ class FounderLoopRepository:
             approval_ref=request.approval_ref,
             approval_status=approval_status,
             approval_reason_refs=approval_reason_refs,
+            safe_disable_ref=str(safe_disable_posture["safe_disable_ref"]),
+            rollback_ref=str(safe_disable_posture["rollback_ref"]),
+            safe_disable_posture_ref=str(
+                safe_disable_posture["safe_disable_posture_ref"]
+            ),
+            safe_disable_enabled=bool(
+                safe_disable_posture["local_task_commits_enabled"]
+            ),
+            rollback_execution_enabled=bool(
+                safe_disable_posture["rollback_execution_enabled"]
+            ),
+            rollback_blocker_refs=list(safe_disable_posture["rollback_blocker_refs"]),
             safe_summary=(
                 "Approved Action Inbox local task was committed to local Founder Loop state."
             ),
@@ -7424,11 +7694,13 @@ class FounderLoopRepository:
         approval_receipt = self._latest_approved_action_decision_receipt_for_item_ref(
             item_ref
         )
+        safe_disable_posture = self.local_task_safe_disable_posture()
         blocked_reasons = self._local_task_commit_blocked_reasons(
             action=action,
             local_task_ref=local_task_ref,
             receipt=receipt,
             approval_receipt=approval_receipt,
+            safe_disable_posture=safe_disable_posture,
         )
         eligible = not blocked_reasons
         approval_ref = (
@@ -7453,8 +7725,28 @@ class FounderLoopRepository:
             "local_task_commit_next_safe_action": (
                 "Commit this approved local task through the exact local-task route."
                 if eligible
-                else "Keep this item in review until local-task action kind and approval are present."
+                else (
+                    "Keep local task creation disabled until backend posture is re-enabled."
+                    if FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF
+                    in blocked_reasons
+                    else "Keep this item in review until local-task action kind and approval are present."
+                )
             ),
+            "local_task_safe_disable_posture": safe_disable_posture,
+            "local_task_safe_disable_ref": safe_disable_posture["safe_disable_ref"],
+            "local_task_rollback_ref": safe_disable_posture["rollback_ref"],
+            "local_task_safe_disable_active": safe_disable_posture[
+                "safe_disable_active"
+            ],
+            "local_task_safe_disable_posture_ref": safe_disable_posture[
+                "safe_disable_posture_ref"
+            ],
+            "local_task_rollback_execution_enabled": safe_disable_posture[
+                "rollback_execution_enabled"
+            ],
+            "local_task_rollback_blocker_refs": safe_disable_posture[
+                "rollback_blocker_refs"
+            ],
             "local_task_commit_external_authority_blocked_refs": list(
                 FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS
             ),
@@ -7467,6 +7759,7 @@ class FounderLoopRepository:
         local_task_ref: str | None,
         receipt: dict[str, Any] | None,
         approval_receipt: dict[str, Any] | None,
+        safe_disable_posture: dict[str, Any],
     ) -> list[str]:
         blocked_reasons: list[str] = []
         action_kind = str(action.get("action_kind") or "review_only")
@@ -7492,6 +7785,17 @@ class FounderLoopRepository:
             value = action.get(key)
             if not isinstance(value, str) or not value:
                 blocked_reasons.append(reason_ref)
+        if action_kind == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND:
+            if action.get("safe_disable_ref") != safe_disable_posture.get(
+                "safe_disable_ref"
+            ):
+                blocked_reasons.append("blocked-state:safe-disable-ref-mismatch")
+            if action.get("rollback_ref") != safe_disable_posture.get("rollback_ref"):
+                blocked_reasons.append("blocked-state:rollback-ref-mismatch")
+            if not bool(safe_disable_posture.get("local_task_commits_enabled")):
+                blocked_reasons.append(
+                    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF
+                )
         if not _is_future_iso_datetime(action.get("expires_at")):
             blocked_reasons.append("blocked-state:local-task-approval-expired")
         stale_state = str(action.get("stale_state") or "")
@@ -7828,7 +8132,9 @@ class FounderLoopRepository:
             if local_task_approved
             else "Inspect the decision receipt; action execution remains blocked."
         )
-        expires_at = _utc_iso_after(hours=1) if local_task_approved else action.get("expires_at")
+        expires_at = (
+            _utc_iso_after(hours=1) if local_task_approved else action.get("expires_at")
+        )
         stale_state = (
             "fresh_exact_scope_local_task_commit_window"
             if local_task_approved
@@ -9060,6 +9366,16 @@ class FounderLoopRepository:
                     receipt_ref TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS local_task_lane_postures (
+                    lane_id TEXT PRIMARY KEY,
+                    enabled INTEGER NOT NULL,
+                    safe_disable_ref TEXT NOT NULL,
+                    rollback_ref TEXT NOT NULL,
+                    safe_disable_posture_ref TEXT NOT NULL,
+                    disabled_reason_refs_json TEXT NOT NULL DEFAULT '[]',
+                    blocked_state_refs_json TEXT NOT NULL DEFAULT '[]',
+                    updated_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS memory_context_pack_action_proposals (
                     receipt_ref TEXT PRIMARY KEY,
                     context_pack_ref TEXT NOT NULL,
@@ -9213,11 +9529,35 @@ class FounderLoopRepository:
             self._ensure_action_inbox_contract_columns(conn)
             self._ensure_memory_review_contract_columns(conn)
             self._ensure_briefing_contract_columns(conn)
+            self._ensure_local_task_lane_posture(conn)
         if self.seed_defaults:
             self._seed_defaults_if_empty()
             self._backfill_seed_action_contract_metadata()
             self._backfill_seed_memory_review_contract_metadata()
             self._backfill_seed_briefing_contract_metadata()
+
+    def _ensure_local_task_lane_posture(self, conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            INSERT INTO local_task_lane_postures (
+                lane_id, enabled, safe_disable_ref, rollback_ref,
+                safe_disable_posture_ref, disabled_reason_refs_json,
+                blocked_state_refs_json, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(lane_id) DO NOTHING
+            """,
+            (
+                FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+                1,
+                FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+                FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+                FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF,
+                "[]",
+                "[]",
+                _utc_iso(),
+            ),
+        )
 
     def _ensure_action_inbox_contract_columns(self, conn: sqlite3.Connection) -> None:
         existing = {
@@ -9419,7 +9759,9 @@ class FounderLoopRepository:
                         "approved with exact scope and idempotency."
                     ),
                     evidence_refs=["evidence-ref:founder-loop:local-task-commit"],
-                    receipt_refs=["receipt-plan:founder-loop:local-task-create-scorecard"],
+                    receipt_refs=[
+                        "receipt-plan:founder-loop:local-task-create-scorecard"
+                    ],
                     audit_refs=["audit-plan:founder-loop:local-task-create-scorecard"],
                     idempotency_key_ref="idempotency-ref:founder-loop:local-task-create-scorecard",
                     expires_at="review_required_before_local_task_commit",
@@ -9888,6 +10230,7 @@ class FounderLoopRepository:
             "local_tasks",
             "local_task_commit_receipts",
             "local_task_commit_replays",
+            "local_task_lane_postures",
             "briefing_items",
             "chat_handoff_receipts",
             "chat_turn_receipts",

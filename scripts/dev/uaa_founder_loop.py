@@ -45,6 +45,22 @@ def _safe_action_projection(action: dict[str, Any]) -> dict[str, Any]:
         "approval_envelope_status": action.get("approval_envelope_status"),
         "state_change_contract_ref": action.get("state_change_contract_ref"),
         "state_change_readiness": action.get("state_change_readiness"),
+        "local_task_commit_eligible": action.get("local_task_commit_eligible"),
+        "local_task_commit_approval_status": action.get(
+            "local_task_commit_approval_status"
+        ),
+        "local_task_commit_contract_ref": action.get("local_task_commit_contract_ref"),
+        "local_task_commit_route_ref": action.get("local_task_commit_route_ref"),
+        "local_task_commit_receipt_ref": action.get("local_task_commit_receipt_ref"),
+        "local_task_commit_blocked_reasons": list(
+            action.get("local_task_commit_blocked_reasons") or []
+        ),
+        "local_task_commit_external_authority_blocked_refs": list(
+            action.get("local_task_commit_external_authority_blocked_refs") or []
+        ),
+        "local_task_safe_disable_posture": action.get(
+            "local_task_safe_disable_posture"
+        ),
         "receipt_refs": list(action.get("receipt_refs") or []),
         "audit_refs": list(action.get("audit_refs") or []),
         "evidence_refs": list(action.get("evidence_refs") or []),

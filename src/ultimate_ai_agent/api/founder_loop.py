@@ -5,7 +5,10 @@ from typing import Literal
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
 
 from ultimate_ai_agent.api.dependencies import get_founder_loop_service
-from ultimate_ai_agent.api.idempotency import IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_REF_HEADER
+from ultimate_ai_agent.api.idempotency import (
+    IDEMPOTENCY_KEY_HEADER,
+    IDEMPOTENCY_REF_HEADER,
+)
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
@@ -40,7 +43,11 @@ def get_control_center_today_summary() -> ResultEnvelope:
         trace_id="founder-loop:today-summary",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:today-summary"}],
-        redactions_applied=["safe_refs_only", "bounded_summaries_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -54,7 +61,11 @@ def get_control_center_actions_inbox() -> ResultEnvelope:
         trace_id="founder-loop:actions-inbox",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:action-inbox"}],
-        redactions_applied=["safe_refs_only", "bounded_summaries_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -241,12 +252,10 @@ def post_control_center_memory_context_pack_action_proposal(
         x_uaa_idempotency_ref,
     )
     try:
-        data = (
-            get_founder_loop_service().record_memory_context_pack_action_proposal(
-                context_pack_ref=context_pack_ref,
-                request=request,
-                idempotency_key_ref=idempotency_key_ref,
-            )
+        data = get_founder_loop_service().record_memory_context_pack_action_proposal(
+            context_pack_ref=context_pack_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
         )
     except FounderLoopStorageDuplicateError as exc:
         raise HTTPException(
@@ -318,9 +327,7 @@ def post_control_center_memory_context_pack_action_proposal(
 
 @router.get("/memory/review/{candidate_ref}/receipt", response_model=ResultEnvelope)
 def get_control_center_memory_review_receipt(candidate_ref: str) -> ResultEnvelope:
-    data = get_founder_loop_service().memory_review_receipt(
-        candidate_ref=candidate_ref
-    )
+    data = get_founder_loop_service().memory_review_receipt(candidate_ref=candidate_ref)
     if data is None:
         raise HTTPException(
             status_code=404,
@@ -336,7 +343,11 @@ def get_control_center_memory_review_receipt(candidate_ref: str) -> ResultEnvelo
         trace_id="founder-loop:memory-review-receipt",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-review-decision"}],
-        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -415,7 +426,11 @@ def post_control_center_today_action_envelope(
         trace_id="founder-loop:today-action-envelope",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:today-action-envelope"}],
-        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -466,7 +481,11 @@ def post_control_center_chat_turn_receipt(
         trace_id="founder-loop:chat-turn-receipt",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-turn-receipt"}],
-        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -497,7 +516,11 @@ def get_control_center_chat_turn_receipt(turn_ref: str) -> ResultEnvelope:
         trace_id="founder-loop:chat-turn-receipt",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-turn-receipt"}],
-        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -560,7 +583,11 @@ def post_control_center_chat_handoff(
         trace_id="founder-loop:chat-handoff",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-handoff"}],
-        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -736,7 +763,11 @@ def get_control_center_action_receipt(action_id: str) -> ResultEnvelope:
         trace_id="founder-loop:action-receipt",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:action-decision"}],
-        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -780,9 +811,11 @@ def post_control_center_action_local_task_commit(
             404
             if code == "FOUNDER_LOOP_ACTION_NOT_FOUND"
             else 403
-            if code in {
+            if code
+            in {
                 "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_REQUIRED",
                 "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED",
+                "FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED",
             }
             else 400
         )
@@ -827,7 +860,11 @@ def get_control_center_morning_briefing_summary() -> ResultEnvelope:
         trace_id="founder-loop:morning-briefing",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:morning-briefing"}],
-        redactions_applied=["safe_refs_only", "bounded_summaries_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -897,7 +934,11 @@ def _record_action_decision(
         trace_id=f"founder-loop:action-decision:{decision}",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:action-decision"}],
-        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
     )
 
 
@@ -930,9 +971,7 @@ def _record_memory_review_decision(
         ) from exc
     except FounderLoopStorageError as exc:
         code = str(exc) or "FOUNDER_LOOP_MEMORY_DECISION_ERROR"
-        status_code = (
-            404 if code == "FOUNDER_LOOP_MEMORY_CANDIDATE_NOT_FOUND" else 400
-        )
+        status_code = 404 if code == "FOUNDER_LOOP_MEMORY_CANDIDATE_NOT_FOUND" else 400
         raise HTTPException(
             status_code=status_code,
             detail={
@@ -955,7 +994,11 @@ def _record_memory_review_decision(
         trace_id=f"founder-loop:memory-review-decision:{decision}",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-review-decision"}],
-        redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
     )
 
 

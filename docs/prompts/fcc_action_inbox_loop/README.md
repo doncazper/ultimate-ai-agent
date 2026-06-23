@@ -16,9 +16,20 @@ adding broader authority.
 3. `03_action_inbox_review_ergonomics.prompt.md`
 4. `04_morning_briefing_source_readiness.prompt.md`
 5. `05_recommended_next_local_task_create_gate.prompt.md`
+6. `06_execute_next_planned_steps.prompt.md`
+7. `07_recommended_next_safe_disable_ui_followup.prompt.md`
 
 Use `00_execute_all_review_verify_harden.prompt.md` when the operator wants one
 end-to-end run through the full sequence.
+
+Use `06_execute_next_planned_steps.prompt.md` when the operator wants the next
+planned sequence: gate review, exact safe-disable/rollback posture for
+`local_task_create`, Action Inbox review polish, read-only Morning Briefing
+source readiness, verification, and finalization.
+
+Use `07_recommended_next_safe_disable_ui_followup.prompt.md` when the operator
+wants the active Action Inbox UI to display backend-owned local task posture
+without adding authority.
 
 ## Authority Boundary
 

@@ -20,6 +20,9 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
     action_approval_request,
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
+    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF,
     FounderLoopLocalTaskCommitRequest,
 )
 from ultimate_ai_agent.core.storage import (  # noqa: E402
@@ -32,7 +35,9 @@ from ultimate_ai_agent.core.storage import (  # noqa: E402
 SUCCESS_MESSAGE = "Operational maturity manifest verification passed."
 MANIFEST_PATH = ROOT / "docs/control_center/operational_maturity_manifest.json"
 SCHEMA_PATH = ROOT / "docs/schemas/operational_maturity_manifest.schema.json"
-AUTHORITY_SCORECARD_PATH = ROOT / "docs/control_center/authority_candidate_scorecard.json"
+AUTHORITY_SCORECARD_PATH = (
+    ROOT / "docs/control_center/authority_candidate_scorecard.json"
+)
 AUTHORITY_SCORECARD_SCHEMA_PATH = (
     ROOT / "docs/schemas/authority_candidate_scorecard.schema.json"
 )
@@ -69,6 +74,8 @@ LOCAL_TASK_PATH = "/control-center/actions/{action_id}/local-task/commit"
 LOCAL_TASK_LANE_ID = "local_task_create"
 LOCAL_TASK_RECEIPT_REF = "receipt:founder-loop-local-task:*"
 LOCAL_TASK_EVENT_REF = "evidence-event-type:local_task_created"
+LOCAL_TASK_ROLLBACK_REF = FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
+LOCAL_TASK_SAFE_DISABLE_REF = FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
 STALE_UI_STATUS_PHRASES = [
     "routes not implemented",
     "no dedicated manifest",
@@ -155,8 +162,7 @@ def verify(
     board_text = _compact_text(root / FOUNDER_BOARD_PATH.relative_to(ROOT))
     api_manifest = build_api_manifest(app).model_dump(mode="json")
     routes_by_ref = {
-        f"{route['method']} {route['path']}": route
-        for route in api_manifest["routes"]
+        f"{route['method']} {route['path']}": route for route in api_manifest["routes"]
     }
 
     _append_schema_shape_failures(failures, schema)
@@ -186,9 +192,7 @@ def _append_schema_shape_failures(
 ) -> None:
     if schema.get("title") != "Control Center Operational Maturity Manifest":
         failures.append("operational maturity schema title drifted")
-    module_required = set(
-        schema.get("$defs", {}).get("module", {}).get("required", [])
-    )
+    module_required = set(schema.get("$defs", {}).get("module", {}).get("required", []))
     for field in [
         "module_id",
         "role",
@@ -283,7 +287,10 @@ def _append_manifest_shape_failures(
         failures.append("operational maturity manifest schema_version drifted")
     if manifest.get("status") != "active operational maturity manifest":
         failures.append("operational maturity manifest status drifted")
-    if manifest.get("ladder_doc_ref") != "docs/control_center/OPERATIONALIZATION_LADDER.md":
+    if (
+        manifest.get("ladder_doc_ref")
+        != "docs/control_center/OPERATIONALIZATION_LADDER.md"
+    ):
         failures.append("operational maturity manifest ladder_doc_ref drifted")
     if manifest.get("verifier_ref") != "scripts/verify_operational_maturity.py":
         failures.append("operational maturity manifest verifier_ref drifted")
@@ -412,7 +419,9 @@ def _append_authority_foundation_failures(
     ]:
         if not foundation.get(field):
             failures.append(f"{foundation_id} authority foundation requires {field}")
-    if foundation.get("status") == "partial" and not foundation.get("missing_contracts"):
+    if foundation.get("status") == "partial" and not foundation.get(
+        "missing_contracts"
+    ):
         failures.append(
             f"{foundation_id} partial authority foundation requires missing_contracts"
         )
@@ -445,7 +454,9 @@ def _append_authority_candidate_failures(
     candidate_id = str(candidate.get("candidate_id"))
     status = candidate.get("status")
     if status not in AUTHORITY_CANDIDATE_STATUSES:
-        failures.append(f"{candidate_id} has invalid authority candidate status {status}")
+        failures.append(
+            f"{candidate_id} has invalid authority candidate status {status}"
+        )
     if (
         candidate.get("selected_for_micro_lane") is True
         and status != "micro_lane_candidate"
@@ -456,7 +467,9 @@ def _append_authority_candidate_failures(
     if not candidate.get("safe_summary"):
         failures.append(f"{candidate_id} authority candidate requires safe_summary")
     if not candidate.get("smallest_next_safe_action"):
-        failures.append(f"{candidate_id} authority candidate requires smallest_next_safe_action")
+        failures.append(
+            f"{candidate_id} authority candidate requires smallest_next_safe_action"
+        )
     score = candidate.get("score")
     if not isinstance(score, dict):
         failures.append(f"{candidate_id} authority candidate requires score")
@@ -466,7 +479,9 @@ def _append_authority_candidate_failures(
                 failures.append(f"{candidate_id} score {field} must be 0-5")
     prerequisite_refs = candidate.get("prerequisite_refs")
     if not isinstance(prerequisite_refs, dict):
-        failures.append(f"{candidate_id} authority candidate requires prerequisite_refs")
+        failures.append(
+            f"{candidate_id} authority candidate requires prerequisite_refs"
+        )
         return
     for field in [
         "backend_core_owner_ref",
@@ -546,13 +561,19 @@ def _append_first_micro_lane_decision_failures(
         return
     if not selected:
         if decision.get("status") != "no_go":
-            failures.append("authority scorecard with no selected candidate requires no_go decision")
+            failures.append(
+                "authority scorecard with no selected candidate requires no_go decision"
+            )
         if decision.get("selected_candidate_id") is not None:
-            failures.append("no_go authority decision must not name selected_candidate_id")
+            failures.append(
+                "no_go authority decision must not name selected_candidate_id"
+            )
         if not decision.get("no_go_reason"):
             failures.append("no_go authority decision requires no_go_reason")
         if not decision.get("smallest_next_safe_action"):
-            failures.append("no_go authority decision requires smallest_next_safe_action")
+            failures.append(
+                "no_go authority decision requires smallest_next_safe_action"
+            )
         return
     selected_id = str(selected[0].get("candidate_id"))
     if decision.get("status") != "selected":
@@ -593,7 +614,9 @@ def _append_module_failures(
             failures.append(f"{module_id} has invalid current_rank {rank}")
             continue
         if label != LADDER_LABELS[rank]:
-            failures.append(f"{module_id} current_rank_label does not match rank {rank}")
+            failures.append(
+                f"{module_id} current_rank_label does not match rank {rank}"
+            )
         if int(module.get("next_target_rank", -1)) < int(rank):
             failures.append(f"{module_id} next_target_rank is behind current_rank")
         if not module.get("honest_status"):
@@ -602,7 +625,9 @@ def _append_module_failures(
             failures.append(f"{module_id} missing smallest_next_operational_action")
         for route_ref in module.get("backend_routes", []):
             if route_ref not in routes_by_ref:
-                failures.append(f"{module_id} references missing backend route {route_ref}")
+                failures.append(
+                    f"{module_id} references missing backend route {route_ref}"
+                )
         _append_ui_status_binding_failures(
             failures,
             module,
@@ -661,15 +686,38 @@ def _append_lane_failures(
         failures.append(f"{module_id}:{lane_id} rank 5 lane requires cli_parity_ref")
     if not lane.get("focused_test_refs"):
         failures.append(f"{module_id}:{lane_id} rank 5 lane requires focused_test_refs")
+    if lane.get("rollback_or_safe_disable_required") is not True:
+        failures.append(
+            f"{module_id}:{lane_id} rank 5 lane requires rollback_or_safe_disable_required"
+        )
+    posture_refs = set(lane.get("rollback_or_safe_disable_refs", []))
+    if not posture_refs:
+        failures.append(f"{module_id}:{lane_id} rank 5 lane requires posture refs")
+    if lane_id == LOCAL_TASK_LANE_ID:
+        for expected_ref in [LOCAL_TASK_ROLLBACK_REF, LOCAL_TASK_SAFE_DISABLE_REF]:
+            if expected_ref not in posture_refs:
+                failures.append(
+                    f"{module_id}:{lane_id} rank 5 lane missing posture ref {expected_ref}"
+                )
+    if "rollback_execution" not in set(lane.get("blocked_authorities", [])):
+        failures.append(
+            f"{module_id}:{lane_id} rank 5 lane must block rollback_execution"
+        )
     for route_ref in lane.get("backend_routes", []):
         route = routes_by_ref.get(route_ref)
         if route is None:
-            failures.append(f"{module_id}:{lane_id} references missing route {route_ref}")
+            failures.append(
+                f"{module_id}:{lane_id} references missing route {route_ref}"
+            )
             continue
         if route.get("route_classification") != "mutating_requires_authority":
-            failures.append(f"{module_id}:{lane_id} route must be mutating authority gated")
+            failures.append(
+                f"{module_id}:{lane_id} route must be mutating authority gated"
+            )
         if route.get("side_effect_class") != "local_dev_workspace_only":
-            failures.append(f"{module_id}:{lane_id} route must stay local_dev_workspace_only")
+            failures.append(
+                f"{module_id}:{lane_id} route must stay local_dev_workspace_only"
+            )
         if route.get("idempotency_required") is not True:
             failures.append(f"{module_id}:{lane_id} route must require idempotency")
 
@@ -680,8 +728,7 @@ def _append_first_lane_failures(
     routes_by_ref: dict[str, dict[str, Any]],
 ) -> None:
     modules = {
-        str(module.get("module_id")): module
-        for module in manifest.get("modules", [])
+        str(module.get("module_id")): module for module in manifest.get("modules", [])
     }
     action_inbox = modules.get("action_inbox")
     if action_inbox is None:
@@ -705,19 +752,30 @@ def _append_first_lane_failures(
         (LOCAL_TASK_ROUTE, "backend_routes"),
         (LOCAL_TASK_RECEIPT_REF, "receipt_refs"),
         (LOCAL_TASK_EVENT_REF, "evidence_refs"),
+        (LOCAL_TASK_ROLLBACK_REF, "rollback_or_safe_disable_refs"),
+        (LOCAL_TASK_SAFE_DISABLE_REF, "rollback_or_safe_disable_refs"),
     ]:
         if expected not in set(lane.get(field, [])):
             failures.append(f"local_task_create lane missing {expected}")
+    if lane.get("rollback_or_safe_disable_required") is not True:
+        failures.append("local_task_create lane must require rollback or safe-disable")
+    if "rollback_execution" not in set(lane.get("blocked_authorities", [])):
+        failures.append("local_task_create lane must keep rollback_execution blocked")
     route = routes_by_ref.get(LOCAL_TASK_ROUTE)
     if route is None:
         failures.append("local_task_create route missing from API manifest")
         return
     if route.get("path") != LOCAL_TASK_PATH:
         failures.append("local_task_create path drifted")
-    if route.get("operation_id") != "post_control_center_actions_action_id_local_task_commit":
+    if (
+        route.get("operation_id")
+        != "post_control_center_actions_action_id_local_task_commit"
+    ):
         failures.append("local_task_create operation_id drifted")
     if route.get("rate_limit_group") != "action_decision":
-        failures.append("local_task_create route must use action_decision rate limit group")
+        failures.append(
+            "local_task_create route must use action_decision rate limit group"
+        )
     declared = set(build_api_manifest(app).capabilities_declared)
     for capability in [
         "control_center_action_local_task_commit",
@@ -736,10 +794,14 @@ def _append_public_request_schema_failures(failures: list[str]) -> None:
     ]:
         properties = schemas.get(schema_name, {}).get("properties", {})
         if "approval_grants" in properties:
-            failures.append(f"{schema_name} must not expose caller-supplied approval_grants")
+            failures.append(
+                f"{schema_name} must not expose caller-supplied approval_grants"
+            )
     frontend = ROOT / "apps/control-center/src/components/FounderLoopPanels.tsx"
     if "approval_grants" in frontend.read_text(encoding="utf-8"):
-        failures.append("Control Center Founder Loop panels must not send approval_grants")
+        failures.append(
+            "Control Center Founder Loop panels must not send approval_grants"
+        )
 
 
 def _append_ref_resolution_failures(
@@ -751,7 +813,9 @@ def _append_ref_resolution_failures(
         module_id = str(module.get("module_id"))
         for field in ["test_refs", "verifier_refs", "route_metadata_refs"]:
             for ref in module.get(field, []):
-                _append_repo_ref_failure(failures, root, str(ref), f"{module_id}.{field}")
+                _append_repo_ref_failure(
+                    failures, root, str(ref), f"{module_id}.{field}"
+                )
         binding = module.get("ui_status_binding")
         if isinstance(binding, dict):
             for field in [
@@ -911,7 +975,9 @@ def _append_ui_status_binding_failures(
         return
     route = routes_by_ref.get(status_route_ref)
     if route is None:
-        failures.append(f"{module_id} ui_status_binding references missing route {status_route_ref}")
+        failures.append(
+            f"{module_id} ui_status_binding references missing route {status_route_ref}"
+        )
         return
     if route.get("method") != "GET":
         failures.append(f"{module_id} status route must be GET")
@@ -922,7 +988,9 @@ def _append_ui_status_binding_failures(
     if route.get("protected_route") is not True:
         failures.append(f"{module_id} status route must stay protected")
     if route.get("idempotency_required") is not False:
-        failures.append(f"{module_id} read-only status route must not require idempotency")
+        failures.append(
+            f"{module_id} read-only status route must not require idempotency"
+        )
 
     backend_only = binding.get("backend_only_status")
     if backend_only is True:
@@ -937,7 +1005,9 @@ def _append_ui_status_binding_failures(
                 )
         return
     if backend_only is not False:
-        failures.append(f"{module_id} ui_status_binding backend_only_status must be boolean")
+        failures.append(
+            f"{module_id} ui_status_binding backend_only_status must be boolean"
+        )
         return
 
     for field in [
@@ -952,14 +1022,20 @@ def _append_ui_status_binding_failures(
             failures.append(f"{module_id} surfaced status binding requires {field}")
     scan_refs = binding.get("stale_language_scan_refs")
     if not scan_refs:
-        failures.append(f"{module_id} surfaced status binding requires stale_language_scan_refs")
+        failures.append(
+            f"{module_id} surfaced status binding requires stale_language_scan_refs"
+        )
     else:
         _append_stale_language_scan_failures(failures, root, module_id, scan_refs)
 
 
 def _is_backend_status_route(route_ref: str) -> bool:
     method, _, path = route_ref.partition(" ")
-    return method == "GET" and path.startswith("/control-center/") and path.endswith("/status")
+    return (
+        method == "GET"
+        and path.startswith("/control-center/")
+        and path.endswith("/status")
+    )
 
 
 def _append_stale_language_scan_failures(
@@ -1043,11 +1119,40 @@ def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:
 
         action = _approve_probe_local_task_action(repo, action)
         if action.get("local_task_commit_eligible") is not True:
-            failures.append("behavior probe: approved local task is not commit eligible")
+            failures.append(
+                "behavior probe: approved local task is not commit eligible"
+            )
             return
         if not action.get("local_task_commit_approval_ref"):
-            failures.append("behavior probe: approved local task lacks backend approval ref")
+            failures.append(
+                "behavior probe: approved local task lacks backend approval ref"
+            )
             return
+        if action.get("safe_disable_ref") != LOCAL_TASK_SAFE_DISABLE_REF:
+            failures.append(
+                "behavior probe: approved local task safe_disable_ref drifted"
+            )
+        if action.get("rollback_ref") != LOCAL_TASK_ROLLBACK_REF:
+            failures.append("behavior probe: approved local task rollback_ref drifted")
+        if action.get("local_task_safe_disable_ref") != LOCAL_TASK_SAFE_DISABLE_REF:
+            failures.append(
+                "behavior probe: local task posture safe_disable_ref drifted"
+            )
+        if action.get("local_task_rollback_ref") != LOCAL_TASK_ROLLBACK_REF:
+            failures.append("behavior probe: local task posture rollback_ref drifted")
+        if action.get("local_task_safe_disable_active") is not False:
+            failures.append(
+                "behavior probe: local task posture is unexpectedly disabled"
+            )
+        if action.get("local_task_rollback_execution_enabled") is not False:
+            failures.append("behavior probe: rollback execution unexpectedly enabled")
+        if any(
+            str(reason).endswith("-missing")
+            for reason in action.get("local_task_commit_blocked_reasons", [])
+        ):
+            failures.append(
+                "behavior probe: approved local task has missing posture refs"
+            )
         request = FounderLoopLocalTaskCommitRequest(
             approval_ref=str(action["local_task_commit_approval_ref"]),
             decision_reason_ref="decision-reason-ref:operational-maturity-probe",
@@ -1062,33 +1167,97 @@ def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:
         after_counts = repo.storage_status()["counts"]
         if after_counts["local_tasks"] != before_counts["local_tasks"] + 1:
             failures.append("behavior probe: local task count did not change")
-        if after_counts["local_task_commit_receipts"] != before_counts["local_task_commit_receipts"] + 1:
+        if (
+            after_counts["local_task_commit_receipts"]
+            != before_counts["local_task_commit_receipts"] + 1
+        ):
             failures.append("behavior probe: local task receipt count did not change")
+        if receipt.get("safe_disable_ref") != LOCAL_TASK_SAFE_DISABLE_REF:
+            failures.append("behavior probe: receipt safe_disable_ref drifted")
+        if receipt.get("rollback_ref") != LOCAL_TASK_ROLLBACK_REF:
+            failures.append("behavior probe: receipt rollback_ref drifted")
+        if receipt.get("rollback_execution_enabled") is not False:
+            failures.append("behavior probe: receipt enabled rollback execution")
         replay = repo.commit_local_task(
             action_id="local-task-create-scorecard",
             request=request,
             idempotency_key_ref="idempotency-ref:operational-maturity-probe",
         )
-        if replay.get("receipt_ref") != receipt.get("receipt_ref") or replay.get("replayed") is not True:
-            failures.append("behavior probe: idempotency replay did not return prior receipt")
+        if (
+            replay.get("receipt_ref") != receipt.get("receipt_ref")
+            or replay.get("replayed") is not True
+        ):
+            failures.append(
+                "behavior probe: idempotency replay did not return prior receipt"
+            )
         try:
             repo.commit_local_task(
                 action_id="local-task-create-scorecard",
                 request=request.model_copy(
-                    update={"metadata_refs": ["metadata-ref:operational-maturity-conflict"]}
+                    update={
+                        "metadata_refs": ["metadata-ref:operational-maturity-conflict"]
+                    }
                 ),
                 idempotency_key_ref="idempotency-ref:operational-maturity-probe",
             )
-            failures.append("behavior probe: idempotency conflict unexpectedly committed")
+            failures.append(
+                "behavior probe: idempotency conflict unexpectedly committed"
+            )
         except FounderLoopStorageDuplicateError:
             pass
         timeline = repo.evidence_timeline()
         if "local_task_created" not in timeline.get("event_types", []):
             failures.append("behavior probe: local_task_created evidence event missing")
         serialized_receipt = json.dumps(receipt, sort_keys=True).lower()
-        for forbidden in ["raw_prompt", "raw path", "raw_log", "credential", "password", "secret"]:
+        for forbidden in [
+            "raw_prompt",
+            "raw path",
+            "raw_log",
+            "credential",
+            "password",
+            "secret",
+        ]:
             if forbidden in serialized_receipt:
-                failures.append(f"behavior probe: receipt leaks forbidden content {forbidden}")
+                failures.append(
+                    f"behavior probe: receipt leaks forbidden content {forbidden}"
+                )
+        disabled_repo = FounderLoopRepository(Path(tmp) / "disabled_founder_loop")
+        disabled_action = _approve_probe_local_task_action(
+            disabled_repo,
+            _probe_local_task_action(disabled_repo),
+        )
+        disabled_repo._disable_local_task_create_lane_for_test(
+            disabled_reason_refs=["safe-disable-reason:operational-maturity-probe"],
+        )
+        disabled_action = _probe_local_task_action(disabled_repo)
+        if disabled_action.get("local_task_commit_eligible") is not False:
+            failures.append(
+                "behavior probe: safe-disabled local task remained eligible"
+            )
+        if FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF not in disabled_action.get(
+            "local_task_commit_blocked_reasons",
+            [],
+        ):
+            failures.append("behavior probe: safe-disabled blocker missing")
+        try:
+            disabled_repo.commit_local_task(
+                action_id="local-task-create-scorecard",
+                request=FounderLoopLocalTaskCommitRequest(
+                    approval_ref=str(disabled_action["local_task_commit_approval_ref"]),
+                    decision_reason_ref="decision-reason-ref:operational-maturity-disabled-probe",
+                ),
+                idempotency_key_ref="idempotency-ref:operational-maturity-disabled-probe",
+            )
+            failures.append(
+                "behavior probe: safe-disabled local task unexpectedly committed"
+            )
+        except FounderLoopStorageError as exc:
+            if str(exc) != "FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED":
+                failures.append(
+                    "behavior probe: safe-disabled local task returned wrong code"
+                )
+        if disabled_repo.storage_status()["counts"]["local_tasks"] != 0:
+            failures.append("behavior probe: safe-disabled local task mutated state")
         _append_cli_probe_failures(failures, root, state_dir)
 
 
@@ -1174,7 +1343,9 @@ def _append_cli_probe_failures(
     serialized = json.dumps(payload, sort_keys=True).lower()
     for forbidden in ["/users/", "/home/", "credential", "password", "secret"]:
         if forbidden in serialized:
-            failures.append(f"behavior probe: CLI output leaks forbidden content {forbidden}")
+            failures.append(
+                f"behavior probe: CLI output leaks forbidden content {forbidden}"
+            )
 
 
 def _append_status_doc_failures(
@@ -1194,7 +1365,9 @@ def _append_status_doc_failures(
             "promotion gate",
         ]:
             if snippet not in text:
-                failures.append(f"{label} missing operational maturity gate snippet {snippet}")
+                failures.append(
+                    f"{label} missing operational maturity gate snippet {snippet}"
+                )
     unsupported_claims = [
         "files operational",
         "patch workbench operational",

@@ -9,13 +9,23 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.approvals import ApprovalRequest
-from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
+from ultimate_ai_agent.core.approvals.enums import (
+    ApprovalRiskLevel,
+    ApprovalSubjectType,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
-from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
-from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.hygiene.actor_context import (
+    ActorContext,
+    ActorType,
+    AuthoritySource,
+)
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -27,8 +37,22 @@ FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF = (
 )
 FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND = "local_task_create"
 FOUNDER_LOOP_LOCAL_TASK_COMMIT_STATUS = "local_task_created"
-FOUNDER_LOOP_LOCAL_TASK_COMMIT_REQUESTED_ACTION = (
-    "commit_founder_loop_local_task"
+FOUNDER_LOOP_LOCAL_TASK_COMMIT_REQUESTED_ACTION = "commit_founder_loop_local_task"
+FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF = (
+    "safe-disable:founder-loop:local-task-create-scorecard"
+)
+FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF = "rollback-not-applicable:local-task-safe-disable"
+FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF = (
+    "safe-disable-posture:founder-loop:local-task-create:enabled"
+)
+FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_POSTURE_REF = (
+    "safe-disable-posture:founder-loop:local-task-create:disabled"
+)
+FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF = (
+    "blocked-state:local-task-safe-disabled"
+)
+FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF = (
+    "blocked-state:rollback-execution-not-scoped"
 )
 FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS = (
     "blocked-state:no-connector-write",
@@ -68,14 +92,18 @@ class FounderLoopLocalTaskCommitRequest(BaseModel):
         _validate_safe_ref(self.decision_reason_ref, "decision_reason_ref")
         for ref_value in self.metadata_refs:
             _validate_safe_ref(ref_value, "metadata_refs")
-        _validate_safe_payload(self.model_dump(mode="json"), "local_task_commit_request")
+        _validate_safe_payload(
+            self.model_dump(mode="json"), "local_task_commit_request"
+        )
         return self
 
 
 class FounderLoopLocalTaskCommitReceipt(BaseModel):
     contract_ref: str = FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF
     item_ref: str = Field(..., min_length=1)
-    action_kind: Literal["local_task_create"] = FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+    action_kind: Literal["local_task_create"] = (
+        FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+    )
     local_task_ref: str = Field(..., min_length=1)
     status: str = Field(
         default=FOUNDER_LOOP_LOCAL_TASK_COMMIT_STATUS,
@@ -91,6 +119,14 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
     approval_status: str = Field(..., min_length=1, max_length=80)
     approval_reason_refs: list[str] = Field(default_factory=list)
     local_task_created: bool = True
+    safe_disable_ref: str = FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
+    rollback_ref: str = FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
+    safe_disable_posture_ref: str = FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF
+    safe_disable_enabled: bool = True
+    rollback_execution_enabled: bool = False
+    rollback_blocker_refs: list[str] = Field(
+        default_factory=lambda: [FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF]
+    )
     connector_write_performed: bool = False
     shell_subprocess_execution_performed: bool = False
     model_provider_authority_used: bool = False
@@ -118,12 +154,16 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
             "payload_fingerprint_ref",
             "evidence_timeline_event_ref",
             "approval_ref",
+            "safe_disable_ref",
+            "rollback_ref",
+            "safe_disable_posture_ref",
         ]:
             _validate_safe_ref(getattr(self, field_name), field_name)
         for field_name in [
             "approval_reason_refs",
             "evidence_refs",
             "blocked_state_refs",
+            "rollback_blocker_refs",
         ]:
             for ref_value in getattr(self, field_name):
                 _validate_safe_ref(ref_value, field_name)
@@ -138,12 +178,33 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
         }
         enabled = [name for name, value in denied_flags.items() if value]
         if enabled:
-            raise ValueError(f"local task receipt enabled denied authority: {enabled[0]}")
+            raise ValueError(
+                f"local task receipt enabled denied authority: {enabled[0]}"
+            )
+        if not self.safe_disable_enabled:
+            raise ValueError(
+                "local task commit receipt requires enabled safe-disable posture"
+            )
+        if self.rollback_execution_enabled:
+            raise ValueError(
+                "local task commit receipt must not enable rollback execution"
+            )
+        if (
+            FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF
+            not in self.rollback_blocker_refs
+        ):
+            raise ValueError(
+                "local task receipt must preserve rollback execution blocker"
+            )
         if not set(FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS).issubset(
             set(self.blocked_state_refs)
         ):
-            raise ValueError("local task receipt must preserve blocked external authority refs")
-        _validate_safe_payload(self.model_dump(mode="json"), "local_task_commit_receipt")
+            raise ValueError(
+                "local task receipt must preserve blocked external authority refs"
+            )
+        _validate_safe_payload(
+            self.model_dump(mode="json"), "local_task_commit_receipt"
+        )
         return self
 
 
