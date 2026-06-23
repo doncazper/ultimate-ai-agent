@@ -44,7 +44,7 @@ from scripts.verification.repo import (  # noqa: E402
 CONTRACT_DOC = "docs/api/UAA_P1_085_TARGETED_RATE_LIMITS.md"
 POLICY_SCHEMA = "docs/schemas/api_targeted_rate_limits.schema.json"
 ROUTE_SCHEMA = "docs/schemas/api_route_classification.schema.json"
-ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_129.json"
+ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_130.json"
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:p1-085-verifier"}
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [

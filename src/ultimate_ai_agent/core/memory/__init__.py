@@ -104,6 +104,15 @@ from ultimate_ai_agent.core.memory.l2_index import (
     L2MemoryTemporalItem,
     build_l2_factual_graph_temporal_index,
 )
+from ultimate_ai_agent.core.memory.l3_index import (
+    L3_IDENTITY_SESSION_MODELING_BLOCKED_STATE_REFS,
+    L3_IDENTITY_SESSION_MODELING_CONTRACT_REF,
+    L3_IDENTITY_SESSION_MODELING_ROUTE_REF,
+    L3_IDENTITY_SESSION_MODELING_STATUS,
+    L3IdentitySessionPreferenceIndex,
+    L3MemoryModelItem,
+    build_l3_identity_session_preference_index,
+)
 from ultimate_ai_agent.core.memory.manifests import (
     MemoryProviderManifest,
     MemoryProviderProfile,
@@ -276,6 +285,12 @@ __all__ = [
     "L2MemoryFactItem",
     "L2MemoryGraphRelation",
     "L2MemoryTemporalItem",
+    "L3_IDENTITY_SESSION_MODELING_BLOCKED_STATE_REFS",
+    "L3_IDENTITY_SESSION_MODELING_CONTRACT_REF",
+    "L3_IDENTITY_SESSION_MODELING_ROUTE_REF",
+    "L3_IDENTITY_SESSION_MODELING_STATUS",
+    "L3IdentitySessionPreferenceIndex",
+    "L3MemoryModelItem",
     "LocalMemoryStore",
     "FCC_RELATIONSHIP_MEMORY_REASON_CODES",
     "FCC_RELATIONSHIP_MEMORY_SCHEMA_DOCS",
@@ -287,6 +302,7 @@ __all__ = [
     "build_fcc_relationship_memory_candidate",
     "build_l1_hot_memory_index",
     "build_l2_factual_graph_temporal_index",
+    "build_l3_identity_session_preference_index",
     "build_default_memory_provider_manifest",
     "build_memory_derived_action_proposal",
     "build_memory_review_decision_envelope",

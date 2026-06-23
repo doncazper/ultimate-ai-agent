@@ -124,8 +124,8 @@ def _append_manifest_failures(
     context: ApiVerifierContext,
 ) -> None:
     manifest = context.manifest
-    if manifest.get("route_count") != 129:
-        failures.append("FCC-V1-002 expects current API route_count 129")
+    if manifest.get("route_count") != 130:
+        failures.append("FCC-V1-002 expects current API route_count 130")
     if manifest.get("route_classification_summary", {}).get("mutating_requires_authority") != 23:
         failures.append("FCC-V1-002 expects 23 mutating routes")
     for key, (operation_id, route_classification) in ACTION_ROUTES.items():

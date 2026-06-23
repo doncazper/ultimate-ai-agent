@@ -1,15 +1,15 @@
 # Governed Cognitive Memory Spine V1
 
-Status: active architecture contract, Phase 3 L2 factual/graph/temporal index implemented.
+Status: active architecture contract, Phase 4 L3 identity/session/preference/commitment modeling implemented.
 Baseline: v0.103.0 / 0.103.0.
 
 The Governed Cognitive Memory Spine is UAA's local-first, review-gated memory
 pipeline that converts safe, provenance-linked memory candidates into reviewed
-recall records and indexes those records across hot/local and
-factual/temporal/graph layers, with later identity/session layers planned, for
-explainable recall
-previews or context-pack proposals without treating memory as truth, approval,
-execution authority, connector authority, or hidden prompt context.
+recall records and indexes those records across hot/local,
+factual/temporal/graph, and identity/session/preference/commitment layers for
+explainable recall previews or later context-pack proposals without treating
+memory as truth, approval, execution authority, connector authority, or hidden
+prompt context.
 
 This is not a generic "build better memory" track. It is the governed spine for
 the Founder Command Center loop: Today, Actions, Evidence, and Memory. Every
@@ -86,6 +86,25 @@ search, LLM/entity extraction, embeddings/vector indexing, background indexing,
 truth scoring, context-pack injection, connector/CRM/account sync, action
 execution, provider/model calls, or public beta/production authority.
 
+## Current Phase 4
+
+Phase 4 L3 identity, session, preference, and commitment modeling status is
+implemented read-only representation proposals over Phase 3 L2 safe-ref
+inspection items:
+
+- `GET /control-center/memory/l3-index`
+
+The L3 route derives representation proposal items only from reviewed L2 facts,
+relations, and temporal anchors. Every item carries supporting memory record
+refs, L1 preview refs, L2 item refs, source refs, evidence refs, receipt refs,
+derivation reason refs, stale/conflict posture, and blocked states.
+
+The L3 index is deterministic safe-ref projection only. It does not perform
+semantic extraction, hidden context injection, truth scoring, CRM/account sync,
+connector writes, context-pack injection, action execution, provider/model
+calls, embeddings/vector indexing, semantic search, background indexing, or
+public beta/production authority.
+
 ## Authority Boundary
 
 Memory is recall, not authority. Accepted memory is reviewed recall only.
@@ -102,6 +121,7 @@ Still blocked:
 - action execution
 - connector writes
 - CRM or account sync
+- context-pack injection
 - provider/model calls
 - shell/subprocess behavior
 - browser automation

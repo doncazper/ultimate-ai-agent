@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `129`.
+Current OpenAPI path count: `130`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 14 |
-| `local_sensitive` | 89 |
+| `local_sensitive` | 90 |
 | `mutating_requires_authority` | 23 |
 
 Allowed current side-effect classes are:
@@ -193,6 +193,7 @@ readiness, or execute rollback.
 - `GET /control-center/memory/review`
 - `GET /control-center/memory/l1-index`
 - `GET /control-center/memory/l2-index`
+- `GET /control-center/memory/l3-index`
 - `GET /control-center/memory/review/{candidate_ref}/receipt`
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`
@@ -202,18 +203,21 @@ readiness, or execute rollback.
 
 These routes expose storage-backed Founder Loop v1 summaries for Today, Action
 Inbox, Memory Review, Morning Briefing, local storage status, Action Inbox
-decision receipts, Memory Review decision receipts, and read-only L1 hot local
-memory index previews. Action decision routes record backend-owned
+decision receipts, Memory Review decision receipts, read-only L1 hot local
+memory index previews, L2 ref projections, and L3 representation proposals.
+Action decision routes record backend-owned
 approve/edit/reject/defer state, validate exact approval scope for approve where
 required, handle idempotency replay/conflict locally, and return safe receipt
 refs. Memory Review accept/correct/reject routes are backend-owned,
 idempotency-required receipt routes; accept/correct create reviewed recall-only
 records, and reject preserves blocked review state. The L1 route derives safe
-recall previews from reviewed recall-only records only. They do not execute the
+recall previews from reviewed recall-only records only; the L2 and L3 routes
+derive deterministic safe-ref inspection/proposal items from reviewed source
+lanes only. They do not execute the
 underlying action, run, send, install, enable, dispatch, call providers, perform
 connector writes, read email/calendar data, automatically write memory, inject
 context, run shell/subprocess work, deliver notifications, use embeddings or
-vector DBs, run semantic search/background indexing, or expose raw prompts, raw
+vector DBs, run semantic search/background indexing, inject context packs, or expose raw prompts, raw
 responses, raw paths, raw logs, usernames, hostnames, environment dumps,
 credential material, or provider payloads.
 

@@ -281,6 +281,11 @@ Tasks:
   projection only and adds no truth authority, semantic extraction, context
   injection, automatic recall, connector writes, action execution, public beta,
   or production authority.
+- Governed Cognitive Memory Spine Phase 4 derives read-only L3
+  identity/session/preference/commitment representation proposals from L2 safe
+  refs at `GET /control-center/memory/l3-index`; it remains review-required and
+  adds no truth authority, CRM/account sync, context-pack injection, action
+  execution, public beta, or production authority.
 - Correct stores a safe corrected summary ref posture, not raw content.
 - Reject blocks promotion and records evidence.
 - No context injection, connector write, CRM sync, or automatic action

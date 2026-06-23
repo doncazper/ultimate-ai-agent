@@ -61,7 +61,7 @@ later enforcement-test coverage.
 - `tests/test_api_idempotency_audit.py`
 - `tests/test_api_manifest.py`
 - `tests/test_api_route_inventory_fixture.py`
-- `tests/fixtures/api_route_inventory_129.json`
+- `tests/fixtures/api_route_inventory_130.json`
 - `docs/schemas/api_mutating_route_idempotency_audit.schema.json`
 - `scripts/verify_uaa_p1_084_mutating_route_idempotency.py`
 - `docs/api/openapi_contract.md`

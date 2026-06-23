@@ -142,6 +142,12 @@ from ultimate_ai_agent.core.memory.l2_index import (
     L2_FACTUAL_GRAPH_TEMPORAL_INDEX_ROUTE_REF,
     build_l2_factual_graph_temporal_index,
 )
+from ultimate_ai_agent.core.memory.l3_index import (
+    L3_IDENTITY_SESSION_MODELING_BLOCKED_STATE_REFS,
+    L3_IDENTITY_SESSION_MODELING_CONTRACT_REF,
+    L3_IDENTITY_SESSION_MODELING_ROUTE_REF,
+    build_l3_identity_session_preference_index,
+)
 from ultimate_ai_agent.core.memory.provider import MemoryProviderWriteRequest
 from ultimate_ai_agent.core.memory.review_decisions import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
@@ -5464,6 +5470,18 @@ class FounderLoopRepository:
             "l2_factual_graph_temporal_index_blocked_state_refs": list(
                 L2_FACTUAL_GRAPH_TEMPORAL_INDEX_BLOCKED_STATE_REFS
             ),
+            "l3_identity_session_modeling_contract_ref": (
+                L3_IDENTITY_SESSION_MODELING_CONTRACT_REF
+            ),
+            "l3_identity_session_modeling_route_ref": (
+                L3_IDENTITY_SESSION_MODELING_ROUTE_REF
+            ),
+            "l3_identity_session_modeling_status": (
+                "implemented_read_only_representation_proposals"
+            ),
+            "l3_identity_session_modeling_blocked_state_refs": list(
+                L3_IDENTITY_SESSION_MODELING_BLOCKED_STATE_REFS
+            ),
             "decision_count": len(decisions),
             "idempotency_replay_enabled": True,
             "idempotency_conflict_rejected": True,
@@ -5771,6 +5789,31 @@ class FounderLoopRepository:
         )
         return l2_index.model_dump(mode="json")
 
+    def memory_l3_identity_session_preference_index(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        l1_index = build_l1_hot_memory_index(
+            self.list_memory_review_recall_records(),
+            query_ref=query_ref,
+            limit=limit,
+        )
+        l2_index = build_l2_factual_graph_temporal_index(
+            l1_index,
+            query_ref=query_ref,
+            limit=limit,
+        )
+        l3_index = build_l3_identity_session_preference_index(
+            l2_index,
+            query_ref=query_ref,
+            limit=limit,
+        )
+        return l3_index.model_dump(mode="json")
+
     def _write_memory_review_recall_record(
         self,
         *,
@@ -5821,6 +5864,7 @@ class FounderLoopRepository:
                         reviewed_recall_ref,
                         str(candidate.get("review_ref") or ""),
                         str(candidate.get("business_memory_candidate_ref") or ""),
+                        *request.metadata_refs,
                     ]
                     if ref
                 )
