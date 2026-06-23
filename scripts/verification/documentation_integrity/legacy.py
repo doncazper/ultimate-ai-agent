@@ -1726,7 +1726,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
         "active docs must mention checkpoint-m169": "checkpoint-m169",
         "active docs must mention checkpoint-m166": "checkpoint-m166",
         "active docs must mention checkpoint-m167": "checkpoint-m167",
-        "active docs must preserve v0.103.0 baseline": "v0.103.0",
+        "active docs must preserve v0.104.0 baseline": "v0.104.0",
         "active docs must link Operator Runtime roadmap": (
             "docs/roadmap/operator_runtime_excellence_roadmap.md"
         ),
@@ -1806,7 +1806,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
 
     product_truth_required = {
         "product truth packet must identify UAA-P0-002": "task: uaa-p0-002",
-        "product truth packet must preserve active baseline": "baseline: v0.103.0 / 0.103.0",
+        "product truth packet must preserve active baseline": "baseline: v0.104.0 / 0.104.0",
         "product truth packet must list accepted repository checkpoint": (
             "accepted repository checkpoint: checkpoint-m169"
         ),
@@ -1948,7 +1948,7 @@ def _verify_public_security_posture(root: Path) -> list[str]:
     security_required = {
         "SECURITY.md must identify UAA-P0-003": "program task: uaa-p0-003",
         "SECURITY.md must list supported versions": "## supported versions",
-        "SECURITY.md must preserve active baseline": "v0.103.0",
+        "SECURITY.md must preserve active baseline": "v0.104.0",
         "SECURITY.md must mention checkpoint-m166": "checkpoint-m166",
         "SECURITY.md must mention checkpoint-m167": "checkpoint-m167",
         "SECURITY.md must describe private reporting": "github private vulnerability reporting",
@@ -4990,7 +4990,7 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         "gap map must identify UAA-P0-007": (
             "status: active uaa-p0-007 operator-shell gap map"
         ),
-        "gap map must preserve baseline": "baseline: v0.103.0 / 0.103.0",
+        "gap map must preserve baseline": "baseline: v0.104.0 / 0.104.0",
         "gap map must cite M172": (
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),

@@ -4,6 +4,7 @@ import {
   primaryNavItems,
   supportingNavItems,
   type NavItem,
+  visibleReleaseStatus,
 } from "../routes";
 import { CommandPalette } from "./CommandPalette";
 
@@ -36,6 +37,38 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
     [...primaryNavItems, ...supportingNavItems].find(
       (item) => item.path === activePath,
     )?.label ?? "Control Center";
+  const backendAuthoritative =
+    connection?.state === "online" && connection.usingMockData === false;
+  const backendUnavailable =
+    connection?.state === "mock_fallback" || connection?.usingMockData === true;
+  const backendDegraded = connection?.state === "degraded";
+  const loopStatusLabel = backendAuthoritative
+    ? "Backend-bound local loop"
+    : backendDegraded
+      ? "Backend degraded; verify refs"
+      : backendUnavailable
+        ? "Mock fallback; non-authoritative"
+        : "Backend state unverified";
+  const apiBoundaryLabel = backendAuthoritative
+    ? "API boundary online"
+    : "API boundary unverified";
+  const apiBoundaryTone = backendAuthoritative
+    ? "green"
+    : backendDegraded
+      ? "orange"
+      : "blue";
+  const evidenceLabel = backendAuthoritative
+    ? "Evidence refs available"
+    : "Evidence refs unverified";
+  const killSwitchPosture = backendAuthoritative
+    ? "Backend status visible"
+    : "Unverified in fallback";
+  const actionAuthorityLabel = backendAuthoritative
+    ? "No generic execution; no authority to run actions outside local task"
+    : "No generic execution; no authority to run actions without backend approval";
+  const localTaskAuthorityLabel = backendAuthoritative
+    ? "Local task authority gated by backend approval"
+    : "Local task authority requires backend approval";
 
   return (
     <div className="app-shell">
@@ -49,7 +82,7 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
           <span className="brand-mark">FCC</span>
           <span>
             <strong>Founder Command Center</strong>
-            <small><span className="live-dot" /> Local loop active</small>
+            <small><span className="live-dot" /> {loopStatusLabel}</small>
           </span>
         </div>
         <nav className="nav-stack">
@@ -71,8 +104,12 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
         </nav>
         <div className="sidebar-posture" aria-label="Local safety posture">
           <PostureRow label="Privacy posture" value="Private by default" tone="green" />
-          <PostureRow label="Kill-switch" value="Armed" tone="orange" />
-          <PostureRow label="Local-first" value="All data stays on this Mac" tone="blue" />
+          <PostureRow
+            label="Kill-switch posture"
+            value={killSwitchPosture}
+            tone="orange"
+          />
+          <PostureRow label="Local-first" value="Status-only shell" tone="blue" />
         </div>
       </aside>
       <div className="workspace">
@@ -88,18 +125,21 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
           >
             <CommandPalette activePath={activePath} />
             <StatusChip
-              tone="green"
-              label="API boundary stable"
+              tone={apiBoundaryTone}
+              label={apiBoundaryLabel}
               detail={connection?.apiBaseLabel}
             />
-            <StatusChip tone="blue" label="Runtime local" />
-            <StatusChip tone="orange" label="No generic execution" />
+            <StatusChip tone="blue" label="Runtime status-only" />
+            <StatusChip tone="orange" label={actionAuthorityLabel} />
             <StatusChip
-              tone="green"
-              label="Local task authority gated by backend approval"
+              tone={backendAuthoritative ? "green" : "orange"}
+              label={localTaskAuthorityLabel}
             />
-            <StatusChip tone="red" label="Sources 2 blocked" />
-            <StatusChip tone="green" label="Evidence healthy" />
+            <StatusChip tone="red" label="Sources blocked/status-only" />
+            <StatusChip
+              tone={backendAuthoritative ? "green" : "blue"}
+              label={evidenceLabel}
+            />
           </div>
         </header>
         <main>{children}</main>
@@ -125,6 +165,7 @@ function NavLink({
     .join(" ");
   const visibleLabel =
     compact && activePath === item.path ? `${item.label} navigation` : item.label;
+  const releaseStatusLabel = visibleReleaseStatus(item.releaseStatus);
 
   return (
     <a
@@ -135,7 +176,7 @@ function NavLink({
     >
       <span className="nav-icon" aria-hidden="true">{navIconForLabel(item.label)}</span>
       <span>{visibleLabel}</span>
-      <small>{item.releaseStatus}</small>
+      <small>{releaseStatusLabel}</small>
     </a>
   );
 }

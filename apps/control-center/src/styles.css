@@ -1672,10 +1672,10 @@ body {
 
 .topbar-actions {
   display: grid;
-  grid-template-columns: minmax(260px, 430px) repeat(4, auto);
+  grid-template-columns: minmax(340px, 480px) repeat(4, auto);
   justify-content: end;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .palette-trigger {
@@ -2027,10 +2027,19 @@ main {
 .fcc-timeline-lite span,
 .fcc-metric-row span {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fcc-timeline-lite small,
 .fcc-metric-row small {
+  justify-self: end;
+  max-width: 112px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--fcc-muted);
 }
 
@@ -2317,7 +2326,7 @@ main {
 
 .fcc-envelope-meta {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -2848,7 +2857,7 @@ main {
 }
 
 .fcc-matrix-panel {
-  overflow: hidden;
+  overflow: auto;
 }
 
 .fcc-authority-table {

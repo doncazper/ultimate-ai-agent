@@ -1,7 +1,7 @@
 # FCC-V1-005 Memory Review Decisions
 
 Status: implemented for backend-owned Memory Review decision receipts.
-Baseline: v0.103.0 / 0.103.0.
+Baseline: v0.104.0 / 0.104.0.
 
 FCC-V1-005 makes Memory Review accept, correct, and reject decisions real
 backend-owned receipt state. Memory remains recall, not truth or authority.

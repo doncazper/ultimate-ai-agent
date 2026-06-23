@@ -25,6 +25,9 @@ from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF,
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.operational_status import (  # noqa: E402
+    build_control_center_local_models_status,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
@@ -76,6 +79,20 @@ LOCAL_TASK_RECEIPT_REF = "receipt:founder-loop-local-task:*"
 LOCAL_TASK_EVENT_REF = "evidence-event-type:local_task_created"
 LOCAL_TASK_ROLLBACK_REF = FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
 LOCAL_TASK_SAFE_DISABLE_REF = FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
+MEMORY_CONTEXT_PACK_ROUTE = "GET /control-center/memory/context-packs"
+MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE = (
+    "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal"
+)
+MEMORY_CONTEXT_PACK_TEST_REFS = {
+    "tests/test_governed_memory_context_pack_proposals.py",
+    "tests/test_governed_memory_phase6_execution_hooks.py",
+    "tests/test_founder_loop_storage_actions.py::test_memory_context_packs_derive_from_reviewed_l3_refs_only",
+}
+MEMORY_CONTEXT_PACK_VERIFIER_REFS = {
+    "scripts/verify_governed_cognitive_memory_spine_v1.py",
+    "scripts/verify_operational_maturity.py",
+}
+LOCAL_MODEL_CLI_REF = "scripts/dev/uaa_local_model.py status"
 STALE_UI_STATUS_PHRASES = [
     "routes not implemented",
     "no dedicated manifest",
@@ -182,6 +199,7 @@ def verify(
     _append_ref_resolution_failures(failures, manifest, root)
     _append_mock_fallback_fixture_failures(failures, root)
     _append_behavior_probe_failures(failures, root)
+    _append_read_only_status_probe_failures(failures)
     _append_status_doc_failures(failures, gap_map_text, board_text)
     return failures
 
@@ -663,6 +681,43 @@ def _append_module_failures(
                     failures.append(f"{module_id} rank 5+ requires cli_or_script_refs")
         for lane in module.get("graduated_lanes", []):
             _append_lane_failures(failures, module_id, lane, routes_by_ref)
+        if module_id == "memory":
+            _append_memory_context_pack_manifest_failures(failures, module)
+        if module_id == "local_models":
+            _append_local_model_manifest_failures(failures, module)
+
+
+def _append_memory_context_pack_manifest_failures(
+    failures: list[str],
+    module: dict[str, Any],
+) -> None:
+    route_refs = set(module.get("backend_routes", []))
+    test_refs = set(module.get("test_refs", []))
+    verifier_refs = set(module.get("verifier_refs", []))
+    for route_ref in [
+        MEMORY_CONTEXT_PACK_ROUTE,
+        MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE,
+    ]:
+        if route_ref not in route_refs:
+            failures.append(f"memory context-pack readiness missing route {route_ref}")
+    for test_ref in MEMORY_CONTEXT_PACK_TEST_REFS:
+        if test_ref not in test_refs:
+            failures.append(f"memory context-pack readiness missing test {test_ref}")
+    for verifier_ref in MEMORY_CONTEXT_PACK_VERIFIER_REFS:
+        if verifier_ref not in verifier_refs:
+            failures.append(
+                f"memory context-pack readiness missing verifier {verifier_ref}"
+            )
+
+
+def _append_local_model_manifest_failures(
+    failures: list[str],
+    module: dict[str, Any],
+) -> None:
+    if LOCAL_MODEL_CLI_REF not in set(module.get("cli_or_script_refs", [])):
+        failures.append(
+            f"local_models must use path-backed CLI/script ref {LOCAL_MODEL_CLI_REF}"
+        )
 
 
 def _append_lane_failures(
@@ -1259,6 +1314,100 @@ def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:
         if disabled_repo.storage_status()["counts"]["local_tasks"] != 0:
             failures.append("behavior probe: safe-disabled local task mutated state")
         _append_cli_probe_failures(failures, root, state_dir)
+
+
+def _append_read_only_status_probe_failures(failures: list[str]) -> None:
+    local_models = build_control_center_local_models_status(env={}).model_dump(
+        mode="json"
+    )
+    if local_models.get("status") != "read_only_status":
+        failures.append("read-only probe: local models status is not read_only_status")
+    if local_models.get("proposal_review_only") is not True:
+        failures.append("read-only probe: local models must stay proposal-review only")
+    if any(local_models.get("lifecycle_actions", {}).values()):
+        failures.append("read-only probe: local models lifecycle action enabled")
+    for authority in [
+        "model_download",
+        "provider_model_authority",
+        "runtime_adapter_execution",
+    ]:
+        if authority not in set(local_models.get("blocked_authorities", [])):
+            failures.append(
+                f"read-only probe: local models missing blocked authority {authority}"
+            )
+
+    with tempfile.TemporaryDirectory(prefix="uaa-readonly-status-probe-") as tmp:
+        repo = FounderLoopRepository(Path(tmp) / "founder_loop")
+        today = repo.today_summary(limit=6)
+        source_posture = today.get("source_readiness_posture", {})
+        if source_posture.get("backend_owned") is not True:
+            failures.append("read-only probe: source readiness is not backend-owned")
+        for field in [
+            "connector_runtime_enabled",
+            "source_refresh_enabled",
+            "notification_delivery_enabled",
+        ]:
+            if source_posture.get(field) is not False:
+                failures.append(f"read-only probe: source readiness enabled {field}")
+        for ref in [
+            "contract-ref:email-read-only-missing",
+            "contract-ref:calendar-read-only-missing",
+        ]:
+            if ref not in set(source_posture.get("missing_contract_refs", [])):
+                failures.append(
+                    f"read-only probe: source readiness missing contract ref {ref}"
+                )
+
+        actions = repo.actions_inbox(limit=10)
+        action_execution_enabled = actions.get("dogfood_capture", {}).get(
+            "action_execution_enabled"
+        )
+        if action_execution_enabled is not False:
+            failures.append("read-only probe: Action Inbox enabled execution")
+        if not actions.get("review_queue_groups"):
+            failures.append("read-only probe: Action Inbox queue groups missing")
+        for facet in actions.get("review_filter_facets", []):
+            if facet.get("backend_owned") is not True:
+                failures.append("read-only probe: Action Inbox facet not backend-owned")
+        for item in actions.get("items", []):
+            envelope = item.get("approval_envelope", {})
+            receipt_visibility = item.get("receipt_visibility", {})
+            for label, payload in [
+                ("approval envelope", envelope),
+                ("receipt visibility", receipt_visibility),
+            ]:
+                if payload.get("source") != "python_core_action_inbox_read_model":
+                    failures.append(
+                        f"read-only probe: Action Inbox {label} source drifted"
+                    )
+                if payload.get("backend_owned") is not True:
+                    failures.append(
+                        f"read-only probe: Action Inbox {label} not backend-owned"
+                    )
+            if (
+                item.get("local_task_commit_eligible") is True
+                and receipt_visibility.get("backend_owned") is not True
+            ):
+                failures.append(
+                    "read-only probe: local task eligibility lacks backend receipt visibility"
+                )
+
+        evidence = repo.evidence_timeline(limit=10)
+        if evidence.get("read_only") is not True:
+            failures.append("read-only probe: evidence timeline is not read-only")
+        for field in [
+            "approval_ref_authority",
+            "rollback_execution_enabled",
+            "memory_truth_authority",
+            "context_injection_authorized",
+            "action_execution_enabled",
+            "connector_write_enabled",
+            "production_authority_enabled",
+        ]:
+            if evidence.get(field) is not False:
+                failures.append(f"read-only probe: evidence timeline enabled {field}")
+        if evidence.get("safe_refs_only") is not True:
+            failures.append("read-only probe: evidence timeline is not safe-ref only")
 
 
 def _probe_local_task_action(repo: FounderLoopRepository) -> dict[str, Any]:

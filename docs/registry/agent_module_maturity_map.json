@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "baseline": "v0.103.0",
+  "baseline": "v0.104.0",
   "assessed_on": "2026-06-21",
   "assessment_scope": "Repository-local maturity for requested agent modules. Scores measure implemented, documented, and tested UAA artifacts, not product ambition or roadmap intent.",
   "maturity_levels": [

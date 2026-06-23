@@ -9,12 +9,19 @@ from scripts.verify_operational_maturity import (
     EXPECTED_AUTHORITY_CANDIDATES,
     EXPECTED_AUTHORITY_FOUNDATIONS,
     LADDER_LABELS,
+    LOCAL_MODEL_CLI_REF,
     LOCAL_TASK_ROLLBACK_REF,
     LOCAL_TASK_SAFE_DISABLE_REF,
     MANIFEST_PATH,
+    MEMORY_CONTEXT_PACK_ROUTE,
+    MEMORY_CONTEXT_PACK_TEST_REFS,
+    MEMORY_CONTEXT_PACK_VERIFIER_REFS,
     SCHEMA_PATH,
+    _append_local_model_manifest_failures,
+    _append_memory_context_pack_manifest_failures,
     _append_module_failures,
     _append_mock_fallback_fixture_failures,
+    _append_read_only_status_probe_failures,
     _append_stale_language_scan_failures,
     verify,
 )
@@ -57,6 +64,12 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
         LOCAL_TASK_SAFE_DISABLE_REF,
     }
     assert "rollback_execution" in local_task_lane["blocked_authorities"]
+    assert MEMORY_CONTEXT_PACK_ROUTE in modules["memory"]["backend_routes"]
+    assert MEMORY_CONTEXT_PACK_TEST_REFS.issubset(set(modules["memory"]["test_refs"]))
+    assert MEMORY_CONTEXT_PACK_VERIFIER_REFS.issubset(
+        set(modules["memory"]["verifier_refs"])
+    )
+    assert LOCAL_MODEL_CLI_REF in modules["local_models"]["cli_or_script_refs"]
 
 
 def test_operational_maturity_gate_docs_exist() -> None:
@@ -127,6 +140,66 @@ def test_operational_maturity_verifier_requires_rollback_execution_blocked() -> 
         "local_task_create lane must keep rollback_execution blocked" in failure
         for failure in failures
     )
+
+
+def test_operational_maturity_verifier_requires_memory_context_pack_refs() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    memory = modules["memory"]
+    memory["backend_routes"] = [
+        route
+        for route in memory["backend_routes"]
+        if route != MEMORY_CONTEXT_PACK_ROUTE
+    ]
+    memory["test_refs"] = [
+        ref
+        for ref in memory["test_refs"]
+        if ref not in MEMORY_CONTEXT_PACK_TEST_REFS
+    ]
+    memory["verifier_refs"] = [
+        ref
+        for ref in memory["verifier_refs"]
+        if ref not in MEMORY_CONTEXT_PACK_VERIFIER_REFS
+    ]
+    failures: list[str] = []
+
+    _append_memory_context_pack_manifest_failures(failures, memory)
+
+    assert any(
+        f"memory context-pack readiness missing route {MEMORY_CONTEXT_PACK_ROUTE}"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "memory context-pack readiness missing test" in failure
+        for failure in failures
+    )
+    assert any(
+        "memory context-pack readiness missing verifier" in failure
+        for failure in failures
+    )
+
+
+def test_operational_maturity_verifier_requires_path_backed_local_model_cli_ref() -> (
+    None
+):
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    local_models = modules["local_models"]
+    local_models["cli_or_script_refs"] = ["uaa local-model status"]
+    failures: list[str] = []
+
+    _append_local_model_manifest_failures(failures, local_models)
+
+    assert any(LOCAL_MODEL_CLI_REF in failure for failure in failures)
+
+
+def test_operational_maturity_read_only_status_probe_passes() -> None:
+    failures: list[str] = []
+
+    _append_read_only_status_probe_failures(failures)
+
+    assert failures == []
 
 
 def test_authority_candidate_scorecard_declares_no_go_conveyor() -> None:

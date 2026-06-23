@@ -1,7 +1,7 @@
 # Governed Cognitive Memory Spine Roadmap
 
 Status: active phased roadmap.
-Baseline: v0.103.0 / 0.103.0.
+Baseline: v0.104.0 / 0.104.0.
 
 This roadmap adapts the PR #36 governed memory spine direction onto current
 main. It starts from the implemented FCC-V1-005 Memory Review decision lane and

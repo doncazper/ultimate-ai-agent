@@ -1,6 +1,6 @@
 # OpenAPI Contract
 
-Current active baseline: **v0.103.0**
+Current active baseline: **v0.104.0**
 
 Current OpenAPI path count: `135`.
 

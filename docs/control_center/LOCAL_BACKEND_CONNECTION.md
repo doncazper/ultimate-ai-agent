@@ -1,6 +1,6 @@
 # Local Backend Connection
 
-Status: Active under v0.103.0 plus UAA-P1-082 loopback CORS hardening.
+Status: Active under v0.104.0 plus UAA-P1-082 loopback CORS hardening.
 Local backend connection behavior remains local-only; UAA-P1-082 adds an
 explicit server-side CORS allowlist for local Control Center dev/preview
 origins only.

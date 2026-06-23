@@ -1,7 +1,7 @@
 # UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
 
 Status: Ready Next
-Baseline: v0.103.0
+Baseline: v0.104.0
 Parent lane: M170 Local Model Product Loop
 Predecessor: UAA-P1-065 Founder Command Center Review/Cleanup Lane
 Source implementation: UAA-P1-064 Local Model Inventory Read-Only Backend + CLI

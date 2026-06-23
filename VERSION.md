@@ -1,12 +1,14 @@
 # Ultimate AI Agent Version
 
-Current active baseline: **v0.103.0**
+Current active baseline: **v0.104.0**
 
-v0.103.0 is the Founder Loop V1 currentness, branch-hygiene, and baseline
-consolidation release. It keeps the repository contract-first, review-gated,
+v0.104.0 is the Founder Command Center functioning-units and truth-binding
+hardening release. It keeps the repository contract-first, review-gated,
 local-first, disabled by default, and non-production by default while making
 the completed bounded FCC-V1 proof-lane conveyor, current API boundary,
-current docs, branch state, and release truth read as one accepted baseline.
+Control Center shell language, Action Inbox fallback posture, Memory
+context-pack proposal readiness, Local Models status, and release truth read as
+one accepted baseline.
 UAA-P1-067 completes the Today-Spine Founder Command Center beta-readiness
 planning/currentness pass and records the milestone conveyor without adding
 runtime authority. UAA-P1-068 completes the Today Product Spine Contract on the
@@ -111,18 +113,17 @@ model lane through the M166 production-readiness gate and M167 live-evidence
 hardening. The active Operator Runtime Excellence Program starts at M168 with
 currentness/product truth repair; M169 records the repo-currentness,
 documentation, canonical-doc, GitHub, and branch-hygiene consolidation now
-accepted under the v0.103.0 / 0.103.0 product/package baseline.
+accepted under the v0.104.0 / 0.104.0 product/package baseline.
 
-v0.103.0 consolidates the current README, roadmap/status docs, release-truth
-packet, public security posture, API route currentness docs, Founder Command
-Center strategy spine, Control Center operator-shell gap map, and branch
-hygiene under one active baseline. It confirms `main` is current with only the
-PR #35 and PR #36 branches outstanding. It adds no dependency, backend route,
-Control Center control, native macOS app work, installer authority,
-provider/model call, shell/subprocess execution, unrestricted network access,
-browser automation, tool execution authority, connector runtime, connector
-write, memory write, context injection, beta release, public distribution, or
-production authority.
+v0.104.0 consolidates the current README, portfolio/status docs,
+release-truth packet, public security posture, API route currentness docs,
+Founder Command Center strategy spine, Control Center operator-shell gap map,
+operational maturity manifest, and verifier coverage under one active
+baseline. It adds no dependency, backend route, Control Center mutation,
+native macOS app work, installer authority, provider/model call,
+shell/subprocess execution, unrestricted network access, browser automation,
+tool execution authority, connector runtime, connector write, memory write,
+context injection, beta release, public distribution, or production authority.
 
 M150 is contract-only, review-only, alpha-target-only, deterministic,
 local-only, safe-ref-only, disabled by default, route-free, and no-effect. It

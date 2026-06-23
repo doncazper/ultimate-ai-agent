@@ -14,7 +14,7 @@ Python Agent Core, PolicyEngine, LocalApprovalAuthority, route classification,
 OpenAPI checks, and Foundation Gate checks remain the authority boundaries.
 
 Status: active
-Current through: v0.103.0 plus accepted checkpoint-m169, completed
+Current through: v0.104.0 plus accepted checkpoint-m169, completed
 UAA-P1-065 Founder Command Center review cleanup, completed UAA-P1-067
 Today-Spine Founder Command Center beta-readiness planning/currentness work,
 completed UAA-P1-068 Today Product Spine Contract work, completed UAA-P1-069
@@ -82,15 +82,21 @@ lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
 and older roadmap snapshots stay under `docs/archive/` as audit artifacts, not
 current implementation claims.
 
+Portfolio reviewers should start with `README.md`,
+`docs/portfolio/CURRENT_STATUS.md`, and `docs/portfolio/CASE_STUDY.md` before
+opening the deeper roadmap and product-truth ledgers.
+
 ## Start Here
 
 | Need | Start with |
 |---|---|
+| Portfolio overview and case study | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/CASE_STUDY.md` |
 | Product story and current repository truth | `README.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | Operational maturity and authority ramp | `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
-| Version and checkpoint currentness | `VERSION.md`, `docs/release_notes/v0_103_0.md`, `docs/release_notes/checkpoint_m169.md` |
+| Version and checkpoint currentness | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
+| Tag history and future tag convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product claims and gaps | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |
@@ -102,17 +108,17 @@ current implementation claims.
 
 ## Current Baseline Packet
 
-The product/package baseline is `v0.103.0` / `0.103.0`. The latest accepted
+The product/package baseline is `v0.104.0` / `0.104.0`. The latest accepted
 repository checkpoint tag is `checkpoint-m169`. The latest accepted local model
 lane checkpoint tags remain `checkpoint-m166` and `checkpoint-m167`.
 
 Current release and checkpoint refs:
 
 ```text
-docs/archive/releases/v0_103_0/README_IMPORT.md
-docs/archive/releases/v0_103_0/master_plan.md
-docs/release_notes/v0_103_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_103_0.md
+docs/archive/releases/v0_104_0/README_IMPORT.md
+docs/archive/releases/v0_104_0/master_plan.md
+docs/release_notes/v0_104_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_104_0.md
 docs/release_notes/checkpoint_m169.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md

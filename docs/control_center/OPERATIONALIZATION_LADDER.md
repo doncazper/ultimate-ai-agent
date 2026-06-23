@@ -1,7 +1,7 @@
 # Control Center Operationalization Ladder
 
 Status: active promotion gate
-Baseline: v0.103.0 / 0.103.0
+Baseline: v0.104.0 / 0.104.0
 Manifest: `docs/control_center/operational_maturity_manifest.json`
 Verifier: `scripts/verify_operational_maturity.py`
 

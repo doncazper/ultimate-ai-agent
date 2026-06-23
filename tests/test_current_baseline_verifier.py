@@ -57,12 +57,12 @@ def test_current_baseline_verifier_accepts_matching_frontend_package_versions(tm
     verifier = load_verifier()
     write_frontend_package_files(
         tmp_path,
-        package_version="0.103.0",
-        lock_version="0.103.0",
-        root_lock_version="0.103.0",
+        package_version="0.104.0",
+        lock_version="0.104.0",
+        root_lock_version="0.104.0",
     )
 
-    assert verifier.verify_frontend_package_versions(tmp_path, "0.103.0") == []
+    assert verifier.verify_frontend_package_versions(tmp_path, "0.104.0") == []
 
 
 def test_current_baseline_verifier_rejects_frontend_package_version_drift(tmp_path: Path) -> None:
@@ -74,7 +74,7 @@ def test_current_baseline_verifier_rejects_frontend_package_version_drift(tmp_pa
         root_lock_version="0.102.3",
     )
 
-    failures = verifier.verify_frontend_package_versions(tmp_path, "0.103.0")
+    failures = verifier.verify_frontend_package_versions(tmp_path, "0.104.0")
 
     assert any("package.json version (0.102.3)" in failure for failure in failures)
     assert any("package-lock.json version (0.102.3)" in failure for failure in failures)

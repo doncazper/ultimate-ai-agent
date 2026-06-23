@@ -1,6 +1,6 @@
 # Agent Module Maturity Map
 
-Status: active review artifact. Baseline: v0.103.0. Assessed: 2026-06-21.
+Status: active review artifact. Baseline: v0.104.0. Assessed: 2026-06-21.
 
 This audit maps common agent-system modules to what UAA actually has today. It is intentionally strict: a module gets credit for typed contracts, deterministic evaluators, tests, and bounded local/dev runtime behavior, but it does not get credit for roadmap ambition.
 

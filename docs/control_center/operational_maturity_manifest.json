@@ -1,7 +1,7 @@
 {
   "schema_version": "uaa-control-center-operational-maturity.v1",
   "status": "active operational maturity manifest",
-  "baseline": "v0.103.0 / 0.103.0",
+  "baseline": "v0.104.0 / 0.104.0",
   "ladder_doc_ref": "docs/control_center/OPERATIONALIZATION_LADDER.md",
   "verifier_ref": "scripts/verify_operational_maturity.py",
   "modules": [
@@ -98,8 +98,8 @@
           ],
           "cli_parity_ref": "scripts/dev/uaa_founder_loop.py commit-local-task",
           "focused_test_refs": [
-            "tests/test_founder_loop_storage.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
-            "tests/test_founder_loop_storage.py::test_action_inbox_local_task_commit_denies_when_safe_disabled",
+            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
+            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_denies_when_safe_disabled",
             "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_requires_exact_approval_and_receipts",
             "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_denies_safe_disabled_lane"
           ]
@@ -147,6 +147,7 @@
       "smallest_next_operational_action": "narrow execution-hook contract only",
       "backend_routes": [
         "GET /control-center/memory/review",
+        "GET /control-center/memory/context-packs",
         "POST /control-center/memory/review/{candidate_ref}/accept",
         "POST /control-center/memory/review/{candidate_ref}/correct",
         "POST /control-center/memory/review/{candidate_ref}/reject",
@@ -155,8 +156,17 @@
       "cli_or_script_refs": [],
       "receipt_refs": ["receipt:memory-review:*"],
       "evidence_refs": ["evidence-ref:founder-loop:memory-review-decision"],
-      "test_refs": ["tests/test_fcc_v1_005_memory_review_decisions.py"],
-      "verifier_refs": ["scripts/verify_fcc_v1_005_memory_review_decisions.py"],
+      "test_refs": [
+        "tests/test_fcc_v1_005_memory_review_decisions.py",
+        "tests/test_governed_memory_context_pack_proposals.py",
+        "tests/test_governed_memory_phase6_execution_hooks.py",
+        "tests/test_founder_loop_storage_actions.py::test_memory_context_packs_derive_from_reviewed_l3_refs_only"
+      ],
+      "verifier_refs": [
+        "scripts/verify_fcc_v1_005_memory_review_decisions.py",
+        "scripts/verify_governed_cognitive_memory_spine_v1.py",
+        "scripts/verify_operational_maturity.py"
+      ],
       "route_metadata_refs": ["src/ultimate_ai_agent/api/manifest.py"],
       "blocked_authorities": ["automatic_memory_truth", "context_injection", "connector_write", "action_execution"],
       "missing_contracts": ["memory_write_policy_binding", "retention_delete_export_execution", "phase6_execution_hooks"],
@@ -240,7 +250,7 @@
         "GET /v1/models",
         "GET /control-center/local-models/status"
       ],
-      "cli_or_script_refs": ["uaa local-model status"],
+      "cli_or_script_refs": ["scripts/dev/uaa_local_model.py status"],
       "receipt_refs": [],
       "evidence_refs": [
         "docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md",

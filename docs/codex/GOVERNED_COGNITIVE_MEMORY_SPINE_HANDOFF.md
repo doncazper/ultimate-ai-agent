@@ -1,7 +1,7 @@
 # Governed Cognitive Memory Spine Codex Handoff
 
 Status: active implementation handoff.
-Baseline: v0.103.0 / 0.103.0.
+Baseline: v0.104.0 / 0.104.0.
 
 This handoff adapts PR #36 onto current main. Do not merge the branch blindly:
 the PR docs were conceptually aligned but behind current repo truth, and main

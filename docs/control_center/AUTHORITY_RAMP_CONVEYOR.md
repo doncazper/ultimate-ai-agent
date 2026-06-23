@@ -1,7 +1,7 @@
 # Founder Command Center Authority Ramp Conveyor
 
 Status: active planning and verifier gate
-Baseline: v0.103.0 / 0.103.0
+Baseline: v0.104.0 / 0.104.0
 Scorecard: `docs/control_center/authority_candidate_scorecard.json`
 Verifier: `scripts/verify_operational_maturity.py`
 

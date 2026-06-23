@@ -1,7 +1,7 @@
 # Operator Readiness Status Taxonomy
 
 Status: active UAA-P1-060 operator-readiness status taxonomy
-Baseline: v0.103.0 / 0.103.0
+Baseline: v0.104.0 / 0.104.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M177
 
 This taxonomy is the shared product/readiness vocabulary for docs, route

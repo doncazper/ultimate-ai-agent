@@ -1,7 +1,7 @@
 # Roadmap Docs
 
 Status: active
-Current through: v0.103.0 plus accepted checkpoint-m169 and active Operator Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
+Current through: v0.104.0 plus accepted checkpoint-m169 and active Operator Runtime Excellence P2 ecosystem inspection work through UAA-P2-051
 Purpose: Entry point for active roadmap docs and historical roadmap references.
 
 Current roadmap sources of truth:
@@ -50,7 +50,7 @@ complete the scoped local model live lane, M166 is the exact-scope local model
 production-readiness gate, and M167 hardens that gate with reviewed live
 evidence. The latest accepted repository checkpoint tag is `checkpoint-m169`;
 the latest accepted local model lane checkpoint tags remain `checkpoint-m166`
-and `checkpoint-m167`. The product/package baseline is v0.103.0 / 0.103.0.
+and `checkpoint-m167`. The product/package baseline is v0.104.0 / 0.104.0.
 
 Active program note: M168 starts the Operator Runtime Excellence currentness and
 product-truth lane; P0 repair work through UAA-P0-017 adds public security
@@ -65,7 +65,7 @@ automation, connector writes, plugin runtime import, mobile control, memory
 write, context injection, external distribution, beta release, or production
 authority.
 
-M169 records the v0.103.0 currentness, documentation, canonical-doc,
+M169 records the v0.104.0 currentness, documentation, canonical-doc,
 GitHub/branch-hygiene, and baseline consolidation pass. It accepts the bounded
 FCC-V1 proof-lane conveyor as complete through FCC-V1-007, keeps full
 UAA-P1-087.2 and broader product-readiness claims deferred, and confirms only

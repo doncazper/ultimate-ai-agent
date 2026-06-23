@@ -125,12 +125,14 @@ type FounderLoopSpineItem = {
 
 export function FounderLoopSpinePanel({
   activeSurface,
+  actionReadModelAuthoritative,
   evidence,
   inbox,
   settingsStatus,
   today,
 }: {
   activeSurface: FounderLoopPrimarySurface;
+  actionReadModelAuthoritative: boolean;
   evidence?: FounderLoopEvidenceTimelineIndex;
   inbox?: FounderLoopActionsInbox;
   settingsStatus?: ControlCenterSettingsStatus;
@@ -143,6 +145,12 @@ export function FounderLoopSpinePanel({
     today,
   });
   const localTaskSummary = summarizeLocalTaskLane(inbox?.items ?? today.actions);
+  const loopTruthCopy = actionReadModelAuthoritative
+    ? "The spine is backed by the local backend read model."
+    : "This spine is showing non-authoritative fallback shape until the backend read model is available.";
+  const localTaskAuthorityCopy = actionReadModelAuthoritative
+    ? "Local task authority gated by backend approval"
+    : "Local task authority requires backend approval";
 
   return (
     <section
@@ -160,9 +168,10 @@ export function FounderLoopSpinePanel({
       </div>
       <p className="section-copy">
         Morning Briefing and Today are the local home, then Inbox, Plans,
-        Actions, Memory, Evidence, and Settings stay visible as one backend-bound
-        loop. No generic execution is available; the only mutating FCC authority
-        shown here is the exact local task lane after backend approval.
+        Actions, Memory, Evidence, and Settings stay visible as one loop.
+        {` ${loopTruthCopy} `}No generic execution is available; the only
+        mutating FCC authority shown
+        here is the exact local task lane after backend approval.
       </p>
       <div aria-label="Founder daily loop modules" className="loop-spine-grid">
         {items.map((item) => (
@@ -188,7 +197,7 @@ export function FounderLoopSpinePanel({
         className="loop-authority-strip"
       >
         <span>No generic execution</span>
-        <span>Local task authority gated by backend approval</span>
+        <span>{localTaskAuthorityCopy}</span>
         <span>{localTaskSummary}</span>
         <span>Connector writes blocked</span>
         <span>Shell/subprocess blocked</span>

@@ -1,7 +1,7 @@
 # Governed Cognitive Memory Spine V1
 
 Status: active architecture contract, Phase 6.1 internal Action proposal hook implemented.
-Baseline: v0.103.0 / 0.103.0.
+Baseline: v0.104.0 / 0.104.0.
 
 The Governed Cognitive Memory Spine is UAA's local-first, review-gated memory
 pipeline that converts safe, provenance-linked memory candidates into reviewed

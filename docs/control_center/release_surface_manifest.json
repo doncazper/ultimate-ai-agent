@@ -1,7 +1,7 @@
 {
   "schema_version": "uaa-control-center-release-surface.v1",
   "status": "implemented_fcc_v1_000_release_surface_manifest_authority_blocked",
-  "baseline": "v0.103.0 / 0.103.0",
+  "baseline": "v0.104.0 / 0.104.0",
   "milestone_ref": "FCC-V1-000",
   "source_routes_ref": "apps/control-center/src/routes.tsx",
   "route_status_manifest_ref": "docs/control_center/route_status_manifest.json",

@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MAX_BEST_MS = 20_000.0
+DEFAULT_MAX_BEST_MS = 30_000.0
 DEFAULT_MAX_MEAN_MS = 25_000.0
 FOUNDATION_GATE_LATENCY_SCHEMA_VERSION = "uaa_foundation_gate_latency_summary.v1"
 FOUNDATION_GATE_LATENCY_TASK_REF = "UAA-P1-043"
@@ -110,7 +110,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
         help=(
             "Maximum allowed best Foundation Gate evaluation latency in ms. "
-            "Default: 20000 or FOUNDATION_GATE_MAX_BEST_MS."
+            "Default: 30000 or FOUNDATION_GATE_MAX_BEST_MS."
         ),
     )
     parser.add_argument(

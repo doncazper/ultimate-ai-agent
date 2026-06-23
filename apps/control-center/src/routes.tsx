@@ -114,6 +114,10 @@ export const supportingNavItems = navItems.filter(
   (item) => item.role === "supporting",
 );
 
+export function visibleReleaseStatus(status: ReleaseSurfaceStatus): string {
+  return status === "ship" ? "proofed" : status;
+}
+
 const disabledCommandItems: CommandPaletteItem[] = [
   {
     id: "action-state-change",
@@ -147,8 +151,13 @@ export const commandPaletteItems: CommandPaletteItem[] = [
     label: item.label,
     group: item.group,
     path: item.path,
-    status: item.releaseStatus,
-    keywords: [item.path, item.group, item.status, item.releaseStatus],
+    status: visibleReleaseStatus(item.releaseStatus),
+    keywords: [
+      item.path,
+      item.group,
+      item.status,
+      visibleReleaseStatus(item.releaseStatus),
+    ],
   })),
   ...disabledCommandItems,
 ];
@@ -160,6 +169,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Today"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -176,6 +186,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Inbox"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -189,6 +200,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Actions"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -215,6 +227,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Plans"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -257,6 +270,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Evidence"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -282,6 +296,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Memory"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
@@ -325,6 +340,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <FounderLoopSpinePanel
             activeSurface="Settings"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}

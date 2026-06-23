@@ -1,7 +1,7 @@
 # UAA-P1-052 API Service-Module Extraction Plan
 
 Status: active gated foundation plan
-Baseline: v0.103.0 / 0.103.0
+Baseline: v0.104.0 / 0.104.0
 Current OpenAPI path count: 135
 Scope: planning, extraction guardrails, and first low-risk extraction status
 

@@ -1,7 +1,7 @@
 # UAA-P1-021 FastAPI Route Grouping Map
 
 Status: active gated foundation map
-Baseline: v0.103.0 / 0.103.0
+Baseline: v0.104.0 / 0.104.0
 Current OpenAPI path count: 135
 Scope: documentation and route ownership inventory only
 

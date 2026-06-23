@@ -1,7 +1,7 @@
 # Morning Reconciliation Artifact
 
 Status: active UAA-P1-061 morning reconciliation artifact check
-Baseline: v0.103.0 / 0.103.0
+Baseline: v0.104.0 / 0.104.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M177
 
 This artifact format keeps looped ChatGPT/Codex recommendation work reviewable.

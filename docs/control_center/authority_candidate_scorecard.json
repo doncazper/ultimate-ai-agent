@@ -1,7 +1,7 @@
 {
   "schema_version": "uaa-control-center-authority-candidate-scorecard.v1",
   "status": "active authority candidate scorecard",
-  "baseline": "v0.103.0 / 0.103.0",
+  "baseline": "v0.104.0 / 0.104.0",
   "conveyor_doc_ref": "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md",
   "verifier_ref": "scripts/verify_operational_maturity.py",
   "operational_maturity_manifest_ref": "docs/control_center/operational_maturity_manifest.json",

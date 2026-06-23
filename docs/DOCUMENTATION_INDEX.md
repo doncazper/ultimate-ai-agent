@@ -1,6 +1,6 @@
 # Documentation Index
 
-Current active baseline: **v0.103.0**
+Current active baseline: **v0.104.0**
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
@@ -15,7 +15,9 @@ blocked, planned, and future-scoped states distinct.
 | Area | Canonical entry |
 |---|---|
 | GitHub landing page | `README.md` |
-| Version and baseline | `VERSION.md`, `docs/release_notes/v0_103_0.md`, `docs/release_notes/checkpoint_m169.md` |
+| Portfolio review | `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/CASE_STUDY.md` |
+| Version and baseline | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
+| Tag history and release convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Governed cognitive memory spine | `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
@@ -203,6 +205,8 @@ These historical notes remain active documentation-integrity anchors:
 README.md
 VERSION.md
 SECURITY.md
+docs/portfolio/CURRENT_STATUS.md
+docs/portfolio/CASE_STUDY.md
 docs/README.md
 docs/canonical/CANONICAL_DOC_MAP.md
 docs/canonical/09_roadmap.md
@@ -211,6 +215,7 @@ docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
 docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md
 docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md
 docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md
+docs/releases/TAG_CATALOG.md
 docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md
 docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md
 docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md
@@ -231,10 +236,10 @@ docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/kanban/current_board.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
 docs/archive/README.md
-docs/archive/releases/v0_103_0/README_IMPORT.md
-docs/archive/releases/v0_103_0/master_plan.md
-docs/release_notes/v0_103_0.md
-docs/implementation/foundation_gate_implementation_plan_v0_103_0.md
+docs/archive/releases/v0_104_0/README_IMPORT.md
+docs/archive/releases/v0_104_0/master_plan.md
+docs/release_notes/v0_104_0.md
+docs/implementation/foundation_gate_implementation_plan_v0_104_0.md
 docs/release_notes/checkpoint_m169.md
 docs/release_notes/checkpoint_m166.md
 docs/release_notes/checkpoint_m167.md
@@ -1197,7 +1202,7 @@ scripts/dev/README.md
 ```
 
 v0.37.4 supersedes the old active M35-M40 roadmap projection and defines the
-active M34-M60 sequence. v0.103.0 is the current active package baseline for the
+active M34-M60 sequence. v0.104.0 is the current active package baseline for the
 accepted Operator Runtime Excellence currentness and production-readiness
 documentation repair lane through P2 read-only ecosystem inspection,
 activation-record contracts, and MCP/A2A compatibility watchlist planning.
@@ -1284,7 +1289,7 @@ future-status drift.
 
 ## Release Notes Index
 
-Current release notes: `docs/release_notes/v0_103_0.md`
+Current release notes: `docs/release_notes/v0_104_0.md`
 
 Historical release notes remain under `docs/release_notes/`. Historical docs may mention old active baselines in historical context; they are not the current source of truth.
 

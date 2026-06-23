@@ -73,8 +73,28 @@ describe("Web Control Center shell", () => {
       screen.getByText(/No generic execution/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Local task authority gated by backend approval/i),
+      screen.getByText(/Local task authority requires backend approval/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Mock fallback; non-authoritative/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("API boundary unverified")).toBeInTheDocument();
+    expect(screen.getByText("Evidence refs unverified")).toBeInTheDocument();
+    expect(screen.getByText("Sources blocked/status-only")).toBeInTheDocument();
+    expect(screen.getByText("Kill-switch posture")).toBeInTheDocument();
+    expect(screen.getByText("Unverified in fallback")).toBeInTheDocument();
+    expect(screen.getAllByText("proofed").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Local loop active")).not.toBeInTheDocument();
+    expect(screen.queryByText("API boundary stable")).not.toBeInTheDocument();
+    expect(screen.queryByText("Evidence healthy")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sources 2 blocked")).not.toBeInTheDocument();
+    expect(screen.queryByText("Kill-switch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Armed")).not.toBeInTheDocument();
+    expect(screen.queryByText("ship")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /find route or action/i }));
+    const palette = screen.getByRole("dialog", { name: /command palette/i });
+    expect(within(palette).getAllByText(/proofed/i).length).toBeGreaterThan(0);
+    expect(within(palette).queryByText("ship")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /execute/i }),
     ).not.toBeInTheDocument();
@@ -129,6 +149,10 @@ describe("Web Control Center shell", () => {
     expect(within(navigation).queryByText("blocked/planned")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Product spine contract/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Founder daily loop/i })).toBeInTheDocument();
+    expect(
+      screen.getByText(/non-authoritative fallback shape/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/backend-bound loop/i)).not.toBeInTheDocument();
     const loopSpine = screen.getByLabelText("Founder daily loop modules");
     const loopLinks = within(loopSpine).getAllByRole("link");
     expect(loopLinks).toHaveLength(7);
@@ -149,7 +173,7 @@ describe("Web Control Center shell", () => {
     expect(loopLinks.some((link) => link.textContent?.includes("blocked"))).toBe(true);
     expect(loopLinks.some((link) => link.textContent?.includes("receipt-backed"))).toBe(true);
     expect(
-      screen.getAllByText(/Local task authority gated by backend approval/i)
+      screen.getAllByText(/Local task authority requires backend approval/i)
         .length,
     ).toBeGreaterThan(0);
     expect(screen.getByText(/Connector writes blocked/i)).toBeInTheDocument();
@@ -247,7 +271,7 @@ describe("Web Control Center shell", () => {
       expect(activeCard).toHaveTextContent(label);
       expect(screen.getAllByText(/No generic execution/i).length).toBeGreaterThan(0);
       expect(
-        screen.getAllByText(/Local task authority gated by backend approval/i)
+        screen.getAllByText(/Local task authority requires backend approval/i)
           .length,
       ).toBeGreaterThan(0);
       expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
@@ -1897,7 +1921,7 @@ describe("Web Control Center shell", () => {
       screen.getByText(/No generic execution/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Local task authority gated by backend approval/i),
+      screen.getByText(/Local task authority requires backend approval/i),
     ).toBeInTheDocument();
     dashboard.unmount();
     vi.unstubAllGlobals();
@@ -3711,6 +3735,11 @@ describe("Web Control Center shell", () => {
         /non-authoritative mock fallback filled missing panels/i,
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Backend degraded; verify refs/i)).toBeInTheDocument();
+    expect(screen.getByText("API boundary unverified")).toBeInTheDocument();
+    expect(screen.getByText("Evidence refs unverified")).toBeInTheDocument();
+    expect(screen.queryByText("API boundary stable")).not.toBeInTheDocument();
+    expect(screen.queryByText("Evidence healthy")).not.toBeInTheDocument();
   });
 
   it("does not expose dangerous action control labels", async () => {

@@ -1,30 +1,60 @@
 # Ultimate AI Agent
 
-**A local-first Founder Command Center for governed AI work.**
-
-[![Build Status](https://img.shields.io/badge/build-placeholder-lightgrey)](#verification)
-[![License](https://img.shields.io/badge/license-placeholder-lightgrey)](#license)
-[![Version](https://img.shields.io/badge/version-v0.103.0-blue)](VERSION.md)
+**A local-first governed agent foundation and emerging Founder Command Center.**
 
 Ultimate AI Agent helps a single founder/operator plan the day, review safe
 action proposals, inspect evidence, and keep agent behavior inside explicit
 policy, approval, redaction, and verification boundaries.
 
-Current active baseline: **v0.103.0**. Package version: **0.103.0**.
+Current active baseline: **v0.104.0**. Package version: **0.104.0**.
 
-This repository is active local-first product infrastructure. It does not claim
-public beta, public release, public distribution, broad autonomy, connector
-writes, unrestricted shell access, or production authority.
+This repository is a public portfolio view of active local-first product
+infrastructure. It demonstrates contract-first AI engineering, product
+judgment, governance boundaries, and evidence-backed iteration. It is not a
+production autonomous agent platform, public beta, public release, public
+distribution, or broad-authority runtime.
 
-## Visual Demo
+## Portfolio Snapshot
 
-> Placeholder: add a Control Center GIF or architecture diagram here.
+| Question | Short answer |
+|---|---|
+| What is it? | A Python Agent Core with a FastAPI contract boundary, a React/TypeScript Control Center shell, and local-first governance for proposals, approvals, receipts, memory review, and evidence. |
+| What does it demonstrate? | API contracts, route classification, local approval authority, idempotency posture, redacted evidence, durable receipts, frontend/backend parity, and disciplined product-language controls. |
+| What is usable now? | Proofed route surfaces for `/actions`, `/chat`, `/memory`, and `/evidence`; partial/status surfaces for Today, Plans, Settings, Runtime, and local model readiness. |
+| What is intentionally not claimed? | Production readiness, public release, broad autonomy, connector writes, unrestricted shell/browser/network authority, provider/model authority, hidden context injection, and generic action execution. |
 
-Suggested artifact:
+## What Works Today
+
+| Area | Current status | What to inspect |
+|---|---|---|
+| API boundary | Implemented for the current 135-path FastAPI/OpenAPI boundary and `/api/manifest` metadata. | [docs/api/README.md](docs/api/README.md) |
+| Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task lane. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
+| Chat handoff | Durable safe Chat turn receipts and reviewable Actions/Plans handoff receipts. Model output is not authority. | [docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md](docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md) |
+| Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
+| Evidence | Productized safe-ref timeline for proposals, decisions, receipts, and memory-review events. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
+| Today, Plans, Settings, Runtime, Models | Partial/status/readiness surfaces. Useful for inspection, not full product completion. | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
+| Inbox/email/calendar connectors | Planned or blocked contract lanes only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
+
+## Architecture At A Glance
 
 ```text
-docs/assets/ultimate-ai-agent-control-center-demo.gif
+Control Center (React/TypeScript)
+  -> FastAPI routes and /api/manifest
+  -> Python Agent Core
+  -> PolicyEngine + LocalApprovalAuthority
+  -> receipts, evidence, memory, storage, and verifier-backed docs
+
+CLI and repo-local scripts inspect the same contracts; React does not mint
+authority or own product truth.
 ```
+
+## What To Review First
+
+| Time | Best path |
+|---|---|
+| 3 minutes | Read this README, then [docs/portfolio/CURRENT_STATUS.md](docs/portfolio/CURRENT_STATUS.md). |
+| 10 minutes | Add [docs/portfolio/CASE_STUDY.md](docs/portfolio/CASE_STUDY.md), [docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md), and [docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md](docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md). |
+| 30 minutes | Inspect [docs/api/README.md](docs/api/README.md), [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [docs/control_center/PRODUCT_LANGUAGE_RULES.md](docs/control_center/PRODUCT_LANGUAGE_RULES.md), and the focused verifier/test refs linked from those docs. |
 
 ## Product Shape
 
@@ -62,14 +92,14 @@ Morning Briefing
 
 | Field | Current state |
 |---|---|
-| Active baseline | **v0.103.0** / `0.103.0` |
+| Active baseline | **v0.104.0** / `0.104.0` |
 | Active program | **Operator Runtime Excellence** |
 | Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
-| Local model lane | **M160-M167**, including **M166** production-readiness gate and **M167** live evidence hardening |
+| Local model lane | **M160-M167**, including **M166** local readiness evidence and **M167** live evidence hardening; non-production by default |
 | API boundary | FastAPI route contract with **135** OpenAPI paths |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
-| Governed Cognitive Memory Spine | Phases 1-4 implemented as reviewed/read-only lanes |
+| Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal lanes; Phase 6.1 is internal Action proposal receipts only |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |
 | Queued support | `UAA-P1-066` Local Model Control Center inventory/status support |
 | Release posture | Local-first, review-gated, disabled by default, non-production by default |
@@ -196,14 +226,20 @@ records and explainable previews.
 - **Phase 2**: L1 hot local memory index for reviewed recall-only records.
 - **Phase 3**: L2 factual/graph/temporal projection from L1 safe refs.
 - **Phase 4**: L3 identity/session/preference/commitment proposal index.
-- **Phase 5**: Context-pack proposals remain planned, not implemented here.
-- **Phase 6**: Any execution hook remains future-scoped and blocked.
+- **Phase 5**: Read-only, proposal-only context-pack envelopes from reviewed
+  safe refs.
+- **Phase 6.1**: Exact-approved internal Action proposal receipts only; broader
+  execution hooks remain future-scoped and blocked.
 
 Memory does not grant truth authority, approval authority, execution authority,
 connector authority, CRM/account sync, provider calls, or hidden context
 injection.
 
 ## Currentness Ledger
+
+Portfolio readers can treat this as the audit/currentness ledger. It is kept in
+the README because repo-local documentation verifiers check these milestone
+phrases before release-facing claims are accepted.
 
 These lines keep the active docs and verifiers aligned.
 
@@ -241,6 +277,9 @@ Start with the active product truth and indexes.
 
 | Document | Purpose |
 |---|---|
+| [docs/portfolio/CASE_STUDY.md](docs/portfolio/CASE_STUDY.md) | Portfolio case study and engineering narrative |
+| [docs/portfolio/CURRENT_STATUS.md](docs/portfolio/CURRENT_STATUS.md) | Portfolio-oriented current status summary |
+| [docs/releases/TAG_CATALOG.md](docs/releases/TAG_CATALOG.md) | Tag history and future tag convention |
 | [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) | Full documentation index |
 | [docs/canonical/CANONICAL_DOC_MAP.md](docs/canonical/CANONICAL_DOC_MAP.md) | Canonical doc map |
 | [docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md](docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md) | Active roadmap |
@@ -258,8 +297,8 @@ Start with the active product truth and indexes.
 Current archived release packet refs:
 
 ```text
-docs/archive/releases/v0_103_0/README_IMPORT.md
-docs/archive/releases/v0_103_0/master_plan.md
+docs/archive/releases/v0_104_0/README_IMPORT.md
+docs/archive/releases/v0_104_0/master_plan.md
 ```
 
 ## Operational References
@@ -328,7 +367,8 @@ tests/                    Backend, contract, storage, verifier, and API tests
 
 ## Roadmap
 
-- **Phase 5 memory**: context-pack proposals from reviewed L3 refs.
+- **Memory follow-through**: keep Phase 5 context-pack proposals review-only
+  while shaping future exact-approved Phase 6 hooks.
 - **Evidence depth**: stronger operator-readable history across more surfaces.
 - **Today spine**: tighter Today-to-Actions-to-Evidence loop behavior.
 - **Control Center polish**: clearer shell states and fewer raw technical surfaces.
