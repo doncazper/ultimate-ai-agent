@@ -177,6 +177,43 @@ def get_control_center_memory_l3_index(
     )
 
 
+@router.get("/memory/context-packs", response_model=ResultEnvelope)
+def get_control_center_memory_context_packs(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_context_pack_proposals(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory context-pack proposal query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_context_packs",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-context-packs",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-context-packs"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "proposal_only",
+            "no_hidden_context_injection",
+            "no_provider_or_model_calls",
+            "no_connector_or_crm_sync",
+        ],
+    )
+
+
 @router.get("/memory/review/{candidate_ref}/receipt", response_model=ResultEnvelope)
 def get_control_center_memory_review_receipt(candidate_ref: str) -> ResultEnvelope:
     data = get_founder_loop_service().memory_review_receipt(

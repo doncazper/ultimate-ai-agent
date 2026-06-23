@@ -4,7 +4,7 @@
   "milestone_ref": "FCC-V1-001",
   "api_manifest_ref": "/api/manifest",
   "openapi_contract_ref": "docs/api/openapi_contract.md",
-  "route_inventory_ref": "tests/fixtures/api_route_inventory_130.json",
+  "route_inventory_ref": "tests/fixtures/api_route_inventory_131.json",
   "release_surface_manifest_ref": "docs/control_center/release_surface_manifest.json",
   "runtime_authority_added": false,
   "routes_added": false,
@@ -440,6 +440,6 @@
     "docs/schemas/founder_loop_api_perimeter.schema.json",
     "src/ultimate_ai_agent/api/manifest.py",
     "src/ultimate_ai_agent/api/contracts.py",
-    "tests/fixtures/api_route_inventory_130.json"
+    "tests/fixtures/api_route_inventory_131.json"
   ]
 }

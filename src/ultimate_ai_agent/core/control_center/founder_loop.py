@@ -63,6 +63,17 @@ class FounderLoopControlCenterService:
             limit=limit,
         )
 
+    def memory_context_pack_proposals(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_context_pack_proposals(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
     def promote_today_item_to_action_envelope(
         self,
         *,

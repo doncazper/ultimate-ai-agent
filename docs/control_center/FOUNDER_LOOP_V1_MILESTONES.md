@@ -286,6 +286,11 @@ Tasks:
   refs at `GET /control-center/memory/l3-index`; it remains review-required and
   adds no truth authority, CRM/account sync, context-pack injection, action
   execution, public beta, or production authority.
+- Governed Cognitive Memory Spine Phase 5 derives read-only, proposal-only
+  context-pack envelopes from reviewed L1/L2/L3 safe refs at
+  `GET /control-center/memory/context-packs`; it adds no hidden context
+  injection, prompt context writing, provider/model call, connector write,
+  CRM/account sync, action execution, public beta, or production authority.
 - Correct stores a safe corrected summary ref posture, not raw content.
 - Reject blocks promotion and records evidence.
 - No context injection, connector write, CRM sync, or automatic action

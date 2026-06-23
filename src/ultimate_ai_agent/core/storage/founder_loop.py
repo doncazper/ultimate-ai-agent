@@ -148,6 +148,12 @@ from ultimate_ai_agent.core.memory.l3_index import (
     L3_IDENTITY_SESSION_MODELING_ROUTE_REF,
     build_l3_identity_session_preference_index,
 )
+from ultimate_ai_agent.core.memory.context_packs import (
+    CONTEXT_PACK_PROPOSAL_BLOCKED_STATE_REFS,
+    CONTEXT_PACK_PROPOSAL_CONTRACT_REF,
+    CONTEXT_PACK_PROPOSAL_ROUTE_REF,
+    build_context_pack_proposal_index,
+)
 from ultimate_ai_agent.core.memory.provider import MemoryProviderWriteRequest
 from ultimate_ai_agent.core.memory.review_decisions import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
@@ -5813,6 +5819,38 @@ class FounderLoopRepository:
             limit=limit,
         )
         return l3_index.model_dump(mode="json")
+
+    def memory_context_pack_proposals(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        l1_index = build_l1_hot_memory_index(
+            self.list_memory_review_recall_records(),
+            query_ref=query_ref,
+            limit=limit,
+        )
+        l2_index = build_l2_factual_graph_temporal_index(
+            l1_index,
+            query_ref=query_ref,
+            limit=limit,
+        )
+        l3_index = build_l3_identity_session_preference_index(
+            l2_index,
+            query_ref=query_ref,
+            limit=limit,
+        )
+        context_packs = build_context_pack_proposal_index(
+            l1_index,
+            l2_index,
+            l3_index,
+            query_ref=query_ref,
+            limit=limit,
+        )
+        return context_packs.model_dump(mode="json")
 
     def _write_memory_review_recall_record(
         self,

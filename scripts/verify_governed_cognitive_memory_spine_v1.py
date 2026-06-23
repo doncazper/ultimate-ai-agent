@@ -53,6 +53,10 @@ MEMORY_L3_INDEX_ROUTE = (
     "GET",
     "/control-center/memory/l3-index",
 )
+MEMORY_CONTEXT_PACK_ROUTE = (
+    "GET",
+    "/control-center/memory/context-packs",
+)
 MEMORY_DECISION_ROUTES = {
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"),
     ("POST", "/control-center/memory/review/{candidate_ref}/correct"),
@@ -67,10 +71,11 @@ FORBIDDEN_CLAIMS = [
     "provider calls are enabled",
     "production ready memory",
     "public beta memory",
-    "phase 5 is implemented",
     "phase 6 is implemented",
-    "context packs are implemented",
-    "context-pack proposals are implemented",
+    "context injection is enabled",
+    "context packs inject prompts",
+    "context packs write prompt context",
+    "context pack execution is enabled",
     "l3 memory is truth authority",
     "l3 context injection is enabled",
     "l3 crm sync is enabled",
@@ -82,6 +87,12 @@ FORBIDDEN_CLAIMS = [
     "background indexing is enabled",
     "automatic recall is enabled",
 ]
+L1_DENIED_FLAGS = ("context_injection_authorized", "automatic_recall_authorized", "automatic_memory_write_authorized", "embedding_index_enabled", "vector_db_enabled", "semantic_search_enabled", "background_indexing_enabled", "source_truth_authority", "connector_write_authorized", "automatic_action_execution_authorized", "production_authority_enabled")
+L2_DENIED_FLAGS = ("truth_authority_enabled", "context_injection_authorized", "automatic_recall_authorized", "automatic_memory_write_authorized", "embedding_index_enabled", "vector_db_enabled", "semantic_search_enabled", "llm_entity_extraction_enabled", "background_indexing_enabled", "context_pack_injection_authorized", "connector_write_authorized", "external_crm_sync_authorized", "account_sync_authorized", "automatic_action_execution_authorized", "production_authority_enabled")
+L3_DENIED_FLAGS = ("truth_authority_enabled", "crm_truth_authority_enabled", "context_injection_authorized", "automatic_recall_authorized", "automatic_memory_write_authorized", "embedding_index_enabled", "vector_db_enabled", "semantic_search_enabled", "llm_extraction_enabled", "background_indexing_enabled", "context_pack_injection_authorized", "phase5_context_pack_proposals_enabled", "phase6_execution_hooks_enabled", "connector_write_authorized", "external_crm_sync_authorized", "account_sync_authorized", "automatic_action_execution_authorized", "production_authority_enabled")
+CONTEXT_PACK_PROPOSAL_DENIED_FLAGS = ("context_injection_authorized", "hidden_prompt_context_authorized", "automatic_context_injection_authorized", "prompt_context_written", "truth_authority_enabled", "approval_authority_granted", "connector_write_authorized", "external_crm_sync_authorized", "account_sync_authorized", "automatic_action_execution_authorized", "model_provider_authority_allowed", "production_authority_enabled", "embedding_index_enabled", "vector_db_enabled", "semantic_search_enabled", "background_indexing_enabled", "phase6_execution_hooks_enabled", "raw_content_stored")
+CONTEXT_PACK_INDEX_DENIED_FLAGS = CONTEXT_PACK_PROPOSAL_DENIED_FLAGS + ("context_injection_performed", "provider_model_call_performed")
+CONTEXT_PACK_REQUIRED_FIELDS = ("source_memory_record_refs", "l1_preview_refs", "l2_projection_refs", "l3_representation_refs", "included_summary_refs", "inclusion_reason_refs", "source_refs", "evidence_refs", "receipt_refs", "approval_requirement_refs", "blocked_state_refs", "evidence_answer_refs")
 
 
 def verify(
@@ -131,9 +142,11 @@ def _append_required_file_failures(failures: list[str], root: Path) -> None:
         "tests/test_governed_memory_l1_hot_index.py",
         "tests/test_governed_memory_l2_factual_graph_temporal_index.py",
         "tests/test_governed_memory_l3_identity_session_preference_commitment.py",
+        "tests/test_governed_memory_context_pack_proposals.py",
         "src/ultimate_ai_agent/core/memory/l1_index.py",
         "src/ultimate_ai_agent/core/memory/l2_index.py",
         "src/ultimate_ai_agent/core/memory/l3_index.py",
+        "src/ultimate_ai_agent/core/memory/context_packs.py",
     ]:
         if not (root / rel_path).exists():
             failures.append(f"missing governed memory spine file: {rel_path}")
@@ -153,8 +166,12 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "GET /control-center/memory/l1-index",
                 "GET /control-center/memory/l2-index",
                 "GET /control-center/memory/l3-index",
+                "GET /control-center/memory/context-packs",
                 "reviewed_recall_record_ref",
-                "Current Phase 4",
+                "Current Phase 5",
+                "implemented as a read-only",
+                "proposal-only",
+                "not hidden context injection",
                 "implemented read-only representation proposals",
                 "Memory is recall, not authority",
                 "hidden context injection",
@@ -167,10 +184,14 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "Deterministic ref projection only; no truth authority",
                 "Phase 4 L3 Identity / Session / Preference / Commitment Modeling",
                 "Implemented read-only representation proposals",
+                "Phase 5 Context-Pack Proposals",
+                "Implemented read-only proposal envelopes",
                 "identity, session, preference, and commitment modeling",
                 "Recall preview and index inspection only; no hidden context injection",
                 "GET /control-center/memory/l2-index",
                 "GET /control-center/memory/l3-index",
+                "GET /control-center/memory/context-packs",
+                "Phase 6 remains future blocked",
                 "provider/model calls",
             ],
             HANDOFF_DOC: [
@@ -180,7 +201,8 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "GET /control-center/memory/l1-index",
                 "GET /control-center/memory/l2-index",
                 "GET /control-center/memory/l3-index",
-                "next safe phase is Phase 5 Context-Pack",
+                "GET /control-center/memory/context-packs",
+                "Phase 6 remains future blocked",
             ],
             DOC_INDEX: [SPINE_DOC, ROADMAP_DOC, HANDOFF_DOC],
             MEMORY_WRITE_POLICY_DOC: [
@@ -245,6 +267,16 @@ def _append_route_metadata_failures(
     elif l3_route.get("rate_limit_group") is not None:
         failures.append("governed memory L3 index must not be targeted rate-limited")
 
+    context_pack_route = context.routes_by_key.get(MEMORY_CONTEXT_PACK_ROUTE)
+    if context_pack_route is None:
+        failures.append("missing governed memory context-pack proposal route")
+    elif context_pack_route.get("route_classification") != "local_sensitive":
+        failures.append("governed memory context-pack route classification drifted")
+    elif context_pack_route.get("idempotency_required") is not False:
+        failures.append("governed memory context-pack route must remain read-only")
+    elif context_pack_route.get("rate_limit_group") is not None:
+        failures.append("governed memory context-pack route must not be targeted rate-limited")
+
     for key in MEMORY_DECISION_ROUTES:
         route = context.routes_by_key.get(key)
         if route is None:
@@ -281,6 +313,8 @@ def _append_release_surface_failures(
         failures.append("/memory release surface missing L2 index route")
     if not _has_route(memory.get("backend_routes", []), MEMORY_L3_INDEX_ROUTE):
         failures.append("/memory release surface missing L3 index route")
+    if not _has_route(memory.get("backend_routes", []), MEMORY_CONTEXT_PACK_ROUTE):
+        failures.append("/memory release surface missing context-pack proposal route")
     for proof in [
         "scripts/verify_fcc_v1_005_memory_review_decisions.py",
         "scripts/verify_governed_cognitive_memory_spine_v1.py",
@@ -288,6 +322,7 @@ def _append_release_surface_failures(
         "tests/test_governed_memory_l1_hot_index.py",
         "tests/test_governed_memory_l2_factual_graph_temporal_index.py",
         "tests/test_governed_memory_l3_identity_session_preference_commitment.py",
+        "tests/test_governed_memory_context_pack_proposals.py",
     ]:
         if proof not in set(memory.get("proof_lanes", [])):
             failures.append(f"/memory release surface missing proof lane {proof}")
@@ -328,6 +363,8 @@ def _append_route_status_failures(
             failures.append(f"route status {label} missing L2 index route")
         if not _has_route(item.get(key, []), MEMORY_L3_INDEX_ROUTE):
             failures.append(f"route status {label} missing L3 index route")
+        if not _has_route(item.get(key, []), MEMORY_CONTEXT_PACK_ROUTE):
+            failures.append(f"route status {label} missing context-pack route")
         lowered = str(item).lower()
         for snippet in [
             "localmemorystore",
@@ -337,6 +374,8 @@ def _append_route_status_failures(
             "l2 factual/graph/temporal",
             "l3 identity/session/preference",
             "representation proposal",
+            "context-pack proposal",
+            "proposal-only",
             "deterministic",
             "no automatic memory write",
             "context injection",
@@ -399,21 +438,7 @@ def _append_behavior_failures(
                 l1_data = l1_response.json().get("data", {})
                 if l1_data.get("indexed_record_count", 0) < 2:
                     failures.append("governed memory L1 index must preview reviewed recall records")
-                for flag in [
-                    "context_injection_authorized",
-                    "automatic_recall_authorized",
-                    "automatic_memory_write_authorized",
-                    "embedding_index_enabled",
-                    "vector_db_enabled",
-                    "semantic_search_enabled",
-                    "background_indexing_enabled",
-                    "source_truth_authority",
-                    "connector_write_authorized",
-                    "automatic_action_execution_authorized",
-                    "production_authority_enabled",
-                ]:
-                    if l1_data.get(flag) is not False:
-                        failures.append(f"governed memory L1 index enabled {flag}")
+                _append_false_flag_failures(failures, l1_data, L1_DENIED_FLAGS, "L1 index")
                 for preview in l1_data.get("previews", []):
                     if not preview.get("match_reasons"):
                         failures.append("governed memory L1 preview missing match reasons")
@@ -435,25 +460,7 @@ def _append_behavior_failures(
                     failures.append("governed memory L2 index must expose relation refs")
                 if l2_data.get("temporal_count", 0) < 2:
                     failures.append("governed memory L2 index must expose temporal refs")
-                for flag in [
-                    "truth_authority_enabled",
-                    "context_injection_authorized",
-                    "automatic_recall_authorized",
-                    "automatic_memory_write_authorized",
-                    "embedding_index_enabled",
-                    "vector_db_enabled",
-                    "semantic_search_enabled",
-                    "llm_entity_extraction_enabled",
-                    "background_indexing_enabled",
-                    "context_pack_injection_authorized",
-                    "connector_write_authorized",
-                    "external_crm_sync_authorized",
-                    "account_sync_authorized",
-                    "automatic_action_execution_authorized",
-                    "production_authority_enabled",
-                ]:
-                    if l2_data.get(flag) is not False:
-                        failures.append(f"governed memory L2 index enabled {flag}")
+                _append_false_flag_failures(failures, l2_data, L2_DENIED_FLAGS, "L2 index")
                 if l2_data.get("semantic_extraction_used") is not False:
                     failures.append("governed memory L2 index used semantic extraction")
                 for collection in ["facts", "graph_relations", "temporal_items"]:
@@ -484,28 +491,7 @@ def _append_behavior_failures(
                     failures.append("governed memory L3 index must source L2 fact refs")
                 if l3_data.get("item_count", 0) < 2:
                     failures.append("governed memory L3 index must expose representation proposal refs")
-                for flag in [
-                    "truth_authority_enabled",
-                    "crm_truth_authority_enabled",
-                    "context_injection_authorized",
-                    "automatic_recall_authorized",
-                    "automatic_memory_write_authorized",
-                    "embedding_index_enabled",
-                    "vector_db_enabled",
-                    "semantic_search_enabled",
-                    "llm_extraction_enabled",
-                    "background_indexing_enabled",
-                    "context_pack_injection_authorized",
-                    "phase5_context_pack_proposals_enabled",
-                    "phase6_execution_hooks_enabled",
-                    "connector_write_authorized",
-                    "external_crm_sync_authorized",
-                    "account_sync_authorized",
-                    "automatic_action_execution_authorized",
-                    "production_authority_enabled",
-                ]:
-                    if l3_data.get(flag) is not False:
-                        failures.append(f"governed memory L3 index enabled {flag}")
+                _append_false_flag_failures(failures, l3_data, L3_DENIED_FLAGS, "L3 index")
                 if l3_data.get("safe_refs_only") is not True:
                     failures.append("governed memory L3 index must stay safe-ref-only")
                 if l3_data.get("representation_proposal_only") is not True:
@@ -539,6 +525,50 @@ def _append_behavior_failures(
                         failures.append("governed memory L3 item enabled context injection")
                     if item.get("phase5_context_pack_proposals_enabled") is not False:
                         failures.append("governed memory L3 item enabled Phase 5 context packs")
+            context_pack_response = context.client.get(
+                "/control-center/memory/context-packs",
+                headers=auth_headers,
+            )
+            if context_pack_response.status_code != 200:
+                failures.append("governed memory context-pack route failed")
+            else:
+                context_pack_data = context_pack_response.json().get("data", {})
+                if context_pack_data.get("source_l1_preview_count", 0) < 2:
+                    failures.append("governed memory context packs must source L1 previews")
+                if context_pack_data.get("source_l2_projection_count", 0) < 6:
+                    failures.append("governed memory context packs must source L2 projections")
+                if context_pack_data.get("source_l3_representation_count", 0) < 2:
+                    failures.append("governed memory context packs must source L3 proposals")
+                if context_pack_data.get("context_pack_count", 0) < 2:
+                    failures.append("governed memory context packs must expose proposals")
+                _append_false_flag_failures(
+                    failures,
+                    context_pack_data,
+                    CONTEXT_PACK_INDEX_DENIED_FLAGS,
+                    "context pack index",
+                )
+                if context_pack_data.get("safe_refs_only") is not True:
+                    failures.append("governed memory context pack index must stay safe-ref-only")
+                if context_pack_data.get("proposal_only") is not True:
+                    failures.append("governed memory context pack index must stay proposal-only")
+                if context_pack_data.get("derived_from_reviewed_memory_only") is not True:
+                    failures.append("governed memory context packs must derive from reviewed memory only")
+                for proposal in context_pack_data.get("proposals", []):
+                    for field_name in CONTEXT_PACK_REQUIRED_FIELDS:
+                        if not proposal.get(field_name):
+                            failures.append(
+                                f"governed memory context pack proposal missing {field_name}"
+                            )
+                    if proposal.get("proposal_only") is not True:
+                        failures.append("governed memory context pack proposal must remain proposal-only")
+                    if proposal.get("review_required") is not True:
+                        failures.append("governed memory context pack proposal must remain review-required")
+                    _append_false_flag_failures(
+                        failures,
+                        proposal,
+                        CONTEXT_PACK_PROPOSAL_DENIED_FLAGS,
+                        "context pack proposal",
+                    )
         finally:
             if old_state_dir is None:
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
@@ -548,6 +578,17 @@ def _append_behavior_failures(
                 os.environ.pop(LOCAL_API_BEARER_ENV, None)
             else:
                 os.environ[LOCAL_API_BEARER_ENV] = old_bearer
+
+
+def _append_false_flag_failures(
+    failures: list[str],
+    data: dict[str, Any],
+    flags: tuple[str, ...],
+    label: str,
+) -> None:
+    for flag in flags:
+        if data.get(flag) is not False:
+            failures.append(f"governed memory {label} enabled {flag}")
 
 
 def _candidate_ref(context: ApiVerifierContext, auth_headers: dict[str, str]) -> str:

@@ -2,8 +2,8 @@
   "schema_version": "uaa-verification-milestone-status.v1",
   "active_baseline": "v0.103.0",
   "api_route_inventory": {
-    "fixture_ref": "tests/fixtures/api_route_inventory_130.json",
-    "route_count": 130,
+    "fixture_ref": "tests/fixtures/api_route_inventory_131.json",
+    "route_count": 131,
     "schema_version": "uaa-api-route-inventory.v4"
   },
   "milestones": [
@@ -146,7 +146,7 @@
         "tests/test_fcc_v1_001_api_perimeter.py",
         "tests/test_api_manifest.py",
         "tests/test_api_boundary_enforcement.py",
-        "tests/fixtures/api_route_inventory_130.json"
+        "tests/fixtures/api_route_inventory_131.json"
       ]
     },
     {

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `130`, generated from the FastAPI application and
+Current OpenAPI path count: `131`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -96,6 +96,11 @@ Current boundary summary:
   truth authority, embeddings, vector DBs, semantic search, LLM extraction,
   background indexing, automatic writes, context injection, connector writes,
   action execution, or production authority.
+- Governed Cognitive Memory Spine Phase 5 adds
+  `GET /control-center/memory/context-packs` as read-only proposal envelopes
+  over reviewed L1/L2/L3 safe refs. It does not add hidden context injection,
+  prompt context writing, provider/model calls, connector writes, CRM/account
+  sync, action execution, public beta, or production authority.
 - Governed Cognitive Memory Spine Phase 4 adds
   `GET /control-center/memory/l3-index` as read-only deterministic
   identity/session/preference/commitment representation proposals over L2 safe

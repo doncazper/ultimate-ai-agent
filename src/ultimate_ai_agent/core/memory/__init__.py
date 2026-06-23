@@ -113,6 +113,15 @@ from ultimate_ai_agent.core.memory.l3_index import (
     L3MemoryModelItem,
     build_l3_identity_session_preference_index,
 )
+from ultimate_ai_agent.core.memory.context_packs import (
+    CONTEXT_PACK_PROPOSAL_BLOCKED_STATE_REFS,
+    CONTEXT_PACK_PROPOSAL_CONTRACT_REF,
+    CONTEXT_PACK_PROPOSAL_ROUTE_REF,
+    CONTEXT_PACK_PROPOSAL_STATUS,
+    ContextPackProposal,
+    ContextPackProposalIndex,
+    build_context_pack_proposal_index,
+)
 from ultimate_ai_agent.core.memory.manifests import (
     MemoryProviderManifest,
     MemoryProviderProfile,
@@ -221,6 +230,12 @@ __all__ = [
     "CROSS_SURFACE_MEMORY_INTAKE_REQUIRED_SURFACES",
     "CrossSurfaceMemoryIntakeProposal",
     "CrossSurfaceMemoryIntakeSurface",
+    "CONTEXT_PACK_PROPOSAL_BLOCKED_STATE_REFS",
+    "CONTEXT_PACK_PROPOSAL_CONTRACT_REF",
+    "CONTEXT_PACK_PROPOSAL_ROUTE_REF",
+    "CONTEXT_PACK_PROPOSAL_STATUS",
+    "ContextPackProposal",
+    "ContextPackProposalIndex",
     "FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS",
     "FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF",
     "MEMORY_DERIVED_ACTION_REQUIRED_REF_FIELDS",
@@ -299,6 +314,7 @@ __all__ = [
     "FCCRelationshipMemoryReviewState",
     "build_business_memory_quality_envelope",
     "build_cross_surface_memory_intake_proposal",
+    "build_context_pack_proposal_index",
     "build_fcc_relationship_memory_candidate",
     "build_l1_hot_memory_index",
     "build_l2_factual_graph_temporal_index",

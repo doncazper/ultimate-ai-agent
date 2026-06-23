@@ -1,15 +1,15 @@
 # Governed Cognitive Memory Spine V1
 
-Status: active architecture contract, Phase 4 L3 identity/session/preference/commitment modeling implemented.
+Status: active architecture contract, Phase 5 context-pack proposals implemented.
 Baseline: v0.103.0 / 0.103.0.
 
 The Governed Cognitive Memory Spine is UAA's local-first, review-gated memory
 pipeline that converts safe, provenance-linked memory candidates into reviewed
 recall records and indexes those records across hot/local,
 factual/temporal/graph, and identity/session/preference/commitment layers for
-explainable recall previews or later context-pack proposals without treating
-memory as truth, approval, execution authority, connector authority, or hidden
-prompt context.
+explainable recall previews or context-pack proposals without treating memory
+as truth, approval, execution authority, connector authority, or hidden prompt
+context.
 
 This is not a generic "build better memory" track. It is the governed spine for
 the Founder Command Center loop: Today, Actions, Evidence, and Memory. Every
@@ -105,6 +105,26 @@ connector writes, context-pack injection, action execution, provider/model
 calls, embeddings/vector indexing, semantic search, background indexing, or
 public beta/production authority.
 
+## Current Phase 5
+
+Phase 5 context-pack proposal status is implemented as a read-only,
+review-required proposal envelope layer over Phase 2 L1, Phase 3 L2, and Phase
+4 L3 safe-ref outputs:
+
+- `GET /control-center/memory/context-packs`
+
+The context-pack route derives proposal envelopes only from reviewed memory
+layers. Every proposal carries source memory record refs, L1 preview refs, L2
+projection refs, L3 representation refs, included summary refs, inclusion
+reason refs, excluded ref reasons, source refs, evidence refs, receipt refs,
+stale/conflict posture, approval requirement refs, and blocked states.
+
+The context-pack lane is proposal-only. It is not hidden context injection and
+does not inject context into prompts, write prompt context, call
+providers/models, perform semantic search, add embeddings/vector indexing,
+sync CRM/accounts, write connectors, execute actions, or grant public
+beta/production authority.
+
 ## Authority Boundary
 
 Memory is recall, not authority. Accepted memory is reviewed recall only.
@@ -121,7 +141,7 @@ Still blocked:
 - action execution
 - connector writes
 - CRM or account sync
-- context-pack injection
+- hidden prompt or context-pack injection
 - provider/model calls
 - shell/subprocess behavior
 - browser automation
@@ -134,7 +154,8 @@ username, hostname, credential, token, or secret-like value.
 
 ## Evidence Contract
 
-Every accepted, corrected, or rejected candidate must be inspectable as history:
+Every accepted, corrected, rejected, or proposed context-pack candidate must be
+inspectable as history:
 
 - what candidate was reviewed
 - what decision was recorded
@@ -143,6 +164,7 @@ Every accepted, corrected, or rejected candidate must be inspectable as history:
 - what changed
 - what did not change
 - what remains blocked
+- why proposed context refs are not hidden prompt context
 
 Evidence, receipts, and recall refs are durable inspection refs. They do not
 grant hidden context, truth, connector, or execution authority.

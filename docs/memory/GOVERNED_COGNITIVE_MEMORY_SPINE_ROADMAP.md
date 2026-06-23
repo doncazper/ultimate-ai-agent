@@ -16,7 +16,7 @@ evidence-visible.
 | Phase 2 | L1 hot local memory index | Implemented read-only derived preview | Recall preview and index inspection only; no hidden context injection |
 | Phase 3 | L2 factual, graph, and temporal indexing | Implemented read-only derived preview | Deterministic ref projection only; no truth authority |
 | Phase 4 | L3 identity, session, preference, and commitment modeling | Implemented read-only representation proposals | Representation proposals only; no account sync, CRM writes, or context injection |
-| Phase 5 | Context-pack proposals | Planned | Proposal-only envelopes; exact user review required |
+| Phase 5 | Context-pack proposals | Implemented read-only proposal envelopes | Proposal-only envelopes; exact user review required before any future use |
 | Phase 6 | Narrow low-risk execution hooks | Future blocked | Requires separate accepted milestone, exact approval, receipt, rollback, and Evidence Timeline proof |
 
 ## Phase 1 Done Criteria
@@ -32,7 +32,7 @@ Phase 1 is complete only when:
 - Decision routes require idempotency and preserve replay/conflict behavior.
 - Evidence Timeline events record what changed and what remains blocked.
 - Route inventory, OpenAPI, release surface, route status, docs, and verifiers
-  agree on the 130-route boundary after Phase 4.
+  agree on the current route boundary after Phase 5.
 
 ## Phase 2 Done Criteria
 
@@ -134,8 +134,42 @@ Phase 4 does not add:
 - action execution
 - production authority
 
+## Phase 5 Done Criteria
+
+Phase 5 Context-Pack Proposals is implemented as a derived, read-only proposal
+envelope layer over reviewed L1/L2/L3 memory outputs. It remains local,
+private, safe-ref-only, review-required, and inspection-only.
+
+Phase 5 is complete only when:
+
+- `GET /control-center/memory/context-packs` returns proposal-only context
+  packs derived from reviewed L1 previews, L2 projections, and L3
+  representation proposals.
+- Every proposal includes source memory record refs, L1 preview refs, L2
+  projection refs, L3 representation refs, included summary refs,
+  inclusion/exclusion reasons, source refs, evidence refs, receipt refs,
+  stale/conflict posture, approval requirement refs, and blocked states.
+- Rejected, unreviewed, raw/private, or authority-bearing records remain
+  filtered out by the source lanes.
+- Route inventory, OpenAPI, release surface, route status, docs, tests, and
+  verifiers agree that the route is read-only, local-sensitive, and not
+  idempotency-required.
+
+Phase 5 does not add:
+
+- hidden prompt/context injection
+- prompt context writing
+- provider/model calls
+- embeddings or vector dependencies
+- semantic search
+- background indexing
+- automatic memory writes
+- connector writes or CRM/account sync
+- action execution
+- public beta or production authority
+
 ## Future Phases
 
-Context packs, when scoped, must be proposed as reviewable envelopes with safe
-refs, sources, provenance, evidence, risk, stale/conflict posture, and explicit
-blocked states. They must never become hidden prompt context.
+Phase 6 remains future blocked. Any narrow low-risk execution hook requires a
+separate accepted milestone with exact approval, receipt, rollback, and
+Evidence Timeline proof.

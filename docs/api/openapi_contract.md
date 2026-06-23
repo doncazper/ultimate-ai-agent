@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `130`.
+Current OpenAPI path count: `131`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -51,6 +51,7 @@ Contract rules:
   `GET /control-center/memory/l1-index`,
   `GET /control-center/memory/l2-index`,
   `GET /control-center/memory/l3-index`,
+  `GET /control-center/memory/context-packs`,
   `GET /control-center/memory/review`,
   `GET /control-center/memory/review/{candidate_ref}/receipt`,
   `POST /control-center/memory/review/{candidate_ref}/accept`,
@@ -61,10 +62,11 @@ Contract rules:
   summaries plus Action Inbox and Chat receipts using SQLite and JSONL refs
   only. Today to Action envelope, Action decision, Chat handoff, and Memory
   Review decision routes record backend-owned review state and receipt refs;
-  accept/correct create reviewed recall-only records. The L1, L2, and L3 index
+  accept/correct create reviewed recall-only records. The L1, L2, L3, and context-pack
   routes provide derived read-only recall previews, factual/graph/temporal ref
   projections, and identity/session/preference/commitment representation
-  proposals from reviewed source lanes with source, evidence, and receipt refs.
+  proposals plus proposal-only context-pack envelopes from reviewed source
+  lanes with source, evidence, and receipt refs.
   They do not grant action execution,
   connector writes, CRM/account sync, model/provider calls, automatic memory
   writes, context injection, shell/subprocess work, embeddings/vector search,

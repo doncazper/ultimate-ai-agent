@@ -15,6 +15,7 @@ Primary runtime/storage files:
 - `src/ultimate_ai_agent/core/memory/l1_index.py`
 - `src/ultimate_ai_agent/core/memory/l2_index.py`
 - `src/ultimate_ai_agent/core/memory/l3_index.py`
+- `src/ultimate_ai_agent/core/memory/context_packs.py`
 - `src/ultimate_ai_agent/core/memory/local_store.py`
 - `src/ultimate_ai_agent/core/memory/provider.py`
 - `src/ultimate_ai_agent/core/storage/founder_loop.py`
@@ -33,6 +34,7 @@ Primary docs/proof files:
 - `tests/test_governed_memory_l1_hot_index.py`
 - `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
 - `tests/test_governed_memory_l3_identity_session_preference_commitment.py`
+- `tests/test_governed_memory_context_pack_proposals.py`
 
 There is no `src/ultimate_ai_agent/core/storage.py` file. Founder Loop storage
 lives under `src/ultimate_ai_agent/core/storage/founder_loop.py`.
@@ -119,6 +121,25 @@ semantic extraction, background indexing, automatic memory writes, context-pack
 injection, provider/model calls, connector writes, CRM/account sync, action
 execution, public beta, or production authority.
 
+## Phase 5 Scope
+
+Implemented/hardened route:
+
+- `GET /control-center/memory/context-packs`
+
+The Phase 5 context-pack proposal lane is a backend-backed, read-only,
+proposal-only envelope layer over reviewed Phase 2 L1, Phase 3 L2, and Phase 4
+L3 safe-ref memory outputs. It returns proposal envelopes with source memory
+record refs, L1 preview refs, L2 projection refs, L3 representation refs,
+included summary refs, inclusion/exclusion reasons, source refs, evidence refs,
+receipt refs, stale/conflict posture, approval requirement refs, blocked state
+refs, and evidence answer refs.
+
+Phase 5 does not add hidden context injection, prompt context writing,
+automatic context injection, embeddings, vector DB, semantic search, background
+indexing, automatic memory writes, provider/model calls, connector writes,
+CRM/account sync, action execution, public beta, or production authority.
+
 ## Blocked Capabilities
 
 Keep these blocked unless a later accepted milestone grants the exact authority
@@ -134,7 +155,7 @@ proof:
 - CRM or account sync
 - provider/model calls
 - embeddings, vector DB, semantic search, or LLM/entity extraction
-- context-pack injection
+- context-pack injection or prompt context writing
 - browser automation
 - shell/subprocess behavior
 - delete/export execution
@@ -142,8 +163,9 @@ proof:
 
 ## Next Safe Prompt
 
-After Phase 4 is merged and stable, the next safe phase is Phase 5 Context-Pack
-Proposals.
+Phase 6 remains future blocked. The next safe phase requires a separately
+accepted milestone for narrow low-risk execution hooks with exact approval,
+receipt, rollback, and Evidence Timeline proof.
 
 Prompt shape:
 
@@ -153,10 +175,10 @@ docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md,
 docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md, and the current
 memory provider/store files.
 
-Implement Phase 5 Context-Pack Proposals only. Build reviewable,
-proposal-only context-pack envelopes from reviewed L3 representation proposal
-refs. Do not add hidden context injection, automatic prompt construction,
-account sync, CRM writes, truth authority, automatic writes, provider/model
-calls, connector writes, action execution, public beta, or production
-authority.
+Implement Phase 6 only after a future accepted scope. Keep Phase 5
+context-pack proposals read-only and proposal-only. Do not add hidden context
+injection, automatic prompt construction, account sync, CRM writes, truth
+authority, automatic writes, provider/model calls, connector writes, action
+execution, public beta, or production authority without the exact accepted
+milestone.
 ```
