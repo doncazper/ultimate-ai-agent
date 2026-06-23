@@ -267,6 +267,8 @@ def post_control_center_memory_context_pack_action_proposal(
         status_code = (
             404
             if code == "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_NOT_FOUND"
+            else 403
+            if code == "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_APPROVAL_REQUIRED"
             else 400
         )
         raise HTTPException(

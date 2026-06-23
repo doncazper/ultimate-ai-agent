@@ -14,10 +14,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     action_approval_request,
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (
-    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FounderLoopLocalTaskCommitRequest,
-    local_task_commit_approval_request,
-    local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage import (
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
@@ -132,30 +129,11 @@ def _approve_local_task_seed_action() -> dict[str, object]:
 
 def _local_task_commit_body(action: dict[str, object]) -> dict[str, object]:
     request = FounderLoopLocalTaskCommitRequest(
-        approval_ref="approval-ref:fcc-v1-006-local-task-commit",
+        approval_ref=str(action["local_task_commit_approval_ref"]),
         decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-commit",
         metadata_refs=["metadata-ref:fcc-v1-006-local-task-commit"],
     )
-    item_ref = str(action["item_ref"])
-    approval_request = local_task_commit_approval_request(
-        item_ref=item_ref,
-        actor_context=request.actor_context,
-        risk_class=str(action["risk_class"]),
-        resource_refs=[
-            item_ref,
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            local_task_ref_for_action(item_ref),
-            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
-        ],
-    )
-    grant = _approval_grant_for_request(
-        approval_request,
-        "approval-ref:fcc-v1-006-local-task-commit",
-    )
-    return request.model_copy(update={"approval_grants": [grant]}).model_dump(
-        mode="json"
-    )
+    return request.model_dump(mode="json")
 
 
 def test_evidence_timeline_event_model_accepts_safe_event() -> None:

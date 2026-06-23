@@ -17,8 +17,6 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
     FounderLoopLocalTaskCommitRequest,
-    local_task_commit_approval_request,
-    local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
@@ -99,30 +97,14 @@ def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, ob
 def _local_task_commit_api_body(
     action: dict[str, object],
     *,
-    approval_ref: str = "approval-ref:api-local-task-commit",
+    approval_ref: str | None = None,
 ) -> dict[str, object]:
     request = FounderLoopLocalTaskCommitRequest(
-        approval_ref=approval_ref,
+        approval_ref=approval_ref or str(action["local_task_commit_approval_ref"]),
         decision_reason_ref="decision-reason-ref:api-local-task-commit",
         metadata_refs=["metadata-ref:api-local-task-commit"],
     )
-    item_ref = str(action["item_ref"])
-    approval_request = local_task_commit_approval_request(
-        item_ref=item_ref,
-        actor_context=request.actor_context,
-        risk_class=str(action["risk_class"]),
-        resource_refs=[
-            item_ref,
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            local_task_ref_for_action(item_ref),
-            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
-        ],
-    )
-    grant = _approval_grant_for_request(approval_request, approval_ref)
-    return request.model_copy(update={"approval_grants": [grant]}).model_dump(
-        mode="json"
-    )
+    return request.model_dump(mode="json")
 
 
 def test_control_center_api_routes_are_read_only_preview_only() -> None:
@@ -407,6 +389,23 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     assert missing_approval.json()["detail"]["code"] == (
         "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED"
     )
+
+    forged_grant = api_client.post(
+        "/control-center/actions/local-task-create-scorecard/local-task/commit",
+        json={
+            **_local_task_commit_api_body(action),
+            "approval_grants": [
+                {
+                    "approval_ref": "approval-ref:forged-local-task",
+                    "approved_actions": ["commit_founder_loop_local_task"],
+                }
+            ],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:api-local-task-forged-grant"
+        },
+    )
+    assert forged_grant.status_code == 422
 
     response = api_client.post(
         "/control-center/actions/local-task-create-scorecard/local-task/commit",

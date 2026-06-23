@@ -2320,6 +2320,14 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
           value={item.local_task_commit_eligible ? "eligible" : "blocked"}
         />
         <DetailTerm
+          label="Local task approval"
+          value={item.local_task_commit_approval_status ?? "missing"}
+        />
+        <DetailTerm
+          label="Local task approval ref"
+          value={item.local_task_commit_approval_ref ?? "missing"}
+        />
+        <DetailTerm
           label="Local task ref"
           value={item.local_task_ref ?? "not committed"}
         />
@@ -2398,7 +2406,6 @@ function ActionDecisionControls({ item }: { item: FounderLoopActionItem }) {
           `metadata-ref:control-center-action-decision:${decision}`,
           item.item_ref,
         ],
-        approval_grants: [],
       });
       setState({
         status: "recorded",
@@ -2462,27 +2469,28 @@ function LocalTaskCommitControls({ item }: { item: FounderLoopActionItem }) {
     receipt?: FounderLoopLocalTaskCommitReceipt;
     message?: string;
   }>({ status: "idle" });
-  if (!item.local_task_commit_eligible) {
+  const approvalRef = item.local_task_commit_approval_ref;
+  if (
+    !item.local_task_commit_eligible ||
+    item.action_kind !== "local_task_create" ||
+    !approvalRef
+  ) {
     return null;
   }
+  const commitApprovalRef = approvalRef;
   const pending = state.status === "pending";
 
   async function recordLocalTaskCommit() {
     setState({ status: "pending" });
     try {
-      const safeActionSuffix = item.item_ref
-        .toLowerCase()
-        .replace(/[^a-z0-9_.:-]+/g, "-")
-        .replace(/^-+|-+$/g, "");
       const receipt = await commitLocalTask(item.item_ref, {
-        approval_ref: `approval-ref:control-center-local-task:${safeActionSuffix || "missing"}`,
+        approval_ref: commitApprovalRef,
         decision_reason_ref:
           "decision-reason-ref:control-center:local-task-commit",
         metadata_refs: [
           "metadata-ref:control-center-local-task-commit",
           item.item_ref,
         ],
-        approval_grants: [],
       });
       setState({
         status: "recorded",

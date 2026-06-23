@@ -59,8 +59,6 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
     FounderLoopLocalTaskCommitRequest,
-    local_task_commit_approval_request,
-    local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage.founder_loop import (
     FounderLoopActionRecord,
@@ -148,30 +146,15 @@ def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, ob
 def _local_task_commit_request_for_action(
     action: dict[str, object],
     *,
-    approval_ref: str = "approval-ref:test-local-task-commit",
+    approval_ref: str | None = None,
     metadata_refs: list[str] | None = None,
 ) -> FounderLoopLocalTaskCommitRequest:
-    request = FounderLoopLocalTaskCommitRequest(
-        approval_ref=approval_ref,
+    trusted_approval_ref = approval_ref or str(action["local_task_commit_approval_ref"])
+    return FounderLoopLocalTaskCommitRequest(
+        approval_ref=trusted_approval_ref,
         decision_reason_ref="decision-reason-ref:test-local-task-commit",
         metadata_refs=metadata_refs or ["metadata-ref:test-local-task-commit"],
     )
-    item_ref = str(action["item_ref"])
-    local_task_ref = local_task_ref_for_action(item_ref)
-    approval_request = local_task_commit_approval_request(
-        item_ref=item_ref,
-        actor_context=request.actor_context,
-        risk_class=str(action.get("risk_class", "medium")),
-        resource_refs=[
-            item_ref,
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            local_task_ref,
-            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
-        ],
-    )
-    grant = _approval_grant_for_request(approval_request, approval_ref)
-    return request.model_copy(update={"approval_grants": [grant]})
 
 
 def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) -> None:
@@ -1240,6 +1223,19 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
     assert status["counts"]["local_tasks"] == 1
     assert status["counts"]["local_task_commit_receipts"] == 1
 
+    with pytest.raises(
+        FounderLoopStorageDuplicateError,
+        match="FOUNDER_LOOP_LOCAL_TASK_IDEMPOTENCY_CONFLICT",
+    ):
+        repo.commit_local_task(
+            action_id="local-task-create-scorecard",
+            request=_local_task_commit_request_for_action(
+                action,
+                metadata_refs=["metadata-ref:test-local-task-commit-conflict"],
+            ),
+            idempotency_key_ref="idempotency-ref:test-local-task-commit",
+        )
+
     replay = repo.commit_local_task(
         action_id="local-task-create-scorecard",
         request=request,
@@ -1322,4 +1318,43 @@ def test_action_inbox_local_task_commit_rejects_unsupported_action_kind(
             action_id="unsupported-local-task",
             request=request,
             idempotency_key_ref="idempotency-ref:test-unsupported-local-task",
+        )
+
+
+def test_action_inbox_local_task_commit_rejects_expired_backend_approval(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    action = _approve_local_task_seed_action(repo)
+    repo._execute(
+        """
+        UPDATE action_inbox
+        SET expires_at = ?, stale_state = ?
+        WHERE item_ref = ?
+        """,
+        (
+            "2020-01-01T00:00:00+00:00",
+            "fresh_exact_scope_local_task_commit_window",
+            action["item_ref"],
+        ),
+    )
+
+    expired_action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert expired_action["local_task_commit_eligible"] is False
+    assert "blocked-state:local-task-approval-expired" in expired_action[
+        "local_task_commit_blocked_reasons"
+    ]
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED",
+    ):
+        repo.commit_local_task(
+            action_id="local-task-create-scorecard",
+            request=_local_task_commit_request_for_action(expired_action),
+            idempotency_key_ref="idempotency-ref:test-local-task-expired",
         )

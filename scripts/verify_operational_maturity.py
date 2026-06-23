@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +14,19 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
+    FounderLoopActionDecisionRequest,
+    action_approval_request,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
+    FounderLoopLocalTaskCommitRequest,
+)
+from ultimate_ai_agent.core.storage import (  # noqa: E402
+    FounderLoopRepository,
+    FounderLoopStorageDuplicateError,
+    FounderLoopStorageError,
+)
 
 
 SUCCESS_MESSAGE = "Operational maturity manifest verification passed."
@@ -74,6 +89,9 @@ def verify(root: Path = ROOT) -> list[str]:
     _append_ladder_doc_failures(failures, ladder_text)
     _append_module_failures(failures, manifest, routes_by_ref)
     _append_first_lane_failures(failures, manifest, routes_by_ref)
+    _append_public_request_schema_failures(failures)
+    _append_ref_resolution_failures(failures, manifest, root)
+    _append_behavior_probe_failures(failures, root)
     _append_status_doc_failures(failures, gap_map_text, board_text)
     return failures
 
@@ -286,6 +304,238 @@ def _append_first_lane_failures(
     ]:
         if capability not in declared:
             failures.append(f"API manifest missing declared capability {capability}")
+
+
+def _append_public_request_schema_failures(failures: list[str]) -> None:
+    openapi = app.openapi()
+    schemas = openapi.get("components", {}).get("schemas", {})
+    for schema_name in [
+        "FounderLoopLocalTaskCommitRequest",
+        "MemoryContextPackActionProposalRequest",
+    ]:
+        properties = schemas.get(schema_name, {}).get("properties", {})
+        if "approval_grants" in properties:
+            failures.append(f"{schema_name} must not expose caller-supplied approval_grants")
+    frontend = ROOT / "apps/control-center/src/components/FounderLoopPanels.tsx"
+    if "approval_grants" in frontend.read_text(encoding="utf-8"):
+        failures.append("Control Center Founder Loop panels must not send approval_grants")
+
+
+def _append_ref_resolution_failures(
+    failures: list[str],
+    manifest: dict[str, Any],
+    root: Path,
+) -> None:
+    for module in manifest.get("modules", []):
+        module_id = str(module.get("module_id"))
+        for field in ["test_refs", "verifier_refs", "route_metadata_refs"]:
+            for ref in module.get(field, []):
+                _append_repo_ref_failure(failures, root, str(ref), f"{module_id}.{field}")
+        for ref in module.get("cli_or_script_refs", []):
+            _append_cli_or_script_ref_failure(
+                failures, root, str(ref), f"{module_id}.cli_or_script_refs"
+            )
+        for lane in module.get("graduated_lanes", []):
+            lane_id = str(lane.get("lane_id"))
+            for ref in lane.get("focused_test_refs", []):
+                _append_repo_ref_failure(
+                    failures,
+                    root,
+                    str(ref),
+                    f"{module_id}:{lane_id}.focused_test_refs",
+                )
+            cli_ref = lane.get("cli_parity_ref")
+            if cli_ref:
+                _append_cli_or_script_ref_failure(
+                    failures,
+                    root,
+                    str(cli_ref),
+                    f"{module_id}:{lane_id}.cli_parity_ref",
+                )
+
+
+def _append_repo_ref_failure(
+    failures: list[str],
+    root: Path,
+    ref: str,
+    owner: str,
+) -> None:
+    path_ref, _, selector = ref.partition("::")
+    path = root / path_ref
+    if not path.exists():
+        failures.append(f"{owner} references missing path {ref}")
+        return
+    if selector:
+        test_name = selector.split("[", 1)[0]
+        if f"def {test_name}(" not in path.read_text(encoding="utf-8"):
+            failures.append(f"{owner} references missing test {ref}")
+
+
+def _append_cli_or_script_ref_failure(
+    failures: list[str],
+    root: Path,
+    ref: str,
+    owner: str,
+) -> None:
+    path_ref = ref.split(" ", 1)[0]
+    if "/" not in path_ref:
+        return
+    path = root / path_ref
+    if not path.exists():
+        failures.append(f"{owner} references missing CLI/script {ref}")
+
+
+def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:
+    with tempfile.TemporaryDirectory(prefix="uaa-operational-maturity-") as tmp:
+        state_dir = Path(tmp) / "founder_loop"
+        repo = FounderLoopRepository(state_dir)
+        action = _probe_local_task_action(repo)
+        try:
+            repo.commit_local_task(
+                action_id="local-task-create-scorecard",
+                request=FounderLoopLocalTaskCommitRequest(
+                    approval_ref="approval-ref:probe-missing"
+                ),
+                idempotency_key_ref="idempotency-ref:probe-missing-approval",
+            )
+            failures.append("behavior probe: missing approval unexpectedly committed")
+        except FounderLoopStorageError:
+            pass
+
+        action = _approve_probe_local_task_action(repo, action)
+        if action.get("local_task_commit_eligible") is not True:
+            failures.append("behavior probe: approved local task is not commit eligible")
+            return
+        if not action.get("local_task_commit_approval_ref"):
+            failures.append("behavior probe: approved local task lacks backend approval ref")
+            return
+        request = FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(action["local_task_commit_approval_ref"]),
+            decision_reason_ref="decision-reason-ref:operational-maturity-probe",
+            metadata_refs=["metadata-ref:operational-maturity-probe"],
+        )
+        before_counts = repo.storage_status()["counts"]
+        receipt = repo.commit_local_task(
+            action_id="local-task-create-scorecard",
+            request=request,
+            idempotency_key_ref="idempotency-ref:operational-maturity-probe",
+        )
+        after_counts = repo.storage_status()["counts"]
+        if after_counts["local_tasks"] != before_counts["local_tasks"] + 1:
+            failures.append("behavior probe: local task count did not change")
+        if after_counts["local_task_commit_receipts"] != before_counts["local_task_commit_receipts"] + 1:
+            failures.append("behavior probe: local task receipt count did not change")
+        replay = repo.commit_local_task(
+            action_id="local-task-create-scorecard",
+            request=request,
+            idempotency_key_ref="idempotency-ref:operational-maturity-probe",
+        )
+        if replay.get("receipt_ref") != receipt.get("receipt_ref") or replay.get("replayed") is not True:
+            failures.append("behavior probe: idempotency replay did not return prior receipt")
+        try:
+            repo.commit_local_task(
+                action_id="local-task-create-scorecard",
+                request=request.model_copy(
+                    update={"metadata_refs": ["metadata-ref:operational-maturity-conflict"]}
+                ),
+                idempotency_key_ref="idempotency-ref:operational-maturity-probe",
+            )
+            failures.append("behavior probe: idempotency conflict unexpectedly committed")
+        except FounderLoopStorageDuplicateError:
+            pass
+        timeline = repo.evidence_timeline()
+        if "local_task_created" not in timeline.get("event_types", []):
+            failures.append("behavior probe: local_task_created evidence event missing")
+        serialized_receipt = json.dumps(receipt, sort_keys=True).lower()
+        for forbidden in ["raw_prompt", "raw path", "raw_log", "credential", "password", "secret"]:
+            if forbidden in serialized_receipt:
+                failures.append(f"behavior probe: receipt leaks forbidden content {forbidden}")
+        _append_cli_probe_failures(failures, root, state_dir)
+
+
+def _probe_local_task_action(repo: FounderLoopRepository) -> dict[str, Any]:
+    return next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+
+
+def _approve_probe_local_task_action(
+    repo: FounderLoopRepository,
+    action: dict[str, Any],
+) -> dict[str, Any]:
+    request = FounderLoopActionDecisionRequest(
+        decision_reason_ref="decision-reason-ref:operational-maturity-action-approval"
+    )
+    approval_request = action_approval_request(
+        item_ref=str(action["item_ref"]),
+        actor_context=request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            str(action["item_ref"]),
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            str(action["action_approval_requirement_ref"]),
+        ],
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    grant = authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="local_operational_maturity_probe",
+        approval_ref="approval-ref:operational-maturity-action-approve",
+    )
+    repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            approval_ref=grant.approval_ref,
+            approval_grants=[grant],
+            decision_reason_ref="decision-reason-ref:operational-maturity-action-approval",
+        ),
+        idempotency_key_ref="idempotency-ref:operational-maturity-action-approval",
+    )
+    return _probe_local_task_action(repo)
+
+
+def _append_cli_probe_failures(
+    failures: list[str],
+    root: Path,
+    state_dir: Path,
+) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts/dev/uaa_founder_loop.py"),
+            "--state-dir",
+            str(state_dir),
+            "commit-local-task",
+            "--action-id",
+            "local-task-create-scorecard",
+            "--approval-ref",
+            "approval-ref:cli-probe-missing",
+            "--idempotency-ref",
+            "idempotency-ref:cli-probe-missing",
+        ],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        failures.append("behavior probe: CLI missing approval unexpectedly succeeded")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        failures.append("behavior probe: CLI did not emit parseable JSON")
+        return
+    if payload.get("safe_refs_only") is not True:
+        failures.append("behavior probe: CLI output does not declare safe refs only")
+    serialized = json.dumps(payload, sort_keys=True).lower()
+    for forbidden in ["/users/", "/home/", "credential", "password", "secret"]:
+        if forbidden in serialized:
+            failures.append(f"behavior probe: CLI output leaks forbidden content {forbidden}")
 
 
 def _append_status_doc_failures(

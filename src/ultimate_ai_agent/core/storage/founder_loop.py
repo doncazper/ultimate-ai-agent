@@ -5,14 +5,14 @@ import json
 import os
 import re
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.approvals import ApprovalGrant, LocalApprovalAuthority
 from ultimate_ai_agent.core.chat import (
     CHAT_DURABLE_RECEIPT_CONTRACT_REF,
     CHAT_DURABLE_RECEIPT_ROUTE_REFS,
@@ -1244,6 +1244,22 @@ def _history_answers(
 
 def _utc_iso() -> str:
     return utc_now().isoformat()
+
+
+def _utc_iso_after(*, hours: int = 1) -> str:
+    return (utc_now() + timedelta(hours=hours)).isoformat()
+
+
+def _is_future_iso_datetime(value: Any) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return False
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=utc_now().tzinfo)
+    return parsed > utc_now()
 
 
 def _priority_refs(
@@ -2830,6 +2846,9 @@ class FounderLoopRepository:
             "action_envelope_receipts": self._count("action_envelope_receipts"),
             "action_decision_events": self._count("action_decision_events"),
             "action_receipts": self._count("action_receipts"),
+            "internal_approval_grants": self._count(
+                "founder_loop_internal_approval_grants"
+            ),
             "local_tasks": self._count("local_tasks"),
             "local_task_commit_receipts": self._count("local_task_commit_receipts"),
             "chat_turn_receipts": self._count("chat_turn_receipts"),
@@ -5864,6 +5883,98 @@ class FounderLoopRepository:
         )
         return receipt_payload
 
+    def capture_memory_context_pack_action_approval(
+        self,
+        *,
+        context_pack_ref: str,
+        approval_ref: str,
+        idempotency_key_ref: str,
+        risk_class: str = "low",
+    ) -> dict[str, Any]:
+        """Capture a backend-owned approval grant for proposal-state mutation only."""
+
+        _validate_safe_ref(context_pack_ref, "context_pack_ref")
+        _validate_safe_ref(approval_ref, "approval_ref")
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        context_pack = self._memory_context_pack_payload_for_ref(context_pack_ref)
+        if context_pack is None:
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_CONTEXT_PACK_NOT_FOUND")
+        context_pack_proposal_ref = str(context_pack["proposal_ref"])
+        exact_scope_ref = memory_context_pack_action_scope_ref(context_pack_ref)
+        capture_request = MemoryContextPackActionProposalRequest(
+            exact_approval_scope_ref=exact_scope_ref,
+            approval_ref=approval_ref,
+            risk_class=risk_class,  # type: ignore[arg-type]
+        )
+        approval_request = memory_context_pack_action_approval_request(
+            context_pack_ref=context_pack_ref,
+            context_pack_proposal_ref=context_pack_proposal_ref,
+            actor_context=capture_request.actor_context,
+            risk_class=capture_request.risk_class,
+            exact_approval_scope_ref=exact_scope_ref,
+        )
+        authority = LocalApprovalAuthority()
+        authority.create_request(approval_request)
+        grant = authority.grant(
+            approval_request.approval_request_id,
+            approved_by_actor_id="local_operator",
+            approval_ref=approval_ref,
+        )
+        grant_payload = grant.model_dump(mode="json")
+        receipt_payload = {
+            "contract_ref": "contract-ref:founder-loop-internal-approval-capture:v1",
+            "approval_kind": "memory_context_pack_action_proposal",
+            "approval_ref": approval_ref,
+            "subject_ref": context_pack_ref,
+            "requested_action": MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION,
+            "exact_scope_ref": exact_scope_ref,
+            "idempotency_key_ref": idempotency_key_ref,
+            "status": "approved",
+            "safe_summary": (
+                "Backend-owned approval captured for Memory context-pack "
+                "internal Action proposal state only."
+            ),
+            "safe_refs_only": True,
+            "raw_content_omitted": True,
+            "created_at": _utc_iso(),
+            "expires_at": grant.expires_at.isoformat() if grant.expires_at else "",
+        }
+        _validate_safe_payload(receipt_payload, "memory_context_pack_approval_capture")
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO founder_loop_internal_approval_grants (
+                    approval_ref, approval_kind, subject_ref, requested_action,
+                    exact_scope_ref, idempotency_key_ref, grant_json, receipt_json,
+                    created_at, expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(approval_ref) DO UPDATE SET
+                    approval_kind = excluded.approval_kind,
+                    subject_ref = excluded.subject_ref,
+                    requested_action = excluded.requested_action,
+                    exact_scope_ref = excluded.exact_scope_ref,
+                    idempotency_key_ref = excluded.idempotency_key_ref,
+                    grant_json = excluded.grant_json,
+                    receipt_json = excluded.receipt_json,
+                    created_at = excluded.created_at,
+                    expires_at = excluded.expires_at
+                """,
+                (
+                    approval_ref,
+                    "memory_context_pack_action_proposal",
+                    context_pack_ref,
+                    MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION,
+                    exact_scope_ref,
+                    idempotency_key_ref,
+                    _json_dumps(grant_payload),
+                    _json_dumps(receipt_payload),
+                    str(receipt_payload["created_at"]),
+                    str(receipt_payload["expires_at"]),
+                ),
+            )
+        return receipt_payload
+
     def record_memory_context_pack_action_proposal(
         self,
         *,
@@ -5914,6 +6025,7 @@ class FounderLoopRepository:
                 context_pack_proposal_ref=context_pack_proposal_ref,
                 request=request,
                 expected_scope_ref=expected_scope_ref,
+                idempotency_key_ref=idempotency_key_ref,
             )
         )
         if approval_status != "approved":
@@ -6090,8 +6202,8 @@ class FounderLoopRepository:
             "production_authority_enabled": False,
         }
         _validate_safe_payload(envelope_payload, "memory_context_pack_action_proposal")
-        self.upsert_action(action_record)
         with self._connect() as conn:
+            self._upsert_action_record(conn, action_record)
             conn.execute(
                 """
                 INSERT INTO action_envelopes (
@@ -6248,12 +6360,24 @@ class FounderLoopRepository:
             raise FounderLoopStorageDuplicateError(
                 "FOUNDER_LOOP_LOCAL_TASK_ALREADY_COMMITTED"
             )
-        if action.get("status") != "approved":
-            raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_APPROVAL_REQUIRED")
+        approval_receipt = self._latest_approved_action_decision_receipt_for_item_ref(
+            item_ref
+        )
+        blocked_reasons = self._local_task_commit_blocked_reasons(
+            action=action,
+            local_task_ref=local_task_ref,
+            receipt=None,
+            approval_receipt=approval_receipt,
+        )
+        if blocked_reasons:
+            if "blocked-state:action-not-approved" in blocked_reasons:
+                raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_APPROVAL_REQUIRED")
+            raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED")
         approval_status, approval_reason_refs = self._local_task_approval_status(
             action=action,
             request=request,
             local_task_ref=local_task_ref,
+            idempotency_key_ref=idempotency_key_ref,
         )
         if approval_status != "approved":
             raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED")
@@ -6818,6 +6942,7 @@ class FounderLoopRepository:
         return dict(json.loads(str(rows[0]["receipt_json"])))
 
     def _local_task_commit_projection(self, action: dict[str, Any]) -> dict[str, Any]:
+        action = {**action, **_action_envelope_contract_payload(action)}
         item_ref = str(action.get("item_ref") or "founder-action:unknown")
         action_kind = str(action.get("action_kind") or "review_only")
         local_task_ref = (
@@ -6830,23 +6955,30 @@ class FounderLoopRepository:
             if local_task_ref is not None
             else None
         )
-        blocked_reasons: list[str] = []
-        if action_kind != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND:
-            blocked_reasons.append("blocked-state:unsupported-action-kind")
-        if action.get("status") != "approved":
-            blocked_reasons.append("blocked-state:action-not-approved")
-        if receipt is not None:
-            blocked_reasons.append("blocked-state:local-task-already-committed")
-        eligible = (
-            action_kind == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
-            and action.get("status") == "approved"
-            and receipt is None
+        approval_receipt = self._latest_approved_action_decision_receipt_for_item_ref(
+            item_ref
+        )
+        blocked_reasons = self._local_task_commit_blocked_reasons(
+            action=action,
+            local_task_ref=local_task_ref,
+            receipt=receipt,
+            approval_receipt=approval_receipt,
+        )
+        eligible = not blocked_reasons
+        approval_ref = (
+            str(approval_receipt.get("approval_ref"))
+            if approval_receipt and approval_receipt.get("approval_ref")
+            else None
         )
         return {
             "action_kind": action_kind,
             "local_task_commit_contract_ref": FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
             "local_task_commit_route_ref": FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF,
             "local_task_ref": local_task_ref,
+            "local_task_commit_approval_ref": approval_ref,
+            "local_task_commit_approval_status": (
+                "backend_owned_approval_ready" if approval_ref else "missing"
+            ),
             "local_task_commit_eligible": eligible,
             "local_task_commit_receipt_ref": (
                 str(receipt.get("receipt_ref")) if receipt else None
@@ -6862,6 +6994,49 @@ class FounderLoopRepository:
             ),
         }
 
+    def _local_task_commit_blocked_reasons(
+        self,
+        *,
+        action: dict[str, Any],
+        local_task_ref: str | None,
+        receipt: dict[str, Any] | None,
+        approval_receipt: dict[str, Any] | None,
+    ) -> list[str]:
+        blocked_reasons: list[str] = []
+        action_kind = str(action.get("action_kind") or "review_only")
+        if action_kind != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND:
+            blocked_reasons.append("blocked-state:unsupported-action-kind")
+        if action.get("status") != "approved":
+            blocked_reasons.append("blocked-state:action-not-approved")
+        if receipt is not None:
+            blocked_reasons.append("blocked-state:local-task-already-committed")
+        if local_task_ref is None:
+            blocked_reasons.append("blocked-state:local-task-ref-missing")
+        if (
+            action.get("state_change_contract_ref")
+            != FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF
+        ):
+            blocked_reasons.append("blocked-state:local-task-contract-missing")
+        for key, reason_ref in [
+            ("action_envelope_ref", "blocked-state:action-envelope-ref-missing"),
+            ("action_scope_ref", "blocked-state:exact-scope-ref-missing"),
+            ("rollback_ref", "blocked-state:rollback-ref-missing"),
+            ("safe_disable_ref", "blocked-state:safe-disable-ref-missing"),
+        ]:
+            value = action.get(key)
+            if not isinstance(value, str) or not value:
+                blocked_reasons.append(reason_ref)
+        if not _is_future_iso_datetime(action.get("expires_at")):
+            blocked_reasons.append("blocked-state:local-task-approval-expired")
+        stale_state = str(action.get("stale_state") or "")
+        if stale_state.startswith("recheck") or "stale" in stale_state:
+            blocked_reasons.append("blocked-state:local-task-state-stale")
+        if approval_receipt is None:
+            blocked_reasons.append("blocked-state:backend-owned-approval-missing")
+        elif approval_receipt.get("approval_status") != "approved":
+            blocked_reasons.append("blocked-state:backend-owned-approval-not-approved")
+        return list(dict.fromkeys(blocked_reasons))
+
     def _memory_context_pack_action_approval_status(
         self,
         *,
@@ -6869,6 +7044,7 @@ class FounderLoopRepository:
         context_pack_proposal_ref: str,
         request: MemoryContextPackActionProposalRequest,
         expected_scope_ref: str,
+        idempotency_key_ref: str,
     ) -> tuple[str, list[str]]:
         approval_request = memory_context_pack_action_approval_request(
             context_pack_ref=context_pack_ref,
@@ -6879,7 +7055,15 @@ class FounderLoopRepository:
         )
         authority = LocalApprovalAuthority()
         authority.create_request(approval_request)
-        for grant in request.approval_grants:
+        grant = self._internal_approval_grant_for_ref(
+            approval_ref=request.approval_ref,
+            approval_kind="memory_context_pack_action_proposal",
+            subject_ref=context_pack_ref,
+            requested_action=MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION,
+            exact_scope_ref=expected_scope_ref,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+        if grant is not None:
             authority.load_grant_for_validation(grant)
         decision_result = authority.validate_for_request(
             approval_request,
@@ -6898,6 +7082,7 @@ class FounderLoopRepository:
         action: dict[str, Any],
         request: FounderLoopLocalTaskCommitRequest,
         local_task_ref: str,
+        idempotency_key_ref: str,
     ) -> tuple[str, list[str]]:
         approval_request = local_task_commit_approval_request(
             item_ref=str(action["item_ref"]),
@@ -6909,11 +7094,23 @@ class FounderLoopRepository:
                 str(action["action_scope_ref"]),
                 local_task_ref,
                 FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+                idempotency_key_ref,
             ],
         )
         authority = LocalApprovalAuthority()
         authority.create_request(approval_request)
-        for grant in request.approval_grants:
+        approval_receipt = self._latest_approved_action_decision_receipt_for_item_ref(
+            str(action["item_ref"])
+        )
+        if (
+            approval_receipt is not None
+            and approval_receipt.get("approval_ref") == request.approval_ref
+        ):
+            grant = authority.grant(
+                approval_request.approval_request_id,
+                approved_by_actor_id="local_operator",
+                approval_ref=request.approval_ref,
+            )
             authority.load_grant_for_validation(grant)
         decision_result = authority.validate_for_request(
             approval_request,
@@ -6925,6 +7122,54 @@ class FounderLoopRepository:
         ]
         status = getattr(decision_result.status, "value", str(decision_result.status))
         return str(status), reason_refs
+
+    def _internal_approval_grant_for_ref(
+        self,
+        *,
+        approval_ref: str,
+        approval_kind: str,
+        subject_ref: str,
+        requested_action: str,
+        exact_scope_ref: str,
+        idempotency_key_ref: str,
+    ) -> ApprovalGrant | None:
+        rows = self._fetch_all(
+            """
+            SELECT grant_json, approval_kind, subject_ref, requested_action,
+                   exact_scope_ref, idempotency_key_ref, expires_at
+            FROM founder_loop_internal_approval_grants
+            WHERE approval_ref = ?
+            LIMIT 1
+            """,
+            (approval_ref,),
+        )
+        if not rows:
+            return None
+        row = dict(rows[0])
+        expected = {
+            "approval_kind": approval_kind,
+            "subject_ref": subject_ref,
+            "requested_action": requested_action,
+            "exact_scope_ref": exact_scope_ref,
+            "idempotency_key_ref": idempotency_key_ref,
+        }
+        if any(row.get(key) != value for key, value in expected.items()):
+            return None
+        if not _is_future_iso_datetime(row.get("expires_at")):
+            return None
+        try:
+            return ApprovalGrant(**json.loads(str(row["grant_json"])))
+        except Exception:
+            return None
+
+    def _latest_approved_action_decision_receipt_for_item_ref(
+        self, item_ref: str
+    ) -> dict[str, Any] | None:
+        receipts = self._action_decision_receipts_for_item_ref(item_ref)
+        for receipt in reversed(receipts):
+            if receipt.get("status") == "approved":
+                return receipt
+        return None
 
     def _action_receipt_by_ref(self, receipt_ref: str) -> dict[str, Any]:
         rows = self._fetch_all(
@@ -7098,6 +7343,31 @@ class FounderLoopRepository:
             "deferred": "deferred",
             "blocked": "blocked",
         }.get(receipt.status, "receipt_recorded")
+        local_task_approved = (
+            action.get("action_kind") == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+            and receipt.status == "approved"
+        )
+        state_change_contract_ref = (
+            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF
+            if local_task_approved
+            else FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF
+        )
+        state_change_readiness = (
+            "execution_ready_contract_approval_recorded"
+            if local_task_approved
+            else "decision_receipt_recorded_no_action_execution"
+        )
+        next_safe_action = (
+            "Commit this exact local task through the typed local-task route."
+            if local_task_approved
+            else "Inspect the decision receipt; action execution remains blocked."
+        )
+        expires_at = _utc_iso_after(hours=1) if local_task_approved else action.get("expires_at")
+        stale_state = (
+            "fresh_exact_scope_local_task_commit_window"
+            if local_task_approved
+            else action.get("stale_state")
+        )
         conn.execute(
             """
             UPDATE action_inbox
@@ -7109,6 +7379,8 @@ class FounderLoopRepository:
                 receipt_refs_json = ?,
                 audit_refs_json = ?,
                 idempotency_key_ref = ?,
+                expires_at = ?,
+                stale_state = ?,
                 next_safe_action = ?,
                 updated_at = ?
             WHERE item_ref = ?
@@ -7117,12 +7389,14 @@ class FounderLoopRepository:
                 projection_status,
                 approval_envelope_ref,
                 f"{receipt.status}_receipt_recorded",
-                FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
-                "decision_receipt_recorded_no_action_execution",
+                state_change_contract_ref,
+                state_change_readiness,
                 _json_dumps(receipt_refs),
                 _json_dumps(audit_refs),
                 receipt.idempotency_key_ref,
-                "Inspect the decision receipt; action execution remains blocked.",
+                expires_at,
+                stale_state,
+                next_safe_action,
                 _utc_iso(),
                 receipt.item_ref,
             ),
@@ -7901,7 +8175,15 @@ class FounderLoopRepository:
         return [_row_to_payload(row) for row in rows]
 
     def upsert_action(self, record: FounderLoopActionRecord) -> None:
-        self._execute(
+        with self._connect() as conn:
+            self._upsert_action_record(conn, record)
+
+    def _upsert_action_record(
+        self,
+        conn: sqlite3.Connection,
+        record: FounderLoopActionRecord,
+    ) -> None:
+        conn.execute(
             """
             INSERT INTO action_inbox (
                 item_ref, title, safe_summary, surface, priority, status,
@@ -8274,6 +8556,18 @@ class FounderLoopRepository:
                     receipt_ref TEXT NOT NULL,
                     decision_ref TEXT NOT NULL,
                     created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS founder_loop_internal_approval_grants (
+                    approval_ref TEXT PRIMARY KEY,
+                    approval_kind TEXT NOT NULL,
+                    subject_ref TEXT NOT NULL,
+                    requested_action TEXT NOT NULL,
+                    exact_scope_ref TEXT NOT NULL,
+                    idempotency_key_ref TEXT NOT NULL,
+                    grant_json TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS local_tasks (
                     local_task_ref TEXT PRIMARY KEY,
@@ -9124,6 +9418,7 @@ class FounderLoopRepository:
             "action_envelope_receipts",
             "action_inbox",
             "action_receipts",
+            "founder_loop_internal_approval_grants",
             "local_tasks",
             "local_task_commit_receipts",
             "local_task_commit_replays",

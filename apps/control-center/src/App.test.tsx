@@ -841,17 +841,15 @@ describe("Web Control Center shell", () => {
     });
     const requestBody = JSON.parse(String(options?.body));
     expect(requestBody).toMatchObject({
-      approval_ref: expect.stringMatching(
-        /^approval-ref:control-center-local-task:/,
-      ),
+      approval_ref: "approval-ref:mock-local-task-action-approve",
       decision_reason_ref:
         "decision-reason-ref:control-center:local-task-commit",
       metadata_refs: expect.arrayContaining([
         "metadata-ref:control-center-local-task-commit",
         "founder-action:mock-local-task-create",
       ]),
-      approval_grants: [],
     });
+    expect(requestBody).not.toHaveProperty("approval_grants");
     expect(JSON.stringify(requestBody).toLowerCase()).not.toContain("raw");
     expect(
       screen.queryByRole("button", { name: /^execute$/i }),
@@ -4926,6 +4924,9 @@ const mockApiData = {
         local_task_commit_route_ref:
           "POST /control-center/actions/{action_id}/local-task/commit",
         local_task_ref: "local-task:founder-action:mock-local-task-create",
+        local_task_commit_approval_ref:
+          "approval-ref:mock-local-task-action-approve",
+        local_task_commit_approval_status: "backend_owned_approval_ready",
         local_task_commit_eligible: true,
         local_task_commit_receipt_ref: null,
         local_task_commit_blocked_reasons: [],

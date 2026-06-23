@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core.approvals import ApprovalGrant, ApprovalRequest
+from ultimate_ai_agent.core.approvals import ApprovalRequest
 from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -53,7 +53,6 @@ def _default_actor_context() -> ActorContext:
 class FounderLoopLocalTaskCommitRequest(BaseModel):
     actor_context: ActorContext = Field(default_factory=_default_actor_context)
     approval_ref: str = Field(..., min_length=1, max_length=160)
-    approval_grants: list[ApprovalGrant] = Field(default_factory=list)
     decision_reason_ref: str = Field(
         default="decision-reason-ref:founder-loop:local-task-commit",
         min_length=1,

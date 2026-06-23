@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core.approvals import ApprovalGrant, ApprovalRequest
+from ultimate_ai_agent.core.approvals import ApprovalRequest
 from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -334,7 +334,6 @@ class MemoryContextPackActionProposalRequest(BaseModel):
     actor_context: ActorContext = Field(default_factory=_default_actor_context)
     exact_approval_scope_ref: str = Field(..., min_length=1, max_length=180)
     approval_ref: str = Field(..., min_length=1, max_length=180)
-    approval_grants: list[ApprovalGrant] = Field(default_factory=list)
     decision_reason_ref: str = Field(
         default="decision-reason-ref:phase6.1-context-pack-action-proposal",
         min_length=1,

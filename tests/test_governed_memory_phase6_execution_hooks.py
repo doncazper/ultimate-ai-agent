@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,6 @@ from scripts.verify_governed_cognitive_memory_spine_v1 import (
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.memory import (
     ContextPackProposal,
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF,
@@ -25,7 +25,8 @@ from ultimate_ai_agent.core.memory import (
     MemoryExecutionHookContract,
     MemoryExecutionHookProposal,
     MemoryReviewDecisionRequest,
-    memory_context_pack_action_approval_request,
+    memory_context_pack_action_item_ref,
+    memory_context_pack_action_receipt_ref,
     memory_context_pack_action_scope_ref,
 )
 from ultimate_ai_agent.core.storage import (
@@ -118,29 +119,22 @@ def _approved_action_request(
     context_pack: dict[str, object],
     *,
     approval_ref: str = "approval-ref:phase6-1-action-proposal",
+    repo: FounderLoopRepository | None = None,
+    idempotency_key_ref: str = "idempotency-ref:phase6-1-replay",
 ) -> MemoryContextPackActionProposalRequest:
     context_pack_ref = str(context_pack["context_pack_ref"])
     scope_ref = memory_context_pack_action_scope_ref(context_pack_ref)
-    request = MemoryContextPackActionProposalRequest(
+    if repo is not None:
+        repo.capture_memory_context_pack_action_approval(
+            context_pack_ref=context_pack_ref,
+            approval_ref=approval_ref,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    return MemoryContextPackActionProposalRequest(
         exact_approval_scope_ref=scope_ref,
         approval_ref=approval_ref,
         metadata_refs=["metadata-ref:phase6-1-action-proposal"],
     )
-    approval_request = memory_context_pack_action_approval_request(
-        context_pack_ref=context_pack_ref,
-        context_pack_proposal_ref=str(context_pack["proposal_ref"]),
-        actor_context=request.actor_context,
-        risk_class=request.risk_class,
-        exact_approval_scope_ref=scope_ref,
-    )
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request)
-    grant = authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="local_test_fixture",
-        approval_ref=approval_ref,
-    )
-    return request.model_copy(update={"approval_grants": [grant]})
 
 
 def test_phase6_contract_accepts_safe_future_blocked_state() -> None:
@@ -257,7 +251,11 @@ def test_phase6_1_storage_creates_internal_action_proposal_only(
     tmp_path: Path,
 ) -> None:
     repo, context_pack = _repo_with_context_pack(tmp_path)
-    request = _approved_action_request(context_pack)
+    request = _approved_action_request(
+        context_pack,
+        repo=repo,
+        idempotency_key_ref="idempotency-ref:phase6-1-action-proposal",
+    )
     context_pack_ref = str(context_pack["context_pack_ref"])
 
     receipt = repo.record_memory_context_pack_action_proposal(
@@ -349,7 +347,11 @@ def test_phase6_1_storage_requires_exact_scope_approval_replay_and_conflict(
             idempotency_key_ref="idempotency-ref:phase6-1-wrong-scope",
         )
 
-    request = _approved_action_request(context_pack)
+    request = _approved_action_request(
+        context_pack,
+        repo=repo,
+        idempotency_key_ref="idempotency-ref:phase6-1-replay",
+    )
     first = repo.record_memory_context_pack_action_proposal(
         context_pack_ref=context_pack_ref,
         request=request,
@@ -374,6 +376,58 @@ def test_phase6_1_storage_requires_exact_scope_approval_replay_and_conflict(
         )
 
 
+def test_phase6_1_action_proposal_rolls_back_projection_on_receipt_failure(
+    tmp_path: Path,
+) -> None:
+    repo, context_pack = _repo_with_context_pack(tmp_path)
+    context_pack_ref = str(context_pack["context_pack_ref"])
+    idempotency_key_ref = "idempotency-ref:phase6-1-atomic-receipt-failure"
+    request = _approved_action_request(
+        context_pack,
+        repo=repo,
+        idempotency_key_ref=idempotency_key_ref,
+    )
+    receipt_ref = memory_context_pack_action_receipt_ref(
+        context_pack_ref,
+        idempotency_key_ref,
+    )
+    with repo._connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO action_envelope_receipts (
+                receipt_ref, item_ref, action_envelope_ref, receipt_json, created_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                receipt_ref,
+                "founder-action:preexisting-memory-proposal-receipt",
+                "action-envelope:preexisting-memory-proposal",
+                "{}",
+                "2026-01-01T00:00:00+00:00",
+            ),
+        )
+
+    with pytest.raises(sqlite3.IntegrityError):
+        repo.record_memory_context_pack_action_proposal(
+            context_pack_ref=context_pack_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
+    item_ref = memory_context_pack_action_item_ref(context_pack_ref)
+    assert all(
+        item["item_ref"] != item_ref
+        for item in repo.list_action_inbox(limit=200)
+    )
+    assert (
+        repo.list_memory_context_pack_action_proposal_receipts(
+            context_pack_ref=context_pack_ref,
+        )
+        == []
+    )
+
+
 def test_phase6_1_api_route_requires_idempotency_and_exact_approval(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -391,7 +445,11 @@ def test_phase6_1_api_route_requires_idempotency_and_exact_approval(
     )
     context_pack = repo.memory_context_pack_proposals()["proposals"][0]
     context_pack_ref = str(context_pack["context_pack_ref"])
-    request = _approved_action_request(context_pack)
+    request = _approved_action_request(
+        context_pack,
+        repo=repo,
+        idempotency_key_ref="idempotency-ref:phase6-1-api",
+    )
     payload = request.model_dump(mode="json")
     client = TestClient(app)
 

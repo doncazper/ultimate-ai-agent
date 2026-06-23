@@ -132,6 +132,8 @@ export interface FounderLoopActionItem {
   local_task_commit_contract_ref?: string;
   local_task_commit_route_ref?: string;
   local_task_ref?: string | null;
+  local_task_commit_approval_ref?: string | null;
+  local_task_commit_approval_status?: string;
   local_task_commit_eligible?: boolean;
   local_task_commit_receipt_ref?: string | null;
   local_task_commit_blocked_reasons?: string[];
@@ -185,7 +187,6 @@ export interface FounderLoopLocalTaskCommitRequest {
   approval_ref: string;
   decision_reason_ref: string;
   metadata_refs?: string[];
-  approval_grants?: unknown[];
 }
 
 export interface FounderLoopLocalTaskCommitReceipt {

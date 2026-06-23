@@ -28,10 +28,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
     action_approval_request,
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
-    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FounderLoopLocalTaskCommitRequest,
-    local_task_commit_approval_request,
-    local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
@@ -480,31 +477,13 @@ def _commit_local_task_for_timeline() -> str:
         if item.get("item_ref") == "founder-action:local-task-create-scorecard"
     )
     commit_request = FounderLoopLocalTaskCommitRequest(
-        approval_ref="approval-ref:fcc-v1-006-local-task-commit",
+        approval_ref=str(action["local_task_commit_approval_ref"]),
         decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-commit",
         metadata_refs=["metadata-ref:fcc-v1-006-local-task-commit"],
     )
-    item_ref = str(action["item_ref"])
-    local_task_ref = local_task_ref_for_action(item_ref)
-    commit_approval_request = local_task_commit_approval_request(
-        item_ref=item_ref,
-        actor_context=commit_request.actor_context,
-        risk_class=str(action["risk_class"]),
-        resource_refs=[
-            item_ref,
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            local_task_ref,
-            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
-        ],
-    )
-    commit_grant = _approval_grant_for_request(
-        commit_approval_request,
-        "approval-ref:fcc-v1-006-local-task-commit",
-    )
     receipt = repo.commit_local_task(
         action_id="local-task-create-scorecard",
-        request=commit_request.model_copy(update={"approval_grants": [commit_grant]}),
+        request=commit_request,
         idempotency_key_ref="idempotency-ref:fcc-v1-006-local-task-commit",
     )
     return str(receipt.get("receipt_ref", ""))

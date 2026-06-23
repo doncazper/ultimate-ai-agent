@@ -5122,6 +5122,9 @@ export const mockControlCenterData: ControlCenterData = {
         local_task_commit_route_ref:
           "POST /control-center/actions/{action_id}/local-task/commit",
         local_task_ref: "local-task:founder-loop:mock-local-task-create",
+        local_task_commit_approval_ref:
+          "approval-ref:mock-local-task-action-approve",
+        local_task_commit_approval_status: "backend_owned_approval_ready",
         local_task_commit_eligible: true,
         local_task_commit_receipt_ref: null,
         local_task_commit_blocked_reasons: [],

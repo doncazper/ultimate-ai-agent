@@ -93,7 +93,7 @@
           "cli_parity_ref": "scripts/dev/uaa_founder_loop.py commit-local-task",
           "focused_test_refs": [
             "tests/test_founder_loop_storage.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
-            "tests/test_control_center_api_routes.py::test_action_inbox_local_task_commit_route_is_exact_scoped"
+            "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_requires_exact_approval_and_receipts"
           ]
         }
       ]

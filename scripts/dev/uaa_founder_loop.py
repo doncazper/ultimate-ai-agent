@@ -15,14 +15,14 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
     FounderLoopActionEnvelopePromotionRequest,
     action_id_to_item_ref,
 )
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
-    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FounderLoopLocalTaskCommitRequest,
-    local_task_commit_approval_request,
-    local_task_ref_for_action,
 )
-from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
+from ultimate_ai_agent.core.storage import (  # noqa: E402
+    FounderLoopRepository,
+    FounderLoopStorageDuplicateError,
+    FounderLoopStorageError,
+)
 
 
 def _repository(args: argparse.Namespace) -> FounderLoopRepository:
@@ -150,32 +150,28 @@ def _commit_local_task(args: argparse.Namespace) -> int:
         decision_reason_ref=args.decision_reason_ref,
         metadata_refs=args.metadata_ref,
     )
-    local_task_ref = local_task_ref_for_action(item_ref)
-    approval_request = local_task_commit_approval_request(
-        item_ref=item_ref,
-        actor_context=request.actor_context,
-        risk_class=str(action.get("risk_class", "medium")),
-        resource_refs=[
-            item_ref,
-            str(action.get("action_envelope_ref")),
-            str(action.get("action_scope_ref")),
-            local_task_ref,
-            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
-        ],
-    )
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request)
-    grant = authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="local_operator",
-        approval_ref=args.approval_ref,
-    )
-    request = request.model_copy(update={"approval_grants": [grant]})
-    receipt = repo.commit_local_task(
-        action_id=args.action_id,
-        request=request,
-        idempotency_key_ref=args.idempotency_ref,
-    )
+    try:
+        receipt = repo.commit_local_task(
+            action_id=args.action_id,
+            request=request,
+            idempotency_key_ref=args.idempotency_ref,
+        )
+    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": "repo-local-command:founder-loop-commit-local-task",
+                "status": "blocked",
+                "error_ref": str(exc) or "FOUNDER_LOOP_LOCAL_TASK_COMMIT_BLOCKED",
+                "action_ref": args.action_id,
+                "approval_ref": args.approval_ref,
+                "idempotency_ref": args.idempotency_ref,
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
     output = {
         "schema_version": "founder-loop-cli:v1",
         "command_ref": "repo-local-command:founder-loop-commit-local-task",
