@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   commitLocalTask,
+  fetchFounderActionsInbox,
   recordMemoryReviewDecision,
   submitActionDecision,
   submitTodayActionEnvelope,
@@ -1217,7 +1218,49 @@ export function ActionInboxSurfacePanel({
   actionReadModelAuthoritative: boolean;
   inbox: FounderLoopActionsInbox;
 }) {
-  const actionGroups = buildActionLaneGroups(inbox);
+  const [selectedActionGroup, setSelectedActionGroup] = useState<
+    FounderLoopActionGroupId | "all"
+  >("all");
+  const [reconciledItemsByRef, setReconciledItemsByRef] = useState<
+    Record<string, FounderLoopActionItem>
+  >({});
+  const inboxIdentity = inbox.items
+    .map((item) => `${item.item_ref}:${item.updated_at ?? ""}`)
+    .join("|");
+  useEffect(() => {
+    setReconciledItemsByRef({});
+  }, [inbox.storage_ref, inboxIdentity]);
+  const displayedInbox = {
+    ...inbox,
+    items: inbox.items.map((item) => reconciledItemsByRef[item.item_ref] ?? item),
+  };
+  const actionGroups = buildActionLaneGroups(displayedInbox);
+  const visibleActionGroups =
+    selectedActionGroup === "all"
+      ? actionGroups
+      : actionGroups.filter(
+          (group) => group.summary.group_id === selectedActionGroup,
+        );
+  const selectedActionGroupSummary =
+    selectedActionGroup === "all"
+      ? null
+      : actionGroups.find(
+          (group) => group.summary.group_id === selectedActionGroup,
+        ) ?? null;
+  const selectedActionGroupItems =
+    selectedActionGroupSummary?.items ?? displayedInbox.items;
+  const backendOwnedItemCount = selectedActionGroupItems.filter(
+    hasAuthoritativeActionReadModel,
+  ).length;
+  const unavailableItemCount =
+    selectedActionGroupItems.length - backendOwnedItemCount;
+
+  function reconcileActionItem(item: FounderLoopActionItem) {
+    setReconciledItemsByRef((current) => ({
+      ...current,
+      [item.item_ref]: item,
+    }));
+  }
 
   return (
     <section className="page-section" aria-labelledby="actions-surface-heading">
@@ -1437,12 +1480,79 @@ export function ActionInboxSurfacePanel({
           />
         ))}
       </div>
+      <article
+        aria-label="Action Inbox lane filters and drilldown"
+        className="status-card action-lane-filter-card"
+      >
+        <div className="status-card-header">
+          <h3>Lane filters</h3>
+          <span>{selectedActionGroup === "all" ? "all" : selectedActionGroup}</span>
+        </div>
+        <div
+          aria-label="Action Inbox lane filters"
+          className="action-lane-filter-row"
+        >
+          <button
+            aria-pressed={selectedActionGroup === "all"}
+            className="secondary-button"
+            onClick={() => setSelectedActionGroup("all")}
+            type="button"
+          >
+            Filter lane: All lanes ({displayedInbox.items.length})
+          </button>
+          {actionGroups.map((group) => (
+            <button
+              aria-pressed={selectedActionGroup === group.summary.group_id}
+              className="secondary-button"
+              key={group.summary.group_id}
+              onClick={() => setSelectedActionGroup(group.summary.group_id)}
+              type="button"
+            >
+              Filter lane: {group.summary.label} ({group.summary.count})
+            </button>
+          ))}
+        </div>
+        <dl
+          aria-label="Selected Action Inbox lane drilldown"
+          className="detail-list"
+        >
+          <DetailTerm
+            label="Selected lane"
+            value={selectedActionGroup === "all" ? "all_lanes" : selectedActionGroup}
+          />
+          <DetailTerm
+            label="Visible items"
+            value={String(selectedActionGroupItems.length)}
+          />
+          <DetailTerm
+            label="Backend-owned read-model items"
+            value={String(backendOwnedItemCount)}
+          />
+          <DetailTerm
+            label="Unavailable/mock-only items"
+            value={String(unavailableItemCount)}
+          />
+          <DetailTerm
+            label="Available action"
+            value={
+              selectedActionGroupSummary?.summary.available_action ??
+              "Inspect every backend-classified lane without adding authority."
+            }
+          />
+        </dl>
+        <p className="muted">
+          Filters and drilldowns are presentation-only. Lane membership,
+          eligibility, envelope posture, and receipt visibility remain supplied
+          by the backend Action Inbox read model.
+        </p>
+      </article>
       <div className="action-lane-stack" aria-label="Action Inbox queue lanes">
-        {actionGroups.map((group) => (
+        {visibleActionGroups.map((group) => (
           <ActionLaneSection
             actionReadModelAuthoritative={actionReadModelAuthoritative}
             group={group}
             key={group.summary.group_id}
+            onReconciledItem={reconcileActionItem}
           />
         ))}
       </div>
@@ -1489,9 +1599,11 @@ function buildActionLaneGroups(inbox: FounderLoopActionsInbox): ActionLaneGroup[
 function ActionLaneSection({
   actionReadModelAuthoritative,
   group,
+  onReconciledItem,
 }: {
   actionReadModelAuthoritative: boolean;
   group: ActionLaneGroup;
+  onReconciledItem: (item: FounderLoopActionItem) => void;
 }) {
   const headingId = `action-lane-${group.summary.group_id}`;
   return (
@@ -1515,6 +1627,7 @@ function ActionLaneSection({
               actionReadModelAuthoritative={actionReadModelAuthoritative}
               item={item}
               key={item.item_ref}
+              onReconciledItem={onReconciledItem}
             />
           ))}
         </div>
@@ -1640,6 +1753,45 @@ export function MorningBriefingPanel({
           <RefList refs={briefing.missing_contract_refs ?? []} />
         </article>
       </div>
+      <article
+        aria-label="Morning Briefing read-only source readiness metadata"
+        className="status-card"
+      >
+        <div className="status-card-header">
+          <h3>Read-only source readiness metadata</h3>
+          <span>no connector runtime</span>
+        </div>
+        <p>
+          Morning Briefing can display backend-owned local route/storage status
+          and safe source refs. Email, calendar, connector runtime, background
+          refresh, notification delivery, model/provider authority, and memory
+          writes remain blocked until exact contracts exist.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm label="Source readiness" value={briefing.source_readiness} />
+          <DetailTerm label="Summary route" value={briefing.route_ref} />
+          <DetailTerm
+            label="Refresh authority"
+            value={briefing.refresh_enabled ? "scoped" : "blocked"}
+          />
+          <DetailTerm
+            label="Notification authority"
+            value={briefing.notification_delivery_enabled ? "scoped" : "blocked"}
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="Read-only route refs: missing"
+          refs={briefing.read_only_route_refs ?? []}
+        />
+        <RefListWithFallback
+          emptyLabel="Missing source contracts: none"
+          refs={briefing.missing_contract_refs ?? []}
+        />
+        <InlineListWithFallback
+          emptyLabel="Blocked briefing source states: none"
+          items={briefing.blocked_states ?? []}
+        />
+      </article>
       <BriefingDailyLoopPanel briefing={briefing} />
       <div className="review-grid">
         {briefing.items.map((item) => (
@@ -2825,61 +2977,71 @@ function committedSafeRef(value: string | null | undefined): string | null {
 function ActionItemCard({
   actionReadModelAuthoritative,
   item,
+  onReconciledItem,
 }: {
   actionReadModelAuthoritative: boolean;
   item: FounderLoopActionItem;
+  onReconciledItem?: (item: FounderLoopActionItem) => void;
 }) {
-  const riskClass = item.risk_class ?? "unspecified";
+  const displayedItem = item;
+  const reconcileActionItem = onReconciledItem ?? (() => undefined);
+  const riskClass = displayedItem.risk_class ?? "unspecified";
   const authorityBoundary =
-    item.authority_boundary ?? "review-only; exact backend contract required";
-  const approvalEnvelopeValue = item.approval_envelope_ref
-    ? item.approval_envelope_ref
+    displayedItem.authority_boundary ?? "review-only; exact backend contract required";
+  const approvalEnvelopeValue = displayedItem.approval_envelope_ref
+    ? displayedItem.approval_envelope_ref
     : "missing until scoped contract";
-  const stateChangeContractValue = item.state_change_contract_ref
-    ? item.state_change_contract_ref
+  const stateChangeContractValue = displayedItem.state_change_contract_ref
+    ? displayedItem.state_change_contract_ref
     : "missing until scoped contract";
-  const idempotencyValue = item.idempotency_key_ref
-    ? item.idempotency_key_ref
+  const idempotencyValue = displayedItem.idempotency_key_ref
+    ? displayedItem.idempotency_key_ref
     : "missing until scoped contract";
-  const expiryValue = item.expires_at ?? "review required before mutation";
-  const rollbackValue = item.rollback_ref ?? "missing until scoped contract";
-  const safeDisableValue = item.safe_disable_ref ?? "missing until scoped contract";
+  const expiryValue = displayedItem.expires_at ?? "review required before mutation";
+  const rollbackValue = displayedItem.rollback_ref ?? "missing until scoped contract";
+  const safeDisableValue = displayedItem.safe_disable_ref ?? "missing until scoped contract";
   const envelopeStatus =
-    item.approval_envelope_status ?? "missing_until_scoped_contract";
+    displayedItem.approval_envelope_status ?? "missing_until_scoped_contract";
   const stateChangeReadiness =
-    item.state_change_readiness ?? "blocked_missing_backend_contract";
-  const staleState = item.stale_state ?? "recheck_required_before_mutation";
+    displayedItem.state_change_readiness ?? "blocked_missing_backend_contract";
+  const staleState = displayedItem.stale_state ?? "recheck_required_before_mutation";
   const nextSafeAction =
-    item.next_safe_action ??
+    displayedItem.next_safe_action ??
     "Review the safe summary and keep mutation blocked until a scoped backend contract exists.";
-  const actionEnvelopeRef = item.action_envelope_ref ?? "missing until scoped contract";
-  const actionScopeRef = item.action_scope_ref ?? "scope ref missing";
+  const actionEnvelopeRef =
+    displayedItem.action_envelope_ref ?? "missing until scoped contract";
+  const actionScopeRef = displayedItem.action_scope_ref ?? "scope ref missing";
   const actionApprovalRequirement =
-    item.action_approval_requirement_ref ?? "approval requirement ref missing";
-  const actionGroupId = item.action_group_id ?? "proposal_only_no_execution_path";
-  const actionGroupLabel = item.action_group_label ?? "Proposal-only / no execution path";
+    displayedItem.action_approval_requirement_ref ??
+    "approval requirement ref missing";
+  const actionGroupId =
+    displayedItem.action_group_id ?? "proposal_only_no_execution_path";
+  const actionGroupLabel =
+    displayedItem.action_group_label ?? "Proposal-only / no execution path";
   const actionGroupReason =
-    item.action_group_reason ??
+    displayedItem.action_group_reason ??
     "No backend-classified execution path is available for this item.";
   const availableAction =
-    item.action_group_available_action ?? "Review proposal refs only.";
-  const backendReadModelAvailable = hasAuthoritativeActionReadModel(item);
+    displayedItem.action_group_available_action ?? "Review proposal refs only.";
+  const backendReadModelAvailable = hasAuthoritativeActionReadModel(displayedItem);
   const committedLocalTaskRef = committedSafeRef(
-    item.receipt_visibility.local_task_ref,
+    displayedItem.receipt_visibility.local_task_ref,
   );
   const localTaskRefLabel = committedLocalTaskRef
     ? "Local task ref"
     : "Local task target ref";
   const localTaskRefValue =
     committedLocalTaskRef ??
-    (item.local_task_ref ? `target only: ${item.local_task_ref}` : "pending");
+    (displayedItem.local_task_ref
+      ? `target only: ${displayedItem.local_task_ref}`
+      : "pending");
   const localTaskReceiptValue =
-    item.receipt_visibility.local_task_commit_receipt_ref ??
-    item.local_task_commit_receipt_ref ??
+    displayedItem.receipt_visibility.local_task_commit_receipt_ref ??
+    displayedItem.local_task_commit_receipt_ref ??
     "missing";
   const localTaskEligibilityValue =
     backendReadModelAvailable && actionReadModelAuthoritative
-      ? item.local_task_commit_eligible
+      ? displayedItem.local_task_commit_eligible
         ? "eligible"
         : "blocked"
       : "backend_read_model_unavailable";
@@ -2887,26 +3049,26 @@ function ActionItemCard({
   return (
     <article className="review-card">
       <div className="review-card-heading">
-        <h3>{item.title}</h3>
+        <h3>{displayedItem.title}</h3>
         <span>{actionGroupLabel}</span>
       </div>
-      <p>{item.safe_summary}</p>
+      <p>{displayedItem.safe_summary}</p>
       <p className="muted">
         {actionGroupReason} Available operator action: {availableAction}
       </p>
-      <ApprovalEnvelopeCard envelope={item.approval_envelope} />
-      <ReceiptVisibilityCard visibility={item.receipt_visibility} />
+      <ApprovalEnvelopeCard envelope={displayedItem.approval_envelope} />
+      <ReceiptVisibilityCard visibility={displayedItem.receipt_visibility} />
       <dl className="detail-list">
-        <DetailTerm label="Item ref" value={item.item_ref} />
+        <DetailTerm label="Item ref" value={displayedItem.item_ref} />
         <DetailTerm label="Queue lane" value={actionGroupId} />
-        <DetailTerm label="Status" value={item.status} />
-        <DetailTerm label="Priority" value={item.priority} />
+        <DetailTerm label="Status" value={displayedItem.status} />
+        <DetailTerm label="Priority" value={displayedItem.priority} />
         <DetailTerm label="Risk" value={riskClass} />
-        <DetailTerm label="Side effect" value={item.side_effect_class} />
+        <DetailTerm label="Side effect" value={displayedItem.side_effect_class} />
         <DetailTerm label="Authority boundary" value={authorityBoundary} />
         <DetailTerm
           label="Approval before mutation"
-          value={item.approval_required ? "required" : "not required"}
+          value={displayedItem.approval_required ? "required" : "not required"}
         />
         <DetailTerm label="Approval envelope" value={approvalEnvelopeValue} />
         <DetailTerm label="Envelope status" value={envelopeStatus} />
@@ -2919,12 +3081,12 @@ function ActionItemCard({
         <DetailTerm label="Safe disable" value={safeDisableValue} />
         <DetailTerm
           label="Action envelope contract"
-          value={item.action_envelope_contract_ref ?? "missing"}
+          value={displayedItem.action_envelope_contract_ref ?? "missing"}
         />
         <DetailTerm label="Action envelope" value={actionEnvelopeRef} />
         <DetailTerm
           label="Action envelope status"
-          value={item.action_envelope_status ?? "missing"}
+          value={displayedItem.action_envelope_status ?? "missing"}
         />
         <DetailTerm label="Exact scope" value={actionScopeRef} />
         <DetailTerm
@@ -2933,26 +3095,37 @@ function ActionItemCard({
         />
         <DetailTerm
           label="Envelope execution"
-          value={item.action_envelope_execution_enabled ? "enabled" : "blocked"}
+          value={
+            displayedItem.action_envelope_execution_enabled ? "enabled" : "blocked"
+          }
         />
         <DetailTerm
           label="Grant capture"
           value={
-            item.action_envelope_grant_capture_enabled ? "enabled" : "disabled"
+            displayedItem.action_envelope_grant_capture_enabled
+              ? "enabled"
+              : "disabled"
           }
         />
         <DetailTerm
           label="Decision contract"
-          value={item.state_change_contract_ref ?? "missing until recorded"}
+          value={displayedItem.state_change_contract_ref ?? "missing until recorded"}
         />
-        <DetailTerm label="Action kind" value={item.action_kind ?? "review_only"} />
+        <DetailTerm
+          label="Action kind"
+          value={displayedItem.action_kind ?? "review_only"}
+        />
         <DetailTerm
           label="Local task contract"
-          value={item.local_task_commit_contract_ref ?? "not a local task lane"}
+          value={
+            displayedItem.local_task_commit_contract_ref ?? "not a local task lane"
+          }
         />
         <DetailTerm
           label="Local task route"
-          value={item.local_task_commit_route_ref ?? "not a local task lane"}
+          value={
+            displayedItem.local_task_commit_route_ref ?? "not a local task lane"
+          }
         />
         <DetailTerm
           label="Local task eligibility"
@@ -2960,11 +3133,11 @@ function ActionItemCard({
         />
         <DetailTerm
           label="Local task approval"
-          value={item.local_task_commit_approval_status ?? "missing"}
+          value={displayedItem.local_task_commit_approval_status ?? "missing"}
         />
         <DetailTerm
           label="Local task approval ref"
-          value={item.local_task_commit_approval_ref ?? "missing"}
+          value={displayedItem.local_task_commit_approval_ref ?? "missing"}
         />
         <DetailTerm
           label={localTaskRefLabel}
@@ -2979,7 +3152,7 @@ function ActionItemCard({
       {actionGroupId === "ready_for_decision" &&
       backendReadModelAvailable &&
       actionReadModelAuthoritative ? (
-        <ActionDecisionControls item={item} />
+        <ActionDecisionControls item={displayedItem} />
       ) : null}
       {actionGroupId === "ready_for_decision" &&
       (!backendReadModelAvailable || !actionReadModelAuthoritative) ? (
@@ -2991,39 +3164,42 @@ function ActionItemCard({
       {actionGroupId === "approved_local_task_lane" ? (
         <LocalTaskCommitControls
           actionReadModelAuthoritative={actionReadModelAuthoritative}
-          item={item}
+          item={displayedItem}
+          onReconciledItem={reconcileActionItem}
         />
       ) : null}
-      {item.blocked_state ? <p className="muted">{item.blocked_state}</p> : null}
+      {displayedItem.blocked_state ? (
+        <p className="muted">{displayedItem.blocked_state}</p>
+      ) : null}
       <InlineListWithFallback
         emptyLabel="Review actions: missing"
-        items={item.action_review_actions ?? []}
+        items={displayedItem.action_review_actions ?? []}
       />
       <RefListWithFallback
         emptyLabel="Action expected receipt refs: missing until scoped contract"
-        refs={item.action_expected_receipt_refs ?? []}
+        refs={displayedItem.action_expected_receipt_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Action envelope blockers: missing"
-        refs={item.action_blocked_state_refs ?? []}
+        refs={displayedItem.action_blocked_state_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Local task commit blockers: not a local task lane"
-        refs={item.local_task_commit_blocked_reasons ?? []}
+        refs={displayedItem.local_task_commit_blocked_reasons ?? []}
       />
       <RefListWithFallback
         emptyLabel="Local task external authority blockers: missing"
-        refs={item.local_task_commit_external_authority_blocked_refs ?? []}
+        refs={displayedItem.local_task_commit_external_authority_blocked_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Receipt refs: missing until scoped contract"
-        refs={item.receipt_refs ?? []}
+        refs={displayedItem.receipt_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Audit refs: missing until scoped contract"
-        refs={item.audit_refs ?? []}
+        refs={displayedItem.audit_refs ?? []}
       />
-      <RefList refs={item.evidence_refs ?? []} />
+      <RefList refs={displayedItem.evidence_refs ?? []} />
     </article>
   );
 }
@@ -3252,15 +3428,24 @@ function ActionDecisionControls({ item }: { item: FounderLoopActionItem }) {
 function LocalTaskCommitControls({
   actionReadModelAuthoritative,
   item,
+  onReconciledItem,
 }: {
   actionReadModelAuthoritative: boolean;
   item: FounderLoopActionItem;
+  onReconciledItem: (item: FounderLoopActionItem) => void;
 }) {
   const [state, setState] = useState<{
     status: "idle" | "pending" | "recorded" | "failed";
+    refreshStatus:
+      | "idle"
+      | "refreshing"
+      | "reconciled"
+      | "refresh_failed"
+      | "refresh_pending_backend_read_model";
     receipt?: FounderLoopLocalTaskCommitReceipt;
     message?: string;
-  }>({ status: "idle" });
+    refreshMessage?: string;
+  }>({ status: "idle", refreshStatus: "idle" });
   const approvalRef = item.local_task_commit_approval_ref;
   if (!canShowLocalTaskCommitControl(item, actionReadModelAuthoritative)) {
     return null;
@@ -3268,8 +3453,72 @@ function LocalTaskCommitControls({
   const commitApprovalRef = approvalRef as string;
   const pending = state.status === "pending";
 
+  async function refreshCommittedActionItem(
+    receipt: FounderLoopLocalTaskCommitReceipt,
+  ) {
+    setState({
+      status: "recorded",
+      refreshStatus: "refreshing",
+      receipt,
+      message: `${receipt.status}: ${receipt.safe_summary}`,
+      refreshMessage: "Refreshing Action Inbox read model from the backend.",
+    });
+    try {
+      const refreshedInbox = await fetchFounderActionsInbox();
+      const refreshedItem = refreshedInbox.items.find(
+        (candidate) => candidate.item_ref === item.item_ref,
+      );
+      if (!refreshedItem || !hasAuthoritativeActionReadModel(refreshedItem)) {
+        setState({
+          status: "recorded",
+          refreshStatus: "refresh_pending_backend_read_model",
+          receipt,
+          message: `${receipt.status}: ${receipt.safe_summary}`,
+          refreshMessage:
+            "Backend read-model refresh is pending; the POST receipt is shown, but the card has not moved until backend-owned Action Inbox data confirms it.",
+        });
+        return;
+      }
+      const receiptConfirmed =
+        refreshedItem.receipt_visibility.local_task_commit_receipt_ref ===
+          receipt.receipt_ref ||
+        refreshedItem.local_task_commit_receipt_ref === receipt.receipt_ref;
+      if (!receiptConfirmed) {
+        setState({
+          status: "recorded",
+          refreshStatus: "refresh_pending_backend_read_model",
+          receipt,
+          message: `${receipt.status}: ${receipt.safe_summary}`,
+          refreshMessage:
+            "Backend read-model refresh did not yet include the commit receipt; receipt visibility remains pending until the backend read model catches up.",
+        });
+        return;
+      }
+      onReconciledItem(refreshedItem);
+      setState({
+        status: "recorded",
+        refreshStatus: "reconciled",
+        receipt,
+        message: `${receipt.status}: ${receipt.safe_summary}`,
+        refreshMessage:
+          "Backend read model refreshed; receipt visibility now comes from the Action Inbox API.",
+      });
+    } catch (error) {
+      setState({
+        status: "recorded",
+        refreshStatus: "refresh_failed",
+        receipt,
+        message: `${receipt.status}: ${receipt.safe_summary}`,
+        refreshMessage:
+          error instanceof Error
+            ? `Backend read-model refresh failed safely: ${error.message}`
+            : "Backend read-model refresh failed safely.",
+      });
+    }
+  }
+
   async function recordLocalTaskCommit() {
-    setState({ status: "pending" });
+    setState({ status: "pending", refreshStatus: "idle" });
     try {
       const receipt = await commitLocalTask(item.item_ref, {
         approval_ref: commitApprovalRef,
@@ -3280,14 +3529,11 @@ function LocalTaskCommitControls({
           item.item_ref,
         ],
       });
-      setState({
-        status: "recorded",
-        receipt,
-        message: `${receipt.status}: ${receipt.safe_summary}`,
-      });
+      await refreshCommittedActionItem(receipt);
     } catch (error) {
       setState({
         status: "failed",
+        refreshStatus: "idle",
         message:
           error instanceof Error
             ? error.message
@@ -3298,21 +3544,26 @@ function LocalTaskCommitControls({
 
   return (
     <div className="decision-controls" aria-label={`${item.title} local task`}>
-      <div className="decision-button-row">
-        <button
-          className="secondary-button"
-          disabled={pending}
-          onClick={() => void recordLocalTaskCommit()}
-          type="button"
-        >
-          {pending ? "Committing" : "Commit local task"}
-        </button>
-      </div>
+      {!state.receipt ? (
+        <div className="decision-button-row">
+          <button
+            className="secondary-button"
+            disabled={pending}
+            onClick={() => void recordLocalTaskCommit()}
+            type="button"
+          >
+            {pending ? "Committing" : "Commit local task"}
+          </button>
+        </div>
+      ) : null}
       <p className="muted">
         Local-only task commit. Connector writes, shell, model authority,
         memory writes, context injection, and production authority remain blocked.
       </p>
       {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.refreshMessage ? (
+        <p className="muted">{state.refreshMessage}</p>
+      ) : null}
       {state.receipt ? (
         <dl className="detail-list">
           <DetailTerm label="Local task" value={state.receipt.local_task_ref} />

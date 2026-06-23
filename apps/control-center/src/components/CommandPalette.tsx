@@ -56,8 +56,9 @@ export function CommandPalette({ activePath }: CommandPaletteProps) {
         onClick={() => setOpen(true)}
         type="button"
       >
-        Find
-        <span>Cmd K</span>
+        <span className="palette-search-icon" aria-hidden="true" />
+        <strong>Ask, inspect, or find a safe ref</strong>
+        <span className="palette-shortcut">Cmd K</span>
       </button>
       {open ? (
         <div className="palette-backdrop" role="presentation">

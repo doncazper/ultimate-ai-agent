@@ -386,6 +386,13 @@ export async function commitLocalTask(
   return receipt;
 }
 
+export async function fetchFounderActionsInbox(): Promise<FounderLoopActionsInbox> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  return readEnvelope<FounderLoopActionsInbox>(API_ENDPOINTS.founderActionsInbox);
+}
+
 export async function submitTodayActionEnvelope(
   request: FounderLoopActionEnvelopePromotionRequest,
 ): Promise<FounderLoopActionEnvelopePromotionReceipt> {

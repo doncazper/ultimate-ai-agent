@@ -27,7 +27,7 @@ export function App() {
   }
 
   return (
-    <AppShell activePath={activePath}>
+    <AppShell activePath={activePath} connection={state.data.connection}>
       <ConnectionStatus connection={state.data.connection} />
       {renderRoute(activePath, state.data)}
     </AppShell>

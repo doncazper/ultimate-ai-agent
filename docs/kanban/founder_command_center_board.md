@@ -255,6 +255,10 @@ change operational maturity rank or add authority. Mock/degraded `/actions`
 fallback data is explicitly non-authoritative: it may render unavailable
 envelope/receipt cards for shape, but it cannot claim Python-core read-model
 ownership, backend eligibility, or local task commit readiness.
+The active `/actions` surface now also keeps lane filters/drilldowns as
+presentation-only state and reconciles from `GET /control-center/actions/inbox`
+after a local task commit before moving the item into the receipt-recorded
+lane.
 
 **Done Gate:** A user can compare action proposals, memory candidates, drafts,
 CRM updates, recommendations, and patch proposals through one review language,
@@ -279,6 +283,11 @@ where existing contracts allow them.
 **Done Gate:** Every briefing item has source/evidence/memory refs or an
 explicit missing-source/blocked posture, and the normal morning scan does not
 require the terminal.
+
+**Current Slice:** `/briefing` includes a read-only source readiness metadata
+card over existing backend fields: route refs, missing email/calendar/
+notification contracts, refresh/notification blockers, and blocked source
+states. No connector runtime or source refresh authority is added.
 
 **Authority Boundary:** Do not fake live email, calendar, or task access. No
 send/write/delete authority, account auth, background polling, raw source

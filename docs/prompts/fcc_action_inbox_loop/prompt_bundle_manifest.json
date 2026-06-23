@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "fcc-action-inbox-loop-001",
+  "version": "1.0.0",
+  "purpose": "Stored prompts for the Action Inbox local_task_create readability, receipt refresh, review ergonomics, and read-only Morning Briefing source readiness loop.",
+  "developer_prompt_refs": [
+    "docs/prompts/fcc_action_inbox_loop/00_execute_all_review_verify_harden.prompt.md",
+    "docs/prompts/fcc_action_inbox_loop/01_local_task_create_graduation_gate_review.prompt.md",
+    "docs/prompts/fcc_action_inbox_loop/02_local_task_receipt_refresh_reconciliation.prompt.md",
+    "docs/prompts/fcc_action_inbox_loop/03_action_inbox_review_ergonomics.prompt.md",
+    "docs/prompts/fcc_action_inbox_loop/04_morning_briefing_source_readiness.prompt.md",
+    "docs/prompts/fcc_action_inbox_loop/05_recommended_next_local_task_create_gate.prompt.md"
+  ],
+  "bundle_hash": "sha256:6330dbeadb3157cbe2e2f48d4fb4cdb93a08f13061331afb883fe6fa97e6d45a",
+  "stable_within_run": true,
+  "created_at": "2026-06-23"
+}

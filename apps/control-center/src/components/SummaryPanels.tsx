@@ -71,7 +71,7 @@ export function MobilePlanningPanel({ summary }: { summary: MobilePlanningSummar
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Future companion</p>
-          <h2 id="mobile-planning-heading">Mobile planning</h2>
+          <h2 id="mobile-planning-heading">Mobile Planning</h2>
         </div>
         <span>{summary.status}</span>
       </div>
@@ -87,7 +87,7 @@ export function PluginGovernancePanel({ summary }: { summary: PluginGovernanceSu
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Tool boundary</p>
-          <h2 id="plugin-governance-heading">Plugin governance</h2>
+          <h2 id="plugin-governance-heading">Plugin Governance</h2>
         </div>
         <span>{summary.status}</span>
       </div>

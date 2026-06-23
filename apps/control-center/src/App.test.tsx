@@ -937,6 +937,90 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("filters Action Inbox lanes as presentation-only drilldowns over backend groups", async () => {
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        throw new Error("unexpected mutation request");
+      }
+      return new Response(JSON.stringify(envelopeForReadEndpoint(String(url))), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    const actionView = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      const filterRegion = screen.getByLabelText("Action Inbox lane filters");
+      expect(
+        within(filterRegion).getByRole("button", {
+          name: /Filter lane: All lanes/i,
+        }),
+      ).toHaveAttribute("aria-pressed", "true");
+      expect(
+        screen.getByLabelText("Selected Action Inbox lane drilldown"),
+      ).toHaveTextContent("all_lanes");
+      const laneStack = screen.getByLabelText("Action Inbox queue lanes");
+      expect(
+        within(laneStack).getByRole("heading", {
+          name: /^Approved local task lane$/i,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        within(laneStack).getByRole("heading", {
+          name: /^Ready for decision$/i,
+        }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        within(filterRegion).getByRole("button", {
+          name: /Filter lane: Approved local task lane/i,
+        }),
+      );
+
+      const drilldown = screen.getByLabelText("Selected Action Inbox lane drilldown");
+      expect(drilldown).toHaveTextContent("approved_local_task_lane");
+      expect(drilldown).toHaveTextContent("Inspect approval posture or commit the local task lane.");
+      expect(
+        within(laneStack).getByRole("heading", {
+          name: /^Approved local task lane$/i,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        within(laneStack).queryByRole("heading", {
+          name: /^Ready for decision$/i,
+        }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getAllByRole("heading", { name: /^Approval Envelope Card$/i })
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByRole("heading", { name: /^Receipt Visibility$/i }).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
+
+      fireEvent.click(
+        within(filterRegion).getByRole("button", {
+          name: /Filter lane: All lanes/i,
+        }),
+      );
+      expect(
+        within(laneStack).getByRole("heading", {
+          name: /^Ready for decision$/i,
+        }),
+      ).toBeInTheDocument();
+    } finally {
+      actionView.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
   it("commits only the eligible Action Inbox local task lane through the typed route", async () => {
     const receipt = {
       contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
@@ -974,11 +1058,76 @@ describe("Web Control Center shell", () => {
       ],
       created_at: "2026-06-22T00:00:00Z",
     };
+    const committedInbox = JSON.parse(
+      JSON.stringify({
+        ...mockControlCenterData.founderActionsInbox,
+        ...mockApiData.founderActionsInbox,
+        items: mockApiData.founderActionsInbox.items,
+      }),
+    );
+    const committedItem = committedInbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    Object.assign(committedItem, {
+      status: "receipt_recorded",
+      action_group_id: "receipt_recorded",
+      action_group_label: "Receipt recorded",
+      action_group_reason:
+        "Backend local task commit receipt is recorded and the item is no longer awaiting commit.",
+      action_group_available_action: "Inspect receipt and evidence refs.",
+      local_task_commit_eligible: false,
+      local_task_ref: receipt.local_task_ref,
+      local_task_commit_receipt_ref: receipt.receipt_ref,
+      receipt_refs: [
+        ...committedItem.receipt_refs,
+        receipt.receipt_ref,
+      ],
+      audit_refs: [
+        ...committedItem.audit_refs,
+        receipt.audit_ref,
+      ],
+      evidence_refs: [
+        ...committedItem.evidence_refs,
+        receipt.evidence_timeline_event_ref,
+      ],
+      receipt_visibility: {
+        ...committedItem.receipt_visibility,
+        local_task_ref: receipt.local_task_ref,
+        local_task_commit_receipt_ref: receipt.receipt_ref,
+        evidence_timeline_event_ref: receipt.evidence_timeline_event_ref,
+        replay_posture: "idempotency_replay_available",
+        conflict_posture: "conflicting_idempotency_payload_rejected",
+        missing_field_states: ["none"],
+      },
+      updated_at: "2026-06-22T00:01:00Z",
+    });
     const endpoint = actionLocalTaskCommitEndpoint(
       "founder-action:mock-local-task-create",
     );
+    let commitRecorded = false;
+    const actionInboxReadUrls: string[] = [];
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        actionInboxReadUrls.push(urlText);
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: commitRecorded
+              ? committedInbox
+              : {
+                  ...mockControlCenterData.founderActionsInbox,
+                  ...mockApiData.founderActionsInbox,
+                  items: mockApiData.founderActionsInbox.items,
+                },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
       if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
@@ -986,6 +1135,7 @@ describe("Web Control Center shell", () => {
         });
       }
       if (options?.method === "POST" && urlText.endsWith(endpoint)) {
+        commitRecorded = true;
         return new Response(JSON.stringify({ ok: true, result: receipt }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -1015,11 +1165,27 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
 
-    await screen.findByText(receipt.receipt_ref);
+    expect((await screen.findAllByText(receipt.receipt_ref)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(receipt.local_task_ref).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(receipt.evidence_timeline_event_ref).length,
     ).toBeGreaterThan(0);
+    expect(screen.getAllByText("receipt_recorded").length).toBeGreaterThan(0);
+    expect(screen.getByText("idempotency_replay_available")).toBeInTheDocument();
+    expect(
+      screen.getByText("conflicting_idempotency_payload_rejected"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(actionInboxReadUrls.length).toBeGreaterThanOrEqual(2);
+    const receiptLane = screen
+      .getByRole("heading", { name: /^Receipt recorded$/i })
+      .closest("section");
+    expect(receiptLane).not.toBeNull();
+    expect(
+      within(receiptLane as HTMLElement).getByText(
+        "Operational maturity scorecard task",
+      ),
+    ).toBeInTheDocument();
     const [, options] =
       fetchMock.mock.calls.find(
         ([url, request]) =>
@@ -1049,6 +1215,110 @@ describe("Web Control Center shell", () => {
     expect(requestBody).not.toHaveProperty("approval_requirement");
     expect(requestBody).not.toHaveProperty("exact_scope");
     expect(JSON.stringify(requestBody).toLowerCase()).not.toContain("raw");
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps local task commit receipt local and explicit when backend read-model refresh fails", async () => {
+    const receipt = {
+      contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
+      action_id: "mock-local-task-create",
+      item_ref: "founder-action:mock-local-task-create",
+      action_kind: "local_task_create",
+      local_task_ref: "local-task:founder-action:mock-local-task-create",
+      receipt_ref: "receipt:founder-loop-local-task:refresh-failed",
+      audit_ref: "audit:founder-loop-local-task:refresh-failed",
+      evidence_timeline_event_ref:
+        "evidence-timeline-event:local-task:refresh-failed",
+      idempotency_key_ref: "idempotency-ref:control-center-local-task:test",
+      payload_fingerprint_ref: "payload-fingerprint-ref:local-task:test",
+      approval_ref: "approval-ref:control-center-local-task:test",
+      approval_status: "approved",
+      status: "local_task_created",
+      safe_summary: "Local task state was appended with safe refs only.",
+      local_task_created: true,
+      connector_write_performed: false,
+      shell_subprocess_execution_performed: false,
+      model_provider_authority_used: false,
+      memory_write_performed: false,
+      context_injection_performed: false,
+      external_side_effect_performed: false,
+      raw_content_stored: false,
+      replayed: false,
+      evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
+      blocked_state_refs: ["blocked-state:no-production-authority"],
+      created_at: "2026-06-22T00:00:00Z",
+    };
+    const endpoint = actionLocalTaskCommitEndpoint(
+      "founder-action:mock-local-task-create",
+    );
+    let commitRecorded = false;
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        if (commitRecorded) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: { message: "Action Inbox read model unavailable" },
+            }),
+            {
+              status: 503,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              ...mockControlCenterData.founderActionsInbox,
+              ...mockApiData.founderActionsInbox,
+              items: mockApiData.founderActionsInbox.items,
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (options?.method === "POST" && urlText.endsWith(endpoint)) {
+        commitRecorded = true;
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: /^Actions$/i });
+    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+
+    await screen.findByText(receipt.receipt_ref);
+    expect(
+      await screen.findByText(/Backend read-model refresh failed safely/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Backend read model refreshed; receipt visibility now comes from the Action Inbox API.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: /^execute$/i }),
     ).not.toBeInTheDocument();
@@ -1098,11 +1368,20 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Source posture/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Missing contracts/i })).toBeInTheDocument();
     expect(
+      screen.getByRole("heading", {
+        name: /Read-only source readiness metadata/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("no connector runtime")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Email, calendar, connector runtime, background refresh/i),
+    ).toBeInTheDocument();
+    expect(
       screen.getAllByText("/control-center/morning-briefing/summary").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getByText("blocked_missing_email_calendar_notification_contracts"),
-    ).toBeInTheDocument();
+      screen.getAllByText("blocked_missing_email_calendar_notification_contracts").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("status-ref:control-center-route-manifest")).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:email-read-only-missing").length).toBeGreaterThan(0);
     expect(screen.getAllByText("contract-ref:calendar-read-only-missing").length).toBeGreaterThan(0);
