@@ -1,6 +1,6 @@
 # Governed Cognitive Memory Spine V1
 
-Status: active architecture contract, Phase 1 hardened through FCC-V1-005.
+Status: active architecture contract, Phase 2 L1 hot local memory index implemented.
 Baseline: v0.103.0 / 0.103.0.
 
 The Governed Cognitive Memory Spine is UAA's local-first, review-gated memory
@@ -48,6 +48,24 @@ rejected candidate, and do not create recall records.
 `MemoryReviewDecisionReceipt` includes `reviewed_recall_record_ref` for
 accept/correct only. Correction stores corrected-summary ref posture only, not
 raw corrected content.
+
+## Current Phase 2
+
+Phase 2 L1 hot local memory index status is implemented read-only derived
+preview over reviewed recall-only `LocalMemoryStore` records:
+
+- `GET /control-center/memory/l1-index`
+
+The L1 route indexes only records produced by reviewed accept/correct Memory
+Review decisions. It returns safe summaries, source refs, evidence refs,
+receipt refs, event refs, metadata refs, tag refs, match reasons, and
+supporting ref groups so recall previews explain why they appeared.
+
+The L1 index status is `implemented_read_only_derived_preview`. It does not
+store raw content, run background indexing, call providers/models, use
+embeddings, use a vector DB, perform semantic search, write memories
+automatically, inject context, sync connectors/CRM/accounts, execute actions,
+or grant public beta or production authority.
 
 ## Authority Boundary
 

@@ -130,6 +130,12 @@ from ultimate_ai_agent.core.memory.enums import (
     MemoryRecordKind,
 )
 from ultimate_ai_agent.core.memory.local_store import LocalMemoryStore
+from ultimate_ai_agent.core.memory.l1_index import (
+    L1_HOT_MEMORY_INDEX_BLOCKED_STATE_REFS,
+    L1_HOT_MEMORY_INDEX_CONTRACT_REF,
+    L1_HOT_MEMORY_INDEX_ROUTE_REF,
+    build_l1_hot_memory_index,
+)
 from ultimate_ai_agent.core.memory.provider import MemoryProviderWriteRequest
 from ultimate_ai_agent.core.memory.review_decisions import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
@@ -5434,6 +5440,12 @@ class FounderLoopRepository:
             "decision_receipt_refs": [
                 str(receipt["receipt_ref"]) for receipt in decisions
             ],
+            "l1_hot_memory_index_contract_ref": L1_HOT_MEMORY_INDEX_CONTRACT_REF,
+            "l1_hot_memory_index_route_ref": L1_HOT_MEMORY_INDEX_ROUTE_REF,
+            "l1_hot_memory_index_status": "implemented_read_only_derived_preview",
+            "l1_hot_memory_index_blocked_state_refs": list(
+                L1_HOT_MEMORY_INDEX_BLOCKED_STATE_REFS
+            ),
             "decision_count": len(decisions),
             "idempotency_replay_enabled": True,
             "idempotency_conflict_rejected": True,
@@ -5705,6 +5717,21 @@ class FounderLoopRepository:
             return [record.model_dump(mode="json") for record in store.list_records()]
         finally:
             store.close()
+
+    def memory_l1_hot_index(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        index = build_l1_hot_memory_index(
+            self.list_memory_review_recall_records(),
+            query_ref=query_ref,
+            limit=limit,
+        )
+        return index.model_dump(mode="json")
 
     def _write_memory_review_recall_record(
         self,

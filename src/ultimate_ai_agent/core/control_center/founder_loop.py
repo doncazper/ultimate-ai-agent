@@ -33,6 +33,14 @@ class FounderLoopControlCenterService:
     def memory_review(self) -> dict:
         return self.repository.memory_review()
 
+    def memory_l1_hot_index(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_l1_hot_index(query_ref=query_ref, limit=limit)
+
     def promote_today_item_to_action_envelope(
         self,
         *,

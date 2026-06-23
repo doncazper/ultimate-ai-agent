@@ -270,6 +270,11 @@ Tasks:
 - Preserve authority boundaries.
 - Accept/correct create reviewed recall-only `LocalMemoryStore` records, not
   truth authority or automatic prompt/context injection.
+- Governed Cognitive Memory Spine Phase 2 derives a read-only L1 hot local
+  memory index from these reviewed recall-only records at
+  `GET /control-center/memory/l1-index`; it does not add hidden context
+  injection, automatic recall, embeddings/vector search, semantic search,
+  background indexing, or authority.
 - Correct stores a safe corrected summary ref posture, not raw content.
 - Reject blocks promotion and records evidence.
 - No context injection, connector write, CRM sync, or automatic action

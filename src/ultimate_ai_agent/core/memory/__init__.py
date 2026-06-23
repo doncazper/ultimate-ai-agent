@@ -84,6 +84,15 @@ from ultimate_ai_agent.core.memory.loop_binding import (
     memory_to_loop_weekly_review_refs,
 )
 from ultimate_ai_agent.core.memory.local_store import LocalMemoryStore
+from ultimate_ai_agent.core.memory.l1_index import (
+    L1_HOT_MEMORY_INDEX_BLOCKED_STATE_REFS,
+    L1_HOT_MEMORY_INDEX_CONTRACT_REF,
+    L1_HOT_MEMORY_INDEX_ROUTE_REF,
+    L1_HOT_MEMORY_INDEX_STATUS,
+    L1HotMemoryIndex,
+    L1HotMemoryPreview,
+    build_l1_hot_memory_index,
+)
 from ultimate_ai_agent.core.memory.manifests import (
     MemoryProviderManifest,
     MemoryProviderProfile,
@@ -242,6 +251,12 @@ __all__ = [
     "MemoryWriteDisposition",
     "MemoryWriteRequest",
     "LegacyMemoryWriteRequest",
+    "L1_HOT_MEMORY_INDEX_BLOCKED_STATE_REFS",
+    "L1_HOT_MEMORY_INDEX_CONTRACT_REF",
+    "L1_HOT_MEMORY_INDEX_ROUTE_REF",
+    "L1_HOT_MEMORY_INDEX_STATUS",
+    "L1HotMemoryIndex",
+    "L1HotMemoryPreview",
     "LocalMemoryStore",
     "FCC_RELATIONSHIP_MEMORY_REASON_CODES",
     "FCC_RELATIONSHIP_MEMORY_SCHEMA_DOCS",
@@ -251,6 +266,7 @@ __all__ = [
     "build_business_memory_quality_envelope",
     "build_cross_surface_memory_intake_proposal",
     "build_fcc_relationship_memory_candidate",
+    "build_l1_hot_memory_index",
     "build_default_memory_provider_manifest",
     "build_memory_derived_action_proposal",
     "build_memory_review_decision_envelope",

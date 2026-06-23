@@ -46,7 +46,7 @@
       "const": "docs/api/openapi_contract.md"
     },
     "route_inventory_ref": {
-      "const": "tests/fixtures/api_route_inventory_127.json"
+      "const": "tests/fixtures/api_route_inventory_128.json"
     },
     "release_surface_manifest_ref": {
       "const": "docs/control_center/release_surface_manifest.json"
@@ -179,7 +179,7 @@
           "docs/schemas/founder_loop_api_perimeter.schema.json",
           "src/ultimate_ai_agent/api/manifest.py",
           "src/ultimate_ai_agent/api/contracts.py",
-          "tests/fixtures/api_route_inventory_127.json"
+          "tests/fixtures/api_route_inventory_128.json"
         ]
       },
       "minItems": 6,
