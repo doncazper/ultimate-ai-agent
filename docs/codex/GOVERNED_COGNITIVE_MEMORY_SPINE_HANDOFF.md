@@ -163,9 +163,14 @@ proof:
 
 ## Next Safe Prompt
 
-Phase 6 remains future blocked. The next safe phase requires a separately
-accepted milestone for narrow low-risk execution hooks with exact approval,
-receipt, rollback, and Evidence Timeline proof.
+Phase 6 remains future blocked. `MemoryExecutionHookContract`,
+`MemoryExecutionHookProposal`, and `MemoryExecutionHookBlockedState` now define
+the contract/proof lane only. They do not add a route, driver, execution
+handler, shell/browser behavior, connector write, provider/model call,
+context injection, account/CRM sync, public beta, or production authority. The
+next safe execution phase requires a separately accepted milestone with exact
+approval, idempotency, receipt, rollback or safe-disable posture, and Evidence
+Timeline proof.
 
 Prompt shape:
 
@@ -175,10 +180,10 @@ docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md,
 docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md, and the current
 memory provider/store files.
 
-Implement Phase 6 only after a future accepted scope. Keep Phase 5
-context-pack proposals read-only and proposal-only. Do not add hidden context
-injection, automatic prompt construction, account sync, CRM writes, truth
-authority, automatic writes, provider/model calls, connector writes, action
-execution, public beta, or production authority without the exact accepted
-milestone.
+Implement Phase 6 execution only after a future accepted scope. Keep the
+current Phase 6 contract/proof lane blocked. Keep Phase 5 context-pack
+proposals read-only and proposal-only. Do not add hidden context injection,
+automatic prompt construction, account sync, CRM writes, truth authority,
+automatic writes, provider/model calls, connector writes, action execution,
+public beta, or production authority without the exact accepted milestone.
 ```

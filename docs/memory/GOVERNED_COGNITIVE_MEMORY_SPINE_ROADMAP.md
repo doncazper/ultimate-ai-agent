@@ -17,7 +17,7 @@ evidence-visible.
 | Phase 3 | L2 factual, graph, and temporal indexing | Implemented read-only derived preview | Deterministic ref projection only; no truth authority |
 | Phase 4 | L3 identity, session, preference, and commitment modeling | Implemented read-only representation proposals | Representation proposals only; no account sync, CRM writes, or context injection |
 | Phase 5 | Context-pack proposals | Implemented read-only proposal envelopes | Proposal-only envelopes; exact user review required before any future use |
-| Phase 6 | Narrow low-risk execution hooks | Future blocked | Requires separate accepted milestone, exact approval, receipt, rollback, and Evidence Timeline proof |
+| Phase 6 | Narrow low-risk execution hooks | Future blocked; contract/proof lane only | Requires separate accepted milestone, exact approval, receipt, rollback, and Evidence Timeline proof |
 
 ## Phase 1 Done Criteria
 
@@ -170,6 +170,20 @@ Phase 5 does not add:
 
 ## Future Phases
 
-Phase 6 remains future blocked. Any narrow low-risk execution hook requires a
-separate accepted milestone with exact approval, receipt, rollback, and
-Evidence Timeline proof.
+Phase 6 remains future blocked. `MemoryExecutionHookContract`,
+`MemoryExecutionHookProposal`, and `MemoryExecutionHookBlockedState` define the
+contract/proof lane only. Any narrow low-risk execution hook still requires a
+separate accepted milestone with exact approval, idempotency, receipt, rollback
+or safe-disable posture, and Evidence Timeline proof.
+
+Phase 6 currently adds no:
+
+- memory-derived execution route
+- context-pack action execution
+- connector write
+- CRM or account sync
+- shell/subprocess or browser automation
+- provider/model call
+- hidden or automatic context injection
+- background agent or automatic scheduling
+- public beta or production authority

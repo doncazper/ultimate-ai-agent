@@ -76,6 +76,11 @@ FORBIDDEN_CLAIMS = [
     "context packs inject prompts",
     "context packs write prompt context",
     "context pack execution is enabled",
+    "phase 6 is shipped",
+    "phase 6 is available",
+    "memory-derived execution is enabled",
+    "memory execution hooks are available",
+    "context packs execute actions",
     "l3 memory is truth authority",
     "l3 context injection is enabled",
     "l3 crm sync is enabled",
@@ -87,6 +92,8 @@ FORBIDDEN_CLAIMS = [
     "background indexing is enabled",
     "automatic recall is enabled",
 ]
+PHASE6_RUNTIME_GLOBS = ("src/ultimate_ai_agent/api/**/*.py", "src/ultimate_ai_agent/core/memory/**/*.py")
+PHASE6_FORBIDDEN_RUNTIME_SNIPPETS = ("/control-center/memory/execute", "/control-center/memory/execution", "execute_memory_hook(", "execute_from_memory(", "execute_from_context_pack(", "computer_use(action=", "subprocess.run(", "subprocess.Popen(", "playwright.")
 L1_DENIED_FLAGS = ("context_injection_authorized", "automatic_recall_authorized", "automatic_memory_write_authorized", "embedding_index_enabled", "vector_db_enabled", "semantic_search_enabled", "background_indexing_enabled", "source_truth_authority", "connector_write_authorized", "automatic_action_execution_authorized", "production_authority_enabled")
 L2_DENIED_FLAGS = ("truth_authority_enabled", "context_injection_authorized", "automatic_recall_authorized", "automatic_memory_write_authorized", "embedding_index_enabled", "vector_db_enabled", "semantic_search_enabled", "llm_entity_extraction_enabled", "background_indexing_enabled", "context_pack_injection_authorized", "connector_write_authorized", "external_crm_sync_authorized", "account_sync_authorized", "automatic_action_execution_authorized", "production_authority_enabled")
 L3_DENIED_FLAGS = ("truth_authority_enabled", "crm_truth_authority_enabled", "context_injection_authorized", "automatic_recall_authorized", "automatic_memory_write_authorized", "embedding_index_enabled", "vector_db_enabled", "semantic_search_enabled", "llm_extraction_enabled", "background_indexing_enabled", "context_pack_injection_authorized", "phase5_context_pack_proposals_enabled", "phase6_execution_hooks_enabled", "connector_write_authorized", "external_crm_sync_authorized", "account_sync_authorized", "automatic_action_execution_authorized", "production_authority_enabled")
@@ -123,6 +130,7 @@ def verify(
             [SPINE_DOC, ROADMAP_DOC, HANDOFF_DOC, FCC_DOC],
             FORBIDDEN_CLAIMS,
         )
+        _append_phase6_static_authority_failures(failures, root)
     return failures
 
 
@@ -143,10 +151,12 @@ def _append_required_file_failures(failures: list[str], root: Path) -> None:
         "tests/test_governed_memory_l2_factual_graph_temporal_index.py",
         "tests/test_governed_memory_l3_identity_session_preference_commitment.py",
         "tests/test_governed_memory_context_pack_proposals.py",
+        "tests/test_governed_memory_phase6_execution_hooks.py",
         "src/ultimate_ai_agent/core/memory/l1_index.py",
         "src/ultimate_ai_agent/core/memory/l2_index.py",
         "src/ultimate_ai_agent/core/memory/l3_index.py",
         "src/ultimate_ai_agent/core/memory/context_packs.py",
+        "src/ultimate_ai_agent/core/memory/execution_hooks.py",
     ]:
         if not (root / rel_path).exists():
             failures.append(f"missing governed memory spine file: {rel_path}")
@@ -171,6 +181,8 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "Current Phase 5",
                 "implemented as a read-only",
                 "proposal-only",
+                "MemoryExecutionHookContract",
+                "contract-only",
                 "not hidden context injection",
                 "implemented read-only representation proposals",
                 "Memory is recall, not authority",
@@ -192,6 +204,8 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "GET /control-center/memory/l3-index",
                 "GET /control-center/memory/context-packs",
                 "Phase 6 remains future blocked",
+                "MemoryExecutionHookContract",
+                "contract/proof lane only",
                 "provider/model calls",
             ],
             HANDOFF_DOC: [
@@ -203,6 +217,7 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "GET /control-center/memory/l3-index",
                 "GET /control-center/memory/context-packs",
                 "Phase 6 remains future blocked",
+                "MemoryExecutionHookContract",
             ],
             DOC_INDEX: [SPINE_DOC, ROADMAP_DOC, HANDOFF_DOC],
             MEMORY_WRITE_POLICY_DOC: [
@@ -221,6 +236,16 @@ def _append_doc_failures(failures: list[str]) -> None:
             ],
         },
     )
+
+
+def _append_phase6_static_authority_failures(failures: list[str], root: Path) -> None:
+    for pattern in PHASE6_RUNTIME_GLOBS:
+        for path in root.glob(pattern):
+            text = path.read_text(encoding="utf-8")
+            for snippet in PHASE6_FORBIDDEN_RUNTIME_SNIPPETS:
+                if snippet in text:
+                    rel = path.relative_to(root).as_posix()
+                    failures.append(f"{rel} contains forbidden Phase 6 runtime fragment {snippet!r}")
 
 
 def _append_route_metadata_failures(

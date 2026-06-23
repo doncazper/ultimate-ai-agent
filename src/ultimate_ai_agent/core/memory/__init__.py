@@ -122,6 +122,15 @@ from ultimate_ai_agent.core.memory.context_packs import (
     ContextPackProposalIndex,
     build_context_pack_proposal_index,
 )
+from ultimate_ai_agent.core.memory.execution_hooks import (
+    MEMORY_EXECUTION_HOOK_BLOCKED_STATE_REFS,
+    MEMORY_EXECUTION_HOOK_CONTRACT_REF,
+    MEMORY_EXECUTION_HOOK_REQUIRED_FLOW_REFS,
+    MEMORY_EXECUTION_HOOK_STATUS,
+    MemoryExecutionHookBlockedState,
+    MemoryExecutionHookContract,
+    MemoryExecutionHookProposal,
+)
 from ultimate_ai_agent.core.memory.manifests import (
     MemoryProviderManifest,
     MemoryProviderProfile,

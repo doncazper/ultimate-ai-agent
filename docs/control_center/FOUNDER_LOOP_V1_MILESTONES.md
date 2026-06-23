@@ -22,6 +22,13 @@ expansion still requires a separate scoped milestone. Future follow-up slices
 must not skip release-surface truth, API perimeter, receipt, evidence, and
 CLI/core/API inspection requirements.
 
+Governed Cognitive Memory Spine Phase 6 remains future blocked. The current
+`MemoryExecutionHookContract` proof lane records future requirements only:
+context-pack proposal refs, Action Envelope refs, exact approval scope,
+idempotency, durable receipts, rollback or safe-disable posture, Evidence
+Timeline events, and blocked authority refs. It adds no route or execution
+authority.
+
 This milestone list is planning and task-shaping only. It does not add backend
 routes, Control Center controls, runtime model calls, connector runtime,
 connector writes, shell/subprocess behavior, browser automation, automatic
