@@ -52,6 +52,17 @@ class FounderLoopControlCenterService:
             limit=limit,
         )
 
+    def memory_l3_identity_session_preference_index(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_l3_identity_session_preference_index(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
     def promote_today_item_to_action_envelope(
         self,
         *,

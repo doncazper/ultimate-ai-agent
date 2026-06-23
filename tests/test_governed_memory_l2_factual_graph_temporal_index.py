@@ -12,7 +12,6 @@ from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     L2_FACTUAL_GRAPH_TEMPORAL_INDEX_CONTRACT_REF,
     L2_FACTUAL_GRAPH_TEMPORAL_INDEX_ROUTE_REF,
-    L2FactualGraphTemporalIndex,
     L2MemoryFactItem,
     MemoryReviewDecisionRequest,
     build_l1_hot_memory_index,

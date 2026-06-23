@@ -150,7 +150,7 @@ latest UAA-versus-peer comparison. Each item still needs its own scoped prompt.
 | 6 | Frontend render timing runner | catch_up | Removes the current safe skipped Control Center render-timing row from latency evidence | Performance harness update and Foundation Gate latency report |
 | 7 | CI lane workflow expansion (`UAA-P1-053`) | catch_up | Makes named release lanes visible in CI while preserving local verifier strictness | Safe CI lane reports |
 | 8 | Security automation and artifact redaction lane (`UAA-P1-055`) | catch_up | Peer products often show more CI security automation; UAA should add it without public audit claims | Security scan and artifact redaction checks |
-| 9 | Route grouping and side-effect consolidation (`UAA-P1-021`, `UAA-P1-052`) | preserve + surpass | Keeps 129-path API truth understandable as surfaces grow | OpenAPI contract and route manifest checks |
+| 9 | Route grouping and side-effect consolidation (`UAA-P1-021`, `UAA-P1-052`) | preserve + surpass | Keeps 130-path API truth understandable as surfaces grow | OpenAPI contract and route manifest checks |
 | 10 | PolicyEngine consolidation map (`UAA-P1-020`) | preserve | Finds parallel authority paths before product work expands | Authority map doc and focused tests |
 | 11 | Product truth regression checks (`UAA-P1-057`) | preserve + surpass | Keeps blocked, skipped, planned, and not-scoped work honest in docs/UI/reports | Documentation integrity plus product language checks |
 | 12 | Packaging proof expansion, signed/public distribution lane shaping only (`UAA-P2-047`) | catch_up | Mature peers have installer workflows; UAA should shape proof after local loop usability | Future scoped packaging milestone |

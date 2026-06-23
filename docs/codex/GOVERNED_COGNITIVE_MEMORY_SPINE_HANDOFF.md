@@ -14,6 +14,7 @@ Primary runtime/storage files:
 - `src/ultimate_ai_agent/core/memory/review_decisions.py`
 - `src/ultimate_ai_agent/core/memory/l1_index.py`
 - `src/ultimate_ai_agent/core/memory/l2_index.py`
+- `src/ultimate_ai_agent/core/memory/l3_index.py`
 - `src/ultimate_ai_agent/core/memory/local_store.py`
 - `src/ultimate_ai_agent/core/memory/provider.py`
 - `src/ultimate_ai_agent/core/storage/founder_loop.py`
@@ -31,6 +32,7 @@ Primary docs/proof files:
 - `tests/test_fcc_v1_005_memory_review_decisions.py`
 - `tests/test_governed_memory_l1_hot_index.py`
 - `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
+- `tests/test_governed_memory_l3_identity_session_preference_commitment.py`
 
 There is no `src/ultimate_ai_agent/core/storage.py` file. Founder Loop storage
 lives under `src/ultimate_ai_agent/core/storage/founder_loop.py`.
@@ -99,6 +101,24 @@ automatic memory writes, context-pack injection, provider/model calls,
 connector writes, CRM/account sync, action execution, public beta, or
 production authority.
 
+## Phase 4 Scope
+
+Implemented/hardened route:
+
+- `GET /control-center/memory/l3-index`
+
+The L3 identity/session/preference/commitment index is a backend-backed,
+read-only representation proposal layer over Phase 3 L2 safe-ref inspection
+items. It returns proposal items with supporting memory record refs, L1 preview
+refs, L2 item refs, source refs, evidence refs, receipt refs, derivation reason
+refs, stale/conflict posture, blocked states, and `review_required=true`.
+
+Phase 4 does not add truth authority, CRM truth authority, hidden context
+injection, embeddings, vector DB, semantic search, LLM/entity extraction,
+semantic extraction, background indexing, automatic memory writes, context-pack
+injection, provider/model calls, connector writes, CRM/account sync, action
+execution, public beta, or production authority.
+
 ## Blocked Capabilities
 
 Keep these blocked unless a later accepted milestone grants the exact authority
@@ -114,6 +134,7 @@ proof:
 - CRM or account sync
 - provider/model calls
 - embeddings, vector DB, semantic search, or LLM/entity extraction
+- context-pack injection
 - browser automation
 - shell/subprocess behavior
 - delete/export execution
@@ -121,8 +142,8 @@ proof:
 
 ## Next Safe Prompt
 
-After Phase 3 is merged and stable, the next safe phase is Phase 4 L3 Identity /
-Session / Preference / Commitment Modeling.
+After Phase 4 is merged and stable, the next safe phase is Phase 5 Context-Pack
+Proposals.
 
 Prompt shape:
 
@@ -132,9 +153,10 @@ docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md,
 docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md, and the current
 memory provider/store files.
 
-Implement Phase 4 L3 Identity / Session / Preference / Commitment Modeling
-only. Build proposal-only identity/session/preference/commitment contracts from
-reviewed L2 inspection refs. Do not add account sync, CRM writes, truth
-authority, hidden context injection, automatic writes, provider/model calls,
-connector writes, action execution, public beta, or production authority.
+Implement Phase 5 Context-Pack Proposals only. Build reviewable,
+proposal-only context-pack envelopes from reviewed L3 representation proposal
+refs. Do not add hidden context injection, automatic prompt construction,
+account sync, CRM writes, truth authority, automatic writes, provider/model
+calls, connector writes, action execution, public beta, or production
+authority.
 ```

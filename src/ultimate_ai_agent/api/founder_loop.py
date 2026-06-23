@@ -140,6 +140,43 @@ def get_control_center_memory_l2_index(
     )
 
 
+@router.get("/memory/l3-index", response_model=ResultEnvelope)
+def get_control_center_memory_l3_index(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_l3_identity_session_preference_index(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_L3_INDEX_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory L3 index query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_l3_index",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-l3-index",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-l3-index"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_truth_authority",
+            "no_context_injection",
+            "no_crm_or_account_sync",
+            "proposal_only",
+        ],
+    )
+
+
 @router.get("/memory/review/{candidate_ref}/receipt", response_model=ResultEnvelope)
 def get_control_center_memory_review_receipt(candidate_ref: str) -> ResultEnvelope:
     data = get_founder_loop_service().memory_review_receipt(

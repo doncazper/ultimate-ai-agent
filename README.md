@@ -58,12 +58,12 @@ Current product truth is narrower than the vision:
 |---|---|
 | Active baseline | **v0.103.0** / `0.103.0` |
 | Active program | **Operator Runtime Excellence** |
-| Current lane | **Founder Loop V1 proof lane complete; Governed Cognitive Memory Spine Phases 1-3 implemented as reviewed/read-only lanes; UAA-P1-087.2 Private UI Testing Deferred** |
+| Current lane | **Founder Loop V1 proof lane complete; Governed Cognitive Memory Spine Phases 1-4 implemented as reviewed/read-only lanes; UAA-P1-087.2 Private UI Testing Deferred** |
 | Product wedge | **Founder Command Center / macOS-of-agents strategy spine** |
 | Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 complete for the bounded proofed route-surface lane** |
 | Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
-| API boundary | FastAPI route contract with **129** OpenAPI paths |
+| API boundary | FastAPI route contract with **130** OpenAPI paths |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 
@@ -119,7 +119,7 @@ with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing; low-confidence or conflicting
 intent asks the user rather than acting. UAA-P1-080 API Route Classification
 And Public/Protected Inventory is complete with typed route classifications in
-`/api/manifest`, a frozen 129-route inventory fixture, route-status manifest
+`/api/manifest`, a frozen 130-route inventory fixture, route-status manifest
 alignment, Control Center API Routes visibility, and focused verifier/tests.
 UAA-P1-081 Centralized FastAPI Security Headers is complete with centralized
 response headers, HTTPS-only HSTS behavior, no CORS/auth/rate-limit authority,
@@ -198,10 +198,14 @@ memory index at `GET /control-center/memory/l1-index` for reviewed recall-only
 records with safe summaries, match reasons, and source/evidence/receipt refs
 only. Governed Cognitive Memory Spine Phase 3 implements a read-only L2
 factual/graph/temporal index at `GET /control-center/memory/l2-index` as
-deterministic safe-ref projection from L1 previews only. The L1/L2 lanes add no
-truth authority, semantic extraction, embeddings/vector DB, provider/model
-calls, automatic memory writes, hidden context injection, connector/CRM/account
-sync, action execution, public beta, or production authority.
+deterministic safe-ref projection from L1 previews only. Governed Cognitive
+Memory Spine Phase 4 implements a read-only L3 identity/session/preference/
+commitment representation proposal index at
+`GET /control-center/memory/l3-index` from reviewed L2 refs only. The L1/L2/L3
+lanes add no truth authority, semantic extraction, embeddings/vector DB,
+provider/model calls, automatic memory writes, hidden context injection,
+context-pack injection, connector/CRM/account sync, action execution, public
+beta, or production authority.
 The completed bounded Founder Loop V1 productization conveyor is recorded in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md` as `FCC-V1-000` through
 `FCC-V1-007`: completed Control Center release surface manifest, API perimeter
@@ -300,8 +304,8 @@ of product state. The Python Agent Core remains the authority boundary.
 |---|---|---|
 | Product truth | Evidence-backed release claims and gap matrix | [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md) |
 | Catch-up loop | Human-reconciled loop for ChatGPT/Codex recommendations and peer-gap closure | [operator excellence loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
-| API contract | **129** OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
-| Governed memory | Reviewed recall records plus read-only L1/L2 derived previews | [memory spine contract](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md), [memory spine roadmap](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md) |
+| API contract | **130** OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
+| Governed memory | Reviewed recall records plus read-only L1/L2/L3 derived previews and representation proposals | [memory spine contract](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md), [memory spine roadmap](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md) |
 | Governed web evidence | UAA-P1-063 status/request contract, allowlisted HTTPS GET envelope, bounded redacted preview, chatbot disclosure | [governed web evidence](docs/network/GOVERNED_WEB_EVIDENCE_V1.md), [M72 fetch tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md) |
 | Security posture | Reporting, severity, triage, redaction invariants | [SECURITY.md](SECURITY.md), [triage runbook](docs/security/SECURITY_TRIAGE_RUNBOOK.md) |
 | Operator shell | Gap map, route status manifest, and product language rules for visible surfaces | [gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [route status manifest](docs/control_center/ROUTE_STATUS_MANIFEST.md), [language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md) |
