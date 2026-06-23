@@ -29,6 +29,13 @@ idempotency, durable receipts, rollback or safe-disable posture, Evidence
 Timeline events, and blocked authority refs. It adds no route or execution
 authority.
 
+Governed Cognitive Memory Spine Phase 6.1 is accepted as the first narrow
+implementation slice. It may create a backend-owned internal Action
+proposal/envelope receipt from a reviewed context-pack proposal after exact
+approval scope and idempotency are validated. It does not execute actions,
+write connectors, sync CRM/accounts, call providers/models, run shell/browser
+behavior, inject context, or grant public beta/production authority.
+
 This milestone list is planning and task-shaping only. It does not add backend
 routes, Control Center controls, runtime model calls, connector runtime,
 connector writes, shell/subprocess behavior, browser automation, automatic

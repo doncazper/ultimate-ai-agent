@@ -1,6 +1,6 @@
 # Governed Cognitive Memory Spine V1
 
-Status: active architecture contract, Phase 6 blocked contract/proof lane added.
+Status: active architecture contract, Phase 6.1 internal Action proposal hook accepted.
 Baseline: v0.103.0 / 0.103.0.
 
 The Governed Cognitive Memory Spine is UAA's local-first, review-gated memory
@@ -147,6 +147,20 @@ memory-derived execution can be considered:
 There is no Phase 6 runtime route, execution driver, connector write, shell or
 browser execution, provider/model call, automatic context injection, CRM/account
 sync, background agent, scheduler, public beta, or production authority.
+
+## Accepted Phase 6.1 Scope
+
+Governed Cognitive Memory Spine Phase 6.1 is accepted for the first narrow
+implementation slice: a reviewed context-pack proposal may create a
+backend-owned internal Action proposal/envelope receipt. This scope is internal
+Action proposal creation only. It does not execute the action.
+
+Phase 6.1 must require exact approval scope, idempotency, append-first durable
+receipts, rollback or safe-disable posture, and Evidence Timeline proof before
+the internal proposal is recorded. The broad Phase 6 execution-hook contract
+remains blocked for external side effects, connector writes, CRM/account sync,
+shell/browser behavior, provider/model calls, hidden context injection, and
+production authority.
 
 ## Authority Boundary
 

@@ -18,6 +18,7 @@ evidence-visible.
 | Phase 4 | L3 identity, session, preference, and commitment modeling | Implemented read-only representation proposals | Representation proposals only; no account sync, CRM writes, or context injection |
 | Phase 5 | Context-pack proposals | Implemented read-only proposal envelopes | Proposal-only envelopes; exact user review required before any future use |
 | Phase 6 | Narrow low-risk execution hooks | Future blocked; contract/proof lane only | Requires separate accepted milestone, exact approval, receipt, rollback, and Evidence Timeline proof |
+| Phase 6.1 | Context-pack to internal Action proposal hook | Accepted for implementation | Internal Action proposal creation only; no action execution or external side effects |
 
 ## Phase 1 Done Criteria
 
@@ -175,6 +176,13 @@ Phase 6 remains future blocked. `MemoryExecutionHookContract`,
 contract/proof lane only. Any narrow low-risk execution hook still requires a
 separate accepted milestone with exact approval, idempotency, receipt, rollback
 or safe-disable posture, and Evidence Timeline proof.
+
+Phase 6.1 is the accepted first implementation slice. It may create an
+internal Action proposal/envelope receipt from a reviewed context-pack proposal
+after exact approval scope and idempotency are validated. Phase 6.1 does not
+execute actions, write connectors, sync CRM/accounts, call providers/models,
+run shell/browser behavior, inject prompt context, or grant production
+authority.
 
 Phase 6 currently adds no:
 
