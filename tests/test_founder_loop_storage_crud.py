@@ -122,6 +122,28 @@ def test_founder_loop_repository_crud_and_idempotency_denial(tmp_path: Path) -> 
     assert inbox["items"][0]["idempotency_key_ref"] is None
     assert inbox["items"][0]["rollback_ref"] is None
     assert inbox["items"][0]["safe_disable_ref"] is None
+    approval_envelope = inbox["items"][0]["approval_envelope"]
+    assert approval_envelope["backend_owned"] is True
+    assert approval_envelope["action_kind"] == "review_only"
+    assert approval_envelope["exact_scope"] == "missing"
+    assert approval_envelope["approval_requirement"] == "missing"
+    assert approval_envelope["idempotency_ref"] == "missing"
+    assert approval_envelope["expected_receipt_refs"] == ["missing"]
+    assert "evidence-ref:founder-loop:test-review" in approval_envelope["evidence_refs"]
+    assert "exact_scope:missing" in approval_envelope["missing_field_states"]
+    assert "approval_requirement:missing" in approval_envelope["missing_field_states"]
+    assert "idempotency_ref:missing" in approval_envelope["missing_field_states"]
+    receipt_visibility = inbox["items"][0]["receipt_visibility"]
+    assert receipt_visibility["backend_owned"] is True
+    assert receipt_visibility["decision_receipt_ref"] == "pending"
+    assert receipt_visibility["local_task_ref"] == "not_applicable"
+    assert receipt_visibility["local_task_commit_receipt_ref"] == "not_applicable"
+    assert receipt_visibility["evidence_timeline_event_ref"] == "pending"
+    assert receipt_visibility["replay_posture"] == "pending"
+    assert receipt_visibility["conflict_posture"] == "pending"
+    assert "decision_receipt_ref:pending" in receipt_visibility[
+        "missing_field_states"
+    ]
     assert repo.storage_status()["counts"]["idempotency_keys"] == 1
 
     with pytest.raises(FounderLoopStorageDuplicateError):

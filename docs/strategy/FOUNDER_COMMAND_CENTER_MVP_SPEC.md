@@ -193,8 +193,15 @@ safe-disable, redaction, CLI/API/core parity, and focused tests.
    Evidence, and Settings easier to scan without adding route authority.
 17. Action Inbox / approval envelope UX: expose backend-classified queue lanes,
    exact scope, risk, side-effect class, approval requirement, expiry,
-   idempotency, evidence, and rollback posture before or alongside any
-   backend-owned decision receipt affordance.
+   idempotency, evidence, rollback posture, decision receipts, local task refs,
+   commit receipts, Evidence Timeline refs, replay posture, and conflict
+   posture before or alongside any backend-owned decision receipt affordance.
+   FCC-INBOX-001 implements this as consistent backend-owned Approval Envelope
+   and Receipt Visibility cards/read models for `/actions` readability only; it
+   does not add runtime authority or claim an operational maturity promotion.
+   Mock/degraded `/actions` fallback data must remain non-authoritative: it may
+   show the UI shape, but it cannot claim backend-owned envelope/receipt truth
+   or expose local task commit controls.
 18. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
 19. Read-only email/calendar integration contracts: metadata-only calendar/email

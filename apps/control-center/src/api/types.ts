@@ -78,6 +78,43 @@ export interface ApiSummary {
   execution_routes_present: boolean;
 }
 
+export interface FounderLoopActionApprovalEnvelope {
+  schema_version: "founder_loop_action_approval_envelope.v1";
+  contract_ref: string;
+  source:
+    | "python_core_action_inbox_read_model"
+    | "mock_fallback_non_authoritative";
+  backend_owned: boolean;
+  action_kind: string;
+  exact_scope: string;
+  risk_class: string;
+  side_effect_class: string;
+  approval_requirement: string;
+  expiry_or_staleness: string;
+  idempotency_ref: string;
+  expected_receipt_refs: string[];
+  rollback_safe_disable_posture: string;
+  blocked_authority_refs: string[];
+  evidence_refs: string[];
+  missing_field_states: string[];
+}
+
+export interface FounderLoopActionReceiptVisibility {
+  schema_version: "founder_loop_action_receipt_visibility.v1";
+  contract_ref: string;
+  source:
+    | "python_core_action_inbox_read_model"
+    | "mock_fallback_non_authoritative";
+  backend_owned: boolean;
+  decision_receipt_ref: string;
+  local_task_ref: string;
+  local_task_commit_receipt_ref: string;
+  evidence_timeline_event_ref: string;
+  replay_posture: string;
+  conflict_posture: string;
+  missing_field_states: string[];
+}
+
 export interface FounderLoopActionItem {
   item_ref: string;
   title: string;
@@ -143,6 +180,8 @@ export interface FounderLoopActionItem {
   action_group_label?: string;
   action_group_reason?: string;
   action_group_available_action?: string;
+  approval_envelope: FounderLoopActionApprovalEnvelope;
+  receipt_visibility: FounderLoopActionReceiptVisibility;
   created_at?: string;
   updated_at?: string;
 }

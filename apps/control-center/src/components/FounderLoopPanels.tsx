@@ -91,6 +91,18 @@ const actionGroupFallbacks: FounderLoopActionGroupSummary[] = [
   },
 ];
 
+const pythonCoreActionReadModelSource = "python_core_action_inbox_read_model";
+const unavailableReceiptStates = [
+  "pending",
+  "missing",
+  "not_applicable",
+  "unavailable",
+  "unknown",
+  "planned",
+  "backend_read_model_unavailable",
+  "mock_only_backend_read_model_unavailable",
+];
+
 type FounderLoopPrimarySurface =
   | "Today"
   | "Inbox"
@@ -368,7 +380,13 @@ function isPresent(value: string | null | undefined): value is string {
   return Boolean(value);
 }
 
-export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary }) {
+export function TodaySurfacePanel({
+  actionReadModelAuthoritative,
+  today,
+}: {
+  actionReadModelAuthoritative: boolean;
+  today: FounderLoopTodaySummary;
+}) {
   return (
     <section className="page-section" aria-labelledby="today-surface-heading">
       <div className="section-heading">
@@ -759,7 +777,11 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
       <div className="founder-loop-grid">
         <LoopPanel title="Action inbox" route="/actions">
           {today.actions.map((item) => (
-            <ActionItemCard item={item} key={item.item_ref} />
+            <ActionItemCard
+              actionReadModelAuthoritative={actionReadModelAuthoritative}
+              item={item}
+              key={item.item_ref}
+            />
           ))}
         </LoopPanel>
         <LoopPanel title="Plans" route="/plans">
@@ -1189,8 +1211,10 @@ export function InboxSurfacePanel() {
 }
 
 export function ActionInboxSurfacePanel({
+  actionReadModelAuthoritative,
   inbox,
 }: {
+  actionReadModelAuthoritative: boolean;
   inbox: FounderLoopActionsInbox;
 }) {
   const actionGroups = buildActionLaneGroups(inbox);
@@ -1415,7 +1439,11 @@ export function ActionInboxSurfacePanel({
       </div>
       <div className="action-lane-stack" aria-label="Action Inbox queue lanes">
         {actionGroups.map((group) => (
-          <ActionLaneSection group={group} key={group.summary.group_id} />
+          <ActionLaneSection
+            actionReadModelAuthoritative={actionReadModelAuthoritative}
+            group={group}
+            key={group.summary.group_id}
+          />
         ))}
       </div>
       <BlockedStateList states={inbox.blocked_states ?? []} />
@@ -1458,7 +1486,13 @@ function buildActionLaneGroups(inbox: FounderLoopActionsInbox): ActionLaneGroup[
   });
 }
 
-function ActionLaneSection({ group }: { group: ActionLaneGroup }) {
+function ActionLaneSection({
+  actionReadModelAuthoritative,
+  group,
+}: {
+  actionReadModelAuthoritative: boolean;
+  group: ActionLaneGroup;
+}) {
   const headingId = `action-lane-${group.summary.group_id}`;
   return (
     <section
@@ -1477,7 +1511,11 @@ function ActionLaneSection({ group }: { group: ActionLaneGroup }) {
       {group.items.length ? (
         <div className="review-grid">
           {group.items.map((item) => (
-            <ActionItemCard item={item} key={item.item_ref} />
+            <ActionItemCard
+              actionReadModelAuthoritative={actionReadModelAuthoritative}
+              item={item}
+              key={item.item_ref}
+            />
           ))}
         </div>
       ) : (
@@ -2739,7 +2777,58 @@ function EvidenceTimelineCard({
   );
 }
 
-function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
+function isBackendOwnedEnvelope(
+  envelope: FounderLoopActionItem["approval_envelope"],
+): boolean {
+  return (
+    envelope.backend_owned === true &&
+    envelope.source === pythonCoreActionReadModelSource
+  );
+}
+
+function isBackendOwnedReceiptVisibility(
+  visibility: FounderLoopActionItem["receipt_visibility"],
+): boolean {
+  return (
+    visibility.backend_owned === true &&
+    visibility.source === pythonCoreActionReadModelSource
+  );
+}
+
+function hasAuthoritativeActionReadModel(item: FounderLoopActionItem): boolean {
+  return (
+    isBackendOwnedEnvelope(item.approval_envelope) &&
+    isBackendOwnedReceiptVisibility(item.receipt_visibility)
+  );
+}
+
+function canShowLocalTaskCommitControl(
+  item: FounderLoopActionItem,
+  actionReadModelAuthoritative: boolean,
+): boolean {
+  return (
+    actionReadModelAuthoritative &&
+    hasAuthoritativeActionReadModel(item) &&
+    item.local_task_commit_eligible === true &&
+    item.action_kind === "local_task_create" &&
+    Boolean(item.local_task_commit_approval_ref)
+  );
+}
+
+function committedSafeRef(value: string | null | undefined): string | null {
+  if (!value || unavailableReceiptStates.includes(value)) {
+    return null;
+  }
+  return value;
+}
+
+function ActionItemCard({
+  actionReadModelAuthoritative,
+  item,
+}: {
+  actionReadModelAuthoritative: boolean;
+  item: FounderLoopActionItem;
+}) {
   const riskClass = item.risk_class ?? "unspecified";
   const authorityBoundary =
     item.authority_boundary ?? "review-only; exact backend contract required";
@@ -2774,6 +2863,26 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
     "No backend-classified execution path is available for this item.";
   const availableAction =
     item.action_group_available_action ?? "Review proposal refs only.";
+  const backendReadModelAvailable = hasAuthoritativeActionReadModel(item);
+  const committedLocalTaskRef = committedSafeRef(
+    item.receipt_visibility.local_task_ref,
+  );
+  const localTaskRefLabel = committedLocalTaskRef
+    ? "Local task ref"
+    : "Local task target ref";
+  const localTaskRefValue =
+    committedLocalTaskRef ??
+    (item.local_task_ref ? `target only: ${item.local_task_ref}` : "pending");
+  const localTaskReceiptValue =
+    item.receipt_visibility.local_task_commit_receipt_ref ??
+    item.local_task_commit_receipt_ref ??
+    "missing";
+  const localTaskEligibilityValue =
+    backendReadModelAvailable && actionReadModelAuthoritative
+      ? item.local_task_commit_eligible
+        ? "eligible"
+        : "blocked"
+      : "backend_read_model_unavailable";
 
   return (
     <article className="review-card">
@@ -2785,6 +2894,8 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
       <p className="muted">
         {actionGroupReason} Available operator action: {availableAction}
       </p>
+      <ApprovalEnvelopeCard envelope={item.approval_envelope} />
+      <ReceiptVisibilityCard visibility={item.receipt_visibility} />
       <dl className="detail-list">
         <DetailTerm label="Item ref" value={item.item_ref} />
         <DetailTerm label="Queue lane" value={actionGroupId} />
@@ -2845,7 +2956,7 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
         />
         <DetailTerm
           label="Local task eligibility"
-          value={item.local_task_commit_eligible ? "eligible" : "blocked"}
+          value={localTaskEligibilityValue}
         />
         <DetailTerm
           label="Local task approval"
@@ -2856,20 +2967,32 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
           value={item.local_task_commit_approval_ref ?? "missing"}
         />
         <DetailTerm
-          label="Local task ref"
-          value={item.local_task_ref ?? "not committed"}
+          label={localTaskRefLabel}
+          value={localTaskRefValue}
         />
         <DetailTerm
           label="Local task receipt"
-          value={item.local_task_commit_receipt_ref ?? "missing"}
+          value={localTaskReceiptValue}
         />
         <DetailTerm label="Next safe action" value={nextSafeAction} />
       </dl>
-      {actionGroupId === "ready_for_decision" ? (
+      {actionGroupId === "ready_for_decision" &&
+      backendReadModelAvailable &&
+      actionReadModelAuthoritative ? (
         <ActionDecisionControls item={item} />
       ) : null}
+      {actionGroupId === "ready_for_decision" &&
+      (!backendReadModelAvailable || !actionReadModelAuthoritative) ? (
+        <p className="muted">
+          Decision controls unavailable until the local backend supplies an
+          authoritative Action Inbox read model.
+        </p>
+      ) : null}
       {actionGroupId === "approved_local_task_lane" ? (
-        <LocalTaskCommitControls item={item} />
+        <LocalTaskCommitControls
+          actionReadModelAuthoritative={actionReadModelAuthoritative}
+          item={item}
+        />
       ) : null}
       {item.blocked_state ? <p className="muted">{item.blocked_state}</p> : null}
       <InlineListWithFallback
@@ -2902,6 +3025,137 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
       />
       <RefList refs={item.evidence_refs ?? []} />
     </article>
+  );
+}
+
+function ApprovalEnvelopeCard({
+  envelope,
+}: {
+  envelope: FounderLoopActionItem["approval_envelope"];
+}) {
+  const backendOwned = isBackendOwnedEnvelope(envelope);
+  return (
+    <section
+      aria-label={backendOwned ? "Approval Envelope Card" : "Approval Envelope Unavailable"}
+      className={`approval-envelope-card${backendOwned ? "" : " unavailable"}`}
+    >
+      <div className="review-card-heading compact">
+        <h4>{backendOwned ? "Approval Envelope Card" : "Approval Envelope Unavailable"}</h4>
+        <span>{envelope.contract_ref}</span>
+      </div>
+      {backendOwned ? (
+        <p className="muted">
+          Backend-owned grammar from {envelope.source}; React renders this read
+          model but does not mint authority, grants, scope, risk, side effects,
+          or approval requirements.
+        </p>
+      ) : (
+        <p className="muted">
+          Mock-only fallback from {envelope.source}; backend read model is
+          unavailable, and React does not mint authority, grants, scope, risk,
+          side effects, or approval requirements.
+        </p>
+      )}
+      <dl className="detail-list">
+        <DetailTerm label="Action kind" value={envelope.action_kind} />
+        <DetailTerm label="Exact scope" value={envelope.exact_scope} />
+        <DetailTerm label="Risk class" value={envelope.risk_class} />
+        <DetailTerm label="Side-effect class" value={envelope.side_effect_class} />
+        <DetailTerm
+          label="Approval requirement"
+          value={envelope.approval_requirement}
+        />
+        <DetailTerm
+          label="Expiry/staleness"
+          value={envelope.expiry_or_staleness}
+        />
+        <DetailTerm label="Idempotency ref" value={envelope.idempotency_ref} />
+        <DetailTerm
+          label="Rollback/safe-disable"
+          value={envelope.rollback_safe_disable_posture}
+        />
+        <DetailTerm
+          label="Backend owned"
+          value={backendOwned ? "yes" : "unavailable"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Expected receipt refs: missing"
+        refs={envelope.expected_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked authority refs: not applicable"
+        refs={envelope.blocked_authority_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: missing"
+        refs={envelope.evidence_refs}
+      />
+      <InlineListWithFallback
+        emptyLabel="Missing field states: none"
+        items={envelope.missing_field_states}
+      />
+    </section>
+  );
+}
+
+function ReceiptVisibilityCard({
+  visibility,
+}: {
+  visibility: FounderLoopActionItem["receipt_visibility"];
+}) {
+  const backendOwned = isBackendOwnedReceiptVisibility(visibility);
+  return (
+    <section
+      aria-label={backendOwned ? "Receipt Visibility" : "Receipt Visibility Unavailable"}
+      className={`receipt-visibility-card${backendOwned ? "" : " unavailable"}`}
+    >
+      <div className="review-card-heading compact">
+        <h4>{backendOwned ? "Receipt Visibility" : "Receipt Visibility Unavailable"}</h4>
+        <span>{visibility.contract_ref}</span>
+      </div>
+      {backendOwned ? (
+        <p className="muted">
+          Backend-owned receipt visibility from {visibility.source}; React renders
+          safe refs and explicit states but does not create receipts, replay
+          state, conflicts, eligibility, or authority.
+        </p>
+      ) : (
+        <p className="muted">
+          Mock-only fallback from {visibility.source}; backend receipt visibility
+          is unavailable, and React does not create receipts, replay state,
+          conflicts, eligibility, or authority.
+        </p>
+      )}
+      <dl className="detail-list">
+        <DetailTerm
+          label="Decision receipt ref"
+          value={visibility.decision_receipt_ref}
+        />
+        <DetailTerm label="Local task ref" value={visibility.local_task_ref} />
+        <DetailTerm
+          label="Local task commit receipt ref"
+          value={visibility.local_task_commit_receipt_ref}
+        />
+        <DetailTerm
+          label="Evidence Timeline event ref"
+          value={visibility.evidence_timeline_event_ref}
+        />
+        <DetailTerm label="Replay posture" value={visibility.replay_posture} />
+        <DetailTerm
+          label="Conflict posture"
+          value={visibility.conflict_posture}
+        />
+        <DetailTerm
+          label="Backend owned"
+          value={backendOwned ? "yes" : "unavailable"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Receipt visibility missing states: none"
+        items={visibility.missing_field_states}
+      />
+    </section>
   );
 }
 
@@ -2995,21 +3249,23 @@ function ActionDecisionControls({ item }: { item: FounderLoopActionItem }) {
   );
 }
 
-function LocalTaskCommitControls({ item }: { item: FounderLoopActionItem }) {
+function LocalTaskCommitControls({
+  actionReadModelAuthoritative,
+  item,
+}: {
+  actionReadModelAuthoritative: boolean;
+  item: FounderLoopActionItem;
+}) {
   const [state, setState] = useState<{
     status: "idle" | "pending" | "recorded" | "failed";
     receipt?: FounderLoopLocalTaskCommitReceipt;
     message?: string;
   }>({ status: "idle" });
   const approvalRef = item.local_task_commit_approval_ref;
-  if (
-    !item.local_task_commit_eligible ||
-    item.action_kind !== "local_task_create" ||
-    !approvalRef
-  ) {
+  if (!canShowLocalTaskCommitControl(item, actionReadModelAuthoritative)) {
     return null;
   }
-  const commitApprovalRef = approvalRef;
+  const commitApprovalRef = approvalRef as string;
   const pending = state.status === "pending";
 
   async function recordLocalTaskCommit() {
@@ -3062,6 +3318,14 @@ function LocalTaskCommitControls({ item }: { item: FounderLoopActionItem }) {
           <DetailTerm label="Local task" value={state.receipt.local_task_ref} />
           <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
           <DetailTerm label="Audit" value={state.receipt.audit_ref} />
+          <DetailTerm
+            label="Evidence Timeline event"
+            value={state.receipt.evidence_timeline_event_ref}
+          />
+          <DetailTerm
+            label="Replay"
+            value={state.receipt.replayed ? "yes" : "no"}
+          />
           <DetailTerm
             label="Connector write"
             value={state.receipt.connector_write_performed ? "yes" : "no"}

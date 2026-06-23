@@ -12,6 +12,7 @@ from scripts.verify_operational_maturity import (
     MANIFEST_PATH,
     SCHEMA_PATH,
     _append_module_failures,
+    _append_mock_fallback_fixture_failures,
     _append_stale_language_scan_failures,
     verify,
 )
@@ -338,6 +339,43 @@ const SURFACE_CONFIGS = {
             for failure in failures
         )
         assert not any("missing path surface.tsx" in failure for failure in failures)
+
+
+def test_operational_maturity_verifier_rejects_authoritative_action_mock_fixture() -> None:
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        fixture = root / "apps/control-center/src/mocks/controlCenterData.ts"
+        fixture.parent.mkdir(parents=True)
+        fixture.write_text(
+            """
+export const mockControlCenterData = {
+  founderActionsInbox: {
+    items: [{
+      local_task_commit_eligible: true,
+      approval_envelope: {
+        source: "python_core_action_inbox_read_model" as const,
+        backend_owned: true,
+      },
+    }],
+  },
+};
+""",
+            encoding="utf-8",
+        )
+        failures: list[str] = []
+
+        _append_mock_fallback_fixture_failures(failures, root)
+
+        assert any(
+            "mock fallback must not claim python_core_action_inbox_read_model"
+            in failure
+            for failure in failures
+        )
+        assert any(
+            "mock fallback must not claim local_task_commit_eligible true"
+            in failure
+            for failure in failures
+        )
 
 
 def _manifest_copy() -> dict:

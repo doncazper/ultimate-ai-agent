@@ -147,7 +147,7 @@ describe("Web Control Center shell", () => {
       ).toBe(true);
     }
     expect(loopLinks.some((link) => link.textContent?.includes("blocked"))).toBe(true);
-    expect(loopLinks.some((link) => link.textContent?.includes("authority-gated"))).toBe(true);
+    expect(loopLinks.some((link) => link.textContent?.includes("receipt-backed"))).toBe(true);
     expect(
       screen.getAllByText(/Local task authority gated by backend approval/i)
         .length,
@@ -785,7 +785,7 @@ describe("Web Control Center shell", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("ready_for_decision").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("approved_local_task_lane").length).toBeGreaterThan(0);
+    expect(screen.queryByText("approved_local_task_lane")).not.toBeInTheDocument();
     expect(screen.getAllByText("blocked_by_authority").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("proposal_only_no_execution_path").length,
@@ -794,6 +794,58 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("approval-envelope:founder-loop:mock-setup-hardening")).toBeInTheDocument();
     expect(screen.getByText("dry_run_ref_available")).toBeInTheDocument();
     expect(
+      screen.getAllByRole("heading", { name: /^Approval Envelope Unavailable$/i })
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:founder-loop-action-approval-envelope:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/mock_fallback_non_authoritative/).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(/python_core_action_inbox_read_model/),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText("local_task_create").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("not_applicable").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("backend_read_model_unavailable").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("mock_only_backend_read_model_unavailable").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked-state:no-connector-write").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("evidence-ref:founder-loop:local-task-commit").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("heading", { name: /^Receipt Visibility Unavailable$/i })
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:founder-loop-action-receipt-visibility:v1")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "local_task_commit_receipt_ref:backend_read_model_unavailable",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("receipt:founder-loop-action:mock-local-task-create:approve"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "evidence-event:action-decision-recorded-evidence-timeline-action-founder-action-mock-local-task-create",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("decision_idempotency_replay_available"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("decision_conflicting_idempotency_payload_rejected"),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getAllByText("contract-ref:founder-loop:mock-setup-hardening").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("blocked_pending_scoped_mutation_contract")).toBeInTheDocument();
@@ -801,17 +853,29 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("receipt-plan:founder-loop:mock-setup-hardening").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("audit-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
-    expect(screen.getByText("idempotency-ref:founder-loop:mock-setup-hardening")).toBeInTheDocument();
-    expect(screen.getByText("rollback-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
-    expect(screen.getByText("safe-disable:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("idempotency-ref:founder-loop:mock-setup-hardening")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("rollback-plan:founder-loop:mock-setup-hardening")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("safe-disable:founder-loop:mock-setup-hardening")
+        .length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("contract-ref:founder-loop-action-state-machine:v1").length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Record approval/i })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: /Record edit/i })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: /Record rejection/i })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: /Record defer/i })).toHaveLength(1);
-    expect(screen.getByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record approval/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record edit/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record rejection/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record defer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Decision controls unavailable until the local backend supplies/i),
+    ).toBeInTheDocument();
     const blockedLane = screen
       .getByRole("heading", { name: /^Blocked by authority$/i })
       .closest("section");
@@ -839,7 +903,11 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("action-envelope:plans:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("scope-ref:plans-action-envelope:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        "scope-ref:plans-action-envelope:founder-action-mock-setup-hardening",
+      ),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText("blocked-state:no-approval-grant-capture").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Memory-derived proposals/i })).toBeInTheDocument();
     expect(
@@ -933,10 +1001,25 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /^Actions$/i }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Backend online")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("heading", { name: /^Approval Envelope Card$/i }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("heading", { name: /^Receipt Visibility$/i }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/python_core_action_inbox_read_model/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
 
     await screen.findByText(receipt.receipt_ref);
     expect(screen.getAllByText(receipt.local_task_ref).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(receipt.evidence_timeline_event_ref).length,
+    ).toBeGreaterThan(0);
     const [, options] =
       fetchMock.mock.calls.find(
         ([url, request]) =>
@@ -960,6 +1043,11 @@ describe("Web Control Center shell", () => {
       ]),
     });
     expect(requestBody).not.toHaveProperty("approval_grants");
+    expect(requestBody).not.toHaveProperty("authority_scopes");
+    expect(requestBody).not.toHaveProperty("risk_class");
+    expect(requestBody).not.toHaveProperty("side_effect_class");
+    expect(requestBody).not.toHaveProperty("approval_requirement");
+    expect(requestBody).not.toHaveProperty("exact_scope");
     expect(JSON.stringify(requestBody).toLowerCase()).not.toContain("raw");
     expect(
       screen.queryByRole("button", { name: /^execute$/i }),
@@ -3549,8 +3637,11 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryContextPacks]:
       mockControlCenterData.founderMemoryContextPacks,
-    [API_ENDPOINTS.founderActionsInbox]:
-      mockControlCenterData.founderActionsInbox,
+    [API_ENDPOINTS.founderActionsInbox]: {
+      ...mockControlCenterData.founderActionsInbox,
+      ...mockApiData.founderActionsInbox,
+      items: mockApiData.founderActionsInbox.items,
+    },
     [API_ENDPOINTS.founderMorningBriefing]:
       mockControlCenterData.founderMorningBriefing,
     [API_ENDPOINTS.founderStorageStatus]: mockApiData.founderStorageStatus,
@@ -5185,6 +5276,64 @@ const mockApiData = {
           "blocked-state:no-external-side-effect",
           "blocked-state:no-production-authority",
         ],
+        approval_envelope: {
+          schema_version: "founder_loop_action_approval_envelope.v1",
+          contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
+          source: "python_core_action_inbox_read_model",
+          backend_owned: true,
+          action_kind: "local_task_create",
+          exact_scope:
+            "scope-ref:plans-action-envelope:founder-action-mock-local-task-create",
+          risk_class: "medium",
+          side_effect_class: "local_dev_workspace_only",
+          approval_requirement:
+            "approval-requirement:plans-action-envelope:founder-action-mock-local-task-create",
+          expiry_or_staleness:
+            "review_required_before_local_task_commit; recheck_action_approval_before_local_task_commit",
+          idempotency_ref:
+            "idempotency-ref:founder-loop:mock-local-task-create",
+          expected_receipt_refs: [
+            "receipt-plan:founder-loop:mock-local-task-create",
+          ],
+          rollback_safe_disable_posture:
+            "rollback-not-applicable:local-task-safe-disable; safe-disable:founder-loop:mock-local-task-create",
+          blocked_authority_refs: [
+            "blocked-state:no-connector-write",
+            "blocked-state:no-shell-subprocess-execution",
+            "blocked-state:no-model-provider-authority",
+            "blocked-state:no-memory-write",
+            "blocked-state:no-context-injection",
+            "blocked-state:no-external-side-effect",
+            "blocked-state:no-production-authority",
+          ],
+          evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
+          missing_field_states: ["none"],
+        },
+        receipt_visibility: {
+          schema_version: "founder_loop_action_receipt_visibility.v1",
+          contract_ref:
+            "contract-ref:founder-loop-action-receipt-visibility:v1",
+          source: "python_core_action_inbox_read_model",
+          backend_owned: true,
+          decision_receipt_ref:
+            "receipt:founder-loop-action:mock-local-task-create:approve",
+          local_task_ref: "pending",
+          local_task_commit_receipt_ref: "pending",
+          evidence_timeline_event_ref:
+            "evidence-event:action-decision-recorded-evidence-timeline-action-founder-action-mock-local-task-create",
+          replay_posture: "decision_idempotency_replay_available",
+          conflict_posture: "decision_conflicting_idempotency_payload_rejected",
+          missing_field_states: [
+            "local_task_ref:pending",
+            "local_task_commit_receipt_ref:pending",
+          ],
+        },
+        action_group_id: "approved_local_task_lane",
+        action_group_label: "Approved local task lane",
+        action_group_reason:
+          "Exact backend approval is recorded and the typed local-task commit lane is eligible.",
+        action_group_available_action:
+          "Inspect approval posture or commit the local task lane.",
         next_safe_action:
           "Commit this approved local task or inspect its blocked external authority refs.",
       },
@@ -5213,6 +5362,48 @@ const mockApiData = {
         stale_state: "recheck_action_summary_before_mutation",
         rollback_ref: "rollback-plan:founder-loop:test",
         safe_disable_ref: "safe-disable:founder-loop:test",
+        approval_envelope: {
+          schema_version: "founder_loop_action_approval_envelope.v1",
+          contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
+          source: "python_core_action_inbox_read_model",
+          backend_owned: true,
+          action_kind: "review_only",
+          exact_scope: "missing",
+          risk_class: "high",
+          side_effect_class: "validation_only",
+          approval_requirement: "missing",
+          expiry_or_staleness:
+            "review_required_before_mutation; recheck_action_summary_before_mutation",
+          idempotency_ref: "idempotency-ref:founder-loop:test",
+          expected_receipt_refs: ["receipt-plan:founder-loop:test"],
+          rollback_safe_disable_posture:
+            "rollback-plan:founder-loop:test; safe-disable:founder-loop:test",
+          blocked_authority_refs: ["blocked-state:state-change-blocked"],
+          evidence_refs: ["evidence-ref:founder-loop:test-action"],
+          missing_field_states: [
+            "exact_scope:missing",
+            "approval_requirement:missing",
+          ],
+        },
+        receipt_visibility: {
+          schema_version: "founder_loop_action_receipt_visibility.v1",
+          contract_ref:
+            "contract-ref:founder-loop-action-receipt-visibility:v1",
+          source: "python_core_action_inbox_read_model",
+          backend_owned: true,
+          decision_receipt_ref: "pending",
+          local_task_ref: "not_applicable",
+          local_task_commit_receipt_ref: "not_applicable",
+          evidence_timeline_event_ref: "pending",
+          replay_posture: "pending",
+          conflict_posture: "pending",
+          missing_field_states: [
+            "decision_receipt_ref:pending",
+            "evidence_timeline_event_ref:pending",
+            "replay_posture:pending",
+            "conflict_posture:pending",
+          ],
+        },
         next_safe_action:
           "Review refs only; request a scoped state-change milestone before mutation.",
       },

@@ -1599,33 +1599,109 @@ function planActionEnvelopeFields(planRef: string) {
   };
 }
 
-function actionEnvelopeFields(actionRef: string, expectedReceiptRefs: string[]) {
+type ApprovalEnvelopeCardOptions = {
+  actionKind?: string;
+  riskClass?: string;
+  sideEffectClass?: string;
+  approvalRequired?: boolean;
+  expiryOrStaleness?: string;
+  idempotencyRef?: string;
+  rollbackSafeDisablePosture?: string;
+  blockedAuthorityRefs?: string[];
+  evidenceRefs?: string[];
+  decisionReceiptRef?: string;
+  localTaskRef?: string;
+  localTaskCommitReceiptRef?: string;
+  evidenceTimelineEventRef?: string;
+  replayPosture?: string;
+  conflictPosture?: string;
+  receiptMissingFieldStates?: string[];
+};
+
+function actionEnvelopeFields(
+  actionRef: string,
+  _expectedReceiptRefs: string[],
+  options: ApprovalEnvelopeCardOptions = {},
+) {
   const suffix = safeEnvelopeSuffix(actionRef);
+  const unavailableState = "mock_only_backend_read_model_unavailable";
+  const unavailableRef = "backend_read_model_unavailable";
+  const exactScope =
+    options.approvalRequired === false
+      ? "not_applicable"
+      : unavailableState;
+  const approvalRequirement =
+    options.approvalRequired === false
+      ? "not_applicable"
+      : unavailableRef;
+  const receipts =
+    options.approvalRequired === false
+      ? ["not_applicable"]
+      : [unavailableRef];
+  const idempotencyRef =
+    options.approvalRequired === false
+      ? "not_applicable"
+      : unavailableRef;
+  const blockedAuthorityRefs = options.blockedAuthorityRefs ?? [
+    ...plansActionEnvelopeRequiredBlockedRefs,
+    "blocked-state:state-change-blocked",
+  ];
+  const localTaskRelevant = options.actionKind === "local_task_create";
+  const decisionReceiptRef =
+    options.approvalRequired === false ? "not_applicable" : unavailableRef;
+  const localTaskRef =
+    localTaskRelevant ? unavailableRef : "not_applicable";
+  const localTaskCommitReceiptRef =
+    localTaskRelevant ? unavailableRef : "not_applicable";
+  const evidenceTimelineEventRef =
+    options.approvalRequired === false ? "not_applicable" : unavailableRef;
+  const replayPosture =
+    options.approvalRequired === false ? "not_applicable" : unavailableRef;
+  const conflictPosture =
+    options.approvalRequired === false ? "not_applicable" : unavailableRef;
+  const receiptMissingFieldStates =
+    options.receiptMissingFieldStates ??
+    [
+      decisionReceiptRef === unavailableRef
+        ? "decision_receipt_ref:backend_read_model_unavailable"
+        : null,
+      localTaskRef === unavailableRef
+        ? "local_task_ref:backend_read_model_unavailable"
+        : null,
+      localTaskCommitReceiptRef === unavailableRef
+        ? "local_task_commit_receipt_ref:backend_read_model_unavailable"
+        : null,
+      evidenceTimelineEventRef === unavailableRef
+        ? "evidence_timeline_event_ref:backend_read_model_unavailable"
+        : null,
+      replayPosture === unavailableRef
+        ? "replay_posture:backend_read_model_unavailable"
+        : null,
+      conflictPosture === unavailableRef
+        ? "conflict_posture:backend_read_model_unavailable"
+        : null,
+    ].filter((state): state is string => Boolean(state));
   return {
     action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
     action_envelope_ref: `action-envelope:plans:${suffix}`,
     action_envelope_status: "review_ready_execution_blocked",
     action_envelope_safe_summary:
-      "Action item is available as safe review metadata with exact-scope, receipt, idempotency, rollback, and safe-disable refs.",
-    action_scope_ref: `scope-ref:plans-action-envelope:${suffix}`,
-    action_approval_requirement_ref: `approval-requirement:plans-action-envelope:${suffix}`,
+      "Mock-only fallback action metadata is visible, but backend-owned exact-scope, receipt, idempotency, rollback, and safe-disable refs are unavailable.",
+    action_scope_ref: exactScope,
+    action_approval_requirement_ref: approvalRequirement,
     action_review_actions: plansActionEnvelopeReviewActions,
     action_review_posture_refs: plansActionEnvelopeReviewActions.map(
       (action) => `review-posture:plans-action-envelope:${action}`,
     ),
-    action_expected_receipt_refs:
-      expectedReceiptRefs.length > 0
-        ? expectedReceiptRefs
-        : [`receipt-plan:plans-action-envelope:${suffix}`],
-    action_idempotency_key_ref: `idempotency-ref:plans-action-envelope:${suffix}`,
+    action_expected_receipt_refs: receipts,
+    action_idempotency_key_ref: idempotencyRef,
     action_expires_at: "review_required_before_mutation",
     action_stale_state: "recheck_plan_and_action_refs_before_mutation",
-    action_rollback_ref: `rollback-plan:plans-action-envelope:${suffix}`,
-    action_safe_disable_ref: `safe-disable:plans-action-envelope:${suffix}`,
-    action_blocked_state_refs: [
-      ...plansActionEnvelopeRequiredBlockedRefs,
-      "blocked-state:state-change-blocked",
-    ],
+    action_rollback_ref:
+      options.approvalRequired === false ? "not_applicable" : unavailableRef,
+    action_safe_disable_ref:
+      options.approvalRequired === false ? "not_applicable" : unavailableRef,
+    action_blocked_state_refs: blockedAuthorityRefs,
     action_authority_boundary:
       "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
     action_exact_scope_required: true,
@@ -1637,6 +1713,54 @@ function actionEnvelopeFields(actionRef: string, expectedReceiptRefs: string[]) 
     action_envelope_model_provider_authority_allowed: false,
     action_envelope_safe_refs_only: true,
     action_envelope_raw_content_included: false,
+    approval_envelope: {
+      schema_version: "founder_loop_action_approval_envelope.v1" as const,
+      contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
+      source: "mock_fallback_non_authoritative" as const,
+      backend_owned: false,
+      action_kind: options.actionKind ?? "review_only",
+      exact_scope: exactScope,
+      risk_class: options.riskClass ?? "medium",
+      side_effect_class: options.sideEffectClass ?? "local_dev_workspace_only",
+      approval_requirement: approvalRequirement,
+      expiry_or_staleness:
+        options.expiryOrStaleness ??
+        "review_required_before_mutation; recheck_plan_and_action_refs_before_mutation",
+      idempotency_ref: idempotencyRef,
+      expected_receipt_refs: receipts,
+      rollback_safe_disable_posture:
+        options.rollbackSafeDisablePosture ??
+        `${options.approvalRequired === false ? "not_applicable" : unavailableRef}; ${options.approvalRequired === false ? "not_applicable" : unavailableRef}`,
+      blocked_authority_refs: blockedAuthorityRefs,
+      evidence_refs: options.evidenceRefs ?? [
+        "evidence-ref:founder-loop:action-inbox",
+      ],
+      missing_field_states:
+        options.approvalRequired === false
+          ? ["none"]
+          : [
+              "exact_scope:backend_read_model_unavailable",
+              "approval_requirement:backend_read_model_unavailable",
+              "idempotency_ref:backend_read_model_unavailable",
+              "expected_receipt_refs:backend_read_model_unavailable",
+            ],
+    },
+    receipt_visibility: {
+      schema_version: "founder_loop_action_receipt_visibility.v1" as const,
+      contract_ref: "contract-ref:founder-loop-action-receipt-visibility:v1",
+      source: "mock_fallback_non_authoritative" as const,
+      backend_owned: false,
+      decision_receipt_ref: decisionReceiptRef,
+      local_task_ref: localTaskRef,
+      local_task_commit_receipt_ref: localTaskCommitReceiptRef,
+      evidence_timeline_event_ref: evidenceTimelineEventRef,
+      replay_posture: replayPosture,
+      conflict_posture: conflictPosture,
+      missing_field_states:
+        receiptMissingFieldStates.length > 0
+          ? receiptMissingFieldStates
+          : ["none"],
+    },
   };
 }
 
@@ -4165,7 +4289,12 @@ export const mockControlCenterData: ControlCenterData = {
         safe_disable_ref: "safe-disable:founder-loop:mock-setup-hardening",
         ...actionEnvelopeFields("founder-action:mock-setup-hardening", [
           "receipt-plan:founder-loop:mock-setup-hardening",
-        ]),
+        ], {
+          evidenceRefs: ["evidence-ref:founder-loop:mock-setup-hardening"],
+          idempotencyRef: "idempotency-ref:founder-loop:mock-setup-hardening",
+          riskClass: "high",
+          sideEffectClass: "validation_only",
+        }),
         next_safe_action:
           "Review refs only; request a scoped state-change milestone before mutation.",
       },
@@ -4195,7 +4324,13 @@ export const mockControlCenterData: ControlCenterData = {
         stale_state: "recheck_source_status_before_contract",
         rollback_ref: null,
         safe_disable_ref: "safe-disable:founder-loop:mock-briefing-surface",
-        ...actionEnvelopeFields("founder-action:mock-briefing", []),
+        ...actionEnvelopeFields("founder-action:mock-briefing", [], {
+          approvalRequired: false,
+          evidenceRefs: ["evidence-ref:founder-loop:mock-briefing"],
+          expiryOrStaleness:
+            "review_required_before_source_contract; recheck_source_status_before_contract",
+          idempotencyRef: "idempotency-ref:plans-action-envelope:founder-action-mock-briefing",
+        }),
         next_safe_action:
           "Define read-only briefing source refs before source reads.",
       },
@@ -5281,8 +5416,9 @@ export const mockControlCenterData: ControlCenterData = {
         group_id: "ready_for_decision",
         label: "Ready for decision",
         safe_summary:
-          "Items with backend-known exact scope that can record approve, edit, reject, or defer receipts without executing work.",
-        available_action: "Record a backend-owned decision receipt.",
+          "Mock-only lane shape for items that require backend-known exact scope before decision receipts.",
+        available_action:
+          "Reconnect the local backend before recording decision receipts.",
         count: 1,
       },
       {
@@ -5333,7 +5469,7 @@ export const mockControlCenterData: ControlCenterData = {
         item_ref: "founder-action:mock-local-task-review",
         title: "Review local task creation lane",
         safe_summary:
-          "Exact-scope local task proposal is ready for backend-owned approve, edit, reject, or defer receipt recording.",
+          "Mock-only local task proposal shape is visible, but backend-owned approval and receipt posture are unavailable.",
         surface: "Actions",
         priority: "high",
         risk_class: "medium",
@@ -5350,7 +5486,7 @@ export const mockControlCenterData: ControlCenterData = {
           "contract-ref:founder-loop-local-task-commit:v1",
         state_change_readiness: "execution_ready_contract_requires_approval",
         blocked_state:
-          "Local task commit is blocked until this Action item is approved with exact scope and idempotency.",
+          "Local task commit is blocked until the backend supplies exact scope, approval, and idempotency posture.",
         evidence_refs: ["evidence-ref:founder-loop:local-task-review"],
         receipt_refs: [
           "receipt-plan:founder-loop:mock-local-task-review",
@@ -5364,7 +5500,26 @@ export const mockControlCenterData: ControlCenterData = {
         safe_disable_ref: "safe-disable:founder-loop:mock-local-task-review",
         ...actionEnvelopeFields("founder-action:mock-local-task-review", [
           "receipt-plan:founder-loop:mock-local-task-review",
-        ]),
+        ], {
+          actionKind: "local_task_create",
+          blockedAuthorityRefs: [
+            "blocked-state:action-not-approved",
+            "blocked-state:backend-owned-approval-missing",
+            "blocked-state:no-connector-write",
+            "blocked-state:no-shell-subprocess-execution",
+            "blocked-state:no-model-provider-authority",
+            "blocked-state:no-memory-write",
+            "blocked-state:no-context-injection",
+            "blocked-state:no-external-side-effect",
+            "blocked-state:no-production-authority",
+          ],
+          evidenceRefs: ["evidence-ref:founder-loop:local-task-review"],
+          idempotencyRef:
+            "idempotency-ref:founder-loop:mock-local-task-review",
+          rollbackSafeDisablePosture:
+            "rollback-not-applicable:local-task-safe-disable; safe-disable:founder-loop:mock-local-task-review",
+          sideEffectClass: "local_dev_workspace_only",
+        }),
         local_task_commit_contract_ref:
           "contract-ref:founder-loop-local-task-commit:v1",
         local_task_commit_route_ref:
@@ -5392,11 +5547,11 @@ export const mockControlCenterData: ControlCenterData = {
         action_group_id: "ready_for_decision",
         action_group_label: "Ready for decision",
         action_group_reason:
-          "Exact scope and approval posture are present for a backend decision receipt.",
+          "Mock fallback cannot prove exact scope or backend approval posture.",
         action_group_available_action:
-          "Record a backend-owned decision receipt.",
+          "Reconnect the local backend before recording a decision receipt.",
         next_safe_action:
-          "Record approval, edit, rejection, or defer receipt before any commit path.",
+          "Reconnect the local backend before recording approval, edit, rejection, or defer receipts.",
       },
       {
         item_ref: "founder-action:mock-local-task-create",
@@ -5407,21 +5562,21 @@ export const mockControlCenterData: ControlCenterData = {
         priority: "high",
         risk_class: "medium",
         action_kind: "local_task_create",
-        status: "approved",
+        status: "mock_only_backend_read_model_unavailable",
         side_effect_class: "local_dev_workspace_only",
         authority_boundary:
-          "Approved exact local task lane; connector, shell, model, memory, context, and production authority remain blocked.",
+          "Mock-only local task lane shape; backend approval is unavailable, and connector, shell, model, memory, context, and production authority remain blocked.",
         approval_required: true,
         approval_envelope_ref: "approval-envelope:founder-loop:mock-local-task-create",
-        approval_envelope_status: "approved_receipt_recorded",
+        approval_envelope_status: "mock_only_backend_read_model_unavailable",
         state_change_contract_ref:
           "contract-ref:founder-loop-local-task-commit:v1",
         state_change_readiness: "execution_ready_contract_requires_commit",
         blocked_state:
-          "Only local task creation is available; all external authority remains blocked.",
+          "Mock fallback cannot prove backend approval or local task commit eligibility; reconnect the local backend before any commit control appears.",
         evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
-        receipt_refs: ["receipt:founder-loop-action:mock-local-task-create:approve"],
-        audit_refs: ["audit:founder-loop-action:mock-local-task-create:approve"],
+        receipt_refs: [],
+        audit_refs: [],
         idempotency_key_ref: "idempotency-ref:founder-loop:mock-local-task-create",
         expires_at: "review_required_before_local_task_commit",
         stale_state: "recheck_action_approval_before_local_task_commit",
@@ -5429,20 +5584,40 @@ export const mockControlCenterData: ControlCenterData = {
         safe_disable_ref: "safe-disable:founder-loop:mock-local-task-create",
         ...actionEnvelopeFields("founder-action:mock-local-task-create", [
           "receipt-plan:founder-loop:mock-local-task-create",
-        ]),
+        ], {
+          actionKind: "local_task_create",
+          blockedAuthorityRefs: [
+            "blocked-state:no-connector-write",
+            "blocked-state:no-shell-subprocess-execution",
+            "blocked-state:no-model-provider-authority",
+            "blocked-state:no-memory-write",
+            "blocked-state:no-context-injection",
+            "blocked-state:no-external-side-effect",
+            "blocked-state:no-production-authority",
+          ],
+          evidenceRefs: ["evidence-ref:founder-loop:local-task-commit"],
+          idempotencyRef:
+            "idempotency-ref:founder-loop:mock-local-task-create",
+          rollbackSafeDisablePosture:
+            "rollback-not-applicable:local-task-safe-disable; safe-disable:founder-loop:mock-local-task-create",
+          sideEffectClass: "local_dev_workspace_only",
+        }),
         local_task_commit_contract_ref:
           "contract-ref:founder-loop-local-task-commit:v1",
         local_task_commit_route_ref:
           "POST /control-center/actions/{action_id}/local-task/commit",
         local_task_ref: "local-task:founder-loop:mock-local-task-create",
-        local_task_commit_approval_ref:
-          "approval-ref:mock-local-task-action-approve",
-        local_task_commit_approval_status: "backend_owned_approval_ready",
-        local_task_commit_eligible: true,
+        local_task_commit_approval_ref: null,
+        local_task_commit_approval_status:
+          "mock_only_backend_read_model_unavailable",
+        local_task_commit_eligible: false,
         local_task_commit_receipt_ref: null,
-        local_task_commit_blocked_reasons: [],
+        local_task_commit_blocked_reasons: [
+          "blocked-state:mock-only-non-authoritative",
+          "blocked-state:backend-read-model-unavailable",
+        ],
         local_task_commit_next_safe_action:
-          "Commit this approved local task through the exact local-task route.",
+          "Reconnect the local backend and wait for a backend-owned approval envelope and receipt visibility read model.",
         local_task_commit_external_authority_blocked_refs: [
           "blocked-state:no-connector-write",
           "blocked-state:no-shell-subprocess-execution",
@@ -5452,14 +5627,14 @@ export const mockControlCenterData: ControlCenterData = {
           "blocked-state:no-external-side-effect",
           "blocked-state:no-production-authority",
         ],
-        action_group_id: "approved_local_task_lane",
-        action_group_label: "Approved local task lane",
+        action_group_id: "blocked_by_authority",
+        action_group_label: "Blocked by authority",
         action_group_reason:
-          "Exact backend approval is recorded and the typed local-task commit lane is eligible.",
+          "Mock fallback cannot prove exact backend approval or local task commit eligibility.",
         action_group_available_action:
-          "Inspect approval posture or commit the local task lane.",
+          "Inspect blockers; no commit control is exposed from mock data.",
         next_safe_action:
-          "Commit this approved local task or inspect its exact blocked external authority refs.",
+          "Reconnect the local backend before evaluating the exact local task lane.",
       },
       {
         item_ref: "founder-action:mock-setup-hardening",
@@ -5490,7 +5665,12 @@ export const mockControlCenterData: ControlCenterData = {
         safe_disable_ref: "safe-disable:founder-loop:mock-setup-hardening",
         ...actionEnvelopeFields("founder-action:mock-setup-hardening", [
           "receipt-plan:founder-loop:mock-setup-hardening",
-        ]),
+        ], {
+          evidenceRefs: ["evidence-ref:founder-loop:mock-setup-hardening"],
+          idempotencyRef: "idempotency-ref:founder-loop:mock-setup-hardening",
+          riskClass: "high",
+          sideEffectClass: "validation_only",
+        }),
         action_group_id: "blocked_by_authority",
         action_group_label: "Blocked by authority",
         action_group_reason:
@@ -5526,7 +5706,13 @@ export const mockControlCenterData: ControlCenterData = {
         stale_state: "recheck_source_status_before_contract",
         rollback_ref: null,
         safe_disable_ref: "safe-disable:founder-loop:mock-briefing-surface",
-        ...actionEnvelopeFields("founder-action:mock-briefing", []),
+        ...actionEnvelopeFields("founder-action:mock-briefing", [], {
+          approvalRequired: false,
+          evidenceRefs: ["evidence-ref:founder-loop:mock-briefing"],
+          expiryOrStaleness:
+            "review_required_before_source_contract; recheck_source_status_before_contract",
+          idempotencyRef: "idempotency-ref:plans-action-envelope:founder-action-mock-briefing",
+        }),
         action_group_id: "proposal_only_no_execution_path",
         action_group_label: "Proposal-only / no execution path",
         action_group_reason:

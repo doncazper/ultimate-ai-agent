@@ -927,6 +927,28 @@ main {
   line-height: 1.5;
 }
 
+.approval-envelope-card,
+.receipt-visibility-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #bcccdc;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.approval-envelope-card.unavailable,
+.receipt-visibility-card.unavailable {
+  border-color: #d9a441;
+  background: #fff8e6;
+}
+
+.review-card-heading.compact h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.94rem;
+}
+
 .secondary-button {
   justify-self: start;
   border: 1px solid #9fb3c8;

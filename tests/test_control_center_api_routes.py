@@ -207,6 +207,39 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     assert actions["review_queue_groups"]
     assert actions["dogfood_capture"]["action_execution_enabled"] is False
     assert actions["crm_lite_followups"][0]["crm_write_enabled"] is False
+    for item in actions["items"]:
+        envelope = item["approval_envelope"]
+        assert envelope["schema_version"] == "founder_loop_action_approval_envelope.v1"
+        assert envelope["contract_ref"] == (
+            "contract-ref:founder-loop-action-approval-envelope:v1"
+        )
+        assert envelope["source"] == "python_core_action_inbox_read_model"
+        assert envelope["backend_owned"] is True
+        assert envelope["action_kind"] == item.get("action_kind", "review_only")
+        assert envelope["exact_scope"]
+        assert envelope["risk_class"] == item["risk_class"]
+        assert envelope["side_effect_class"] == item["side_effect_class"]
+        assert envelope["approval_requirement"]
+        assert envelope["idempotency_ref"]
+        assert envelope["expected_receipt_refs"]
+        assert envelope["blocked_authority_refs"]
+        assert envelope["evidence_refs"]
+        visibility = item["receipt_visibility"]
+        assert (
+            visibility["schema_version"]
+            == "founder_loop_action_receipt_visibility.v1"
+        )
+        assert visibility["contract_ref"] == (
+            "contract-ref:founder-loop-action-receipt-visibility:v1"
+        )
+        assert visibility["source"] == "python_core_action_inbox_read_model"
+        assert visibility["backend_owned"] is True
+        assert visibility["decision_receipt_ref"]
+        assert visibility["local_task_ref"]
+        assert visibility["local_task_commit_receipt_ref"]
+        assert visibility["evidence_timeline_event_ref"]
+        assert visibility["replay_posture"]
+        assert visibility["conflict_posture"]
 
     assert briefing["daily_loop_summary"]["home_surface"] == "Morning Briefing"
     assert briefing["daily_loop_sections"]
@@ -498,6 +531,20 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     assert committed["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     assert committed["local_task_ref"] == receipt["local_task_ref"]
     assert committed["action_group_id"] == "receipt_recorded"
+    visibility = committed["receipt_visibility"]
+    assert visibility["decision_receipt_ref"].startswith(
+        "receipt:founder-loop-action:"
+    )
+    assert visibility["local_task_ref"] == receipt["local_task_ref"]
+    assert visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    assert (
+        visibility["evidence_timeline_event_ref"]
+        == receipt["evidence_timeline_event_ref"]
+    )
+    assert visibility["replay_posture"] == "idempotency_replay_available"
+    assert (
+        visibility["conflict_posture"] == "conflicting_idempotency_payload_rejected"
+    )
     action_groups = {group["group_id"]: group for group in inbox["action_groups"]}
     assert action_groups["receipt_recorded"]["count"] == 1
 

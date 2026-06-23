@@ -40,6 +40,9 @@ AUTHORITY_CONVEYOR_DOC_PATH = ROOT / "docs/control_center/AUTHORITY_RAMP_CONVEYO
 LADDER_DOC_PATH = ROOT / "docs/control_center/OPERATIONALIZATION_LADDER.md"
 GAP_MAP_PATH = ROOT / "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
 FOUNDER_BOARD_PATH = ROOT / "docs/kanban/founder_command_center_board.md"
+CONTROL_CENTER_MOCK_DATA_PATH = (
+    ROOT / "apps/control-center/src/mocks/controlCenterData.ts"
+)
 
 EXPECTED_MODULES = {
     "action_inbox",
@@ -171,6 +174,7 @@ def verify(
     _append_first_lane_failures(failures, manifest, routes_by_ref)
     _append_public_request_schema_failures(failures)
     _append_ref_resolution_failures(failures, manifest, root)
+    _append_mock_fallback_fixture_failures(failures, root)
     _append_behavior_probe_failures(failures, root)
     _append_status_doc_failures(failures, gap_map_text, board_text)
     return failures
@@ -994,6 +998,30 @@ def _scoped_compact_text(path: Path, selector: str) -> str:
     if end_candidates:
         scoped = scoped[: min(end_candidates)]
     return _compact_string(scoped)
+
+
+def _append_mock_fallback_fixture_failures(failures: list[str], root: Path) -> None:
+    fixture_path = root / CONTROL_CENTER_MOCK_DATA_PATH.relative_to(ROOT)
+    if not fixture_path.exists():
+        failures.append(
+            f"Control Center mock fallback fixture missing {fixture_path.relative_to(root)}"
+        )
+        return
+    fixture = fixture_path.read_text(encoding="utf-8")
+    forbidden_source_markers = [
+        'source: "python_core_action_inbox_read_model"',
+        "source: 'python_core_action_inbox_read_model'",
+        'source: "python_core_action_inbox_read_model" as const',
+        "source: 'python_core_action_inbox_read_model' as const",
+    ]
+    if any(marker in fixture for marker in forbidden_source_markers):
+        failures.append(
+            "Control Center mock fallback must not claim python_core_action_inbox_read_model"
+        )
+    if "local_task_commit_eligible: true" in fixture:
+        failures.append(
+            "Control Center mock fallback must not claim local_task_commit_eligible true"
+        )
 
 
 def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:

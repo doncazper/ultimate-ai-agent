@@ -165,7 +165,10 @@ export function renderRoute(path: string, data: ControlCenterData) {
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
-          <TodaySurfacePanel today={data.founderToday} />
+          <TodaySurfacePanel
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            today={data.founderToday}
+          />
         </>
       );
     case "/inbox":
@@ -191,7 +194,10 @@ export function renderRoute(path: string, data: ControlCenterData) {
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
-          <ActionInboxSurfacePanel inbox={data.founderActionsInbox} />
+          <ActionInboxSurfacePanel
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            inbox={data.founderActionsInbox}
+          />
         </>
       );
     case "/briefing":
@@ -334,4 +340,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
     default:
       return <DashboardSummary dashboard={data.dashboard} />;
   }
+}
+
+function isAuthoritativeConnection(data: ControlCenterData): boolean {
+  return data.connection.state === "online" && !data.connection.usingMockData;
 }

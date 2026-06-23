@@ -244,6 +244,17 @@ authority-blocked items, expired/stale items, recorded receipts, and
 proposal-only/no-execution items. This adds scanability only; it does not add
 generic execution, connector writes, shell/subprocess execution, provider/model
 authority, memory writes, context injection, or production authority.
+FCC-INBOX-001 now adds consistent backend-owned Approval Envelope and Receipt
+Visibility cards/read models for each `/actions` item. The cards improve review
+quality by using one safe grammar for action kind, exact scope, risk,
+side-effect class, approval requirement, expiry/staleness, idempotency,
+expected receipts, rollback/safe-disable posture, blockers, evidence refs,
+decision receipt refs, local task refs, local task commit receipt refs,
+Evidence Timeline refs, replay posture, and conflict posture. It does not
+change operational maturity rank or add authority. Mock/degraded `/actions`
+fallback data is explicitly non-authoritative: it may render unavailable
+envelope/receipt cards for shape, but it cannot claim Python-core read-model
+ownership, backend eligibility, or local task commit readiness.
 
 **Done Gate:** A user can compare action proposals, memory candidates, drafts,
 CRM updates, recommendations, and patch proposals through one review language,

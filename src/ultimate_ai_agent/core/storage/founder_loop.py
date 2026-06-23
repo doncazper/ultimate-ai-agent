@@ -2627,6 +2627,243 @@ def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _action_approval_envelope_read_model(action: dict[str, Any]) -> dict[str, Any]:
+    approval_required = bool(action.get("approval_required", True))
+    has_state_change_contract = bool(action.get("state_change_contract_ref"))
+    exact_scope = _approval_envelope_value_for_contract(
+        action.get("action_scope_ref"),
+        has_contract=has_state_change_contract,
+        approval_required=approval_required,
+    )
+    approval_requirement = (
+        _approval_envelope_value(
+            action.get("action_approval_requirement_ref"),
+            missing_state="missing",
+        )
+        if approval_required
+        else "not_applicable"
+    )
+    if approval_required and not has_state_change_contract:
+        approval_requirement = "missing"
+    idempotency_ref = _approval_envelope_value_for_contract(
+        action.get("idempotency_key_ref") or action.get("action_idempotency_key_ref"),
+        has_contract=has_state_change_contract,
+        approval_required=approval_required,
+    )
+    if not approval_required:
+        expected_receipt_refs = ["not_applicable"]
+    elif not has_state_change_contract:
+        expected_receipt_refs = ["missing"]
+    else:
+        expected_receipt_refs = _approval_envelope_list(
+            action.get("action_expected_receipt_refs") or action.get("receipt_refs"),
+            missing_state="missing",
+        )
+    rollback_safe_disable_refs = [
+        _approval_envelope_value(action.get("rollback_ref"), missing_state="missing"),
+        _approval_envelope_value(
+            action.get("safe_disable_ref"),
+            missing_state="missing",
+        ),
+    ]
+    blocked_authority_refs = _approval_envelope_list(
+        [
+            *(action.get("action_blocked_state_refs") or []),
+            *(action.get("local_task_commit_blocked_reasons") or []),
+            *(action.get("local_task_commit_external_authority_blocked_refs") or []),
+        ],
+        missing_state="not_applicable",
+    )
+    evidence_refs = _approval_envelope_list(
+        action.get("evidence_refs"),
+        missing_state="missing",
+    )
+    expires_at = _approval_envelope_value(
+        action.get("expires_at") or action.get("action_expires_at"),
+        missing_state="unknown",
+    )
+    stale_state = _approval_envelope_value(
+        action.get("stale_state") or action.get("action_stale_state"),
+        missing_state="unknown",
+    )
+    return {
+        "schema_version": "founder_loop_action_approval_envelope.v1",
+        "contract_ref": "contract-ref:founder-loop-action-approval-envelope:v1",
+        "source": "python_core_action_inbox_read_model",
+        "backend_owned": True,
+        "action_kind": str(action.get("action_kind") or "review_only"),
+        "exact_scope": exact_scope,
+        "risk_class": str(action.get("risk_class") or "unknown"),
+        "side_effect_class": str(action.get("side_effect_class") or "unknown"),
+        "approval_requirement": approval_requirement,
+        "expiry_or_staleness": f"{expires_at}; {stale_state}",
+        "idempotency_ref": idempotency_ref,
+        "expected_receipt_refs": expected_receipt_refs,
+        "rollback_safe_disable_posture": (
+            f"{rollback_safe_disable_refs[0]}; {rollback_safe_disable_refs[1]}"
+        ),
+        "blocked_authority_refs": blocked_authority_refs,
+        "evidence_refs": evidence_refs,
+        "missing_field_states": _approval_envelope_missing_states(
+            exact_scope=exact_scope,
+            approval_requirement=approval_requirement,
+            idempotency_ref=idempotency_ref,
+            expected_receipt_refs=expected_receipt_refs,
+            rollback_safe_disable_refs=rollback_safe_disable_refs,
+            evidence_refs=evidence_refs,
+        ),
+    }
+
+
+def _approval_envelope_value(value: Any, *, missing_state: str) -> str:
+    if isinstance(value, str) and value:
+        return value
+    return missing_state
+
+
+def _approval_envelope_value_for_contract(
+    value: Any,
+    *,
+    has_contract: bool,
+    approval_required: bool,
+) -> str:
+    if not approval_required:
+        return "not_applicable"
+    if not has_contract:
+        return "missing"
+    return _approval_envelope_value(value, missing_state="missing")
+
+
+def _approval_envelope_list(value: Any, *, missing_state: str) -> list[str]:
+    if isinstance(value, list):
+        values = [str(item) for item in value if str(item)]
+        if values:
+            return values
+    return [missing_state]
+
+
+def _approval_envelope_missing_states(
+    *,
+    exact_scope: str,
+    approval_requirement: str,
+    idempotency_ref: str,
+    expected_receipt_refs: list[str],
+    rollback_safe_disable_refs: list[str],
+    evidence_refs: list[str],
+) -> list[str]:
+    states: list[str] = []
+    if exact_scope in {"missing", "unknown", "planned"}:
+        states.append("exact_scope:missing")
+    if approval_requirement in {"missing", "unknown", "planned"}:
+        states.append("approval_requirement:missing")
+    if idempotency_ref in {"missing", "unknown", "planned"}:
+        states.append("idempotency_ref:missing")
+    if expected_receipt_refs == ["missing"]:
+        states.append("expected_receipt_refs:missing")
+    if any(
+        value in {"missing", "unknown", "planned"}
+        for value in rollback_safe_disable_refs
+    ):
+        states.append("rollback_safe_disable_posture:missing")
+    if evidence_refs == ["missing"]:
+        states.append("evidence_refs:missing")
+    return states or ["none"]
+
+
+def _action_receipt_visibility_read_model(
+    *,
+    action: dict[str, Any],
+    decision_receipts: list[dict[str, Any]],
+    local_task_receipt: dict[str, Any] | None,
+) -> dict[str, Any]:
+    item_ref = str(action.get("item_ref") or "founder-action:unknown")
+    action_kind = str(action.get("action_kind") or "review_only")
+    approval_required = bool(action.get("approval_required", True))
+    latest_decision_receipt = decision_receipts[-1] if decision_receipts else None
+    decision_receipt_ref = (
+        str(latest_decision_receipt["receipt_ref"])
+        if latest_decision_receipt and latest_decision_receipt.get("receipt_ref")
+        else ("pending" if approval_required else "not_applicable")
+    )
+    local_task_is_relevant = action_kind == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+    local_task_ref = (
+        str(local_task_receipt["local_task_ref"])
+        if local_task_receipt and local_task_receipt.get("local_task_ref")
+        else ("pending" if local_task_is_relevant else "not_applicable")
+    )
+    local_task_commit_receipt_ref = (
+        str(local_task_receipt["receipt_ref"])
+        if local_task_receipt and local_task_receipt.get("receipt_ref")
+        else ("pending" if local_task_is_relevant else "not_applicable")
+    )
+    evidence_timeline_event_ref = (
+        str(local_task_receipt["evidence_timeline_event_ref"])
+        if local_task_receipt and local_task_receipt.get("evidence_timeline_event_ref")
+        else (
+            _evidence_event_ref("action_decision_recorded", _timeline_ref("action", item_ref))
+            if latest_decision_receipt
+            else ("pending" if approval_required else "not_applicable")
+        )
+    )
+    if local_task_receipt is not None:
+        replay_posture = "idempotency_replay_available"
+        conflict_posture = "conflicting_idempotency_payload_rejected"
+    elif latest_decision_receipt is not None:
+        replay_posture = "decision_idempotency_replay_available"
+        conflict_posture = "decision_conflicting_idempotency_payload_rejected"
+    elif approval_required:
+        replay_posture = "pending"
+        conflict_posture = "pending"
+    else:
+        replay_posture = "not_applicable"
+        conflict_posture = "not_applicable"
+    visibility = {
+        "schema_version": "founder_loop_action_receipt_visibility.v1",
+        "contract_ref": "contract-ref:founder-loop-action-receipt-visibility:v1",
+        "source": "python_core_action_inbox_read_model",
+        "backend_owned": True,
+        "decision_receipt_ref": decision_receipt_ref,
+        "local_task_ref": local_task_ref,
+        "local_task_commit_receipt_ref": local_task_commit_receipt_ref,
+        "evidence_timeline_event_ref": evidence_timeline_event_ref,
+        "replay_posture": replay_posture,
+        "conflict_posture": conflict_posture,
+        "missing_field_states": _receipt_visibility_missing_states(
+            decision_receipt_ref=decision_receipt_ref,
+            local_task_ref=local_task_ref,
+            local_task_commit_receipt_ref=local_task_commit_receipt_ref,
+            evidence_timeline_event_ref=evidence_timeline_event_ref,
+            replay_posture=replay_posture,
+            conflict_posture=conflict_posture,
+        ),
+    }
+    _validate_safe_payload(visibility, "action_receipt_visibility")
+    return visibility
+
+
+def _receipt_visibility_missing_states(
+    *,
+    decision_receipt_ref: str,
+    local_task_ref: str,
+    local_task_commit_receipt_ref: str,
+    evidence_timeline_event_ref: str,
+    replay_posture: str,
+    conflict_posture: str,
+) -> list[str]:
+    states: list[str] = []
+    for field_name, value in [
+        ("decision_receipt_ref", decision_receipt_ref),
+        ("local_task_ref", local_task_ref),
+        ("local_task_commit_receipt_ref", local_task_commit_receipt_ref),
+        ("evidence_timeline_event_ref", evidence_timeline_event_ref),
+        ("replay_posture", replay_posture),
+        ("conflict_posture", conflict_posture),
+    ]:
+        if value in {"missing", "pending", "unknown", "unavailable"}:
+            states.append(f"{field_name}:{value}")
+    return states or ["none"]
+
+
 def _chat_local_operator_contract_payload() -> dict[str, Any]:
     envelope = build_chat_local_operator_turn_envelope(
         model_ref="model-ref:local-chat-gateway",
@@ -5482,11 +5719,26 @@ class FounderLoopRepository:
         actions = [_row_to_payload(row) for row in rows]
         projected_actions: list[dict[str, Any]] = []
         for action in actions:
+            action_envelope_payload = _action_envelope_contract_payload(action)
             projected = {
                 **action,
-                **_action_envelope_contract_payload(action),
+                **action_envelope_payload,
                 **self._local_task_commit_projection(action),
             }
+            projected["approval_envelope"] = _action_approval_envelope_read_model(
+                projected
+            )
+            local_task_receipt = self._latest_local_task_commit_receipt_for_item_ref(
+                str(projected["item_ref"])
+            )
+            decision_receipts = self._action_decision_receipts_for_item_ref(
+                str(projected["item_ref"])
+            )
+            projected["receipt_visibility"] = _action_receipt_visibility_read_model(
+                action=projected,
+                decision_receipts=decision_receipts,
+                local_task_receipt=local_task_receipt,
+            )
             projected_actions.append(
                 {
                     **projected,

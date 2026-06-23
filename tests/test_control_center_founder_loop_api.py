@@ -166,6 +166,34 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         setup_item["safe_disable_ref"]
         == "safe-disable:founder-loop:setup-assistant-hardening"
     )
+    setup_envelope = setup_item["approval_envelope"]
+    assert setup_envelope["backend_owned"] is True
+    assert setup_envelope["action_kind"] == "review_only"
+    assert setup_envelope["risk_class"] == "high"
+    assert setup_envelope["side_effect_class"] == "validation_only"
+    assert setup_envelope["approval_requirement"].startswith(
+        "approval-requirement:"
+    )
+    assert setup_envelope["expected_receipt_refs"] == [
+        "receipt-plan:founder-loop:setup-assistant-hardening"
+    ]
+    assert "blocked-state:no-action-execution" in setup_envelope[
+        "blocked_authority_refs"
+    ]
+    assert "evidence-ref:founder-loop:setup-assistant" in setup_envelope[
+        "evidence_refs"
+    ]
+    setup_visibility = setup_item["receipt_visibility"]
+    assert setup_visibility["backend_owned"] is True
+    assert setup_visibility["decision_receipt_ref"] == "pending"
+    assert setup_visibility["local_task_ref"] == "not_applicable"
+    assert setup_visibility["local_task_commit_receipt_ref"] == "not_applicable"
+    assert setup_visibility["evidence_timeline_event_ref"] == "pending"
+    assert setup_visibility["replay_posture"] == "pending"
+    assert setup_visibility["conflict_posture"] == "pending"
+    assert "decision_receipt_ref:pending" in setup_visibility[
+        "missing_field_states"
+    ]
     assert setup_item["action_envelope_contract_ref"] == PLANS_ACTION_ENVELOPE_CONTRACT_REF
     assert setup_item["action_envelope_ref"].startswith("action-envelope:plans:")
     assert setup_item["action_review_actions"] == [

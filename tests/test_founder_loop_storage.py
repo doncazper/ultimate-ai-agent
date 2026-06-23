@@ -1265,6 +1265,24 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
     assert committed_action["local_task_commit_eligible"] is False
     assert committed_action["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
     assert committed_action["local_task_ref"] == receipt["local_task_ref"]
+    receipt_visibility = committed_action["receipt_visibility"]
+    assert receipt_visibility["backend_owned"] is True
+    assert receipt_visibility["decision_receipt_ref"].startswith(
+        "receipt:founder-loop-action:"
+    )
+    assert receipt_visibility["local_task_ref"] == receipt["local_task_ref"]
+    assert (
+        receipt_visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    )
+    assert (
+        receipt_visibility["evidence_timeline_event_ref"]
+        == receipt["evidence_timeline_event_ref"]
+    )
+    assert receipt_visibility["replay_posture"] == "idempotency_replay_available"
+    assert (
+        receipt_visibility["conflict_posture"]
+        == "conflicting_idempotency_payload_rejected"
+    )
 
     timeline = repo.evidence_timeline()
     assert "local_task_created" in timeline["event_types"]
@@ -1294,6 +1312,44 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
     assert groups["blocked_by_authority"]["count"] == 1
     assert groups["proposal_only_no_execution_path"]["count"] == 1
     by_ref = {item["item_ref"]: item for item in inbox["items"]}
+    for item in inbox["items"]:
+        envelope = item["approval_envelope"]
+        assert envelope["schema_version"] == "founder_loop_action_approval_envelope.v1"
+        assert envelope["contract_ref"] == (
+            "contract-ref:founder-loop-action-approval-envelope:v1"
+        )
+        assert envelope["source"] == "python_core_action_inbox_read_model"
+        assert envelope["backend_owned"] is True
+        assert envelope["action_kind"] == item.get("action_kind", "review_only")
+        assert envelope["risk_class"] == item["risk_class"]
+        assert envelope["side_effect_class"] == item["side_effect_class"]
+        assert envelope["expected_receipt_refs"]
+        assert envelope["blocked_authority_refs"]
+        assert envelope["evidence_refs"]
+        serialized = json.dumps(envelope, sort_keys=True).lower()
+        assert "raw_prompt" not in serialized
+        assert "raw_response" not in serialized
+        assert "credential" not in serialized
+        visibility = item["receipt_visibility"]
+        assert (
+            visibility["schema_version"]
+            == "founder_loop_action_receipt_visibility.v1"
+        )
+        assert visibility["contract_ref"] == (
+            "contract-ref:founder-loop-action-receipt-visibility:v1"
+        )
+        assert visibility["source"] == "python_core_action_inbox_read_model"
+        assert visibility["backend_owned"] is True
+        assert visibility["decision_receipt_ref"]
+        assert visibility["local_task_ref"]
+        assert visibility["local_task_commit_receipt_ref"]
+        assert visibility["evidence_timeline_event_ref"]
+        assert visibility["replay_posture"]
+        assert visibility["conflict_posture"]
+        serialized_visibility = json.dumps(visibility, sort_keys=True).lower()
+        assert "raw_prompt" not in serialized_visibility
+        assert "raw_response" not in serialized_visibility
+        assert "credential" not in serialized_visibility
     assert (
         by_ref["founder-action:local-task-create-scorecard"]["action_group_id"]
         == "ready_for_decision"
@@ -1306,10 +1362,35 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
         by_ref["founder-action:morning-briefing-skeleton"]["action_group_id"]
         == "proposal_only_no_execution_path"
     )
+    briefing_envelope = by_ref["founder-action:morning-briefing-skeleton"][
+        "approval_envelope"
+    ]
+    assert briefing_envelope["approval_requirement"] == "not_applicable"
+    assert "blocked-state:no-action-execution" in briefing_envelope[
+        "blocked_authority_refs"
+    ]
 
     approved = _approve_local_task_seed_action(repo)
     assert approved["action_group_id"] == "approved_local_task_lane"
     assert approved["action_group_label"] == "Approved local task lane"
+    assert approved["approval_envelope"]["action_kind"] == "local_task_create"
+    assert (
+        "blocked-state:no-connector-write"
+        in approved["approval_envelope"]["blocked_authority_refs"]
+    )
+    assert approved["receipt_visibility"]["decision_receipt_ref"].startswith(
+        "receipt:founder-loop-action:"
+    )
+    assert approved["receipt_visibility"]["local_task_ref"] == "pending"
+    assert approved["receipt_visibility"]["local_task_commit_receipt_ref"] == "pending"
+    assert (
+        approved["receipt_visibility"]["replay_posture"]
+        == "decision_idempotency_replay_available"
+    )
+    assert (
+        approved["receipt_visibility"]["conflict_posture"]
+        == "decision_conflicting_idempotency_payload_rejected"
+    )
 
     receipt = repo.commit_local_task(
         action_id="local-task-create-scorecard",
@@ -1323,6 +1404,21 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
     )
     assert committed["action_group_id"] == "receipt_recorded"
     assert committed["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    visibility = committed["receipt_visibility"]
+    assert visibility["decision_receipt_ref"].startswith(
+        "receipt:founder-loop-action:"
+    )
+    assert visibility["local_task_ref"] == receipt["local_task_ref"]
+    assert visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    assert (
+        visibility["evidence_timeline_event_ref"]
+        == receipt["evidence_timeline_event_ref"]
+    )
+    assert visibility["replay_posture"] == "idempotency_replay_available"
+    assert (
+        visibility["conflict_posture"] == "conflicting_idempotency_payload_rejected"
+    )
+    assert visibility["missing_field_states"] == ["none"]
 
     repo.upsert_action(
         FounderLoopActionRecord(
