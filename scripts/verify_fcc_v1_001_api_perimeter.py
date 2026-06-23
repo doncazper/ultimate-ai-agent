@@ -115,7 +115,7 @@ REQUIRED_EVIDENCE_REFS = {
     "docs/schemas/founder_loop_api_perimeter.schema.json",
     "src/ultimate_ai_agent/api/manifest.py",
     "src/ultimate_ai_agent/api/contracts.py",
-    "tests/fixtures/api_route_inventory_128.json",
+    "tests/fixtures/api_route_inventory_129.json",
 }
 
 

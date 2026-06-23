@@ -63,7 +63,7 @@ Current product truth is narrower than the vision:
 | Founder Loop V1 conveyor | **FCC-V1-000 through FCC-V1-007 complete for the bounded proofed route-surface lane** |
 | Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
-| API boundary | FastAPI route contract with **128** OpenAPI paths |
+| API boundary | FastAPI route contract with **129** OpenAPI paths |
 | Runtime posture | Contract-first, validation-first, preview-oriented |
 | Production readiness | Not claimed |
 
@@ -287,7 +287,7 @@ of product state. The Python Agent Core remains the authority boundary.
 |---|---|---|
 | Product truth | Evidence-backed release claims and gap matrix | [Product release-truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md) |
 | Catch-up loop | Human-reconciled loop for ChatGPT/Codex recommendations and peer-gap closure | [operator excellence loop](docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md), [recommendation log](docs/backlog/codex_recommendation_log.md) |
-| API contract | **128** OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
+| API contract | **129** OpenAPI paths, stable operation IDs, route metadata | [API boundary](docs/api/README.md), [route inventory](docs/api/route_inventory.md) |
 | Governed web evidence | UAA-P1-063 status/request contract, allowlisted HTTPS GET envelope, bounded redacted preview, chatbot disclosure | [governed web evidence](docs/network/GOVERNED_WEB_EVIDENCE_V1.md), [M72 fetch tool](docs/network/READ_ONLY_HTTP_FETCH_TOOL.md) |
 | Security posture | Reporting, severity, triage, redaction invariants | [SECURITY.md](SECURITY.md), [triage runbook](docs/security/SECURITY_TRIAGE_RUNBOOK.md) |
 | Operator shell | Gap map, route status manifest, and product language rules for visible surfaces | [gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [route status manifest](docs/control_center/ROUTE_STATUS_MANIFEST.md), [language rules](docs/control_center/PRODUCT_LANGUAGE_RULES.md) |

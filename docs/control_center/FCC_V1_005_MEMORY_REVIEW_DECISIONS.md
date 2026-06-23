@@ -75,6 +75,7 @@ Primary proof lanes:
 
 - `scripts/verify_fcc_v1_005_memory_review_decisions.py`
 - `tests/test_fcc_v1_005_memory_review_decisions.py`
+- `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
 - `apps/control-center/src/components/FounderLoopPanels.tsx`
 - `docs/control_center/release_surface_manifest.json`
 - `docs/control_center/route_status_manifest.json`

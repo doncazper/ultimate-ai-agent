@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `128`.
+Current OpenAPI path count: `129`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 14 |
-| `local_sensitive` | 88 |
+| `local_sensitive` | 89 |
 | `mutating_requires_authority` | 23 |
 
 Allowed current side-effect classes are:
@@ -192,6 +192,7 @@ readiness, or execute rollback.
 - `GET /control-center/actions/{action_id}/receipt`
 - `GET /control-center/memory/review`
 - `GET /control-center/memory/l1-index`
+- `GET /control-center/memory/l2-index`
 - `GET /control-center/memory/review/{candidate_ref}/receipt`
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`

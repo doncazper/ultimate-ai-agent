@@ -275,6 +275,12 @@ Tasks:
   `GET /control-center/memory/l1-index`; it does not add hidden context
   injection, automatic recall, embeddings/vector search, semantic search,
   background indexing, or authority.
+- Governed Cognitive Memory Spine Phase 3 derives a read-only L2
+  factual/graph/temporal index from the L1 previews at
+  `GET /control-center/memory/l2-index`; it remains deterministic safe-ref
+  projection only and adds no truth authority, semantic extraction, context
+  injection, automatic recall, connector writes, action execution, public beta,
+  or production authority.
 - Correct stores a safe corrected summary ref posture, not raw content.
 - Reject blocks promotion and records evidence.
 - No context injection, connector write, CRM sync, or automatic action
@@ -293,6 +299,7 @@ Proof refs:
 - `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`
 - `scripts/verify_fcc_v1_005_memory_review_decisions.py`
 - `tests/test_fcc_v1_005_memory_review_decisions.py`
+- `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
 - `apps/control-center/src/components/FounderLoopPanels.tsx`
 
 ## FCC-V1-006 - Evidence Timeline Productization
