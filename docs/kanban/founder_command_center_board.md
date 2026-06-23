@@ -140,7 +140,9 @@ Milestone order:
 - Governed Cognitive Memory Spine Phase 2: implemented as a read-only L1 hot
   local memory index over reviewed recall-only `LocalMemoryStore` records at
   `GET /control-center/memory/l1-index`; Phase 3 L2 factual/graph/temporal
-  indexing remains planned and unimplemented.
+  indexing is implemented as read-only deterministic ref projection at
+  `GET /control-center/memory/l2-index`; Phase 4 L3 identity/session/preference
+  modeling remains planned and unimplemented.
 - `FCC-V1-006` Evidence Timeline Productization: implemented for a
   backend-owned Evidence Timeline index with productized events grouped by
   Today item, Action, Chat turn, and Memory candidate; safe refs, receipts,
@@ -856,7 +858,7 @@ mutating authority paths without adding routes or authority.
 
 Proof: `docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md`,
 `docs/schemas/api_route_classification.schema.json`,
-`tests/fixtures/api_route_inventory_128.json`,
+`tests/fixtures/api_route_inventory_129.json`,
 `scripts/verify_uaa_p1_080_api_route_classification.py`,
 `tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
 `tests/test_control_center_api_routes.py`, and Control Center API Routes render

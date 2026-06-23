@@ -204,6 +204,7 @@ class L1HotMemoryPreview(BaseModel):
     event_refs: list[str] = Field(default_factory=list)
     metadata_refs: list[str] = Field(default_factory=list)
     tag_refs: list[str] = Field(default_factory=list)
+    created_at: datetime | None = None
     match_reasons: list[str] = Field(default_factory=list)
     supporting_ref_groups: dict[str, list[str]] = Field(default_factory=dict)
     score: float = Field(default=1.0, ge=0.0, le=1.0)
@@ -450,6 +451,7 @@ def _preview_for_record(
         event_refs=event_refs,
         metadata_refs=metadata_refs,
         tag_refs=tag_refs,
+        created_at=record.get("created_at"),
         match_reasons=match_reasons,
         supporting_ref_groups={
             "source_refs": source_refs,

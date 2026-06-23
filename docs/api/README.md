@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `128`, generated from the FastAPI application and
+Current OpenAPI path count: `129`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -90,6 +90,12 @@ Current boundary summary:
   reviewed recall-only Memory Review records. It does not add embeddings,
   vector DBs, semantic search, background indexing, automatic writes, context
   injection, connector writes, action execution, or production authority.
+- Governed Cognitive Memory Spine Phase 3 adds
+  `GET /control-center/memory/l2-index` as read-only deterministic
+  factual/graph/temporal ref projection over L1 previews. It does not add
+  truth authority, embeddings, vector DBs, semantic search, LLM extraction,
+  background indexing, automatic writes, context injection, connector writes,
+  action execution, or production authority.
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.

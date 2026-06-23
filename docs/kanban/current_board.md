@@ -76,7 +76,9 @@ semantics, UI outcomes, proof commands, and authority boundaries live in
 Governed Cognitive Memory Spine Phase 2 is implemented as a read-only L1 hot
 local memory index over reviewed recall-only `LocalMemoryStore` records at
 `GET /control-center/memory/l1-index`. Phase 3 L2 factual/graph/temporal
-indexing remains the next safe memory-spine phase and is not implemented.
+indexing is implemented as read-only deterministic ref projection at
+`GET /control-center/memory/l2-index`. Phase 4 L3 identity/session/preference
+modeling remains the next safe memory-spine phase and is not implemented.
 UAA-P1-066 is kept queued as a strictly read-only Local Model Control Center
 inventory/status support lane.
 

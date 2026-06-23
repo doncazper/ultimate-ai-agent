@@ -136,6 +136,12 @@ from ultimate_ai_agent.core.memory.l1_index import (
     L1_HOT_MEMORY_INDEX_ROUTE_REF,
     build_l1_hot_memory_index,
 )
+from ultimate_ai_agent.core.memory.l2_index import (
+    L2_FACTUAL_GRAPH_TEMPORAL_INDEX_BLOCKED_STATE_REFS,
+    L2_FACTUAL_GRAPH_TEMPORAL_INDEX_CONTRACT_REF,
+    L2_FACTUAL_GRAPH_TEMPORAL_INDEX_ROUTE_REF,
+    build_l2_factual_graph_temporal_index,
+)
 from ultimate_ai_agent.core.memory.provider import MemoryProviderWriteRequest
 from ultimate_ai_agent.core.memory.review_decisions import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
@@ -5446,6 +5452,18 @@ class FounderLoopRepository:
             "l1_hot_memory_index_blocked_state_refs": list(
                 L1_HOT_MEMORY_INDEX_BLOCKED_STATE_REFS
             ),
+            "l2_factual_graph_temporal_index_contract_ref": (
+                L2_FACTUAL_GRAPH_TEMPORAL_INDEX_CONTRACT_REF
+            ),
+            "l2_factual_graph_temporal_index_route_ref": (
+                L2_FACTUAL_GRAPH_TEMPORAL_INDEX_ROUTE_REF
+            ),
+            "l2_factual_graph_temporal_index_status": (
+                "implemented_read_only_derived_preview"
+            ),
+            "l2_factual_graph_temporal_index_blocked_state_refs": list(
+                L2_FACTUAL_GRAPH_TEMPORAL_INDEX_BLOCKED_STATE_REFS
+            ),
             "decision_count": len(decisions),
             "idempotency_replay_enabled": True,
             "idempotency_conflict_rejected": True,
@@ -5732,6 +5750,26 @@ class FounderLoopRepository:
             limit=limit,
         )
         return index.model_dump(mode="json")
+
+    def memory_l2_factual_graph_temporal_index(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        l1_index = build_l1_hot_memory_index(
+            self.list_memory_review_recall_records(),
+            query_ref=query_ref,
+            limit=limit,
+        )
+        l2_index = build_l2_factual_graph_temporal_index(
+            l1_index,
+            query_ref=query_ref,
+            limit=limit,
+        )
+        return l2_index.model_dump(mode="json")
 
     def _write_memory_review_recall_record(
         self,

@@ -1,12 +1,13 @@
 # Governed Cognitive Memory Spine V1
 
-Status: active architecture contract, Phase 2 L1 hot local memory index implemented.
+Status: active architecture contract, Phase 3 L2 factual/graph/temporal index implemented.
 Baseline: v0.103.0 / 0.103.0.
 
 The Governed Cognitive Memory Spine is UAA's local-first, review-gated memory
 pipeline that converts safe, provenance-linked memory candidates into reviewed
-recall records and, in later phases, indexes those records across hot/local,
-factual/temporal/graph, and identity/session layers for explainable recall
+recall records and indexes those records across hot/local and
+factual/temporal/graph layers, with later identity/session layers planned, for
+explainable recall
 previews or context-pack proposals without treating memory as truth, approval,
 execution authority, connector authority, or hidden prompt context.
 
@@ -66,6 +67,24 @@ store raw content, run background indexing, call providers/models, use
 embeddings, use a vector DB, perform semantic search, write memories
 automatically, inject context, sync connectors/CRM/accounts, execute actions,
 or grant public beta or production authority.
+
+## Current Phase 3
+
+Phase 3 L2 factual, graph, and temporal index status is implemented read-only
+derived preview over Phase 2 L1 hot local memory previews:
+
+- `GET /control-center/memory/l2-index`
+
+The L2 route derives factual, relationship, and temporal inspection items only
+from reviewed L1 recall previews and safe refs. Every item carries memory
+record refs, reviewed recall refs where available, source refs, evidence refs,
+receipt refs, event/metadata/tag refs, derivation reasons, stale/conflict
+posture, and blocked states.
+
+The L2 index is deterministic ref projection only. It does not perform semantic
+search, LLM/entity extraction, embeddings/vector indexing, background indexing,
+truth scoring, context-pack injection, connector/CRM/account sync, action
+execution, provider/model calls, or public beta/production authority.
 
 ## Authority Boundary
 

@@ -26,11 +26,11 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 14 |
-| `local_sensitive` | 88 |
+| `local_sensitive` | 89 |
 | `mutating_requires_authority` | 23 |
 
-The current OpenAPI path count is `128` after later scoped FCC-V1-003 through
-FCC-V1-006 Founder Loop route work and the governed memory L1 index route.
+The current OpenAPI path count is `129` after later scoped FCC-V1-003 through
+FCC-V1-006 Founder Loop route work and the governed memory L1/L2 index routes.
 UAA-P1-080 itself added no routes; stable
 methods, operation IDs, tags, summaries, side-effect classes,
 `requires_auth_future=True`, and `blocked_from_production=True` remain preserved
@@ -52,7 +52,7 @@ production readiness, or production authority is added by this milestone.
 
 - `src/ultimate_ai_agent/api/contracts.py`
 - `src/ultimate_ai_agent/api/manifest.py`
-- `tests/fixtures/api_route_inventory_128.json`
+- `tests/fixtures/api_route_inventory_129.json`
 - `docs/schemas/api_route_classification.schema.json`
 - `scripts/verify_uaa_p1_080_api_route_classification.py`
 - `tests/test_api_manifest.py`
