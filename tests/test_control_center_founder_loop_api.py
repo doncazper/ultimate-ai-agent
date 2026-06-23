@@ -523,11 +523,9 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert today["next_safe_actions"]
     assert today["memory_review_route_ref"] == "/memory"
     assert (
-        today["memory_review_backend_route_ref"] == "GET /control-center/today/summary"
+        today["memory_review_backend_route_ref"] == "GET /control-center/memory/review"
     )
-    assert today["memory_review_status"] == (
-        "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata"
-    )
+    assert today["memory_review_status"] == "storage_backed_review_queue_with_backend_decision_receipts"
     assert today["memory_write_enabled"] is False
     assert today["memory_delete_enabled"] is False
     assert today["context_injection_enabled"] is False
@@ -670,10 +668,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert plan_item["approval_grant_capture_enabled"] is False
 
     timeline = today["evidence_timeline"]
-    assert (
-        today["evidence_timeline_status"]
-        == "storage_backed_redacted_history_grammar_refs"
-    )
+    assert today["evidence_timeline_status"] == "implemented_productized_evidence_timeline_safe_refs_only"
     assert timeline
     for item in timeline:
         assert item["history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF

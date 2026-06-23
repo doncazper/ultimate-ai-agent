@@ -117,6 +117,8 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
         "/control-center/runtime-readiness/summary",
         "/control-center/foundation-gate/summary",
         "/control-center/setup-assistant/summary",
+        "/control-center/settings/status",
+        "/control-center/local-models/status",
         "/control-center/today/summary",
         "/control-center/evidence/timeline",
         "/control-center/actions/inbox",
@@ -130,6 +132,62 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
     manifest = client.get("/control-center/manifest").json()["data"]
     assert manifest["metadata"]["frontend_implemented"] is False
     assert "runtime_execution" in manifest["blocked_capabilities"]
+
+
+def test_control_center_settings_status_is_backend_owned_read_only() -> None:
+    response = client.get("/control-center/settings/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_settings_status"
+    assert body["redactions_applied"] == [
+        "safe_refs_only",
+        "raw_paths_omitted",
+        "credentials_omitted",
+        "no_runtime_values",
+    ]
+
+    data = body["data"]
+    assert data["status"] == "read_only_status"
+    assert data["maturity_gate_status"] == "active_promotion_gate"
+    assert data["proposal_review_only"] is True
+    assert "settings-proposal:kill-switch-status-route" in data["review_proposals"]
+    assert data["maturity_manifest_ref"] == (
+        "docs/control_center/operational_maturity_manifest.json"
+    )
+    assert data["verifier_ref"] == "scripts/verify_operational_maturity.py"
+    assert data["feature_flag_mutation_enabled"] is False
+    assert data["kill_switch_mutation_enabled"] is False
+    assert data["settings_mutation_enabled"] is False
+    assert data["production_authority_enabled"] is False
+    assert "kill_switch_mutation" in data["blocked_authorities"]
+
+
+def test_control_center_local_models_status_is_read_only_and_blocks_lifecycle() -> None:
+    response = client.get("/control-center/local-models/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_local_models_status"
+    assert body["redactions_applied"] == [
+        "safe_refs_only",
+        "raw_paths_omitted",
+        "credentials_omitted",
+        "no_model_calls",
+    ]
+
+    data = body["data"]
+    assert data["status"] == "read_only_status"
+    assert data["proposal_review_only"] is True
+    assert "local-models-proposal:lifecycle-status-route" in data["review_proposals"]
+    assert data["inventory"]["schema_version"] == "uaa_local_model_inventory.v1"
+    assert data["gateway_posture"]["local_gateway_enabled"] is False
+    assert data["gateway_posture"]["bearer_env_configured"] is False
+    assert all(enabled is False for enabled in data["lifecycle_actions"].values())
+    assert "model_download" in data["blocked_authorities"]
+    assert "provider_model_authority" in data["blocked_authorities"]
 
 
 def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> None:
@@ -356,8 +414,8 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/observability/client-errors" in paths
     assert "/integrations/mattermost/events/message" in paths
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
-    assert len(paths) == 133
-    assert len(operation_ids) == len(set(operation_ids)) == 133
+    assert len(paths) == 135
+    assert len(operation_ids) == len(set(operation_ids)) == 135
 
 
 def test_control_center_action_local_task_commit_requires_exact_approval_and_receipts(
@@ -455,7 +513,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 133 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 135 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
@@ -525,7 +583,7 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     assert manifest["operator_readiness_taxonomy_ref"] == (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     )
-    assert manifest["openapi_path_count"] == 133
+    assert manifest["openapi_path_count"] == 135
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {
@@ -646,7 +704,7 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready() ->
     ]:
         assert surface in surfaces
 
-    assert surfaces["Settings"]["release_status"] == "blocked_missing_backend"
+    assert surfaces["Settings"]["release_status"] == "status_available_not_completion"
     assert (
         surfaces["Chat Local Operator"]["release_status"] == "founder_loop_v1_proofed"
     )
@@ -654,8 +712,10 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready() ->
     assert surfaces["Runtime"]["release_status"] == "status_available_not_completion"
 
     for action in actions.values():
-        if not action["backend_routes"] or action["missing_backend_routes"]:
+        if not action["backend_routes"]:
             assert action["release_status"] not in release_available
+        if action["missing_backend_routes"] and action["release_status"] in release_available:
+            assert action["action_id"] == "navigate-settings"
 
 
 def test_control_center_product_language_rules_are_current_and_enforced() -> None:

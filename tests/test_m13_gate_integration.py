@@ -42,10 +42,20 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
     assert "/control-center/actions/execute" not in endpoints
     assert "/control-center/plugins/enable" not in endpoints
     assert "/control-center/remote-workers/dispatch" not in endpoints
-    assert client.count('method: "POST"') == 2
-    assert "API_ENDPOINTS.actionPreview" in client
+    allowed_post_targets = {
+        "API_ENDPOINTS.actionPreview",
+        "actionDecisionEndpoint(actionId, decision)",
+        "actionLocalTaskCommitEndpoint(actionId)",
+        "API_ENDPOINTS.founderTodayActionEnvelope",
+        "API_ENDPOINTS.controlCenterChatTurns",
+        "chatTurnHandoffEndpoint(turnRef)",
+        "memoryReviewDecisionEndpoint(candidateRef, decision)",
+        "API_ENDPOINTS.localChatCompletions",
+    }
+    assert client.count('method: "POST"') == len(allowed_post_targets)
+    for target in allowed_post_targets:
+        assert target in client
     assert "requestRedactedLocalChatProbe" in client
-    assert "API_ENDPOINTS.localChatCompletions" in client
     assert "responseVisible: false" in client
     assert "stream: false" in client
 

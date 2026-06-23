@@ -8,6 +8,8 @@ class ControlCenterSurface(str, Enum):
     foundation_gate = "foundation_gate"
     api_routes = "api_routes"
     macos_setup_assistant = "macos_setup_assistant"
+    settings_status = "settings_status"
+    local_models = "local_models"
     events = "events"
     receipts = "receipts"
     model_runtime = "model_runtime"

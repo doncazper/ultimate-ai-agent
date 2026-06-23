@@ -2309,11 +2309,12 @@ class FoundationGateEvaluator:
     def check_forbidden_runtime_routes_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         from ultimate_ai_agent.api.app import app
         from ultimate_ai_agent.api.manifest import iter_api_route_items
-        from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENTS
+        from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS, FORBIDDEN_ROUTE_FRAGMENTS
 
         failures = forbidden_route_fragment_failures(
             iter_api_route_items(app),
             FORBIDDEN_ROUTE_FRAGMENTS,
+            exact_path_exemptions=FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS,
         )
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/openapi.py"])
 
@@ -2475,9 +2476,14 @@ class FoundationGateEvaluator:
         from fastapi.testclient import TestClient
 
         from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
 
         failures = []
         client = TestClient(app)
+        old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+        bearer = "foundation-gate-m8-local-bearer"
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
+        auth_headers = {"Authorization": f"Bearer {bearer}"}
         secret = "sk_" + "test_" + "secret_" + "value"
         assignment = "api_" + "key=" + secret
         manifest = self._m8_gate_manifest()
@@ -2489,12 +2495,18 @@ class FoundationGateEvaluator:
             ("/model-runtime/requests/validate", {"request": request, "manifest": manifest_with_secret}),
             ("/model-runtime/simulate", {"request": request, "manifest": manifest_with_secret}),
         ]
-        for path, payload in cases:
-            response = client.post(path, json=payload)
-            if response.status_code not in {200, 422}:
-                failures.append(f"{path} returned unexpected status {response.status_code}")
-            if secret in response.text or assignment in response.text:
-                failures.append(f"{path} echoed secret-like input")
+        try:
+            for path, payload in cases:
+                response = client.post(path, json=payload, headers=auth_headers)
+                if response.status_code not in {200, 422}:
+                    failures.append(f"{path} returned unexpected status {response.status_code}")
+                if secret in response.text or assignment in response.text:
+                    failures.append(f"{path} echoed secret-like input")
+        finally:
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
 
     def check_m85_approval_authority_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
@@ -2696,13 +2708,27 @@ class FoundationGateEvaluator:
         from fastapi.testclient import TestClient
 
         from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
 
         client = TestClient(app)
+        old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+        bearer = "foundation-gate-m85-local-bearer"
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
         secret = "sk_" + "test_" + "secret_" + "value"
         assignment = "api_" + "key=" + secret
         payload = self._m85_gate_approval_request().model_dump(mode="json")
         payload["metadata"] = {"note": assignment}
-        response = client.post("/approvals/requests/validate", json=payload)
+        try:
+            response = client.post(
+                "/approvals/requests/validate",
+                json=payload,
+                headers={"Authorization": f"Bearer {bearer}"},
+            )
+        finally:
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
         failures = []
         if response.status_code not in {200, 422}:
             failures.append(f"unexpected approval API status {response.status_code}")
@@ -3309,13 +3335,24 @@ class FoundationGateEvaluator:
         from fastapi.testclient import TestClient
 
         from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
 
         failures = []
         client = TestClient(app)
-        response = client.post(
-            "/remote-workers/policy/validate",
-            json={"policy": {"policy_id": "m105_extra_policy"}, "api_key": "sk_secret_value_123456"},
-        )
+        old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+        bearer = "foundation-gate-m105-local-bearer"
+        os.environ[LOCAL_API_BEARER_ENV] = bearer
+        try:
+            response = client.post(
+                "/remote-workers/policy/validate",
+                json={"policy": {"policy_id": "m105_extra_policy"}, "api_key": "sk_secret_value_123456"},
+                headers={"Authorization": f"Bearer {bearer}"},
+            )
+        finally:
+            if old_bearer is None:
+                os.environ.pop(LOCAL_API_BEARER_ENV, None)
+            else:
+                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
         body = response.json()
         if response.status_code != 422:
             failures.append(f"extra top-level field returned status {response.status_code}")
@@ -3937,7 +3974,7 @@ class FoundationGateEvaluator:
     def check_m12_control_center_api_read_only(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
         from ultimate_ai_agent.api.app import app
         from ultimate_ai_agent.api.manifest import iter_api_route_items
-        from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENTS
+        from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS, FORBIDDEN_ROUTE_FRAGMENTS
 
         routes = iter_api_route_items(app)
         paths = {route.path: route for route in routes}
@@ -4009,6 +4046,30 @@ class FoundationGateEvaluator:
                 and route.rate_limit_group == "memory_review_decision"
                 and route.blocked_from_production
             )
+            is_founder_loop_local_task_commit_state = (
+                path in FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES
+                and route.method == "POST"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "action_decision"
+                and route.blocked_from_production
+            )
+            is_founder_loop_memory_context_action_proposal_state = (
+                path in FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES
+                and route.method == "POST"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "memory_context_pack_action_proposal"
+                and route.blocked_from_production
+            )
             if (
                 not route.validation_only
                 and not is_founder_loop_summary
@@ -4016,6 +4077,8 @@ class FoundationGateEvaluator:
                 and not is_founder_loop_action_envelope_state
                 and not is_founder_loop_chat_durable_receipt_state
                 and not is_founder_loop_memory_review_decision_state
+                and not is_founder_loop_local_task_commit_state
+                and not is_founder_loop_memory_context_action_proposal_state
             ):
                 failures.append(
                     f"{path} is not read-only/preview-only/founder-loop-state"
@@ -4023,7 +4086,9 @@ class FoundationGateEvaluator:
         unsafe_routes = [
             path
             for path in paths
-            if path.startswith("/control-center") and any(fragment in path for fragment in FORBIDDEN_ROUTE_FRAGMENTS)
+            if path.startswith("/control-center")
+            and path not in FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS
+            and any(fragment in path for fragment in FORBIDDEN_ROUTE_FRAGMENTS)
         ]
         failures.extend(f"forbidden control-center route present: {path}" for path in sorted(unsafe_routes))
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py", "src/ultimate_ai_agent/api/openapi.py"])
@@ -4201,12 +4266,24 @@ class FoundationGateEvaluator:
             failures.append("action preview endpoint declaration missing")
         if endpoints.count("/control-center/actions/preview") != 1:
             failures.append("action preview endpoint should appear exactly once in endpoint declarations")
-        if "method: \"POST\"" not in client:
-            failures.append("frontend client does not declare preview POST")
-        if "API_ENDPOINTS.actionPreview" not in client:
-            failures.append("frontend client does not post to actionPreview endpoint constant")
-        post_count = sum(1 for path in app_root.rglob("*.ts*") if "method: \"POST\"" in self._read(path))
-        if post_count != 1:
+        allowed_post_targets = {
+            "API_ENDPOINTS.actionPreview",
+            "actionDecisionEndpoint(actionId, decision)",
+            "actionLocalTaskCommitEndpoint(actionId)",
+            "API_ENDPOINTS.founderTodayActionEnvelope",
+            "API_ENDPOINTS.controlCenterChatTurns",
+            "chatTurnHandoffEndpoint(turnRef)",
+            "memoryReviewDecisionEndpoint(candidateRef, decision)",
+            "API_ENDPOINTS.localChatCompletions",
+        }
+        for target in sorted(allowed_post_targets):
+            if target not in client:
+                failures.append(f"frontend client missing scoped POST target: {target}")
+        post_files = [path for path in app_root.rglob("*.ts*") if "method: \"POST\"" in self._read(path)]
+        if post_files != [app_root / "api/client.ts"]:
+            failures.append("frontend POST declarations must stay centralized in api/client.ts")
+        post_count = client.count("method: \"POST\"")
+        if post_count != len(allowed_post_targets):
             failures.append(f"unexpected frontend POST declaration count: {post_count}")
         return self._result(criterion, failures, ["apps/control-center/src/api/endpoints.ts", "apps/control-center/src/api/client.ts"])
 
@@ -4281,7 +4358,7 @@ class FoundationGateEvaluator:
                 f"boundary: expected {EXPECTED_M36_OPENAPI_PATH_COUNT}, found {len(historical_paths)}"
             )
         control_center_routes = [path for path in paths if path.startswith("/control-center")]
-        if len(control_center_routes) != 13:
+        if len(control_center_routes) != 36:
             failures.append(f"unexpected Control Center route count: {len(control_center_routes)}")
         forbidden = [
             "/control-center/actions/execute",
@@ -4487,9 +4564,16 @@ class FoundationGateEvaluator:
             failures.append("Vite dev proxy must not proxy broad /runtime frontend route space")
         if "changeOrigin: true" in vite_config:
             failures.append("Vite dev proxy rewrites origin")
+        local_auth_fragments = [
+            "withLocalApiAuthHeaders",
+            "localApiBearerForRequest",
+            "VITE_UAA_LOCAL_API_BEARER",
+            "Authorization: `Bearer ${bearer}`",
+        ]
+        for fragment in local_auth_fragments:
+            if fragment not in client:
+                failures.append(f"frontend client missing local auth posture fragment: {fragment}")
         forbidden_client_fragments = [
-            "Authorization",
-            "Bearer ",
             "api_key",
             "document.cookie",
             "localStorage",
@@ -4547,7 +4631,6 @@ class FoundationGateEvaluator:
             "production_authority: true",
             "productionControlCenter: true",
             "approval_grants_created: true",
-            "Authorization",
             "document.cookie",
         ]
         failures.extend(
@@ -49857,9 +49940,14 @@ class FoundationGateEvaluator:
             from fastapi.testclient import TestClient
 
             from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
             from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
 
             client = TestClient(app)
+            old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
+            bearer = "foundation-gate-v0292-local-bearer"
+            os.environ[LOCAL_API_BEARER_ENV] = bearer
+            auth_headers = {"Authorization": f"Bearer {bearer}"}
             def kernel_payload(workspace_root: Path, approval_ref: str) -> dict[str, Any]:
                 return {
                     "request_id": "ktr_gate_v0292",
@@ -49903,7 +49991,10 @@ class FoundationGateEvaluator:
                 payload = kernel_payload(probe_root, "approval_test_gate")
                 response = client.post(
                     "/kernel/tasks/run",
-                    headers={"X-UAA-Idempotency-Key": "idempotency:foundation-gate-v0292-kernel"},
+                    headers={
+                        **auth_headers,
+                        "X-UAA-Idempotency-Key": "idempotency:foundation-gate-v0292-kernel",
+                    },
                     json=payload,
                 )
                 if response.status_code != 200:
@@ -49928,7 +50019,9 @@ class FoundationGateEvaluator:
                 os.environ["UAA_FILE_API_SAFE_ROOT"] = str(preview_root)
                 preview_response = client.post(
                     "/files/read/preview",
+                    headers=auth_headers,
                     json={
+                        "safe_root_ref": "local_dev_workspace",
                         "request": {
                             "request_id": "frr_gate_v0292",
                             "run_id": "run_gate_v0292",
@@ -49960,8 +50053,10 @@ class FoundationGateEvaluator:
                         failures.append("file preview API did not mark raw content omitted")
                 caller_root_response = client.post(
                     "/files/read/preview",
+                    headers=auth_headers,
                     json={
                         "workspace_root": str(preview_root),
+                        "safe_root_ref": "local_dev_workspace",
                         "request": {
                             "request_id": "frr_gate_v0292_caller_root",
                             "run_id": "run_gate_v0292",
@@ -49984,6 +50079,10 @@ class FoundationGateEvaluator:
                     os.environ.pop("UAA_FILE_API_SAFE_ROOT", None)
                 else:
                     os.environ["UAA_FILE_API_SAFE_ROOT"] = old_safe_root
+                if old_bearer is None:
+                    os.environ.pop(LOCAL_API_BEARER_ENV, None)
+                else:
+                    os.environ[LOCAL_API_BEARER_ENV] = old_bearer
 
             app_source = (self.root / "src" / "ultimate_ai_agent" / "api" / "app.py").read_text(encoding="utf-8")
             forbidden_exception_echo = (

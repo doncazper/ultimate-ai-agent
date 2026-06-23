@@ -14,7 +14,11 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_ACTION_DECISION_ROUTES,
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
+    CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES,
+    FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES,
+    FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES,
     FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
     _historical_openapi_path_set,
@@ -70,9 +74,16 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/chat/turns/{turn_ref}/receipt",
         "/control-center/evidence/timeline",
         "/control-center/memory/review",
+        "/control-center/memory/context-packs",
+        "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        "/control-center/memory/l1-index",
+        "/control-center/memory/l2-index",
+        "/control-center/memory/l3-index",
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
         "/control-center/memory/review/{candidate_ref}/reject",
+        "/control-center/memory/review/{candidate_ref}/receipt",
+        "/control-center/actions/{action_id}/local-task/commit",
         "/control-center/today/action-envelope",
         "/control-center/morning-briefing/summary",
         "/control-center/storage/status",
@@ -95,8 +106,26 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
         "/control-center/memory/review/{candidate_ref}/reject",
+        "/control-center/memory/review/{candidate_ref}/receipt",
+    }
+    assert FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES == {
+        "/control-center/actions/{action_id}/local-task/commit",
+    }
+    assert FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES == {
+        "/control-center/memory/context-packs",
+        "/control-center/memory/l1-index",
+        "/control-center/memory/l2-index",
+        "/control-center/memory/l3-index",
+    }
+    assert FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES == {
+        "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+    }
+    assert CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES == {
+        "/control-center/local-models/status",
+        "/control-center/settings/status",
     }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
+        "control_center_operational_status",
         "control_center_setup_assistant",
         "founder_loop",
         "mattermost",
@@ -112,12 +141,19 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
 
 def test_route_side_effect_helpers_match_current_manifest_contract() -> None:
     from ultimate_ai_agent.api.manifest import iter_api_route_items
-    from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENTS
+    from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS, FORBIDDEN_ROUTE_FRAGMENTS
 
     routes = iter_api_route_items(app)
 
     assert operation_id_failures(routes) == []
-    assert forbidden_route_fragment_failures(routes, FORBIDDEN_ROUTE_FRAGMENTS) == []
+    assert (
+        forbidden_route_fragment_failures(
+            routes,
+            FORBIDDEN_ROUTE_FRAGMENTS,
+            exact_path_exemptions=FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS,
+        )
+        == []
+    )
     assert unsafe_side_effect_class_failures(routes) == []
 
 

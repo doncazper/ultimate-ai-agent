@@ -22,7 +22,18 @@ from scripts.verification.repo import (  # noqa: E402
     print_failures_or_success,
 )
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
-from ultimate_ai_agent.core.storage import EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES  # noqa: E402
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
+    FounderLoopActionDecisionRequest,
+    action_approval_request,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
+    FounderLoopLocalTaskCommitRequest,
+)
+from ultimate_ai_agent.core.storage import (  # noqa: E402
+    EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
+    FounderLoopRepository,
+)
 
 
 SUCCESS_MESSAGE = "FCC-V1-007 Founder Loop V1 promotion proof verification passed."
@@ -34,7 +45,7 @@ PROOF_SCRIPT = "scripts/verify_founder_loop_v1.py"
 PROOF_TEST = "tests/test_founder_loop_v1_proof_lane.py"
 PROOFED_ROUTE_STATUS = "founder_loop_v1_proofed"
 PROMOTED_ROUTES = {"/actions", "/chat", "/memory", "/evidence"}
-BLOCKED_OR_PARTIAL_ROUTES = {"/inbox": "blocked", "/settings": "blocked", "/models": "blocked"}
+BLOCKED_OR_PARTIAL_ROUTES = {"/inbox": "blocked", "/settings": "partial", "/models": "partial"}
 PROMOTED_SURFACES = {"Action Inbox", "Chat Local Operator", "Memory Review", "Evidence"}
 PROMOTED_ACTIONS = {
     "navigate-actions-inbox",
@@ -48,6 +59,7 @@ MUTATING_ROUTE_RATE_LIMITS = {
     ("POST", "/control-center/actions/{action_id}/edit"): "action_decision",
     ("POST", "/control-center/actions/{action_id}/reject"): "action_decision",
     ("POST", "/control-center/actions/{action_id}/defer"): "action_decision",
+    ("POST", "/control-center/actions/{action_id}/local-task/commit"): "action_decision",
     ("POST", "/control-center/chat/turns"): "chat_durable_receipt",
     ("POST", "/control-center/chat/turns/{turn_ref}/handoff"): "chat_durable_receipt",
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"): "memory_review_decision",
@@ -197,10 +209,13 @@ def _append_route_status_failures(
         if action.get("missing_backend_routes"):
             failures.append(f"{action_id} proofed status cannot list missing backend routes")
         _append_no_overclaim_text(failures, str(action), action_id)
-    for surface_name in ["Inbox", "Settings"]:
+    for surface_name in ["Inbox"]:
         surface = _surface(route_status, surface_name)
         if surface and surface.get("release_status") != "blocked_missing_backend":
             failures.append(f"{surface_name} must remain blocked")
+    settings = _surface(route_status, "Settings")
+    if settings and settings.get("release_status") != "status_available_not_completion":
+        failures.append("Settings must remain status-only")
     models = _surface(route_status, "Models")
     if models and models.get("release_status") == PROOFED_ROUTE_STATUS:
         failures.append("Models must not be promoted by FCC-V1-007")
@@ -321,7 +336,14 @@ def _exercise_founder_loop(
     if not items:
         failures.append("Action Inbox proof exercise found no action candidates")
         return receipts
-    item_ref = items[0].get("item_ref")
+    item_ref = next(
+        (
+            item.get("item_ref")
+            for item in items
+            if item.get("item_ref") != "founder-action:local-task-create-scorecard"
+        ),
+        items[0].get("item_ref"),
+    )
     action = context.client.post(
         f"/control-center/actions/{item_ref}/reject",
         json={"decision_reason_ref": "decision-reason-ref:fcc-v1-007-action"},
@@ -379,7 +401,66 @@ def _exercise_founder_loop(
         },
     )
     _append_receipt_from_response(failures, decision, receipts, "Memory Review")
+    local_task_action = _approve_local_task_for_proof()
+    local_task = context.client.post(
+        "/control-center/actions/local-task-create-scorecard/local-task/commit",
+        json=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(local_task_action["local_task_commit_approval_ref"]),
+            decision_reason_ref="decision-reason-ref:fcc-v1-007-local-task-commit",
+            metadata_refs=["metadata-ref:fcc-v1-007-local-task-commit"],
+        ).model_dump(mode="json"),
+        headers={
+            **auth_headers,
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-local-task-commit",
+        },
+    )
+    _append_receipt_from_response(failures, local_task, receipts, "Local task commit")
     return receipts
+
+
+def _approve_local_task_for_proof() -> dict[str, Any]:
+    repo = FounderLoopRepository.from_env()
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    request = FounderLoopActionDecisionRequest(
+        decision_reason_ref="decision-reason-ref:fcc-v1-007-local-task-approval"
+    )
+    approval_request = action_approval_request(
+        item_ref=str(action["item_ref"]),
+        actor_context=request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            str(action["item_ref"]),
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            str(action["action_approval_requirement_ref"]),
+        ],
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    grant = authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="fcc-v1-007-proof-reviewer",
+        approval_ref="approval-ref:fcc-v1-007-local-task-action",
+    )
+    repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            approval_ref=grant.approval_ref,
+            approval_grants=[grant],
+            decision_reason_ref="decision-reason-ref:fcc-v1-007-local-task-approval",
+        ),
+        idempotency_key_ref="idempotency-ref:fcc-v1-007-local-task-action",
+    )
+    return next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
 
 
 def _append_receipt_from_response(

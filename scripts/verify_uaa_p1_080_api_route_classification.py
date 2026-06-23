@@ -33,7 +33,7 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 65,
+    "validation_only": 67,
     "none": 4,
     "local_dev_workspace_only": 63,
     "governed_network_read_only": 1,
@@ -79,7 +79,7 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
-        "133",
+        "135",
         "public_metadata",
         "local_readonly",
         "local_sensitive",

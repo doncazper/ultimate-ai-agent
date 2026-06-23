@@ -92,6 +92,7 @@ SCAN_SEQUENCE = [
     ("Governed Cognitive Memory Spine V1 scan", "verify_governed_cognitive_memory_spine_v1"),
     ("FCC-V1-006 Evidence Timeline productization scan", "verify_fcc_v1_006_evidence_timeline_productization"),
     ("FCC-V1-007 Founder Loop V1 promotion proof scan", "verify_founder_loop_v1"),
+    ("Control Center operational maturity promotion gate", "verify_operational_maturity"),
     ("documentation integrity scan", "verify_documentation_integrity"),
     ("verifier maintainability scan", "verify_verifier_maintainability"),
     ("UAA-P1-071 memory review decision capture scan", "verify_uaa_p1_071_memory_review_decision_capture"),
@@ -30184,6 +30185,11 @@ def run_static_scans(timings: Any | None = None) -> None:
 def verify_repo_awareness_benchmark() -> None:
     print("\n[Verifier] Running repo awareness benchmark verifier...")
     run_cmd([sys.executable, "scripts/verify_repo_awareness_benchmark.py"])
+
+
+def verify_operational_maturity() -> None:
+    print("\n[Verifier] Running Control Center operational maturity gate...")
+    run_cmd([sys.executable, "scripts/verify_operational_maturity.py"])
 
 
 def main(argv: Any | None = None) -> None:

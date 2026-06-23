@@ -190,6 +190,7 @@
         "raw_evidence_included",
         "receipt_refs",
         "audit_refs",
+        "idempotency_refs",
         "replay_refs",
         "rollback_refs",
         "rollback_blockers",
@@ -226,6 +227,7 @@
         "raw_evidence_included": { "const": false },
         "receipt_refs": { "$ref": "#/$defs/safe_ref_list" },
         "audit_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "idempotency_refs": { "$ref": "#/$defs/safe_ref_list" },
         "replay_refs": { "$ref": "#/$defs/safe_ref_list" },
         "rollback_refs": { "$ref": "#/$defs/safe_ref_list" },
         "rollback_blockers": {

@@ -2224,6 +2224,20 @@ FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES = frozenset(
         "/control-center/memory/review/{candidate_ref}/receipt",
     }
 )
+FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES = frozenset(
+    {"/control-center/actions/{action_id}/local-task/commit"}
+)
+FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES = frozenset(
+    {
+        "/control-center/memory/context-packs",
+        "/control-center/memory/l1-index",
+        "/control-center/memory/l2-index",
+        "/control-center/memory/l3-index",
+    }
+)
+FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES = frozenset(
+    {"/control-center/memory/context-packs/{context_pack_ref}/action-proposal"}
+)
 FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     frozenset(
         {
@@ -2243,6 +2257,9 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     | FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES
     | FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES
     | FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES
+    | FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES
+    | FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES
+    | FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES
 )
 MATTERMOST_AGENT_ROOMS_ROUTES = {
     "/integrations/mattermost/audit",
@@ -2256,6 +2273,10 @@ MATTERMOST_AGENT_ROOMS_ROUTES = {
 }
 CONTROL_CENTER_SETUP_ASSISTANT_ROUTES = {
     "/control-center/setup-assistant/summary",
+}
+CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES = {
+    "/control-center/local-models/status",
+    "/control-center/settings/status",
 }
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
@@ -2430,6 +2451,7 @@ TASK_DECOMPOSITION_CANONICAL_ROUTES = frozenset(
 POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "founder_loop": FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,
+    "control_center_operational_status": CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     "mattermost": MATTERMOST_AGENT_ROOMS_ROUTES,
     "packaging_proof": PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES,
     "redacted_observability": M167_REDACTED_OBSERVABILITY_ROUTES,

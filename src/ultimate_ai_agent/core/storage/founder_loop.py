@@ -1983,7 +1983,7 @@ def _daily_loop_summary(
             "This loop is review-only, draft-only, and local-only; no email send, "
             "calendar write, connector write, source polling, provider call, "
             "action execution, automatic memory truth, hidden context injection, "
-            "or public release authority is granted."
+            "or public distribution authority is granted."
         ),
         "action_execution_enabled": False,
         "connector_runtime_enabled": False,

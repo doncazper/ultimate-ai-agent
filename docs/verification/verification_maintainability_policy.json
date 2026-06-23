@@ -21,8 +21,8 @@
       ],
       "allowlist": {
         "scripts/verification/run_all_legacy.py": {
-          "max_lines": 30293,
-          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003, FCC-V1-004, governed memory spine, and fail-closed local auth compatibility add stable small verifier hooks, future static scans must move to small modules."
+          "max_lines": 30299,
+          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003, FCC-V1-004, governed memory spine, fail-closed local auth compatibility, and the operational maturity gate add stable small verifier hooks, future static scans must move to small modules."
         },
         "scripts/verification/documentation_integrity/legacy.py": {
           "max_lines": 21958,
@@ -53,12 +53,16 @@
           "reason": "Pre-existing oversized test outside this verifier refactor."
         },
         "tests/test_foundation_gate_latency_scripts.py": {
-          "max_lines": 701,
+          "max_lines": 709,
           "reason": "Pre-existing oversized test outside this verifier refactor."
         },
         "tests/test_founder_loop_storage.py": {
-          "max_lines": 1098,
-          "reason": "Frozen seed/read-model legacy chunk after behavior-specific tests were sharded; FCC-V1-002 adds decision-state read-model assertions."
+          "max_lines": 1360,
+          "reason": "Frozen seed/read-model legacy chunk after behavior-specific tests were sharded; FCC-V1-002 through FCC-ACTION-001a add decision-state, receipt, and local-task assertions."
+        },
+        "tests/test_control_center_api_routes.py": {
+          "max_lines": 822,
+          "reason": "Frozen Control Center API route contract test; rank-2 Settings and Local Models read-only status routes add scoped assertions before future sharding."
         },
         "tests/test_control_center_founder_loop_api.py": {
           "max_lines": 792,

@@ -2,7 +2,7 @@
 
 Status: active gated foundation plan
 Baseline: v0.103.0 / 0.103.0
-Current OpenAPI path count: 133
+Current OpenAPI path count: 135
 Scope: planning, extraction guardrails, and first low-risk extraction status
 
 This plan accepts the service-module boundary used by UAA-P1-058 for the first
@@ -56,7 +56,7 @@ FCC-P1-012 accepts this document as the route-extraction plan for Founder
 Command Center surfaces. It does not create a separate extraction plan, route
 inventory, route module, or product roadmap. The surface mapping below is an
 alignment layer over UAA-P1-021 and UAA-P1-052 so later FCC work can point to
-the accepted service-module boundary without changing the current 133-path API.
+the accepted service-module boundary without changing the current 135-path API.
 
 | FCC surface | Current route families or status refs | Accepted target service module | Extraction posture |
 |---|---|---|---|

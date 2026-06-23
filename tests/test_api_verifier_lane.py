@@ -21,7 +21,7 @@ def test_default_api_verifier_context_is_cached() -> None:
 
     assert first is second
     assert first.client is second.client
-    assert first.manifest["route_count"] == 133
+    assert first.manifest["route_count"] == 135
 
 
 def test_individual_api_verifiers_accept_shared_context(shared_context) -> None:

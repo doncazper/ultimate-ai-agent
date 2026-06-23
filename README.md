@@ -67,7 +67,7 @@ Morning Briefing
 | Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | Local model lane | **M160-M167**, including **M166** production-readiness gate and **M167** live evidence hardening |
-| API boundary | FastAPI route contract with **133** OpenAPI paths |
+| API boundary | FastAPI route contract with **135** OpenAPI paths |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
 | Governed Cognitive Memory Spine | Phases 1-4 implemented as reviewed/read-only lanes |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |

@@ -68,6 +68,9 @@ FORBIDDEN_ROUTE_FRAGMENTS = [
     "/remote-workers/execute",
     "/remote-workers/subagents/launch",
 ]
+FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS = {
+    "/control-center/local-models/status",
+}
 
 FORBIDDEN_RAW_SECRET_SCHEMA_FIELDS = {
     "api_key",
@@ -189,7 +192,8 @@ def verify_openapi_contract(app: FastAPI) -> ApiContractStatus:
     unsafe_routes = [
         route.path
         for route in routes
-        if any(fragment in route.path for fragment in FORBIDDEN_ROUTE_FRAGMENTS)
+        if route.path not in FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS
+        and any(fragment in route.path for fragment in FORBIDDEN_ROUTE_FRAGMENTS)
     ]
     if unsafe_routes:
         errors.append(f"Forbidden runtime routes present: {', '.join(sorted(set(unsafe_routes)))}")

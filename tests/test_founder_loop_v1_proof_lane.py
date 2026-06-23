@@ -63,4 +63,4 @@ def test_founder_loop_v1_proof_verifier_flags_route_status_overclaim() -> None:
         check_files=False,
     )
 
-    assert "Settings must remain blocked" in failures
+    assert "Settings must remain status-only" in failures

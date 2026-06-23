@@ -326,10 +326,12 @@ CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
 LOCAL_READONLY_PATHS = {
     "/control-center/dashboard",
     "/control-center/foundation-gate/summary",
+    "/control-center/local-models/status",
     "/control-center/manifest",
     "/control-center/routes",
     "/control-center/runtime-readiness/summary",
     "/control-center/setup-assistant/summary",
+    "/control-center/settings/status",
     "/control-center/status",
     "/extensions/catalog",
     "/remote-workers/mesh/status",

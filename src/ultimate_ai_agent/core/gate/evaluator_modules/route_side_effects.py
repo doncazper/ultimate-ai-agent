@@ -20,12 +20,17 @@ def operation_id_failures(routes: Iterable[object]) -> list[str]:
 def forbidden_route_fragment_failures(
     routes: Iterable[object],
     forbidden_fragments: Iterable[str],
+    *,
+    exact_path_exemptions: Iterable[str] = (),
 ) -> list[str]:
     fragments = tuple(forbidden_fragments)
+    exemptions = set(exact_path_exemptions)
     failures: list[str] = []
     for route in routes:
         path = str(getattr(route, "path", "") or "")
         method = str(getattr(route, "method", "") or "")
+        if path in exemptions:
+            continue
         if any(fragment in path for fragment in fragments):
             failures.append(f"forbidden route: {method} {path}")
     return failures

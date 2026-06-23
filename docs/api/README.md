@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `133`, generated from the FastAPI application and
+Current OpenAPI path count: `135`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for

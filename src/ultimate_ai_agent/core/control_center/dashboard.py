@@ -66,7 +66,7 @@ class ApprovalSummary(BaseModel):
 
 class ApiSummary(BaseModel):
     route_count: int = Field(0, ge=0)
-    control_center_route_count: int = Field(13, ge=0)
+    control_center_route_count: int = Field(15, ge=0)
     operation_ids_unique: bool = True
     execution_routes_present: bool = False
 
@@ -288,7 +288,7 @@ class ControlCenterDashboardSnapshot(BaseModel):
 def build_control_center_dashboard(
     baseline_version: str | None = None,
     api_route_count: int = 0,
-    control_center_route_count: int = 13,
+    control_center_route_count: int = 15,
     foundation_gate_status: str = "unknown",
     env: Mapping[str, str] | None = None,
 ) -> ControlCenterDashboardSnapshot:

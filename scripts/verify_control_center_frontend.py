@@ -309,6 +309,7 @@ ROUTE_STATUS_SURFACE_FIELDS = {
     "current_backend_routes",
     "missing_backend_routes",
 }
+STATUS_ONLY_ACTIONS_WITH_FUTURE_ROUTES = frozenset({"navigate-settings"})
 PRODUCT_LANGUAGE_REQUIRED_FRAGMENTS = {
     "status: active uaa-p1-031 product language rules",
     "cli is a first-class operator surface",
@@ -1030,8 +1031,8 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 133:
-        failures.append("route status manifest must record the 133-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != 135:
+        failures.append("route status manifest must record the 135-path OpenAPI boundary")
     if manifest.get("operator_readiness_taxonomy_ref") != (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     ):
@@ -1144,8 +1145,15 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
             )
         if action.get("release_status") not in allowed_statuses:
             failures.append(f"route status manifest action has unknown status: {action.get('action_id')}")
-        if (not action.get("backend_routes") or action.get("missing_backend_routes")) and (
-            action.get("release_status") in available_statuses
+        status_only_future_routes = (
+            action.get("action_id") in STATUS_ONLY_ACTIONS_WITH_FUTURE_ROUTES
+            and bool(action.get("backend_routes"))
+            and action.get("release_status") == "status_available_not_completion"
+        )
+        if (
+            not status_only_future_routes
+            and (not action.get("backend_routes") or action.get("missing_backend_routes"))
+            and action.get("release_status") in available_statuses
         ):
             failures.append(
                 "route status manifest marks unready action as available: "
@@ -1338,7 +1346,7 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 133 openapi paths"
+            "api boundary: current fastapi manifest has 135 openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "

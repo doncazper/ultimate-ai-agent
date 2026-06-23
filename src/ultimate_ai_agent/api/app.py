@@ -177,6 +177,10 @@ from ultimate_ai_agent.core.control_center import (
     build_control_center_manifest,
     preview_control_center_action,
 )
+from ultimate_ai_agent.core.control_center.operational_status import (
+    build_control_center_local_models_status,
+    build_control_center_settings_status,
+)
 from ultimate_ai_agent.core.observability import (
     ClientErrorReport,
     SessionLogValidationError,
@@ -1913,6 +1917,38 @@ def get_control_center_runtime_readiness_summary() -> Any:
         service="ControlCenterAPI",
         trace_id="system",
         data=dashboard.runtime_readiness_summary.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/settings/status", response_model=ResultEnvelope)
+def get_control_center_settings_status() -> Any:
+    status = build_control_center_settings_status()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_settings_status",
+        service="ControlCenterAPI",
+        trace_id="control-center:settings-status",
+        data=status.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:control-center:settings-status"}
+        ],
+        redactions_applied=status.redactions_applied,
+    )
+
+
+@app.get("/control-center/local-models/status", response_model=ResultEnvelope)
+def get_control_center_local_models_status() -> Any:
+    status = build_control_center_local_models_status()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_local_models_status",
+        service="ControlCenterAPI",
+        trace_id="control-center:local-models-status",
+        data=status.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:control-center:local-models-status"}
+        ],
+        redactions_applied=status.redactions_applied,
     )
 
 

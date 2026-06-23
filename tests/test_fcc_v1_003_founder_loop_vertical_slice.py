@@ -92,6 +92,13 @@ def test_founder_loop_cli_commits_local_task_with_safe_refs(
 ) -> None:
     state_dir = tmp_path / "founder_loop"
     _approve_local_task_seed_action(state_dir)
+    repo = FounderLoopRepository(state_dir)
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    approval_ref = str(action["local_task_commit_approval_ref"])
 
     rc = uaa_founder_loop.main(
         [
@@ -103,7 +110,7 @@ def test_founder_loop_cli_commits_local_task_with_safe_refs(
             "--idempotency-ref",
             "idempotency-ref:test-cli-local-task-commit",
             "--approval-ref",
-            "approval-ref:test-cli-local-task-commit",
+            approval_ref,
             "--metadata-ref",
             "metadata-ref:test-cli-local-task-commit",
         ]
@@ -131,7 +138,7 @@ def test_founder_loop_cli_commits_local_task_with_safe_refs(
             "--idempotency-ref",
             "idempotency-ref:test-cli-local-task-commit",
             "--approval-ref",
-            "approval-ref:test-cli-local-task-commit",
+            approval_ref,
             "--metadata-ref",
             "metadata-ref:test-cli-local-task-commit",
         ]

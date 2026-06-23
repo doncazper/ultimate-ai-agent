@@ -1472,7 +1472,7 @@ const dailyLoopSummary = {
   next_safe_action:
     "Open Morning Briefing, review Today decisions, then record only supported Action Inbox or Memory receipts.",
   authority_boundary:
-    "This loop is review-only, draft-only, and local-only; no email send, calendar write, connector write, source polling, provider call, action execution, automatic memory truth, hidden context injection, or public release authority is granted.",
+      "This loop is review-only, draft-only, and local-only; no email send, calendar write, connector write, source polling, provider call, action execution, automatic memory truth, hidden context injection, or public distribution authority is granted.",
   action_execution_enabled: false,
   connector_runtime_enabled: false,
   external_write_enabled: false,
@@ -1920,7 +1920,7 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
 	    api_summary: {
-	      route_count: 133,
+	      route_count: 135,
 	      control_center_route_count: 32,
 	      operation_ids_unique: true,
 	      execution_routes_present: false,

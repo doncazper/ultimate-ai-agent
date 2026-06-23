@@ -31,7 +31,7 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only() -> None:
     assert snapshot.foundation_gate_summary.status == "passed"
     assert snapshot.runtime_readiness_summary.production_ready is False
     assert snapshot.api_summary.route_count == 74
-    assert snapshot.api_summary.control_center_route_count == 13
+    assert snapshot.api_summary.control_center_route_count == 15
     assert snapshot.approval_summary.pending_count == 0
     assert snapshot.remote_worker_summary.execution_enabled is False
     assert snapshot.private_mesh_summary.status == "planned_disabled"

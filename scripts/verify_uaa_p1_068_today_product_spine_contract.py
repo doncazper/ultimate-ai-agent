@@ -131,8 +131,27 @@ def main() -> int:
     route_file = _read(ROOT / "src/ultimate_ai_agent/api/founder_loop.py")
     if '@router.get("/today/summary"' not in route_file:
         failures.append("existing Today summary route is missing")
-    if 'router.post("/today' in route_file or 'router.put("/today' in route_file:
-        failures.append("Today product spine must not add mutating Today routes")
+    allowed_today_mutation = '@router.post("/today/action-envelope", response_model=ResultEnvelope)'
+    today_mutation_lines = [
+        line.strip()
+        for line in route_file.splitlines()
+        if (
+            'router.post("/today' in line
+            or 'router.put("/today' in line
+            or 'router.patch("/today' in line
+            or 'router.delete("/today' in line
+        )
+    ]
+    unexpected_today_mutations = [
+        line for line in today_mutation_lines if line != allowed_today_mutation
+    ]
+    if route_file.count(allowed_today_mutation) != 1:
+        failures.append("Today action-envelope route must remain exactly one scoped mutating route")
+    if unexpected_today_mutations:
+        failures.append(
+            "Today product spine must not add mutating Today routes beyond "
+            "the scoped action-envelope contract"
+        )
 
     lowered_doc = _read(CONTRACT_DOC).lower()
     unsafe_claims = [

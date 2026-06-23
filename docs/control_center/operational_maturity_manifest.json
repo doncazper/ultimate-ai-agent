@@ -223,20 +223,35 @@
       "module_id": "local_models",
       "role": "operator_module",
       "primary_surface": "Models",
-      "current_rank": 1,
-      "current_rank_label": "read_only_status",
-      "honest_status": "cli_inventory_only_control_center_status_queued",
-      "next_target_rank": 2,
-      "smallest_next_operational_action": "read-only Control Center status",
-      "backend_routes": ["GET /v1/models"],
+      "current_rank": 2,
+      "current_rank_label": "proposal_review",
+      "honest_status": "backend_owned_read_only_status_with_review_only_lifecycle_proposals",
+      "next_target_rank": 3,
+      "smallest_next_operational_action": "review-only local model readiness decision receipt",
+      "backend_routes": [
+        "GET /v1/models",
+        "GET /control-center/local-models/status"
+      ],
       "cli_or_script_refs": ["uaa local-model status"],
       "receipt_refs": [],
-      "evidence_refs": ["docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md"],
-      "test_refs": ["tests/test_control_center_api_routes.py"],
-      "verifier_refs": ["scripts/verify_documentation_integrity.py"],
-      "route_metadata_refs": ["src/ultimate_ai_agent/api/manifest.py"],
-      "blocked_authorities": ["lifecycle_start_stop", "model_switch", "download", "runtime_adapter_execution"],
-      "missing_contracts": ["installed_gguf_status_route", "dry_run_switch_planner", "approval_bound_switch"],
+      "evidence_refs": [
+        "docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md",
+        "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md"
+      ],
+      "test_refs": [
+        "tests/test_control_center_api_routes.py::test_control_center_local_models_status_is_read_only_and_blocks_lifecycle",
+        "tests/test_control_center_manifest.py"
+      ],
+      "verifier_refs": [
+        "scripts/verify_documentation_integrity.py",
+        "scripts/verify_operational_maturity.py"
+      ],
+      "route_metadata_refs": [
+        "src/ultimate_ai_agent/api/manifest.py",
+        "docs/control_center/route_status_manifest.json"
+      ],
+      "blocked_authorities": ["lifecycle_start_stop", "model_switch", "download", "provider_model_authority", "runtime_adapter_execution"],
+      "missing_contracts": ["lifecycle_status_receipts", "dry_run_switch_planner", "approval_bound_switch"],
       "backend_owned_receipts": false,
       "exact_scope_required": true,
       "idempotency_required": false,
@@ -277,20 +292,29 @@
       "module_id": "settings",
       "role": "operator_module",
       "primary_surface": "Settings",
-      "current_rank": 1,
-      "current_rank_label": "read_only_status",
-      "honest_status": "spec_foundation_backend_missing",
-      "next_target_rank": 2,
-      "smallest_next_operational_action": "backend-owned manifest and kill-switch status",
-      "backend_routes": [],
+      "current_rank": 2,
+      "current_rank_label": "proposal_review",
+      "honest_status": "backend_owned_read_only_status_with_review_only_settings_proposals",
+      "next_target_rank": 3,
+      "smallest_next_operational_action": "settings posture decision receipt",
+      "backend_routes": ["GET /control-center/settings/status"],
       "cli_or_script_refs": [],
       "receipt_refs": [],
       "evidence_refs": ["docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md"],
-      "test_refs": ["tests/test_control_center_api_routes.py"],
-      "verifier_refs": ["scripts/verify_control_center_frontend.py"],
-      "route_metadata_refs": ["docs/control_center/route_status_manifest.json"],
-      "blocked_authorities": ["feature_flag_mutation", "kill_switch_mutation", "model_identity_mutation", "production_authority"],
-      "missing_contracts": ["settings_manifest_route", "feature_flag_status_route", "kill_switch_status_route"],
+      "test_refs": [
+        "tests/test_control_center_api_routes.py::test_control_center_settings_status_is_backend_owned_read_only",
+        "tests/test_control_center_manifest.py"
+      ],
+      "verifier_refs": [
+        "scripts/verify_control_center_frontend.py",
+        "scripts/verify_operational_maturity.py"
+      ],
+      "route_metadata_refs": [
+        "docs/control_center/route_status_manifest.json",
+        "src/ultimate_ai_agent/api/manifest.py"
+      ],
+      "blocked_authorities": ["feature_flag_mutation", "kill_switch_mutation", "permission_mode_mutation", "model_identity_mutation", "production_authority"],
+      "missing_contracts": ["feature_flag_mutation_contract", "kill_switch_execution_contract", "reviewed_local_runtime_settings_mutation_contract"],
       "backend_owned_receipts": false,
       "exact_scope_required": true,
       "idempotency_required": false,

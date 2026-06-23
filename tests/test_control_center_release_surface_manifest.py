@@ -66,8 +66,15 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         backend["path"] == "/control-center/actions/{action_id}/reject"
         for backend in by_path["/actions"]["backend_routes"]
     )
-    assert by_path["/models"]["status"] == "blocked"
+    assert by_path["/models"]["status"] == "partial"
     assert by_path["/models"]["backend_routes"][0]["path"] == "/v1/models"
+    assert by_path["/models"]["backend_routes"][1]["path"] == (
+        "/control-center/local-models/status"
+    )
+    assert by_path["/settings"]["status"] == "partial"
+    assert by_path["/settings"]["backend_routes"][0]["path"] == (
+        "/control-center/settings/status"
+    )
     assert by_path["/chat"]["approval_required"] is True
     assert by_path["/files/review"]["approval_required"] is True
     assert by_path["/files/review"]["backend_routes"][0]["path"] == (

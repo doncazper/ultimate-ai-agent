@@ -83,6 +83,8 @@ check is `scripts/verify_operational_maturity.py`. No module may move from
 planned, proposal, partial, or proofed-review posture to operational behavior
 without a manifest rank change, verifier pass, backend-owned receipts, route
 metadata, CLI/core/API parity, focused tests, and redacted evidence.
+Candidate Next lanes must stay scoped to that maturity scorecard and may not
+claim operational status without the same manifest and verifier proof.
 
 Implementation note: a bounded daily-loop product behavior slice now deepens
 the existing read routes without adding authority. Morning Briefing and Today

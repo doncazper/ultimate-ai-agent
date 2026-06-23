@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `133`.
+Current OpenAPI path count: `135`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint

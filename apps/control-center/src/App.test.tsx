@@ -1487,7 +1487,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("133")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("135")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -3370,7 +3370,7 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 133,
+      route_count: 135,
       control_center_route_count: 32,
       operation_ids_unique: true,
       execution_routes_present: false,
@@ -3410,7 +3410,7 @@ const mockApiData = {
     message: "Local backend status only.",
   },
   routes: {
-    route_count: 13,
+    route_count: 15,
     routes: [
       {
         path: "/control-center/dashboard",
