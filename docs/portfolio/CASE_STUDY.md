@@ -153,6 +153,8 @@ Start with:
 
 - `README.md`
 - `docs/portfolio/CURRENT_STATUS.md`
+- `docs/portfolio/SCREENSHOTS.md`
+- `docs/portfolio/GOLDEN_PATH_DEMO.md`
 - `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`
 - `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`
 - `docs/api/README.md`

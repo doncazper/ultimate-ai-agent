@@ -23,6 +23,40 @@ distribution, or broad-authority runtime.
 | What is usable now? | Proofed route surfaces for `/actions`, `/chat`, `/memory`, and `/evidence`; partial/status surfaces for Today, Plans, Settings, Runtime, and local model readiness. |
 | What is intentionally not claimed? | Production readiness, public release, broad autonomy, connector writes, unrestricted shell/browser/network authority, provider/model authority, hidden context injection, and generic action execution. |
 
+## What This Demonstrates
+
+For AI engineering and applied AI roles, this repo demonstrates:
+
+- Contract-first AI system design around Python core models, FastAPI routes,
+  OpenAPI, and `/api/manifest`.
+- Human-in-the-loop approval boundaries where approval refs are identifiers
+  until exact scope is validated.
+- Redacted evidence and receipt posture using safe refs rather than raw
+  prompts, raw responses, raw provider payloads, local paths, logs, or secrets.
+- Memory as governed recall, not truth or hidden runtime authority.
+- CLI/UI parity: operator-relevant Control Center surfaces map back to Python
+  core/API contracts and repo-local inspection scripts.
+- Product-language honesty across implemented, partial, planned, blocked,
+  mock-only, and intentionally out-of-scope states.
+- Verifier-backed iteration: docs, route contracts, product truth, frontend
+  checks, and safety boundaries are checked as part of the implementation.
+
+## Control Center Preview
+
+These are curated static visual-test snapshots of the local Control Center
+shell. They are sanitized demo artifacts, not production screenshots.
+
+| Surface | Preview |
+|---|---|
+| Setup Assistant | [setup](docs/portfolio/assets/control-center-setup.png) |
+| Today | [today](docs/portfolio/assets/control-center-today.png) |
+| Action Inbox | [actions](docs/portfolio/assets/control-center-actions.png) |
+| Evidence | [evidence](docs/portfolio/assets/control-center-evidence.png) |
+| Memory | [memory](docs/portfolio/assets/control-center-memory.png) |
+
+See [docs/portfolio/SCREENSHOTS.md](docs/portfolio/SCREENSHOTS.md) for the
+curated gallery and snapshot caveats.
+
 ## What Works Today
 
 | Area | Current status | What to inspect |
@@ -52,7 +86,7 @@ authority or own product truth.
 
 | Time | Best path |
 |---|---|
-| 3 minutes | Read this README, then [docs/portfolio/CURRENT_STATUS.md](docs/portfolio/CURRENT_STATUS.md). |
+| 3 minutes | Read this README, then [docs/portfolio/CURRENT_STATUS.md](docs/portfolio/CURRENT_STATUS.md), [docs/portfolio/SCREENSHOTS.md](docs/portfolio/SCREENSHOTS.md), and [docs/portfolio/GOLDEN_PATH_DEMO.md](docs/portfolio/GOLDEN_PATH_DEMO.md). |
 | 10 minutes | Add [docs/portfolio/CASE_STUDY.md](docs/portfolio/CASE_STUDY.md), [docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md), and [docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md](docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md). |
 | 30 minutes | Inspect [docs/api/README.md](docs/api/README.md), [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [docs/control_center/PRODUCT_LANGUAGE_RULES.md](docs/control_center/PRODUCT_LANGUAGE_RULES.md), and the focused verifier/test refs linked from those docs. |
 
@@ -279,6 +313,8 @@ Start with the active product truth and indexes.
 |---|---|
 | [docs/portfolio/CASE_STUDY.md](docs/portfolio/CASE_STUDY.md) | Portfolio case study and engineering narrative |
 | [docs/portfolio/CURRENT_STATUS.md](docs/portfolio/CURRENT_STATUS.md) | Portfolio-oriented current status summary |
+| [docs/portfolio/SCREENSHOTS.md](docs/portfolio/SCREENSHOTS.md) | Curated static Control Center visual-test snapshot gallery |
+| [docs/portfolio/GOLDEN_PATH_DEMO.md](docs/portfolio/GOLDEN_PATH_DEMO.md) | Three-minute demo path through setup, API contracts, approvals, evidence, and CLI parity |
 | [docs/releases/TAG_CATALOG.md](docs/releases/TAG_CATALOG.md) | Tag history and future tag convention |
 | [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) | Full documentation index |
 | [docs/canonical/CANONICAL_DOC_MAP.md](docs/canonical/CANONICAL_DOC_MAP.md) | Canonical doc map |

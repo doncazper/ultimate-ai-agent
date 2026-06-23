@@ -113,6 +113,9 @@ safe-disable posture.
 For product state, read `README.md`, this file, and
 `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`.
 
+For the portfolio demo path, read `docs/portfolio/SCREENSHOTS.md` and
+`docs/portfolio/GOLDEN_PATH_DEMO.md`.
+
 For architecture, read `docs/api/README.md` and
 `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`.
 

@@ -15,6 +15,7 @@ blocked, planned, and future-scoped states distinct.
 | Area | Canonical entry |
 |---|---|
 | GitHub landing page | `README.md` |
+| Portfolio demo path | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/SCREENSHOTS.md`, `docs/portfolio/GOLDEN_PATH_DEMO.md`, `docs/portfolio/CASE_STUDY.md` |
 | Portfolio review | `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/CASE_STUDY.md` |
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and release convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
@@ -206,6 +207,8 @@ README.md
 VERSION.md
 SECURITY.md
 docs/portfolio/CURRENT_STATUS.md
+docs/portfolio/SCREENSHOTS.md
+docs/portfolio/GOLDEN_PATH_DEMO.md
 docs/portfolio/CASE_STUDY.md
 docs/README.md
 docs/canonical/CANONICAL_DOC_MAP.md
