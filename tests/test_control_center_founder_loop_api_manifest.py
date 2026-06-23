@@ -57,12 +57,13 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 127
+    assert manifest.route_count == 128
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",
         "/control-center/actions/{action_id}/receipt",
         "/control-center/evidence/timeline",
+        "/control-center/memory/l1-index",
         "/control-center/memory/review",
         "/control-center/morning-briefing/summary",
         "/control-center/storage/status",
@@ -110,6 +111,10 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     )
     assert (
         "control_center_memory_review_decision_receipts"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_l1_hot_local_index"
         in manifest.capabilities_declared
     )
     assert (

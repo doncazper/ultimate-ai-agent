@@ -41,6 +41,10 @@ MEMORY_RECEIPT_ROUTE = (
     "GET",
     "/control-center/memory/review/{candidate_ref}/receipt",
 )
+MEMORY_L1_INDEX_ROUTE = (
+    "GET",
+    "/control-center/memory/l1-index",
+)
 MEMORY_DECISION_ROUTES = {
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"),
     ("POST", "/control-center/memory/review/{candidate_ref}/correct"),
@@ -55,10 +59,14 @@ FORBIDDEN_CLAIMS = [
     "provider calls are enabled",
     "production ready memory",
     "public beta memory",
-    "phase 2 is implemented",
-    "l1 hot local memory index is implemented",
+    "phase 3 is implemented",
+    "l2 factual graph temporal memory is implemented",
+    "l2 factual, graph, and temporal memory is implemented",
+    "l3 identity and session memory is implemented",
     "embeddings are enabled",
     "vector db is enabled",
+    "semantic search is enabled",
+    "background indexing is enabled",
     "automatic recall is enabled",
 ]
 
@@ -107,6 +115,8 @@ def _append_required_file_failures(failures: list[str], root: Path) -> None:
         "scripts/verify_governed_cognitive_memory_spine_v1.py",
         "scripts/verify_fcc_v1_005_memory_review_decisions.py",
         "tests/test_fcc_v1_005_memory_review_decisions.py",
+        "tests/test_governed_memory_l1_hot_index.py",
+        "src/ultimate_ai_agent/core/memory/l1_index.py",
     ]:
         if not (root / rel_path).exists():
             failures.append(f"missing governed memory spine file: {rel_path}")
@@ -123,21 +133,26 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "L2 factual, graph, and temporal memory",
                 "L3 identity and session memory",
                 "GET /control-center/memory/review/{candidate_ref}/receipt",
+                "GET /control-center/memory/l1-index",
                 "reviewed_recall_record_ref",
+                "Current Phase 2",
+                "implemented read-only derived preview",
                 "Memory is recall, not authority",
                 "hidden context injection",
             ],
             ROADMAP_DOC: [
                 "Phase 2 L1 Hot Local Memory Index",
-                "Recall preview only; no hidden context injection",
-                "Phase 1 is stable",
+                "Implemented read-only derived preview",
+                "Phase 3 L2 Factual / Graph / Temporal Indexing",
+                "Recall preview and index inspection only; no hidden context injection",
                 "provider/model calls",
             ],
             HANDOFF_DOC: [
                 "src/ultimate_ai_agent/core/storage/founder_loop.py",
                 "There is no `src/ultimate_ai_agent/core/storage.py` file",
                 "GET /control-center/memory/review/{candidate_ref}/receipt",
-                "Next safe phase is Phase 2 L1 Hot Local Memory Index",
+                "GET /control-center/memory/l1-index",
+                "Next safe phase is Phase 3 L2 Factual / Graph / Temporal Indexing",
             ],
             DOC_INDEX: [SPINE_DOC, ROADMAP_DOC, HANDOFF_DOC],
             MEMORY_WRITE_POLICY_DOC: [
@@ -172,6 +187,16 @@ def _append_route_metadata_failures(
     elif route.get("rate_limit_group") is not None:
         failures.append("governed memory receipt lookup must not be targeted rate-limited")
 
+    l1_route = context.routes_by_key.get(MEMORY_L1_INDEX_ROUTE)
+    if l1_route is None:
+        failures.append("missing governed memory L1 hot local index route")
+    elif l1_route.get("route_classification") != "local_sensitive":
+        failures.append("governed memory L1 index route classification drifted")
+    elif l1_route.get("idempotency_required") is not False:
+        failures.append("governed memory L1 index must remain read-only")
+    elif l1_route.get("rate_limit_group") is not None:
+        failures.append("governed memory L1 index must not be targeted rate-limited")
+
     for key in MEMORY_DECISION_ROUTES:
         route = context.routes_by_key.get(key)
         if route is None:
@@ -202,9 +227,13 @@ def _append_release_surface_failures(
         return
     if not _has_route(memory.get("backend_routes", []), MEMORY_RECEIPT_ROUTE):
         failures.append("/memory release surface missing receipt lookup route")
+    if not _has_route(memory.get("backend_routes", []), MEMORY_L1_INDEX_ROUTE):
+        failures.append("/memory release surface missing L1 index route")
     for proof in [
         "scripts/verify_fcc_v1_005_memory_review_decisions.py",
+        "scripts/verify_governed_cognitive_memory_spine_v1.py",
         "tests/test_fcc_v1_005_memory_review_decisions.py",
+        "tests/test_governed_memory_l1_hot_index.py",
     ]:
         if proof not in set(memory.get("proof_lanes", [])):
             failures.append(f"/memory release surface missing proof lane {proof}")
@@ -239,10 +268,14 @@ def _append_route_status_failures(
             continue
         if not _has_route(item.get(key, []), MEMORY_RECEIPT_ROUTE):
             failures.append(f"route status {label} missing receipt lookup route")
+        if not _has_route(item.get(key, []), MEMORY_L1_INDEX_ROUTE):
+            failures.append(f"route status {label} missing L1 index route")
         lowered = str(item).lower()
         for snippet in [
             "localmemorystore",
             "reviewed recall-only",
+            "l1 hot local memory index",
+            "recall preview",
             "no automatic memory write",
             "context injection",
             "truth authority",
@@ -292,6 +325,38 @@ def _append_behavior_failures(
                 metadata = record.get("metadata") or {}
                 if metadata.get("context_injection_authorized") is not False:
                     failures.append("governed memory recall record enabled context injection")
+            l1_response = context.client.get(
+                "/control-center/memory/l1-index",
+                headers=auth_headers,
+            )
+            if l1_response.status_code != 200:
+                failures.append("governed memory L1 index route failed")
+            else:
+                l1_data = l1_response.json().get("data", {})
+                if l1_data.get("indexed_record_count", 0) < 2:
+                    failures.append("governed memory L1 index must preview reviewed recall records")
+                for flag in [
+                    "context_injection_authorized",
+                    "automatic_recall_authorized",
+                    "automatic_memory_write_authorized",
+                    "embedding_index_enabled",
+                    "vector_db_enabled",
+                    "semantic_search_enabled",
+                    "background_indexing_enabled",
+                    "source_truth_authority",
+                    "connector_write_authorized",
+                    "automatic_action_execution_authorized",
+                    "production_authority_enabled",
+                ]:
+                    if l1_data.get(flag) is not False:
+                        failures.append(f"governed memory L1 index enabled {flag}")
+                for preview in l1_data.get("previews", []):
+                    if not preview.get("match_reasons"):
+                        failures.append("governed memory L1 preview missing match reasons")
+                    if not preview.get("supporting_ref_groups", {}).get("receipt_refs"):
+                        failures.append("governed memory L1 preview missing receipt refs")
+                    if preview.get("context_injection_authorized") is not False:
+                        failures.append("governed memory L1 preview enabled context injection")
         finally:
             if old_state_dir is None:
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
