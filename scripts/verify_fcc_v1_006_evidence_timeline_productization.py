@@ -22,9 +22,21 @@ from scripts.verification.repo import (  # noqa: E402
     print_failures_or_success,
 )
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
+    FounderLoopActionDecisionRequest,
+    action_approval_request,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+    FounderLoopLocalTaskCommitRequest,
+    local_task_commit_approval_request,
+    local_task_ref_for_action,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
+    FounderLoopRepository,
 )
 
 
@@ -325,7 +337,18 @@ def _exercise_loop(
     if inbox.status_code != 200:
         failures.append("Action Inbox unavailable for Evidence Timeline exercise")
         return receipts
-    item_ref = inbox.json().get("data", {}).get("items", [{}])[0].get("item_ref")
+    action_items = inbox.json().get("data", {}).get("items", [])
+    item_ref = next(
+        (
+            item.get("item_ref")
+            for item in action_items
+            if item.get("item_ref") == "founder-action:setup-assistant-hardening"
+        ),
+        None,
+    )
+    if not item_ref:
+        failures.append("Action decision exercise item missing")
+        return receipts
     action = context.client.post(
         f"/control-center/actions/{item_ref}/reject",
         json={
@@ -397,7 +420,94 @@ def _exercise_loop(
             failures.append(f"Memory Review exercise failed with {decision.status_code}")
     else:
         failures.append("Memory Review unavailable for Evidence Timeline exercise")
+
+    local_task_receipt = _commit_local_task_for_timeline()
+    if local_task_receipt:
+        receipts.append(local_task_receipt)
+    else:
+        failures.append("Local task commit exercise failed")
     return receipts
+
+
+def _approval_grant_for_request(approval_request, approval_ref: str):
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    return authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="local-verifier-reviewer",
+        approval_ref=approval_ref,
+    )
+
+
+def _commit_local_task_for_timeline() -> str:
+    repo = FounderLoopRepository.from_env()
+    action = next(
+        item
+        for item in repo.list_action_inbox(limit=200)
+        if item.get("item_ref") == "founder-action:local-task-create-scorecard"
+    )
+    decision_request = FounderLoopActionDecisionRequest(
+        decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-approval"
+    )
+    approval_request = action_approval_request(
+        item_ref=str(action["item_ref"]),
+        actor_context=decision_request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            str(action["item_ref"]),
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            str(action["action_approval_requirement_ref"]),
+        ],
+    )
+    action_grant = _approval_grant_for_request(
+        approval_request,
+        "approval-ref:fcc-v1-006-local-task-action",
+    )
+    repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            approval_ref=action_grant.approval_ref,
+            approval_grants=[action_grant],
+            decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-approval",
+        ),
+        idempotency_key_ref="idempotency-ref:fcc-v1-006-local-task-action",
+    )
+    action = next(
+        item
+        for item in repo.list_action_inbox(limit=200)
+        if item.get("item_ref") == "founder-action:local-task-create-scorecard"
+    )
+    commit_request = FounderLoopLocalTaskCommitRequest(
+        approval_ref="approval-ref:fcc-v1-006-local-task-commit",
+        decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-commit",
+        metadata_refs=["metadata-ref:fcc-v1-006-local-task-commit"],
+    )
+    item_ref = str(action["item_ref"])
+    local_task_ref = local_task_ref_for_action(item_ref)
+    commit_approval_request = local_task_commit_approval_request(
+        item_ref=item_ref,
+        actor_context=commit_request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            item_ref,
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            local_task_ref,
+            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+        ],
+    )
+    commit_grant = _approval_grant_for_request(
+        commit_approval_request,
+        "approval-ref:fcc-v1-006-local-task-commit",
+    )
+    receipt = repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=commit_request.model_copy(update={"approval_grants": [commit_grant]}),
+        idempotency_key_ref="idempotency-ref:fcc-v1-006-local-task-commit",
+    )
+    return str(receipt.get("receipt_ref", ""))
 
 
 def _append_ui_failures(failures: list[str], root: Path) -> None:

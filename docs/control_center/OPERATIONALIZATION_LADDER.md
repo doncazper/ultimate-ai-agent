@@ -1,0 +1,55 @@
+# Control Center Operationalization Ladder
+
+Status: active promotion gate
+Baseline: v0.103.0 / 0.103.0
+Manifest: `docs/control_center/operational_maturity_manifest.json`
+Verifier: `scripts/verify_operational_maturity.py`
+
+This ladder prevents Founder Command Center modules from staying in proposal
+theatre or overclaiming operational behavior. A module may be broadly
+review-only while one exact lane graduates; the manifest must distinguish the
+module rank from any graduated lane rank.
+
+## Ladder
+
+| Rank | Label | Meaning |
+|---:|---|---|
+| 0 | `docs_only` | Roadmap, spec, or planning language only. |
+| 1 | `read_only_status` | Backend or UI can inspect status, but cannot propose or decide work. |
+| 2 | `proposal_review` | Reviewable proposals or envelopes exist, with execution blocked. |
+| 3 | `decision_receipts` | Backend-owned decisions and receipts exist, but no real local mutation happens. |
+| 4 | `execution_ready_contract` | Exact scope, approval, idempotency, route metadata, and rollback/safe-disable posture are complete. |
+| 5 | `local_execution_receipt_evidence` | One allowlisted local mutation can complete with durable receipt, evidence, CLI parity, and tests. |
+| 6 | `rollback_safe_disable_verified` | The lane has verified rollback or safe-disable behavior under tests. |
+| 7 | `routine_operational_loop` | The lane is a normal repeated operator workflow with monitoring and stale-state handling. |
+
+## Promotion Rules
+
+- Rank 3 or higher requires backend-owned receipt state.
+- Rank 4 or higher requires exact scope, approval or approval posture,
+  idempotency, route metadata, and rollback or safe-disable posture.
+- Rank 5 or higher requires a real allowlisted local state change, durable
+  receipt, Evidence Timeline event, CLI or repo-local parity, and focused tests.
+- Support modules such as Evidence can rank by the operational receipts they
+  index, but must say they support operations rather than perform them.
+- No broad execution route, connector write, shell/subprocess execution,
+  model/provider authority, memory write, context injection, public beta,
+  production readiness, or production authority is granted by this ladder.
+
+## First Graduated Lane
+
+`FCC-ACTION-001a` graduates only the Action Inbox `local_task_create` lane to
+rank 5. The Action Inbox module remains rank 3 overall because most Action
+items still stop at review decisions. The committed lane is local-only:
+
+```text
+approved local_task_create Action -> exact local approval -> local task row ->
+commit receipt -> Evidence Timeline local_task_created event
+```
+
+The route is typed and non-generic:
+`POST /control-center/actions/{action_id}/local-task/commit`.
+
+It cannot commit unsupported action kinds, connector writes, shell/subprocess
+work, model/provider calls, memory writes, context injection, external side
+effects, public beta claims, production readiness, or broad autonomy.

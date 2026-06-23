@@ -23,6 +23,8 @@ import type {
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionEnvelopePromotionRequest,
   FounderLoopEvidenceTimelineIndex,
+  FounderLoopLocalTaskCommitReceipt,
+  FounderLoopLocalTaskCommitRequest,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
   MemoryReviewDecisionRequest,
@@ -36,6 +38,7 @@ import { resolveApiBaseUrl } from "./baseUrl";
 import {
   API_ENDPOINTS,
   actionDecisionEndpoint,
+  actionLocalTaskCommitEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
   memoryReviewDecisionEndpoint,
@@ -294,6 +297,44 @@ export async function submitActionDecision(
   return receipt;
 }
 
+export async function commitLocalTask(
+  actionId: string,
+  request: FounderLoopLocalTaskCommitRequest,
+): Promise<FounderLoopLocalTaskCommitReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${actionLocalTaskCommitEndpoint(actionId)}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": localTaskCommitIdempotencyRef(
+          actionId,
+          request,
+        ),
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data =
+    (await readJsonSafely(response)) as ResultEnvelope<FounderLoopLocalTaskCommitReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Local task commit receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return receipt;
+}
+
 export async function submitTodayActionEnvelope(
   request: FounderLoopActionEnvelopePromotionRequest,
 ): Promise<FounderLoopActionEnvelopePromotionReceipt> {
@@ -470,6 +511,18 @@ function actionDecisionIdempotencyRef(
     .replace(/[^a-z0-9_.:-]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}`;
+}
+
+function localTaskCommitIdempotencyRef(
+  actionId: string,
+  request?: FounderLoopLocalTaskCommitRequest,
+): string {
+  const safeActionId = actionId
+    .replace(/^founder-action:/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_.:-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `idempotency-ref:control-center-local-task:${safeActionId || "missing"}:${safeChatSuffix(request?.approval_ref ?? "approval")}`;
 }
 
 function todayActionEnvelopeIdempotencyRef(

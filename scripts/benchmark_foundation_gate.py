@@ -36,6 +36,10 @@ HOT_PATH_PROFILE_TASK_REF = "UAA-P1-041"
 RELEASE_LATENCY_REPORT_REF = "performance-report:p1-039:latest"
 PERFORMANCE_REGRESSION_REPORT_REF = "performance-regression-report:p1-040:latest"
 HOT_PATH_PROFILE_REPORT_REF = "hot-path-profile:p1-041:latest"
+RELEASE_LATENCY_LOCAL_API_BEARER = "local-performance-api-bearer"
+RELEASE_LATENCY_TASK_BEARER = "local-performance-bearer"
+RELEASE_LATENCY_LOCAL_GATEWAY_KEY = "uaa-local-test"
+RELEASE_LATENCY_CHAT_IDEMPOTENCY_KEY = "idempotency:release-latency:v1-chat"
 RELEASE_LATENCY_BUDGETS_MS: dict[str, float] = {
     "health": 50.0,
     "api_manifest": 150.0,
@@ -282,13 +286,18 @@ def _benchmark_release_latency_paths(
 @contextmanager
 def _release_latency_environment(safe_root: Path, temp_root: Path) -> Iterator[None]:
     updates = {
+        "UAA_API_LOCAL_AUTH_ENABLED": "1",
+        "UAA_API_LOCAL_BEARER": RELEASE_LATENCY_LOCAL_API_BEARER,
         "UAA_TASK_DECOMPOSITION_API_ENABLED": "1",
-        "UAA_TASK_DECOMPOSITION_API_BEARER": "local-performance-bearer",
+        "UAA_TASK_DECOMPOSITION_API_BEARER": RELEASE_LATENCY_TASK_BEARER,
         "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED": "1",
-        "UAA_OPENWEBUI_TEST_GATEWAY_KEY": "uaa-local-test",
+        "UAA_OPENWEBUI_TEST_GATEWAY_KEY": RELEASE_LATENCY_LOCAL_GATEWAY_KEY,
         "UAA_FILE_API_SAFE_ROOT": str(safe_root),
     }
-    removals = ["UAA_LLAMA_CPP_GATEWAY_ENABLED"]
+    removals = [
+        "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY",
+        "UAA_LLAMA_CPP_GATEWAY_ENABLED",
+    ]
     previous = {key: os.environ.get(key) for key in [*updates, *removals]}
     try:
         for key in removals:
@@ -343,8 +352,17 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
     from ultimate_ai_agent.api import app as api_app
 
     client = TestClient(api_app.app)
-    task_headers = {"Authorization": "Bearer local-performance-bearer"}
-    local_gateway_headers = {"Authorization": "Bearer uaa-local-test"}
+    local_api_headers = {
+        "Authorization": f"Bearer {RELEASE_LATENCY_LOCAL_API_BEARER}"
+    }
+    task_headers = {"Authorization": f"Bearer {RELEASE_LATENCY_TASK_BEARER}"}
+    local_gateway_headers = {
+        "Authorization": f"Bearer {RELEASE_LATENCY_LOCAL_GATEWAY_KEY}"
+    }
+    local_gateway_write_headers = {
+        **local_gateway_headers,
+        "X-UAA-Idempotency-Key": RELEASE_LATENCY_CHAT_IDEMPOTENCY_KEY,
+    }
     return [
         _measure_path(
             "health",
@@ -369,7 +387,11 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
             repeat,
             warmup,
             lambda: _ok_result_envelope(
-                client.post("/models/route/preview", json=_model_route_payload())
+                client.post(
+                    "/models/route/preview",
+                    headers=local_api_headers,
+                    json=_model_route_payload(),
+                )
             ),
         ),
         _measure_path(
@@ -407,7 +429,11 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
             repeat,
             warmup,
             lambda: _ok_result_envelope(
-                client.post("/files/read/preview", json=_file_preview_payload())
+                client.post(
+                    "/files/read/preview",
+                    headers=local_api_headers,
+                    json=_file_preview_payload(),
+                )
             ),
         ),
         _measure_path(
@@ -427,7 +453,7 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
             lambda: _ok_status(
                 client.post(
                     "/v1/chat/completions",
-                    headers=local_gateway_headers,
+                    headers=local_gateway_write_headers,
                     json=_local_chat_payload(),
                 )
             ),
@@ -474,7 +500,7 @@ def _measure_hot_paths(*, repeat: int, warmup: int) -> list[dict[str, object]]:
     from ultimate_ai_agent.api import app as api_app
 
     client = TestClient(api_app.app)
-    task_headers = {"Authorization": "Bearer local-performance-bearer"}
+    task_headers = {"Authorization": f"Bearer {RELEASE_LATENCY_TASK_BEARER}"}
     return [
         _profile_hot_path(
             "task_decomposition_classify",
@@ -740,6 +766,7 @@ def _task_decomposition_payload() -> dict[str, object]:
 
 def _file_preview_payload() -> dict[str, object]:
     return {
+        "safe_root_ref": "local_dev_workspace",
         "request": {
             "request_id": "file-read-request:p0-006",
             "run_id": "run:p0-006:file-preview",

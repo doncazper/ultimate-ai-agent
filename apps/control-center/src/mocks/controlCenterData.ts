@@ -1091,6 +1091,394 @@ const weeklyCeoReviewSummary = {
     "Review carry-forward memory refs before any later action, recall, or memory-write milestone.",
 };
 
+const sourceReadinessItems = [
+  {
+    source_ref: "source-ref:inbox:contract-only",
+    source_kind: "inbox",
+    status: "contract_only",
+    safe_summary:
+      "Inbox can appear only through future read-only metadata contracts; live email access is not present.",
+    next_safe_action:
+      "Define a read-only email metadata contract before inbox-derived items enter the daily loop.",
+    source_refs: ["contract-ref:email-read-only-missing"],
+    evidence_refs: ["evidence-ref:source-readiness:inbox"],
+    blocked_state_refs: [
+      "blocked-state:no-email-read-authority",
+      "blocked-state:no-email-send",
+      "blocked-state:no-account-auth",
+      "blocked-state:no-background-polling",
+    ],
+    authority_boundary:
+      "Readiness display only; no account auth, polling, email send, archive, label, move, or connector write authority.",
+  },
+  {
+    source_ref: "source-ref:calendar:contract-only",
+    source_kind: "calendar",
+    status: "contract_only",
+    safe_summary:
+      "Calendar commitments remain blocked until a read-only metadata contract exists.",
+    next_safe_action:
+      "Define calendar metadata refs and stale-state checks before calendar-derived commitments enter Today.",
+    source_refs: ["contract-ref:calendar-read-only-missing"],
+    evidence_refs: ["evidence-ref:source-readiness:calendar"],
+    blocked_state_refs: [
+      "blocked-state:no-calendar-read-authority",
+      "blocked-state:no-calendar-write",
+      "blocked-state:no-account-auth",
+      "blocked-state:no-background-polling",
+    ],
+    authority_boundary:
+      "Calendar state is a readiness label only; no account auth, event read, event write, invite, or connector runtime authority.",
+  },
+  {
+    source_ref: "source-ref:tasks:manual-only",
+    source_kind: "tasks",
+    status: "manual_only",
+    safe_summary:
+      "Tasks are represented by local Plans, Today items, and Action Inbox safe refs; external task systems are not connected.",
+    next_safe_action:
+      "Review local plan and action refs before drafting any task-like proposal.",
+    source_refs: ["source-ref:founder-loop:plans-actions"],
+    evidence_refs: ["evidence-ref:source-readiness:tasks"],
+    blocked_state_refs: [
+      "blocked-state:no-external-task-write",
+      "blocked-state:no-account-sync",
+      "blocked-state:no-background-polling",
+    ],
+    authority_boundary:
+      "Manual/local task posture only; no external task sync, write, completion, or connector runtime authority.",
+  },
+  {
+    source_ref: "source-ref:crm-manual-notes:manual-only",
+    source_kind: "crm_manual_notes",
+    status: "manual_only",
+    safe_summary:
+      "CRM-lite relationship signals come from reviewed memory, local follow-up refs, and manual safe summaries.",
+    next_safe_action:
+      "Review memory provenance and evidence refs before turning a relationship signal into a draft proposal.",
+    source_refs: ["source-ref:memory:reviewed-recall"],
+    evidence_refs: ["evidence-ref:source-readiness:crm-lite"],
+    blocked_state_refs: [
+      "blocked-state:no-external-crm-write",
+      "blocked-state:no-account-sync",
+      "blocked-state:no-automatic-memory-truth",
+    ],
+    authority_boundary:
+      "CRM-lite is local reviewed recall only; no CRM sync, external write, contact mutation, or connector runtime authority.",
+  },
+  {
+    source_ref: "source-ref:repo:local-status-ready",
+    source_kind: "repo",
+    status: "ready",
+    safe_summary:
+      "Repo and local product health can be shown through route, gate, storage, and evidence refs already available to the Control Center.",
+    next_safe_action:
+      "Inspect route, storage, and Foundation Gate refs before making any product or release claim.",
+    source_refs: [
+      "status-ref:control-center-route-manifest",
+      "status-ref:founder-loop-storage",
+    ],
+    evidence_refs: ["evidence-ref:source-readiness:repo"],
+    blocked_state_refs: [
+      "blocked-state:no-unrestricted-shell",
+      "blocked-state:no-automatic-patch-apply",
+      "blocked-state:no-production-authority",
+    ],
+    authority_boundary:
+      "Local inspection refs are visible; unrestricted shell execution, auto-apply, and production authority remain blocked.",
+  },
+  {
+    source_ref: "source-ref:local-files:metadata-only",
+    source_kind: "local_files",
+    status: "metadata_only",
+    safe_summary:
+      "Local-file signals may be represented by safe refs and bounded summaries only; private filesystem identifiers and file bodies stay omitted.",
+    next_safe_action:
+      "Use safe refs and redacted summaries before showing local-file derived work in the daily loop.",
+    source_refs: ["briefing:api-boundary-modularization"],
+    evidence_refs: ["evidence-ref:source-readiness:local-files"],
+    blocked_state_refs: [
+      "blocked-state:no-private-filesystem-identifiers",
+      "blocked-state:no-file-body-ingestion",
+      "blocked-state:no-connector-runtime",
+    ],
+    authority_boundary:
+      "Metadata-only local posture; no file body ingestion, private identifier display, background watch, or connector write authority.",
+  },
+];
+
+const crmLiteFollowups = followUpCommitmentRefs.map((followUpRef, index) => ({
+  follow_up_ref: followUpRef,
+  relationship_ref: `crm-lite-relationship-ref:${index + 1}`,
+  opportunity_ref: `crm-lite-opportunity-ref:${index + 1}`,
+  status: "review_only_stale_check_required",
+  safe_summary:
+    "A local relationship follow-up is visible because reviewed memory produced a follow-up commitment ref.",
+  why_now:
+    "This appears because memory-to-loop binding marked a follow-up commitment that can be reviewed in the daily loop.",
+  draft_available: memoryDerivedActionProposals.length > 0,
+  review_envelope_ref:
+    memoryDerivedActionProposals[index]?.proposal_ref ??
+    "review-envelope-ref:crm-lite-follow-up:draft-missing",
+  memory_refs: memoryCandidateRefs,
+  source_refs: ["source-ref:manual-note:founder-loop-storage"],
+  evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
+  next_safe_action:
+    "Review the memory, source, and evidence refs before drafting a local follow-up proposal.",
+  blocked_state_refs: [
+    "blocked-state:no-external-crm-write",
+    "blocked-state:no-account-sync",
+    "blocked-state:no-connector-write",
+    "blocked-state:no-action-execution",
+  ],
+  authority_boundary:
+    "CRM-lite follow-ups are reviewed local recall only; no CRM sync, connector write, email send, or action execution.",
+  crm_sync_enabled: false,
+  crm_write_enabled: false,
+  external_write_enabled: false,
+}));
+
+const memoryWhyShownItems = memoryToLoopItems.map((item) => ({
+  memory_ref: item.memory_candidate_ref,
+  loop_item_ref: item.loop_item_ref,
+  surface: item.surface,
+  why_shown: `${item.surface} shows this memory because it is a reviewed recall candidate tied to daily-loop source and evidence refs.`,
+  review_state: item.loop_binding_state,
+  stale_state: item.stale_state,
+  conflict_state: "conflict_unknown_review_required",
+  source_refs: item.source_refs,
+  evidence_refs: item.evidence_refs,
+  missing_evidence_refs: item.missing_evidence_refs,
+  next_safe_action: item.next_safe_action,
+  authority_boundary:
+    "Memory is reviewed recall only; it is not truth, hidden context, approval, connector authority, or execution.",
+  reviewed_recall_only: true,
+  context_injection_authorized: false,
+  memory_truth_authority: false,
+}));
+
+const reviewQueueGroups = [
+  {
+    group_ref: "review-group:action-proposals",
+    kind: "actions",
+    count: 2,
+    status: "review_ready",
+    safe_summary:
+      "Action Inbox items can be approved, edited, rejected, or deferred only where receipt routes already support decisions.",
+    source_refs: [
+      "founder-action:mock-setup-hardening",
+      "founder-action:mock-briefing",
+    ],
+    evidence_refs: ["evidence-ref:review-group:actions"],
+    next_safe_action:
+      "Review exact scope and receipts before any later action lane.",
+    blocked_state_refs: [
+      "blocked-state:no-action-execution",
+      "blocked-state:approval-ref-is-identifier-only",
+    ],
+  },
+  {
+    group_ref: "review-group:memory-candidates",
+    kind: "memory",
+    count: 1,
+    status: "review_ready",
+    safe_summary:
+      "Memory candidates can be reviewed as recall posture only; they do not become truth or hidden context.",
+    source_refs: ["memory-review:founder-loop-preferences"],
+    evidence_refs: ["evidence-ref:review-group:memory"],
+    next_safe_action:
+      "Review provenance, stale state, and conflicts before recall use.",
+    blocked_state_refs: [
+      "blocked-state:no-memory-write",
+      "blocked-state:no-context-injection",
+      "blocked-state:no-automatic-memory-truth",
+    ],
+  },
+  {
+    group_ref: "review-group:draft-opportunities",
+    kind: "drafts",
+    count: memoryDerivedActionProposals.length,
+    status: "draft_only",
+    safe_summary:
+      "Draft opportunities are reviewable proposal refs only; no send, write, or external mutation is available.",
+    source_refs: memoryDerivedActionProposals.map((proposal) => proposal.proposal_ref),
+    evidence_refs: ["evidence-ref:review-group:drafts"],
+    next_safe_action:
+      "Review proposal refs before any later exact-scope local action.",
+    blocked_state_refs: [
+      "blocked-state:no-email-send",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-action-execution",
+    ],
+  },
+  {
+    group_ref: "review-group:crm-follow-ups",
+    kind: "crm_followups",
+    count: followUpCommitmentRefs.length,
+    status: "review_only",
+    safe_summary:
+      "CRM-lite follow-ups are local relationship refs derived from reviewed memory, not external CRM state.",
+    source_refs: followUpCommitmentRefs,
+    evidence_refs: ["evidence-ref:review-group:crm-lite"],
+    next_safe_action: "Review source and memory refs before drafting a follow-up.",
+    blocked_state_refs: [
+      "blocked-state:no-external-crm-write",
+      "blocked-state:no-account-sync",
+    ],
+  },
+  {
+    group_ref: "review-group:system-health",
+    kind: "system_health",
+    count: privateBetaReadinessCriteria.length,
+    status: "partial",
+    safe_summary:
+      "System and product health are readiness refs for private use; they do not confer release authority.",
+    source_refs: [privateBetaReadinessContractRef],
+    evidence_refs: ["evidence-packet:private-beta-readiness:local-founder-loop"],
+    next_safe_action:
+      "Run local private rehearsal checks before broader readiness claims.",
+    blocked_state_refs: privateBetaReadinessBlockedRefs,
+  },
+  {
+    group_ref: "review-group:patch-proposals",
+    kind: "patch_proposals",
+    count: 1,
+    status: "review_only_apply_blocked",
+    safe_summary:
+      "Patch proposals can be inspected as safe summaries; no self-healing or auto-apply authority is available.",
+    source_refs: ["proposal-ref:governed-code-workbench:safe-diff"],
+    evidence_refs: ["evidence-ref:review-group:patch-proposals"],
+    next_safe_action:
+      "Review validation refs before any separately scoped code change.",
+    blocked_state_refs: [
+      "blocked-state:no-automatic-patch-apply",
+      "blocked-state:no-unrestricted-shell",
+      "blocked-state:no-self-healing-execution",
+    ],
+  },
+];
+
+const dogfoodCapture = {
+  capture_ref: "dogfood-capture-ref:founder-loop:private-local",
+  status: "private_dogfood_capture_ready_safe_refs_only",
+  safe_summary:
+    "Private dogfood capture can record daily-loop usefulness, false positives, memory decisions, follow-ups, drafts, recommendations, terminal-needed moments, and UI friction as safe refs only.",
+  capture_event_kinds: [
+    "morning_briefing_opened",
+    "useful_item_marked",
+    "false_positive_marked",
+    "memory_decision_recorded",
+    "action_inbox_decision_recorded",
+    "follow_up_caught",
+    "draft_created",
+    "self_heal_recommendation_reviewed",
+    "terminal_needed_moment",
+    "ui_friction_note",
+  ],
+  metric_refs: [
+    "dogfood-metric-ref:morning-briefing-open",
+    "dogfood-metric-ref:useful-item",
+    "dogfood-metric-ref:false-positive",
+    "dogfood-metric-ref:memory-decision",
+    "dogfood-metric-ref:action-inbox-decision",
+    "dogfood-metric-ref:follow-up-caught",
+    "dogfood-metric-ref:draft-created",
+    "dogfood-metric-ref:terminal-needed",
+    "dogfood-metric-ref:ui-friction",
+  ],
+  review_item_refs: [
+    "founder-action:mock-setup-hardening",
+    "memory-review:founder-loop-preferences",
+    "briefing:api-boundary-modularization",
+  ],
+  friction_refs: [
+    "product-friction-ref:source-readiness-gap",
+    "product-friction-ref:blocked-state-copy",
+    "product-friction-ref:terminal-needed",
+  ],
+  recommendation_candidate_refs: [
+    "recommendation-candidate:source-readiness-gap",
+    "recommendation-candidate:daily-loop-friction",
+    "recommendation-candidate:blocked-state-clarity",
+  ],
+  evidence_refs: [
+    "evidence-packet:private-beta-readiness:local-founder-loop",
+    "evidence-ref:dogfood-capture:private-local",
+  ],
+  next_safe_action:
+    "Capture private daily-loop friction as safe refs and review any recommendation before a separately scoped change.",
+  authority_boundary:
+    "Dogfood capture is local and private; it does not imply public beta, production readiness, distribution, self-healing apply, or action execution authority.",
+  local_private_only: true,
+  safe_refs_only: true,
+  public_beta_claim_enabled: false,
+  production_readiness_claim_enabled: false,
+  public_distribution_enabled: false,
+  action_execution_enabled: false,
+  auto_apply_enabled: false,
+};
+
+const weeklyReviewNarrative = {
+  weekly_review_ref: "weekly-review-narrative-ref:founder-loop:v1",
+  status: "safe_ref_history_ready",
+  safe_summary:
+    "Weekly Review reads the daily loop as history: proposed work, recorded decisions, changed refs, carry-forward items, blocked states, stale memory, missing sources, and private dogfood signals.",
+  proposed_refs: [
+    "founder-action:mock-setup-hardening",
+    ...crmLiteFollowups.map((item) => item.follow_up_ref),
+  ],
+  decided_refs: acceptedRecallRefs,
+  changed_refs: [],
+  carry_forward_refs: memoryDerivedActionProposals.map(
+    (proposal) => proposal.proposal_ref,
+  ),
+  blocked_refs: [...memoryToLoopBlockedRefs, "blocked-state:no-account-auth"],
+  stale_refs: staleMemoryRefs,
+  missing_source_refs: sourceReadinessItems
+    .filter((item) =>
+      ["missing", "blocked", "contract_only", "manual_only"].includes(item.status),
+    )
+    .map((item) => item.source_ref),
+  dogfood_refs: [dogfoodCapture.capture_ref, ...dogfoodCapture.friction_refs],
+  evidence_refs: [
+    "evidence-ref:weekly-review:narrative",
+    ...weeklyCeoReviewSummary.input_refs.slice(0, 4),
+  ],
+  next_safe_action:
+    "Review carry-forward, blocked, stale, and missing-source refs before planning the next local-only loop.",
+  authority_boundary:
+    "Weekly Review summarizes refs only; it does not invent truth, write memory, sync accounts, execute actions, or claim release readiness.",
+};
+
+const dailyLoopSummary = {
+  loop_ref: "daily-loop-ref:founder-command-center:v1",
+  status: "implemented_readable_review_only_daily_loop",
+  home_surface: "Morning Briefing",
+  decision_surface: "Today",
+  safe_summary:
+    "Morning Briefing is the daily home and Today is the decision view; both use safe refs, blocked states, reviewed memory, Action Inbox receipts, source-readiness posture, CRM-lite follow-ups, evidence history, and dogfood capture.",
+  today_plan_summary:
+    "1 local plan ref, 2 reviewable action refs, 1 memory review ref, and 2 briefing refs are available for local daily review.",
+  review_queue_summary:
+    "8 grouped review refs across actions, memory, drafts, CRM-lite, system health, and patch proposals.",
+  source_readiness_state_refs: sourceReadinessItems.map(
+    (item) => `${item.source_ref}:${item.status}`,
+  ),
+  crm_follow_up_refs: crmLiteFollowups.map((item) => item.follow_up_ref),
+  memory_reason_refs: memoryWhyShownItems.map((item) => item.loop_item_ref),
+  review_group_refs: reviewQueueGroups.map((group) => group.group_ref),
+  weekly_review_ref: weeklyReviewNarrative.weekly_review_ref,
+  dogfood_capture_ref: dogfoodCapture.capture_ref,
+  next_safe_action:
+    "Open Morning Briefing, review Today decisions, then record only supported Action Inbox or Memory receipts.",
+  authority_boundary:
+    "This loop is review-only, draft-only, and local-only; no email send, calendar write, connector write, source polling, provider call, action execution, automatic memory truth, hidden context injection, or public release authority is granted.",
+  action_execution_enabled: false,
+  connector_runtime_enabled: false,
+  external_write_enabled: false,
+  runtime_model_calls_enabled: false,
+};
+
 const plansActionEnvelopeReviewPostures =
   plansActionEnvelopeReviewActions.map((reviewAction) => ({
     review_action: reviewAction,
@@ -1532,7 +1920,7 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
 	    api_summary: {
-	      route_count: 131,
+	      route_count: 133,
 	      control_center_route_count: 32,
 	      operation_ids_unique: true,
 	      execution_routes_present: false,
@@ -3438,6 +3826,13 @@ export const mockControlCenterData: ControlCenterData = {
     memory_to_loop_weekly_review_refs: memoryToLoopWeeklyReviewRefs,
     weekly_ceo_review_summary: weeklyCeoReviewSummary,
     memory_to_loop_blocked_state_refs: memoryToLoopBlockedRefs,
+    daily_loop_summary: dailyLoopSummary,
+    source_readiness_items: sourceReadinessItems,
+    crm_lite_followups: crmLiteFollowups,
+    memory_why_shown_items: memoryWhyShownItems,
+    review_queue_groups: reviewQueueGroups,
+    weekly_review_narrative: weeklyReviewNarrative,
+    dogfood_capture: dogfoodCapture,
     private_beta_readiness_contract_ref: privateBetaReadinessContractRef,
     private_beta_readiness_status:
       "implemented_private_beta_readiness_gate_authority_blocked",
@@ -4691,6 +5086,60 @@ export const mockControlCenterData: ControlCenterData = {
     ],
     items: [
       {
+        item_ref: "founder-action:mock-local-task-create",
+        title: "Operational maturity scorecard task",
+        safe_summary:
+          "Create a local task for keeping the operational maturity scorecard current; no external authority is granted.",
+        surface: "Actions",
+        priority: "high",
+        risk_class: "medium",
+        action_kind: "local_task_create",
+        status: "approved",
+        side_effect_class: "local_dev_workspace_only",
+        authority_boundary:
+          "Approved exact local task lane; connector, shell, model, memory, context, and production authority remain blocked.",
+        approval_required: true,
+        approval_envelope_ref: "approval-envelope:founder-loop:mock-local-task-create",
+        approval_envelope_status: "approved_receipt_recorded",
+        state_change_contract_ref:
+          "contract-ref:founder-loop-local-task-commit:v1",
+        state_change_readiness: "execution_ready_contract_requires_commit",
+        blocked_state:
+          "Only local task creation is available; all external authority remains blocked.",
+        evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
+        receipt_refs: ["receipt:founder-loop-action:mock-local-task-create:approve"],
+        audit_refs: ["audit:founder-loop-action:mock-local-task-create:approve"],
+        idempotency_key_ref: "idempotency-ref:founder-loop:mock-local-task-create",
+        expires_at: "review_required_before_local_task_commit",
+        stale_state: "recheck_action_approval_before_local_task_commit",
+        rollback_ref: "rollback-not-applicable:local-task-safe-disable",
+        safe_disable_ref: "safe-disable:founder-loop:mock-local-task-create",
+        ...actionEnvelopeFields("founder-action:mock-local-task-create", [
+          "receipt-plan:founder-loop:mock-local-task-create",
+        ]),
+        local_task_commit_contract_ref:
+          "contract-ref:founder-loop-local-task-commit:v1",
+        local_task_commit_route_ref:
+          "POST /control-center/actions/{action_id}/local-task/commit",
+        local_task_ref: "local-task:founder-loop:mock-local-task-create",
+        local_task_commit_eligible: true,
+        local_task_commit_receipt_ref: null,
+        local_task_commit_blocked_reasons: [],
+        local_task_commit_next_safe_action:
+          "Commit this approved local task through the exact local-task route.",
+        local_task_commit_external_authority_blocked_refs: [
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-memory-write",
+          "blocked-state:no-context-injection",
+          "blocked-state:no-external-side-effect",
+          "blocked-state:no-production-authority",
+        ],
+        next_safe_action:
+          "Commit this approved local task or inspect its exact blocked external authority refs.",
+      },
+      {
         item_ref: "founder-action:mock-setup-hardening",
         title: "Setup Assistant hardening review",
         safe_summary:
@@ -4790,6 +5239,11 @@ export const mockControlCenterData: ControlCenterData = {
     memory_to_loop_authority_posture: memoryToLoopAuthorityPosture,
     memory_to_loop_blocked_state_refs: memoryToLoopBlockedRefs,
     weekly_ceo_review_summary: weeklyCeoReviewSummary,
+    source_readiness_items: sourceReadinessItems,
+    crm_lite_followups: crmLiteFollowups,
+    memory_why_shown_items: memoryWhyShownItems,
+    review_queue_groups: reviewQueueGroups,
+    dogfood_capture: dogfoodCapture,
     private_beta_readiness_contract_ref: privateBetaReadinessContractRef,
     private_beta_readiness_status:
       "implemented_private_beta_readiness_gate_authority_blocked",
@@ -4850,6 +5304,95 @@ export const mockControlCenterData: ControlCenterData = {
       "contract-ref:calendar-read-only-missing",
       "contract-ref:notification-delivery-missing",
     ],
+    daily_loop_summary: dailyLoopSummary,
+    daily_loop_sections: [
+      {
+        section_ref: "briefing-section:today-priorities",
+        title: "Today priorities",
+        status: "safe_refs_ready",
+        safe_summary: dailyLoopSummary.today_plan_summary,
+        source_refs: [
+          "founder-action:mock-setup-hardening",
+          "founder-action:mock-briefing",
+        ],
+        evidence_refs: ["evidence-ref:briefing-section:today-priorities"],
+        next_safe_action:
+          "Review Today refs before recording supported receipts.",
+        blocked_state_refs: ["blocked-state:no-action-execution"],
+      },
+      {
+        section_ref: "briefing-section:source-readiness",
+        title: "Blocked and missing sources",
+        status: "explicit_readiness_states",
+        safe_summary:
+          "Inbox, calendar, tasks, CRM-lite, repo, and local-file readiness are visible as safe refs and blocked states.",
+        source_refs: sourceReadinessItems.map((item) => item.source_ref),
+        evidence_refs: ["evidence-ref:briefing-section:source-readiness"],
+        next_safe_action:
+          "Inspect missing-source posture before trusting a daily item.",
+        blocked_state_refs: [
+          "blocked-state:no-account-auth",
+          "blocked-state:no-connector-runtime",
+        ],
+      },
+      {
+        section_ref: "briefing-section:crm-lite-follow-ups",
+        title: "CRM-lite follow-ups",
+        status: "review_only",
+        safe_summary:
+          "Relationship follow-ups are local reviewed-memory refs; drafts remain review-only.",
+        source_refs: crmLiteFollowups.map((item) => item.follow_up_ref),
+        evidence_refs: ["evidence-ref:briefing-section:crm-lite"],
+        next_safe_action:
+          "Review memory provenance before drafting a follow-up.",
+        blocked_state_refs: ["blocked-state:no-external-crm-write"],
+      },
+      {
+        section_ref: "briefing-section:memory-why-shown",
+        title: "Memory why shown",
+        status: "reviewed_recall_only",
+        safe_summary:
+          "Surfaced memory includes why it appears, provenance refs, stale posture, and explicit recall boundaries.",
+        source_refs: memoryWhyShownItems.map((item) => item.loop_item_ref),
+        evidence_refs: ["evidence-ref:briefing-section:memory-why-shown"],
+        next_safe_action:
+          "Review stale and conflict posture before relying on recall.",
+        blocked_state_refs: [
+          "blocked-state:no-automatic-memory-truth",
+          "blocked-state:no-context-injection",
+        ],
+      },
+      {
+        section_ref: "briefing-section:review-queue",
+        title: "Review queue summary",
+        status: "grouped_review_refs",
+        safe_summary: dailyLoopSummary.review_queue_summary,
+        source_refs: reviewQueueGroups.map((group) => group.group_ref),
+        evidence_refs: ["evidence-ref:briefing-section:review-queue"],
+        next_safe_action:
+          "Open Action Inbox for supported review receipts only.",
+        blocked_state_refs: ["blocked-state:no-action-execution"],
+      },
+      {
+        section_ref: "briefing-section:dogfood-capture",
+        title: "Dogfood capture",
+        status: dogfoodCapture.status,
+        safe_summary: dogfoodCapture.safe_summary,
+        source_refs: [dogfoodCapture.capture_ref],
+        evidence_refs: dogfoodCapture.evidence_refs,
+        next_safe_action: dogfoodCapture.next_safe_action,
+        blocked_state_refs: [
+          "blocked-state:no-public-beta",
+          "blocked-state:no-production-authority",
+        ],
+      },
+    ],
+    source_readiness_items: sourceReadinessItems,
+    crm_lite_followups: crmLiteFollowups,
+    memory_why_shown_items: memoryWhyShownItems,
+    review_queue_groups: reviewQueueGroups,
+    weekly_review_narrative: weeklyReviewNarrative,
+    dogfood_capture: dogfoodCapture,
     items: [
       {
         briefing_ref: "briefing:api-boundary-modularization",

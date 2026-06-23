@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   API_ENDPOINTS,
+  actionLocalTaskCommitEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
   isAllowedReadEndpoint,
@@ -130,6 +131,20 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Today required signals/i })).toBeInTheDocument();
     expect(screen.getByText("priorities")).toBeInTheDocument();
     expect(screen.getByText("stale_source_posture")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Daily command loop/i })).toBeInTheDocument();
+    expect(screen.getByText("Home").nextElementSibling).toHaveTextContent("Morning Briefing");
+    expect(screen.getByRole("heading", { name: /Source readiness states/i })).toBeInTheDocument();
+    expect(screen.getByText(/inbox: contract_only/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Review queue groups/i })).toBeInTheDocument();
+    expect(screen.getByText(/crm_followups: 1; review_only/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /CRM-lite follow-ups/i })).toBeInTheDocument();
+    expect(screen.getByText(/memory-to-loop binding marked a follow-up commitment/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Memory why shown/i })).toBeInTheDocument();
+    expect(screen.getByText(/Today shows this memory because it is a reviewed recall candidate/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Dogfood capture/i })).toBeInTheDocument();
+    expect(screen.getByText("Public beta claim").nextElementSibling).toHaveTextContent("blocked");
+    expect(screen.getByRole("heading", { name: /Weekly Review narrative/i })).toBeInTheDocument();
+    expect(screen.getByText(/Weekly Review reads the daily loop as history/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Plan\/action state/i })).toBeInTheDocument();
     expect(
       screen.getAllByText("implemented_today_to_action_envelope_vertical_slice_execution_blocked").length,
@@ -160,7 +175,7 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("weekly-review-ref:memory-to-loop-binding").length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Memory loop states/i })).toBeInTheDocument();
-    expect(screen.getByText(/Action Inbox: follow_up_commitment/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Action Inbox: follow_up_commitment/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("accepted-recall-ref:not-authorized:memory-review-founder-loop-preferences").length,
     ).toBeGreaterThan(0);
@@ -174,6 +189,26 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Chat: implemented_local_operator_surface_contract/i)).toBeInTheDocument();
     expect(screen.getByText(/Code: implemented_governed_code_workbench_contract_apply_blocked/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Stale-source posture/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
+  });
+
+  it("opens Morning Briefing as the daily local home without new authority", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/briefing");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^Morning Briefing$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Briefing daily loop/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Daily command loop/i })).toBeInTheDocument();
+    expect(screen.getByText("Home").nextElementSibling).toHaveTextContent("Morning Briefing");
+    expect(screen.getByRole("heading", { name: /Source readiness states/i })).toBeInTheDocument();
+    expect(screen.getByText(/calendar: contract_only/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /CRM-lite follow-ups/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Memory why shown/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Dogfood capture/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Weekly Review narrative/i })).toBeInTheDocument();
+    expect(screen.getByText("Action execution").nextElementSibling).toHaveTextContent("blocked");
+    expect(screen.getByText("Public beta claim").nextElementSibling).toHaveTextContent("blocked");
     expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
   });
 
@@ -684,6 +719,13 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByRole("button", { name: /Record edit/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Record rejection/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Record defer/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:founder-loop-local-task-commit:v1").length,
+    ).toBeGreaterThan(0);
+    expect(document.body.textContent).toContain(
+      "POST /control-center/actions/{action_id}/local-task/commit",
+    );
     expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("action-envelope:plans:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
@@ -715,6 +757,105 @@ describe("Web Control Center shell", () => {
     ]) {
       expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
     }
+  });
+
+  it("commits only the eligible Action Inbox local task lane through the typed route", async () => {
+    const receipt = {
+      contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
+      action_id: "mock-local-task-create",
+      item_ref: "founder-action:mock-local-task-create",
+      action_kind: "local_task_create",
+      local_task_ref: "local-task:founder-action:mock-local-task-create",
+      receipt_ref: "receipt:founder-loop-local-task:mock-local-task-create",
+      audit_ref: "audit:founder-loop-local-task:mock-local-task-create",
+      evidence_timeline_event_ref:
+        "evidence-timeline-event:local-task:mock-local-task-create",
+      idempotency_key_ref: "idempotency-ref:control-center-local-task:test",
+      payload_fingerprint_ref: "payload-fingerprint-ref:local-task:test",
+      approval_ref: "approval-ref:control-center-local-task:test",
+      approval_status: "approved",
+      status: "local_task_created",
+      safe_summary: "Local task state was appended with safe refs only.",
+      local_task_created: true,
+      connector_write_performed: false,
+      shell_subprocess_execution_performed: false,
+      model_provider_authority_used: false,
+      memory_write_performed: false,
+      context_injection_performed: false,
+      external_side_effect_performed: false,
+      raw_content_stored: false,
+      replayed: false,
+      evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
+      blocked_state_refs: [
+        "blocked-state:no-connector-write",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-model-provider-authority",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-context-injection",
+        "blocked-state:no-production-authority",
+      ],
+      created_at: "2026-06-22T00:00:00Z",
+    };
+    const endpoint = actionLocalTaskCommitEndpoint(
+      "founder-action:mock-local-task-create",
+    );
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (options?.method === "POST" && urlText.endsWith(endpoint)) {
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Actions$/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+
+    await screen.findByText(receipt.receipt_ref);
+    expect(screen.getAllByText(receipt.local_task_ref).length).toBeGreaterThan(0);
+    const [, options] =
+      fetchMock.mock.calls.find(
+        ([url, request]) =>
+          request?.method === "POST" && String(url).endsWith(endpoint),
+      ) ?? [];
+    expect(options?.headers).toMatchObject({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-UAA-Idempotency-Key": expect.stringMatching(
+        /^idempotency-ref:control-center-local-task:mock-local-task-create:/,
+      ),
+    });
+    const requestBody = JSON.parse(String(options?.body));
+    expect(requestBody).toMatchObject({
+      approval_ref: expect.stringMatching(
+        /^approval-ref:control-center-local-task:/,
+      ),
+      decision_reason_ref:
+        "decision-reason-ref:control-center:local-task-commit",
+      metadata_refs: expect.arrayContaining([
+        "metadata-ref:control-center-local-task-commit",
+        "founder-action:mock-local-task-create",
+      ]),
+      approval_grants: [],
+    });
+    expect(JSON.stringify(requestBody).toLowerCase()).not.toContain("raw");
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders Morning Briefing source-readiness posture without source controls", async () => {
@@ -1348,7 +1489,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("127")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("133")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -3231,7 +3372,7 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 131,
+      route_count: 133,
       control_center_route_count: 32,
       operation_ids_unique: true,
       execution_routes_present: false,
@@ -4726,6 +4867,82 @@ const mockApiData = {
       "capability-ref:local-approval-authority",
     ],
     items: [
+      {
+        item_ref: "founder-action:mock-local-task-create",
+        title: "Operational maturity scorecard task",
+        safe_summary:
+          "Create local task state for keeping the operational maturity scorecard current.",
+        surface: "Actions",
+        priority: "high",
+        risk_class: "medium",
+        action_kind: "local_task_create",
+        status: "approved",
+        side_effect_class: "local_dev_workspace_only",
+        authority_boundary:
+          "Exact local task lane only; external authority remains blocked.",
+        approval_required: true,
+        approval_envelope_ref:
+          "approval-envelope:founder-loop:mock-local-task-create",
+        approval_envelope_status: "approved_receipt_recorded",
+        state_change_contract_ref:
+          "contract-ref:founder-loop-local-task-commit:v1",
+        state_change_readiness: "execution_ready_contract_requires_commit",
+        blocked_state:
+          "Only local task creation is available; all external authority remains blocked.",
+        evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
+        receipt_refs: ["receipt:founder-loop-action:mock-local-task-create:approve"],
+        audit_refs: ["audit:founder-loop-action:mock-local-task-create:approve"],
+        idempotency_key_ref:
+          "idempotency-ref:founder-loop:mock-local-task-create",
+        expires_at: "review_required_before_local_task_commit",
+        stale_state: "recheck_action_approval_before_local_task_commit",
+        rollback_ref: "rollback-not-applicable:local-task-safe-disable",
+        safe_disable_ref: "safe-disable:founder-loop:mock-local-task-create",
+        action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
+        action_envelope_ref:
+          "action-envelope:plans:founder-action-mock-local-task-create",
+        action_envelope_status: "approved_receipt_recorded",
+        action_scope_ref:
+          "scope-ref:plans-action-envelope:founder-action-mock-local-task-create",
+        action_approval_requirement_ref:
+          "approval-requirement:plans-action-envelope:founder-action-mock-local-task-create",
+        action_review_actions: ["approve", "edit", "reject", "defer"],
+        action_expected_receipt_refs: [
+          "receipt-plan:founder-loop:mock-local-task-create",
+        ],
+        action_blocked_state_refs: [
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-memory-write",
+          "blocked-state:no-context-injection",
+          "blocked-state:no-production-authority",
+        ],
+        action_envelope_execution_enabled: false,
+        action_envelope_grant_capture_enabled: false,
+        action_envelope_raw_content_included: false,
+        local_task_commit_contract_ref:
+          "contract-ref:founder-loop-local-task-commit:v1",
+        local_task_commit_route_ref:
+          "POST /control-center/actions/{action_id}/local-task/commit",
+        local_task_ref: "local-task:founder-action:mock-local-task-create",
+        local_task_commit_eligible: true,
+        local_task_commit_receipt_ref: null,
+        local_task_commit_blocked_reasons: [],
+        local_task_commit_next_safe_action:
+          "Commit this approved local task through the exact local-task route.",
+        local_task_commit_external_authority_blocked_refs: [
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-memory-write",
+          "blocked-state:no-context-injection",
+          "blocked-state:no-external-side-effect",
+          "blocked-state:no-production-authority",
+        ],
+        next_safe_action:
+          "Commit this approved local task or inspect its blocked external authority refs.",
+      },
       {
         item_ref: "founder-action:test",
         title: "Storage-backed action",

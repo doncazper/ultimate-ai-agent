@@ -8,10 +8,22 @@ from pydantic import ValidationError
 
 from scripts import verify_fcc_v1_006_evidence_timeline_productization as verifier
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.control_center.action_decisions import (
+    FounderLoopActionDecisionRequest,
+    action_approval_request,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+    FounderLoopLocalTaskCommitRequest,
+    local_task_commit_approval_request,
+    local_task_ref_for_action,
+)
 from ultimate_ai_agent.core.storage import (
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
     FounderLoopEvidenceTimelineEvent,
+    FounderLoopRepository,
 )
 
 
@@ -65,6 +77,87 @@ def _safe_event(**overrides: object) -> dict:
     return payload
 
 
+def _approval_grant_for_request(approval_request, approval_ref: str):
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    return authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="local-test-reviewer",
+        approval_ref=approval_ref,
+    )
+
+
+def _approve_local_task_seed_action() -> dict[str, object]:
+    repo = FounderLoopRepository.from_env()
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    request = FounderLoopActionDecisionRequest(
+        decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-approval"
+    )
+    approval_request = action_approval_request(
+        item_ref=str(action["item_ref"]),
+        actor_context=request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            str(action["item_ref"]),
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            str(action["action_approval_requirement_ref"]),
+        ],
+    )
+    grant = _approval_grant_for_request(
+        approval_request,
+        "approval-ref:fcc-v1-006-local-task-action",
+    )
+    receipt = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            approval_ref=grant.approval_ref,
+            approval_grants=[grant],
+            decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-approval",
+        ),
+        idempotency_key_ref="idempotency-ref:fcc-v1-006-local-task-action",
+    )
+    assert receipt["status"] == "approved"
+    return next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+
+
+def _local_task_commit_body(action: dict[str, object]) -> dict[str, object]:
+    request = FounderLoopLocalTaskCommitRequest(
+        approval_ref="approval-ref:fcc-v1-006-local-task-commit",
+        decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-commit",
+        metadata_refs=["metadata-ref:fcc-v1-006-local-task-commit"],
+    )
+    item_ref = str(action["item_ref"])
+    approval_request = local_task_commit_approval_request(
+        item_ref=item_ref,
+        actor_context=request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            item_ref,
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            local_task_ref_for_action(item_ref),
+            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+        ],
+    )
+    grant = _approval_grant_for_request(
+        approval_request,
+        "approval-ref:fcc-v1-006-local-task-commit",
+    )
+    return request.model_copy(update={"approval_grants": [grant]}).model_dump(
+        mode="json"
+    )
+
+
 def test_evidence_timeline_event_model_accepts_safe_event() -> None:
     event = FounderLoopEvidenceTimelineEvent(**_safe_event())
 
@@ -100,7 +193,12 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
     client = TestClient(app)
 
-    action_item = client.get("/control-center/actions/inbox").json()["data"]["items"][0]
+    action_items = client.get("/control-center/actions/inbox").json()["data"]["items"]
+    action_item = next(
+        item
+        for item in action_items
+        if item["item_ref"] == "founder-action:setup-assistant-hardening"
+    )
     action_response = client.post(
         f"/control-center/actions/{action_item['item_ref']}/reject",
         json={
@@ -148,6 +246,16 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
     )
     assert memory_response.status_code == 200
 
+    local_task_action = _approve_local_task_seed_action()
+    local_task_response = client.post(
+        "/control-center/actions/local-task-create-scorecard/local-task/commit",
+        json=_local_task_commit_body(local_task_action),
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-006-local-task-commit"
+        },
+    )
+    assert local_task_response.status_code == 200
+
     response = client.get("/control-center/evidence/timeline")
     assert response.status_code == 200
     body = response.json()
@@ -170,6 +278,7 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
         {group["group_kind"] for group in data["groups"]}
     )
     assert action_response.json()["data"]["receipt_ref"] in str(data["events"])
+    assert local_task_response.json()["data"]["receipt_ref"] in str(data["events"])
     assert chat_response.json()["data"]["receipt_ref"] in str(data["events"])
     assert handoff_response.json()["data"]["receipt_ref"] in str(data["events"])
     assert memory_response.json()["data"]["receipt_ref"] in str(data["events"])

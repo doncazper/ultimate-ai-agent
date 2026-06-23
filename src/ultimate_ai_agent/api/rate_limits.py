@@ -21,6 +21,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "today_to_action_envelope": {"max_requests": 60, "window_seconds": 60},
     "chat_durable_receipt": {"max_requests": 60, "window_seconds": 60},
     "memory_review_decision": {"max_requests": 60, "window_seconds": 60},
+    "memory_context_pack_action_proposal": {"max_requests": 60, "window_seconds": 60},
     "action_decision": {"max_requests": 60, "window_seconds": 60},
     "local_model_validation": {"max_requests": 120, "window_seconds": 60},
 }
@@ -64,9 +65,15 @@ LOCAL_MODEL_VALIDATION_PATHS = {
     "/runtime/smoke-reports/validate",
 }
 ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
+ACTION_LOCAL_TASK_COMMIT_PATHS = {
+    "/control-center/actions/{action_id}/local-task/commit",
+}
 MEMORY_REVIEW_DECISION_SUFFIXES = ("/accept", "/correct", "/reject")
 TODAY_TO_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
+}
+MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
+    "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
 }
 CHAT_DURABLE_RECEIPT_PATHS = {
     "/control-center/chat/turns",
@@ -138,12 +145,25 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         and path.endswith(ACTION_DECISION_SUFFIXES)
     ):
         return "action_decision"
+    if normalized_method == "POST" and (
+        path in ACTION_LOCAL_TASK_COMMIT_PATHS
+        or (
+            path.startswith("/control-center/actions/")
+            and path.endswith("/local-task/commit")
+        )
+    ):
+        return "action_decision"
     if (
         normalized_method == "POST"
         and path.startswith("/control-center/memory/review/")
         and path.endswith(MEMORY_REVIEW_DECISION_SUFFIXES)
     ):
         return "memory_review_decision"
+    if (
+        normalized_method == "POST"
+        and path in MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS
+    ):
+        return "memory_context_pack_action_proposal"
     if normalized_method == "POST" and path in LOCAL_MODEL_VALIDATION_PATHS:
         return "local_model_validation"
     return None

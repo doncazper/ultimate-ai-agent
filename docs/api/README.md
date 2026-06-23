@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `131`, generated from the FastAPI application and
+Current OpenAPI path count: `133`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -67,7 +67,8 @@ Current boundary summary:
 - UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
   decomposition, action preview/proposal, Action Inbox decisions, Today to
   Action envelope promotion, Chat durable receipt/handoff routes, Memory Review
-  decision receipt routes, and local model validation route groups. It does not
+  decision receipt routes, Memory context-pack internal Action proposal routes,
+  and local model validation route groups. It does not
   add auth, distributed quota,
   dependencies, billing, or production
   authority.
@@ -101,6 +102,11 @@ Current boundary summary:
   over reviewed L1/L2/L3 safe refs. It does not add hidden context injection,
   prompt context writing, provider/model calls, connector writes, CRM/account
   sync, action execution, public beta, or production authority.
+- Governed Cognitive Memory Spine Phase 6.1 adds
+  `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`
+  as an exact-approved internal Action proposal receipt hook. It does not
+  execute actions, inject prompt context, call providers, write connectors,
+  sync CRM/accounts, or grant broad Phase 6 execution authority.
 - Governed Cognitive Memory Spine Phase 4 adds
   `GET /control-center/memory/l3-index` as read-only deterministic
   identity/session/preference/commitment representation proposals over L2 safe

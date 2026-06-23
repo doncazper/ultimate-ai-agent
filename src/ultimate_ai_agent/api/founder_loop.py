@@ -11,9 +11,15 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
     FounderLoopActionEnvelopePromotionRequest,
 )
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FounderLoopLocalTaskCommitRequest,
+)
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
-from ultimate_ai_agent.core.memory import MemoryReviewDecisionRequest
+from ultimate_ai_agent.core.memory import (
+    MemoryContextPackActionProposalRequest,
+    MemoryReviewDecisionRequest,
+)
 from ultimate_ai_agent.core.storage import (
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
@@ -210,6 +216,100 @@ def get_control_center_memory_context_packs(
             "no_hidden_context_injection",
             "no_provider_or_model_calls",
             "no_connector_or_crm_sync",
+        ],
+    )
+
+
+@router.post(
+    "/memory/context-packs/{context_pack_ref}/action-proposal",
+    response_model=ResultEnvelope,
+)
+def post_control_center_memory_context_pack_action_proposal(
+    context_pack_ref: str,
+    request: MemoryContextPackActionProposalRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = (
+            get_founder_loop_service().record_memory_context_pack_action_proposal(
+                context_pack_ref=context_pack_ref,
+                request=request,
+                idempotency_key_ref=idempotency_key_ref,
+            )
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": (
+                    str(exc)
+                    or "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_IDEMPOTENCY_CONFLICT"
+                ),
+                "safe_message": (
+                    "The Memory context-pack Action proposal idempotency key "
+                    "already exists with different safe proposal payload refs."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_ERROR"
+        status_code = (
+            404
+            if code == "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_NOT_FOUND"
+            else 400
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": code,
+                "safe_message": (
+                    "The Memory context-pack internal Action proposal could not "
+                    "be recorded safely."
+                ),
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_UNSAFE_INPUT",
+                "safe_message": (
+                    "The Memory context-pack Action proposal request contains "
+                    "unsafe refs."
+                ),
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_context_pack_action_proposal",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-context-pack-action-proposal",
+        data=data,
+        evidence=[
+            {
+                "evidence_ref": (
+                    "evidence-ref:founder-loop:memory-context-pack-action-proposal"
+                )
+            }
+        ],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+            "no_action_execution",
+            "no_context_injection",
+            "no_external_side_effects",
         ],
     )
 
@@ -635,6 +735,83 @@ def get_control_center_action_receipt(action_id: str) -> ResultEnvelope:
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:action-decision"}],
         redactions_applied=["safe_refs_only", "receipt_refs_only", "raw_content_omitted"],
+    )
+
+
+@router.post("/actions/{action_id}/local-task/commit", response_model=ResultEnvelope)
+def post_control_center_action_local_task_commit(
+    action_id: str,
+    request: FounderLoopLocalTaskCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().commit_local_task(
+            action_id=action_id,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_LOCAL_TASK_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The local task commit idempotency key already exists with "
+                    "different safe task payload refs."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_LOCAL_TASK_COMMIT_ERROR"
+        status_code = (
+            404
+            if code == "FOUNDER_LOOP_ACTION_NOT_FOUND"
+            else 403
+            if code in {
+                "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_REQUIRED",
+                "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED",
+            }
+            else 400
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": code,
+                "safe_message": "The local task commit could not be recorded safely.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_LOCAL_TASK_UNSAFE_INPUT",
+                "safe_message": "The local task commit request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_action_local_task_commit",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:action-local-task-commit",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:local-task-commit"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+            "local_task_refs_only",
+        ],
     )
 
 

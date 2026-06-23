@@ -3,18 +3,35 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from scripts.verify_governed_cognitive_memory_spine_v1 import (
     _append_phase6_static_authority_failures,
 )
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.memory import (
     ContextPackProposal,
+    MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF,
+    MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE_REF,
     MEMORY_EXECUTION_HOOK_CONTRACT_REF,
     MEMORY_EXECUTION_HOOK_REQUIRED_FLOW_REFS,
     MEMORY_EXECUTION_HOOK_STATUS,
+    MemoryContextPackActionProposalReceipt,
+    MemoryContextPackActionProposalRequest,
     MemoryExecutionHookContract,
     MemoryExecutionHookProposal,
+    MemoryReviewDecisionRequest,
+    memory_context_pack_action_approval_request,
+    memory_context_pack_action_scope_ref,
+)
+from ultimate_ai_agent.core.storage import (
+    FounderLoopRepository,
+    FounderLoopStorageDuplicateError,
+    FounderLoopStorageError,
 )
 
 
@@ -70,6 +87,60 @@ def _context_pack_data(**overrides: object) -> dict[str, object]:
     }
     data.update(overrides)
     return data
+
+
+def _decision_request() -> MemoryReviewDecisionRequest:
+    return MemoryReviewDecisionRequest(
+        reviewer_ref="actor-ref:phase6-1-reviewer",
+        source_refs=["source-ref:manual-note:phase6-1"],
+        evidence_refs=["evidence-ref:phase6-1-memory-review"],
+        metadata_refs=["metadata-ref:phase6-1-internal-action"],
+    )
+
+
+def _repo_with_context_pack(tmp_path: Path) -> tuple[FounderLoopRepository, dict[str, object]]:
+    repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=True)
+    candidate_ref = str(
+        repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
+    )
+    repo.record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="accept",
+        request=_decision_request(),
+        idempotency_key_ref="idempotency-ref:phase6-1-memory-accept",
+    )
+    context_packs = repo.memory_context_pack_proposals()
+    assert context_packs["context_pack_count"] == 1
+    return repo, dict(context_packs["proposals"][0])
+
+
+def _approved_action_request(
+    context_pack: dict[str, object],
+    *,
+    approval_ref: str = "approval-ref:phase6-1-action-proposal",
+) -> MemoryContextPackActionProposalRequest:
+    context_pack_ref = str(context_pack["context_pack_ref"])
+    scope_ref = memory_context_pack_action_scope_ref(context_pack_ref)
+    request = MemoryContextPackActionProposalRequest(
+        exact_approval_scope_ref=scope_ref,
+        approval_ref=approval_ref,
+        metadata_refs=["metadata-ref:phase6-1-action-proposal"],
+    )
+    approval_request = memory_context_pack_action_approval_request(
+        context_pack_ref=context_pack_ref,
+        context_pack_proposal_ref=str(context_pack["proposal_ref"]),
+        actor_context=request.actor_context,
+        risk_class=request.risk_class,
+        exact_approval_scope_ref=scope_ref,
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    grant = authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="local_test_fixture",
+        approval_ref=approval_ref,
+    )
+    return request.model_copy(update={"approval_grants": [grant]})
 
 
 def test_phase6_contract_accepts_safe_future_blocked_state() -> None:
@@ -149,6 +220,247 @@ def test_context_pack_proposals_do_not_execute_actions() -> None:
         )
 
 
+def test_phase6_1_receipt_rejects_execution_authority_flags() -> None:
+    safe = {
+        "context_pack_ref": "context-pack-ref:phase6-1-safe-pack",
+        "context_pack_proposal_ref": "proposal-ref:phase6-1-safe-pack",
+        "internal_action_proposal_ref": "proposal-ref:phase6-1-internal-action",
+        "item_ref": "founder-action:memory-context-pack:phase6-1-safe",
+        "action_envelope_ref": "action-envelope:memory-context-pack:phase6-1-safe",
+        "exact_approval_scope_ref": "scope-ref:memory-context-pack-action:phase6-1-safe",
+        "approval_ref": "approval-ref:phase6-1-safe",
+        "approval_status": "approved",
+        "receipt_ref": "receipt:memory-context-pack-action:phase6-1-safe",
+        "audit_ref": "audit:memory-context-pack-action:phase6-1-safe",
+        "idempotency_key_ref": "idempotency-ref:phase6-1-safe",
+        "payload_fingerprint_ref": "payload-fingerprint:memory-context-pack-action:safe",
+        "evidence_timeline_event_ref": "evidence-timeline:memory-context-pack-action/safe",
+        "rollback_ref": "rollback-ref:memory-context-pack-action:safe",
+        "safe_disable_ref": "safe-disable-ref:memory-context-pack-action:safe",
+        "safe_summary": "Internal Action proposal receipt only; execution remains blocked.",
+    }
+    receipt = MemoryContextPackActionProposalReceipt(**safe)
+
+    assert receipt.contract_ref == MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF
+    assert receipt.action_proposal_created is True
+    assert receipt.action_executed is False
+
+    with pytest.raises(ValidationError):
+        MemoryContextPackActionProposalReceipt(**{**safe, "action_executed": True})
+    with pytest.raises(ValidationError):
+        MemoryContextPackActionProposalReceipt(
+            **{**safe, "connector_write_authorized": True}
+        )
+
+
+def test_phase6_1_storage_creates_internal_action_proposal_only(
+    tmp_path: Path,
+) -> None:
+    repo, context_pack = _repo_with_context_pack(tmp_path)
+    request = _approved_action_request(context_pack)
+    context_pack_ref = str(context_pack["context_pack_ref"])
+
+    receipt = repo.record_memory_context_pack_action_proposal(
+        context_pack_ref=context_pack_ref,
+        request=request,
+        idempotency_key_ref="idempotency-ref:phase6-1-action-proposal",
+    )
+
+    assert receipt["contract_ref"] == MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF
+    assert receipt["route_ref"] == MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE_REF
+    assert receipt["context_pack_ref"] == context_pack_ref
+    assert receipt["context_pack_proposal_ref"] == context_pack["proposal_ref"]
+    assert receipt["internal_action_proposal_ref"].startswith(
+        "proposal-ref:memory-context-pack-action:"
+    )
+    assert receipt["action_proposal_created"] is True
+    assert receipt["action_executed"] is False
+    assert receipt["connector_write_performed"] is False
+    assert receipt["provider_model_call_performed"] is False
+    assert receipt["context_injection_performed"] is False
+    assert receipt["memory_write_performed"] is False
+    assert context_pack_ref in receipt["evidence_refs"]
+
+    action = next(
+        item
+        for item in repo.actions_inbox()["items"]
+        if item["item_ref"] == receipt["item_ref"]
+    )
+    assert action["surface"] == "Memory"
+    assert action["status"] == "proposed"
+    assert action["action_envelope_ref"] == receipt["action_envelope_ref"]
+    assert action["action_scope_ref"] == receipt["exact_approval_scope_ref"]
+    assert action["action_envelope_execution_enabled"] is False
+    assert receipt["receipt_ref"] in action["receipt_refs"]
+
+    memory_packs = repo.memory_context_pack_proposals()
+    memory_pack = memory_packs["proposals"][0]
+    assert receipt["internal_action_proposal_ref"] in (
+        memory_pack["internal_action_proposal_refs"]
+    )
+    assert receipt["receipt_ref"] in memory_pack["internal_action_receipt_refs"]
+    assert (
+        memory_pack["phase6_1_internal_action_proposal_status"]
+        == "proposal_receipt_recorded_execution_blocked"
+    )
+
+    timeline = repo.today_summary()["evidence_timeline"]
+    event = next(
+        item
+        for item in timeline
+        if item["title"] == "Action proposal from Memory context pack"
+    )
+    assert context_pack_ref in event["history_answers"]["proposed"]["refs"]
+    assert receipt["receipt_ref"] in event["history_answers"]["happened"]["refs"]
+    assert event["history_answers"]["blocked"]["status"] == "blocked"
+
+
+def test_phase6_1_storage_requires_exact_scope_approval_replay_and_conflict(
+    tmp_path: Path,
+) -> None:
+    repo, context_pack = _repo_with_context_pack(tmp_path)
+    context_pack_ref = str(context_pack["context_pack_ref"])
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_APPROVAL_REQUIRED",
+    ):
+        repo.record_memory_context_pack_action_proposal(
+            context_pack_ref=context_pack_ref,
+            request=MemoryContextPackActionProposalRequest(
+                exact_approval_scope_ref=memory_context_pack_action_scope_ref(
+                    context_pack_ref
+                ),
+                approval_ref="approval-ref:missing-grant",
+            ),
+            idempotency_key_ref="idempotency-ref:phase6-1-missing-approval",
+        )
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_SCOPE_MISMATCH",
+    ):
+        repo.record_memory_context_pack_action_proposal(
+            context_pack_ref=context_pack_ref,
+            request=MemoryContextPackActionProposalRequest(
+                exact_approval_scope_ref="scope-ref:memory-context-pack-action:wrong",
+                approval_ref="approval-ref:wrong-scope",
+            ),
+            idempotency_key_ref="idempotency-ref:phase6-1-wrong-scope",
+        )
+
+    request = _approved_action_request(context_pack)
+    first = repo.record_memory_context_pack_action_proposal(
+        context_pack_ref=context_pack_ref,
+        request=request,
+        idempotency_key_ref="idempotency-ref:phase6-1-replay",
+    )
+    replay = repo.record_memory_context_pack_action_proposal(
+        context_pack_ref=context_pack_ref,
+        request=request,
+        idempotency_key_ref="idempotency-ref:phase6-1-replay",
+    )
+    assert replay["replayed"] is True
+    assert replay["receipt_ref"] == first["receipt_ref"]
+
+    with pytest.raises(FounderLoopStorageDuplicateError):
+        repo.record_memory_context_pack_action_proposal(
+            context_pack_ref=context_pack_ref,
+            request=_approved_action_request(
+                context_pack,
+                approval_ref="approval-ref:phase6-1-conflict",
+            ),
+            idempotency_key_ref="idempotency-ref:phase6-1-replay",
+        )
+
+
+def test_phase6_1_api_route_requires_idempotency_and_exact_approval(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    repo = FounderLoopRepository.from_env()
+    candidate_ref = str(
+        repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
+    )
+    repo.record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="accept",
+        request=_decision_request(),
+        idempotency_key_ref="idempotency-ref:phase6-1-api-memory-accept",
+    )
+    context_pack = repo.memory_context_pack_proposals()["proposals"][0]
+    context_pack_ref = str(context_pack["context_pack_ref"])
+    request = _approved_action_request(context_pack)
+    payload = request.model_dump(mode="json")
+    client = TestClient(app)
+
+    missing_idempotency = client.post(
+        f"/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        json=payload,
+    )
+    assert missing_idempotency.status_code == 428
+
+    response = client.post(
+        f"/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        json=payload,
+        headers={"x-uaa-idempotency-key": "idempotency-ref:phase6-1-api"},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["context_pack_ref"] == context_pack_ref
+    assert data["action_executed"] is False
+
+    replay = client.post(
+        f"/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        json=payload,
+        headers={"x-uaa-idempotency-key": "idempotency-ref:phase6-1-api"},
+    )
+    assert replay.status_code == 200
+    assert replay.json()["data"]["replayed"] is True
+
+    conflict_payload = _approved_action_request(
+        context_pack,
+        approval_ref="approval-ref:phase6-1-api-conflict",
+    ).model_dump(mode="json")
+    conflict = client.post(
+        f"/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        json=conflict_payload,
+        headers={"x-uaa-idempotency-key": "idempotency-ref:phase6-1-api"},
+    )
+    assert conflict.status_code == 409
+
+
+def test_phase6_1_route_manifest_and_rate_limit_truth() -> None:
+    manifest = build_api_manifest(app)
+    routes = {route.path: route for route in manifest.routes}
+    route = routes["/control-center/memory/context-packs/{context_pack_ref}/action-proposal"]
+
+    assert route.method == "POST"
+    assert route.route_classification == "mutating_requires_authority"
+    assert route.idempotency_required is True
+    assert route.approval_posture == "required_before_mutation_authority"
+    assert route.rate_limit_targeted is True
+    assert route.rate_limit_group == "memory_context_pack_action_proposal"
+    assert route.side_effect_class == "local_dev_workspace_only"
+    assert "control_center_memory_context_pack_internal_action_proposal" in (
+        manifest.capabilities_declared
+    )
+    assert "control_center_memory_context_pack_action_execution" in (
+        manifest.capabilities_blocked
+    )
+    assert "control_center_memory_context_pack_internal_action_proposal_as_execution" in (
+        manifest.capabilities_blocked
+    )
+    assert (
+        route_rate_limit_group(
+            "POST",
+            "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        )
+        == "memory_context_pack_action_proposal"
+    )
+
+
 def test_phase6_verifier_catches_fake_memory_execution_route(tmp_path: Path) -> None:
     fake_api = tmp_path / "src/ultimate_ai_agent/api/fake_phase6.py"
     fake_api.parent.mkdir(parents=True)
@@ -180,4 +492,3 @@ def test_phase6_docs_keep_execution_blocked() -> None:
     assert "contract/proof lane only" in combined
     assert "phase 6 is shipped" not in combined
     assert "memory-derived execution is enabled" not in combined
-

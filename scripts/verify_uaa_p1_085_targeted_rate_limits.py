@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
+from tests.m7_helpers import local_profile, policy, route_request  # noqa: E402
 from ultimate_ai_agent.api.local_auth import (  # noqa: E402
     LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
     LOCAL_API_BEARER_ENV,
@@ -44,7 +45,7 @@ from scripts.verification.repo import (  # noqa: E402
 CONTRACT_DOC = "docs/api/UAA_P1_085_TARGETED_RATE_LIMITS.md"
 POLICY_SCHEMA = "docs/schemas/api_targeted_rate_limits.schema.json"
 ROUTE_SCHEMA = "docs/schemas/api_route_classification.schema.json"
-ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_131.json"
+ROUTE_FIXTURE = "tests/fixtures/api_route_inventory_133.json"
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:p1-085-verifier"}
 REQUIRED_DOC_SNIPPETS = {
     CONTRACT_DOC: [
@@ -73,6 +74,15 @@ FORBIDDEN_CLAIMS = [
 SUCCESS_MESSAGE = "UAA-P1-085 targeted local rate-limit verification passed."
 
 
+def _model_route_payload(prompt_summary: str = "safe route summary") -> dict:
+    payload = route_request(
+        profiles=[local_profile()],
+        routing_policy=policy(prefer_local=True),
+    ).model_dump(mode="json")
+    payload["prompt_summary"] = prompt_summary
+    return payload
+
+
 def verify(context: ApiVerifierContext | None = None) -> list[str]:
     context = context or default_api_verifier_context()
     failures: list[str] = []
@@ -80,7 +90,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     append_expected_route_count(failures, manifest)
 
     policy_schema = load_json(POLICY_SCHEMA)
-    policy_payload = api_rate_limit_policy_payload(targeted_route_count=44)
+    policy_payload = api_rate_limit_policy_payload(targeted_route_count=46)
     for error in sorted(
         Draft202012Validator(policy_schema).iter_errors(policy_payload),
         key=lambda error: error.path,
@@ -118,7 +128,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     targeted_routes = {
         key for key, route in routes_by_key.items() if route["rate_limit_targeted"] is True
     }
-    if len(targeted_routes) != 44:
+    if len(targeted_routes) != 46:
         failures.append(f"targeted rate-limit route count drifted: {len(targeted_routes)}")
     targeted_groups = {
         route["rate_limit_group"]
@@ -137,6 +147,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         ("POST", "/control-center/memory/review/{candidate_ref}/correct"),
         ("POST", "/control-center/memory/review/{candidate_ref}/reject"),
         ("POST", "/control-center/actions/{action_id}/reject"),
+        ("POST", "/control-center/actions/{action_id}/local-task/commit"),
         ("POST", "/task-decomposition/run"),
         ("POST", "/v1/chat/completions"),
     ]:
@@ -159,12 +170,12 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         first = client.post(
             "/models/route/preview",
             headers=auth_headers,
-            json={"unsafe": "raw prompt should not echo"},
+            json=_model_route_payload("raw prompt should not echo"),
         )
         second = client.post(
             "/models/route/preview",
             headers=auth_headers,
-            json={"unsafe": "raw prompt should not echo"},
+            json=_model_route_payload("raw prompt should not echo"),
         )
         if first.status_code == 429:
             failures.append("first targeted local-model validation request was rate limited")
@@ -184,12 +195,12 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         client.post(
             "/models/route/preview",
             headers=origin_headers,
-            json={"unsafe": "safe summary"},
+            json=_model_route_payload(),
         )
         cors_limited = client.post(
             "/models/route/preview",
             headers=origin_headers,
-            json={"unsafe": "safe summary"},
+            json=_model_route_payload(),
         )
         if cors_limited.status_code != 429:
             failures.append("allowed-origin targeted route did not reach 429")
@@ -215,8 +226,8 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
             failures.append("rate limit masked missing idempotency on mutating route")
 
         reset_api_rate_limit_state()
-        auth_one = client.post("/models/route/preview", json={"unsafe": "safe summary"})
-        auth_two = client.post("/models/route/preview", json={"unsafe": "safe summary"})
+        auth_one = client.post("/models/route/preview", json=_model_route_payload())
+        auth_two = client.post("/models/route/preview", json=_model_route_payload())
         if auth_one.status_code != 401 or auth_two.status_code != 401:
             failures.append("rate limit masked local auth failure")
 

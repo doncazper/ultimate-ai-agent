@@ -97,6 +97,28 @@ def test_founder_loop_briefing_defaults_are_blocked_and_read_only(
     item = briefing["items"][0]
     assert briefing["refresh_enabled"] is False
     assert briefing["notification_delivery_enabled"] is False
+    assert briefing["daily_loop_summary"]["home_surface"] == "Morning Briefing"
+    assert briefing["daily_loop_summary"]["action_execution_enabled"] is False
+    assert briefing["source_readiness_items"]
+    assert {source["status"] for source in briefing["source_readiness_items"]} >= {
+        "contract_only",
+        "manual_only",
+        "metadata_only",
+        "ready",
+    }
+    assert briefing["daily_loop_sections"]
+    assert {section["title"] for section in briefing["daily_loop_sections"]} >= {
+        "Today priorities",
+        "Blocked and missing sources",
+        "CRM-lite follow-ups",
+        "Memory why shown",
+        "Review queue summary",
+        "Dogfood capture",
+    }
+    assert briefing["dogfood_capture"]["local_private_only"] is True
+    assert briefing["dogfood_capture"]["public_beta_claim_enabled"] is False
+    assert briefing["dogfood_capture"]["action_execution_enabled"] is False
+    assert briefing["weekly_review_narrative"]["status"] == "safe_ref_history_ready"
     assert item["briefing_ref"] == "briefing:test-review"
     assert item["priority"] == "medium"
     assert item["source_readiness"] == "blocked_missing_source_contract"

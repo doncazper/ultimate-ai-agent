@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.103.0**
 
-Current OpenAPI path count: `131`.
+Current OpenAPI path count: `133`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -43,6 +43,7 @@ Contract rules:
   `POST /control-center/actions/{action_id}/edit`,
   `POST /control-center/actions/{action_id}/reject`,
   `POST /control-center/actions/{action_id}/defer`,
+  `POST /control-center/actions/{action_id}/local-task/commit`,
   `POST /control-center/today/action-envelope`,
   `GET /control-center/actions/{action_id}/receipt`,
   `POST /control-center/chat/turns`,
@@ -52,6 +53,7 @@ Contract rules:
   `GET /control-center/memory/l2-index`,
   `GET /control-center/memory/l3-index`,
   `GET /control-center/memory/context-packs`,
+  `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`,
   `GET /control-center/memory/review`,
   `GET /control-center/memory/review/{candidate_ref}/receipt`,
   `POST /control-center/memory/review/{candidate_ref}/accept`,
@@ -66,8 +68,11 @@ Contract rules:
   routes provide derived read-only recall previews, factual/graph/temporal ref
   projections, and identity/session/preference/commitment representation
   proposals plus proposal-only context-pack envelopes from reviewed source
-  lanes with source, evidence, and receipt refs.
-  They do not grant action execution,
+  lanes with source, evidence, and receipt refs. Phase 6.1 may create an
+  internal Action proposal receipt from an exact-approved context-pack ref only.
+  `local_task_create` commits local task state only after exact local approval,
+  idempotency, durable receipt, and Evidence Timeline event posture. They do
+  not grant generic action execution,
   connector writes, CRM/account sync, model/provider calls, automatic memory
   writes, context injection, shell/subprocess work, embeddings/vector search,
   semantic search, LLM extraction, background indexing, context-pack injection, or notification
@@ -107,7 +112,8 @@ API boundary hardening:
   handler can run. It does not add durable idempotency storage, replay
   execution, mutation authority, or production authority.
 - UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
-  decomposition, action preview/proposal, Action Inbox decisions,
+  decomposition, action preview/proposal, Action Inbox decisions and the
+  Action Inbox local task commit lane,
   Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
   Review decision receipts, and expensive validation or local-model paths. It
   does not add auth, distributed

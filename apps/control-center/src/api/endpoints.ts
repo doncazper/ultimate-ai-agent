@@ -54,6 +54,10 @@ export function actionReceiptEndpoint(actionId: string): string {
   return `/control-center/actions/${encodeURIComponent(actionRouteId(actionId))}/receipt`;
 }
 
+export function actionLocalTaskCommitEndpoint(actionId: string): string {
+  return `/control-center/actions/${encodeURIComponent(actionRouteId(actionId))}/local-task/commit`;
+}
+
 export function chatTurnReceiptEndpoint(turnRef: string): string {
   return `/control-center/chat/turns/${encodeURIComponent(turnRef)}/receipt`;
 }

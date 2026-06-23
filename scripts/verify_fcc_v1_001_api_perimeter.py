@@ -71,6 +71,7 @@ TARGETED_ROUTE_EXPECTATIONS = {
     ("POST", "/control-center/chat/turns/{turn_ref}/handoff"): "chat_durable_receipt",
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"): "memory_review_decision",
     ("POST", "/control-center/actions/{action_id}/reject"): "action_decision",
+    ("POST", "/control-center/actions/{action_id}/local-task/commit"): "action_decision",
     ("POST", "/task-decomposition/approval-requests"): "task_decomposition",
     ("POST", "/task-decomposition/approvals/grants/capture"): "task_decomposition",
     ("POST", "/task-decomposition/run"): "task_decomposition",
@@ -78,6 +79,7 @@ TARGETED_ROUTE_EXPECTATIONS = {
 REQUIRED_FAMILY_REFS = {
     "today_to_action_envelope",
     "action_decision",
+    "local_task_commit",
     "chat_receipt_handoff",
     "memory_review_decision",
     "evidence_timeline_mutation",
@@ -86,6 +88,7 @@ REQUIRED_FAMILY_REFS = {
 REQUIRED_FAMILY_RECEIPT_REFS = {
     "today_to_action_envelope": "future-action-envelope-receipt",
     "action_decision": "future-action-decision-receipt",
+    "local_task_commit": "future-local-task-commit-receipt",
     "chat_receipt_handoff": "future-chat-turn-or-handoff-receipt",
     "memory_review_decision": "future-memory-review-decision-receipt",
     "evidence_timeline_mutation": "future-evidence-timeline-receipt",
@@ -115,7 +118,7 @@ REQUIRED_EVIDENCE_REFS = {
     "docs/schemas/founder_loop_api_perimeter.schema.json",
     "src/ultimate_ai_agent/api/manifest.py",
     "src/ultimate_ai_agent/api/contracts.py",
-    "tests/fixtures/api_route_inventory_131.json",
+    "tests/fixtures/api_route_inventory_133.json",
 }
 
 

@@ -13,6 +13,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
     FounderLoopActionEnvelopePromotionRequest,
+    action_id_to_item_ref,
+)
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+    FounderLoopLocalTaskCommitRequest,
+    local_task_commit_approval_request,
+    local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
@@ -113,6 +121,73 @@ def _promote_action_envelope(args: argparse.Namespace) -> int:
     return 0
 
 
+def _commit_local_task(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    item_ref = action_id_to_item_ref(args.action_id)
+    action = next(
+        (
+            candidate
+            for candidate in repo.list_action_inbox(limit=200)
+            if candidate.get("item_ref") == item_ref
+        ),
+        None,
+    )
+    if action is None:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": "repo-local-command:founder-loop-commit-local-task",
+                "status": "blocked",
+                "safe_message": "No safe Action Inbox item exists for this action ref.",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
+    request = FounderLoopLocalTaskCommitRequest(
+        approval_ref=args.approval_ref,
+        decision_reason_ref=args.decision_reason_ref,
+        metadata_refs=args.metadata_ref,
+    )
+    local_task_ref = local_task_ref_for_action(item_ref)
+    approval_request = local_task_commit_approval_request(
+        item_ref=item_ref,
+        actor_context=request.actor_context,
+        risk_class=str(action.get("risk_class", "medium")),
+        resource_refs=[
+            item_ref,
+            str(action.get("action_envelope_ref")),
+            str(action.get("action_scope_ref")),
+            local_task_ref,
+            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+        ],
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    grant = authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="local_operator",
+        approval_ref=args.approval_ref,
+    )
+    request = request.model_copy(update={"approval_grants": [grant]})
+    receipt = repo.commit_local_task(
+        action_id=args.action_id,
+        request=request,
+        idempotency_key_ref=args.idempotency_ref,
+    )
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-commit-local-task",
+        "receipt": receipt,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _print_json(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -162,6 +237,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Safe metadata ref to attach to the receipt. May be repeated.",
     )
     promote_parser.set_defaults(func=_promote_action_envelope)
+
+    commit_parser = subparsers.add_parser(
+        "commit-local-task",
+        help="Commit an approved local_task_create Action Inbox item to local task state.",
+    )
+    commit_parser.add_argument("--action-id", required=True)
+    commit_parser.add_argument("--idempotency-ref", required=True)
+    commit_parser.add_argument("--approval-ref", required=True)
+    commit_parser.add_argument(
+        "--decision-reason-ref",
+        default="decision-reason-ref:founder-loop:cli-local-task-commit",
+    )
+    commit_parser.add_argument(
+        "--metadata-ref",
+        action="append",
+        default=[],
+        help="Safe metadata ref to attach to the receipt. May be repeated.",
+    )
+    commit_parser.set_defaults(func=_commit_local_task)
     return parser
 
 

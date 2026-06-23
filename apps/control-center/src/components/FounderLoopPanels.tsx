@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import {
+  commitLocalTask,
   recordMemoryReviewDecision,
   submitActionDecision,
   submitTodayActionEnvelope,
@@ -10,6 +11,7 @@ import type {
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
+  FounderLoopLocalTaskCommitReceipt,
   FounderLoopBriefingItem,
   FounderLoopEvidenceTimelineEvent,
   FounderLoopEvidenceTimelineIndex,
@@ -49,6 +51,7 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
         <Metric label="Memory" value={today.sections.memory_review_count} />
         <Metric label="Briefing" value={today.sections.briefing_count} />
       </div>
+      <DailyLoopProductBehaviorPanel today={today} />
       <div className="panel-grid">
         <article className="status-card">
           <div className="status-card-header">
@@ -451,6 +454,341 @@ export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary })
   );
 }
 
+function DailyLoopProductBehaviorPanel({
+  today,
+}: {
+  today: FounderLoopTodaySummary;
+}) {
+  const hasDailyLoop =
+    today.daily_loop_summary ||
+    today.source_readiness_items?.length ||
+    today.crm_lite_followups?.length ||
+    today.memory_why_shown_items?.length ||
+    today.review_queue_groups?.length ||
+    today.weekly_review_narrative ||
+    today.dogfood_capture;
+
+  if (!hasDailyLoop) {
+    return null;
+  }
+
+  return (
+    <>
+      <div className="panel-grid">
+        <DailyLoopSummaryCard summary={today.daily_loop_summary} />
+        <SourceReadinessCards items={today.source_readiness_items ?? []} />
+        <ReviewQueueGroupCards groups={today.review_queue_groups ?? []} />
+        <CrmLiteFollowUpCards items={today.crm_lite_followups ?? []} />
+        <MemoryWhyShownCards items={today.memory_why_shown_items ?? []} />
+        <DogfoodCaptureCard capture={today.dogfood_capture} />
+      </div>
+      <WeeklyReviewNarrativeCard narrative={today.weekly_review_narrative} />
+    </>
+  );
+}
+
+function DailyLoopSummaryCard({
+  summary,
+}: {
+  summary?: FounderLoopTodaySummary["daily_loop_summary"];
+}) {
+  if (!summary) {
+    return null;
+  }
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Daily command loop</h3>
+        <span>{summary.status}</span>
+      </div>
+      <p>{summary.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Home" value={summary.home_surface} />
+        <DetailTerm label="Decision view" value={summary.decision_surface} />
+        <DetailTerm label="Today plan" value={summary.today_plan_summary} />
+        <DetailTerm label="Review queue" value={summary.review_queue_summary} />
+        <DetailTerm
+          label="Action execution"
+          value={summary.action_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector runtime"
+          value={summary.connector_runtime_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="External writes"
+          value={summary.external_write_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Runtime model calls"
+          value={summary.runtime_model_calls_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      <p>{summary.next_safe_action}</p>
+      <RefListWithFallback
+        emptyLabel="Source readiness refs: none"
+        refs={summary.source_readiness_state_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="CRM follow-up refs: none"
+        refs={summary.crm_follow_up_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Memory reason refs: none"
+        refs={summary.memory_reason_refs}
+      />
+    </article>
+  );
+}
+
+function SourceReadinessCards({
+  items,
+}: {
+  items: NonNullable<FounderLoopTodaySummary["source_readiness_items"]>;
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Source readiness states</h3>
+        <span>{items.length}</span>
+      </div>
+      <ul className="ref-list">
+        {items.map((item) => (
+          <li key={item.source_ref}>
+            {item.source_kind}: {item.status}; {item.safe_summary}
+          </li>
+        ))}
+      </ul>
+      <RefListWithFallback
+        emptyLabel="Source evidence refs: none"
+        refs={items.flatMap((item) => item.evidence_refs)}
+      />
+      <RefListWithFallback
+        emptyLabel="Source readiness blockers: none"
+        refs={items.flatMap((item) => item.blocked_state_refs)}
+      />
+    </article>
+  );
+}
+
+function CrmLiteFollowUpCards({
+  items,
+}: {
+  items: NonNullable<FounderLoopTodaySummary["crm_lite_followups"]>;
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>CRM-lite follow-ups</h3>
+        <span>{items.length}</span>
+      </div>
+      <ul className="ref-list">
+        {items.map((item) => (
+          <li key={item.follow_up_ref}>
+            {item.follow_up_ref}: {item.status}; {item.why_now}
+          </li>
+        ))}
+      </ul>
+      <dl className="detail-list">
+        <DetailTerm
+          label="CRM sync"
+          value={items.some((item) => item.crm_sync_enabled) ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="CRM writes"
+          value={items.some((item) => item.crm_write_enabled) ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="External writes"
+          value={
+            items.some((item) => item.external_write_enabled) ? "enabled" : "blocked"
+          }
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Memory refs: none"
+        refs={items.flatMap((item) => item.memory_refs)}
+      />
+      <RefListWithFallback
+        emptyLabel="CRM-lite blockers: none"
+        refs={items.flatMap((item) => item.blocked_state_refs)}
+      />
+    </article>
+  );
+}
+
+function MemoryWhyShownCards({
+  items,
+}: {
+  items: NonNullable<FounderLoopTodaySummary["memory_why_shown_items"]>;
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Memory why shown</h3>
+        <span>{items.length}</span>
+      </div>
+      <ul className="ref-list">
+        {items.map((item) => (
+          <li key={item.loop_item_ref}>
+            {item.surface}: {item.review_state}; {item.why_shown}
+          </li>
+        ))}
+      </ul>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Reviewed recall only"
+          value={items.every((item) => item.reviewed_recall_only) ? "yes" : "missing"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            items.some((item) => item.context_injection_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Memory truth"
+          value={items.some((item) => item.memory_truth_authority) ? "enabled" : "blocked"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Missing evidence refs: none"
+        refs={items.flatMap((item) => item.missing_evidence_refs)}
+      />
+    </article>
+  );
+}
+
+function ReviewQueueGroupCards({
+  groups,
+}: {
+  groups: NonNullable<FounderLoopTodaySummary["review_queue_groups"]>;
+}) {
+  if (groups.length === 0) {
+    return null;
+  }
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Review queue groups</h3>
+        <span>{groups.length}</span>
+      </div>
+      <ul className="ref-list">
+        {groups.map((group) => (
+          <li key={group.group_ref}>
+            {group.kind}: {group.count}; {group.status}; {group.safe_summary}
+          </li>
+        ))}
+      </ul>
+      <RefListWithFallback
+        emptyLabel="Group blockers: none"
+        refs={groups.flatMap((group) => group.blocked_state_refs)}
+      />
+    </article>
+  );
+}
+
+function DogfoodCaptureCard({
+  capture,
+}: {
+  capture?: FounderLoopTodaySummary["dogfood_capture"];
+}) {
+  if (!capture) {
+    return null;
+  }
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Dogfood capture</h3>
+        <span>{capture.status}</span>
+      </div>
+      <p>{capture.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Local/private"
+          value={capture.local_private_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Safe refs only"
+          value={capture.safe_refs_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Public beta claim"
+          value={capture.public_beta_claim_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Production readiness"
+          value={
+            capture.production_readiness_claim_enabled ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Auto-apply"
+          value={capture.auto_apply_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Capture events: none"
+        items={capture.capture_event_kinds}
+      />
+      <RefListWithFallback
+        emptyLabel="Recommendation candidates: none"
+        refs={capture.recommendation_candidate_refs}
+      />
+    </article>
+  );
+}
+
+function WeeklyReviewNarrativeCard({
+  narrative,
+}: {
+  narrative?: FounderLoopTodaySummary["weekly_review_narrative"];
+}) {
+  if (!narrative) {
+    return null;
+  }
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Weekly Review narrative</h3>
+        <span>{narrative.status}</span>
+      </div>
+      <p>{narrative.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Next safe action" value={narrative.next_safe_action} />
+        <DetailTerm label="Authority" value={narrative.authority_boundary} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Proposed refs: none"
+        refs={narrative.proposed_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Carry-forward refs: none"
+        refs={narrative.carry_forward_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing source refs: none"
+        refs={narrative.missing_source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Dogfood refs: none"
+        refs={narrative.dogfood_refs}
+      />
+    </article>
+  );
+}
+
 export function InboxSurfacePanel() {
   const blockedStates = [
     "email/calendar connector runtime is not scoped",
@@ -719,6 +1057,19 @@ export function ActionInboxSurfacePanel({
           refs={inbox.user_intent_blocked_state_refs ?? []}
         />
       </article>
+      {inbox.source_readiness_items?.length ||
+      inbox.crm_lite_followups?.length ||
+      inbox.memory_why_shown_items?.length ||
+      inbox.review_queue_groups?.length ||
+      inbox.dogfood_capture ? (
+        <div className="panel-grid">
+          <SourceReadinessCards items={inbox.source_readiness_items ?? []} />
+          <ReviewQueueGroupCards groups={inbox.review_queue_groups ?? []} />
+          <CrmLiteFollowUpCards items={inbox.crm_lite_followups ?? []} />
+          <MemoryWhyShownCards items={inbox.memory_why_shown_items ?? []} />
+          <DogfoodCaptureCard capture={inbox.dogfood_capture} />
+        </div>
+      ) : null}
       <div className="review-grid">
         {(inbox.memory_derived_action_proposals ?? []).map((proposal) => (
           <MemoryDerivedActionProposalCard
@@ -850,6 +1201,7 @@ export function MorningBriefingPanel({
           <RefList refs={briefing.missing_contract_refs ?? []} />
         </article>
       </div>
+      <BriefingDailyLoopPanel briefing={briefing} />
       <div className="review-grid">
         {briefing.items.map((item) => (
           <BriefingCard item={item} key={item.briefing_ref} />
@@ -857,6 +1209,74 @@ export function MorningBriefingPanel({
       </div>
       <BlockedStateList states={briefing.blocked_states ?? []} />
     </section>
+  );
+}
+
+function BriefingDailyLoopPanel({
+  briefing,
+}: {
+  briefing: FounderLoopMorningBriefing;
+}) {
+  const hasDailyLoop =
+    briefing.daily_loop_summary ||
+    briefing.daily_loop_sections?.length ||
+    briefing.source_readiness_items?.length ||
+    briefing.crm_lite_followups?.length ||
+    briefing.memory_why_shown_items?.length ||
+    briefing.review_queue_groups?.length ||
+    briefing.weekly_review_narrative ||
+    briefing.dogfood_capture;
+
+  if (!hasDailyLoop) {
+    return null;
+  }
+
+  return (
+    <>
+      <div className="panel-grid">
+        <BriefingSectionCards sections={briefing.daily_loop_sections ?? []} />
+        <DailyLoopSummaryCard summary={briefing.daily_loop_summary} />
+        <SourceReadinessCards items={briefing.source_readiness_items ?? []} />
+        <ReviewQueueGroupCards groups={briefing.review_queue_groups ?? []} />
+        <CrmLiteFollowUpCards items={briefing.crm_lite_followups ?? []} />
+        <MemoryWhyShownCards items={briefing.memory_why_shown_items ?? []} />
+        <DogfoodCaptureCard capture={briefing.dogfood_capture} />
+      </div>
+      <WeeklyReviewNarrativeCard narrative={briefing.weekly_review_narrative} />
+    </>
+  );
+}
+
+function BriefingSectionCards({
+  sections,
+}: {
+  sections: NonNullable<FounderLoopMorningBriefing["daily_loop_sections"]>;
+}) {
+  if (sections.length === 0) {
+    return null;
+  }
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Briefing daily loop</h3>
+        <span>{sections.length}</span>
+      </div>
+      <ul className="ref-list">
+        {sections.map((section) => (
+          <li key={section.section_ref}>
+            {section.title}: {section.status}; {section.safe_summary}
+          </li>
+        ))}
+      </ul>
+      <RefListWithFallback
+        emptyLabel="Briefing section evidence refs: none"
+        refs={sections.flatMap((section) => section.evidence_refs)}
+      />
+      <RefListWithFallback
+        emptyLabel="Briefing section blockers: none"
+        refs={sections.flatMap((section) => section.blocked_state_refs)}
+      />
+    </article>
   );
 }
 
@@ -1380,6 +1800,7 @@ export function EvidenceTimelineSurfacePanel({
             material, and secret-like values stay omitted.
           </p>
         </article>
+        <WeeklyReviewNarrativeCard narrative={today.weekly_review_narrative} />
         <article className="status-card">
           <div className="status-card-header">
             <h3>Blocked authority</h3>
@@ -1885,9 +2306,31 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
           label="Decision contract"
           value={item.state_change_contract_ref ?? "missing until recorded"}
         />
+        <DetailTerm label="Action kind" value={item.action_kind ?? "review_only"} />
+        <DetailTerm
+          label="Local task contract"
+          value={item.local_task_commit_contract_ref ?? "not a local task lane"}
+        />
+        <DetailTerm
+          label="Local task route"
+          value={item.local_task_commit_route_ref ?? "not a local task lane"}
+        />
+        <DetailTerm
+          label="Local task eligibility"
+          value={item.local_task_commit_eligible ? "eligible" : "blocked"}
+        />
+        <DetailTerm
+          label="Local task ref"
+          value={item.local_task_ref ?? "not committed"}
+        />
+        <DetailTerm
+          label="Local task receipt"
+          value={item.local_task_commit_receipt_ref ?? "missing"}
+        />
         <DetailTerm label="Next safe action" value={nextSafeAction} />
       </dl>
       <ActionDecisionControls item={item} />
+      <LocalTaskCommitControls item={item} />
       {item.blocked_state ? <p className="muted">{item.blocked_state}</p> : null}
       <InlineListWithFallback
         emptyLabel="Review actions: missing"
@@ -1900,6 +2343,14 @@ function ActionItemCard({ item }: { item: FounderLoopActionItem }) {
       <RefListWithFallback
         emptyLabel="Action envelope blockers: missing"
         refs={item.action_blocked_state_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Local task commit blockers: not a local task lane"
+        refs={item.local_task_commit_blocked_reasons ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Local task external authority blockers: missing"
+        refs={item.local_task_commit_external_authority_blocked_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Receipt refs: missing until scoped contract"
@@ -1998,6 +2449,86 @@ function ActionDecisionControls({ item }: { item: FounderLoopActionItem }) {
           <DetailTerm
             label="Connector write"
             value={state.receipt.connector_write_performed ? "yes" : "no"}
+          />
+        </dl>
+      ) : null}
+    </div>
+  );
+}
+
+function LocalTaskCommitControls({ item }: { item: FounderLoopActionItem }) {
+  const [state, setState] = useState<{
+    status: "idle" | "pending" | "recorded" | "failed";
+    receipt?: FounderLoopLocalTaskCommitReceipt;
+    message?: string;
+  }>({ status: "idle" });
+  if (!item.local_task_commit_eligible) {
+    return null;
+  }
+  const pending = state.status === "pending";
+
+  async function recordLocalTaskCommit() {
+    setState({ status: "pending" });
+    try {
+      const safeActionSuffix = item.item_ref
+        .toLowerCase()
+        .replace(/[^a-z0-9_.:-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const receipt = await commitLocalTask(item.item_ref, {
+        approval_ref: `approval-ref:control-center-local-task:${safeActionSuffix || "missing"}`,
+        decision_reason_ref:
+          "decision-reason-ref:control-center:local-task-commit",
+        metadata_refs: [
+          "metadata-ref:control-center-local-task-commit",
+          item.item_ref,
+        ],
+        approval_grants: [],
+      });
+      setState({
+        status: "recorded",
+        receipt,
+        message: `${receipt.status}: ${receipt.safe_summary}`,
+      });
+    } catch (error) {
+      setState({
+        status: "failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Local task commit receipt was not recorded safely.",
+      });
+    }
+  }
+
+  return (
+    <div className="decision-controls" aria-label={`${item.title} local task`}>
+      <div className="decision-button-row">
+        <button
+          className="secondary-button"
+          disabled={pending}
+          onClick={() => void recordLocalTaskCommit()}
+          type="button"
+        >
+          {pending ? "Committing" : "Commit local task"}
+        </button>
+      </div>
+      <p className="muted">
+        Local-only task commit. Connector writes, shell, model authority,
+        memory writes, context injection, and production authority remain blocked.
+      </p>
+      {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.receipt ? (
+        <dl className="detail-list">
+          <DetailTerm label="Local task" value={state.receipt.local_task_ref} />
+          <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+          <DetailTerm label="Audit" value={state.receipt.audit_ref} />
+          <DetailTerm
+            label="Connector write"
+            value={state.receipt.connector_write_performed ? "yes" : "no"}
+          />
+          <DetailTerm
+            label="External side effect"
+            value={state.receipt.external_side_effect_performed ? "yes" : "no"}
           />
         </dl>
       ) : null}
@@ -2582,8 +3113,8 @@ function RefList({ refs }: { refs: string[] }) {
   }
   return (
     <ul className="ref-list">
-      {refs.map((ref) => (
-        <li key={ref}>{ref}</li>
+      {refs.map((ref, index) => (
+        <li key={`${ref}-${index}`}>{ref}</li>
       ))}
     </ul>
   );
@@ -2614,8 +3145,8 @@ function InlineListWithFallback({
   }
   return (
     <ul className="ref-list">
-      {items.map((item) => (
-        <li key={item}>{item}</li>
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`}>{item}</li>
       ))}
     </ul>
   );

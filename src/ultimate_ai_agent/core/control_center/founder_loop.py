@@ -6,8 +6,15 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
     FounderLoopActionEnvelopePromotionRequest,
 )
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FounderLoopLocalTaskCommitRequest,
+)
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
-from ultimate_ai_agent.core.memory import MemoryReviewDecisionKind, MemoryReviewDecisionRequest
+from ultimate_ai_agent.core.memory import (
+    MemoryContextPackActionProposalRequest,
+    MemoryReviewDecisionKind,
+    MemoryReviewDecisionRequest,
+)
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
 
@@ -74,6 +81,19 @@ class FounderLoopControlCenterService:
             limit=limit,
         )
 
+    def record_memory_context_pack_action_proposal(
+        self,
+        *,
+        context_pack_ref: str,
+        request: MemoryContextPackActionProposalRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_memory_context_pack_action_proposal(
+            context_pack_ref=context_pack_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
     def promote_today_item_to_action_envelope(
         self,
         *,
@@ -102,6 +122,19 @@ class FounderLoopControlCenterService:
 
     def action_receipt(self, *, action_id: str) -> dict[str, Any] | None:
         return self.repository.latest_action_receipt(action_id)
+
+    def commit_local_task(
+        self,
+        *,
+        action_id: str,
+        request: FounderLoopLocalTaskCommitRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.commit_local_task(
+            action_id=action_id,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
 
     def record_chat_turn_receipt(
         self,

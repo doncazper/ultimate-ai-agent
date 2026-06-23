@@ -4,7 +4,7 @@
   "milestone_ref": "FCC-V1-001",
   "api_manifest_ref": "/api/manifest",
   "openapi_contract_ref": "docs/api/openapi_contract.md",
-  "route_inventory_ref": "tests/fixtures/api_route_inventory_131.json",
+  "route_inventory_ref": "tests/fixtures/api_route_inventory_133.json",
   "release_surface_manifest_ref": "docs/control_center/release_surface_manifest.json",
   "runtime_authority_added": false,
   "routes_added": false,
@@ -28,7 +28,7 @@
     "same_key_conflicting_payload": "required_future_reject_conflict",
     "evidence_requirement_ref": "receipt-backed append-first route-owner storage"
   },
-  "current_mutating_route_count": 23,
+  "current_mutating_route_count": 25,
   "current_mutating_routes": [
     {
       "method": "POST",
@@ -60,6 +60,19 @@
       "method": "POST",
       "path": "/control-center/actions/{action_id}/edit",
       "operation_id": "post_control_center_actions_action_id_edit",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "action_decision"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/actions/{action_id}/local-task/commit",
+      "operation_id": "post_control_center_actions_action_id_local_task_commit",
       "side_effect_class": "local_dev_workspace_only",
       "route_classification": "mutating_requires_authority",
       "auth_posture": "protected_local_bearer_required",
@@ -107,6 +120,19 @@
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
       "rate_limit_posture": "targeted_local_fixed_window",
       "rate_limit_group": "chat_durable_receipt"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+      "operation_id": "post_control_center_memory_context_packs_context_pack_ref_action_proposal",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "memory_context_pack_action_proposal"
     },
     {
       "method": "POST",
@@ -360,6 +386,20 @@
       "receipt_requirement_ref": "future-action-decision-receipt"
     },
     {
+      "family_ref": "local_task_commit",
+      "status": "blocked_until_route_owner_storage",
+      "required_manifest_posture": [
+        "route_classification",
+        "side_effect_class",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_posture",
+        "rate_limit_posture"
+      ],
+      "duplicate_replay_required_before_runtime": true,
+      "receipt_requirement_ref": "future-local-task-commit-receipt"
+    },
+    {
       "family_ref": "chat_receipt_handoff",
       "status": "planned",
       "required_manifest_posture": [
@@ -440,6 +480,6 @@
     "docs/schemas/founder_loop_api_perimeter.schema.json",
     "src/ultimate_ai_agent/api/manifest.py",
     "src/ultimate_ai_agent/api/contracts.py",
-    "tests/fixtures/api_route_inventory_131.json"
+    "tests/fixtures/api_route_inventory_133.json"
   ]
 }

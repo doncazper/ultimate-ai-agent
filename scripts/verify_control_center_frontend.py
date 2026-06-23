@@ -845,6 +845,8 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("runtime validation endpoint allowlist helper is missing")
         if "actionDecisionEndpoint" not in text or "isActionDecisionEndpoint" not in text:
             failures.append("action decision endpoint helpers are missing")
+        if "actionLocalTaskCommitEndpoint" not in text:
+            failures.append("Action Inbox local task commit endpoint helper is missing")
         if 'controlCenterChatTurns: "/control-center/chat/turns"' not in text:
             failures.append("Chat durable receipt endpoint declaration is missing")
         for fragment in ["chatTurnReceiptEndpoint", "chatTurnHandoffEndpoint"]:
@@ -853,7 +855,7 @@ def verify(root: Path = ROOT) -> list[str]:
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if post_count not in {1, 2, 3, 4, 5, 6, 7}:
+        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8}:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
@@ -923,6 +925,19 @@ def verify(root: Path = ROOT) -> list[str]:
                 if fragment not in text:
                     failures.append(
                         f"frontend Memory Review decision post missing safety fragment: {fragment}"
+                    )
+        if post_count >= 8:
+            required_local_task_fragments = [
+                "commitLocalTask",
+                "actionLocalTaskCommitEndpoint(actionId)",
+                "FounderLoopLocalTaskCommitReceipt",
+                "localTaskCommitIdempotencyRef",
+                "\"X-UAA-Idempotency-Key\"",
+            ]
+            for fragment in required_local_task_fragments:
+                if fragment not in text:
+                    failures.append(
+                        f"frontend local task commit post missing safety fragment: {fragment}"
                     )
         if "resolveApiBaseUrl" not in text:
             failures.append("frontend client must resolve API base through local backend policy")
@@ -1015,8 +1030,8 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 131:
-        failures.append("route status manifest must record the 131-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != 133:
+        failures.append("route status manifest must record the 133-path OpenAPI boundary")
     if manifest.get("operator_readiness_taxonomy_ref") != (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     ):
@@ -1323,7 +1338,7 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 131 openapi paths"
+            "api boundary: current fastapi manifest has 133 openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "

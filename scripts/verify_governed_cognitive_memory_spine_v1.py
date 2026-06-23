@@ -57,6 +57,10 @@ MEMORY_CONTEXT_PACK_ROUTE = (
     "GET",
     "/control-center/memory/context-packs",
 )
+MEMORY_CONTEXT_PACK_ACTION_ROUTE = (
+    "POST",
+    "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+)
 MEMORY_DECISION_ROUTES = {
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"),
     ("POST", "/control-center/memory/review/{candidate_ref}/correct"),
@@ -177,6 +181,7 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "GET /control-center/memory/l2-index",
                 "GET /control-center/memory/l3-index",
                 "GET /control-center/memory/context-packs",
+                "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal",
                 "reviewed_recall_record_ref",
                 "Current Phase 5",
                 "implemented as a read-only",
@@ -204,6 +209,8 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "GET /control-center/memory/l3-index",
                 "GET /control-center/memory/context-packs",
                 "Phase 6 remains future blocked",
+                "Phase 6.1",
+                "internal Action proposal",
                 "MemoryExecutionHookContract",
                 "contract/proof lane only",
                 "provider/model calls",
@@ -216,6 +223,7 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "GET /control-center/memory/l2-index",
                 "GET /control-center/memory/l3-index",
                 "GET /control-center/memory/context-packs",
+                "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal",
                 "Phase 6 remains future blocked",
                 "MemoryExecutionHookContract",
             ],
@@ -302,6 +310,16 @@ def _append_route_metadata_failures(
     elif context_pack_route.get("rate_limit_group") is not None:
         failures.append("governed memory context-pack route must not be targeted rate-limited")
 
+    action_route = context.routes_by_key.get(MEMORY_CONTEXT_PACK_ACTION_ROUTE)
+    if action_route is None:
+        failures.append("missing governed memory context-pack Action proposal route")
+    elif action_route.get("route_classification") != "mutating_requires_authority":
+        failures.append("governed memory context-pack Action proposal route classification drifted")
+    elif action_route.get("idempotency_required") is not True:
+        failures.append("governed memory context-pack Action proposal route must require idempotency")
+    elif action_route.get("rate_limit_group") != "memory_context_pack_action_proposal":
+        failures.append("governed memory context-pack Action proposal route rate limit drifted")
+
     for key in MEMORY_DECISION_ROUTES:
         route = context.routes_by_key.get(key)
         if route is None:
@@ -340,6 +358,8 @@ def _append_release_surface_failures(
         failures.append("/memory release surface missing L3 index route")
     if not _has_route(memory.get("backend_routes", []), MEMORY_CONTEXT_PACK_ROUTE):
         failures.append("/memory release surface missing context-pack proposal route")
+    if not _has_route(memory.get("backend_routes", []), MEMORY_CONTEXT_PACK_ACTION_ROUTE):
+        failures.append("/memory release surface missing context-pack Action proposal route")
     for proof in [
         "scripts/verify_fcc_v1_005_memory_review_decisions.py",
         "scripts/verify_governed_cognitive_memory_spine_v1.py",
@@ -348,6 +368,7 @@ def _append_release_surface_failures(
         "tests/test_governed_memory_l2_factual_graph_temporal_index.py",
         "tests/test_governed_memory_l3_identity_session_preference_commitment.py",
         "tests/test_governed_memory_context_pack_proposals.py",
+        "tests/test_governed_memory_phase6_execution_hooks.py",
     ]:
         if proof not in set(memory.get("proof_lanes", [])):
             failures.append(f"/memory release surface missing proof lane {proof}")
@@ -390,6 +411,8 @@ def _append_route_status_failures(
             failures.append(f"route status {label} missing L3 index route")
         if not _has_route(item.get(key, []), MEMORY_CONTEXT_PACK_ROUTE):
             failures.append(f"route status {label} missing context-pack route")
+        if not _has_route(item.get(key, []), MEMORY_CONTEXT_PACK_ACTION_ROUTE):
+            failures.append(f"route status {label} missing context-pack Action proposal route")
         lowered = str(item).lower()
         for snippet in [
             "localmemorystore",

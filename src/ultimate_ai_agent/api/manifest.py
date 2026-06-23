@@ -51,6 +51,7 @@ CAPABILITIES_DECLARED = [
     "control_center_action_inbox_summary",
     "control_center_today_to_action_envelope_promotion",
     "control_center_action_decision_state_machine",
+    "control_center_action_local_task_commit",
     "control_center_chat_durable_receipts",
     "control_center_chat_reviewable_handoffs",
     "control_center_memory_review_decision_receipts",
@@ -58,6 +59,7 @@ CAPABILITIES_DECLARED = [
     "control_center_memory_l2_factual_graph_temporal_index",
     "control_center_memory_l3_identity_session_preference_modeling",
     "control_center_memory_context_pack_proposals",
+    "control_center_memory_context_pack_internal_action_proposal",
     "control_center_evidence_timeline_productization",
     "control_center_morning_briefing_summary",
     "control_center_storage_status",
@@ -122,6 +124,9 @@ CAPABILITIES_BLOCKED = [
     "control_center_action_decisions_as_action_execution",
     "control_center_action_decisions_without_exact_idempotency",
     "control_center_action_decisions_without_receipts",
+    "control_center_action_local_task_commit_as_broad_execution",
+    "control_center_action_local_task_commit_external_side_effects",
+    "control_center_action_local_task_commit_without_exact_approval",
     "control_center_chat_receipts_as_model_authority",
     "control_center_chat_handoffs_as_execution",
     "control_center_chat_handoffs_without_exact_idempotency",
@@ -191,6 +196,8 @@ CAPABILITIES_BLOCKED = [
     "control_center_memory_context_pack_semantic_search",
     "control_center_memory_context_pack_background_indexing",
     "control_center_memory_context_pack_phase6_execution_hooks",
+    "control_center_memory_context_pack_internal_action_proposal_as_execution",
+    "control_center_memory_context_pack_external_side_effects",
     "control_center_plugin_enablement",
     "control_center_frontend_native_build_control",
     "control_center_mobile_sensor_access",
@@ -306,6 +313,12 @@ CONTROL_CENTER_ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/def
 CONTROL_CENTER_MEMORY_DECISION_SUFFIXES = ("/accept", "/correct", "/reject")
 CONTROL_CENTER_TODAY_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
+}
+CONTROL_CENTER_ACTION_LOCAL_TASK_COMMIT_PATHS = {
+    "/control-center/actions/{action_id}/local-task/commit",
+}
+CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
+    "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
 }
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
@@ -490,6 +503,22 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Today-to-Action envelope authority route; exact idempotency, receipt, audit, and evidence posture required",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_ACTION_LOCAL_TASK_COMMIT_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Action Inbox local task commit authority route; exact approval, idempotency, receipt, evidence, and safe-disable posture required",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Memory context-pack internal Action proposal authority route; exact approval, idempotency, receipt, rollback, and evidence posture required while execution stays blocked",
         )
     if (
         normalized_method == "POST"

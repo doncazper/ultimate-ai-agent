@@ -16,6 +16,7 @@ Primary runtime/storage files:
 - `src/ultimate_ai_agent/core/memory/l2_index.py`
 - `src/ultimate_ai_agent/core/memory/l3_index.py`
 - `src/ultimate_ai_agent/core/memory/context_packs.py`
+- `src/ultimate_ai_agent/core/memory/execution_hooks.py`
 - `src/ultimate_ai_agent/core/memory/local_store.py`
 - `src/ultimate_ai_agent/core/memory/provider.py`
 - `src/ultimate_ai_agent/core/storage/founder_loop.py`
@@ -35,6 +36,7 @@ Primary docs/proof files:
 - `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
 - `tests/test_governed_memory_l3_identity_session_preference_commitment.py`
 - `tests/test_governed_memory_context_pack_proposals.py`
+- `tests/test_governed_memory_phase6_execution_hooks.py`
 
 There is no `src/ultimate_ai_agent/core/storage.py` file. Founder Loop storage
 lives under `src/ultimate_ai_agent/core/storage/founder_loop.py`.
@@ -164,13 +166,17 @@ proof:
 ## Next Safe Prompt
 
 Phase 6 remains future blocked. `MemoryExecutionHookContract`,
-`MemoryExecutionHookProposal`, and `MemoryExecutionHookBlockedState` now define
-the contract/proof lane only. They do not add a route, driver, execution
-handler, shell/browser behavior, connector write, provider/model call,
+`MemoryExecutionHookProposal`, and `MemoryExecutionHookBlockedState` define the
+broad contract/proof lane only. Phase 6.1 is implemented as a narrow internal
+Action proposal hook at
+`POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`.
+It creates a backend-owned proposal/envelope receipt after exact approval scope
+and idempotency validation, but it does not execute the action. It does not add
+a driver, shell/browser behavior, connector write, provider/model call,
 context injection, account/CRM sync, public beta, or production authority. The
-next safe execution phase requires a separately accepted milestone with exact
-approval, idempotency, receipt, rollback or safe-disable posture, and Evidence
-Timeline proof.
+next safe execution phase requires a separately accepted Phase 6.2+ milestone
+with exact approval, idempotency, receipt, rollback or safe-disable posture,
+and Evidence Timeline proof for any additional authority.
 
 Prompt shape:
 
@@ -180,9 +186,9 @@ docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md,
 docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md, and the current
 memory provider/store files.
 
-Implement Phase 6 execution only after a future accepted scope. Keep the
-current Phase 6 contract/proof lane blocked. Keep Phase 5 context-pack
-proposals read-only and proposal-only. Do not add hidden context injection,
+Implement any Phase 6.2+ execution work only after a future accepted scope.
+Keep the broad Phase 6 contract/proof lane blocked. Preserve Phase 6.1 as
+internal Action proposal creation only. Do not add hidden context injection,
 automatic prompt construction, account sync, CRM writes, truth authority,
 automatic writes, provider/model calls, connector writes, action execution,
 public beta, or production authority without the exact accepted milestone.

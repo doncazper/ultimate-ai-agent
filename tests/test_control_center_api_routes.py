@@ -4,8 +4,23 @@ from pathlib import Path
 import json
 import re
 
+import pytest
+
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.control_center.action_decisions import (
+    FounderLoopActionDecisionRequest,
+    action_approval_request,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+    FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+    FounderLoopLocalTaskCommitRequest,
+    local_task_commit_approval_request,
+    local_task_ref_for_action,
+)
+from ultimate_ai_agent.core.storage import FounderLoopRepository
 
 
 client = TestClient(app)
@@ -19,13 +34,95 @@ def _load_route_status_manifest() -> dict:
 
 
 def _visible_frontend_routes() -> set[str]:
-    routes_text = (ROOT / "apps/control-center/src/routes.tsx").read_text(encoding="utf-8")
+    routes_text = (ROOT / "apps/control-center/src/routes.tsx").read_text(
+        encoding="utf-8"
+    )
     return set(re.findall(r'\{\s*path:\s*"([^"]+)",\s*label:', routes_text))
 
 
 def _api_route_index() -> Any:
     manifest = build_api_manifest(app)
     return {(route.method, route.path): route for route in manifest.routes}
+
+
+def _approval_grant_for_request(approval_request, approval_ref: str):
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    return authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="local-api-test-reviewer",
+        approval_ref=approval_ref,
+    )
+
+
+def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, object]:
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    request = FounderLoopActionDecisionRequest(
+        decision_reason_ref="decision-reason-ref:api-local-task-action-approval"
+    )
+    approval_request = action_approval_request(
+        item_ref=str(action["item_ref"]),
+        actor_context=request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            str(action["item_ref"]),
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            str(action["action_approval_requirement_ref"]),
+        ],
+    )
+    grant = _approval_grant_for_request(
+        approval_request,
+        "approval-ref:api-local-task-action-approve",
+    )
+    repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            approval_ref=grant.approval_ref,
+            approval_grants=[grant],
+            decision_reason_ref="decision-reason-ref:api-local-task-action-approval",
+        ),
+        idempotency_key_ref="idempotency-ref:api-local-task-action-approval",
+    )
+    return next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+
+
+def _local_task_commit_api_body(
+    action: dict[str, object],
+    *,
+    approval_ref: str = "approval-ref:api-local-task-commit",
+) -> dict[str, object]:
+    request = FounderLoopLocalTaskCommitRequest(
+        approval_ref=approval_ref,
+        decision_reason_ref="decision-reason-ref:api-local-task-commit",
+        metadata_refs=["metadata-ref:api-local-task-commit"],
+    )
+    item_ref = str(action["item_ref"])
+    approval_request = local_task_commit_approval_request(
+        item_ref=item_ref,
+        actor_context=request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            item_ref,
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            local_task_ref_for_action(item_ref),
+            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+        ],
+    )
+    grant = _approval_grant_for_request(approval_request, approval_ref)
+    return request.model_copy(update={"approval_grants": [grant]}).model_dump(
+        mode="json"
+    )
 
 
 def test_control_center_api_routes_are_read_only_preview_only() -> None:
@@ -51,6 +148,30 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
     manifest = client.get("/control-center/manifest").json()["data"]
     assert manifest["metadata"]["frontend_implemented"] is False
     assert "runtime_execution" in manifest["blocked_capabilities"]
+
+
+def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> None:
+    today = client.get("/control-center/today/summary").json()["data"]
+    actions = client.get("/control-center/actions/inbox").json()["data"]
+    briefing = client.get("/control-center/morning-briefing/summary").json()["data"]
+
+    assert today["daily_loop_summary"]["home_surface"] == "Morning Briefing"
+    assert today["daily_loop_summary"]["action_execution_enabled"] is False
+    assert today["source_readiness_items"]
+    assert today["crm_lite_followups"]
+    assert today["memory_why_shown_items"]
+    assert today["weekly_review_narrative"]["status"] == "safe_ref_history_ready"
+    assert today["dogfood_capture"]["public_beta_claim_enabled"] is False
+    assert today["dogfood_capture"]["auto_apply_enabled"] is False
+
+    assert actions["review_queue_groups"]
+    assert actions["dogfood_capture"]["action_execution_enabled"] is False
+    assert actions["crm_lite_followups"][0]["crm_write_enabled"] is False
+
+    assert briefing["daily_loop_summary"]["home_surface"] == "Morning Briefing"
+    assert briefing["daily_loop_sections"]
+    assert briefing["source_readiness_items"][0]["source_kind"] == "inbox"
+    assert briefing["dogfood_capture"]["public_distribution_enabled"] is False
 
 
 def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
@@ -115,7 +236,9 @@ def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
         "openwebui_bridge",
         "mattermost_bridge",
     }
-    approval_step_kinds = {step["kind"] for step in data["steps"] if step["approval_required"]}
+    approval_step_kinds = {
+        step["kind"] for step in data["steps"] if step["approval_required"]
+    }
     assert approval_step_kinds.issubset(envelope_kinds)
     for envelope in approval_envelopes:
         assert envelope["dry_run_only"] is True
@@ -179,7 +302,9 @@ def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
     assert rollback_plan["config_removed"] is False
 
 
-def test_control_center_action_preview_api_denies_execute_and_does_not_echo_secret() -> None:
+def test_control_center_action_preview_api_denies_execute_and_does_not_echo_secret() -> (
+    None
+):
     secret = "api_key='abcdefghijklmnop'"
     response = client.post(
         "/control-center/actions/preview",
@@ -248,8 +373,81 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/observability/session-events" in paths
     assert "/observability/client-errors" in paths
     assert "/integrations/mattermost/events/message" in paths
-    assert len(paths) == 131
-    assert len(operation_ids) == len(set(operation_ids)) == 131
+    assert "/control-center/actions/{action_id}/local-task/commit" in paths
+    assert len(paths) == 133
+    assert len(operation_ids) == len(set(operation_ids)) == 133
+
+
+def test_control_center_action_local_task_commit_requires_exact_approval_and_receipts(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    api_client = TestClient(app)
+    repo = FounderLoopRepository.from_env()
+    action = _approve_local_task_seed_action(repo)
+
+    missing_idempotency = api_client.post(
+        "/control-center/actions/local-task-create-scorecard/local-task/commit",
+        json={"approval_ref": "approval-ref:api-local-task-missing-idempotency"},
+    )
+    assert missing_idempotency.status_code == 428
+    assert missing_idempotency.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+
+    missing_approval = api_client.post(
+        "/control-center/actions/local-task-create-scorecard/local-task/commit",
+        json={"approval_ref": "approval-ref:api-local-task-missing-approval"},
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:api-local-task-missing-approval"
+            )
+        },
+    )
+    assert missing_approval.status_code == 403
+    assert missing_approval.json()["detail"]["code"] == (
+        "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED"
+    )
+
+    response = api_client.post(
+        "/control-center/actions/local-task-create-scorecard/local-task/commit",
+        json=_local_task_commit_api_body(action),
+        headers={"x-uaa-idempotency-key": "idempotency-ref:api-local-task-commit"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_action_local_task_commit"
+    receipt = body["data"]
+    assert receipt["contract_ref"] == FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF
+    assert receipt["action_kind"] == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+    assert receipt["local_task_created"] is True
+    assert receipt["raw_content_stored"] is False
+    assert receipt["external_side_effect_performed"] is False
+
+    receipt_response = api_client.get(
+        "/control-center/actions/local-task-create-scorecard/receipt"
+    )
+    assert receipt_response.status_code == 200
+    assert receipt_response.json()["data"]["receipt_ref"] == receipt["receipt_ref"]
+
+    inbox = api_client.get("/control-center/actions/inbox").json()["data"]
+    committed = next(
+        item
+        for item in inbox["items"]
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert committed["local_task_commit_eligible"] is False
+    assert committed["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    assert committed["local_task_ref"] == receipt["local_task_ref"]
+
+    timeline = api_client.get("/control-center/evidence/timeline").json()["data"]
+    assert "local_task_created" in timeline["event_types"]
+    assert any(
+        event["event_type"] == "local_task_created"
+        and event["receipt_refs"] == [receipt["receipt_ref"]]
+        for event in timeline["events"]
+    )
 
 
 def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
@@ -258,7 +456,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 131 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 133 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
@@ -291,6 +489,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
         "`get /control-center/setup-assistant/summary`",
         "`get /control-center/today/summary`",
         "`get /control-center/actions/inbox`",
+        "`post /control-center/actions/{action_id}/local-task/commit`",
         "`get /control-center/morning-briefing/summary`",
         "`get /control-center/storage/status`",
         "`get /control-center/routes`",
@@ -317,7 +516,9 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     manifest = _load_route_status_manifest()
     visible_actions = manifest["visible_actions"]
     action_routes = {
-        action["frontend_route"] for action in visible_actions if action.get("frontend_route")
+        action["frontend_route"]
+        for action in visible_actions
+        if action.get("frontend_route")
     }
 
     assert manifest["schema_version"] == "uaa-control-center-route-status.v1"
@@ -325,7 +526,7 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     assert manifest["operator_readiness_taxonomy_ref"] == (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     )
-    assert manifest["openapi_path_count"] == 131
+    assert manifest["openapi_path_count"] == 133
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {
@@ -385,14 +586,18 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     } in evidence_action["backend_routes"]
 
 
-def test_control_center_route_status_manifest_matches_openapi_and_api_manifest() -> None:
+def test_control_center_route_status_manifest_matches_openapi_and_api_manifest() -> (
+    None
+):
     route_status = _load_route_status_manifest()
     api_routes = _api_route_index()
     openapi_paths = app.openapi()["paths"]
 
     manifest_routes = []
     for section_name in ["surfaces", "visible_actions"]:
-        route_key = "current_backend_routes" if section_name == "surfaces" else "backend_routes"
+        route_key = (
+            "current_backend_routes" if section_name == "surfaces" else "backend_routes"
+        )
         for item in route_status[section_name]:
             manifest_routes.extend(item.get(route_key, []))
 
@@ -415,14 +620,20 @@ def test_control_center_route_status_manifest_matches_openapi_and_api_manifest()
         assert route["route_classification"] == route_classification
         assert route["path"] in openapi_paths
         assert route["method"].lower() in openapi_paths[route["path"]]
-        assert route["operation_id"] == openapi_paths[route["path"]][route["method"].lower()]["operationId"]
+        assert (
+            route["operation_id"]
+            == openapi_paths[route["path"]][route["method"].lower()]["operationId"]
+        )
 
 
 def test_control_center_route_status_manifest_keeps_unready_actions_unready() -> None:
     manifest = _load_route_status_manifest()
     surfaces = {surface["surface"]: surface for surface in manifest["surfaces"]}
     actions = {action["action_id"]: action for action in manifest["visible_actions"]}
-    release_available = {"status_available_not_completion", "preview_available_not_execution"}
+    release_available = {
+        "status_available_not_completion",
+        "preview_available_not_execution",
+    }
 
     for surface in [
         "Chat Local Operator",
@@ -437,7 +648,9 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready() ->
         assert surface in surfaces
 
     assert surfaces["Settings"]["release_status"] == "blocked_missing_backend"
-    assert surfaces["Chat Local Operator"]["release_status"] == "founder_loop_v1_proofed"
+    assert (
+        surfaces["Chat Local Operator"]["release_status"] == "founder_loop_v1_proofed"
+    )
     assert surfaces["Evidence"]["release_status"] == "founder_loop_v1_proofed"
     assert surfaces["Runtime"]["release_status"] == "status_available_not_completion"
 
@@ -486,9 +699,10 @@ def test_control_center_product_language_rules_are_current_and_enforced() -> Non
         "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
         "docs/kanban/current_board.md",
     ]:
-        assert "docs/control_center/product_language_rules.md" in (
-            ROOT / rel_path
-        ).read_text(encoding="utf-8").lower()
+        assert (
+            "docs/control_center/product_language_rules.md"
+            in (ROOT / rel_path).read_text(encoding="utf-8").lower()
+        )
 
     for frontend_path in [
         ROOT / "apps/control-center/src/components/RuntimeReadinessPanel.tsx",
@@ -514,7 +728,10 @@ def test_control_center_product_language_rules_are_current_and_enforced() -> Non
     completion_words = re.compile(r"\b(complete|completed|done|finished|succeeded)\b")
     for item in [*manifest["surfaces"], *manifest["visible_actions"]]:
         release_status = item["release_status"]
-        if not any(marker in release_status for marker in ["blocked", "partial", "mock", "local_ui_state"]):
+        if not any(
+            marker in release_status
+            for marker in ["blocked", "partial", "mock", "local_ui_state"]
+        ):
             continue
         checked_text = " ".join(
             str(item.get(field, ""))
@@ -522,7 +739,10 @@ def test_control_center_product_language_rules_are_current_and_enforced() -> Non
         ).lower()
         assert completion_words.search(checked_text) is None
 
-    assert actions["submit-action-preview"]["release_status"] == "preview_available_not_execution"
+    assert (
+        actions["submit-action-preview"]["release_status"]
+        == "preview_available_not_execution"
+    )
     assert actions["submit-action-preview"]["backend_routes"][0]["operation_id"] == (
         "post_control_center_actions_preview"
     )

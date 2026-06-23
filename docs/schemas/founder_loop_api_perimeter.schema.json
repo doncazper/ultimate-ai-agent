@@ -46,7 +46,7 @@
       "const": "docs/api/openapi_contract.md"
     },
     "route_inventory_ref": {
-      "const": "tests/fixtures/api_route_inventory_131.json"
+      "const": "tests/fixtures/api_route_inventory_133.json"
     },
     "release_surface_manifest_ref": {
       "const": "docs/control_center/release_surface_manifest.json"
@@ -117,20 +117,20 @@
       }
     },
     "current_mutating_route_count": {
-      "const": 23
+      "const": 25
     },
     "current_mutating_routes": {
       "type": "array",
-      "minItems": 23,
-      "maxItems": 23,
+      "minItems": 25,
+      "maxItems": 25,
       "items": {
         "$ref": "#/$defs/mutating_route"
       }
     },
     "founder_loop_mutation_families": {
       "type": "array",
-      "minItems": 6,
-      "maxItems": 6,
+      "minItems": 7,
+      "maxItems": 7,
       "items": {
         "$ref": "#/$defs/mutation_family"
       },
@@ -179,7 +179,7 @@
           "docs/schemas/founder_loop_api_perimeter.schema.json",
           "src/ultimate_ai_agent/api/manifest.py",
           "src/ultimate_ai_agent/api/contracts.py",
-          "tests/fixtures/api_route_inventory_131.json"
+          "tests/fixtures/api_route_inventory_133.json"
         ]
       },
       "minItems": 6,
@@ -263,10 +263,12 @@
           "enum": [
             "today_to_action_envelope",
             "action_decision",
+            "local_task_commit",
             "chat_receipt_handoff",
             "memory_review_decision",
             "evidence_timeline_mutation",
-            "file_proposal_or_approval_capture"
+            "file_proposal_or_approval_capture",
+            "memory_context_pack_internal_action_proposal"
           ]
         },
         "status": {
@@ -298,10 +300,12 @@
           "enum": [
             "future-action-envelope-receipt",
             "future-action-decision-receipt",
+            "future-local-task-commit-receipt",
             "future-chat-turn-or-handoff-receipt",
             "future-memory-review-decision-receipt",
             "future-evidence-timeline-receipt",
-            "future-file-proposal-or-approval-receipt"
+            "future-file-proposal-or-approval-receipt",
+            "memory-context-pack-internal-action-proposal-receipt"
           ]
         }
       }

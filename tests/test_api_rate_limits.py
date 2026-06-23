@@ -1,7 +1,11 @@
 from fastapi.testclient import TestClient
 
+from tests.m7_helpers import local_profile, policy, route_request
 from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
+from ultimate_ai_agent.api.local_auth import (
+    LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
+    LOCAL_API_BEARER_ENV,
+)
 from ultimate_ai_agent.api.rate_limits import (
     API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV,
     API_TARGETED_RATE_LIMIT_POLICY_REF,
@@ -11,6 +15,15 @@ from ultimate_ai_agent.api.rate_limits import (
 
 
 IDEMPOTENCY_HEADERS = {"X-UAA-Idempotency-Key": "idempotency:test-p1-085"}
+
+
+def _model_route_payload(prompt_summary: str = "safe route summary") -> dict:
+    payload = route_request(
+        profiles=[local_profile()],
+        routing_policy=policy(prefer_local=True),
+    ).model_dump(mode="json")
+    payload["prompt_summary"] = prompt_summary
+    return payload
 
 
 def _client(monkeypatch):
@@ -23,8 +36,14 @@ def _client(monkeypatch):
 def test_targeted_route_returns_redacted_429_after_local_limit(monkeypatch) -> None:
     client = _client(monkeypatch)
 
-    first = client.post("/models/route/preview", json={"unsafe": "raw prompt should not echo"})
-    second = client.post("/models/route/preview", json={"unsafe": "raw prompt should not echo"})
+    first = client.post(
+        "/models/route/preview",
+        json=_model_route_payload("raw prompt should not echo"),
+    )
+    second = client.post(
+        "/models/route/preview",
+        json=_model_route_payload("raw prompt should not echo"),
+    )
 
     assert first.status_code != 429
     assert second.status_code == 429
@@ -43,11 +62,15 @@ def test_targeted_429_exposes_local_loopback_cors_headers(monkeypatch) -> None:
     client = _client(monkeypatch)
     headers = {"Origin": "http://localhost:5173"}
 
-    client.post("/models/route/preview", headers=headers, json={"unsafe": "safe summary"})
+    client.post(
+        "/models/route/preview",
+        headers=headers,
+        json=_model_route_payload(),
+    )
     response = client.post(
         "/models/route/preview",
         headers=headers,
-        json={"unsafe": "safe summary"},
+        json=_model_route_payload(),
     )
 
     assert response.status_code == 429
@@ -71,10 +94,11 @@ def test_mutating_route_missing_idempotency_is_not_masked_by_rate_limit(monkeypa
 
 def test_local_auth_failure_is_not_masked_by_rate_limit(monkeypatch) -> None:
     client = _client(monkeypatch)
+    monkeypatch.setenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, "")
     monkeypatch.setenv(LOCAL_API_BEARER_ENV, "p1-085-local-bearer")
 
-    first = client.post("/models/route/preview", json={"unsafe": "safe summary"})
-    second = client.post("/models/route/preview", json={"unsafe": "safe summary"})
+    first = client.post("/models/route/preview", json=_model_route_payload())
+    second = client.post("/models/route/preview", json=_model_route_payload())
 
     assert first.status_code == 401
     assert first.json()["code"] == "LOCAL_API_AUTH_REQUIRED"

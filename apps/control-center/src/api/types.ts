@@ -128,6 +128,15 @@ export interface FounderLoopActionItem {
   action_envelope_model_provider_authority_allowed?: boolean;
   action_envelope_safe_refs_only?: boolean;
   action_envelope_raw_content_included?: boolean;
+  action_kind?: string;
+  local_task_commit_contract_ref?: string;
+  local_task_commit_route_ref?: string;
+  local_task_ref?: string | null;
+  local_task_commit_eligible?: boolean;
+  local_task_commit_receipt_ref?: string | null;
+  local_task_commit_blocked_reasons?: string[];
+  local_task_commit_next_safe_action?: string;
+  local_task_commit_external_authority_blocked_refs?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -164,6 +173,42 @@ export interface FounderLoopActionDecisionReceipt {
   approval_grants_execution: boolean;
   connector_write_performed: boolean;
   memory_write_performed: boolean;
+  raw_content_stored: boolean;
+  replayed: boolean;
+  safe_summary: string;
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  created_at: string;
+}
+
+export interface FounderLoopLocalTaskCommitRequest {
+  approval_ref: string;
+  decision_reason_ref: string;
+  metadata_refs?: string[];
+  approval_grants?: unknown[];
+}
+
+export interface FounderLoopLocalTaskCommitReceipt {
+  contract_ref: string;
+  item_ref: string;
+  action_kind: "local_task_create";
+  local_task_ref: string;
+  status: string;
+  receipt_ref: string;
+  audit_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  evidence_timeline_event_ref: string;
+  approval_ref: string;
+  approval_status: string;
+  approval_reason_refs: string[];
+  local_task_created: boolean;
+  connector_write_performed: boolean;
+  shell_subprocess_execution_performed: boolean;
+  model_provider_authority_used: boolean;
+  memory_write_performed: boolean;
+  context_injection_performed: boolean;
+  external_side_effect_performed: boolean;
   raw_content_stored: boolean;
   replayed: boolean;
   safe_summary: string;
@@ -1083,6 +1128,139 @@ export interface FounderLoopWeeklyCeoReviewSummary {
   next_safe_action: string;
 }
 
+export interface FounderLoopSourceReadinessItem {
+  source_ref: string;
+  source_kind: string;
+  status: string;
+  safe_summary: string;
+  next_safe_action: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  authority_boundary: string;
+}
+
+export interface FounderLoopCrmLiteFollowUp {
+  follow_up_ref: string;
+  relationship_ref: string;
+  opportunity_ref: string;
+  status: string;
+  safe_summary: string;
+  why_now: string;
+  draft_available: boolean;
+  review_envelope_ref: string;
+  memory_refs: string[];
+  source_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  blocked_state_refs: string[];
+  authority_boundary: string;
+  crm_sync_enabled: boolean;
+  crm_write_enabled: boolean;
+  external_write_enabled: boolean;
+}
+
+export interface FounderLoopMemoryWhyShownItem {
+  memory_ref: string;
+  loop_item_ref: string;
+  surface: string;
+  why_shown: string;
+  review_state: string;
+  stale_state: string;
+  conflict_state: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  missing_evidence_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+  reviewed_recall_only: boolean;
+  context_injection_authorized: boolean;
+  memory_truth_authority: boolean;
+}
+
+export interface FounderLoopReviewQueueGroup {
+  group_ref: string;
+  kind: string;
+  count: number;
+  status: string;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  blocked_state_refs: string[];
+}
+
+export interface FounderLoopDogfoodCaptureSummary {
+  capture_ref: string;
+  status: string;
+  safe_summary: string;
+  capture_event_kinds: string[];
+  metric_refs: string[];
+  review_item_refs: string[];
+  friction_refs: string[];
+  recommendation_candidate_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+  local_private_only: boolean;
+  safe_refs_only: boolean;
+  public_beta_claim_enabled: boolean;
+  production_readiness_claim_enabled: boolean;
+  public_distribution_enabled: boolean;
+  action_execution_enabled: boolean;
+  auto_apply_enabled: boolean;
+}
+
+export interface FounderLoopWeeklyReviewNarrative {
+  weekly_review_ref: string;
+  status: string;
+  safe_summary: string;
+  proposed_refs: string[];
+  decided_refs: string[];
+  changed_refs: string[];
+  carry_forward_refs: string[];
+  blocked_refs: string[];
+  stale_refs: string[];
+  missing_source_refs: string[];
+  dogfood_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+}
+
+export interface FounderLoopDailyLoopSummary {
+  loop_ref: string;
+  status: string;
+  home_surface: string;
+  decision_surface: string;
+  safe_summary: string;
+  today_plan_summary: string;
+  review_queue_summary: string;
+  source_readiness_state_refs: string[];
+  crm_follow_up_refs: string[];
+  memory_reason_refs: string[];
+  review_group_refs: string[];
+  weekly_review_ref: string;
+  dogfood_capture_ref: string;
+  next_safe_action: string;
+  authority_boundary: string;
+  action_execution_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  external_write_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+}
+
+export interface FounderLoopBriefingSection {
+  section_ref: string;
+  title: string;
+  status: string;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  blocked_state_refs: string[];
+}
+
 export interface FounderLoopPrivateBetaReadinessCriterion {
   contract_ref: string;
   criterion_ref: string;
@@ -1436,6 +1614,13 @@ export interface FounderLoopTodaySummary {
   governed_code_workbench_surface_bindings: FounderLoopGovernedCodeWorkbenchSurfaceBinding[];
   governed_code_workbench_authority_posture: FounderLoopGovernedCodeWorkbenchAuthorityPosture;
   governed_code_workbench_blocked_state_refs: string[];
+  daily_loop_summary?: FounderLoopDailyLoopSummary;
+  source_readiness_items?: FounderLoopSourceReadinessItem[];
+  crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
+  memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
+  review_queue_groups?: FounderLoopReviewQueueGroup[];
+  weekly_review_narrative?: FounderLoopWeeklyReviewNarrative;
+  dogfood_capture?: FounderLoopDogfoodCaptureSummary;
   plans_action_envelope_contract_ref: string;
   plans_action_envelope_review_postures: FounderLoopActionEnvelopeReviewPosture[];
   plans_action_envelope_required_ref_fields: string[];
@@ -1526,6 +1711,11 @@ export interface FounderLoopActionsInbox {
   user_intent_proposals?: FounderLoopUserIntentProposal[];
   user_intent_authority_posture?: FounderLoopUserIntentAuthorityPosture;
   user_intent_blocked_state_refs?: string[];
+  source_readiness_items?: FounderLoopSourceReadinessItem[];
+  crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
+  memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
+  review_queue_groups?: FounderLoopReviewQueueGroup[];
+  dogfood_capture?: FounderLoopDogfoodCaptureSummary;
   disabled_state_label: string;
   evidence_refs: string[];
   blocked_states: string[];
@@ -1546,6 +1736,14 @@ export interface FounderLoopMorningBriefing {
   refresh_enabled: boolean;
   notification_delivery_enabled: boolean;
   missing_contract_refs: string[];
+  daily_loop_summary?: FounderLoopDailyLoopSummary;
+  daily_loop_sections?: FounderLoopBriefingSection[];
+  source_readiness_items?: FounderLoopSourceReadinessItem[];
+  crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
+  memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
+  review_queue_groups?: FounderLoopReviewQueueGroup[];
+  weekly_review_narrative?: FounderLoopWeeklyReviewNarrative;
+  dogfood_capture?: FounderLoopDogfoodCaptureSummary;
   items: FounderLoopBriefingItem[];
   evidence_refs: string[];
   blocked_states: string[];

@@ -56,6 +56,357 @@ Backend route-contract cards: max 1 card unless docs/test-only
 Authority-changing cards: 0 unless a separate scoped milestone is accepted
 ```
 
+## Next Development Phase Map
+
+Source guide: `docs/uaa_founder_command_center_next_phases_report.md`.
+
+This phase map is the working implementation order from the current repo
+baseline. It is subordinate to this board, the current Operator Runtime
+Excellence board, the product truth packet, and the Founder Loop V1
+proofed-route conveyor. It does not grant connector writes, email send,
+calendar writes, action execution, automatic memory truth, context injection,
+model/provider authority, public beta, public distribution, production
+readiness, or new runtime authority.
+
+The report's product sequence is directionally right: product truth, trust,
+professional memory, Morning Briefing, Action Inbox, source readiness,
+CRM-lite, self-healing recommendations, Weekly Review, dogfood, micro-actions,
+and native polish. From the current implementation baseline, the next lane
+should pull local setup hardening and loop readability forward because the
+memory, action, evidence, and route-proof foundations already have completed
+contract/read-only slices.
+
+Operational maturity is a promotion gate, not a prose status. The canonical
+scorecard is `docs/control_center/operational_maturity_manifest.json`, the
+ladder is `docs/control_center/OPERATIONALIZATION_LADDER.md`, and the enforcing
+check is `scripts/verify_operational_maturity.py`. No module may move from
+planned, proposal, partial, or proofed-review posture to operational behavior
+without a manifest rank change, verifier pass, backend-owned receipts, route
+metadata, CLI/core/API parity, focused tests, and redacted evidence.
+
+Implementation note: a bounded daily-loop product behavior slice now deepens
+the existing read routes without adding authority. Morning Briefing and Today
+surface backend-owned daily command-loop summaries, source-readiness states,
+CRM-lite follow-ups, memory "why shown" rows, review queue groups, Weekly
+Review narrative refs, and private dogfood capture refs. This advances the
+readability, briefing, source-readiness, CRM-lite, review, and dogfood phases
+as safe-ref UI/API behavior only; it does not complete the full phase map,
+execute actions, connect external accounts, write connectors, call providers,
+or grant production/public beta authority.
+
+| Phase | Working milestone | Primary outcome | Gate before next phase |
+|---:|---|---|---|
+| 0 | `FCC-PRODUCT-000` Product Identity And Truth Alignment | README/front-door language presents Founder Command Center as the canonical local-first professional command center while preserving no-authority truth. | Product language and product truth packet remain aligned with current implementation. |
+| 0.5 | `FCC-TRUTH-001` Currentness And Verification Repair | Verification, route counts, proof lanes, and report-only labels are consistent and boringly trustworthy. | `make verify` path and route/product truth checks either pass or report explicit blockers. |
+| 1 | `FCC-SETUP-001` macOS-first Setup Assistant Hardening | Local setup preview, dry-run scope, rollback refs, blocked states, and safe prerequisite visibility are clear enough to trust. | No setup mutation, installer, LaunchAgent, credential, download, shell execution, or production claim is introduced. |
+| 2 | `FCC-LOOP-001` First Product Loop Readability | Today, Inbox, Plans, Actions, Memory, Evidence, and Settings read as one product loop instead of scattered inspection panels. | Existing route truth, CLI/core inspection parity, and blocked states remain visible and tested. |
+| 3 | `FCC-INBOX-001` Action Inbox And Approval Envelope UX | Reviewable envelopes are easy to scan by kind, scope, risk, authority, expiry, evidence, idempotency, and rollback posture. | Decisions remain backend-owned; approve/edit/reject/defer creates receipts without executing actions. |
+| 4 | `FCC-BRIEFING-001` Morning Briefing And Today Plan V1 | Morning Briefing becomes the daily starting surface over priorities, commitments, memory hints, blocked sources, review queue state, and next safe actions. | Every item has source/evidence/memory refs or an explicit missing-source/blocked posture. |
+| 5 | `FCC-SOURCES-001` Source Readiness And Draft-only Inputs | Inbox, calendar, tasks, CRM notes, manual notes, repo, and local-file readiness become visible with metadata-only/manual-import paths. | No account auth, background polling, raw body ingestion, send/write/archive/delete/label/move, or connector runtime claim. |
+| 6 | `FCC-MEMORY-CRM-001` Professional Memory And CRM-lite Binding | Reviewed professional memory feeds people, organizations, opportunities, commitments, stale follow-ups, draft opportunities, and relationship health. | Memory remains recall, not truth or authority; every use has provenance and a visible "why shown." |
+| 7 | `FCC-REVIEW-001` Evidence Narrative And Weekly CEO Review | Evidence reads like history and Weekly Review summarizes decisions, memory changes, CRM movement, drafts, blockers, and next-week priorities. | Weekly summaries distinguish completed, deferred, rejected, blocked, stale, planned, and missing-source states. |
+| 8 | `FCC-HEALTH-001` Self-Healing Recommendations To Inbox | Verifier, docs-currentness, UI friction, blocked-state, and source-readiness issues become reviewable recommendations. | Recommendations can become tasks or patch proposals only after review; nothing auto-codes or auto-applies. |
+| 9 | `FCC-DOGFOOD-001` Fourteen-Day Private Dogfood Harness | Daily-use metrics, friction notes, useful/irrelevant briefing signals, Action Inbox decisions, and memory decisions are captured as safe refs. | Accepted/revised private findings exist before beta-readiness or execution claims change. |
+| 10 | `FCC-ACTION-001` Approval-bound Local Micro-lanes | Add the first exact-scope local actions, starting with `FCC-ACTION-001a` local task creation. Later local follow-up completion or opportunity update lanes must rank separately. | Each lane has approval, receipt, evidence, idempotency, rollback/safe-disable posture, blocked external authority, and an operational maturity manifest rank change. |
+| 11 | `FCC-POLISH-001` Native And Apple-grade UX Layer | Launcher, setup, notifications, blocked states, visual hierarchy, and product copy make the proven loop feel calm and professional. | Normal daily use no longer requires Terminal, but technical route/authority details remain inspectable. |
+
+### Expanded Phase Cards
+
+The table above is a quick index. The cards below preserve the report's fuller
+intent so each milestone can be picked up as a scoped implementation lane
+without rereading the full report.
+
+#### Phase 0 - `FCC-PRODUCT-000` Product Identity And Truth Alignment
+
+**Intent:** Make the repo's front door describe UAA first as the Founder Command
+Center: a local-first professional command center for Morning Briefing, Today
+Plan, Action Inbox, Evidence, Memory Review, and Weekly CEO Review.
+
+**What This Means:** The safety/runtime foundation should remain visible, but it
+should read as the trust layer under the product promise. Canonical language
+should make Founder Command Center the user-facing product cockpit and keep
+Control Center, Operator Shell, and Founder Loop as implementation or historical
+terms where appropriate.
+
+**Deliverables:** README/front-door copy, canonical product terminology, the
+Morning -> Decide -> Draft -> Approve -> Follow up -> Remember -> Review spine,
+and the smallest product truth packet alignment needed to keep claims current.
+
+**Done Gate:** A new reader can understand within a short scan that UAA is a
+professional personal AI command center while still seeing the current local,
+non-production, no-broad-autonomy posture.
+
+**Authority Boundary:** No new shipped feature claims, production claims, public
+beta claims, connector authority, runtime authority, or broader autonomy are
+introduced.
+
+#### Phase 0.5 - `FCC-TRUTH-001` Trust And Currentness Repair
+
+**Intent:** Protect product trust by making verification paths, route counts,
+manifest truth, product status language, and report-only proof labels
+boringly correct.
+
+**What This Means:** Before more product surface is added, advertised checks
+need to map to real verification paths, route/product counts need to agree
+across docs and manifests, and report-only modes need to be unmistakable.
+
+**Deliverables:** Verification-path audit, route/product truth consistency
+checks, report-only wording cleanup, and product-truth drift guards for claims
+such as production readiness, public beta, live connectors, action execution,
+automatic memory writes, or context injection.
+
+**Done Gate:** `make verify` and documented verification commands either run
+meaningful checks or fail with clear blockers, and route/product truth
+inconsistencies are caught by repo-local verification.
+
+**Authority Boundary:** Verification work only. This phase adds no route
+authority, product-surface expansion, connector runtime, action execution, or
+production claim.
+
+#### Phase 1 - `FCC-SETUP-001` macOS-first Setup Assistant Hardening
+
+**Intent:** Make local setup feel trustworthy before the broader daily loop
+depends on it.
+
+**What This Means:** The Setup Assistant should make dry-run scope, safe local
+prerequisite status, blocked states, rollback refs, redacted summaries, and
+next safe actions clear enough that a user can tell what would happen without
+granting setup authority.
+
+**Deliverables:** Clearer setup preview, bounded status language,
+evidence/rollback posture, safer blocked states, and focused frontend/docs
+tests for the read-only setup surface.
+
+**Done Gate:** Setup preview explains what is ready, missing, blocked, and safe
+to inspect, while preserving route truth and no-mutation posture.
+
+**Authority Boundary:** No installer mutation, LaunchAgent install/load/start,
+background service install/start, credential handling, downloads, shell
+execution, rollback execution, public distribution, production setup claim, or
+setup mutation authority.
+
+#### Phase 2 - `FCC-LOOP-001` First Product Loop Readability
+
+**Intent:** Make Today, Inbox, Plans, Actions, Memory, Evidence, and Settings
+read as one daily product loop rather than scattered inspection panels.
+
+**What This Means:** The primary Control Center experience should organize the
+existing proofed and partial surfaces around the user's day: what matters,
+what needs review, what is remembered, what happened, and what remains blocked.
+Legacy or technical surfaces should stay reachable but become supporting detail.
+
+**Deliverables:** UI navigation/readability pass, grouped legacy surfaces,
+clearer blocked/partial/planned states, and product copy that uses plain
+operator language while preserving technical inspection paths.
+
+**Done Gate:** The first product loop is scannable without hiding existing
+route truth, CLI/core inspection parity, or blocked authority labels.
+
+**Authority Boundary:** No backend route changes unless separately scoped, no
+React-owned product truth, no new mutation controls, and no authority expansion.
+
+#### Phase 3 - `FCC-INBOX-001` Action Inbox And Approval Envelope UX
+
+**Intent:** Give every reviewable item a shared review grammar that lowers
+cognitive load.
+
+**What This Means:** Action Inbox should make envelope kind, exact scope, risk,
+authority required, side-effect class, expiry, evidence, idempotency, receipt
+state, and rollback/safe-disable posture visible before any decision.
+
+**Deliverables:** Richer Action Inbox grouping/filtering, exact approval
+envelope presentation, receipt visibility, blocked-authority labels, and UI
+tests that decisions stay backend-owned.
+
+**Done Gate:** A user can compare action proposals, memory candidates, drafts,
+CRM updates, recommendations, and patch proposals through one review language,
+with decision receipts visible where existing backend contracts support them.
+
+**Authority Boundary:** Approve/edit/reject/defer may record decisions only
+where already supported. This phase does not execute actions, send connector
+writes, grant approval shortcuts, or store product behavior only in React state.
+
+#### Phase 4 - `FCC-BRIEFING-001` Morning Briefing And Today Plan V1
+
+**Intent:** Make Morning Briefing the daily home for the Founder Command Center.
+
+**What This Means:** Morning Briefing and Today Plan should compose priorities,
+commitments, memory hints, missing sources, blockers, draft opportunities,
+system health, and review queue state into one readable start-of-day surface.
+
+**Deliverables:** Briefing card model, Today Plan generation from existing safe
+refs, memory/source/evidence display reasons, and review-item creation paths
+where existing contracts allow them.
+
+**Done Gate:** Every briefing item has source/evidence/memory refs or an
+explicit missing-source/blocked posture, and the normal morning scan does not
+require the terminal.
+
+**Authority Boundary:** Do not fake live email, calendar, or task access. No
+send/write/delete authority, account auth, background polling, raw source
+ingestion, hidden context injection, or new action execution is introduced.
+
+#### Phase 5 - `FCC-SOURCES-001` Source Readiness And Draft-only Inputs
+
+**Intent:** Make inbox, calendar, tasks, CRM notes, manual notes, repo context,
+and local-file context visible before connector authority exists.
+
+**What This Means:** Source awareness starts with readiness states,
+metadata-only records, manual imports, and draft-only proposals. Missing
+sources should be useful blocked states, not dead ends or implied integrations.
+
+**Deliverables:** Source readiness model, manual source summaries,
+metadata-only source records, draft proposal contracts/UI binding, and Settings
+or Setup copy for next safe source actions.
+
+**Done Gate:** Morning Briefing and Today can show inbox/calendar/task source
+readiness, manual or metadata-only source summaries can feed reviewable
+objects, and missing sources explain the next safe action.
+
+**Authority Boundary:** No account auth, background polling, raw body
+ingestion, email send, calendar write, external task write, archive, delete,
+label, move behavior, credential storage claim, or connector runtime claim.
+
+#### Phase 6 - `FCC-MEMORY-CRM-001` Professional Memory And CRM-lite Binding
+
+**Intent:** Turn memory into professional context for people, organizations,
+projects, opportunities, commitments, preferences, interactions, follow-ups,
+beliefs, and corrections.
+
+**What This Means:** Reviewed memory should explain why it appears, identify
+source and evidence refs, surface stale/conflict posture, and support local
+relationship, opportunity, commitment, and follow-up workflows without becoming
+truth or authority.
+
+**Deliverables:** Visible "why shown" memory use, stale/conflict warnings,
+relationship and follow-up cards, CRM-lite local objects, memory-derived
+review items, and evidence-linked correction posture.
+
+**Done Gate:** Professional memory can influence briefing/follow-up proposals
+as reviewed recall only, and every visible memory use has provenance plus a
+display reason.
+
+**Authority Boundary:** No automatic memory truth, hidden context injection,
+model-output authority, CRM/account sync, connector writes, external CRM
+updates, or action execution.
+
+#### Phase 7 - `FCC-REVIEW-001` Evidence Narrative And Weekly CEO Review
+
+**Intent:** Make Evidence read like history and close the professional loop
+with a Weekly CEO Review.
+
+**What This Means:** Evidence should answer what was proposed, why, what was
+approved/edited/rejected/deferred, what changed, what remains blocked, and what
+should carry forward. Weekly Review should summarize decisions, CRM movement,
+memory changes, drafts, blockers, and next-week priorities from safe refs.
+
+**Deliverables:** Weekly summary contract/UI, Evidence narrative grouping,
+status-preserving rollups, and Action Inbox handoff for follow-ups, memory
+corrections, or next-week priorities.
+
+**Done Gate:** Weekly Review distinguishes completed, deferred, rejected,
+blocked, stale, planned, and missing-source states and links claims to
+source/evidence refs.
+
+**Authority Boundary:** No invented truth, no hidden summarization authority,
+no context injection, no connector reads/writes, and no production-readiness
+claim.
+
+#### Phase 8 - `FCC-HEALTH-001` Self-Healing Recommendations To Inbox
+
+**Intent:** Let system and product issues improve the daily loop without making
+self-healing the product's center of gravity.
+
+**What This Means:** Verifier failures, docs drift, route mismatches, UI
+friction, blocked-state issues, source-readiness gaps, private feedback, and
+memory quality problems should become reviewable recommendations in Action
+Inbox.
+
+**Deliverables:** RecommendationCandidate model, `self_heal_recommendation`
+Action Inbox envelope kind, Evidence Timeline events, validation-plan refs,
+rollback/safe-disable refs, and conversion paths to product tasks or patch
+proposals after review.
+
+**Done Gate:** Recommendations can be created from verifier/doc/UI/friction
+signals, reviewed in Action Inbox, and recorded in Evidence without changing
+code automatically.
+
+**Authority Boundary:** No autonomous coding, auto-apply patches, broad shell
+execution, connector writes, action execution, or hidden repair authority.
+
+#### Phase 9 - `FCC-DOGFOOD-001` Fourteen-Day Private Dogfood Harness
+
+**Intent:** Test whether UAA is useful as a daily professional assistant, not
+whether roadmap surfaces merely exist.
+
+**What This Means:** The private rehearsal should track Morning Briefing opens,
+useful items, false positives, memory decisions, follow-ups caught, draft
+creation, Action Inbox decisions, self-heal recommendations, terminal-needed
+moments, and UI friction.
+
+**Deliverables:** Safe-ref-only dogfood artifacts, Product Friction Inbox,
+daily-use metrics, review decision stats, stale follow-up stats, draft
+usefulness stats, and accepted/revised private findings after the trial.
+
+**Done Gate:** The trial produces accepted or revised findings with measurable
+usefulness signals and concrete friction recommendations.
+
+**Authority Boundary:** Private dogfood does not imply public beta, production
+readiness, distribution authority, connector authority, or expanded runtime
+authority.
+
+#### Phase 10 - `FCC-ACTION-001` Approval-bound Local Micro-lanes
+
+**Intent:** Add small local execution abilities only after the daily loop has
+proved useful.
+
+**What This Means:** Start with low-risk local lanes such as local task
+creation and local follow-up completion or opportunity update. Every lane needs
+exact scope, source refs, approval, receipt, evidence, idempotency, and
+rollback/safe-disable posture.
+
+**Deliverables:** At least two exact-scope local action lanes, decision receipts,
+Evidence Timeline events, safe retry behavior, and visible blocked external
+authority.
+
+**Done Gate:** Each implemented micro-lane can be approved, recorded, inspected,
+and safely reasoned about without granting broader authority.
+
+**Authority Boundary:** No email send, external calendar write, external CRM or
+task write, background sync, broad shell execution, reusable autonomy, or
+unrestricted patch apply.
+
+#### Phase 11 - `FCC-POLISH-001` Native And Apple-grade UX Layer
+
+**Intent:** Make the proven loop feel calm, professional, and local-first in
+daily use.
+
+**What This Means:** Polish follows proof. The launcher, setup wizard, morning
+notification, blocked states, visual hierarchy, and product copy should make
+normal use understandable without burying the route/authority details that keep
+UAA trustworthy.
+
+**Deliverables:** Calmer boot/setup flow, no-terminal normal daily loop,
+helpful blocked states, local morning notification posture, refined product
+copy, and inspectable technical detail for route/authority status.
+
+**Done Gate:** A user can start and use the daily loop without Terminal while
+still being able to inspect what UAA can and cannot do.
+
+**Authority Boundary:** No public installer, public distribution, production
+readiness, native OS authority, notification background polling, or connector
+authority is claimed unless separately scoped and proven.
+
+Memory remains a cross-cutting lane across phases 2 through 7. The current
+contract/read-only memory baseline should be used early for visible recall,
+source/provenance, review decisions, conflicts, stale posture, and "why shown"
+copy; deeper CRM-lite expansion should wait until the daily loop can display
+and route those objects cleanly.
+
+Self-healing remains deliberately later than Morning Briefing, Action Inbox,
+source readiness, and CRM-lite. It should enter the product as one source of
+reviewable recommendations, not as the product's center of gravity.
+
 ## Epics
 
 1. Product/UX
@@ -858,7 +1209,7 @@ mutating authority paths without adding routes or authority.
 
 Proof: `docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md`,
 `docs/schemas/api_route_classification.schema.json`,
-`tests/fixtures/api_route_inventory_131.json`,
+`tests/fixtures/api_route_inventory_133.json`,
 `scripts/verify_uaa_p1_080_api_route_classification.py`,
 `tests/test_api_manifest.py`, `tests/test_api_route_inventory_fixture.py`,
 `tests/test_control_center_api_routes.py`, and Control Center API Routes render

@@ -202,6 +202,14 @@ def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch: pytest.M
     assert metrics["release_latency_budget_definitions_ms"] == (
         benchmark_foundation_gate.RELEASE_LATENCY_BUDGETS_MS
     )
+    assert metrics["release_latency_overall_status"] == "passed"
+    path_results = {
+        result["path_id"]: result for result in metrics["release_latency_path_results"]
+    }
+    for path_id in sorted(benchmark_foundation_gate.RELEASE_LATENCY_REQUIRED_PATH_IDS):
+        assert path_results[path_id]["status"] == "passed"
+        assert path_results[path_id]["failed_call_count"] == 0
+        assert path_results[path_id]["authority_path_bypassed_for_speed"] is False
     assert (
         metrics["performance_regression_report_json"]
         == "reports/performance/latest_performance_regression_report.json"

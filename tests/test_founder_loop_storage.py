@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.chat import CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF
 from ultimate_ai_agent.core.code import (
     GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
@@ -46,7 +47,20 @@ from ultimate_ai_agent.core.storage import (
     TODAY_PRODUCT_SPINE_CONTRACT_REF,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
+    FounderLoopStorageError,
     JsonlLogKind,
+)
+from ultimate_ai_agent.core.control_center.action_decisions import (
+    FounderLoopActionDecisionRequest,
+    action_approval_request,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS,
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+    FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+    FounderLoopLocalTaskCommitRequest,
+    local_task_commit_approval_request,
+    local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage.founder_loop import (
     FounderLoopActionRecord,
@@ -77,6 +91,87 @@ def _history_answers() -> dict[str, dict[str, object]]:
         }
         for key in HISTORY_KEYS
     }
+
+
+def _approval_grant_for_request(approval_request, approval_ref: str):
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    return authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="local-test-reviewer",
+        approval_ref=approval_ref,
+    )
+
+
+def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, object]:
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    request = FounderLoopActionDecisionRequest(
+        decision_reason_ref="decision-reason-ref:test-local-task-action-approval"
+    )
+    approval_request = action_approval_request(
+        item_ref=str(action["item_ref"]),
+        actor_context=request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            str(action["item_ref"]),
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            str(action["action_approval_requirement_ref"]),
+        ],
+    )
+    grant = _approval_grant_for_request(
+        approval_request,
+        "approval-ref:test-local-task-action-approve",
+    )
+    receipt = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            approval_ref=grant.approval_ref,
+            approval_grants=[grant],
+            decision_reason_ref="decision-reason-ref:test-local-task-action-approval",
+        ),
+        idempotency_key_ref="idempotency-ref:test-local-task-action-approval",
+    )
+    assert receipt["status"] == "approved"
+    return next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+
+
+def _local_task_commit_request_for_action(
+    action: dict[str, object],
+    *,
+    approval_ref: str = "approval-ref:test-local-task-commit",
+    metadata_refs: list[str] | None = None,
+) -> FounderLoopLocalTaskCommitRequest:
+    request = FounderLoopLocalTaskCommitRequest(
+        approval_ref=approval_ref,
+        decision_reason_ref="decision-reason-ref:test-local-task-commit",
+        metadata_refs=metadata_refs or ["metadata-ref:test-local-task-commit"],
+    )
+    item_ref = str(action["item_ref"])
+    local_task_ref = local_task_ref_for_action(item_ref)
+    approval_request = local_task_commit_approval_request(
+        item_ref=item_ref,
+        actor_context=request.actor_context,
+        risk_class=str(action.get("risk_class", "medium")),
+        resource_refs=[
+            item_ref,
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            local_task_ref,
+            FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+        ],
+    )
+    grant = _approval_grant_for_request(approval_request, approval_ref)
+    return request.model_copy(update={"approval_grants": [grant]})
 
 
 def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) -> None:
@@ -116,8 +211,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         == PLANS_ACTION_ENVELOPE_CONTRACT_REF
     )
     assert [
-        row["review_action"]
-        for row in today["plans_action_envelope_review_postures"]
+        row["review_action"] for row in today["plans_action_envelope_review_postures"]
     ] == ["approve", "edit", "reject", "defer"]
     assert "scope_ref" in today["plans_action_envelope_required_ref_fields"]
     assert (
@@ -293,16 +387,18 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert (
         module_feeds["Chat"]["status"] == "implemented_local_operator_surface_contract"
     )
-    assert CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF in module_feeds["Chat"][
-        "current_feed_refs"
-    ]
+    assert (
+        CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF
+        in module_feeds["Chat"]["current_feed_refs"]
+    )
     assert (
         module_feeds["Code"]["status"]
         == "implemented_governed_code_workbench_contract_apply_blocked"
     )
-    assert GOVERNED_CODE_WORKBENCH_CONTRACT_REF in module_feeds["Code"][
-        "current_feed_refs"
-    ]
+    assert (
+        GOVERNED_CODE_WORKBENCH_CONTRACT_REF
+        in module_feeds["Code"]["current_feed_refs"]
+    )
     assert (
         today["governed_code_workbench_contract_ref"]
         == GOVERNED_CODE_WORKBENCH_CONTRACT_REF
@@ -317,9 +413,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         today["governed_code_workbench_blocked_state_refs"]
     )
     assert (
-        today["governed_code_workbench_authority_posture"][
-            "apply_execution_enabled"
-        ]
+        today["governed_code_workbench_authority_posture"]["apply_execution_enabled"]
         is False
     )
     assert (
@@ -329,21 +423,15 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         is False
     )
     assert (
-        today["governed_code_workbench_authority_posture"][
-            "unrestricted_shell_enabled"
-        ]
+        today["governed_code_workbench_authority_posture"]["unrestricted_shell_enabled"]
         is False
     )
     assert (
-        today["governed_code_workbench_authority_posture"][
-            "remote_execution_enabled"
-        ]
+        today["governed_code_workbench_authority_posture"]["remote_execution_enabled"]
         is False
     )
     assert (
-        today["governed_code_workbench_authority_posture"][
-            "diff_body_storage_enabled"
-        ]
+        today["governed_code_workbench_authority_posture"]["diff_body_storage_enabled"]
         is False
     )
     assert {
@@ -410,9 +498,16 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert today["weekly_ceo_review_summary"]["weekly_review_ref"] == (
         "weekly-review-ref:memory-to-loop-binding"
     )
-    assert today["memory_to_loop_authority_posture"]["automatic_recall_enabled"] is False
-    assert today["memory_to_loop_authority_posture"]["context_injection_authorized"] is False
-    assert today["memory_to_loop_authority_posture"]["action_execution_enabled"] is False
+    assert (
+        today["memory_to_loop_authority_posture"]["automatic_recall_enabled"] is False
+    )
+    assert (
+        today["memory_to_loop_authority_posture"]["context_injection_authorized"]
+        is False
+    )
+    assert (
+        today["memory_to_loop_authority_posture"]["action_execution_enabled"] is False
+    )
     assert today["private_beta_readiness_contract_ref"] == (
         PRIVATE_BETA_READINESS_CONTRACT_REF
     )
@@ -433,23 +528,18 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         PRIVATE_BETA_READINESS_REQUIRED_SURFACES
     )
     assert {
-        criterion["surface"]
-        for criterion in today["private_beta_readiness_criteria"]
+        criterion["surface"] for criterion in today["private_beta_readiness_criteria"]
     } == set(PRIVATE_BETA_READINESS_REQUIRED_SURFACES)
     assert {
         criterion["gate_state"]
         for criterion in today["private_beta_readiness_criteria"]
     } >= {"partial", "mock_only", "blocked"}
     assert (
-        today["private_beta_readiness_authority_posture"][
-            "public_beta_claim_enabled"
-        ]
+        today["private_beta_readiness_authority_posture"]["public_beta_claim_enabled"]
         is False
     )
     assert (
-        today["private_beta_readiness_authority_posture"][
-            "connector_write_enabled"
-        ]
+        today["private_beta_readiness_authority_posture"]["connector_write_enabled"]
         is False
     )
     assert today["private_beta_readiness_execution_authorized"] is False
@@ -472,10 +562,10 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert set(USER_INTENT_UNDERSTANDING_REQUIRED_BLOCKED_REFS) <= set(
         today["user_intent_blocked_state_refs"]
     )
-    assert today["user_intent_proposal_count"] == len(
-        today["user_intent_proposals"]
-    )
-    assert {proposal["routing_decision"] for proposal in today["user_intent_proposals"]} >= {
+    assert today["user_intent_proposal_count"] == len(today["user_intent_proposals"])
+    assert {
+        proposal["routing_decision"] for proposal in today["user_intent_proposals"]
+    } >= {
         "ask",
         "act",
         "defer",
@@ -491,8 +581,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         assert proposal["ask_user_question_ref"]
     assert today["user_intent_authority_posture"]["low_confidence_asks_user"] is True
     assert (
-        today["user_intent_authority_posture"]["conflicting_intent_asks_user"]
-        is True
+        today["user_intent_authority_posture"]["conflicting_intent_asks_user"] is True
     )
     assert today["user_intent_authority_posture"]["action_execution_enabled"] is False
     assert today["user_intent_hidden_authority_enabled"] is False
@@ -526,7 +615,9 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "approval_grant_capture_enabled": False,
         "state_change_enabled": True,
         "vertical_slice_contract_ref": "contract-ref:founder-loop-v1-vertical-slice:v1",
-        "today_action_envelope_route_refs": ["POST /control-center/today/action-envelope"],
+        "today_action_envelope_route_refs": [
+            "POST /control-center/today/action-envelope"
+        ],
     }
     assert today["stale_source_posture"]["source_refresh_enabled"] is False
     assert today["stale_source_posture"]["connector_runtime_enabled"] is False
@@ -550,11 +641,14 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         row["review_action"] for row in inbox["action_envelope_review_postures"]
     ] == ["approve", "edit", "reject", "defer"]
     assert "scope_ref" in inbox["action_envelope_required_ref_fields"]
-    assert inbox["action_envelope_authority_posture"]["action_execution_enabled"] is False
+    assert (
+        inbox["action_envelope_authority_posture"]["action_execution_enabled"] is False
+    )
     assert inbox["route_ref"] == "/control-center/actions/inbox"
-    assert "GET /control-center/actions/{action_id}/receipt" in inbox[
-        "read_only_route_refs"
-    ]
+    assert (
+        "GET /control-center/actions/{action_id}/receipt"
+        in inbox["read_only_route_refs"]
+    )
     assert "GET /control-center/storage/status" in inbox["read_only_route_refs"]
     assert "capability-ref:local-approval-authority" in inbox["local_prerequisite_refs"]
     assert "approval_ref_must_validate_exact_scope" in inbox["blocked_states"]
@@ -570,12 +664,14 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert briefing["notification_delivery_enabled"] is False
     assert "no_background_refresh" in briefing["blocked_states"]
     assert "no_notification_delivery" in briefing["blocked_states"]
+
+
     assert today["memory_review_route_ref"] == "/memory"
     assert (
-        today["memory_review_backend_route_ref"] == "GET /control-center/today/summary"
+        today["memory_review_backend_route_ref"] == "GET /control-center/memory/review"
     )
     assert today["memory_review_status"] == (
-        "storage_backed_review_queue_with_business_quality_and_loop_binding_metadata"
+        "storage_backed_review_queue_with_backend_decision_receipts"
     )
     assert today["memory_write_enabled"] is False
     assert today["memory_delete_enabled"] is False
@@ -601,11 +697,11 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert today["evidence_timeline_route_ref"] == "/evidence"
     assert (
         today["evidence_timeline_backend_route_ref"]
-        == "GET /control-center/today/summary"
+        == "GET /control-center/evidence/timeline"
     )
     assert (
         today["evidence_timeline_status"]
-        == "storage_backed_redacted_history_grammar_refs"
+        == "implemented_productized_evidence_timeline_safe_refs_only"
     )
     assert (
         "safe-ref and redacted-summary only"
@@ -686,7 +782,9 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         for item in today["plans"]
         if item["plan_ref"] == "plan-summary:founder-loop-v1"
     )
-    assert plan_item["action_envelope_contract_ref"] == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    assert (
+        plan_item["action_envelope_contract_ref"] == PLANS_ACTION_ENVELOPE_CONTRACT_REF
+    )
     assert (
         plan_item["action_envelope_ref"]
         == "action-envelope:plans:plan-summary-founder-loop-v1"
@@ -705,10 +803,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         plan_item["idempotency_key_ref"]
         == "idempotency-ref:plans-action-envelope:plan-summary-founder-loop-v1"
     )
-    assert (
-        "blocked-state:no-approval-grant-capture"
-        in plan_item["blocked_state_refs"]
-    )
+    assert "blocked-state:no-approval-grant-capture" in plan_item["blocked_state_refs"]
     assert plan_item["action_execution_enabled"] is False
     assert plan_item["approval_grant_capture_enabled"] is False
     assert plan_item["raw_content_included"] is False
@@ -813,11 +908,13 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert memory_item["business_memory_crm_write_authorized"] is False
     assert memory_item["business_memory_account_sync_authorized"] is False
     assert memory_item["business_memory_context_injection_authorized"] is False
-    assert "blocked-state:no-connector-runtime" in (
-        memory_item["business_memory_blocker_refs"]
+    assert (
+        "blocked-state:no-connector-runtime"
+        in (memory_item["business_memory_blocker_refs"])
     )
-    assert "blocked-state:no-model-provider-authority" in (
-        memory_item["business_memory_blocker_refs"]
+    assert (
+        "blocked-state:no-model-provider-authority"
+        in (memory_item["business_memory_blocker_refs"])
     )
     assert memory_item["decision_audit_refs"]
     assert memory_item["decision_receipt_refs"]
@@ -931,10 +1028,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "rollback-plan:plans-action-envelope:plan-summary-founder-loop-v1"
     ]
     assert "rollback_execution_not_scoped" in plan_timeline_item["rollback_blockers"]
-    assert (
-        "blocked-state:no-action-execution"
-        in plan_timeline_item["blocked_states"]
-    )
+    assert "blocked-state:no-action-execution" in plan_timeline_item["blocked_states"]
 
     code_timeline_item = next(
         item
@@ -954,15 +1048,13 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         today["governed_code_workbench_expected_rollback_receipt_ref"]
         in code_timeline_item["rollback_refs"]
     )
+    assert code_timeline_item["history_answers"]["approved"]["status"] == "blocked"
     assert (
-        code_timeline_item["history_answers"]["approved"]["status"] == "blocked"
+        code_timeline_item["history_answers"]["changed"]["status"] == "not_applicable"
     )
     assert (
-        code_timeline_item["history_answers"]["changed"]["status"]
-        == "not_applicable"
-    )
-    assert "no files were changed" in (
-        code_timeline_item["history_answers"]["happened"]["answer"]
+        "no files were changed"
+        in (code_timeline_item["history_answers"]["happened"]["answer"])
     )
     assert code_timeline_item["raw_evidence_included"] is False
     assert code_timeline_item["approval_ref_authority"] is False
@@ -976,15 +1068,14 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         for item in timeline
         if item["item_kind"] == "cross_surface_memory_intake_proposal_ref"
     )
-    assert CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF in memory_intake_item[
-        "status_refs"
-    ]
+    assert CROSS_SURFACE_MEMORY_INTAKE_CONTRACT_REF in memory_intake_item["status_refs"]
     assert MEMORY_SOURCE_PROVENANCE_CONTRACT_REF in memory_intake_item["status_refs"]
     assert MEMORY_REVIEW_DECISION_CONTRACT_REF in memory_intake_item["status_refs"]
     assert BUSINESS_MEMORY_QUALITY_CONTRACT_REF in memory_intake_item["status_refs"]
     assert memory_intake_item["history_answers"]["approved"]["status"] == "blocked"
-    assert "Only safe memory intake proposal metadata" in (
-        memory_intake_item["history_answers"]["happened"]["answer"]
+    assert (
+        "Only safe memory intake proposal metadata"
+        in (memory_intake_item["history_answers"]["happened"]["answer"])
     )
     assert memory_intake_item["memory_truth_authority"] is False
     assert memory_intake_item["context_injection_authorized"] is False
@@ -1045,7 +1136,7 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "Memory is not truth" in memory_timeline_item["safe_summary"]
     assert memory_timeline_item["history_answers"]["approved"]["status"] == "blocked"
     assert (
-        "No memory write"
+        "does not approve context injection"
         in memory_timeline_item["history_answers"]["approved"]["answer"]
     )
     assert memory_timeline_item["memory_truth_authority"] is False
@@ -1096,3 +1187,139 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "private_key",
     ]:
         assert forbidden not in serialized
+
+
+def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+
+    action = _approve_local_task_seed_action(repo)
+    assert action["action_kind"] == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+    assert action["local_task_commit_eligible"] is True
+
+    missing_approval = FounderLoopLocalTaskCommitRequest(
+        approval_ref="approval-ref:test-local-task-missing"
+    )
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED",
+    ):
+        repo.commit_local_task(
+            action_id="local-task-create-scorecard",
+            request=missing_approval,
+            idempotency_key_ref="idempotency-ref:test-local-task-missing",
+        )
+
+    request = _local_task_commit_request_for_action(action)
+    receipt = repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=request,
+        idempotency_key_ref="idempotency-ref:test-local-task-commit",
+    )
+
+    assert receipt["contract_ref"] == FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF
+    assert receipt["action_kind"] == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+    assert receipt["status"] == "local_task_created"
+    assert receipt["local_task_created"] is True
+    assert receipt["connector_write_performed"] is False
+    assert receipt["shell_subprocess_execution_performed"] is False
+    assert receipt["model_provider_authority_used"] is False
+    assert receipt["memory_write_performed"] is False
+    assert receipt["context_injection_performed"] is False
+    assert receipt["external_side_effect_performed"] is False
+    assert receipt["raw_content_stored"] is False
+    assert set(FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS).issubset(
+        set(receipt["blocked_state_refs"])
+    )
+
+    latest = repo.latest_action_receipt("local-task-create-scorecard")
+    assert latest is not None
+    assert latest["receipt_ref"] == receipt["receipt_ref"]
+    status = repo.storage_status()
+    assert status["counts"]["local_tasks"] == 1
+    assert status["counts"]["local_task_commit_receipts"] == 1
+
+    replay = repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=request,
+        idempotency_key_ref="idempotency-ref:test-local-task-commit",
+    )
+    assert replay["replayed"] is True
+    assert replay["receipt_ref"] == receipt["receipt_ref"]
+
+    with pytest.raises(
+        FounderLoopStorageDuplicateError,
+        match="FOUNDER_LOOP_LOCAL_TASK_ALREADY_COMMITTED",
+    ):
+        repo.commit_local_task(
+            action_id="local-task-create-scorecard",
+            request=_local_task_commit_request_for_action(
+                action,
+                approval_ref="approval-ref:test-local-task-second",
+            ),
+            idempotency_key_ref="idempotency-ref:test-local-task-second",
+        )
+
+    committed_action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert committed_action["local_task_commit_eligible"] is False
+    assert committed_action["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    assert committed_action["local_task_ref"] == receipt["local_task_ref"]
+
+    timeline = repo.evidence_timeline()
+    assert "local_task_created" in timeline["event_types"]
+    local_task_events = [
+        event
+        for event in timeline["events"]
+        if event["event_type"] == "local_task_created"
+    ]
+    assert local_task_events
+    assert local_task_events[0]["receipt_refs"] == [receipt["receipt_ref"]]
+
+
+def test_action_inbox_local_task_commit_rejects_unsupported_action_kind(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo.upsert_action(
+        FounderLoopActionRecord(
+            item_ref="founder-action:unsupported-local-task",
+            title="Unsupported local action",
+            safe_summary=(
+                "Approved review-only action should not enter the local task lane."
+            ),
+            surface="Actions",
+            priority="medium",
+            risk_class="medium",
+            status="approved",
+            action_kind="review_only",
+            side_effect_class="local_dev_workspace_only",
+            evidence_refs=["evidence-ref:test-unsupported-local-task"],
+        )
+    )
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:unsupported-local-task"
+    )
+    request = FounderLoopLocalTaskCommitRequest(
+        approval_ref="approval-ref:test-unsupported-local-task"
+    )
+
+    assert action["local_task_commit_eligible"] is False
+    assert "blocked-state:unsupported-action-kind" in action[
+        "local_task_commit_blocked_reasons"
+    ]
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_LOCAL_TASK_UNSUPPORTED_ACTION_KIND",
+    ):
+        repo.commit_local_task(
+            action_id="unsupported-local-task",
+            request=request,
+            idempotency_key_ref="idempotency-ref:test-unsupported-local-task",
+        )

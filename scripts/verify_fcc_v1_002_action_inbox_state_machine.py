@@ -45,6 +45,10 @@ ACTION_ROUTES = {
         "post_control_center_actions_action_id_edit",
         "mutating_requires_authority",
     ),
+    ("POST", "/control-center/actions/{action_id}/local-task/commit"): (
+        "post_control_center_actions_action_id_local_task_commit",
+        "mutating_requires_authority",
+    ),
     ("POST", "/control-center/actions/{action_id}/reject"): (
         "post_control_center_actions_action_id_reject",
         "mutating_requires_authority",
@@ -124,10 +128,10 @@ def _append_manifest_failures(
     context: ApiVerifierContext,
 ) -> None:
     manifest = context.manifest
-    if manifest.get("route_count") != 131:
-        failures.append("FCC-V1-002 expects current API route_count 131")
-    if manifest.get("route_classification_summary", {}).get("mutating_requires_authority") != 23:
-        failures.append("FCC-V1-002 expects 23 mutating routes")
+    if manifest.get("route_count") != 133:
+        failures.append("FCC-V1-002 expects current API route_count 133")
+    if manifest.get("route_classification_summary", {}).get("mutating_requires_authority") != 25:
+        failures.append("FCC-V1-002 expects 25 mutating routes")
     for key, (operation_id, route_classification) in ACTION_ROUTES.items():
         route = context.routes_by_key.get(key)
         if route is None:

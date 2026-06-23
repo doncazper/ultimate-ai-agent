@@ -16,6 +16,14 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionEnvelopePromotionReceipt,
     FounderLoopActionEnvelopePromotionRequest,
 )
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS,
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+    FounderLoopLocalTaskCommitReceipt,
+    FounderLoopLocalTaskCommitRequest,
+)
 from ultimate_ai_agent.core.control_center.actions import (
     ControlCenterActionPreviewDecision,
     ControlCenterActionPreviewRequest,
@@ -98,12 +106,18 @@ __all__ = [
     "FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF",
     "FOUNDER_LOOP_ACTION_STATUSES",
     "FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF",
+    "FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS",
+    "FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF",
+    "FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF",
+    "FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND",
     "FounderLoopControlCenterService",
     "FounderLoopActionDecisionReceipt",
     "FounderLoopActionDecisionRequest",
     "FounderLoopActionEnvelope",
     "FounderLoopActionEnvelopePromotionReceipt",
     "FounderLoopActionEnvelopePromotionRequest",
+    "FounderLoopLocalTaskCommitReceipt",
+    "FounderLoopLocalTaskCommitRequest",
     "GateSummary",
     "GovernedProviderInvocationReadiness",
     "MobilePlanningSummary",

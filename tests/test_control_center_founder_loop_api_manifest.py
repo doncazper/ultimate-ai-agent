@@ -57,7 +57,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 131
+    assert manifest.route_count == 133
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",
@@ -82,6 +82,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/actions/{action_id}/edit",
         "/control-center/actions/{action_id}/reject",
         "/control-center/actions/{action_id}/defer",
+        "/control-center/actions/{action_id}/local-task/commit",
     ]:
         assert path in routes
         assert routes[path].method == "POST"
@@ -110,6 +111,10 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     )
     assert (
         "control_center_action_decision_state_machine"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_action_local_task_commit"
         in manifest.capabilities_declared
     )
     assert (

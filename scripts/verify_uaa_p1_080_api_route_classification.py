@@ -35,7 +35,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 65,
     "none": 4,
-    "local_dev_workspace_only": 61,
+    "local_dev_workspace_only": 63,
     "governed_network_read_only": 1,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -55,6 +55,7 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/task-decomposition/approvals/grants/capture"): "mutating_requires_authority",
     ("POST", "/integrations/mattermost/events/message"): "mutating_requires_authority",
     ("POST", "/integrations/mattermost/roles/bind"): "mutating_requires_authority",
+    ("POST", "/control-center/actions/{action_id}/local-task/commit"): "mutating_requires_authority",
     ("POST", "/web-evidence/request"): "local_sensitive",
 }
 REQUIRED_DOC_SNIPPETS = {
@@ -78,7 +79,7 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
-        "131",
+        "133",
         "public_metadata",
         "local_readonly",
         "local_sensitive",
@@ -145,7 +146,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     append_route_fixture_mismatches(
         failures,
         manifest,
-        label="tests/fixtures/api_route_inventory_131.json",
+        label="tests/fixtures/api_route_inventory_133.json",
     )
 
     route_status = load_json("docs/control_center/route_status_manifest.json")
