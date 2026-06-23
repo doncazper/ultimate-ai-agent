@@ -77,6 +77,16 @@ also require a manifest `ui_status_binding` so Control Center UI/API copy cannot
 say Settings, Local Models, or future status modules are missing, mock-only, or
 not wired while backend status exists; explicitly backend-only status must carry
 a reason, doc ref, and blocker ref.
+Future authority classes are ranked by
+`docs/control_center/authority_candidate_scorecard.json` and explained in
+`docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`. That scorecard is also a
+promotion gate: no connector write, memory write, shell/subprocess, browser
+automation, provider/model authority, or context-injection lane is selected
+until the candidate has exact scope, approval, idempotency, receipt/evidence,
+rollback or safe-disable, redaction, CLI/API/core parity, and focused test
+refs. The current scorecard decision is no-go for new authority; the existing
+Action Inbox `local_task_create` lane remains the only rank 5 local execution
+lane.
 
 Evidence sources for this map:
 
@@ -90,6 +100,8 @@ Evidence sources for this map:
 - `docs/control_center/route_status_manifest.json`
 - `docs/control_center/OPERATIONALIZATION_LADDER.md`
 - `docs/control_center/operational_maturity_manifest.json`
+- `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`
+- `docs/control_center/authority_candidate_scorecard.json`
 - `docs/control_center/PRODUCT_LANGUAGE_RULES.md`
 - `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`
 - `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`

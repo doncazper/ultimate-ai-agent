@@ -966,6 +966,39 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders Memory context-pack proposals as proposal-only inspection", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Memory Review$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Context-pack proposals/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /control-center/memory/context-packs").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("context-pack:mock-founder-loop-preferences"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("proposal-only context pack over reviewed memory refs", {
+        exact: false,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("blocked-state:no-context-injection").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", { name: /^inject context$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^call model$/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders Morning Briefing source-readiness posture without source controls", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/briefing");
@@ -3440,6 +3473,12 @@ describe("Web Control Center shell", () => {
     expect(API_ENDPOINTS.controlCenterChatTurns).toBe(
       "/control-center/chat/turns",
     );
+    expect(API_ENDPOINTS.founderMemoryContextPacks).toBe(
+      "/control-center/memory/context-packs",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryContextPacks)).toBe(
+      true,
+    );
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -3508,6 +3547,8 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
+    [API_ENDPOINTS.founderMemoryContextPacks]:
+      mockControlCenterData.founderMemoryContextPacks,
     [API_ENDPOINTS.founderActionsInbox]:
       mockControlCenterData.founderActionsInbox,
     [API_ENDPOINTS.founderMorningBriefing]:

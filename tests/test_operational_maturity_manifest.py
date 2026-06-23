@@ -5,6 +5,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from scripts.verify_operational_maturity import (
+    AUTHORITY_SCORECARD_PATH,
+    EXPECTED_AUTHORITY_CANDIDATES,
+    EXPECTED_AUTHORITY_FOUNDATIONS,
     LADDER_LABELS,
     MANIFEST_PATH,
     SCHEMA_PATH,
@@ -48,8 +51,126 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
 
 
 def test_operational_maturity_gate_docs_exist() -> None:
-    for path in [MANIFEST_PATH, SCHEMA_PATH]:
+    for path in [MANIFEST_PATH, SCHEMA_PATH, AUTHORITY_SCORECARD_PATH]:
         assert Path(path).exists()
+
+
+def test_authority_candidate_scorecard_declares_no_go_conveyor() -> None:
+    scorecard = load_json(AUTHORITY_SCORECARD_PATH)
+
+    assert (
+        scorecard["schema_version"]
+        == "uaa-control-center-authority-candidate-scorecard.v1"
+    )
+    assert scorecard["status"] == "active authority candidate scorecard"
+    assert {
+        lane["foundation_id"] for lane in scorecard["proposal_foundation"]
+    } == EXPECTED_AUTHORITY_FOUNDATIONS
+    assert {
+        candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
+    } == EXPECTED_AUTHORITY_CANDIDATES
+    assert all(
+        candidate["selected_for_micro_lane"] is False
+        for candidate in scorecard["authority_candidates"]
+    )
+    assert scorecard["first_micro_lane_decision"]["status"] == "no_go"
+    assert scorecard["first_micro_lane_decision"]["selected_candidate_id"] is None
+    assert "local_task_create" not in {
+        candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
+    }
+
+
+def test_authority_scorecard_rejects_selected_candidate_without_micro_lane_status() -> None:
+    scorecard = _scorecard_copy()
+    candidate = scorecard["authority_candidates"][0]
+    candidate["selected_for_micro_lane"] = True
+    candidate["status"] = "contract_ready"
+    scorecard["first_micro_lane_decision"]["status"] = "selected"
+    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = candidate[
+        "candidate_id"
+    ]
+    scorecard["first_micro_lane_decision"]["no_go_reason"] = None
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        f"{candidate['candidate_id']} selected micro-lane must be micro_lane_candidate"
+        in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_micro_lane_candidate_missing_required_refs() -> None:
+    scorecard = _scorecard_copy()
+    candidate = scorecard["authority_candidates"][1]
+    candidate["status"] = "micro_lane_candidate"
+    candidate["selected_for_micro_lane"] = True
+    scorecard["first_micro_lane_decision"]["status"] = "selected"
+    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = candidate[
+        "candidate_id"
+    ]
+    scorecard["first_micro_lane_decision"]["no_go_reason"] = None
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        f"{candidate['candidate_id']} micro-lane candidate requires exact_scope_ref"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        f"{candidate['candidate_id']} micro-lane candidate requires rollback_safe_disable_plan_ref"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        f"{candidate['candidate_id']} micro-lane candidate requires cli_api_core_parity_refs"
+        in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_multiple_selected_candidates() -> None:
+    scorecard = _scorecard_copy()
+    for candidate in scorecard["authority_candidates"][:2]:
+        candidate["status"] = "micro_lane_candidate"
+        candidate["selected_for_micro_lane"] = True
+    scorecard["first_micro_lane_decision"]["status"] = "selected"
+    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = scorecard[
+        "authority_candidates"
+    ][0]["candidate_id"]
+    scorecard["first_micro_lane_decision"]["no_go_reason"] = None
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "authority scorecard must select at most one micro-lane candidate" in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_requires_documented_no_go_when_none_selected() -> None:
+    scorecard = _scorecard_copy()
+    scorecard["first_micro_lane_decision"]["status"] = "selected"
+    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = None
+    scorecard["first_micro_lane_decision"]["no_go_reason"] = None
+    scorecard["first_micro_lane_decision"]["smallest_next_safe_action"] = ""
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "authority scorecard with no selected candidate requires no_go decision"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "no_go authority decision requires no_go_reason" in failure
+        for failure in failures
+    )
+    assert any(
+        "no_go authority decision requires smallest_next_safe_action" in failure
+        for failure in failures
+    )
 
 
 def test_operational_maturity_verifier_requires_ui_status_binding_for_rank2_status_route() -> None:
@@ -221,3 +342,7 @@ const SURFACE_CONFIGS = {
 
 def _manifest_copy() -> dict:
     return deepcopy(load_json(MANIFEST_PATH))
+
+
+def _scorecard_copy() -> dict:
+    return deepcopy(load_json(AUTHORITY_SCORECARD_PATH))

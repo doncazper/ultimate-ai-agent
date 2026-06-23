@@ -100,6 +100,16 @@ proof lanes, and authority boundaries for:
 This bounded conveyor is complete through `FCC-V1-007`; future follow-up slices
 should still avoid skipping receipt, evidence, manifest, idempotency,
 CLI/core/API inspection, or redaction gates.
+The follow-on authority ramp is tracked by
+`docs/control_center/AUTHORITY_RAMP_CONVEYOR.md` and
+`docs/control_center/authority_candidate_scorecard.json`. It keeps read-only
+connector metadata, memory-to-loop proposals, and context-pack proposal display
+as the near-term foundation, then ranks future connector write, memory write,
+shell/subprocess local maintenance, browser automation, provider/model
+authority, and context-injection candidates. No new authority candidate is
+selected; the scorecard's first micro-lane decision is no-go until one exact
+candidate has scope, approval, idempotency, receipt/evidence, rollback or
+safe-disable, redaction, CLI/API/core parity, and focused tests.
 
 1. Today product spine contract: every module feeds Today, Actions, Evidence,
    and Memory. Avoid standalone "module complete" definitions. Loop visibility

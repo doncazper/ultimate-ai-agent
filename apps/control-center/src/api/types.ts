@@ -1133,6 +1133,73 @@ export interface FounderLoopMemoryToLoopAuthorityPosture {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopMemoryContextPackProposal {
+  context_pack_ref: string;
+  proposal_ref: string;
+  safe_summary: string;
+  query_ref?: string | null;
+  status?: string;
+  side_effect_class?: string;
+  risk_class?: string;
+  approval_posture?: string;
+  next_safe_action?: string;
+  source_memory_record_refs?: string[];
+  l1_preview_refs?: string[];
+  l2_projection_refs?: string[];
+  l3_representation_refs?: string[];
+  source_refs?: string[];
+  evidence_refs?: string[];
+  receipt_refs?: string[];
+  missing_evidence_refs?: string[];
+  blocked_state_refs?: string[];
+  internal_action_proposal_refs?: string[];
+  internal_action_receipt_refs?: string[];
+  phase6_1_internal_action_proposal_status?: string;
+}
+
+export interface FounderLoopMemoryContextPacks {
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  query_ref?: string | null;
+  generated_at?: string;
+  source_l1_contract_ref?: string;
+  source_l2_contract_ref?: string;
+  source_l3_contract_ref?: string;
+  source_l1_preview_count: number;
+  source_l2_projection_count: number;
+  source_l3_representation_count: number;
+  context_pack_count: number;
+  proposals: FounderLoopMemoryContextPackProposal[];
+  skipped_ref_reasons?: string[];
+  internal_action_proposal_receipts?: unknown[];
+  phase6_1_internal_action_proposal_status?: string;
+  blocked_state_refs: string[];
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  derived_from_reviewed_memory_only: boolean;
+  context_injection_authorized: boolean;
+  hidden_prompt_context_authorized: boolean;
+  automatic_context_injection_authorized: boolean;
+  prompt_context_written: boolean;
+  truth_authority_enabled: boolean;
+  approval_authority_granted: boolean;
+  connector_write_authorized: boolean;
+  external_crm_sync_authorized: boolean;
+  account_sync_authorized: boolean;
+  automatic_action_execution_authorized: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+  embedding_index_enabled: boolean;
+  vector_db_enabled: boolean;
+  semantic_search_enabled: boolean;
+  background_indexing_enabled: boolean;
+  phase6_execution_hooks_enabled: boolean;
+  raw_content_stored: boolean;
+  context_injection_performed: boolean;
+  provider_model_call_performed: boolean;
+}
+
 export interface FounderLoopWeeklyCeoReviewSummary {
   weekly_review_ref: string;
   input_refs: string[];
@@ -2746,6 +2813,7 @@ export interface ControlCenterData {
   localModelsStatus: ControlCenterLocalModelsStatus;
   founderToday: FounderLoopTodaySummary;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
+  founderMemoryContextPacks: FounderLoopMemoryContextPacks;
   founderActionsInbox: FounderLoopActionsInbox;
   founderMorningBriefing: FounderLoopMorningBriefing;
   founderStorageStatus: FounderLoopStorageStatus;

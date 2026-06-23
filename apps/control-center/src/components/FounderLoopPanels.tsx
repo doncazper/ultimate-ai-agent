@@ -18,6 +18,8 @@ import type {
   FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
   FounderLoopLocalTaskCommitReceipt,
+  FounderLoopMemoryContextPackProposal,
+  FounderLoopMemoryContextPacks,
   FounderLoopMemoryReviewItem,
   FounderLoopMorningBriefing,
   FounderLoopPlanSummary,
@@ -1680,8 +1682,10 @@ function BriefingSectionCards({
 }
 
 export function MemoryReviewSurfacePanel({
+  contextPacks,
   today,
 }: {
+  contextPacks: FounderLoopMemoryContextPacks;
   today: FounderLoopTodaySummary;
 }) {
   return (
@@ -2022,6 +2026,61 @@ export function MemoryReviewSurfacePanel({
             refs={today.memory_derived_action_proposal_refs}
           />
         </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Context-pack proposals</h3>
+            <span>{contextPacks.status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Backend route" value={contextPacks.route_ref} />
+            <DetailTerm label="Contract ref" value={contextPacks.contract_ref} />
+            <DetailTerm
+              label="Proposal count"
+              value={String(contextPacks.context_pack_count)}
+            />
+            <DetailTerm
+              label="Proposal-only"
+              value={contextPacks.proposal_only ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Context injection"
+              value={
+                contextPacks.context_injection_authorized ? "enabled" : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Provider/model call"
+              value={
+                contextPacks.provider_model_call_performed
+                  ? "performed"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Connector write"
+              value={
+                contextPacks.connector_write_authorized ? "enabled" : "blocked"
+              }
+            />
+          </dl>
+          <p>
+            Context packs are inspectable proposal refs only. They cannot write
+            prompt context, call a model or provider, sync connectors, or inject
+            memory into a runtime.
+          </p>
+          <RefListWithFallback
+            emptyLabel="Context-pack blockers: none"
+            refs={contextPacks.blocked_state_refs}
+          />
+        </article>
+      </div>
+      <div className="review-grid">
+        {contextPacks.proposals.map((proposal) => (
+          <MemoryContextPackProposalCard
+            key={proposal.context_pack_ref}
+            proposal={proposal}
+          />
+        ))}
       </div>
       <div className="review-grid">
         {today.cross_surface_memory_intake_proposals.map((proposal) => (
@@ -2038,6 +2097,64 @@ export function MemoryReviewSurfacePanel({
       </div>
       <BlockedStateList states={today.memory_review_blocked_states ?? []} />
     </section>
+  );
+}
+
+function MemoryContextPackProposalCard({
+  proposal,
+}: {
+  proposal: FounderLoopMemoryContextPackProposal;
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>{proposal.context_pack_ref}</h3>
+        <span>{proposal.status ?? "proposal_only"}</span>
+      </div>
+      <p>{proposal.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Proposal ref" value={proposal.proposal_ref} />
+        <DetailTerm label="Query ref" value={proposal.query_ref ?? "none"} />
+        <DetailTerm
+          label="Approval posture"
+          value={proposal.approval_posture ?? "approval_required_before_use"}
+        />
+        <DetailTerm label="Risk" value={proposal.risk_class ?? "medium"} />
+        <DetailTerm
+          label="Action proposal status"
+          value={
+            proposal.phase6_1_internal_action_proposal_status ?? "not_recorded"
+          }
+        />
+        <DetailTerm
+          label="Next safe action"
+          value={
+            proposal.next_safe_action ??
+            "Inspect safe refs only; keep context injection blocked."
+          }
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Source memory refs: none"
+        refs={proposal.source_memory_record_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="L1/L2/L3 supporting refs: none"
+        refs={[
+          ...(proposal.l1_preview_refs ?? []),
+          ...(proposal.l2_projection_refs ?? []),
+          ...(proposal.l3_representation_refs ?? []),
+        ]}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={proposal.evidence_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked states: context injection remains unscoped"
+        refs={proposal.blocked_state_refs ?? []}
+      />
+    </article>
   );
 }
 

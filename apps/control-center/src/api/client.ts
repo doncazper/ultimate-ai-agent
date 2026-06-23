@@ -25,6 +25,7 @@ import type {
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionEnvelopePromotionRequest,
   FounderLoopEvidenceTimelineIndex,
+  FounderLoopMemoryContextPacks,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopLocalTaskCommitRequest,
   MemoryReviewDecisionKind,
@@ -154,6 +155,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<FounderLoopEvidenceTimelineIndex>(
       API_ENDPOINTS.founderEvidenceTimeline,
     ),
+    readEnvelope<FounderLoopMemoryContextPacks>(
+      API_ENDPOINTS.founderMemoryContextPacks,
+    ),
     readEnvelope<FounderLoopActionsInbox>(API_ENDPOINTS.founderActionsInbox),
     readEnvelope<FounderLoopMorningBriefing>(
       API_ENDPOINTS.founderMorningBriefing,
@@ -175,9 +179,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const controlCenterLocalModelsStatus = fulfilledValue(results[8]);
   const founderToday = fulfilledValue(results[9]);
   const founderEvidenceTimeline = fulfilledValue(results[10]);
-  const founderActionsInbox = fulfilledValue(results[11]);
-  const founderMorningBriefing = fulfilledValue(results[12]);
-  const founderStorageStatus = fulfilledValue(results[13]);
+  const founderMemoryContextPacks = fulfilledValue(results[11]);
+  const founderActionsInbox = fulfilledValue(results[12]);
+  const founderMorningBriefing = fulfilledValue(results[13]);
+  const founderStorageStatus = fulfilledValue(results[14]);
   const normalizedFounderToday = mergeMissingFields(
     mockControlCenterData.founderToday,
     founderToday,
@@ -190,6 +195,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderActionsInbox,
     founderActionsInbox,
   );
+  const normalizedFounderMemoryContextPacks = mergeMissingFields(
+    mockControlCenterData.founderMemoryContextPacks,
+    founderMemoryContextPacks,
+  );
   const normalizedFounderMorningBriefing = mergeMissingFields(
     mockControlCenterData.founderMorningBriefing,
     founderMorningBriefing,
@@ -198,6 +207,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderToday.usedFallback ||
     normalizedFounderEvidenceTimeline.usedFallback ||
     normalizedFounderActionsInbox.usedFallback ||
+    normalizedFounderMemoryContextPacks.usedFallback ||
     normalizedFounderMorningBriefing.usedFallback;
   const fulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
@@ -235,6 +245,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       controlCenterLocalModelsStatus ?? mockControlCenterData.localModelsStatus,
     founderToday: normalizedFounderToday.value,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
+    founderMemoryContextPacks: normalizedFounderMemoryContextPacks.value,
     founderActionsInbox: normalizedFounderActionsInbox.value,
     founderMorningBriefing: normalizedFounderMorningBriefing.value,
     founderStorageStatus:

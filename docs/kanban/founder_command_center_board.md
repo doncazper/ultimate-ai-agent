@@ -88,6 +88,14 @@ evidence in the manifest: the Control Center endpoint/client/type/component/test
 refs that surface the status, or a documented backend-only reason and blocker.
 Candidate Next lanes must stay scoped to that maturity scorecard and may not
 claim operational status without the same manifest and verifier proof.
+The future-authority conveyor is
+`docs/control_center/AUTHORITY_RAMP_CONVEYOR.md` with the canonical authority
+candidate scorecard at
+`docs/control_center/authority_candidate_scorecard.json`. Connector writes,
+memory writes, shell/subprocess local maintenance, browser automation,
+provider/model authority, and context injection are ranked there but not
+selected for a new micro-lane. The current first micro-lane decision is no-go;
+Action Inbox `local_task_create` remains the only rank 5 local execution lane.
 
 Implementation note: a bounded daily-loop product behavior slice now deepens
 the existing read routes without adding authority. Morning Briefing and Today

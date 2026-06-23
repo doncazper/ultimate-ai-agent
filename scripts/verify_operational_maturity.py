@@ -32,6 +32,11 @@ from ultimate_ai_agent.core.storage import (  # noqa: E402
 SUCCESS_MESSAGE = "Operational maturity manifest verification passed."
 MANIFEST_PATH = ROOT / "docs/control_center/operational_maturity_manifest.json"
 SCHEMA_PATH = ROOT / "docs/schemas/operational_maturity_manifest.schema.json"
+AUTHORITY_SCORECARD_PATH = ROOT / "docs/control_center/authority_candidate_scorecard.json"
+AUTHORITY_SCORECARD_SCHEMA_PATH = (
+    ROOT / "docs/schemas/authority_candidate_scorecard.schema.json"
+)
+AUTHORITY_CONVEYOR_DOC_PATH = ROOT / "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md"
 LADDER_DOC_PATH = ROOT / "docs/control_center/OPERATIONALIZATION_LADDER.md"
 GAP_MAP_PATH = ROOT / "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
 FOUNDER_BOARD_PATH = ROOT / "docs/kanban/founder_command_center_board.md"
@@ -72,6 +77,41 @@ STALE_UI_STATUS_PHRASES = [
     "not wired",
     "placeholder",
 ]
+EXPECTED_AUTHORITY_FOUNDATIONS = {
+    "read_only_connector_metadata",
+    "memory_to_loop_proposal_ux",
+    "context_pack_proposal_display",
+}
+EXPECTED_AUTHORITY_CANDIDATES = {
+    "connector_write",
+    "memory_write",
+    "shell_subprocess_local_maintenance",
+    "browser_automation",
+    "provider_model_authority",
+    "context_injection",
+}
+AUTHORITY_CANDIDATE_STATUSES = {
+    "not_ready",
+    "proposal_only_ready",
+    "contract_ready",
+    "micro_lane_candidate",
+    "blocked_by_policy",
+}
+MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS = [
+    "backend_core_owner_ref",
+    "route_side_effect_ref",
+    "exact_scope_ref",
+    "approval_plan_ref",
+    "idempotency_plan_ref",
+    "receipt_evidence_plan_ref",
+    "rollback_safe_disable_plan_ref",
+    "redaction_plan_ref",
+]
+MICRO_LANE_REQUIRED_PREREQUISITE_LIST_FIELDS = [
+    "cli_api_core_parity_refs",
+    "focused_test_refs",
+    "verifier_refs",
+]
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -89,6 +129,7 @@ def _compact_string(text: str) -> str:
 def verify(
     root: Path = ROOT,
     manifest_override: dict[str, Any] | None = None,
+    scorecard_override: dict[str, Any] | None = None,
 ) -> list[str]:
     failures: list[str] = []
     manifest = (
@@ -96,8 +137,17 @@ def verify(
         if manifest_override is not None
         else _load_json(root / MANIFEST_PATH.relative_to(ROOT))
     )
+    scorecard = (
+        scorecard_override
+        if scorecard_override is not None
+        else _load_json(root / AUTHORITY_SCORECARD_PATH.relative_to(ROOT))
+    )
     schema = _load_json(root / SCHEMA_PATH.relative_to(ROOT))
+    scorecard_schema = _load_json(
+        root / AUTHORITY_SCORECARD_SCHEMA_PATH.relative_to(ROOT)
+    )
     ladder_text = _compact_text(root / LADDER_DOC_PATH.relative_to(ROOT))
+    conveyor_text = _compact_text(root / AUTHORITY_CONVEYOR_DOC_PATH.relative_to(ROOT))
     gap_map_text = _compact_text(root / GAP_MAP_PATH.relative_to(ROOT))
     board_text = _compact_text(root / FOUNDER_BOARD_PATH.relative_to(ROOT))
     api_manifest = build_api_manifest(app).model_dump(mode="json")
@@ -107,7 +157,15 @@ def verify(
     }
 
     _append_schema_shape_failures(failures, schema)
+    _append_authority_scorecard_schema_failures(failures, scorecard_schema)
     _append_manifest_shape_failures(failures, manifest)
+    _append_authority_scorecard_failures(
+        failures,
+        scorecard,
+        routes_by_ref,
+        root,
+        conveyor_text,
+    )
     _append_ladder_doc_failures(failures, ladder_text)
     _append_module_failures(failures, manifest, routes_by_ref, root)
     _append_first_lane_failures(failures, manifest, routes_by_ref)
@@ -167,6 +225,52 @@ def _append_schema_shape_failures(
             )
 
 
+def _append_authority_scorecard_schema_failures(
+    failures: list[str],
+    schema: dict[str, Any],
+) -> None:
+    if schema.get("title") != "Founder Command Center Authority Candidate Scorecard":
+        failures.append("authority scorecard schema title drifted")
+    required = set(schema.get("required", []))
+    for field in [
+        "schema_version",
+        "status",
+        "baseline",
+        "conveyor_doc_ref",
+        "verifier_ref",
+        "operational_maturity_manifest_ref",
+        "proposal_foundation",
+        "authority_candidates",
+        "first_micro_lane_decision",
+    ]:
+        if field not in required:
+            failures.append(f"authority scorecard schema missing field {field}")
+    candidate_statuses = set(
+        schema.get("$defs", {})
+        .get("authority_candidate", {})
+        .get("properties", {})
+        .get("status", {})
+        .get("enum", [])
+    )
+    if candidate_statuses != AUTHORITY_CANDIDATE_STATUSES:
+        failures.append("authority scorecard schema candidate statuses drifted")
+    prerequisite_required = set(
+        schema.get("$defs", {})
+        .get("authority_candidate", {})
+        .get("properties", {})
+        .get("prerequisite_refs", {})
+        .get("required", [])
+    )
+    for field in (
+        MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS
+        + MICRO_LANE_REQUIRED_PREREQUISITE_LIST_FIELDS
+    ):
+        if field not in prerequisite_required:
+            failures.append(
+                f"authority scorecard schema missing prerequisite field {field}"
+            )
+
+
 def _append_manifest_shape_failures(
     failures: list[str],
     manifest: dict[str, Any],
@@ -190,6 +294,269 @@ def _append_manifest_shape_failures(
         )
     if len(module_ids) != len(set(module_ids)):
         failures.append("operational maturity manifest contains duplicate modules")
+
+
+def _append_authority_scorecard_failures(
+    failures: list[str],
+    scorecard: dict[str, Any],
+    routes_by_ref: dict[str, dict[str, Any]],
+    root: Path,
+    conveyor_text: str,
+) -> None:
+    if (
+        scorecard.get("schema_version")
+        != "uaa-control-center-authority-candidate-scorecard.v1"
+    ):
+        failures.append("authority scorecard schema_version drifted")
+    if scorecard.get("status") != "active authority candidate scorecard":
+        failures.append("authority scorecard status drifted")
+    if (
+        scorecard.get("conveyor_doc_ref")
+        != "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md"
+    ):
+        failures.append("authority scorecard conveyor_doc_ref drifted")
+    if scorecard.get("verifier_ref") != "scripts/verify_operational_maturity.py":
+        failures.append("authority scorecard verifier_ref drifted")
+    if (
+        scorecard.get("operational_maturity_manifest_ref")
+        != "docs/control_center/operational_maturity_manifest.json"
+    ):
+        failures.append("authority scorecard manifest ref drifted")
+
+    for snippet in [
+        "does not grant authority by itself",
+        "at most one candidate may be selected",
+        "no new authority candidate is selected",
+        "local_task_create",
+    ]:
+        if snippet not in conveyor_text:
+            failures.append(f"authority ramp conveyor doc missing '{snippet}'")
+
+    foundations = scorecard.get("proposal_foundation")
+    if not isinstance(foundations, list):
+        failures.append("authority scorecard proposal_foundation must be a list")
+        foundations = []
+    foundation_ids = [str(item.get("foundation_id")) for item in foundations]
+    if set(foundation_ids) != EXPECTED_AUTHORITY_FOUNDATIONS:
+        failures.append(
+            f"authority scorecard foundation set drifted: {sorted(foundation_ids)}"
+        )
+    if len(foundation_ids) != len(set(foundation_ids)):
+        failures.append("authority scorecard contains duplicate foundation lanes")
+    for foundation in foundations:
+        _append_authority_foundation_failures(
+            failures,
+            foundation,
+            routes_by_ref,
+            root,
+        )
+
+    candidates = scorecard.get("authority_candidates")
+    if not isinstance(candidates, list):
+        failures.append("authority scorecard authority_candidates must be a list")
+        candidates = []
+    candidate_ids = [str(item.get("candidate_id")) for item in candidates]
+    if set(candidate_ids) != EXPECTED_AUTHORITY_CANDIDATES:
+        failures.append(
+            f"authority scorecard candidate set drifted: {sorted(candidate_ids)}"
+        )
+    if len(candidate_ids) != len(set(candidate_ids)):
+        failures.append("authority scorecard contains duplicate authority candidates")
+    selected = [
+        candidate
+        for candidate in candidates
+        if candidate.get("selected_for_micro_lane") is True
+    ]
+    if len(selected) > 1:
+        failures.append(
+            "authority scorecard must select at most one micro-lane candidate"
+        )
+    for candidate in candidates:
+        _append_authority_candidate_failures(
+            failures,
+            candidate,
+            routes_by_ref,
+            root,
+        )
+    _append_first_micro_lane_decision_failures(
+        failures,
+        scorecard.get("first_micro_lane_decision"),
+        selected,
+    )
+
+
+def _append_authority_foundation_failures(
+    failures: list[str],
+    foundation: dict[str, Any],
+    routes_by_ref: dict[str, dict[str, Any]],
+    root: Path,
+) -> None:
+    foundation_id = str(foundation.get("foundation_id"))
+    if foundation.get("status") not in {
+        "partial",
+        "proposal_only_ready",
+        "implemented",
+    }:
+        failures.append(f"{foundation_id} has invalid foundation status")
+    for field in [
+        "safe_summary",
+        "route_refs",
+        "surface_refs",
+        "test_refs",
+        "blocked_authorities",
+        "next_safe_action",
+    ]:
+        if not foundation.get(field):
+            failures.append(f"{foundation_id} authority foundation requires {field}")
+    if foundation.get("status") == "partial" and not foundation.get("missing_contracts"):
+        failures.append(
+            f"{foundation_id} partial authority foundation requires missing_contracts"
+        )
+    for route_ref in foundation.get("route_refs", []):
+        if route_ref not in routes_by_ref:
+            failures.append(f"{foundation_id} references missing route {route_ref}")
+    for ref in foundation.get("surface_refs", []):
+        _append_source_ref_failure(
+            failures,
+            root,
+            str(ref),
+            f"{foundation_id}.surface_refs",
+        )
+    for ref in foundation.get("test_refs", []):
+        _append_authority_ref_failure(
+            failures,
+            root,
+            routes_by_ref,
+            str(ref),
+            f"{foundation_id}.test_refs",
+        )
+
+
+def _append_authority_candidate_failures(
+    failures: list[str],
+    candidate: dict[str, Any],
+    routes_by_ref: dict[str, dict[str, Any]],
+    root: Path,
+) -> None:
+    candidate_id = str(candidate.get("candidate_id"))
+    status = candidate.get("status")
+    if status not in AUTHORITY_CANDIDATE_STATUSES:
+        failures.append(f"{candidate_id} has invalid authority candidate status {status}")
+    if (
+        candidate.get("selected_for_micro_lane") is True
+        and status != "micro_lane_candidate"
+    ):
+        failures.append(
+            f"{candidate_id} selected micro-lane must be micro_lane_candidate"
+        )
+    if not candidate.get("safe_summary"):
+        failures.append(f"{candidate_id} authority candidate requires safe_summary")
+    if not candidate.get("smallest_next_safe_action"):
+        failures.append(f"{candidate_id} authority candidate requires smallest_next_safe_action")
+    score = candidate.get("score")
+    if not isinstance(score, dict):
+        failures.append(f"{candidate_id} authority candidate requires score")
+    else:
+        for field, value in score.items():
+            if not isinstance(value, int) or value < 0 or value > 5:
+                failures.append(f"{candidate_id} score {field} must be 0-5")
+    prerequisite_refs = candidate.get("prerequisite_refs")
+    if not isinstance(prerequisite_refs, dict):
+        failures.append(f"{candidate_id} authority candidate requires prerequisite_refs")
+        return
+    for field in [
+        "backend_core_owner_ref",
+        "route_side_effect_ref",
+        "redaction_plan_ref",
+    ]:
+        ref = prerequisite_refs.get(field)
+        if ref:
+            _append_authority_ref_failure(
+                failures,
+                root,
+                routes_by_ref,
+                str(ref),
+                f"{candidate_id}.prerequisite_refs.{field}",
+            )
+    for ref in prerequisite_refs.get("focused_test_refs", []):
+        _append_authority_ref_failure(
+            failures,
+            root,
+            routes_by_ref,
+            str(ref),
+            f"{candidate_id}.focused_test_refs",
+        )
+    for ref in prerequisite_refs.get("verifier_refs", []):
+        _append_authority_ref_failure(
+            failures,
+            root,
+            routes_by_ref,
+            str(ref),
+            f"{candidate_id}.verifier_refs",
+        )
+    if status == "blocked_by_policy":
+        if not candidate.get("blocked_authorities"):
+            failures.append(
+                f"{candidate_id} blocked_by_policy requires blocked_authorities"
+            )
+        if not candidate.get("missing_prerequisites"):
+            failures.append(
+                f"{candidate_id} blocked_by_policy requires missing_prerequisites"
+            )
+    if status != "micro_lane_candidate":
+        return
+    for field in MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS:
+        ref = prerequisite_refs.get(field)
+        if not ref:
+            failures.append(f"{candidate_id} micro-lane candidate requires {field}")
+            continue
+        _append_authority_ref_failure(
+            failures,
+            root,
+            routes_by_ref,
+            str(ref),
+            f"{candidate_id}.prerequisite_refs.{field}",
+        )
+    for field in MICRO_LANE_REQUIRED_PREREQUISITE_LIST_FIELDS:
+        refs = prerequisite_refs.get(field)
+        if not refs:
+            failures.append(f"{candidate_id} micro-lane candidate requires {field}")
+            continue
+        for ref in refs:
+            _append_authority_ref_failure(
+                failures,
+                root,
+                routes_by_ref,
+                str(ref),
+                f"{candidate_id}.prerequisite_refs.{field}",
+            )
+
+
+def _append_first_micro_lane_decision_failures(
+    failures: list[str],
+    decision: Any,
+    selected: list[dict[str, Any]],
+) -> None:
+    if not isinstance(decision, dict):
+        failures.append("authority scorecard requires first_micro_lane_decision")
+        return
+    if not selected:
+        if decision.get("status") != "no_go":
+            failures.append("authority scorecard with no selected candidate requires no_go decision")
+        if decision.get("selected_candidate_id") is not None:
+            failures.append("no_go authority decision must not name selected_candidate_id")
+        if not decision.get("no_go_reason"):
+            failures.append("no_go authority decision requires no_go_reason")
+        if not decision.get("smallest_next_safe_action"):
+            failures.append("no_go authority decision requires smallest_next_safe_action")
+        return
+    selected_id = str(selected[0].get("candidate_id"))
+    if decision.get("status") != "selected":
+        failures.append("selected authority candidate requires selected decision")
+    if decision.get("selected_candidate_id") != selected_id:
+        failures.append("selected authority decision must match selected candidate")
+    if not decision.get("decision_ref"):
+        failures.append("selected authority decision requires decision_ref")
 
 
 def _append_ladder_doc_failures(failures: list[str], ladder_text: str) -> None:
@@ -462,6 +829,35 @@ def _append_source_ref_failure(
         failures.append(f"{owner} references missing path {ref}")
         return
     if selector and selector not in path.read_text(encoding="utf-8"):
+        failures.append(f"{owner} references missing selector {ref}")
+
+
+def _append_authority_ref_failure(
+    failures: list[str],
+    root: Path,
+    routes_by_ref: dict[str, dict[str, Any]],
+    ref: str,
+    owner: str,
+) -> None:
+    method, _, path = ref.partition(" ")
+    if method in {"GET", "POST", "PUT", "PATCH", "DELETE"} and path.startswith("/"):
+        if ref not in routes_by_ref:
+            failures.append(f"{owner} references missing route {ref}")
+        return
+    path_ref, _, selector = ref.partition("::")
+    path_obj = root / path_ref
+    if not path_obj.exists():
+        failures.append(f"{owner} references missing path {ref}")
+        return
+    if not selector:
+        return
+    text = path_obj.read_text(encoding="utf-8")
+    if path_obj.suffix == ".py" and selector.startswith("test_"):
+        test_name = selector.split("[", 1)[0]
+        if f"def {test_name}(" not in text:
+            failures.append(f"{owner} references missing test {ref}")
+        return
+    if selector not in text:
         failures.append(f"{owner} references missing selector {ref}")
 
 
@@ -765,6 +1161,8 @@ def _append_status_doc_failures(
         for snippet in [
             "docs/control_center/operational_maturity_manifest.json",
             "docs/control_center/operationalization_ladder.md",
+            "docs/control_center/authority_candidate_scorecard.json",
+            "docs/control_center/authority_ramp_conveyor.md",
             "promotion gate",
         ]:
             if snippet not in text:

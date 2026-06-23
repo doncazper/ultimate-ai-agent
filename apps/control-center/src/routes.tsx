@@ -281,7 +281,10 @@ export function renderRoute(path: string, data: ControlCenterData) {
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
-          <MemoryReviewSurfacePanel today={data.founderToday} />
+          <MemoryReviewSurfacePanel
+            contextPacks={data.founderMemoryContextPacks}
+            today={data.founderToday}
+          />
         </>
       );
     case "/runtime/local":

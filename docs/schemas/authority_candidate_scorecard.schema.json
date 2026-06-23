@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/authority_candidate_scorecard.schema.json",
+  "title": "Founder Command Center Authority Candidate Scorecard",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "baseline",
+    "conveyor_doc_ref",
+    "verifier_ref",
+    "operational_maturity_manifest_ref",
+    "proposal_foundation",
+    "authority_candidates",
+    "first_micro_lane_decision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa-control-center-authority-candidate-scorecard.v1"
+    },
+    "status": {
+      "const": "active authority candidate scorecard"
+    },
+    "baseline": { "type": "string" },
+    "conveyor_doc_ref": {
+      "const": "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md"
+    },
+    "verifier_ref": { "const": "scripts/verify_operational_maturity.py" },
+    "operational_maturity_manifest_ref": {
+      "const": "docs/control_center/operational_maturity_manifest.json"
+    },
+    "proposal_foundation": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/foundation_lane" }
+    },
+    "authority_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/authority_candidate" }
+    },
+    "first_micro_lane_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "selected_candidate_id",
+        "decision_ref",
+        "no_go_reason",
+        "smallest_next_safe_action"
+      ],
+      "properties": {
+        "status": { "enum": ["no_go", "selected"] },
+        "selected_candidate_id": { "type": ["string", "null"] },
+        "decision_ref": { "type": "string" },
+        "no_go_reason": { "type": ["string", "null"] },
+        "smallest_next_safe_action": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "foundation_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "foundation_id",
+        "status",
+        "safe_summary",
+        "route_refs",
+        "surface_refs",
+        "test_refs",
+        "blocked_authorities",
+        "missing_contracts",
+        "next_safe_action"
+      ],
+      "properties": {
+        "foundation_id": { "type": "string" },
+        "status": {
+          "enum": ["partial", "proposal_only_ready", "implemented"]
+        },
+        "safe_summary": { "type": "string" },
+        "route_refs": { "type": "array", "items": { "type": "string" } },
+        "surface_refs": { "type": "array", "items": { "type": "string" } },
+        "test_refs": { "type": "array", "items": { "type": "string" } },
+        "blocked_authorities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_contracts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "next_safe_action": { "type": "string" }
+      }
+    },
+    "authority_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "candidate_class",
+        "status",
+        "selected_for_micro_lane",
+        "safe_summary",
+        "score",
+        "prerequisite_refs",
+        "blocked_authorities",
+        "missing_prerequisites",
+        "smallest_next_safe_action"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string" },
+        "candidate_class": { "type": "string" },
+        "status": {
+          "enum": [
+            "not_ready",
+            "proposal_only_ready",
+            "contract_ready",
+            "micro_lane_candidate",
+            "blocked_by_policy"
+          ]
+        },
+        "selected_for_micro_lane": { "type": "boolean" },
+        "safe_summary": { "type": "string" },
+        "score": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "user_value",
+            "authority_risk",
+            "data_sensitivity",
+            "blast_radius",
+            "reversibility",
+            "exact_scope_clarity",
+            "approval_posture",
+            "idempotency_feasibility",
+            "receipt_evidence_feasibility",
+            "rollback_safe_disable_feasibility",
+            "cli_api_core_parity",
+            "redaction_complexity",
+            "testability",
+            "existing_operational_maturity_rank",
+            "external_dependency_risk"
+          ],
+          "properties": {
+            "user_value": { "$ref": "#/$defs/score" },
+            "authority_risk": { "$ref": "#/$defs/score" },
+            "data_sensitivity": { "$ref": "#/$defs/score" },
+            "blast_radius": { "$ref": "#/$defs/score" },
+            "reversibility": { "$ref": "#/$defs/score" },
+            "exact_scope_clarity": { "$ref": "#/$defs/score" },
+            "approval_posture": { "$ref": "#/$defs/score" },
+            "idempotency_feasibility": { "$ref": "#/$defs/score" },
+            "receipt_evidence_feasibility": { "$ref": "#/$defs/score" },
+            "rollback_safe_disable_feasibility": { "$ref": "#/$defs/score" },
+            "cli_api_core_parity": { "$ref": "#/$defs/score" },
+            "redaction_complexity": { "$ref": "#/$defs/score" },
+            "testability": { "$ref": "#/$defs/score" },
+            "existing_operational_maturity_rank": { "$ref": "#/$defs/score" },
+            "external_dependency_risk": { "$ref": "#/$defs/score" }
+          }
+        },
+        "prerequisite_refs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "backend_core_owner_ref",
+            "route_side_effect_ref",
+            "exact_scope_ref",
+            "approval_plan_ref",
+            "idempotency_plan_ref",
+            "receipt_evidence_plan_ref",
+            "rollback_safe_disable_plan_ref",
+            "redaction_plan_ref",
+            "cli_api_core_parity_refs",
+            "focused_test_refs",
+            "verifier_refs"
+          ],
+          "properties": {
+            "backend_core_owner_ref": { "type": ["string", "null"] },
+            "route_side_effect_ref": { "type": ["string", "null"] },
+            "exact_scope_ref": { "type": ["string", "null"] },
+            "approval_plan_ref": { "type": ["string", "null"] },
+            "idempotency_plan_ref": { "type": ["string", "null"] },
+            "receipt_evidence_plan_ref": { "type": ["string", "null"] },
+            "rollback_safe_disable_plan_ref": { "type": ["string", "null"] },
+            "redaction_plan_ref": { "type": ["string", "null"] },
+            "cli_api_core_parity_refs": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "focused_test_refs": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "verifier_refs": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "blocked_authorities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_prerequisites": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "smallest_next_safe_action": { "type": "string" }
+      }
+    }
+  }
+}

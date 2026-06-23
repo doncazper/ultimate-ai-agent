@@ -1,0 +1,434 @@
+{
+  "schema_version": "uaa-control-center-authority-candidate-scorecard.v1",
+  "status": "active authority candidate scorecard",
+  "baseline": "v0.103.0 / 0.103.0",
+  "conveyor_doc_ref": "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md",
+  "verifier_ref": "scripts/verify_operational_maturity.py",
+  "operational_maturity_manifest_ref": "docs/control_center/operational_maturity_manifest.json",
+  "proposal_foundation": [
+    {
+      "foundation_id": "read_only_connector_metadata",
+      "status": "partial",
+      "safe_summary": "Source-readiness metadata is visible in Today, Morning Briefing, and Action Inbox, but live connector metadata routes and account binding remain unscoped.",
+      "route_refs": [
+        "GET /control-center/today/summary",
+        "GET /control-center/morning-briefing/summary",
+        "GET /control-center/actions/inbox"
+      ],
+      "surface_refs": [
+        "apps/control-center/src/components/FounderLoopPanels.tsx::SourceReadinessCards"
+      ],
+      "test_refs": [
+        "tests/test_founder_loop_storage_briefing.py::test_founder_loop_briefing_defaults_are_blocked_and_read_only",
+        "tests/test_control_center_api_routes.py"
+      ],
+      "blocked_authorities": [
+        "account_auth",
+        "background_polling",
+        "raw_source_read",
+        "email_send",
+        "calendar_write",
+        "connector_write",
+        "connector_runtime"
+      ],
+      "missing_contracts": [
+        "email_read_only_metadata_route",
+        "calendar_read_only_metadata_route",
+        "draft_only_proposal_ui_binding"
+      ],
+      "next_safe_action": "Implement source-readiness metadata contracts and UI binding without account auth, polling, raw body reads, or connector writes."
+    },
+    {
+      "foundation_id": "memory_to_loop_proposal_ux",
+      "status": "implemented",
+      "safe_summary": "Reviewed memory refs and memory-derived Action proposal refs are visible in Today, Action Inbox, Evidence, and Memory as proposal-only loop inputs.",
+      "route_refs": [
+        "GET /control-center/today/summary",
+        "GET /control-center/actions/inbox",
+        "GET /control-center/evidence/timeline"
+      ],
+      "surface_refs": [
+        "apps/control-center/src/components/FounderLoopPanels.tsx::MemoryDerivedActionProposalCard"
+      ],
+      "test_refs": [
+        "tests/test_uaa_p1_077_memory_to_loop_binding.py::test_founder_loop_today_and_actions_bind_memory_to_loop",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_authorities": [
+        "automatic_memory_write",
+        "context_injection",
+        "action_execution",
+        "connector_write",
+        "provider_model_authority",
+        "production_authority"
+      ],
+      "missing_contracts": [
+        "memory_write_policy_binding",
+        "approved_local_action_handoff_execution_contract",
+        "context_injection_policy"
+      ],
+      "next_safe_action": "Keep memory-derived proposals scannable and route them through Action Inbox review before any later exact micro-lane."
+    },
+    {
+      "foundation_id": "context_pack_proposal_display",
+      "status": "implemented",
+      "safe_summary": "Memory context-pack proposals are backend-owned, read-only, and displayed in the Memory surface before any context injection lane exists.",
+      "route_refs": [
+        "GET /control-center/memory/context-packs"
+      ],
+      "surface_refs": [
+        "apps/control-center/src/components/FounderLoopPanels.tsx::MemoryContextPackProposalCard"
+      ],
+      "test_refs": [
+        "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_api_route_is_backend_backed_and_read_only",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_authorities": [
+        "context_injection",
+        "hidden_prompt_context",
+        "provider_model_call",
+        "connector_write",
+        "memory_write",
+        "production_authority"
+      ],
+      "missing_contracts": [
+        "context_injection_policy",
+        "context_pack_approval_contract",
+        "context_injection_receipt_evidence_contract"
+      ],
+      "next_safe_action": "Keep context packs proposal-only and add exact approval, receipt, evidence, and rollback refs before any injection lane."
+    }
+  ],
+  "authority_candidates": [
+    {
+      "candidate_id": "connector_write",
+      "candidate_class": "connector_writes",
+      "status": "not_ready",
+      "selected_for_micro_lane": false,
+      "safe_summary": "Connector writes are blocked until draft-only workflows, read-only source metadata, account posture, exact scope, undo, and receipt evidence are complete.",
+      "score": {
+        "user_value": 5,
+        "authority_risk": 5,
+        "data_sensitivity": 5,
+        "blast_radius": 5,
+        "reversibility": 2,
+        "exact_scope_clarity": 1,
+        "approval_posture": 1,
+        "idempotency_feasibility": 2,
+        "receipt_evidence_feasibility": 2,
+        "rollback_safe_disable_feasibility": 1,
+        "cli_api_core_parity": 1,
+        "redaction_complexity": 5,
+        "testability": 2,
+        "existing_operational_maturity_rank": 1,
+        "external_dependency_risk": 5
+      },
+      "prerequisite_refs": {
+        "backend_core_owner_ref": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "route_side_effect_ref": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "exact_scope_ref": null,
+        "approval_plan_ref": null,
+        "idempotency_plan_ref": null,
+        "receipt_evidence_plan_ref": null,
+        "rollback_safe_disable_plan_ref": null,
+        "redaction_plan_ref": "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+        "cli_api_core_parity_refs": [],
+        "focused_test_refs": [],
+        "verifier_refs": [
+          "scripts/verify_operational_maturity.py"
+        ]
+      },
+      "blocked_authorities": [
+        "connector_write",
+        "account_auth",
+        "background_polling",
+        "raw_source_read",
+        "external_side_effect",
+        "production_authority"
+      ],
+      "missing_prerequisites": [
+        "draft_only_workflows_not_complete",
+        "read_only_metadata_routes_missing",
+        "exact_connector_write_scope_missing",
+        "undo_safe_disable_contract_missing",
+        "receipt_evidence_contract_missing"
+      ],
+      "smallest_next_safe_action": "Implement read-only connector metadata and draft-only proposal UI before any write lane."
+    },
+    {
+      "candidate_id": "memory_write",
+      "candidate_class": "memory_writes",
+      "status": "proposal_only_ready",
+      "selected_for_micro_lane": false,
+      "safe_summary": "Reviewed memory decisions and recall refs exist, but broader memory write policy binding and why-written posture are not complete.",
+      "score": {
+        "user_value": 5,
+        "authority_risk": 4,
+        "data_sensitivity": 4,
+        "blast_radius": 4,
+        "reversibility": 2,
+        "exact_scope_clarity": 2,
+        "approval_posture": 3,
+        "idempotency_feasibility": 3,
+        "receipt_evidence_feasibility": 4,
+        "rollback_safe_disable_feasibility": 2,
+        "cli_api_core_parity": 2,
+        "redaction_complexity": 4,
+        "testability": 3,
+        "existing_operational_maturity_rank": 3,
+        "external_dependency_risk": 1
+      },
+      "prerequisite_refs": {
+        "backend_core_owner_ref": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "route_side_effect_ref": "src/ultimate_ai_agent/api/manifest.py",
+        "exact_scope_ref": null,
+        "approval_plan_ref": "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md",
+        "idempotency_plan_ref": "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md",
+        "receipt_evidence_plan_ref": "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md",
+        "rollback_safe_disable_plan_ref": null,
+        "redaction_plan_ref": "docs/control_center/TRACE_REDACTION_POLICY.md",
+        "cli_api_core_parity_refs": [],
+        "focused_test_refs": [
+          "tests/test_fcc_v1_005_memory_review_decisions.py"
+        ],
+        "verifier_refs": [
+          "scripts/verify_operational_maturity.py"
+        ]
+      },
+      "blocked_authorities": [
+        "automatic_memory_write",
+        "hidden_memory_truth",
+        "context_injection",
+        "connector_write",
+        "production_authority"
+      ],
+      "missing_prerequisites": [
+        "memory_write_policy_binding_missing",
+        "why_written_policy_missing",
+        "rollback_safe_disable_contract_missing",
+        "cli_parity_missing"
+      ],
+      "smallest_next_safe_action": "Define narrow reviewed-memory write policy binding with visible why-shown and why-written refs."
+    },
+    {
+      "candidate_id": "shell_subprocess_local_maintenance",
+      "candidate_class": "shell_subprocess_local_maintenance",
+      "status": "not_ready",
+      "selected_for_micro_lane": false,
+      "safe_summary": "Shell/subprocess work is blocked except for future exact allowlisted local maintenance contracts.",
+      "score": {
+        "user_value": 4,
+        "authority_risk": 5,
+        "data_sensitivity": 4,
+        "blast_radius": 5,
+        "reversibility": 2,
+        "exact_scope_clarity": 1,
+        "approval_posture": 1,
+        "idempotency_feasibility": 1,
+        "receipt_evidence_feasibility": 2,
+        "rollback_safe_disable_feasibility": 1,
+        "cli_api_core_parity": 2,
+        "redaction_complexity": 5,
+        "testability": 2,
+        "existing_operational_maturity_rank": 0,
+        "external_dependency_risk": 2
+      },
+      "prerequisite_refs": {
+        "backend_core_owner_ref": "docs/sandbox/SHELL_APPROVAL_GATE_AUTHORITY_BOUNDARY.md",
+        "route_side_effect_ref": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "exact_scope_ref": null,
+        "approval_plan_ref": null,
+        "idempotency_plan_ref": null,
+        "receipt_evidence_plan_ref": null,
+        "rollback_safe_disable_plan_ref": null,
+        "redaction_plan_ref": "docs/control_center/TRACE_REDACTION_POLICY.md",
+        "cli_api_core_parity_refs": [],
+        "focused_test_refs": [],
+        "verifier_refs": [
+          "scripts/verify_operational_maturity.py"
+        ]
+      },
+      "blocked_authorities": [
+        "unrestricted_shell",
+        "subprocess_execution",
+        "filesystem_mutation",
+        "production_authority"
+      ],
+      "missing_prerequisites": [
+        "allowlisted_command_contract_missing",
+        "sandbox_boundary_missing",
+        "receipt_redaction_missing",
+        "rollback_safe_disable_missing"
+      ],
+      "smallest_next_safe_action": "Draft a validation-only local maintenance classifier before any allowlisted command lane."
+    },
+    {
+      "candidate_id": "browser_automation",
+      "candidate_class": "browser_automation",
+      "status": "not_ready",
+      "selected_for_micro_lane": false,
+      "safe_summary": "Browser automation remains blocked until a specific local workflow earns observe-only, dry-run, approval, receipt, and rollback gates.",
+      "score": {
+        "user_value": 3,
+        "authority_risk": 5,
+        "data_sensitivity": 5,
+        "blast_radius": 4,
+        "reversibility": 1,
+        "exact_scope_clarity": 1,
+        "approval_posture": 1,
+        "idempotency_feasibility": 1,
+        "receipt_evidence_feasibility": 2,
+        "rollback_safe_disable_feasibility": 1,
+        "cli_api_core_parity": 0,
+        "redaction_complexity": 5,
+        "testability": 2,
+        "existing_operational_maturity_rank": 0,
+        "external_dependency_risk": 5
+      },
+      "prerequisite_refs": {
+        "backend_core_owner_ref": "docs/browser/BROWSER_OBSERVE_ONLY_AUTHORITY_BOUNDARY.md",
+        "route_side_effect_ref": "docs/browser/BROWSER_ACTION_DRY_RUN_AUTHORITY_BOUNDARY.md",
+        "exact_scope_ref": null,
+        "approval_plan_ref": null,
+        "idempotency_plan_ref": null,
+        "receipt_evidence_plan_ref": null,
+        "rollback_safe_disable_plan_ref": null,
+        "redaction_plan_ref": "docs/control_center/TRACE_REDACTION_POLICY.md",
+        "cli_api_core_parity_refs": [],
+        "focused_test_refs": [],
+        "verifier_refs": [
+          "scripts/verify_operational_maturity.py"
+        ]
+      },
+      "blocked_authorities": [
+        "browser_automation",
+        "external_side_effect",
+        "credential_exposure",
+        "connector_write",
+        "production_authority"
+      ],
+      "missing_prerequisites": [
+        "specific_local_workflow_missing",
+        "observe_only_receipts_missing",
+        "dry_run_planner_missing",
+        "exact_click_scope_missing"
+      ],
+      "smallest_next_safe_action": "Keep browser work observe-only until one local workflow has dry-run proof and exact approval gates."
+    },
+    {
+      "candidate_id": "provider_model_authority",
+      "candidate_class": "provider_model_authority",
+      "status": "blocked_by_policy",
+      "selected_for_micro_lane": false,
+      "safe_summary": "Model or provider output must not become production authority. It can propose candidates for Python core and policy review only.",
+      "score": {
+        "user_value": 2,
+        "authority_risk": 5,
+        "data_sensitivity": 5,
+        "blast_radius": 5,
+        "reversibility": 1,
+        "exact_scope_clarity": 0,
+        "approval_posture": 0,
+        "idempotency_feasibility": 0,
+        "receipt_evidence_feasibility": 1,
+        "rollback_safe_disable_feasibility": 0,
+        "cli_api_core_parity": 0,
+        "redaction_complexity": 5,
+        "testability": 1,
+        "existing_operational_maturity_rank": 0,
+        "external_dependency_risk": 5
+      },
+      "prerequisite_refs": {
+        "backend_core_owner_ref": "AGENTS.md",
+        "route_side_effect_ref": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "exact_scope_ref": null,
+        "approval_plan_ref": null,
+        "idempotency_plan_ref": null,
+        "receipt_evidence_plan_ref": null,
+        "rollback_safe_disable_plan_ref": null,
+        "redaction_plan_ref": "docs/runtime/M23_NON_AUTHORITATIVE_OUTPUT_POLICY.md",
+        "cli_api_core_parity_refs": [],
+        "focused_test_refs": [],
+        "verifier_refs": [
+          "scripts/verify_operational_maturity.py"
+        ]
+      },
+      "blocked_authorities": [
+        "model_output_authority",
+        "provider_sdk_call",
+        "production_authority",
+        "automatic_action_execution"
+      ],
+      "missing_prerequisites": [
+        "policy_blocks_model_output_as_authority"
+      ],
+      "smallest_next_safe_action": "Keep provider/model output proposal-only and require Python core/policy review for any derived action."
+    },
+    {
+      "candidate_id": "context_injection",
+      "candidate_class": "context_injection",
+      "status": "proposal_only_ready",
+      "selected_for_micro_lane": false,
+      "safe_summary": "Context-pack proposals are inspectable, but prompt/runtime context injection remains blocked until exact approval, receipt, evidence, and rollback gates exist.",
+      "score": {
+        "user_value": 4,
+        "authority_risk": 5,
+        "data_sensitivity": 5,
+        "blast_radius": 4,
+        "reversibility": 1,
+        "exact_scope_clarity": 2,
+        "approval_posture": 2,
+        "idempotency_feasibility": 2,
+        "receipt_evidence_feasibility": 2,
+        "rollback_safe_disable_feasibility": 1,
+        "cli_api_core_parity": 1,
+        "redaction_complexity": 5,
+        "testability": 2,
+        "existing_operational_maturity_rank": 2,
+        "external_dependency_risk": 2
+      },
+      "prerequisite_refs": {
+        "backend_core_owner_ref": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "route_side_effect_ref": "GET /control-center/memory/context-packs",
+        "exact_scope_ref": null,
+        "approval_plan_ref": null,
+        "idempotency_plan_ref": null,
+        "receipt_evidence_plan_ref": null,
+        "rollback_safe_disable_plan_ref": null,
+        "redaction_plan_ref": "docs/control_center/TRACE_REDACTION_POLICY.md",
+        "cli_api_core_parity_refs": [],
+        "focused_test_refs": [
+          "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_api_route_is_backend_backed_and_read_only",
+          "apps/control-center/src/App.test.tsx"
+        ],
+        "verifier_refs": [
+          "scripts/verify_operational_maturity.py"
+        ]
+      },
+      "blocked_authorities": [
+        "context_injection",
+        "hidden_prompt_context",
+        "provider_model_call",
+        "memory_write",
+        "connector_write",
+        "production_authority"
+      ],
+      "missing_prerequisites": [
+        "context_injection_policy_missing",
+        "exact_context_scope_missing",
+        "approval_capture_missing",
+        "receipt_evidence_contract_missing",
+        "rollback_safe_disable_missing",
+        "cli_parity_missing"
+      ],
+      "smallest_next_safe_action": "Keep context packs proposal-only and define exact approval plus receipt/evidence before any injection lane."
+    }
+  ],
+  "first_micro_lane_decision": {
+    "status": "no_go",
+    "selected_candidate_id": null,
+    "decision_ref": "decision-ref:fcc-auth-ramp-001:no-new-micro-lane",
+    "no_go_reason": "No future authority candidate has all exact-scope, approval, idempotency, receipt/evidence, rollback/safe-disable, redaction, CLI/API/core parity, and focused-test refs.",
+    "smallest_next_safe_action": "Build the read-only/proposal foundation and fill candidate blockers before selecting one exact micro-lane."
+  }
+}
