@@ -76,6 +76,47 @@
         "focused_test_refs": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "ui_status_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "status_route_ref",
+        "frontend_endpoint_ref",
+        "frontend_client_ref",
+        "frontend_type_ref",
+        "frontend_component_refs",
+        "frontend_test_refs",
+        "backend_only_status",
+        "backend_only_reason",
+        "backend_only_doc_ref",
+        "backend_only_blocker_ref",
+        "stale_language_scan_refs"
+      ],
+      "properties": {
+        "surface": { "type": "string", "minLength": 1 },
+        "status_route_ref": { "type": "string", "minLength": 1 },
+        "frontend_endpoint_ref": { "type": ["string", "null"] },
+        "frontend_client_ref": { "type": ["string", "null"] },
+        "frontend_type_ref": { "type": ["string", "null"] },
+        "frontend_component_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "frontend_test_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "backend_only_status": { "type": "boolean" },
+        "backend_only_reason": { "type": ["string", "null"] },
+        "backend_only_doc_ref": { "type": ["string", "null"] },
+        "backend_only_blocker_ref": { "type": ["string", "null"] },
+        "stale_language_scan_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "module": {
       "type": "object",
       "additionalProperties": false,
@@ -134,7 +175,8 @@
         "graduated_lanes": {
           "type": "array",
           "items": { "$ref": "#/$defs/lane" }
-        }
+        },
+        "ui_status_binding": { "$ref": "#/$defs/ui_status_binding" }
       }
     }
   }

@@ -70,7 +70,10 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Runtime readiness")).toBeInTheDocument();
     expect(screen.getByText("API boundary")).toBeInTheDocument();
     expect(
-      screen.getByText(/No authority to run actions/i),
+      screen.getByText(/No generic execution/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Local task authority gated by backend approval/i),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /execute/i }),
@@ -125,6 +128,32 @@ describe("Web Control Center shell", () => {
     expect(within(navigation).getAllByText("blocked").length).toBeGreaterThan(0);
     expect(within(navigation).queryByText("blocked/planned")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Product spine contract/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Founder daily loop/i })).toBeInTheDocument();
+    const loopSpine = screen.getByLabelText("Founder daily loop modules");
+    const loopLinks = within(loopSpine).getAllByRole("link");
+    expect(loopLinks).toHaveLength(7);
+    expect(loopLinks[0]).toHaveAttribute("aria-current", "page");
+    for (const surface of [
+      "Today",
+      "Inbox",
+      "Plans",
+      "Actions",
+      "Memory",
+      "Evidence",
+      "Settings",
+    ]) {
+      expect(
+        loopLinks.some((link) => link.textContent?.includes(surface)),
+      ).toBe(true);
+    }
+    expect(loopLinks.some((link) => link.textContent?.includes("blocked"))).toBe(true);
+    expect(loopLinks.some((link) => link.textContent?.includes("authority-gated"))).toBe(true);
+    expect(
+      screen.getAllByText(/Local task authority gated by backend approval/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(/Connector writes blocked/i)).toBeInTheDocument();
+    expect(screen.getByText(/Production authority blocked/i)).toBeInTheDocument();
     expect(screen.getByText("contract-ref:today-product-spine:v1")).toBeInTheDocument();
     expect(screen.getByText("Loop visibility sufficient").nextElementSibling).toHaveTextContent("no");
     expect(screen.getByText("Standalone completion").nextElementSibling).toHaveTextContent("blocked");
@@ -190,6 +219,43 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Code: implemented_governed_code_workbench_contract_apply_blocked/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Stale-source posture/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the daily loop spine across primary Founder Loop surfaces", async () => {
+    const primarySurfaces = [
+      ["/today", "Today"],
+      ["/inbox", "Inbox"],
+      ["/plans", "Plans"],
+      ["/actions", "Actions"],
+      ["/memory", "Memory"],
+      ["/evidence", "Evidence"],
+      ["/settings", "Settings"],
+    ] as const;
+
+    for (const [path, label] of primarySurfaces) {
+      mockFetchWithFallback();
+      window.history.pushState({}, "", path);
+      const view = render(<App />);
+
+      expect(
+        await screen.findByRole("heading", { name: /Founder daily loop/i }),
+      ).toBeInTheDocument();
+      const spine = screen.getByLabelText("Founder daily loop modules");
+      const activeCard = within(spine)
+        .getAllByRole("link")
+        .find((link) => link.getAttribute("aria-current") === "page");
+      expect(activeCard).toHaveTextContent(label);
+      expect(screen.getAllByText(/No generic execution/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(/Local task authority gated by backend approval/i)
+          .length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("opens Morning Briefing as the daily local home without new authority", async () => {
@@ -691,7 +757,7 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /^Actions$/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /State posture/i })).toBeInTheDocument();
-    expect(screen.getByText("/control-center/actions/inbox")).toBeInTheDocument();
+    expect(screen.getAllByText("/control-center/actions/inbox").length).toBeGreaterThan(0);
     expect(screen.getByText("Action execution remains blocked")).toBeInTheDocument();
     expect(screen.getByText("GET /control-center/actions/{action_id}/receipt")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Local prerequisites/i })).toBeInTheDocument();
@@ -955,7 +1021,7 @@ describe("Web Control Center shell", () => {
         path: "/models",
         heading: /^Models$/,
         stateHeading: /Models states/i,
-        blocked: /Blocked: model selection not implemented/i,
+        blocked: /Blocked: model lifecycle authority not scoped/i,
         denied: /Denied: no provider or model authority/i,
       },
       {
@@ -990,7 +1056,7 @@ describe("Web Control Center shell", () => {
         path: "/settings",
         heading: /^Settings$/,
         stateHeading: /Settings states/i,
-        blocked: /Blocked: settings routes not implemented/i,
+        blocked: /Blocked: settings mutation authority not scoped/i,
         denied: /Denied: no authority toggle/i,
       },
     ] as const;
@@ -1045,8 +1111,8 @@ describe("Web Control Center shell", () => {
       {
         path: "/models",
         heading: /^Models$/,
-        marker: /Local model readiness/i,
-        route: API_ENDPOINTS.localModels,
+        marker: /Backend-owned Local Models status/i,
+        route: /GET \/control-center\/local-models\/status/i,
       },
       {
         path: "/evidence",
@@ -1057,8 +1123,8 @@ describe("Web Control Center shell", () => {
       {
         path: "/settings",
         heading: /^Settings$/,
-        marker: /Provider credential readiness/i,
-        route: /OpenWebUI/i,
+        marker: /Backend-owned Settings status/i,
+        route: /GET \/control-center\/settings\/status/i,
       },
     ] as const;
 
@@ -1097,6 +1163,82 @@ describe("Web Control Center shell", () => {
       unmount();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("renders Settings and Local Models backend-owned status routes", async () => {
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.localModels)) {
+        return new Response(JSON.stringify({ data: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    const settingsView = render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Backend-owned Settings status/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/GET \/control-center\/settings\/status/i).length,
+    ).toBeGreaterThan(0);
+    const settingsSpine = screen.getByLabelText("Founder daily loop modules");
+    const settingsSpineCard = within(settingsSpine)
+      .getAllByRole("link")
+      .find((link) => link.textContent?.includes("Settings"));
+    expect(settingsSpineCard).toHaveTextContent("read_only_status");
+    expect(settingsSpineCard).toHaveTextContent(
+      "GET /control-center/settings/status",
+    );
+    expect(
+      screen.queryByText(/Add backend-owned manifest/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("active_promotion_gate")).toBeInTheDocument();
+    expect(screen.getByText("read_only_metadata_only")).toBeInTheDocument();
+    expect(screen.getByText("not_configured_status_only")).toBeInTheDocument();
+    expect(screen.getByText("feature_flag_mutation")).toBeInTheDocument();
+    expect(screen.getByText("kill_switch_mutation")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /enable|toggle|save|execute/i }),
+    ).not.toBeInTheDocument();
+
+    settingsView.unmount();
+    cleanup();
+
+    window.history.pushState({}, "", "/models");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Backend-owned Local Models status/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/GET \/control-center\/local-models\/status/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("uaa_local_model_inventory.v1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("model_download")).toBeInTheDocument();
+    expect(screen.getByText("provider_model_authority")).toBeInTheDocument();
+    expect(screen.getByText("runtime_adapter_execution")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /download|switch|start|stop|execute/i }),
+    ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
   });
 
   it("shows governed provider credential readiness without credential collection", async () => {
@@ -1308,7 +1450,10 @@ describe("Web Control Center shell", () => {
       screen.getByText(/API base: relative local API/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/No authority to run actions/i),
+      screen.getByText(/No generic execution/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Local task authority gated by backend approval/i),
     ).toBeInTheDocument();
     dashboard.unmount();
     vi.unstubAllGlobals();
@@ -1906,8 +2051,9 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /Evidence Timeline/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("implemented_productized_evidence_timeline_safe_refs_only"),
-    ).toBeInTheDocument();
+      screen.getAllByText("implemented_productized_evidence_timeline_safe_refs_only")
+        .length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("GET /control-center/evidence/timeline").length,
     ).toBeGreaterThan(0);
@@ -2435,10 +2581,10 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("GET /control-center/memory/review").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getByText(
+      screen.getAllByText(
         "storage_backed_review_queue_with_backend_decision_receipts",
-      ),
-    ).toBeInTheDocument();
+      ).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText("founder-loop-storage:mock-local-sqlite-jsonl"),
     ).toBeInTheDocument();
@@ -3275,6 +3421,12 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderStorageStatus)).toBe(
       true,
     );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterSettingsStatus)).toBe(
+      true,
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterLocalModelsStatus),
+    ).toBe(true);
     expect(isAllowedReadEndpoint("/control-center/actions/execute")).toBe(
       false,
     );
@@ -3291,6 +3443,8 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.controlCenterDashboard]: {
       ...mockApiData.dashboard,
       baseline_version: "0.20.1",
+      provider_credential_readiness:
+        mockControlCenterData.dashboard.provider_credential_readiness,
     },
     [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
@@ -3303,12 +3457,17 @@ function envelopeForReadEndpoint(url: string) {
       baseline_version: "0.20.1",
     },
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
+    [API_ENDPOINTS.controlCenterSettingsStatus]:
+      mockControlCenterData.settingsStatus,
+    [API_ENDPOINTS.controlCenterLocalModelsStatus]:
+      mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
-    [API_ENDPOINTS.founderActionsInbox]: mockApiData.founderActionsInbox,
+    [API_ENDPOINTS.founderActionsInbox]:
+      mockControlCenterData.founderActionsInbox,
     [API_ENDPOINTS.founderMorningBriefing]:
-      mockApiData.founderMorningBriefing,
+      mockControlCenterData.founderMorningBriefing,
     [API_ENDPOINTS.founderStorageStatus]: mockApiData.founderStorageStatus,
   };
   const endpoint = Object.keys(data).find((candidate) =>

@@ -28,7 +28,7 @@ export function AppShell({ children, activePath }: AppShellProps) {
           <span className="brand-mark">UAA</span>
           <span>
             <strong>Control Center</strong>
-            <small>read-only shell</small>
+            <small>governed local shell</small>
           </span>
         </div>
         <nav className="nav-stack">
@@ -79,8 +79,12 @@ export function AppShell({ children, activePath }: AppShellProps) {
             aria-label="Control Center safety status"
           >
             <CommandPalette activePath={activePath} />
-            <span className="status-pill">Read-only</span>
-            <span className="status-pill">No authority to run actions</span>
+            <span className="status-pill">
+              No authority to run actions broadly; no generic execution
+            </span>
+            <span className="status-pill">
+              Local task authority gated by backend approval
+            </span>
           </div>
         </header>
         <main>{children}</main>

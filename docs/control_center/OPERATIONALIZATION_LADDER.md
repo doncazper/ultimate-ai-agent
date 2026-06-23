@@ -30,6 +30,12 @@ module rank from any graduated lane rank.
   idempotency, route metadata, and rollback or safe-disable posture.
 - Rank 5 or higher requires a real allowlisted local state change, durable
   receipt, Evidence Timeline event, CLI or repo-local parity, and focused tests.
+- Rank 2 or higher backend-owned status routes require a manifest
+  `ui_status_binding`: either the Control Center/API layer surfaces the typed
+  read-only status with frontend endpoint, client, type, component, and test
+  refs, or the module is explicitly marked backend-only with a documented
+  reason and blocker. Backend-only status is not a silent promotion escape
+  hatch.
 - Support modules such as Evidence can rank by the operational receipts they
   index, but must say they support operations rather than perform them.
 - No broad execution route, connector write, shell/subprocess execution,

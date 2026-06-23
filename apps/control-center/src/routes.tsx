@@ -15,6 +15,7 @@ import { FoundationGatePanel } from "./components/FoundationGatePanel";
 import {
   ActionInboxSurfacePanel,
   EvidenceTimelineSurfacePanel,
+  FounderLoopSpinePanel,
   FounderLoopStoragePanel,
   InboxSurfacePanel,
   MemoryReviewSurfacePanel,
@@ -155,11 +156,44 @@ export const commandPaletteItems: CommandPaletteItem[] = [
 export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
     case "/today":
-      return <TodaySurfacePanel today={data.founderToday} />;
+      return (
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Today"
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <TodaySurfacePanel today={data.founderToday} />
+        </>
+      );
     case "/inbox":
-      return <InboxSurfacePanel />;
+      return (
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Inbox"
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <InboxSurfacePanel />
+        </>
+      );
     case "/actions":
-      return <ActionInboxSurfacePanel inbox={data.founderActionsInbox} />;
+      return (
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Actions"
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <ActionInboxSurfacePanel inbox={data.founderActionsInbox} />
+        </>
+      );
     case "/briefing":
       return <MorningBriefingPanel briefing={data.founderMorningBriefing} />;
     case "/private-trial":
@@ -171,7 +205,18 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/chat":
       return <ChatOperatorPanel data={data} />;
     case "/plans":
-      return <PlansOperatorPanel data={data} />;
+      return (
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Plans"
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <PlansOperatorPanel data={data} />
+        </>
+      );
     case "/models":
       return <ModelsOperatorPanel data={data} />;
     case "/runtime":
@@ -204,6 +249,13 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/evidence":
       return (
         <>
+          <FounderLoopSpinePanel
+            activeSurface="Evidence"
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
           <EvidenceTimelineSurfacePanel
             evidence={data.founderEvidenceTimeline}
             today={data.founderToday}
@@ -220,7 +272,18 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <ContextProposalSurfacePanel proposals={data.m39ContextProposals} />
       );
     case "/memory":
-      return <MemoryReviewSurfacePanel today={data.founderToday} />;
+      return (
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Memory"
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <MemoryReviewSurfacePanel today={data.founderToday} />
+        </>
+      );
     case "/runtime/local":
       return (
         <LocalRuntimeStatusPanel
@@ -249,7 +312,18 @@ export function renderRoute(path: string, data: ControlCenterData) {
         />
       );
     case "/settings":
-      return <SettingsOperatorPanel data={data} />;
+      return (
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Settings"
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <SettingsOperatorPanel data={data} />
+        </>
+      );
     case "/action-preview":
       return <ActionPreviewForm />;
     case "/dashboard":

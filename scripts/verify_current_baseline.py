@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-from typing import Any
 import argparse
-import sys
+import json
 import re
+import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -30,6 +31,46 @@ def version_to_package_version(version: str) -> Any:
     if version.endswith("-alpha"):
         return f"{version[:-6]}a0"
     return version
+
+
+def _read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8")), None
+    except Exception as exc:
+        return None, str(exc)
+
+
+def verify_frontend_package_versions(root: Path, package_version: str) -> list[str]:
+    failures: list[str] = []
+    package_file = root / "apps/control-center/package.json"
+    lock_file = root / "apps/control-center/package-lock.json"
+
+    package_json, package_error = _read_json(package_file)
+    if package_json is None:
+        return [f"Could not parse apps/control-center/package.json: {package_error}"]
+    if package_json.get("version") != package_version:
+        failures.append(
+            "apps/control-center/package.json version "
+            f"({package_json.get('version')}) does not match VERSION.md baseline package form ({package_version})"
+        )
+
+    lock_json, lock_error = _read_json(lock_file)
+    if lock_json is None:
+        failures.append(f"Could not parse apps/control-center/package-lock.json: {lock_error}")
+        return failures
+    if lock_json.get("version") != package_version:
+        failures.append(
+            "apps/control-center/package-lock.json version "
+            f"({lock_json.get('version')}) does not match VERSION.md baseline package form ({package_version})"
+        )
+    root_package = lock_json.get("packages", {}).get("", {})
+    if root_package.get("version") != package_version:
+        failures.append(
+            "apps/control-center/package-lock.json packages[''].version "
+            f"({root_package.get('version')}) does not match VERSION.md baseline package form ({package_version})"
+        )
+    return failures
+
 
 def main(argv: Any | None = None) -> None:
     parser = argparse.ArgumentParser(description="Verify current baseline metadata and required files.")
@@ -89,6 +130,12 @@ def main(argv: Any | None = None) -> None:
     if init_version != package_version:
         fail(f"__init__.py version ({init_version}) does not match VERSION.md baseline package form ({package_version})")
     ok(f"src/ultimate_ai_agent/__init__.py version is consistent: {init_version}")
+
+    # 3.5 Check Control Center package metadata consistency with the active package baseline.
+    frontend_package_failures = verify_frontend_package_versions(ROOT, package_version)
+    if frontend_package_failures:
+        fail("; ".join(frontend_package_failures))
+    ok(f"apps/control-center package versions are consistent: {package_version}")
     
     # 4. Check README.md consistency
     readme_file = ROOT / "README.md"

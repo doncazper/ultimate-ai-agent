@@ -2085,6 +2085,48 @@ export interface LocalModelsInspectionStatus {
   reasonCodes: string[];
 }
 
+export interface ControlCenterSettingsStatus {
+  schema_version: "uaa-control-center-settings-status.v1";
+  module_id: "settings";
+  status: "read_only_status";
+  route_ref: "GET /control-center/settings/status";
+  safe_summary: string;
+  maturity_gate_status: string;
+  maturity_manifest_ref: string;
+  ladder_doc_ref: string;
+  verifier_ref: string;
+  route_status_manifest_ref: string;
+  api_manifest_route_ref: string;
+  review_proposals: string[];
+  proposal_review_only: boolean;
+  feature_flag_posture: string;
+  kill_switch_posture: string;
+  disabled_by_default: boolean;
+  feature_flag_mutation_enabled: boolean;
+  kill_switch_mutation_enabled: boolean;
+  settings_mutation_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authorities: string[];
+  missing_contracts: string[];
+  redactions_applied: string[];
+}
+
+export interface ControlCenterLocalModelsStatus {
+  schema_version: "uaa-control-center-local-models-status.v1";
+  module_id: "local_models";
+  status: "read_only_status";
+  route_ref: "GET /control-center/local-models/status";
+  safe_summary: string;
+  review_proposals: string[];
+  proposal_review_only: boolean;
+  inventory: Record<string, unknown>;
+  gateway_posture: Record<string, unknown>;
+  lifecycle_actions: Record<string, boolean>;
+  blocked_authorities: string[];
+  evidence_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RedactedLocalChatProbeStatus {
   state: OperatorRouteInspectionState;
   routeRef: string;
@@ -2678,6 +2720,8 @@ export interface ControlCenterData {
   m36FileReview: M36FileReviewData;
   m39ContextProposals: M39ContextProposalData;
   macosSetupAssistant: MacOSSetupAssistantData;
+  settingsStatus: ControlCenterSettingsStatus;
+  localModelsStatus: ControlCenterLocalModelsStatus;
   founderToday: FounderLoopTodaySummary;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderActionsInbox: FounderLoopActionsInbox;

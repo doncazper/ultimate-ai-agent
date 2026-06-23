@@ -179,14 +179,14 @@ CLI/core/API inspection, or redaction gates.
 15. Local Control Center macOS-first Setup Assistant hardening: tighten
    dry-run/read-only setup posture, redacted summaries, blocked states,
    rollback refs, and safe local prerequisite visibility.
-12. First product loop readability: make Today, Plans, Actions, Memory,
+16. First product loop readability: make Today, Plans, Actions, Memory,
    Evidence, and Settings easier to scan without adding route authority.
-13. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
+17. Action Inbox / approval envelope UX: expose exact scope, risk, side-effect
    class, approval requirement, expiry, idempotency, evidence, and rollback
    posture before any approve affordance is wired.
-14. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
+18. Morning Briefing skeleton: compose existing safe summaries, mock/degraded
    states, priorities, blockers, and next safe actions.
-15. Read-only email/calendar integration contracts: metadata-only calendar/email
+19. Read-only email/calendar integration contracts: metadata-only calendar/email
    contracts are implemented as contract-only source-readiness support, and the
    draft-only email response proposal contract is implemented as contract-only
    proposal posture. Connector runtime, draft UI, account auth, and send/write
@@ -197,13 +197,15 @@ route, frontend mutation control, setup mutation, connector runtime,
 model/provider call, shell/browser/plugin/mobile/remote execution, installer
 authority, public distribution, or production authority.
 
-Current partial API coverage is limited to OpenAPI/API manifest metadata,
+Current API perimeter coverage includes OpenAPI/API manifest metadata,
 side-effect classes, route-status auth posture, bearer-gated local `/v1`
-planning, and idempotency concepts in durable run/action contracts. Centralized
-security headers, explicit loopback CORS, route-wide public/protected
-classification, local protected-route bearer gating, mutating-route idempotency
-header gating, and targeted local fixed-window rate limits are implemented.
-Enforcement tests remain future scoped work.
+planning, centralized security headers, explicit loopback CORS, route-wide
+public/protected classification, local protected-route bearer gating,
+mutating-route idempotency header gating, targeted local fixed-window rate
+limits, route inventory, API manifest, protected-route, idempotency, header,
+CORS, and rate-limit enforcement checks. Durable dedupe, exactly-once
+execution, broader workflow authority, and production authority remain future
+scoped work.
 
 UI direction: Control Center / Founder Command Center is the proprietary
 primary product UI for the loop. OpenWebUI remains a supported local/dev

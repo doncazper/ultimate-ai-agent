@@ -252,6 +252,29 @@
       ],
       "blocked_authorities": ["lifecycle_start_stop", "model_switch", "download", "provider_model_authority", "runtime_adapter_execution"],
       "missing_contracts": ["lifecycle_status_receipts", "dry_run_switch_planner", "approval_bound_switch"],
+      "ui_status_binding": {
+        "surface": "Models",
+        "status_route_ref": "GET /control-center/local-models/status",
+        "frontend_endpoint_ref": "apps/control-center/src/api/endpoints.ts::controlCenterLocalModelsStatus",
+        "frontend_client_ref": "apps/control-center/src/api/client.ts::controlCenterLocalModelsStatus",
+        "frontend_type_ref": "apps/control-center/src/api/types.ts::ControlCenterLocalModelsStatus",
+        "frontend_component_refs": [
+          "apps/control-center/src/components/OperatorFlowPanels.tsx::ModelsOperatorPanel",
+          "apps/control-center/src/components/OperatorSurfaceStates.tsx::Models"
+        ],
+        "frontend_test_refs": [
+          "apps/control-center/src/App.test.tsx::renders Settings and Local Models backend-owned status routes",
+          "apps/control-center/src/App.test.tsx::keeps read endpoints separate from the single preview POST endpoint"
+        ],
+        "backend_only_status": false,
+        "backend_only_reason": null,
+        "backend_only_doc_ref": null,
+        "backend_only_blocker_ref": null,
+        "stale_language_scan_refs": [
+          "apps/control-center/src/components/OperatorFlowPanels.tsx::ModelsOperatorPanel",
+          "apps/control-center/src/components/OperatorSurfaceStates.tsx::Models:"
+        ]
+      },
       "backend_owned_receipts": false,
       "exact_scope_required": true,
       "idempotency_required": false,
@@ -315,6 +338,29 @@
       ],
       "blocked_authorities": ["feature_flag_mutation", "kill_switch_mutation", "permission_mode_mutation", "model_identity_mutation", "production_authority"],
       "missing_contracts": ["feature_flag_mutation_contract", "kill_switch_execution_contract", "reviewed_local_runtime_settings_mutation_contract"],
+      "ui_status_binding": {
+        "surface": "Settings",
+        "status_route_ref": "GET /control-center/settings/status",
+        "frontend_endpoint_ref": "apps/control-center/src/api/endpoints.ts::controlCenterSettingsStatus",
+        "frontend_client_ref": "apps/control-center/src/api/client.ts::controlCenterSettingsStatus",
+        "frontend_type_ref": "apps/control-center/src/api/types.ts::ControlCenterSettingsStatus",
+        "frontend_component_refs": [
+          "apps/control-center/src/components/OperatorFlowPanels.tsx::SettingsOperatorPanel",
+          "apps/control-center/src/components/OperatorSurfaceStates.tsx::Settings"
+        ],
+        "frontend_test_refs": [
+          "apps/control-center/src/App.test.tsx::renders Settings and Local Models backend-owned status routes",
+          "apps/control-center/src/App.test.tsx::keeps read endpoints separate from the single preview POST endpoint"
+        ],
+        "backend_only_status": false,
+        "backend_only_reason": null,
+        "backend_only_doc_ref": null,
+        "backend_only_blocker_ref": null,
+        "stale_language_scan_refs": [
+          "apps/control-center/src/components/OperatorFlowPanels.tsx::SettingsOperatorPanel",
+          "apps/control-center/src/components/OperatorSurfaceStates.tsx::Settings:"
+        ]
+      },
       "backend_owned_receipts": false,
       "exact_scope_required": true,
       "idempotency_required": false,

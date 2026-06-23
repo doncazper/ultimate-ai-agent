@@ -514,10 +514,14 @@ export function PlansOperatorPanel({ data }: { data: ControlCenterData }) {
 export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
   const [models, setModels] =
     useState<LocalModelsInspectionStatus>(initialModelsStatus);
+  const localModelsStatus = data.localModelsStatus;
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const modelEntry = data.capabilityMatrix.entries.find((entry) =>
     entry.surface.toLowerCase().includes("model"),
   );
+  const lifecycleBlocked = Object.values(
+    localModelsStatus.lifecycle_actions,
+  ).every((enabled) => enabled === false);
 
   useEffect(() => {
     let cancelled = false;
@@ -536,13 +540,41 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
       <OperatorHeader
         eyebrow="Local operator flow"
         heading="Models"
-        status={statusLabel(models.state)}
-        summary="Model readiness is shown as local gateway and runtime evidence only. GGUF selection, llama.cpp lifecycle control, and provider authority stay outside this UI."
+        status={localModelsStatus.status}
+        summary="Local Models now display backend-owned read-only inventory and gateway posture. GGUF download, switch, start/stop, runtime adapter execution, and provider/model authority stay blocked."
       />
 
       <div className="operator-flow-grid">
         <StatusPanel
-          title="Local model readiness"
+          title="Backend-owned Local Models status"
+          state="ready"
+          message={localModelsStatus.safe_summary}
+          details={[
+            ["Route", localModelsStatus.route_ref],
+            [
+              "Inventory schema",
+              statusRecordValue(localModelsStatus.inventory, "schema_version"),
+            ],
+            [
+              "Local gateway enabled",
+              statusRecordValue(
+                localModelsStatus.gateway_posture,
+                "local_gateway_enabled",
+              ),
+            ],
+            [
+              "Lifecycle actions",
+              lifecycleBlocked ? "blocked" : "unexpected enabled",
+            ],
+            [
+              "Proposal review only",
+              localModelsStatus.proposal_review_only ? "yes" : "no",
+            ],
+          ]}
+          reasonCodes={localModelsStatus.blocked_authorities}
+        />
+        <StatusPanel
+          title="UAA /v1 model route inspection"
           state={models.state}
           message={models.safeMessage}
           details={[
@@ -590,7 +622,8 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
 export function EvidenceOperatorPanel({ data }: { data: ControlCenterData }) {
   const receiptStep = useOperatorStep(data, "receipt_audit_latency_rollback");
   const warningCount =
-    data.dashboard.warnings.length + data.runtimeReadiness.warnings.length;
+    (data.dashboard.warnings ?? []).length +
+    (data.runtimeReadiness.warnings ?? []).length;
 
   return (
     <section
@@ -655,6 +688,7 @@ export function EvidenceOperatorPanel({ data }: { data: ControlCenterData }) {
 export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const taskStep = useOperatorStep(data, "task_decomposition_plan");
+  const settingsStatus = data.settingsStatus;
   const disabledBoundaries = [
     ["Shell/subprocess authority", "not available from Control Center"],
     ["Browser/network automation", "not available from Control Center"],
@@ -670,11 +704,52 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
       <OperatorHeader
         eyebrow="Local operator flow"
         heading="Settings"
-        status="inspection only"
-        summary="Settings show safe local setup status and configuration boundaries. There is no browser settings mutation path or credential collection form."
+        status={settingsStatus.status}
+        summary="Settings show backend-owned read-only maturity, feature-flag, kill-switch, route-safety, and blocked-authority posture. Mutation controls are not exposed."
       />
 
       <div className="panel-grid">
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Backend-owned Settings status</h3>
+            <span>{settingsStatus.maturity_gate_status}</span>
+          </div>
+          <p>{settingsStatus.safe_summary}</p>
+          <dl className="metadata-list">
+            <div>
+              <dt>Route</dt>
+              <dd>{settingsStatus.route_ref}</dd>
+            </div>
+            <div>
+              <dt>Feature flag posture</dt>
+              <dd>{settingsStatus.feature_flag_posture}</dd>
+            </div>
+            <div>
+              <dt>Kill switch posture</dt>
+              <dd>{settingsStatus.kill_switch_posture}</dd>
+            </div>
+            <div>
+              <dt>Route safety</dt>
+              <dd>{settingsStatus.route_status_manifest_ref}</dd>
+            </div>
+            <div>
+              <dt>Maturity manifest</dt>
+              <dd>{settingsStatus.maturity_manifest_ref}</dd>
+            </div>
+            <div>
+              <dt>Proposal review only</dt>
+              <dd>{settingsStatus.proposal_review_only ? "yes" : "no"}</dd>
+            </div>
+          </dl>
+          <div
+            className="note-list"
+            aria-label="Settings blocked authority classes"
+          >
+            {settingsStatus.blocked_authorities.map((authority) => (
+              <span key={authority}>{authority}</span>
+            ))}
+          </div>
+        </article>
         <article className="panel">
           <div className="panel-heading">
             <h3>Local setup status</h3>
@@ -1297,6 +1372,21 @@ function statusLabel(state: OperatorRouteInspectionState): string {
     default:
       return "checking";
   }
+}
+
+function statusRecordValue(
+  record: Record<string, unknown>,
+  key: string,
+): string {
+  const value = record[key];
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
+  }
+  return "not reported";
 }
 
 const initialModelsStatus: LocalModelsInspectionStatus = {

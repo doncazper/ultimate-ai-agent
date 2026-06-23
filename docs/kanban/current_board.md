@@ -113,7 +113,15 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-No active build item is in progress. UAA-P1-067 through UAA-P1-087.2c and FCC-V1-000 through FCC-V1-007 are complete. Full UAA-P1-087.2 manual UI testing is deferred until more Founder Loop implementation exists and accepted or revised findings can be recorded later.
+FCC-LOOP-001 First Product Loop Readability is implemented as a Control Center
+shell/readability lane. The primary Founder Loop surfaces now share a compact
+daily-loop spine that exposes Today, Inbox, Plans, Actions, Memory, Evidence,
+and Settings status from existing backend-backed summaries, keeps blocked
+states visible, and names the only current mutating FCC authority as the
+backend-approved local task lane. UAA-P1-067 through UAA-P1-087.2c and
+FCC-V1-000 through FCC-V1-007 remain complete. Full UAA-P1-087.2 manual UI
+testing is deferred until more Founder Loop implementation exists and accepted
+or revised findings can be recorded later.
 ```
 
 ## Ready Next

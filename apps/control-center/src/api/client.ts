@@ -5,7 +5,9 @@ import type {
   BackendConnectionSummary,
   ControlCenterDashboardSnapshot,
   ControlCenterData,
+  ControlCenterLocalModelsStatus,
   ControlCenterManifest,
+  ControlCenterSettingsStatus,
   ControlCenterStatus,
   FounderLoopActionsInbox,
   FounderLoopMorningBriefing,
@@ -142,6 +144,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeCapabilityMatrix,
     ),
     readEnvelope<unknown>(API_ENDPOINTS.setupAssistantSummary),
+    readEnvelope<ControlCenterSettingsStatus>(
+      API_ENDPOINTS.controlCenterSettingsStatus,
+    ),
+    readEnvelope<ControlCenterLocalModelsStatus>(
+      API_ENDPOINTS.controlCenterLocalModelsStatus,
+    ),
     readEnvelope<FounderLoopTodaySummary>(API_ENDPOINTS.founderTodaySummary),
     readEnvelope<FounderLoopEvidenceTimelineIndex>(
       API_ENDPOINTS.founderEvidenceTimeline,
@@ -163,11 +171,34 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     fulfilledValue(results[6]),
     mockControlCenterData.macosSetupAssistant,
   );
-  const founderToday = fulfilledValue(results[7]);
-  const founderEvidenceTimeline = fulfilledValue(results[8]);
-  const founderActionsInbox = fulfilledValue(results[9]);
-  const founderMorningBriefing = fulfilledValue(results[10]);
-  const founderStorageStatus = fulfilledValue(results[11]);
+  const controlCenterSettingsStatus = fulfilledValue(results[7]);
+  const controlCenterLocalModelsStatus = fulfilledValue(results[8]);
+  const founderToday = fulfilledValue(results[9]);
+  const founderEvidenceTimeline = fulfilledValue(results[10]);
+  const founderActionsInbox = fulfilledValue(results[11]);
+  const founderMorningBriefing = fulfilledValue(results[12]);
+  const founderStorageStatus = fulfilledValue(results[13]);
+  const normalizedFounderToday = mergeMissingFields(
+    mockControlCenterData.founderToday,
+    founderToday,
+  );
+  const normalizedFounderEvidenceTimeline = mergeMissingFields(
+    mockControlCenterData.founderEvidenceTimeline,
+    founderEvidenceTimeline,
+  );
+  const normalizedFounderActionsInbox = mergeMissingFields(
+    mockControlCenterData.founderActionsInbox,
+    founderActionsInbox,
+  );
+  const normalizedFounderMorningBriefing = mergeMissingFields(
+    mockControlCenterData.founderMorningBriefing,
+    founderMorningBriefing,
+  );
+  const founderLoopFieldFallbackUsed =
+    normalizedFounderToday.usedFallback ||
+    normalizedFounderEvidenceTimeline.usedFallback ||
+    normalizedFounderActionsInbox.usedFallback ||
+    normalizedFounderMorningBriefing.usedFallback;
   const fulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
@@ -198,20 +229,21 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m36FileReview: mockControlCenterData.m36FileReview,
     m39ContextProposals: mockControlCenterData.m39ContextProposals,
     macosSetupAssistant: setupAssistant,
-    founderToday: founderToday ?? mockControlCenterData.founderToday,
-    founderEvidenceTimeline:
-      founderEvidenceTimeline ?? mockControlCenterData.founderEvidenceTimeline,
-    founderActionsInbox:
-      founderActionsInbox ?? mockControlCenterData.founderActionsInbox,
-    founderMorningBriefing:
-      founderMorningBriefing ?? mockControlCenterData.founderMorningBriefing,
+    settingsStatus:
+      controlCenterSettingsStatus ?? mockControlCenterData.settingsStatus,
+    localModelsStatus:
+      controlCenterLocalModelsStatus ?? mockControlCenterData.localModelsStatus,
+    founderToday: normalizedFounderToday.value,
+    founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
+    founderActionsInbox: normalizedFounderActionsInbox.value,
+    founderMorningBriefing: normalizedFounderMorningBriefing.value,
     founderStorageStatus:
       founderStorageStatus ?? mockControlCenterData.founderStorageStatus,
     source: "api",
     connection: mockControlCenterData.connection,
   };
 
-  if (fulfilledCount === results.length) {
+  if (fulfilledCount === results.length && !founderLoopFieldFallbackUsed) {
     return withConnection(data, {
       state: "online",
       safeMessage:
@@ -224,9 +256,17 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   return withConnection(data, {
     state: "degraded",
     safeMessage:
-      "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
+      founderLoopFieldFallbackUsed
+        ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
+        : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
     usingMockData: true,
-    warnings: ["LOCAL_BACKEND_DEGRADED", "PARTIAL_MOCK_FALLBACK"],
+    warnings: [
+      "LOCAL_BACKEND_DEGRADED",
+      "PARTIAL_MOCK_FALLBACK",
+      ...(founderLoopFieldFallbackUsed
+        ? ["PARTIAL_FOUNDER_LOOP_FIELD_FALLBACK"]
+        : []),
+    ],
   });
 }
 
@@ -797,6 +837,51 @@ function withConnection(
 
 function fulfilledValue<T>(result: PromiseSettledResult<T>): T | undefined {
   return result.status === "fulfilled" ? result.value : undefined;
+}
+
+function mergeMissingFields<T>(
+  fallback: T,
+  value: T | undefined,
+): { value: T; usedFallback: boolean } {
+  if (value === undefined) {
+    return { value: fallback, usedFallback: true };
+  }
+  if (!isPlainRecord(fallback) || !isPlainRecord(value)) {
+    return { value, usedFallback: false };
+  }
+
+  let usedFallback = false;
+  const merged: Record<string, unknown> = { ...fallback };
+  const valueRecord = value as Record<string, unknown>;
+  const fallbackRecord = fallback as Record<string, unknown>;
+
+  for (const key of Object.keys(valueRecord)) {
+    const childValue = valueRecord[key];
+    const childFallback = fallbackRecord[key];
+    if (
+      childValue !== undefined &&
+      isPlainRecord(childFallback) &&
+      isPlainRecord(childValue)
+    ) {
+      const childMerge = mergeMissingFields(childFallback, childValue);
+      merged[key] = childMerge.value;
+      usedFallback = usedFallback || childMerge.usedFallback;
+    } else {
+      merged[key] = childValue;
+    }
+  }
+
+  for (const key of Object.keys(fallbackRecord)) {
+    if (!Object.prototype.hasOwnProperty.call(valueRecord, key)) {
+      usedFallback = true;
+    }
+  }
+
+  return { value: merged as T, usedFallback };
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function readJsonSafely(response: Response): Promise<unknown> {

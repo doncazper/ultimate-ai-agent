@@ -101,9 +101,9 @@ const SURFACE_CONFIGS: Record<OperatorSurface, SurfaceConfig> = {
   Models: {
     eyebrow: "Operator surface",
     heading: "Models",
-    status: "blocked",
+    status: "read-only status",
     summary:
-      "Model readiness is visible through runtime summaries only. GGUF selection and llama.cpp lifecycle controls are not exposed here.",
+      "Backend-owned Local Models status is available as read-only inventory and gateway posture. GGUF selection, download, start/stop, switch, and provider authority stay blocked.",
     states: {
       loading: {
         title: "Loading model readiness",
@@ -117,15 +117,18 @@ const SURFACE_CONFIGS: Record<OperatorSurface, SurfaceConfig> = {
         nextAction: "Inspect local model evidence refs and packaging provenance before retrying.",
       },
       empty: {
-        title: "No approved model summaries",
-        message: "No approved GGUF or model readiness summaries are available in Control Center.",
-        nextAction: "Review M167 evidence and packaging provenance before selecting a model.",
+        title: "No approved lifecycle receipts",
+        message:
+          "Read-only inventory status can be shown, but no lifecycle receipt or approved model switch state exists.",
+        nextAction:
+          "Use the backend status route and reviewed local model docs before any lifecycle milestone.",
       },
       blocked: {
-        title: "Blocked: model selection not implemented",
+        title: "Blocked: model lifecycle authority not scoped",
         message:
-          "The UI cannot approve GGUF files, start llama.cpp, change tuning, or claim local model readiness.",
-        nextAction: "Use reviewed local model runbooks and evidence matrices outside this UI.",
+          "The UI cannot approve GGUF files, download models, start llama.cpp, switch models, change tuning, or claim provider authority.",
+        nextAction:
+          "Keep lifecycle work behind future exact backend contracts, receipts, and rollback proof.",
       },
       denied: {
         title: "Denied: no provider or model authority",
@@ -281,9 +284,9 @@ const SURFACE_CONFIGS: Record<OperatorSurface, SurfaceConfig> = {
   Settings: {
     eyebrow: "Operator surface",
     heading: "Settings",
-    status: "blocked",
+    status: "read-only status",
     summary:
-      "Settings are visible as disabled posture only. There is no settings mutation route or runtime authority toggle.",
+      "Backend-owned Settings status is available for maturity, feature-flag, kill-switch, route-safety, and blocked-authority posture. Mutation remains blocked.",
     states: {
       loading: {
         title: "Loading settings posture",
@@ -296,15 +299,18 @@ const SURFACE_CONFIGS: Record<OperatorSurface, SurfaceConfig> = {
         nextAction: "Inspect documented defaults and route status before retrying.",
       },
       empty: {
-        title: "No settings manifest",
-        message: "No dedicated settings manifest is implemented for Control Center.",
-        nextAction: "Use documented defaults and scoped milestone requirements.",
+        title: "No settings mutation receipt",
+        message:
+          "Read-only settings status can be shown, but no feature-flag, kill-switch, or runtime-settings mutation receipt exists.",
+        nextAction:
+          "Use the backend status route and maturity manifest before scoping any settings mutation.",
       },
       blocked: {
-        title: "Blocked: settings routes not implemented",
+        title: "Blocked: settings mutation authority not scoped",
         message:
-          "There is no UI path to enable shell, browser, connector, plugin, mobile, model, memory, or runtime authority.",
-        nextAction: "Define a scoped settings milestone before any setting can mutate state.",
+          "There is no UI path to enable shell, browser, connector, plugin, mobile, model, memory, feature-flag, kill-switch, or runtime authority.",
+        nextAction:
+          "Define an exact scoped settings mutation milestone before any setting can change state.",
       },
       denied: {
         title: "Denied: no authority toggle",

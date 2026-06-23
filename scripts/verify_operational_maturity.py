@@ -61,6 +61,17 @@ LOCAL_TASK_PATH = "/control-center/actions/{action_id}/local-task/commit"
 LOCAL_TASK_LANE_ID = "local_task_create"
 LOCAL_TASK_RECEIPT_REF = "receipt:founder-loop-local-task:*"
 LOCAL_TASK_EVENT_REF = "evidence-event-type:local_task_created"
+STALE_UI_STATUS_PHRASES = [
+    "routes not implemented",
+    "no dedicated manifest",
+    "blocked: settings routes not implemented",
+    "mock-only",
+    "proposal only",
+    "proposal-only",
+    "ui-only",
+    "not wired",
+    "placeholder",
+]
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -68,12 +79,23 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 
 def _compact_text(path: Path) -> str:
-    return " ".join(path.read_text(encoding="utf-8").lower().split())
+    return _compact_string(path.read_text(encoding="utf-8"))
 
 
-def verify(root: Path = ROOT) -> list[str]:
+def _compact_string(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def verify(
+    root: Path = ROOT,
+    manifest_override: dict[str, Any] | None = None,
+) -> list[str]:
     failures: list[str] = []
-    manifest = _load_json(root / MANIFEST_PATH.relative_to(ROOT))
+    manifest = (
+        manifest_override
+        if manifest_override is not None
+        else _load_json(root / MANIFEST_PATH.relative_to(ROOT))
+    )
     schema = _load_json(root / SCHEMA_PATH.relative_to(ROOT))
     ladder_text = _compact_text(root / LADDER_DOC_PATH.relative_to(ROOT))
     gap_map_text = _compact_text(root / GAP_MAP_PATH.relative_to(ROOT))
@@ -87,7 +109,7 @@ def verify(root: Path = ROOT) -> list[str]:
     _append_schema_shape_failures(failures, schema)
     _append_manifest_shape_failures(failures, manifest)
     _append_ladder_doc_failures(failures, ladder_text)
-    _append_module_failures(failures, manifest, routes_by_ref)
+    _append_module_failures(failures, manifest, routes_by_ref, root)
     _append_first_lane_failures(failures, manifest, routes_by_ref)
     _append_public_request_schema_failures(failures)
     _append_ref_resolution_failures(failures, manifest, root)
@@ -122,6 +144,27 @@ def _append_schema_shape_failures(
     ]:
         if field not in module_required:
             failures.append(f"operational maturity schema missing module field {field}")
+    binding_required = set(
+        schema.get("$defs", {}).get("ui_status_binding", {}).get("required", [])
+    )
+    for field in [
+        "surface",
+        "status_route_ref",
+        "frontend_endpoint_ref",
+        "frontend_client_ref",
+        "frontend_type_ref",
+        "frontend_component_refs",
+        "frontend_test_refs",
+        "backend_only_status",
+        "backend_only_reason",
+        "backend_only_doc_ref",
+        "backend_only_blocker_ref",
+        "stale_language_scan_refs",
+    ]:
+        if field not in binding_required:
+            failures.append(
+                f"operational maturity schema missing ui_status_binding field {field}"
+            )
 
 
 def _append_manifest_shape_failures(
@@ -168,6 +211,7 @@ def _append_module_failures(
     failures: list[str],
     manifest: dict[str, Any],
     routes_by_ref: dict[str, dict[str, Any]],
+    root: Path,
 ) -> None:
     for module in manifest.get("modules", []):
         module_id = str(module.get("module_id"))
@@ -188,6 +232,12 @@ def _append_module_failures(
         for route_ref in module.get("backend_routes", []):
             if route_ref not in routes_by_ref:
                 failures.append(f"{module_id} references missing backend route {route_ref}")
+        _append_ui_status_binding_failures(
+            failures,
+            module,
+            routes_by_ref,
+            root,
+        )
         if rank >= 3:
             if module.get("backend_owned_receipts") is not True:
                 failures.append(f"{module_id} rank 3+ requires backend_owned_receipts")
@@ -331,6 +381,35 @@ def _append_ref_resolution_failures(
         for field in ["test_refs", "verifier_refs", "route_metadata_refs"]:
             for ref in module.get(field, []):
                 _append_repo_ref_failure(failures, root, str(ref), f"{module_id}.{field}")
+        binding = module.get("ui_status_binding")
+        if isinstance(binding, dict):
+            for field in [
+                "frontend_endpoint_ref",
+                "frontend_client_ref",
+                "frontend_type_ref",
+                "backend_only_doc_ref",
+                "backend_only_blocker_ref",
+            ]:
+                ref = binding.get(field)
+                if ref:
+                    _append_source_ref_failure(
+                        failures,
+                        root,
+                        str(ref),
+                        f"{module_id}.ui_status_binding.{field}",
+                    )
+            for field in [
+                "frontend_component_refs",
+                "frontend_test_refs",
+                "stale_language_scan_refs",
+            ]:
+                for ref in binding.get(field, []):
+                    _append_source_ref_failure(
+                        failures,
+                        root,
+                        str(ref),
+                        f"{module_id}.ui_status_binding.{field}",
+                    )
         for ref in module.get("cli_or_script_refs", []):
             _append_cli_or_script_ref_failure(
                 failures, root, str(ref), f"{module_id}.cli_or_script_refs"
@@ -371,6 +450,21 @@ def _append_repo_ref_failure(
             failures.append(f"{owner} references missing test {ref}")
 
 
+def _append_source_ref_failure(
+    failures: list[str],
+    root: Path,
+    ref: str,
+    owner: str,
+) -> None:
+    path_ref, _, selector = ref.partition("::")
+    path = root / path_ref
+    if not path.exists():
+        failures.append(f"{owner} references missing path {ref}")
+        return
+    if selector and selector not in path.read_text(encoding="utf-8"):
+        failures.append(f"{owner} references missing selector {ref}")
+
+
 def _append_cli_or_script_ref_failure(
     failures: list[str],
     root: Path,
@@ -383,6 +477,127 @@ def _append_cli_or_script_ref_failure(
     path = root / path_ref
     if not path.exists():
         failures.append(f"{owner} references missing CLI/script {ref}")
+
+
+def _append_ui_status_binding_failures(
+    failures: list[str],
+    module: dict[str, Any],
+    routes_by_ref: dict[str, dict[str, Any]],
+    root: Path,
+) -> None:
+    module_id = str(module.get("module_id"))
+    rank = int(module.get("current_rank", -1))
+    target_rank = int(module.get("next_target_rank", -1))
+    backend_status_routes = [
+        str(route_ref)
+        for route_ref in module.get("backend_routes", [])
+        if _is_backend_status_route(str(route_ref))
+    ]
+    if (rank < 2 and target_rank < 2) or not backend_status_routes:
+        return
+
+    binding = module.get("ui_status_binding")
+    if not isinstance(binding, dict):
+        failures.append(
+            f"{module_id} rank 2+ backend status route requires ui_status_binding"
+        )
+        return
+
+    status_route_ref = str(binding.get("status_route_ref", ""))
+    if status_route_ref not in backend_status_routes:
+        failures.append(
+            f"{module_id} ui_status_binding status_route_ref must match a backend status route"
+        )
+        return
+    route = routes_by_ref.get(status_route_ref)
+    if route is None:
+        failures.append(f"{module_id} ui_status_binding references missing route {status_route_ref}")
+        return
+    if route.get("method") != "GET":
+        failures.append(f"{module_id} status route must be GET")
+    if route.get("route_classification") != "local_readonly":
+        failures.append(f"{module_id} status route must be local_readonly")
+    if route.get("side_effect_class") != "validation_only":
+        failures.append(f"{module_id} status route must be validation_only")
+    if route.get("protected_route") is not True:
+        failures.append(f"{module_id} status route must stay protected")
+    if route.get("idempotency_required") is not False:
+        failures.append(f"{module_id} read-only status route must not require idempotency")
+
+    backend_only = binding.get("backend_only_status")
+    if backend_only is True:
+        for field in [
+            "backend_only_reason",
+            "backend_only_doc_ref",
+            "backend_only_blocker_ref",
+        ]:
+            if not binding.get(field):
+                failures.append(
+                    f"{module_id} backend-only status binding requires {field}"
+                )
+        return
+    if backend_only is not False:
+        failures.append(f"{module_id} ui_status_binding backend_only_status must be boolean")
+        return
+
+    for field in [
+        "frontend_endpoint_ref",
+        "frontend_client_ref",
+        "frontend_type_ref",
+    ]:
+        if not binding.get(field):
+            failures.append(f"{module_id} surfaced status binding requires {field}")
+    for field in ["frontend_component_refs", "frontend_test_refs"]:
+        if not binding.get(field):
+            failures.append(f"{module_id} surfaced status binding requires {field}")
+    scan_refs = binding.get("stale_language_scan_refs")
+    if not scan_refs:
+        failures.append(f"{module_id} surfaced status binding requires stale_language_scan_refs")
+    else:
+        _append_stale_language_scan_failures(failures, root, module_id, scan_refs)
+
+
+def _is_backend_status_route(route_ref: str) -> bool:
+    method, _, path = route_ref.partition(" ")
+    return method == "GET" and path.startswith("/control-center/") and path.endswith("/status")
+
+
+def _append_stale_language_scan_failures(
+    failures: list[str],
+    root: Path,
+    module_id: str,
+    scan_refs: list[str],
+) -> None:
+    for ref in scan_refs:
+        path_ref, _, selector = str(ref).partition("::")
+        path = root / path_ref
+        if not path.exists():
+            failures.append(f"{module_id} stale language scan missing path {ref}")
+            continue
+        text = _scoped_compact_text(path, selector)
+        for phrase in STALE_UI_STATUS_PHRASES:
+            if phrase in text:
+                failures.append(
+                    f"{module_id} stale UI/backend status language in {path_ref}: {phrase}"
+                )
+
+
+def _scoped_compact_text(path: Path, selector: str) -> str:
+    raw = path.read_text(encoding="utf-8")
+    if not selector:
+        return _compact_string(raw)
+    start = raw.find(selector)
+    if start < 0:
+        return _compact_string(raw)
+    scoped = raw[start:]
+    end_candidates = [
+        index
+        for marker in ["\n  },\n", "\n};", "\nexport function "]
+        if (index := scoped.find(marker, 1)) > 0
+    ]
+    if end_candidates:
+        scoped = scoped[: min(end_candidates)]
+    return _compact_string(scoped)
 
 
 def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:

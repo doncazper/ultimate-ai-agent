@@ -1650,9 +1650,110 @@ export const mockControlCenterData: ControlCenterData = {
     usingMockData: true,
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"],
   },
+  settingsStatus: {
+    schema_version: "uaa-control-center-settings-status.v1",
+    module_id: "settings",
+    status: "read_only_status",
+    route_ref: "GET /control-center/settings/status",
+    safe_summary:
+      "Settings status is backend-owned read-only posture over maturity gate, feature-flag, kill-switch, route safety, and blocked authority refs.",
+    maturity_gate_status: "active_promotion_gate",
+    maturity_manifest_ref:
+      "docs/control_center/operational_maturity_manifest.json",
+    ladder_doc_ref: "docs/control_center/OPERATIONALIZATION_LADDER.md",
+    verifier_ref: "scripts/verify_operational_maturity.py",
+    route_status_manifest_ref:
+      "docs/control_center/route_status_manifest.json",
+    api_manifest_route_ref: "GET /api/manifest",
+    review_proposals: [
+      "settings-proposal:feature-flag-status-route",
+      "settings-proposal:kill-switch-status-route",
+      "settings-proposal:reviewed-local-runtime-settings-status",
+    ],
+    proposal_review_only: true,
+    feature_flag_posture: "read_only_metadata_only",
+    kill_switch_posture: "not_configured_status_only",
+    disabled_by_default: true,
+    feature_flag_mutation_enabled: false,
+    kill_switch_mutation_enabled: false,
+    settings_mutation_enabled: false,
+    production_authority_enabled: false,
+    blocked_authorities: [
+      "feature_flag_mutation",
+      "kill_switch_mutation",
+      "permission_mode_mutation",
+      "model_identity_mutation",
+      "runtime_lifecycle_mutation",
+      "production_authority",
+    ],
+    missing_contracts: [
+      "feature_flag_mutation_contract",
+      "kill_switch_execution_contract",
+      "reviewed_local_runtime_settings_mutation_contract",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "raw_paths_omitted",
+      "credentials_omitted",
+      "no_runtime_values",
+    ],
+  },
+  localModelsStatus: {
+    schema_version: "uaa-control-center-local-models-status.v1",
+    module_id: "local_models",
+    status: "read_only_status",
+    route_ref: "GET /control-center/local-models/status",
+    safe_summary:
+      "Local Models status is backend-owned read-only metadata over inventory and gateway posture; lifecycle and provider/model authority remain blocked.",
+    review_proposals: [
+      "local-models-proposal:read-only-inventory-table",
+      "local-models-proposal:lifecycle-status-route",
+      "local-models-proposal:dry-run-switch-planner-contract",
+    ],
+    proposal_review_only: true,
+    inventory: {
+      schema_version: "uaa_local_model_inventory.v1",
+      inventory_ref: "local-model-inventory:mock-safe-ref",
+      model_count: 0,
+      safe_refs_only: true,
+    },
+    gateway_posture: {
+      local_gateway_enabled: false,
+      bearer_env_configured: false,
+      model_calls_performed: false,
+      provider_authority_enabled: false,
+    },
+    lifecycle_actions: {
+      download_enabled: false,
+      switch_enabled: false,
+      start_enabled: false,
+      stop_enabled: false,
+      runtime_adapter_execution_enabled: false,
+      provider_model_authority_enabled: false,
+    },
+    blocked_authorities: [
+      "model_download",
+      "model_switch",
+      "model_start_stop",
+      "provider_model_authority",
+      "runtime_adapter_execution",
+      "model_lifecycle_mutation",
+      "production_authority",
+    ],
+    evidence_refs: [
+      "docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md",
+      "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "raw_paths_omitted",
+      "credentials_omitted",
+      "no_model_calls",
+    ],
+  },
   manifest: {
     manifest_id: "mock_control_center_manifest_m36",
-    version: "v0.102.1",
+    version: "v0.103.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
@@ -1892,7 +1993,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   dashboard: {
     snapshot_id: "mock_control_center_dashboard_m36",
-    baseline_version: "v0.102.1",
+    baseline_version: "v0.103.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -2424,7 +2525,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   runtimeReadiness: {
     report_id: "mock_runtime_readiness_m18",
-    baseline_version: "v0.102.1",
+    baseline_version: "v0.103.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -2438,7 +2539,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   capabilityMatrix: {
     matrix_id: "mock_runtime_capability_matrix_m18",
-    baseline_version: "v0.102.1",
+    baseline_version: "v0.103.0",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {

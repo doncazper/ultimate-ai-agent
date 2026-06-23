@@ -11,16 +11,17 @@ import type {
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
-  FounderLoopLocalTaskCommitReceipt,
   FounderLoopBriefingItem,
   FounderLoopEvidenceTimelineEvent,
   FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
+  FounderLoopLocalTaskCommitReceipt,
   FounderLoopMemoryReviewItem,
   FounderLoopMorningBriefing,
   FounderLoopPlanSummary,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
+  ControlCenterSettingsStatus,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
 } from "../api/types";
@@ -34,6 +35,283 @@ const evidenceHistoryKeys = [
   "stale",
   "blocked",
 ] as const;
+
+type FounderLoopPrimarySurface =
+  | "Today"
+  | "Inbox"
+  | "Plans"
+  | "Actions"
+  | "Memory"
+  | "Evidence"
+  | "Settings";
+
+type FounderLoopSpineItem = {
+  surface: FounderLoopPrimarySurface;
+  path: string;
+  status: string;
+  posture: "implemented" | "partial" | "blocked" | "receipt-backed" | "authority-gated";
+  summary: string;
+  nextSafeAction: string;
+  refs: string[];
+};
+
+export function FounderLoopSpinePanel({
+  activeSurface,
+  evidence,
+  inbox,
+  settingsStatus,
+  today,
+}: {
+  activeSurface: FounderLoopPrimarySurface;
+  evidence?: FounderLoopEvidenceTimelineIndex;
+  inbox?: FounderLoopActionsInbox;
+  settingsStatus?: ControlCenterSettingsStatus;
+  today: FounderLoopTodaySummary;
+}) {
+  const items = buildFounderLoopSpineItems({
+    evidence,
+    inbox,
+    settingsStatus,
+    today,
+  });
+  const localTaskSummary = summarizeLocalTaskLane(inbox?.items ?? today.actions);
+
+  return (
+    <section
+      aria-labelledby="founder-loop-spine-heading"
+      className="loop-spine"
+    >
+      <div className="loop-spine-header">
+        <div>
+          <p className="eyebrow">Founder Command Center</p>
+          <h2 id="founder-loop-spine-heading">Founder daily loop</h2>
+        </div>
+        <span className="status-pill compact">
+          {today.daily_loop_summary?.status ?? today.status}
+        </span>
+      </div>
+      <p className="section-copy">
+        Morning Briefing and Today are the local home, then Inbox, Plans,
+        Actions, Memory, Evidence, and Settings stay visible as one backend-bound
+        loop. No generic execution is available; the only mutating FCC authority
+        shown here is the exact local task lane after backend approval.
+      </p>
+      <div aria-label="Founder daily loop modules" className="loop-spine-grid">
+        {items.map((item) => (
+          <a
+            aria-current={activeSurface === item.surface ? "page" : undefined}
+            className={`loop-spine-card ${item.posture}`}
+            href={item.path}
+            key={item.surface}
+          >
+            <span className="loop-spine-card-topline">
+              <strong>{item.surface}</strong>
+              <small>{item.posture}</small>
+            </span>
+            <span className="loop-spine-status">{item.status}</span>
+            <span className="loop-spine-summary">{item.summary}</span>
+            <span className="loop-spine-next">{item.nextSafeAction}</span>
+            <span className="loop-spine-ref">{item.refs[0] ?? "safe refs pending"}</span>
+          </a>
+        ))}
+      </div>
+      <div
+        aria-label="Founder Loop authority boundaries"
+        className="loop-authority-strip"
+      >
+        <span>No generic execution</span>
+        <span>Local task authority gated by backend approval</span>
+        <span>{localTaskSummary}</span>
+        <span>Connector writes blocked</span>
+        <span>Shell/subprocess blocked</span>
+        <span>Provider/model authority blocked</span>
+        <span>Memory writes and context injection blocked</span>
+        <span>Production authority blocked</span>
+      </div>
+    </section>
+  );
+}
+
+function buildFounderLoopSpineItems({
+  evidence,
+  inbox,
+  settingsStatus,
+  today,
+}: {
+  evidence?: FounderLoopEvidenceTimelineIndex;
+  inbox?: FounderLoopActionsInbox;
+  settingsStatus?: ControlCenterSettingsStatus;
+  today: FounderLoopTodaySummary;
+}): FounderLoopSpineItem[] {
+  const sourceReadiness = today.source_readiness_items ?? [];
+  const reviewGroups = today.review_queue_groups ?? [];
+  const inboxSource = sourceReadiness.find((item) => item.source_kind === "inbox");
+  const sections = today.sections ?? {
+    action_inbox_count: 0,
+    briefing_count: 0,
+    memory_review_count: 0,
+    plan_count: 0,
+  };
+  const actionItems = inbox?.items ?? today.actions ?? [];
+  const localTaskEligible = actionItems.filter(
+    (item) =>
+      item.action_kind === "local_task_create" &&
+      item.local_task_commit_eligible,
+  ).length;
+  const localTaskReceipts = actionItems.filter(
+    (item) => item.local_task_commit_receipt_ref,
+  ).length;
+  const memoryReviewGroup = reviewGroups.find((group) => group.kind === "memory");
+  const evidenceEvents =
+    evidence?.event_count ??
+    sections.evidence_timeline_count ??
+    (today.evidence_timeline ?? []).length;
+
+  return [
+    {
+      surface: "Today",
+      path: "/today",
+      status: today.daily_loop_summary?.home_surface ?? today.status,
+      posture: "partial",
+      summary:
+        today.daily_loop_summary?.today_plan_summary ??
+        `${sections.plan_count} plans and ${sections.action_inbox_count} actions in local review.`,
+      nextSafeAction:
+        today.daily_loop_summary?.next_safe_action ??
+        "Review Today before opening deeper surfaces.",
+      refs: [
+        today.daily_loop_summary?.loop_ref,
+        today.product_spine_contract_ref,
+        today.storage_ref,
+      ].filter(isPresent),
+    },
+    {
+      surface: "Inbox",
+      path: "/inbox",
+      status: inboxSource?.status ?? "blocked/planned",
+      posture: "blocked",
+      summary:
+        inboxSource?.safe_summary ??
+        "Email and calendar metadata contracts are not enabled in this slice.",
+      nextSafeAction:
+        inboxSource?.next_safe_action ??
+        "Define read-only source metadata before connector runtime.",
+      refs: [
+        inboxSource?.source_ref,
+        ...(inboxSource?.blocked_state_refs ?? []),
+      ].filter(isPresent),
+    },
+    {
+      surface: "Plans",
+      path: "/plans",
+      status: today.plans_action_envelope_status ?? "partial_backend_not_product_ready",
+      posture: "partial",
+      summary: `${sections.plan_count} plan refs are visible with approval and evidence posture.`,
+      nextSafeAction:
+        today.plan_action_state?.review_actions?.[0] ??
+        "Keep browser plan execution blocked until a scoped backend lane exists.",
+      refs: [
+        today.plans_action_envelope_contract_ref,
+        ...(today.plans_action_envelope_required_blocked_refs ?? []),
+      ].filter(isPresent),
+    },
+    {
+      surface: "Actions",
+      path: "/actions",
+      status:
+        localTaskReceipts > 0
+          ? "local_task_receipt_recorded"
+          : localTaskEligible > 0
+            ? "local_task_authority_gated"
+            : inbox?.status ?? "reviewable_actions",
+      posture:
+        localTaskEligible > 0 || localTaskReceipts > 0
+          ? "authority-gated"
+          : "receipt-backed",
+      summary: `${actionItems.length} action refs; ${localTaskEligible} eligible local task lane; ${localTaskReceipts} local task receipts.`,
+      nextSafeAction:
+        actionItems.find((item) => item.local_task_commit_next_safe_action)
+          ?.local_task_commit_next_safe_action ??
+        "Record only supported receipts or commit the approved local task lane.",
+      refs: [
+        inbox?.route_ref,
+        inbox?.decision_state_contract_ref,
+        actionItems.find((item) => item.local_task_commit_contract_ref)
+          ?.local_task_commit_contract_ref,
+      ].filter(isPresent),
+    },
+    {
+      surface: "Memory",
+      path: "/memory",
+      status: today.memory_review_status ?? "review_queue_status_unknown",
+      posture: "receipt-backed",
+      summary: `${sections.memory_review_count} reviewed memory refs are visible as recall, not truth authority.`,
+      nextSafeAction:
+        memoryReviewGroup?.next_safe_action ??
+        "Record safe memory review decisions without memory write authority.",
+      refs: [
+        today.memory_review_decision_contract_ref,
+        today.memory_to_loop_binding_contract_ref,
+        ...(today.memory_review_decision_receipt_refs ?? []),
+      ].filter(isPresent),
+    },
+    {
+      surface: "Evidence",
+      path: "/evidence",
+      status:
+        evidence?.status ??
+        today.evidence_timeline_status ??
+        "storage_backed_redacted_history_grammar_refs",
+      posture: "implemented",
+      summary: `${evidenceEvents} safe-ref evidence events expose what was proposed, approved, changed, and blocked.`,
+      nextSafeAction:
+        today.weekly_review_narrative?.next_safe_action ??
+        "Inspect receipts and evidence refs before claiming completion.",
+      refs: [
+        evidence?.route_ref,
+        evidence?.contract_ref,
+        today.evidence_history_contract_ref,
+      ].filter(isPresent),
+    },
+    {
+      surface: "Settings",
+      path: "/settings",
+      status: settingsStatus?.status ?? "read_only_status_unavailable",
+      posture: "blocked",
+      summary:
+        settingsStatus?.safe_summary ??
+        "Settings expose backend-owned read-only posture without browser mutation controls.",
+      nextSafeAction:
+        "Inspect backend-owned settings status before scoping any settings mutation.",
+      refs: [
+        settingsStatus?.route_ref,
+        settingsStatus?.maturity_manifest_ref,
+        "docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md",
+        "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+      ].filter(isPresent),
+    },
+  ];
+}
+
+function summarizeLocalTaskLane(items: FounderLoopActionItem[]): string {
+  const eligible = items.filter(
+    (item) =>
+      item.action_kind === "local_task_create" &&
+      item.local_task_commit_eligible,
+  ).length;
+  const receipts = items.filter((item) => item.local_task_commit_receipt_ref).length;
+  if (receipts > 0) {
+    return `${receipts} local task receipt refs`;
+  }
+  if (eligible > 0) {
+    return `${eligible} approved local task lane`;
+  }
+  return "Local task lane blocked unless exact approval exists";
+}
+
+function isPresent(value: string | null | undefined): value is string {
+  return Boolean(value);
+}
 
 export function TodaySurfacePanel({ today }: { today: FounderLoopTodaySummary }) {
   return (

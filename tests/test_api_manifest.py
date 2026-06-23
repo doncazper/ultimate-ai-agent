@@ -224,6 +224,20 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert routes_by_path["/control-center/setup-assistant/summary"]["side_effect_class"] == (
         "validation_only"
     )
+    assert routes_by_path["/control-center/settings/status"]["route_classification"] == (
+        "local_readonly"
+    )
+    assert routes_by_path["/control-center/settings/status"]["side_effect_class"] == (
+        "validation_only"
+    )
+    assert routes_by_path["/control-center/settings/status"]["protected_route"] is True
+    assert routes_by_path["/control-center/local-models/status"]["route_classification"] == (
+        "local_readonly"
+    )
+    assert routes_by_path["/control-center/local-models/status"]["side_effect_class"] == (
+        "validation_only"
+    )
+    assert routes_by_path["/control-center/local-models/status"]["protected_route"] is True
     assert routes_by_path["/control-center/today/summary"]["side_effect_class"] == (
         "local_dev_workspace_only"
     )

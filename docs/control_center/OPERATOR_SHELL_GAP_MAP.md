@@ -4,6 +4,8 @@ Status: active UAA-P0-007 operator-shell gap map
 Baseline: v0.103.0 / 0.103.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
 API boundary: current FastAPI manifest has 135 OpenAPI paths
+Lineage: carries forward the UAA-P1-065 `FCC-P0-002` Control Center
+organization cleanup as historical product-surface context.
 
 This map is production-readiness scaffolding for the Control Center operator
 shell. It does not add runtime authority, backend routes, frontend controls,
@@ -70,7 +72,11 @@ Operational maturity is now a promotion gate enforced by
 `scripts/verify_operational_maturity.py`. No module or lane may move from
 planned, proposal, partial, or proofed-review posture to operational behavior
 without a manifest rank change, verifier pass, backend-owned receipts, and the
-required CLI/core/API parity evidence.
+required CLI/core/API parity evidence. Rank 2+ backend-owned status routes now
+also require a manifest `ui_status_binding` so Control Center UI/API copy cannot
+say Settings, Local Models, or future status modules are missing, mock-only, or
+not wired while backend status exists; explicitly backend-only status must carry
+a reason, doc ref, and blocker ref.
 
 Evidence sources for this map:
 
@@ -162,10 +168,11 @@ local model readiness, UAA `/v1` chat readiness, task plan creation, one safe
 capability approval path, and receipt/audit/latency/rollback inspection. The
 remaining gaps before broader product-readiness claims are:
 
-1. Implement the UAA-P1-065 promoted FCC-P0-002 Follow-Up Collapse/Organize
-   Control Center Around Core Surfaces only under a later exact UI milestone,
-   keeping Today, Inbox, Plans, Actions, Memory, Evidence, and Settings as the
-   primary loop while route authority and blocked states stay visible.
+1. FCC-LOOP-001 now implements the first UI/readability collapse around core
+   surfaces. Today, Inbox, Plans, Actions, Memory, Evidence, and Settings share
+   a compact daily-loop spine while route authority, safe refs, and blocked
+   states stay visible. This did not add backend routes, connector runtime,
+   storage authority, or operational maturity promotion.
 2. Use the UAA-P1-030 route status manifest as release evidence for visible
    action owners, auth posture, side-effect class, risk class, release status,
    OpenAPI operation ids, approval requirements, and evidence refs.

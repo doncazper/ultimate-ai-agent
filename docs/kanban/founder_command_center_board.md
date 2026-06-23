@@ -83,6 +83,9 @@ check is `scripts/verify_operational_maturity.py`. No module may move from
 planned, proposal, partial, or proofed-review posture to operational behavior
 without a manifest rank change, verifier pass, backend-owned receipts, route
 metadata, CLI/core/API parity, focused tests, and redacted evidence.
+Rank 2+ backend-owned status routes must also declare `ui_status_binding`
+evidence in the manifest: the Control Center endpoint/client/type/component/test
+refs that surface the status, or a documented backend-only reason and blocker.
 Candidate Next lanes must stay scoped to that maturity scorecard and may not
 claim operational status without the same manifest and verifier proof.
 
@@ -203,6 +206,13 @@ operator language while preserving technical inspection paths.
 
 **Done Gate:** The first product loop is scannable without hiding existing
 route truth, CLI/core inspection parity, or blocked authority labels.
+
+**Current Implementation:** Implemented as a frontend composition/readability
+lane over existing backend summaries. The primary Founder Loop routes show a
+shared daily-loop spine for Today, Inbox, Plans, Actions, Memory, Evidence, and
+Settings, including blocked states and the exact Action Inbox `local_task_create`
+authority posture. No backend route, storage contract, API manifest entry, or
+operational maturity rank changed for this lane.
 
 **Authority Boundary:** No backend route changes unless separately scoped, no
 React-owned product truth, no new mutation controls, and no authority expansion.

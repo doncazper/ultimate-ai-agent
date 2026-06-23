@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from scripts.verify_operational_maturity import (
     LADDER_LABELS,
     MANIFEST_PATH,
     SCHEMA_PATH,
+    _append_module_failures,
+    _append_stale_language_scan_failures,
     verify,
 )
 from scripts.verification.repo import load_json
@@ -46,3 +50,174 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
 def test_operational_maturity_gate_docs_exist() -> None:
     for path in [MANIFEST_PATH, SCHEMA_PATH]:
         assert Path(path).exists()
+
+
+def test_operational_maturity_verifier_requires_ui_status_binding_for_rank2_status_route() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    modules["settings"].pop("ui_status_binding")
+
+    failures = verify(manifest_override=manifest)
+
+    assert any(
+        "settings rank 2+ backend status route requires ui_status_binding"
+        in failure
+        for failure in failures
+    )
+
+
+def test_operational_maturity_verifier_rejects_undocumented_backend_only_status() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    binding = modules["local_models"]["ui_status_binding"]
+    binding["backend_only_status"] = True
+    binding["backend_only_reason"] = None
+    binding["backend_only_doc_ref"] = None
+    binding["backend_only_blocker_ref"] = None
+
+    failures = verify(manifest_override=manifest)
+
+    assert any(
+        "local_models backend-only status binding requires backend_only_reason"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "local_models backend-only status binding requires backend_only_doc_ref"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "local_models backend-only status binding requires backend_only_blocker_ref"
+        in failure
+        for failure in failures
+    )
+
+
+def test_operational_maturity_verifier_accepts_documented_backend_only_status() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    binding = modules["local_models"]["ui_status_binding"]
+    binding["backend_only_status"] = True
+    binding["backend_only_reason"] = (
+        "Backend status is intentionally hidden until the product surface is scoped."
+    )
+    binding["backend_only_doc_ref"] = "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+    binding["backend_only_blocker_ref"] = (
+        "docs/kanban/founder_command_center_board.md"
+    )
+    binding["frontend_endpoint_ref"] = None
+    binding["frontend_client_ref"] = None
+    binding["frontend_type_ref"] = None
+    binding["frontend_component_refs"] = []
+    binding["frontend_test_refs"] = []
+    binding["stale_language_scan_refs"] = []
+
+    assert verify(manifest_override=manifest) == []
+
+
+def test_operational_maturity_stale_language_scan_is_module_scoped() -> None:
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = root / "surface.tsx"
+        source.write_text(
+            """
+const SURFACE_CONFIGS = {
+  Models: {
+    summary: "Backend-owned status is surfaced.",
+  },
+  Settings: {
+    summary: "Blocked: settings routes not implemented",
+  },
+};
+""",
+            encoding="utf-8",
+        )
+        failures: list[str] = []
+
+        _append_stale_language_scan_failures(
+            failures,
+            root,
+            "local_models",
+            ["surface.tsx::Models:"],
+        )
+        assert failures == []
+
+        _append_stale_language_scan_failures(
+            failures,
+            root,
+            "settings",
+            ["surface.tsx::Settings:"],
+        )
+        assert any(
+            "settings stale UI/backend status language" in failure
+            for failure in failures
+        )
+
+
+def test_operational_maturity_module_scan_uses_supplied_root() -> None:
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = root / "surface.tsx"
+        source.write_text(
+            """
+const SURFACE_CONFIGS = {
+  Settings: {
+    summary: "Blocked: settings routes not implemented",
+  },
+};
+""",
+            encoding="utf-8",
+        )
+        manifest = {
+            "modules": [
+                {
+                    "module_id": "settings",
+                    "role": "support",
+                    "primary_surface": "Settings",
+                    "current_rank": 2,
+                    "current_rank_label": "proposal_review",
+                    "next_target_rank": 2,
+                    "honest_status": "Backend status exists.",
+                    "smallest_next_operational_action": "Keep status surfaced.",
+                    "backend_routes": ["GET /control-center/settings/status"],
+                    "ui_status_binding": {
+                        "surface": "Settings",
+                        "status_route_ref": "GET /control-center/settings/status",
+                        "frontend_endpoint_ref": "surface.tsx::Settings",
+                        "frontend_client_ref": "surface.tsx::Settings",
+                        "frontend_type_ref": "surface.tsx::Settings",
+                        "frontend_component_refs": ["surface.tsx::Settings:"],
+                        "frontend_test_refs": ["surface.tsx::Settings:"],
+                        "backend_only_status": False,
+                        "backend_only_reason": None,
+                        "backend_only_doc_ref": None,
+                        "backend_only_blocker_ref": None,
+                        "stale_language_scan_refs": ["surface.tsx::Settings:"],
+                    },
+                }
+            ]
+        }
+        routes_by_ref = {
+            "GET /control-center/settings/status": {
+                "method": "GET",
+                "path": "/control-center/settings/status",
+                "route_classification": "local_readonly",
+                "side_effect_class": "validation_only",
+                "protected_route": True,
+                "idempotency_required": False,
+            }
+        }
+        failures: list[str] = []
+
+        _append_module_failures(failures, manifest, routes_by_ref, root)
+
+        assert any(
+            "settings stale UI/backend status language" in failure
+            for failure in failures
+        )
+        assert not any("missing path surface.tsx" in failure for failure in failures)
+
+
+def _manifest_copy() -> dict:
+    return deepcopy(load_json(MANIFEST_PATH))
