@@ -115,6 +115,25 @@ export interface FounderLoopActionReceiptVisibility {
   missing_field_states: string[];
 }
 
+export interface FounderLoopLocalTaskSafeDisablePosture {
+  schema_version: "founder_loop_local_task_safe_disable_posture.v1";
+  source: string;
+  backend_owned: boolean;
+  lane_id: string;
+  action_kind: "local_task_create";
+  local_task_commits_enabled: boolean;
+  safe_disable_active: boolean;
+  safe_disable_ref: string;
+  rollback_ref: string;
+  safe_disable_posture_ref: string;
+  disabled_reason_refs: string[];
+  blocked_state_refs: string[];
+  rollback_execution_enabled: boolean;
+  rollback_blocker_refs: string[];
+  next_safe_action: string;
+  updated_at?: string;
+}
+
 export interface FounderLoopActionItem {
   item_ref: string;
   title: string;
@@ -176,12 +195,19 @@ export interface FounderLoopActionItem {
   local_task_commit_blocked_reasons?: string[];
   local_task_commit_next_safe_action?: string;
   local_task_commit_external_authority_blocked_refs?: string[];
+  local_task_safe_disable_posture?: FounderLoopLocalTaskSafeDisablePosture;
+  local_task_safe_disable_ref?: string;
+  local_task_safe_disable_active?: boolean;
+  local_task_safe_disable_posture_ref?: string;
+  local_task_rollback_ref?: string;
+  local_task_rollback_execution_enabled?: boolean;
+  local_task_rollback_blocker_refs?: string[];
   action_group_id?: FounderLoopActionGroupId;
   action_group_label?: string;
   action_group_reason?: string;
   action_group_available_action?: string;
-  approval_envelope: FounderLoopActionApprovalEnvelope;
-  receipt_visibility: FounderLoopActionReceiptVisibility;
+  approval_envelope?: FounderLoopActionApprovalEnvelope;
+  receipt_visibility?: FounderLoopActionReceiptVisibility;
   created_at?: string;
   updated_at?: string;
 }
@@ -263,6 +289,12 @@ export interface FounderLoopLocalTaskCommitReceipt {
   approval_status: string;
   approval_reason_refs: string[];
   local_task_created: boolean;
+  safe_disable_ref?: string;
+  rollback_ref?: string;
+  safe_disable_posture_ref?: string;
+  safe_disable_enabled?: boolean;
+  rollback_execution_enabled?: boolean;
+  rollback_blocker_refs?: string[];
   connector_write_performed: boolean;
   shell_subprocess_execution_performed: boolean;
   model_provider_authority_used: boolean;

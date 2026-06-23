@@ -1045,6 +1045,223 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders backend-owned local task safe-disable and rollback posture", async () => {
+    const disabledInbox = JSON.parse(
+      JSON.stringify({
+        ...mockControlCenterData.founderActionsInbox,
+        ...mockApiData.founderActionsInbox,
+        items: mockApiData.founderActionsInbox.items,
+      }),
+    );
+    const disabledItem = disabledInbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    Object.assign(disabledItem, {
+      status: "blocked",
+      action_group_id: "blocked_by_authority",
+      action_group_label: "Blocked by authority",
+      action_group_reason:
+        "Backend safe-disable posture blocks the exact local task lane.",
+      action_group_available_action:
+        "Inspect safe-disable and rollback refs; no commit control is exposed.",
+      local_task_commit_approval_status: "backend_owned_safe_disable_active",
+      local_task_commit_eligible: false,
+      local_task_commit_blocked_reasons: [
+        "blocked-state:local-task-create-safe-disabled",
+      ],
+      local_task_commit_next_safe_action:
+        "Keep local task creation disabled until backend posture is re-enabled.",
+      local_task_safe_disable_active: true,
+      local_task_safe_disable_posture: {
+        ...disabledItem.local_task_safe_disable_posture,
+        local_task_commits_enabled: false,
+        safe_disable_active: true,
+        disabled_reason_refs: [
+          "blocked-state:local-task-create-safe-disabled",
+        ],
+        blocked_state_refs: [
+          "blocked-state:local-task-create-safe-disabled",
+          "blocked-state:no-connector-write",
+          "blocked-state:no-shell-subprocess-execution",
+          "blocked-state:no-model-provider-authority",
+          "blocked-state:no-memory-write",
+          "blocked-state:no-context-injection",
+          "blocked-state:no-external-side-effect",
+          "blocked-state:no-production-authority",
+        ],
+        next_safe_action:
+          "Keep local task creation disabled until backend posture is re-enabled.",
+      },
+    });
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (options?.method === "POST") {
+        throw new Error("unexpected mutation request");
+      }
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: disabledInbox,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    const actionView = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      const postureCard = screen.getByLabelText("Local task commit posture");
+      expect(postureCard).toHaveTextContent("local_task_commit_eligible");
+      expect(postureCard).toHaveTextContent("false");
+      expect(postureCard).toHaveTextContent(
+        "local_task_commit_approval_status",
+      );
+      expect(postureCard).toHaveTextContent(
+        "backend_owned_safe_disable_active",
+      );
+      expect(postureCard).toHaveTextContent(
+        "local_task_commit_blocked_reasons",
+      );
+      expect(postureCard).toHaveTextContent(
+        "blocked-state:local-task-create-safe-disabled",
+      );
+      expect(postureCard).toHaveTextContent(
+        "local_task_commit_next_safe_action",
+      );
+      expect(postureCard).toHaveTextContent(
+        "Keep local task creation disabled until backend posture is re-enabled.",
+      );
+      expect(postureCard).toHaveTextContent(
+        "local_task_safe_disable_active",
+      );
+      expect(postureCard).toHaveTextContent(
+        "local_task_safe_disable_posture_ref",
+      );
+      expect(postureCard).toHaveTextContent(
+        "safe-disable-posture:founder-loop:local-task-create",
+      );
+      expect(postureCard).toHaveTextContent("local_task_rollback_ref");
+      expect(postureCard).toHaveTextContent(
+        "rollback-not-applicable:local-task-safe-disable",
+      );
+      expect(postureCard).toHaveTextContent(
+        "local_task_rollback_execution_enabled",
+      );
+      expect(postureCard).toHaveTextContent(
+        "blocked-state:local-task-rollback-execution-not-scoped",
+      );
+      expect(postureCard).toHaveTextContent(
+        "blocked-state:no-connector-write",
+      );
+      expect(postureCard).toHaveTextContent(
+        "blocked-state:no-production-authority",
+      );
+      expect(
+        screen.queryByRole("button", { name: /Commit local task/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      actionView.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("keeps missing Action Inbox envelope fields non-authoritative", async () => {
+    const missingEnvelopeInbox = JSON.parse(
+      JSON.stringify({
+        ...mockControlCenterData.founderActionsInbox,
+        ...mockApiData.founderActionsInbox,
+        items: mockApiData.founderActionsInbox.items,
+      }),
+    );
+    const partialItem = missingEnvelopeInbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    delete partialItem.approval_envelope;
+    delete partialItem.receipt_visibility;
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (options?.method === "POST") {
+        throw new Error("unexpected mutation request");
+      }
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: missingEnvelopeInbox,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    const actionView = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      expect(
+        screen.getAllByRole("heading", {
+          name: /^Approval Envelope Unavailable$/i,
+        }).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByRole("heading", {
+          name: /^Receipt Visibility Unavailable$/i,
+        }).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText("blocked-state:backend-owned-envelope-missing")
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText("approval_envelope:missing").length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText("receipt_visibility:missing").length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.queryByRole("button", { name: /Commit local task/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      actionView.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
   it("commits only the eligible Action Inbox local task lane through the typed route", async () => {
     const receipt = {
       contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
@@ -1233,6 +1450,7 @@ describe("Web Control Center shell", () => {
       ]),
     });
     expect(requestBody).not.toHaveProperty("approval_grants");
+    expect(requestBody).not.toHaveProperty("grant_lists");
     expect(requestBody).not.toHaveProperty("authority_scopes");
     expect(requestBody).not.toHaveProperty("risk_class");
     expect(requestBody).not.toHaveProperty("side_effect_class");
@@ -5583,6 +5801,46 @@ const mockApiData = {
           "blocked-state:no-context-injection",
           "blocked-state:no-external-side-effect",
           "blocked-state:no-production-authority",
+        ],
+        local_task_safe_disable_posture: {
+          schema_version: "founder_loop_local_task_safe_disable_posture.v1",
+          source: "python_core_founder_loop_storage",
+          backend_owned: true,
+          lane_id: "local_task_create",
+          action_kind: "local_task_create",
+          local_task_commits_enabled: true,
+          safe_disable_active: false,
+          safe_disable_ref: "safe-disable:founder-loop:mock-local-task-create",
+          rollback_ref: "rollback-not-applicable:local-task-safe-disable",
+          safe_disable_posture_ref:
+            "safe-disable-posture:founder-loop:local-task-create",
+          disabled_reason_refs: [],
+          blocked_state_refs: [
+            "blocked-state:no-connector-write",
+            "blocked-state:no-shell-subprocess-execution",
+            "blocked-state:no-model-provider-authority",
+            "blocked-state:no-memory-write",
+            "blocked-state:no-context-injection",
+            "blocked-state:no-external-side-effect",
+            "blocked-state:no-production-authority",
+          ],
+          rollback_execution_enabled: false,
+          rollback_blocker_refs: [
+            "blocked-state:local-task-rollback-execution-not-scoped",
+          ],
+          next_safe_action:
+            "Commit exact-scoped approved local tasks through the local-task route.",
+          updated_at: "2026-06-22T00:00:00Z",
+        },
+        local_task_safe_disable_ref:
+          "safe-disable:founder-loop:mock-local-task-create",
+        local_task_safe_disable_active: false,
+        local_task_safe_disable_posture_ref:
+          "safe-disable-posture:founder-loop:local-task-create",
+        local_task_rollback_ref: "rollback-not-applicable:local-task-safe-disable",
+        local_task_rollback_execution_enabled: false,
+        local_task_rollback_blocker_refs: [
+          "blocked-state:local-task-rollback-execution-not-scoped",
         ],
         approval_envelope: {
           schema_version: "founder_loop_action_approval_envelope.v1",

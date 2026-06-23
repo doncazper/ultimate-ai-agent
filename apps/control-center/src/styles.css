@@ -928,7 +928,8 @@ main {
 }
 
 .approval-envelope-card,
-.receipt-visibility-card {
+.receipt-visibility-card,
+.local-task-posture-card {
   display: grid;
   gap: 10px;
   padding: 12px;

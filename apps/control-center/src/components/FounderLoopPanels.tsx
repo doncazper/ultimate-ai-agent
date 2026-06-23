@@ -2938,21 +2938,68 @@ function EvidenceTimelineCard({
   );
 }
 
-function isBackendOwnedEnvelope(
+const missingActionEnvelope: NonNullable<FounderLoopActionItem["approval_envelope"]> = {
+  schema_version: "founder_loop_action_approval_envelope.v1",
+  contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
+  source: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  action_kind: "missing",
+  exact_scope: "missing",
+  risk_class: "missing",
+  side_effect_class: "missing",
+  approval_requirement: "missing",
+  expiry_or_staleness: "missing",
+  idempotency_ref: "missing",
+  expected_receipt_refs: [],
+  rollback_safe_disable_posture: "missing",
+  blocked_authority_refs: ["blocked-state:backend-owned-envelope-missing"],
+  evidence_refs: [],
+  missing_field_states: ["approval_envelope:missing"],
+};
+
+const missingReceiptVisibility: NonNullable<
+  FounderLoopActionItem["receipt_visibility"]
+> = {
+  schema_version: "founder_loop_action_receipt_visibility.v1",
+  contract_ref: "contract-ref:founder-loop-action-receipt-visibility:v1",
+  source: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  decision_receipt_ref: "missing",
+  local_task_ref: "missing",
+  local_task_commit_receipt_ref: "missing",
+  evidence_timeline_event_ref: "missing",
+  replay_posture: "missing",
+  conflict_posture: "missing",
+  missing_field_states: ["receipt_visibility:missing"],
+};
+
+function actionEnvelopeOrFallback(
   envelope: FounderLoopActionItem["approval_envelope"],
+): NonNullable<FounderLoopActionItem["approval_envelope"]> {
+  return envelope ?? missingActionEnvelope;
+}
+
+function receiptVisibilityOrFallback(
+  visibility: FounderLoopActionItem["receipt_visibility"],
+): NonNullable<FounderLoopActionItem["receipt_visibility"]> {
+  return visibility ?? missingReceiptVisibility;
+}
+
+function isBackendOwnedEnvelope(
+  envelope: FounderLoopActionItem["approval_envelope"] | null,
 ): boolean {
   return (
-    envelope.backend_owned === true &&
-    envelope.source === pythonCoreActionReadModelSource
+    envelope?.backend_owned === true &&
+    envelope?.source === pythonCoreActionReadModelSource
   );
 }
 
 function isBackendOwnedReceiptVisibility(
-  visibility: FounderLoopActionItem["receipt_visibility"],
+  visibility: FounderLoopActionItem["receipt_visibility"] | null,
 ): boolean {
   return (
-    visibility.backend_owned === true &&
-    visibility.source === pythonCoreActionReadModelSource
+    visibility?.backend_owned === true &&
+    visibility?.source === pythonCoreActionReadModelSource
   );
 }
 
@@ -2981,6 +3028,22 @@ function committedSafeRef(value: string | null | undefined): string | null {
     return null;
   }
   return value;
+}
+
+function displayOptionalBoolean(value: boolean | null | undefined): string {
+  if (typeof value !== "boolean") {
+    return "missing";
+  }
+  return value ? "true" : "false";
+}
+
+function hasLocalTaskPosture(item: FounderLoopActionItem): boolean {
+  return (
+    item.action_kind === "local_task_create" ||
+    Boolean(item.local_task_commit_contract_ref) ||
+    Boolean(item.local_task_safe_disable_posture_ref) ||
+    Boolean(item.local_task_rollback_ref)
+  );
 }
 
 function ActionItemCard({
@@ -3033,8 +3096,14 @@ function ActionItemCard({
   const availableAction =
     displayedItem.action_group_available_action ?? "Review proposal refs only.";
   const backendReadModelAvailable = hasAuthoritativeActionReadModel(displayedItem);
+  const approvalEnvelope = actionEnvelopeOrFallback(
+    displayedItem.approval_envelope,
+  );
+  const receiptVisibility = receiptVisibilityOrFallback(
+    displayedItem.receipt_visibility,
+  );
   const committedLocalTaskRef = committedSafeRef(
-    displayedItem.receipt_visibility.local_task_ref,
+    receiptVisibility.local_task_ref,
   );
   const localTaskRefLabel = committedLocalTaskRef
     ? "Local task ref"
@@ -3045,7 +3114,7 @@ function ActionItemCard({
       ? `target only: ${displayedItem.local_task_ref}`
       : "pending");
   const localTaskReceiptValue =
-    displayedItem.receipt_visibility.local_task_commit_receipt_ref ??
+    receiptVisibility.local_task_commit_receipt_ref ??
     displayedItem.local_task_commit_receipt_ref ??
     "missing";
   const localTaskEligibilityValue =
@@ -3065,8 +3134,9 @@ function ActionItemCard({
       <p className="muted">
         {actionGroupReason} Available operator action: {availableAction}
       </p>
-      <ApprovalEnvelopeCard envelope={displayedItem.approval_envelope} />
-      <ReceiptVisibilityCard visibility={displayedItem.receipt_visibility} />
+      <ApprovalEnvelopeCard envelope={approvalEnvelope} />
+      <ReceiptVisibilityCard visibility={receiptVisibility} />
+      <LocalTaskCommitPostureCard item={displayedItem} />
       <dl className="detail-list">
         <DetailTerm label="Item ref" value={displayedItem.item_ref} />
         <DetailTerm label="Queue lane" value={actionGroupId} />
@@ -3213,10 +3283,120 @@ function ActionItemCard({
   );
 }
 
+function LocalTaskCommitPostureCard({
+  item,
+}: {
+  item: FounderLoopActionItem;
+}) {
+  if (!hasLocalTaskPosture(item)) {
+    return null;
+  }
+  const posture = item.local_task_safe_disable_posture;
+  const safeDisableActive =
+    item.local_task_safe_disable_active ?? posture?.safe_disable_active;
+  const safeDisablePostureRef =
+    item.local_task_safe_disable_posture_ref ??
+    posture?.safe_disable_posture_ref ??
+    "missing";
+  const rollbackRef =
+    item.local_task_rollback_ref ?? posture?.rollback_ref ?? item.rollback_ref ?? "missing";
+  const rollbackExecutionEnabled =
+    item.local_task_rollback_execution_enabled ??
+    posture?.rollback_execution_enabled;
+  const rollbackBlockerRefs =
+    item.local_task_rollback_blocker_refs ?? posture?.rollback_blocker_refs ?? [];
+  const safeDisablePosture =
+    posture === undefined
+      ? "missing"
+      : `backend_owned:${displayOptionalBoolean(posture.backend_owned)}; source:${posture.source}`;
+
+  return (
+    <section
+      aria-label="Local task commit posture"
+      className="local-task-posture-card"
+    >
+      <div className="review-card-heading compact">
+        <h4>Local task commit posture</h4>
+        <span>
+          {item.local_task_commit_eligible === true ? "eligible" : "blocked"}
+        </span>
+      </div>
+      <p className="muted">
+        Backend-owned local_task_create posture rendered from the Action Inbox
+        read model. React does not mint approval, eligibility, safe-disable,
+        rollback, grants, scopes, or authority.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="local_task_commit_eligible"
+          value={displayOptionalBoolean(item.local_task_commit_eligible)}
+        />
+        <DetailTerm
+          label="local_task_commit_approval_status"
+          value={item.local_task_commit_approval_status ?? "missing"}
+        />
+        <DetailTerm
+          label="local_task_commit_approval_ref"
+          value={item.local_task_commit_approval_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="local_task_commit_contract_ref"
+          value={item.local_task_commit_contract_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="local_task_commit_route_ref"
+          value={item.local_task_commit_route_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="local_task_commit_next_safe_action"
+          value={item.local_task_commit_next_safe_action ?? "missing"}
+        />
+        <DetailTerm
+          label="local_task_safe_disable_posture"
+          value={safeDisablePosture}
+        />
+        <DetailTerm
+          label="local_task_safe_disable_active"
+          value={displayOptionalBoolean(safeDisableActive)}
+        />
+        <DetailTerm
+          label="local_task_safe_disable_posture_ref"
+          value={safeDisablePostureRef}
+        />
+        <DetailTerm label="local_task_rollback_ref" value={rollbackRef} />
+        <DetailTerm
+          label="local_task_rollback_execution_enabled"
+          value={displayOptionalBoolean(rollbackExecutionEnabled)}
+        />
+      </dl>
+      <p className="muted">local_task_commit_blocked_reasons</p>
+      <InlineListWithFallback
+        emptyLabel="local_task_commit_blocked_reasons: none"
+        items={item.local_task_commit_blocked_reasons ?? []}
+      />
+      <p className="muted">external authority blockers</p>
+      <RefListWithFallback
+        emptyLabel="external authority blockers: none"
+        refs={item.local_task_commit_external_authority_blocked_refs ?? []}
+      />
+      <p className="muted">local_task_rollback_blocker_refs</p>
+      <RefListWithFallback
+        emptyLabel="local_task_rollback_blocker_refs: none"
+        refs={rollbackBlockerRefs}
+      />
+      <p className="muted">local_task_safe_disable blocked refs</p>
+      <RefListWithFallback
+        emptyLabel="local_task_safe_disable blocked refs: none"
+        refs={posture?.blocked_state_refs ?? []}
+      />
+    </section>
+  );
+}
+
 function ApprovalEnvelopeCard({
   envelope,
 }: {
-  envelope: FounderLoopActionItem["approval_envelope"];
+  envelope: NonNullable<FounderLoopActionItem["approval_envelope"]>;
 }) {
   const backendOwned = isBackendOwnedEnvelope(envelope);
   return (
@@ -3287,7 +3467,7 @@ function ApprovalEnvelopeCard({
 function ReceiptVisibilityCard({
   visibility,
 }: {
-  visibility: FounderLoopActionItem["receipt_visibility"];
+  visibility: NonNullable<FounderLoopActionItem["receipt_visibility"]>;
 }) {
   const backendOwned = isBackendOwnedReceiptVisibility(visibility);
   return (
@@ -3489,7 +3669,7 @@ function LocalTaskCommitControls({
         return;
       }
       const receiptConfirmed =
-        refreshedItem.receipt_visibility.local_task_commit_receipt_ref ===
+        refreshedItem.receipt_visibility?.local_task_commit_receipt_ref ===
           receipt.receipt_ref ||
         refreshedItem.local_task_commit_receipt_ref === receipt.receipt_ref;
       if (!receiptConfirmed) {
