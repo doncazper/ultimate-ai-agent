@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
+    FounderLoopActionDecisionRequest,
     FounderLoopActionEnvelopePromotionRequest,
     action_id_to_item_ref,
 )
@@ -45,6 +46,11 @@ def _safe_action_projection(action: dict[str, Any]) -> dict[str, Any]:
         "approval_envelope_status": action.get("approval_envelope_status"),
         "state_change_contract_ref": action.get("state_change_contract_ref"),
         "state_change_readiness": action.get("state_change_readiness"),
+        "action_kind": action.get("action_kind"),
+        "local_task_ref": action.get("local_task_ref"),
+        "local_task_commit_approval_ref": action.get(
+            "local_task_commit_approval_ref"
+        ),
         "local_task_commit_eligible": action.get("local_task_commit_eligible"),
         "local_task_commit_approval_status": action.get(
             "local_task_commit_approval_status"
@@ -52,6 +58,9 @@ def _safe_action_projection(action: dict[str, Any]) -> dict[str, Any]:
         "local_task_commit_contract_ref": action.get("local_task_commit_contract_ref"),
         "local_task_commit_route_ref": action.get("local_task_commit_route_ref"),
         "local_task_commit_receipt_ref": action.get("local_task_commit_receipt_ref"),
+        "local_task_commit_next_safe_action": action.get(
+            "local_task_commit_next_safe_action"
+        ),
         "local_task_commit_blocked_reasons": list(
             action.get("local_task_commit_blocked_reasons") or []
         ),
@@ -60,6 +69,18 @@ def _safe_action_projection(action: dict[str, Any]) -> dict[str, Any]:
         ),
         "local_task_safe_disable_posture": action.get(
             "local_task_safe_disable_posture"
+        ),
+        "local_task_safe_disable_active": action.get("local_task_safe_disable_active"),
+        "local_task_safe_disable_posture_ref": action.get(
+            "local_task_safe_disable_posture_ref"
+        ),
+        "local_task_safe_disable_ref": action.get("local_task_safe_disable_ref"),
+        "local_task_rollback_ref": action.get("local_task_rollback_ref"),
+        "local_task_rollback_execution_enabled": action.get(
+            "local_task_rollback_execution_enabled"
+        ),
+        "local_task_rollback_blocker_refs": list(
+            action.get("local_task_rollback_blocker_refs") or []
         ),
         "receipt_refs": list(action.get("receipt_refs") or []),
         "audit_refs": list(action.get("audit_refs") or []),
@@ -128,6 +149,50 @@ def _promote_action_envelope(args: argparse.Namespace) -> int:
     output = {
         "schema_version": "founder-loop-cli:v1",
         "command_ref": "repo-local-command:founder-loop-promote-action-envelope",
+        "receipt": receipt,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _record_action_decision(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    request = FounderLoopActionDecisionRequest(
+        approval_ref=args.approval_ref,
+        decision_reason_ref=args.decision_reason_ref,
+        edited_envelope_ref=args.edited_envelope_ref,
+        defer_until_ref=args.defer_until_ref,
+        metadata_refs=args.metadata_ref,
+    )
+    try:
+        receipt = repo.record_action_decision(
+            action_id=args.action_id,
+            decision=args.decision,
+            request=request,
+            idempotency_key_ref=args.idempotency_ref,
+        )
+    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": "repo-local-command:founder-loop-record-action-decision",
+                "status": "blocked",
+                "error_ref": str(exc) or "FOUNDER_LOOP_ACTION_DECISION_BLOCKED",
+                "action_ref": args.action_id,
+                "decision": args.decision,
+                "idempotency_ref": args.idempotency_ref,
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-record-action-decision",
         "receipt": receipt,
         "safe_refs_only": True,
         "raw_content_omitted": True,
@@ -249,6 +314,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="Safe metadata ref to attach to the receipt. May be repeated.",
     )
     promote_parser.set_defaults(func=_promote_action_envelope)
+
+    decision_parser = subparsers.add_parser(
+        "record-action-decision",
+        help="Record a backend-owned Action Inbox decision receipt without executing the action.",
+    )
+    decision_parser.add_argument("--action-id", required=True)
+    decision_parser.add_argument(
+        "--decision",
+        choices=["approve", "edit", "reject", "defer"],
+        required=True,
+    )
+    decision_parser.add_argument("--idempotency-ref", required=True)
+    decision_parser.add_argument(
+        "--approval-ref",
+        default=None,
+        help=(
+            "Optional safe approval ref. If omitted for approve, Python Core "
+            "records a backend-owned exact local approval ref."
+        ),
+    )
+    decision_parser.add_argument(
+        "--decision-reason-ref",
+        default="decision-reason-ref:founder-loop:cli-action-decision",
+    )
+    decision_parser.add_argument("--edited-envelope-ref", default=None)
+    decision_parser.add_argument("--defer-until-ref", default=None)
+    decision_parser.add_argument(
+        "--metadata-ref",
+        action="append",
+        default=[],
+        help="Safe metadata ref to attach to the receipt. May be repeated.",
+    )
+    decision_parser.set_defaults(func=_record_action_decision)
 
     commit_parser = subparsers.add_parser(
         "commit-local-task",

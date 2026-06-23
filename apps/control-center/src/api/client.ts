@@ -25,6 +25,8 @@ import type {
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionEnvelopePromotionRequest,
   FounderLoopEvidenceTimelineIndex,
+  FounderLoopMemoryContextPackActionProposalReceipt,
+  FounderLoopMemoryContextPackActionProposalRequest,
   FounderLoopMemoryContextPacks,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopLocalTaskCommitRequest,
@@ -44,6 +46,7 @@ import {
   actionLocalTaskCommitEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
+  memoryContextPackActionProposalEndpoint,
   memoryReviewDecisionEndpoint,
   memoryReviewReceiptEndpoint,
 } from "./endpoints";
@@ -547,6 +550,50 @@ export async function recordMemoryReviewDecision(
   return receipt;
 }
 
+export async function fetchFounderMemoryContextPacks(): Promise<FounderLoopMemoryContextPacks> {
+  return readEnvelope<FounderLoopMemoryContextPacks>(
+    API_ENDPOINTS.founderMemoryContextPacks,
+  );
+}
+
+export async function recordMemoryContextPackActionProposal(
+  contextPackRef: string,
+  request: FounderLoopMemoryContextPackActionProposalRequest,
+): Promise<FounderLoopMemoryContextPackActionProposalReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${memoryContextPackActionProposalEndpoint(contextPackRef)}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": memoryContextPackActionIdempotencyRef(
+          contextPackRef,
+          request,
+        ),
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data =
+    (await readJsonSafely(response)) as ResultEnvelope<FounderLoopMemoryContextPackActionProposalReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Memory context-pack Action proposal receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return receipt;
+}
+
 export async function fetchMemoryReviewDecisionReceipt(
   candidateRef: string,
 ): Promise<MemoryReviewDecisionReceipt> {
@@ -615,6 +662,13 @@ function memoryReviewDecisionIdempotencyRef(
   request?: MemoryReviewDecisionRequest,
 ): string {
   return `idempotency-ref:control-center-memory-review:${decision}:${safeChatSuffix(candidateRef)}:${safeChatSuffix(request?.reviewer_ref ?? "reviewer")}:${safeChatSuffix(request?.corrected_summary_ref ?? "none")}`;
+}
+
+function memoryContextPackActionIdempotencyRef(
+  contextPackRef: string,
+  request?: FounderLoopMemoryContextPackActionProposalRequest,
+): string {
+  return `idempotency-ref:control-center-memory-context-action:${safeChatSuffix(contextPackRef)}:${safeChatSuffix(request?.decision_reason_ref ?? "proposal")}`;
 }
 
 export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {

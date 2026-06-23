@@ -10,11 +10,13 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   API_ENDPOINTS,
+  actionDecisionEndpoint,
   actionLocalTaskCommitEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
   isAllowedReadEndpoint,
   isPreviewEndpoint,
+  memoryContextPackActionProposalEndpoint,
   memoryReviewDecisionEndpoint,
   memoryReviewReceiptEndpoint,
   READ_ENDPOINTS,
@@ -1262,6 +1264,256 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("records approval through backend refresh before committing the local task lane", async () => {
+    const approvedInbox = JSON.parse(
+      JSON.stringify({
+        ...mockControlCenterData.founderActionsInbox,
+        ...mockApiData.founderActionsInbox,
+        items: mockApiData.founderActionsInbox.items,
+      }),
+    );
+    const initialInbox = JSON.parse(JSON.stringify(approvedInbox));
+    const readyItem = initialInbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    Object.assign(readyItem, {
+      status: "proposed",
+      action_group_id: "ready_for_decision",
+      action_group_label: "Ready for decision",
+      action_group_reason:
+        "Backend exact scope is ready for a decision receipt.",
+      action_group_available_action:
+        "Record a backend-owned decision receipt.",
+      approval_envelope_status: "ready_for_backend_decision",
+      local_task_commit_approval_ref: null,
+      local_task_commit_approval_status: "missing",
+      local_task_commit_eligible: false,
+      local_task_commit_blocked_reasons: [
+        "blocked-state:backend-owned-approval-missing",
+      ],
+      local_task_commit_next_safe_action:
+        "Record approval before committing local task state.",
+      receipt_refs: [],
+      audit_refs: [],
+      receipt_visibility: {
+        ...readyItem.receipt_visibility,
+        decision_receipt_ref: "pending",
+        local_task_ref: "pending",
+        local_task_commit_receipt_ref: "pending",
+        evidence_timeline_event_ref: "pending",
+        missing_field_states: [
+          "decision_receipt_ref:pending",
+          "local_task_commit_receipt_ref:pending",
+        ],
+      },
+      updated_at: "2026-06-22T00:00:00Z",
+    });
+    const approvalReceipt = {
+      contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
+      decision_ref: "decision-ref:mock-local-task-create:approve",
+      item_ref: "founder-action:mock-local-task-create",
+      decision: "approve",
+      status: "approved",
+      receipt_ref: "receipt:founder-loop-action:mock-local-task-create:approve",
+      audit_ref: "audit:founder-loop-action:mock-local-task-create:approve",
+      idempotency_key_ref: "idempotency-ref:control-center-action:approve",
+      payload_fingerprint_ref: "payload-fingerprint-ref:action:approve",
+      approval_ref: "approval-ref:mock-local-task-action-approve",
+      approval_status: "approved",
+      approval_reason_refs: ["approval-reason:approved"],
+      action_executed: false,
+      approval_grants_execution: false,
+      connector_write_performed: false,
+      memory_write_performed: false,
+      raw_content_stored: false,
+      replayed: false,
+      safe_summary:
+        "Action approval receipt recorded; action execution remains blocked.",
+      evidence_refs: ["evidence-ref:founder-loop:action-decision"],
+      blocked_state_refs: ["blocked-state:no-action-execution"],
+      created_at: "2026-06-22T00:00:30Z",
+    };
+    const approvedItem = approvedInbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    Object.assign(approvedItem, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local task lane",
+      action_group_reason:
+        "Backend approval receipt made the exact local task lane eligible.",
+      action_group_available_action:
+        "Commit local task through the backend exact route.",
+      approval_envelope_status: "approved",
+      local_task_commit_approval_ref: approvalReceipt.approval_ref,
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+      local_task_commit_next_safe_action:
+        "Commit this approved local task through the exact local-task route.",
+      receipt_refs: [...approvedItem.receipt_refs, approvalReceipt.receipt_ref],
+      audit_refs: [...approvedItem.audit_refs, approvalReceipt.audit_ref],
+      receipt_visibility: {
+        ...approvedItem.receipt_visibility,
+        decision_receipt_ref: approvalReceipt.receipt_ref,
+        local_task_ref: "pending",
+        local_task_commit_receipt_ref: "pending",
+        evidence_timeline_event_ref:
+          "evidence-timeline-event:action-decision:mock-local-task-create",
+        replay_posture: "decision_idempotency_replay_available",
+        conflict_posture: "decision_conflicting_idempotency_payload_rejected",
+        missing_field_states: [
+          "local_task_ref:pending",
+          "local_task_commit_receipt_ref:pending",
+        ],
+      },
+      updated_at: "2026-06-22T00:00:30Z",
+    });
+    const commitReceipt = {
+      contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
+      item_ref: "founder-action:mock-local-task-create",
+      action_kind: "local_task_create",
+      local_task_ref: "local-task:founder-action:mock-local-task-create",
+      receipt_ref: "receipt:founder-loop-local-task:mock-local-task-create",
+      audit_ref: "audit:founder-loop-local-task:mock-local-task-create",
+      evidence_timeline_event_ref:
+        "evidence-timeline-event:local-task:mock-local-task-create",
+      idempotency_key_ref: "idempotency-ref:control-center-local-task:test",
+      payload_fingerprint_ref: "payload-fingerprint-ref:local-task:test",
+      approval_ref: "approval-ref:mock-local-task-action-approve",
+      approval_status: "approved",
+      status: "local_task_created",
+      safe_summary: "Local task state was appended with safe refs only.",
+      local_task_created: true,
+      connector_write_performed: false,
+      shell_subprocess_execution_performed: false,
+      model_provider_authority_used: false,
+      memory_write_performed: false,
+      context_injection_performed: false,
+      external_side_effect_performed: false,
+      raw_content_stored: false,
+      replayed: false,
+      evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
+      blocked_state_refs: ["blocked-state:no-production-authority"],
+      created_at: "2026-06-22T00:01:00Z",
+    };
+    const committedInbox = JSON.parse(JSON.stringify(approvedInbox));
+    const committedItem = committedInbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    Object.assign(committedItem, {
+      status: "receipt_recorded",
+      action_group_id: "receipt_recorded",
+      action_group_label: "Receipt recorded",
+      local_task_commit_eligible: false,
+      local_task_ref: commitReceipt.local_task_ref,
+      local_task_commit_receipt_ref: commitReceipt.receipt_ref,
+      receipt_refs: [...committedItem.receipt_refs, commitReceipt.receipt_ref],
+      evidence_refs: [
+        ...committedItem.evidence_refs,
+        commitReceipt.evidence_timeline_event_ref,
+      ],
+      receipt_visibility: {
+        ...committedItem.receipt_visibility,
+        local_task_ref: commitReceipt.local_task_ref,
+        local_task_commit_receipt_ref: commitReceipt.receipt_ref,
+        evidence_timeline_event_ref: commitReceipt.evidence_timeline_event_ref,
+        replay_posture: "idempotency_replay_available",
+        conflict_posture: "conflicting_idempotency_payload_rejected",
+        missing_field_states: ["none"],
+      },
+      updated_at: "2026-06-22T00:01:00Z",
+    });
+    const approvalEndpoint = actionDecisionEndpoint(
+      "founder-action:mock-local-task-create",
+      "approve",
+    );
+    const commitEndpoint = actionLocalTaskCommitEndpoint(
+      "founder-action:mock-local-task-create",
+    );
+    let inboxReadCount = 0;
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReadCount += 1;
+        const inbox =
+          inboxReadCount === 1
+            ? initialInbox
+            : inboxReadCount === 2
+              ? approvedInbox
+              : committedInbox;
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (options?.method === "POST" && urlText.endsWith(approvalEndpoint)) {
+        return new Response(JSON.stringify({ ok: true, result: approvalReceipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (options?.method === "POST" && urlText.endsWith(commitEndpoint)) {
+        return new Response(JSON.stringify({ ok: true, result: commitReceipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: /^Actions$/i });
+    expect(screen.getByRole("button", { name: /Record approval/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Record approval/i }));
+    expect(
+      (await screen.findAllByText(approvalReceipt.receipt_ref)).length,
+    ).toBeGreaterThan(0);
+    expect(await screen.findByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    expect(
+      (await screen.findAllByText(commitReceipt.receipt_ref)).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+
+    const [, approvalOptions] =
+      fetchMock.mock.calls.find(
+        ([url, request]) =>
+          request?.method === "POST" && String(url).endsWith(approvalEndpoint),
+      ) ?? [];
+    const approvalRequestBody = JSON.parse(String(approvalOptions?.body));
+    expect(approvalRequestBody).toMatchObject({
+      decision_reason_ref: "decision-reason-ref:control-center:approve",
+      metadata_refs: expect.arrayContaining([
+        "metadata-ref:control-center-action-decision:approve",
+        "founder-action:mock-local-task-create",
+      ]),
+    });
+    expect(approvalRequestBody).not.toHaveProperty("approval_grants");
+    expect(approvalRequestBody).not.toHaveProperty("grant_lists");
+    expect(approvalRequestBody).not.toHaveProperty("authority_scopes");
+    expect(approvalRequestBody).not.toHaveProperty("risk_class");
+    expect(approvalRequestBody).not.toHaveProperty("side_effect_class");
+    expect(approvalRequestBody).not.toHaveProperty("approval_requirement");
+    expect(approvalRequestBody).not.toHaveProperty("exact_scope");
+    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+  });
+
   it("commits only the eligible Action Inbox local task lane through the typed route", async () => {
     const receipt = {
       contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
@@ -1597,6 +1849,179 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByRole("button", { name: /^call model$/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("creates Memory context-pack Action Inbox proposals through backend-owned handoff", async () => {
+    const contextPackRef = "context-pack:mock-founder-loop-preferences";
+    const receipt = {
+      contract_ref:
+        "contract-ref:governed-cognitive-memory-spine:phase6.1-internal-action-proposal:v1",
+      route_ref:
+        "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+      status: "implemented_internal_action_proposal_only",
+      context_pack_ref: contextPackRef,
+      context_pack_proposal_ref:
+        "context-pack-proposal:mock-founder-loop-preferences",
+      internal_action_proposal_ref:
+        "proposal-ref:memory-context-pack-action:mock-founder-loop-preferences",
+      item_ref: "founder-action:memory-context-pack:mock-founder-loop-preferences",
+      action_envelope_ref:
+        "action-envelope:memory-context-pack:mock-founder-loop-preferences",
+      exact_approval_scope_ref:
+        "scope-ref:memory-context-pack-action:mock-founder-loop-preferences",
+      approval_ref:
+        "approval-ref:memory-context-pack-action:mock-founder-loop-preferences",
+      approval_status: "approved",
+      approval_reason_refs: ["approval-reason:approval_validated"],
+      receipt_ref:
+        "receipt:memory-context-pack-action:mock-founder-loop-preferences",
+      audit_ref: "audit:memory-context-pack-action:mock-founder-loop-preferences",
+      idempotency_key_ref:
+        "idempotency-ref:control-center-memory-context-action:mock",
+      payload_fingerprint_ref:
+        "payload-fingerprint:memory-context-pack-action:mock",
+      evidence_timeline_event_ref:
+        "evidence-timeline:memory-context-pack-action/mock",
+      source_memory_record_refs: [
+        "memory-record:reviewed:founder-loop-preferences",
+      ],
+      l1_preview_refs: ["l1-preview:founder-loop-preferences"],
+      l2_projection_refs: ["l2-fact:founder-loop-preferences"],
+      l3_representation_refs: ["l3-representation:founder-loop-preferences"],
+      source_refs: ["source-ref:manual-note:founder-loop-preferences"],
+      evidence_refs: ["evidence-ref:memory-context-pack:mock"],
+      supporting_receipt_refs: [],
+      rollback_ref:
+        "rollback-ref:memory-context-pack-action:mock-founder-loop-preferences",
+      safe_disable_ref:
+        "safe-disable-ref:memory-context-pack-action:mock-founder-loop-preferences",
+      blocked_state_refs: [
+        "blocked-state:memory-execution-no-action-execution",
+        "blocked-state:memory-execution-no-hidden-context-injection",
+      ],
+      action_proposal_created: true,
+      action_executed: false,
+      approval_grants_execution: false,
+      connector_write_performed: false,
+      crm_sync_performed: false,
+      account_sync_performed: false,
+      shell_subprocess_performed: false,
+      browser_automation_performed: false,
+      provider_model_call_performed: false,
+      context_injection_performed: false,
+      memory_write_performed: false,
+      raw_content_stored: false,
+      replayed: false,
+      safe_summary:
+        "Reviewed context-pack safe refs created an internal Action proposal for review only; execution and external side effects remain blocked.",
+      created_at: "2026-06-23T00:00:00Z",
+    };
+    const initialContextPacks = JSON.parse(
+      JSON.stringify(mockControlCenterData.founderMemoryContextPacks),
+    );
+    const refreshedContextPacks = JSON.parse(
+      JSON.stringify(mockControlCenterData.founderMemoryContextPacks),
+    );
+    Object.assign(refreshedContextPacks.proposals[0], {
+      internal_action_proposal_refs: [receipt.internal_action_proposal_ref],
+      internal_action_receipt_refs: [receipt.receipt_ref],
+      phase6_1_internal_action_proposal_status:
+        "proposal_receipt_recorded_execution_blocked",
+    });
+    refreshedContextPacks.internal_action_proposal_receipts = [receipt];
+
+    const endpoint = memoryContextPackActionProposalEndpoint(contextPackRef);
+    let contextPackReadCount = 0;
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderMemoryContextPacks)
+      ) {
+        contextPackReadCount += 1;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result:
+              contextPackReadCount === 1
+                ? initialContextPacks
+                : refreshedContextPacks,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (options?.method === "POST" && urlText.endsWith(endpoint)) {
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Memory Review$/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Create Action Inbox proposal/i }),
+    );
+
+    expect(
+      (await screen.findAllByText(receipt.receipt_ref)).length,
+    ).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText(receipt.internal_action_proposal_ref)).length,
+    ).toBeGreaterThan(0);
+    expect(
+      await screen.findByText(
+        "Backend read model refreshed; Action Inbox handoff refs come from the Memory context-pack API.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Action executed")).toBeInTheDocument();
+    expect(screen.getAllByText("no").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^inject context$/i }),
+    ).not.toBeInTheDocument();
+
+    const [, postOptions] =
+      fetchMock.mock.calls.find(
+        ([url, request]) =>
+          request?.method === "POST" && String(url).endsWith(endpoint),
+      ) ?? [];
+    const postBody = JSON.parse(String(postOptions?.body));
+    expect(postBody).toMatchObject({
+      decision_reason_ref:
+        "decision-reason-ref:control-center-memory-context-pack-action-proposal",
+      metadata_refs: expect.arrayContaining([
+        "metadata-ref:control-center-memory-context-pack-action-proposal",
+        contextPackRef,
+      ]),
+    });
+    expect(postBody).not.toHaveProperty("approval_ref");
+    expect(postBody).not.toHaveProperty("exact_approval_scope_ref");
+    expect(postBody).not.toHaveProperty("approval_grants");
+    expect(postBody).not.toHaveProperty("grant_lists");
+    expect(postBody).not.toHaveProperty("authority_scopes");
+    expect(postBody).not.toHaveProperty("context_payload");
   });
 
   it("renders Morning Briefing source-readiness posture without source controls", async () => {

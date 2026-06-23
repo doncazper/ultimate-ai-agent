@@ -332,8 +332,10 @@ class MemoryExecutionHookProposal(_MemoryExecutionHookAuthorityPosture):
 
 class MemoryContextPackActionProposalRequest(BaseModel):
     actor_context: ActorContext = Field(default_factory=_default_actor_context)
-    exact_approval_scope_ref: str = Field(..., min_length=1, max_length=180)
-    approval_ref: str = Field(..., min_length=1, max_length=180)
+    exact_approval_scope_ref: str | None = Field(
+        default=None, min_length=1, max_length=180
+    )
+    approval_ref: str | None = Field(default=None, min_length=1, max_length=180)
     decision_reason_ref: str = Field(
         default="decision-reason-ref:phase6.1-context-pack-action-proposal",
         min_length=1,
@@ -347,8 +349,14 @@ class MemoryContextPackActionProposalRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_request(self) -> "MemoryContextPackActionProposalRequest":
-        for field_name in ["exact_approval_scope_ref", "approval_ref", "decision_reason_ref"]:
-            _validate_safe_ref(str(getattr(self, field_name)), field_name)
+        for field_name in [
+            "exact_approval_scope_ref",
+            "approval_ref",
+            "decision_reason_ref",
+        ]:
+            value = getattr(self, field_name)
+            if value is not None:
+                _validate_safe_ref(str(value), field_name)
         for ref in self.metadata_refs:
             _validate_safe_ref(ref, "metadata_refs")
         _validate_safe_text(self.risk_class, "risk_class")

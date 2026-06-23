@@ -1228,6 +1228,58 @@ export interface FounderLoopMemoryContextPackProposal {
   phase6_1_internal_action_proposal_status?: string;
 }
 
+export interface FounderLoopMemoryContextPackActionProposalRequest {
+  decision_reason_ref: string;
+  metadata_refs?: string[];
+  exact_approval_scope_ref?: string | null;
+  approval_ref?: string | null;
+}
+
+export interface FounderLoopMemoryContextPackActionProposalReceipt {
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  context_pack_ref: string;
+  context_pack_proposal_ref: string;
+  internal_action_proposal_ref: string;
+  item_ref: string;
+  action_envelope_ref: string;
+  exact_approval_scope_ref: string;
+  approval_ref: string;
+  approval_status: string;
+  approval_reason_refs: string[];
+  receipt_ref: string;
+  audit_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  evidence_timeline_event_ref: string;
+  source_memory_record_refs: string[];
+  l1_preview_refs: string[];
+  l2_projection_refs: string[];
+  l3_representation_refs: string[];
+  source_refs: string[];
+  evidence_refs: string[];
+  supporting_receipt_refs: string[];
+  rollback_ref: string;
+  safe_disable_ref: string;
+  blocked_state_refs: string[];
+  action_proposal_created: boolean;
+  action_executed: boolean;
+  approval_grants_execution: boolean;
+  connector_write_performed: boolean;
+  crm_sync_performed: boolean;
+  account_sync_performed: boolean;
+  shell_subprocess_performed: boolean;
+  browser_automation_performed: boolean;
+  provider_model_call_performed: boolean;
+  context_injection_performed: boolean;
+  memory_write_performed: boolean;
+  raw_content_stored: boolean;
+  replayed: boolean;
+  safe_summary: string;
+  created_at: string;
+}
+
 export interface FounderLoopMemoryContextPacks {
   contract_ref: string;
   route_ref: string;
@@ -1297,6 +1349,23 @@ export interface FounderLoopSourceReadinessItem {
   evidence_refs: string[];
   blocked_state_refs: string[];
   authority_boundary: string;
+}
+
+export interface FounderLoopSourceReadinessPosture {
+  schema_version: "founder_loop_source_readiness_posture.v1";
+  source: string;
+  backend_owned: boolean;
+  status: string;
+  source_count: number;
+  ready_source_count: number;
+  contract_only_source_count: number;
+  missing_contract_refs: string[];
+  blocked_state_refs: string[];
+  connector_runtime_enabled: boolean;
+  source_refresh_enabled: boolean;
+  notification_delivery_enabled: boolean;
+  authority_boundary: string;
+  next_safe_action: string;
 }
 
 export interface FounderLoopCrmLiteFollowUp {
@@ -1775,6 +1844,7 @@ export interface FounderLoopTodaySummary {
   governed_code_workbench_blocked_state_refs: string[];
   daily_loop_summary?: FounderLoopDailyLoopSummary;
   source_readiness_items?: FounderLoopSourceReadinessItem[];
+  source_readiness_posture?: FounderLoopSourceReadinessPosture;
   crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];
@@ -1897,6 +1967,7 @@ export interface FounderLoopMorningBriefing {
   refresh_enabled: boolean;
   notification_delivery_enabled: boolean;
   missing_contract_refs: string[];
+  source_readiness_posture?: FounderLoopSourceReadinessPosture;
   daily_loop_summary?: FounderLoopDailyLoopSummary;
   daily_loop_sections?: FounderLoopBriefingSection[];
   source_readiness_items?: FounderLoopSourceReadinessItem[];

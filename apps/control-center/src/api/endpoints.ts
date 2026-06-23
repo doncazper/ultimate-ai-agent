@@ -80,6 +80,12 @@ export function memoryReviewReceiptEndpoint(candidateRef: string): string {
   return `/control-center/memory/review/${encodeURIComponent(candidateRef)}/receipt`;
 }
 
+export function memoryContextPackActionProposalEndpoint(
+  contextPackRef: string,
+): string {
+  return `/control-center/memory/context-packs/${encodeURIComponent(contextPackRef)}/action-proposal`;
+}
+
 export function isActionDecisionEndpoint(endpoint: string): boolean {
   return /^\/control-center\/actions\/[^/]+\/(approve|edit|reject|defer)$/.test(
     endpoint,

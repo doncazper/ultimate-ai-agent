@@ -81,6 +81,38 @@ def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, ob
     )
 
 
+def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+
+    approval_receipt = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:test-backend-owned-local-task-approval"
+        ),
+        idempotency_key_ref="idempotency-ref:test-backend-owned-local-task-approval",
+    )
+
+    assert approval_receipt["status"] == "approved"
+    assert approval_receipt["approval_status"] == "approved"
+    assert approval_receipt["approval_ref"].startswith(
+        "approval-ref:founder-loop-action:"
+    )
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert action["action_group_id"] == "approved_local_task_lane"
+    assert action["local_task_commit_eligible"] is True
+    assert action["local_task_commit_approval_ref"] == approval_receipt["approval_ref"]
+    assert action["receipt_visibility"]["decision_receipt_ref"] == approval_receipt[
+        "receipt_ref"
+    ]
+
+
 def _local_task_commit_request_for_action(
     action: dict[str, object],
     *,

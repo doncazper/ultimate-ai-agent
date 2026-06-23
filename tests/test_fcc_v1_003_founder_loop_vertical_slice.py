@@ -149,6 +149,68 @@ def test_founder_loop_cli_commits_local_task_with_safe_refs(
     assert replay["receipt"]["receipt_ref"] == committed["receipt"]["receipt_ref"]
 
 
+def test_founder_loop_cli_records_approval_then_commits_local_task(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    state_dir = tmp_path / "founder_loop"
+    rc = uaa_founder_loop.main(
+        [
+            "--state-dir",
+            str(state_dir),
+            "record-action-decision",
+            "--action-id",
+            "local-task-create-scorecard",
+            "--decision",
+            "approve",
+            "--idempotency-ref",
+            "idempotency-ref:test-cli-record-local-task-approval",
+            "--metadata-ref",
+            "metadata-ref:test-cli-record-local-task-approval",
+        ]
+    )
+    assert rc == 0
+    approval = json.loads(capsys.readouterr().out)
+    assert approval["safe_refs_only"] is True
+    assert approval["receipt"]["status"] == "approved"
+    assert approval["receipt"]["approval_ref"].startswith(
+        "approval-ref:founder-loop-action:"
+    )
+    assert approval["receipt"]["action_executed"] is False
+    assert approval["receipt"]["approval_grants_execution"] is False
+    assert "approval_grants" not in approval["receipt"]
+
+    rc = uaa_founder_loop.main(["--state-dir", str(state_dir), "inspect", "--limit", "6"])
+    assert rc == 0
+    inspected = json.loads(capsys.readouterr().out)
+    action = next(
+        item
+        for item in inspected["actions"]
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert action["local_task_commit_eligible"] is True
+    approval_ref = str(action["local_task_commit_approval_ref"])
+
+    rc = uaa_founder_loop.main(
+        [
+            "--state-dir",
+            str(state_dir),
+            "commit-local-task",
+            "--action-id",
+            "local-task-create-scorecard",
+            "--idempotency-ref",
+            "idempotency-ref:test-cli-record-then-commit-local-task",
+            "--approval-ref",
+            approval_ref,
+        ]
+    )
+    assert rc == 0
+    committed = json.loads(capsys.readouterr().out)
+    assert committed["receipt"]["status"] == "local_task_created"
+    assert committed["receipt"]["local_task_created"] is True
+    assert committed["receipt"]["external_side_effect_performed"] is False
+
+
 def test_fcc_v1_003_verifier_passes_current_repo() -> None:
     assert verifier.verify() == []
 

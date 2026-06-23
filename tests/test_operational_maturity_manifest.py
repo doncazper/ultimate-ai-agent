@@ -16,9 +16,13 @@ from scripts.verify_operational_maturity import (
     MEMORY_CONTEXT_PACK_ROUTE,
     MEMORY_CONTEXT_PACK_TEST_REFS,
     MEMORY_CONTEXT_PACK_VERIFIER_REFS,
+    PATCH_WORKBENCH_APPLY_ROUTE,
+    PATCH_WORKBENCH_MODULE_ID,
+    PATCH_WORKBENCH_REQUIRED_MISSING_CONTRACTS,
     SCHEMA_PATH,
     _append_local_model_manifest_failures,
     _append_memory_context_pack_manifest_failures,
+    _append_patch_workbench_manifest_failures,
     _append_module_failures,
     _append_mock_fallback_fixture_failures,
     _append_read_only_status_probe_failures,
@@ -178,6 +182,49 @@ def test_operational_maturity_verifier_requires_memory_context_pack_refs() -> No
         "memory context-pack readiness missing verifier" in failure
         for failure in failures
     )
+
+
+def test_operational_maturity_verifier_rejects_patch_apply_claim_without_gates() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    patch = modules[PATCH_WORKBENCH_MODULE_ID]
+    patch["current_rank"] = 4
+    patch["current_rank_label"] = "execution_ready_contract"
+    patch["honest_status"] = "execution_ready_contract"
+    patch["missing_contracts"] = []
+    patch["backend_routes"] = [
+        route for route in patch["backend_routes"] if route != PATCH_WORKBENCH_APPLY_ROUTE
+    ]
+    patch["cli_or_script_refs"] = []
+    patch["receipt_refs"] = []
+    patch["backend_owned_receipts"] = False
+
+    failures: list[str] = []
+    _append_patch_workbench_manifest_failures(failures, patch)
+
+    assert any(PATCH_WORKBENCH_APPLY_ROUTE in failure for failure in failures)
+    assert any("requires backend_owned_receipts" in failure for failure in failures)
+    assert any("requires receipt_refs" in failure for failure in failures)
+    assert any("requires CLI parity" in failure for failure in failures)
+
+
+def test_operational_maturity_verifier_requires_patch_rank2_apply_blockers() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    patch = modules[PATCH_WORKBENCH_MODULE_ID]
+    patch["honest_status"] = "proposal_review"
+    patch["missing_contracts"] = []
+    patch["blocked_authorities"] = []
+    patch["durable_receipt"] = True
+
+    failures: list[str] = []
+    _append_patch_workbench_manifest_failures(failures, patch)
+
+    assert any("must keep apply_blocked honest_status" in failure for failure in failures)
+    for contract_ref in PATCH_WORKBENCH_REQUIRED_MISSING_CONTRACTS:
+        assert any(contract_ref in failure for failure in failures)
+    assert any("must block code_apply_execution" in failure for failure in failures)
+    assert any("must not claim durable_receipt" in failure for failure in failures)
 
 
 def test_operational_maturity_verifier_requires_path_backed_local_model_cli_ref() -> (

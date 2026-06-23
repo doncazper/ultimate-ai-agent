@@ -876,7 +876,7 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M13 Action Preview UI Posts Only To Preview",
             FoundationGateCategory.security,
             "FoundationGateEvaluator.check_m13_action_preview_ui_posts_only_to_preview",
-            "The frontend declares exactly one POST target and it is /control-center/actions/preview.",
+            "The frontend declares only explicitly scoped, allowlisted POST targets.",
             "M13 frontend declares an unsafe or additional POST target.",
             "critical",
         ),

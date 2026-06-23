@@ -4274,6 +4274,7 @@ class FoundationGateEvaluator:
             "API_ENDPOINTS.controlCenterChatTurns",
             "chatTurnHandoffEndpoint(turnRef)",
             "memoryReviewDecisionEndpoint(candidateRef, decision)",
+            "memoryContextPackActionProposalEndpoint(contextPackRef)",
             "API_ENDPOINTS.localChatCompletions",
         }
         for target in sorted(allowed_post_targets):

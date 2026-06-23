@@ -426,6 +426,10 @@ and safely reasoned about without granting broader authority.
 task write, background sync, broad shell execution, reusable autonomy, or
 unrestricted patch apply.
 
+**Patch Workbench Phase A note:** Patch apply remains apply-blocked until the
+exact apply route, CLI/API/core parity, durable receipt/evidence, rollback or
+safe-disable, and redacted secret-like diff gates are implemented and verified.
+
 #### Phase 11 - `FCC-POLISH-001` Native And Apple-grade UX Layer
 
 **Intent:** Make the proven loop feel calm, professional, and local-first in

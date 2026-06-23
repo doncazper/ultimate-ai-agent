@@ -848,6 +848,8 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("action decision endpoint helpers are missing")
         if "actionLocalTaskCommitEndpoint" not in text:
             failures.append("Action Inbox local task commit endpoint helper is missing")
+        if "memoryContextPackActionProposalEndpoint" not in text:
+            failures.append("Memory context-pack Action proposal endpoint helper is missing")
         if 'controlCenterChatTurns: "/control-center/chat/turns"' not in text:
             failures.append("Chat durable receipt endpoint declaration is missing")
         for fragment in ["chatTurnReceiptEndpoint", "chatTurnHandoffEndpoint"]:
@@ -856,7 +858,7 @@ def verify(root: Path = ROOT) -> list[str]:
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8}:
+        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9}:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
@@ -939,6 +941,20 @@ def verify(root: Path = ROOT) -> list[str]:
                 if fragment not in text:
                     failures.append(
                         f"frontend local task commit post missing safety fragment: {fragment}"
+                    )
+        if post_count >= 9:
+            required_memory_context_pack_fragments = [
+                "recordMemoryContextPackActionProposal",
+                "memoryContextPackActionProposalEndpoint(contextPackRef)",
+                "FounderLoopMemoryContextPackActionProposalReceipt",
+                "memoryContextPackActionIdempotencyRef",
+                "\"X-UAA-Idempotency-Key\"",
+            ]
+            for fragment in required_memory_context_pack_fragments:
+                if fragment not in text:
+                    failures.append(
+                        "frontend Memory context-pack Action proposal post missing "
+                        f"safety fragment: {fragment}"
                     )
         if "resolveApiBaseUrl" not in text:
             failures.append("frontend client must resolve API base through local backend policy")

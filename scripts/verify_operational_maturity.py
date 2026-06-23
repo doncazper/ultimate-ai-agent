@@ -92,6 +92,28 @@ MEMORY_CONTEXT_PACK_VERIFIER_REFS = {
     "scripts/verify_governed_cognitive_memory_spine_v1.py",
     "scripts/verify_operational_maturity.py",
 }
+PATCH_WORKBENCH_MODULE_ID = "files_patch_workbench"
+PATCH_WORKBENCH_APPLY_ROUTE = "POST /files/patch/apply"
+PATCH_WORKBENCH_REQUIRED_MISSING_CONTRACTS = {
+    "atomic_apply",
+    "rollback_receipt",
+    "secret_like_diff_blocking",
+}
+PATCH_WORKBENCH_REQUIRED_BLOCKED_AUTHORITIES = {
+    "code_apply_execution",
+    "unrestricted_shell",
+    "production_authority",
+}
+PATCH_WORKBENCH_MUTATION_READY_REQUIREMENTS = {
+    "exact approval",
+    "idempotency",
+    "durable receipt",
+    "evidence timeline event",
+    "rollback or safe-disable",
+    "CLI parity",
+    "focused tests",
+    "verifier refs",
+}
 LOCAL_MODEL_CLI_REF = "scripts/dev/uaa_local_model.py status"
 STALE_UI_STATUS_PHRASES = [
     "routes not implemented",
@@ -683,6 +705,8 @@ def _append_module_failures(
             _append_lane_failures(failures, module_id, lane, routes_by_ref)
         if module_id == "memory":
             _append_memory_context_pack_manifest_failures(failures, module)
+        if module_id == PATCH_WORKBENCH_MODULE_ID:
+            _append_patch_workbench_manifest_failures(failures, module)
         if module_id == "local_models":
             _append_local_model_manifest_failures(failures, module)
 
@@ -707,6 +731,86 @@ def _append_memory_context_pack_manifest_failures(
         if verifier_ref not in verifier_refs:
             failures.append(
                 f"memory context-pack readiness missing verifier {verifier_ref}"
+            )
+
+
+def _append_patch_workbench_manifest_failures(
+    failures: list[str],
+    module: dict[str, Any],
+) -> None:
+    module_id = str(module.get("module_id"))
+    rank = int(module.get("current_rank", -1))
+    honest_status = str(module.get("honest_status", "")).lower()
+    blocked_authorities = set(module.get("blocked_authorities", []))
+    missing_contracts = set(module.get("missing_contracts", []))
+    backend_routes = set(module.get("backend_routes", []))
+    if rank <= 2:
+        if "apply_blocked" not in honest_status:
+            failures.append(
+                f"{module_id} rank 2 patch workbench must keep apply_blocked honest_status"
+            )
+        for contract_ref in PATCH_WORKBENCH_REQUIRED_MISSING_CONTRACTS:
+            if contract_ref not in missing_contracts:
+                failures.append(
+                    f"{module_id} rank 2 patch workbench missing blocker contract {contract_ref}"
+                )
+        for authority in PATCH_WORKBENCH_REQUIRED_BLOCKED_AUTHORITIES:
+            if authority not in blocked_authorities:
+                failures.append(
+                    f"{module_id} rank 2 patch workbench must block {authority}"
+                )
+        if module.get("real_local_mutation") is not False:
+            failures.append(
+                f"{module_id} rank 2 patch workbench must not claim real_local_mutation"
+            )
+        if module.get("durable_receipt") is not False:
+            failures.append(
+                f"{module_id} rank 2 patch workbench must not claim durable_receipt"
+            )
+        if module.get("evidence_timeline_event") is not False:
+            failures.append(
+                f"{module_id} rank 2 patch workbench must not claim evidence_timeline_event"
+            )
+        return
+
+    if rank >= 4:
+        if PATCH_WORKBENCH_APPLY_ROUTE not in backend_routes:
+            failures.append(
+                f"{module_id} rank 4+ patch apply claim requires {PATCH_WORKBENCH_APPLY_ROUTE}"
+            )
+        if missing_contracts & PATCH_WORKBENCH_REQUIRED_MISSING_CONTRACTS:
+            failures.append(
+                f"{module_id} rank 4+ patch apply claim still has missing apply contracts"
+            )
+        for field in [
+            "exact_scope_required",
+            "idempotency_required",
+            "rollback_or_safe_disable_required",
+            "backend_owned_receipts",
+        ]:
+            if module.get(field) is not True:
+                failures.append(
+                    f"{module_id} rank 4+ patch apply claim requires {field}"
+                )
+        if not module.get("receipt_refs"):
+            failures.append(
+                f"{module_id} rank 4+ patch apply claim requires receipt_refs"
+            )
+        if not module.get("evidence_refs"):
+            failures.append(
+                f"{module_id} rank 4+ patch apply claim requires evidence_refs"
+            )
+        if not module.get("cli_or_script_refs"):
+            failures.append(
+                f"{module_id} rank 4+ patch apply claim requires CLI parity"
+            )
+        if not module.get("test_refs"):
+            failures.append(
+                f"{module_id} rank 4+ patch apply claim requires focused tests"
+            )
+        if not module.get("verifier_refs"):
+            failures.append(
+                f"{module_id} rank 4+ patch apply claim requires verifier refs"
             )
 
 

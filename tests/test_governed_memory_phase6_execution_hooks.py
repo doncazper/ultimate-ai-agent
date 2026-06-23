@@ -313,6 +313,43 @@ def test_phase6_1_storage_creates_internal_action_proposal_only(
     assert event["history_answers"]["blocked"]["status"] == "blocked"
 
 
+def test_phase6_1_storage_can_capture_backend_owned_proposal_approval(
+    tmp_path: Path,
+) -> None:
+    repo, context_pack = _repo_with_context_pack(tmp_path)
+    context_pack_ref = str(context_pack["context_pack_ref"])
+
+    receipt = repo.record_memory_context_pack_action_proposal(
+        context_pack_ref=context_pack_ref,
+        request=MemoryContextPackActionProposalRequest(
+            metadata_refs=["metadata-ref:phase6-1-backend-owned-ui-handoff"]
+        ),
+        idempotency_key_ref="idempotency-ref:phase6-1-backend-owned-ui-handoff",
+    )
+
+    assert receipt["approval_ref"].startswith(
+        "approval-ref:memory-context-pack-action:"
+    )
+    assert (
+        receipt["exact_approval_scope_ref"]
+        == memory_context_pack_action_scope_ref(context_pack_ref)
+    )
+    assert receipt["action_proposal_created"] is True
+    assert receipt["action_executed"] is False
+    assert receipt["context_injection_performed"] is False
+    assert receipt["connector_write_performed"] is False
+    assert receipt["memory_write_performed"] is False
+
+    action = next(
+        item
+        for item in repo.actions_inbox()["items"]
+        if item["item_ref"] == receipt["item_ref"]
+    )
+    assert action["action_group_id"] == "proposal_only_no_execution_path"
+    assert action["action_envelope_execution_enabled"] is False
+    assert receipt["receipt_ref"] in action["receipt_refs"]
+
+
 def test_phase6_1_storage_requires_exact_scope_approval_replay_and_conflict(
     tmp_path: Path,
 ) -> None:
@@ -487,6 +524,49 @@ def test_phase6_1_api_route_requires_idempotency_and_exact_approval(
         headers={"x-uaa-idempotency-key": "idempotency-ref:phase6-1-api"},
     )
     assert conflict.status_code == 409
+
+
+def test_phase6_1_api_can_capture_backend_owned_proposal_approval(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    repo = FounderLoopRepository.from_env()
+    candidate_ref = str(
+        repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
+    )
+    repo.record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="accept",
+        request=_decision_request(),
+        idempotency_key_ref="idempotency-ref:phase6-1-api-backend-owned-accept",
+    )
+    context_pack_ref = str(
+        repo.memory_context_pack_proposals()["proposals"][0]["context_pack_ref"]
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        f"/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        json={
+            "decision_reason_ref": "decision-reason-ref:phase6-1-api-backend-owned",
+            "metadata_refs": ["metadata-ref:phase6-1-api-backend-owned"],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:phase6-1-api-backend-owned"
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["approval_ref"].startswith(
+        "approval-ref:memory-context-pack-action:"
+    )
+    assert data["action_proposal_created"] is True
+    assert data["action_executed"] is False
+    assert data["context_injection_performed"] is False
+    assert data["provider_model_call_performed"] is False
+    assert data["memory_write_performed"] is False
 
 
 def test_phase6_1_route_manifest_and_rate_limit_truth() -> None:

@@ -65,20 +65,26 @@ def test_action_decision_storage_records_receipts_replay_and_conflict(
         )
 
 
-def test_approval_decision_requires_exact_local_approval_scope(tmp_path: Path) -> None:
+def test_approval_decision_records_backend_owned_exact_local_approval(
+    tmp_path: Path,
+) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop")
 
-    blocked = repo.record_action_decision(
+    backend_owned = repo.record_action_decision(
         action_id="setup-assistant-hardening",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            decision_reason_ref="decision-reason-ref:test-approval-missing"
+            decision_reason_ref="decision-reason-ref:test-backend-owned-approval"
         ),
-        idempotency_key_ref="idempotency-ref:test-approval-blocked",
+        idempotency_key_ref="idempotency-ref:test-backend-owned-approval",
     )
-    assert blocked["status"] == "blocked"
-    assert blocked["approval_status"] == "approval_required"
-    assert blocked["action_executed"] is False
+    assert backend_owned["status"] == "approved"
+    assert backend_owned["approval_status"] == "approved"
+    assert backend_owned["approval_ref"].startswith(
+        "approval-ref:founder-loop-action:"
+    )
+    assert backend_owned["action_executed"] is False
+    assert backend_owned["connector_write_performed"] is False
 
     action = next(
         item
@@ -173,6 +179,42 @@ def test_action_decision_api_requires_idempotency_and_returns_receipt(
     assert receipt_response.status_code == 200
     assert receipt_response.json()["operation"] == "control_center_action_receipt"
     assert receipt_response.json()["data"]["receipt_ref"] == receipt["receipt_ref"]
+
+
+def test_action_decision_api_records_backend_owned_approval_without_frontend_grants(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    client = TestClient(app)
+
+    response = client.post(
+        "/control-center/actions/local-task-create-scorecard/approve",
+        json={
+            "decision_reason_ref": "decision-reason-ref:test-api-backend-owned-approval",
+            "metadata_refs": ["metadata-ref:test-api-backend-owned-approval"],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:test-api-backend-owned-approval"
+        },
+    )
+
+    assert response.status_code == 200
+    receipt = response.json()["data"]
+    assert receipt["status"] == "approved"
+    assert receipt["approval_status"] == "approved"
+    assert receipt["approval_ref"].startswith("approval-ref:founder-loop-action:")
+    assert receipt["action_executed"] is False
+
+    inbox = client.get("/control-center/actions/inbox")
+    action = next(
+        item
+        for item in inbox.json()["data"]["items"]
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert action["action_group_id"] == "approved_local_task_lane"
+    assert action["local_task_commit_eligible"] is True
+    assert action["local_task_commit_approval_ref"] == receipt["approval_ref"]
 
 
 def test_fcc_v1_002_verifier_passes_current_repo() -> None:

@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   commitLocalTask,
   fetchFounderActionsInbox,
+  fetchFounderMemoryContextPacks,
+  recordMemoryContextPackActionProposal,
   recordMemoryReviewDecision,
   submitActionDecision,
   submitTodayActionEnvelope,
@@ -20,6 +22,7 @@ import type {
   FounderLoopEvidenceTimelineItem,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopMemoryContextPackProposal,
+  FounderLoopMemoryContextPackActionProposalReceipt,
   FounderLoopMemoryContextPacks,
   FounderLoopMemoryReviewItem,
   FounderLoopMorningBriefing,
@@ -841,7 +844,10 @@ function DailyLoopProductBehaviorPanel({
     <>
       <div className="panel-grid">
         <DailyLoopSummaryCard summary={today.daily_loop_summary} />
-        <SourceReadinessCards items={today.source_readiness_items ?? []} />
+        <SourceReadinessCards
+          items={today.source_readiness_items ?? []}
+          posture={today.source_readiness_posture}
+        />
         <ReviewQueueGroupCards groups={today.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={today.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={today.memory_why_shown_items ?? []} />
@@ -908,8 +914,10 @@ function DailyLoopSummaryCard({
 
 function SourceReadinessCards({
   items,
+  posture,
 }: {
   items: NonNullable<FounderLoopTodaySummary["source_readiness_items"]>;
+  posture?: FounderLoopTodaySummary["source_readiness_posture"];
 }) {
   if (items.length === 0) {
     return null;
@@ -920,6 +928,60 @@ function SourceReadinessCards({
         <h3>Source readiness states</h3>
         <span>{items.length}</span>
       </div>
+      {posture ? (
+        <>
+          <p className="muted">
+            Backend-owned source readiness posture from {posture.source}. This
+            is read-only metadata; connector runtime, refresh, notifications,
+            and delivery remain blocked.
+          </p>
+          <dl
+            aria-label="Source readiness posture"
+            className="detail-list"
+          >
+            <DetailTerm label="Source" value={posture.source} />
+            <DetailTerm
+              label="Backend owned"
+              value={posture.backend_owned ? "yes" : "no"}
+            />
+            <DetailTerm label="Status" value={posture.status} />
+            <DetailTerm
+              label="Ready sources"
+              value={`${posture.ready_source_count}/${posture.source_count}`}
+            />
+            <DetailTerm
+              label="Contract-only sources"
+              value={String(posture.contract_only_source_count)}
+            />
+            <DetailTerm
+              label="Connector runtime"
+              value={posture.connector_runtime_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Source refresh"
+              value={posture.source_refresh_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Notifications"
+              value={
+                posture.notification_delivery_enabled ? "enabled" : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Next safe action"
+              value={posture.next_safe_action}
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Missing source contracts: none"
+            refs={posture.missing_contract_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Source posture blockers: none"
+            refs={posture.blocked_state_refs}
+          />
+        </>
+      ) : null}
       <ul className="ref-list">
         {items.map((item) => (
           <li key={item.source_ref}>
@@ -1836,7 +1898,10 @@ function BriefingDailyLoopPanel({
       <div className="panel-grid">
         <BriefingSectionCards sections={briefing.daily_loop_sections ?? []} />
         <DailyLoopSummaryCard summary={briefing.daily_loop_summary} />
-        <SourceReadinessCards items={briefing.source_readiness_items ?? []} />
+        <SourceReadinessCards
+          items={briefing.source_readiness_items ?? []}
+          posture={briefing.source_readiness_posture}
+        />
         <ReviewQueueGroupCards groups={briefing.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={briefing.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={briefing.memory_why_shown_items ?? []} />
@@ -2304,55 +2369,243 @@ function MemoryContextPackProposalCard({
 }: {
   proposal: FounderLoopMemoryContextPackProposal;
 }) {
+  const [displayedProposal, setDisplayedProposal] = useState(proposal);
+  const [state, setState] = useState<{
+    status: "idle" | "pending" | "recorded" | "failed";
+    refreshStatus:
+      | "idle"
+      | "refreshing"
+      | "reconciled"
+      | "refresh_failed"
+      | "refresh_pending_backend_read_model";
+    receipt?: FounderLoopMemoryContextPackActionProposalReceipt;
+    message?: string;
+    refreshMessage?: string;
+  }>({ status: "idle", refreshStatus: "idle" });
+  useEffect(() => {
+    setDisplayedProposal(proposal);
+  }, [proposal]);
+
+  const hasActionProposalReceipt =
+    (displayedProposal.internal_action_receipt_refs?.length ?? 0) > 0 ||
+    displayedProposal.phase6_1_internal_action_proposal_status ===
+      "proposal_receipt_recorded_execution_blocked";
+  const hasReviewedL3Refs =
+    (displayedProposal.l3_representation_refs?.length ?? 0) > 0;
+  const pending = state.status === "pending";
+  const canCreateActionProposal = !hasActionProposalReceipt && hasReviewedL3Refs;
+
+  async function createActionProposal() {
+    setState({
+      status: "pending",
+      refreshStatus: "idle",
+      message: "Recording backend-owned proposal receipt.",
+    });
+    try {
+      const receipt = await recordMemoryContextPackActionProposal(
+        displayedProposal.context_pack_ref,
+        {
+          decision_reason_ref:
+            "decision-reason-ref:control-center-memory-context-pack-action-proposal",
+          metadata_refs: [
+            "metadata-ref:control-center-memory-context-pack-action-proposal",
+            displayedProposal.context_pack_ref,
+          ],
+        },
+      );
+      setState({
+        status: "recorded",
+        refreshStatus: "refreshing",
+        receipt,
+        message: `${receipt.status}: ${receipt.safe_summary}`,
+        refreshMessage: "Refreshing Memory context-pack read model.",
+      });
+      try {
+        const refreshed = await fetchFounderMemoryContextPacks();
+        const refreshedProposal = refreshed.proposals.find(
+          (candidate) =>
+            candidate.context_pack_ref === displayedProposal.context_pack_ref,
+        );
+        if (refreshedProposal) {
+          setDisplayedProposal(refreshedProposal);
+          setState({
+            status: "recorded",
+            refreshStatus: "reconciled",
+            receipt,
+            message: `${receipt.status}: ${receipt.safe_summary}`,
+            refreshMessage:
+              "Backend read model refreshed; Action Inbox handoff refs come from the Memory context-pack API.",
+          });
+          return;
+        }
+        setState({
+          status: "recorded",
+          refreshStatus: "refresh_pending_backend_read_model",
+          receipt,
+          message: `${receipt.status}: ${receipt.safe_summary}`,
+          refreshMessage:
+            "Receipt recorded; backend read model has not yet returned the refreshed context-pack proposal.",
+        });
+      } catch (error) {
+        setState({
+          status: "recorded",
+          refreshStatus: "refresh_failed",
+          receipt,
+          message: `${receipt.status}: ${receipt.safe_summary}`,
+          refreshMessage:
+            error instanceof Error
+              ? `Backend read-model refresh failed safely: ${error.message}`
+              : "Backend read-model refresh failed safely.",
+        });
+      }
+    } catch (error) {
+      setState({
+        status: "failed",
+        refreshStatus: "idle",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Memory context-pack Action proposal receipt was not recorded safely.",
+      });
+    }
+  }
+
   return (
     <article className="review-card">
       <div className="review-card-heading">
-        <h3>{proposal.context_pack_ref}</h3>
-        <span>{proposal.status ?? "proposal_only"}</span>
+        <h3>{displayedProposal.context_pack_ref}</h3>
+        <span>{displayedProposal.status ?? "proposal_only"}</span>
       </div>
-      <p>{proposal.safe_summary}</p>
+      <p>{displayedProposal.safe_summary}</p>
       <dl className="detail-list">
-        <DetailTerm label="Proposal ref" value={proposal.proposal_ref} />
-        <DetailTerm label="Query ref" value={proposal.query_ref ?? "none"} />
+        <DetailTerm label="Proposal ref" value={displayedProposal.proposal_ref} />
+        <DetailTerm label="Query ref" value={displayedProposal.query_ref ?? "none"} />
         <DetailTerm
           label="Approval posture"
-          value={proposal.approval_posture ?? "approval_required_before_use"}
+          value={
+            displayedProposal.approval_posture ?? "approval_required_before_use"
+          }
         />
-        <DetailTerm label="Risk" value={proposal.risk_class ?? "medium"} />
+        <DetailTerm
+          label="Risk"
+          value={displayedProposal.risk_class ?? "medium"}
+        />
         <DetailTerm
           label="Action proposal status"
           value={
-            proposal.phase6_1_internal_action_proposal_status ?? "not_recorded"
+            displayedProposal.phase6_1_internal_action_proposal_status ??
+            "not_recorded"
           }
         />
         <DetailTerm
           label="Next safe action"
           value={
-            proposal.next_safe_action ??
+            displayedProposal.next_safe_action ??
             "Inspect safe refs only; keep context injection blocked."
           }
         />
       </dl>
       <RefListWithFallback
         emptyLabel="Source memory refs: none"
-        refs={proposal.source_memory_record_refs ?? []}
+        refs={displayedProposal.source_memory_record_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="L1/L2/L3 supporting refs: none"
         refs={[
-          ...(proposal.l1_preview_refs ?? []),
-          ...(proposal.l2_projection_refs ?? []),
-          ...(proposal.l3_representation_refs ?? []),
+          ...(displayedProposal.l1_preview_refs ?? []),
+          ...(displayedProposal.l2_projection_refs ?? []),
+          ...(displayedProposal.l3_representation_refs ?? []),
         ]}
       />
       <RefListWithFallback
         emptyLabel="Evidence refs: none"
-        refs={proposal.evidence_refs ?? []}
+        refs={displayedProposal.evidence_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Action Inbox handoff proposal refs: none"
+        refs={displayedProposal.internal_action_proposal_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Action Inbox handoff receipt refs: none"
+        refs={displayedProposal.internal_action_receipt_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Blocked states: context injection remains unscoped"
-        refs={proposal.blocked_state_refs ?? []}
+        refs={displayedProposal.blocked_state_refs ?? []}
       />
+      <div className="decision-controls">
+        <div className="decision-button-row">
+          <button
+            className="secondary-button"
+            disabled={pending || !canCreateActionProposal}
+            onClick={() => void createActionProposal()}
+            type="button"
+          >
+            {pending ? "Recording" : "Create Action Inbox proposal"}
+          </button>
+        </div>
+        {!hasReviewedL3Refs ? (
+          <p className="muted">
+            Handoff blocked: reviewed L3 safe refs are required before an Action
+            Inbox proposal receipt can be recorded.
+          </p>
+        ) : null}
+        {hasActionProposalReceipt ? (
+          <p className="muted">
+            Proposal receipt recorded; execution, context injection, connector
+            writes, and memory writes remain blocked.
+          </p>
+        ) : null}
+        {state.message ? <p className="muted">{state.message}</p> : null}
+        {state.refreshMessage ? (
+          <p className="muted">{state.refreshMessage}</p>
+        ) : null}
+        {state.receipt ? (
+          <dl className="detail-list">
+            <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+            <DetailTerm
+              label="Action proposal ref"
+              value={state.receipt.internal_action_proposal_ref}
+            />
+            <DetailTerm
+              label="Action item ref"
+              value={state.receipt.item_ref}
+            />
+            <DetailTerm
+              label="Approval ref"
+              value={state.receipt.approval_ref}
+            />
+            <DetailTerm
+              label="Evidence event"
+              value={state.receipt.evidence_timeline_event_ref}
+            />
+            <DetailTerm
+              label="Read-model refresh"
+              value={state.refreshStatus}
+            />
+            <DetailTerm
+              label="Action executed"
+              value={state.receipt.action_executed ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Context injection"
+              value={state.receipt.context_injection_performed ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Memory write"
+              value={state.receipt.memory_write_performed ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Connector write"
+              value={state.receipt.connector_write_performed ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Provider/model call"
+              value={state.receipt.provider_model_call_performed ? "yes" : "no"}
+            />
+          </dl>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -3231,7 +3484,10 @@ function ActionItemCard({
       {actionGroupId === "ready_for_decision" &&
       backendReadModelAvailable &&
       actionReadModelAuthoritative ? (
-        <ActionDecisionControls item={displayedItem} />
+        <ActionDecisionControls
+          item={displayedItem}
+          onReconciledItem={reconcileActionItem}
+        />
       ) : null}
       {actionGroupId === "ready_for_decision" &&
       (!backendReadModelAvailable || !actionReadModelAuthoritative) ? (
@@ -3531,17 +3787,100 @@ const actionDecisionLabels: Record<FounderLoopActionDecisionKind, string> = {
   defer: "Record defer",
 };
 
-function ActionDecisionControls({ item }: { item: FounderLoopActionItem }) {
+function ActionDecisionControls({
+  item,
+  onReconciledItem,
+}: {
+  item: FounderLoopActionItem;
+  onReconciledItem: (item: FounderLoopActionItem) => void;
+}) {
   const [state, setState] = useState<{
     status: "idle" | "pending" | "recorded" | "failed";
+    refreshStatus:
+      | "idle"
+      | "refreshing"
+      | "reconciled"
+      | "refresh_failed"
+      | "refresh_pending_backend_read_model";
     decision?: FounderLoopActionDecisionKind;
     receipt?: FounderLoopActionDecisionReceipt;
     message?: string;
-  }>({ status: "idle" });
+    refreshMessage?: string;
+  }>({ status: "idle", refreshStatus: "idle" });
   const pending = state.status === "pending";
 
+  async function refreshDecisionActionItem(
+    receipt: FounderLoopActionDecisionReceipt,
+    decision: FounderLoopActionDecisionKind,
+  ) {
+    setState({
+      status: "recorded",
+      refreshStatus: "refreshing",
+      decision,
+      receipt,
+      message: `${receipt.status}: ${receipt.safe_summary}`,
+      refreshMessage: "Refreshing Action Inbox read model from the backend.",
+    });
+    try {
+      const refreshedInbox = await fetchFounderActionsInbox();
+      const refreshedItem = refreshedInbox.items.find(
+        (candidate) => candidate.item_ref === item.item_ref,
+      );
+      const receiptConfirmed =
+        refreshedItem?.receipt_visibility?.decision_receipt_ref ===
+          receipt.receipt_ref ||
+        refreshedItem?.receipt_refs?.includes(receipt.receipt_ref);
+      if (!refreshedItem || !hasAuthoritativeActionReadModel(refreshedItem)) {
+        setState({
+          status: "recorded",
+          refreshStatus: "refresh_pending_backend_read_model",
+          decision,
+          receipt,
+          message: `${receipt.status}: ${receipt.safe_summary}`,
+          refreshMessage:
+            "Backend read-model refresh is pending; the decision receipt is shown, but lane membership has not changed until backend-owned Action Inbox data confirms it.",
+        });
+        return;
+      }
+      if (!receiptConfirmed) {
+        setState({
+          status: "recorded",
+          refreshStatus: "refresh_pending_backend_read_model",
+          decision,
+          receipt,
+          message: `${receipt.status}: ${receipt.safe_summary}`,
+          refreshMessage:
+            "Backend read-model refresh did not yet include the decision receipt; lane membership remains pending until the backend read model catches up.",
+        });
+        return;
+      }
+      onReconciledItem(refreshedItem);
+      setState({
+        status: "recorded",
+        refreshStatus: "reconciled",
+        decision,
+        receipt,
+        message: `${receipt.status}: ${receipt.safe_summary}`,
+        refreshMessage:
+          "Backend read model refreshed; decision posture now comes from the Action Inbox API.",
+      });
+    } catch (error) {
+      setState({
+        status: "recorded",
+        refreshStatus: "refresh_failed",
+        decision,
+        receipt,
+        message: `${receipt.status}: ${receipt.safe_summary}`,
+        refreshMessage:
+          error instanceof Error
+            ? `Backend read-model refresh failed safely: ${error.message}`
+            : "Backend read-model refresh failed safely.",
+      });
+    }
+  }
+
   async function recordDecision(decision: FounderLoopActionDecisionKind) {
-    setState({ status: "pending", decision });
+    setState({ status: "pending", refreshStatus: "idle", decision });
     try {
       const receipt = await submitActionDecision(item.item_ref, decision, {
         decision_reason_ref: `decision-reason-ref:control-center:${decision}`,
@@ -3558,15 +3897,11 @@ function ActionDecisionControls({ item }: { item: FounderLoopActionItem }) {
           item.item_ref,
         ],
       });
-      setState({
-        status: "recorded",
-        decision,
-        receipt,
-        message: `${receipt.status}: ${receipt.safe_summary}`,
-      });
+      await refreshDecisionActionItem(receipt, decision);
     } catch (error) {
       setState({
         status: "failed",
+        refreshStatus: "idle",
         decision,
         message:
           error instanceof Error
@@ -3596,10 +3931,21 @@ function ActionDecisionControls({ item }: { item: FounderLoopActionItem }) {
         ))}
       </div>
       {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.refreshMessage ? (
+        <p className="muted">{state.refreshMessage}</p>
+      ) : null}
       {state.receipt ? (
         <dl className="detail-list">
           <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
           <DetailTerm label="Audit" value={state.receipt.audit_ref} />
+          <DetailTerm
+            label="Approval ref"
+            value={state.receipt.approval_ref ?? "not required"}
+          />
+          <DetailTerm
+            label="Read-model refresh"
+            value={state.refreshStatus}
+          />
           <DetailTerm
             label="Action executed"
             value={state.receipt.action_executed ? "yes" : "no"}

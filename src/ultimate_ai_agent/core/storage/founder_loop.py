@@ -1408,6 +1408,11 @@ def _classify_action_inbox_group(action: dict[str, Any]) -> tuple[str, str]:
     action_kind = str(action.get("action_kind") or "review_only")
     is_local_task = action_kind == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
 
+    if action.get("state_change_contract_ref") == MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF:
+        return (
+            "proposal_only_no_execution_path",
+            "Memory context-pack handoff created an internal Action proposal receipt only; no execution path is available.",
+        )
     if (
         is_local_task
         and status == "approved"
@@ -6602,10 +6607,23 @@ class FounderLoopRepository:
         if context_pack is None:
             raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_CONTEXT_PACK_NOT_FOUND")
         expected_scope_ref = memory_context_pack_action_scope_ref(context_pack_ref)
-        if request.exact_approval_scope_ref != expected_scope_ref:
+        if (
+            request.exact_approval_scope_ref is not None
+            and request.exact_approval_scope_ref != expected_scope_ref
+        ):
             raise FounderLoopStorageError(
                 "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_SCOPE_MISMATCH"
             )
+        context_pack_proposal_ref = str(context_pack["proposal_ref"])
+        request = (
+            self._request_with_backend_owned_memory_context_pack_action_approval_if_needed(
+                context_pack_ref=context_pack_ref,
+                context_pack_proposal_ref=context_pack_proposal_ref,
+                request=request,
+                expected_scope_ref=expected_scope_ref,
+                idempotency_key_ref=idempotency_key_ref,
+            )
+        )
 
         fingerprint_payload = memory_context_pack_action_payload_for_fingerprint(
             context_pack_ref=context_pack_ref,
@@ -6632,7 +6650,6 @@ class FounderLoopRepository:
                 ),
             }
 
-        context_pack_proposal_ref = str(context_pack["proposal_ref"])
         approval_status, approval_reason_refs = (
             self._memory_context_pack_action_approval_status(
                 context_pack_ref=context_pack_ref,
@@ -6905,6 +6922,99 @@ class FounderLoopRepository:
             },
         )
         return receipt_payload
+
+    def _request_with_backend_owned_memory_context_pack_action_approval_if_needed(
+        self,
+        *,
+        context_pack_ref: str,
+        context_pack_proposal_ref: str,
+        request: MemoryContextPackActionProposalRequest,
+        expected_scope_ref: str,
+        idempotency_key_ref: str,
+    ) -> MemoryContextPackActionProposalRequest:
+        updates: dict[str, Any] = {}
+        if request.exact_approval_scope_ref is None:
+            updates["exact_approval_scope_ref"] = expected_scope_ref
+        if request.approval_ref is None:
+            approval_ref = (
+                "approval-ref:memory-context-pack-action:"
+                f"{_safe_suffix(context_pack_ref)}:{_safe_suffix(idempotency_key_ref)}"
+            )
+            approval_request = memory_context_pack_action_approval_request(
+                context_pack_ref=context_pack_ref,
+                context_pack_proposal_ref=context_pack_proposal_ref,
+                actor_context=request.actor_context,
+                risk_class=request.risk_class,
+                exact_approval_scope_ref=expected_scope_ref,
+            )
+            authority = LocalApprovalAuthority()
+            authority.create_request(approval_request)
+            grant = authority.grant(
+                approval_request.approval_request_id,
+                approved_by_actor_id=request.actor_context.actor_id,
+                approval_ref=approval_ref,
+            )
+            grant_payload = grant.model_dump(mode="json")
+            receipt_payload = {
+                "contract_ref": "contract-ref:founder-loop-internal-approval-capture:v1",
+                "approval_kind": "memory_context_pack_action_proposal",
+                "approval_ref": approval_ref,
+                "subject_ref": context_pack_ref,
+                "requested_action": MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION,
+                "exact_scope_ref": expected_scope_ref,
+                "idempotency_key_ref": idempotency_key_ref,
+                "status": "approved",
+                "safe_summary": (
+                    "Backend-owned approval captured for Memory context-pack "
+                    "internal Action proposal state only."
+                ),
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "created_at": _utc_iso(),
+                "expires_at": (
+                    grant.expires_at.isoformat() if grant.expires_at else ""
+                ),
+            }
+            _validate_safe_payload(
+                receipt_payload, "memory_context_pack_approval_capture"
+            )
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO founder_loop_internal_approval_grants (
+                        approval_ref, approval_kind, subject_ref, requested_action,
+                        exact_scope_ref, idempotency_key_ref, grant_json, receipt_json,
+                        created_at, expires_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(approval_ref) DO UPDATE SET
+                        approval_kind = excluded.approval_kind,
+                        subject_ref = excluded.subject_ref,
+                        requested_action = excluded.requested_action,
+                        exact_scope_ref = excluded.exact_scope_ref,
+                        idempotency_key_ref = excluded.idempotency_key_ref,
+                        grant_json = excluded.grant_json,
+                        receipt_json = excluded.receipt_json,
+                        created_at = excluded.created_at,
+                        expires_at = excluded.expires_at
+                    """,
+                    (
+                        approval_ref,
+                        "memory_context_pack_action_proposal",
+                        context_pack_ref,
+                        MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION,
+                        expected_scope_ref,
+                        idempotency_key_ref,
+                        _json_dumps(grant_payload),
+                        _json_dumps(receipt_payload),
+                        str(receipt_payload["created_at"]),
+                        str(receipt_payload["expires_at"]),
+                    ),
+                )
+            updates["approval_ref"] = approval_ref
+        if not updates:
+            return request
+        return request.model_copy(update=updates)
 
     def latest_action_receipt(self, action_id: str) -> dict[str, Any] | None:
         item_ref = action_id_to_item_ref(action_id)
@@ -7241,6 +7351,12 @@ class FounderLoopRepository:
         if action is None:
             raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_NOT_FOUND")
         action = {**action, **_action_envelope_contract_payload(action)}
+        request = self._request_with_backend_owned_action_approval_if_needed(
+            action=action,
+            decision=decision,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
         fingerprint_payload = decision_payload_for_fingerprint(
             item_ref=item_ref,
             decision=decision,
@@ -7393,6 +7509,46 @@ class FounderLoopRepository:
             },
         )
         return receipt_payload
+
+    def _request_with_backend_owned_action_approval_if_needed(
+        self,
+        *,
+        action: dict[str, Any],
+        decision: str,
+        request: FounderLoopActionDecisionRequest,
+        idempotency_key_ref: str,
+    ) -> FounderLoopActionDecisionRequest:
+        if decision != "approve" or request.approval_ref is not None:
+            return request
+        approval_request = action_approval_request(
+            item_ref=str(action["item_ref"]),
+            actor_context=request.actor_context,
+            risk_class=str(action.get("risk_class", "high")),
+            resource_refs=[
+                str(action["item_ref"]),
+                str(action["action_envelope_ref"]),
+                str(action["action_scope_ref"]),
+                str(action["action_approval_requirement_ref"]),
+            ],
+        )
+        approval_ref = (
+            "approval-ref:founder-loop-action:"
+            f"{_safe_suffix(str(action['item_ref']))}:"
+            f"{_safe_suffix(idempotency_key_ref)}"
+        )
+        authority = LocalApprovalAuthority()
+        authority.create_request(approval_request)
+        grant = authority.grant(
+            approval_request.approval_request_id,
+            approved_by_actor_id=request.actor_context.actor_id,
+            approval_ref=approval_ref,
+        )
+        return request.model_copy(
+            update={
+                "approval_ref": approval_ref,
+                "approval_grants": [grant],
+            }
+        )
 
     def _action_payload_for_item_ref(self, item_ref: str) -> dict[str, Any] | None:
         rows = self._fetch_all(
