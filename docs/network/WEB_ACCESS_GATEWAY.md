@@ -1,8 +1,8 @@
 # WebAccessGateway Boundary
 
-Status: proposed boundary slice / M72.5  
-Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper  
-Out of scope: new providers, browser execution, browser clicks, form filling, auth, cookies, downloads, uploads, non-GET methods
+Status: active boundary slice / M72-M75 provider-shell posture
+Scope: contracts, policy, audit, source metadata, static guardrails, governed evidence wrapper, disabled provider adapter shells
+Out of scope: live provider calls, provider credentials, browser execution, browser clicks, form filling, auth, cookies, downloads, uploads, non-GET methods
 
 ## Decision
 
@@ -42,11 +42,13 @@ durable audit storage, side-effect ledger blockers, approval linkage, operator
 blocked/degraded/partial labels, provider diagnostics, metadata-only catalog
 visibility, and named verification lanes come before scoped execution.
 
-The core rule is: add providers earlier, add dangerous authority much later.
-Firecrawl and Browserbase may appear as disabled/read-only adapters after this
-gateway is stable. Browser clicks, form filling, auth/cookies,
-downloads/uploads, and POST-style mutations must wait for mature autonomy,
-audit, approval, revocation, sandbox, and connector/write layers.
+The core rule is: add provider shells earlier, add provider execution and
+dangerous authority much later. Firecrawl, Browserbase, and search provider
+shells may appear as disabled diagnostics behind the gateway, but provider
+SDK imports, credentials, network calls, scrape jobs, browser sessions, browser
+clicks, form filling, auth/cookies, downloads/uploads, and POST-style mutations
+must wait for mature autonomy, audit, approval, revocation, sandbox, and
+connector/write layers.
 
 ## Authority ladder
 
@@ -73,6 +75,7 @@ Allowed:
 - optional injected read-only HTTPS GET adapter in tests
 - injected browser observe-only summaries when explicitly policy-enabled
 - injected browser action dry-run plans when explicitly policy-enabled
+- disabled provider adapter shells for Firecrawl, Browserbase, and search diagnostics
 - normalized WebAccessAuditRecord for allowed and denied paths
 - SourceMetadata with content_untrusted=true
 - quarantined WebAccessEvidenceBundle for adapter payloads
@@ -96,6 +99,12 @@ Denied:
 - private IP / localhost / local network fetches
 - raw DOM retention
 - prompt/context injection from fetched pages
+- provider shells as runtime authority
+- provider SDK imports/calls
+- provider credentials
+- live search provider calls
+- Firecrawl scrape jobs
+- Browserbase browser sessions
 ```
 
 ## Network lanes
@@ -118,7 +127,7 @@ Temporary exceptions are not permission to add more direct access. They should s
 
 Adapters must be invoked only after policy allows the request, normalize provider results into `WebAccessResult`, mark web content as untrusted, and avoid leaking provider objects or runtime authority to agent logic. Adapter payloads must be wrapped as quarantined `WebAccessEvidenceBundle` data, not exposed as tool, shell, browser, connector, memory, or policy instructions.
 
-Adapters must not execute browser actions, hide redirects/source metadata, treat fetched web content as instructions, or introduce provider dependencies in this boundary PR.
+Adapters must not execute browser actions, hide redirects/source metadata, treat fetched web content as instructions, or introduce provider dependencies in this boundary PR. Disabled provider adapter shells are diagnostic metadata only; catalog visibility is not callable runtime authority.
 
 ## Untrusted content model
 

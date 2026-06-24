@@ -94,6 +94,12 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "control_center_memory_hrr_readiness_blocked_contract" in manifest["capabilities_declared"]
     assert "control_center_memory_hrr_enabled_without_explicit_milestone" in manifest["capabilities_blocked"]
     assert "control_center_memory_safe_query_raw_echo" in manifest["capabilities_blocked"]
+    assert "web_access_provider_adapter_shells_disabled" in manifest["capabilities_declared"]
+    assert "web_access_provider_diagnostics_metadata_only" in manifest["capabilities_declared"]
+    assert (
+        "web_access_provider_catalog_visibility_metadata_only"
+        in manifest["capabilities_declared"]
+    )
     assert "mattermost_agent_rooms_disabled_by_default" in manifest["capabilities_declared"]
     assert "mattermost_role_catalog" in manifest["capabilities_declared"]
     assert "mattermost_redacted_message_ingress" in manifest["capabilities_declared"]
@@ -281,6 +287,13 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "session_logging_raw_capture" in manifest["capabilities_blocked"]
     assert "session_logging_external_telemetry" in manifest["capabilities_blocked"]
     assert "session_logging_os_wide_activity_monitoring" in manifest["capabilities_blocked"]
+    assert "web_access_provider_shells_as_runtime_authority" in manifest["capabilities_blocked"]
+    assert "web_access_provider_sdk_imports" in manifest["capabilities_blocked"]
+    assert "web_access_provider_credentials" in manifest["capabilities_blocked"]
+    assert "search_provider_live_calls" in manifest["capabilities_blocked"]
+    assert "firecrawl_provider_calls" in manifest["capabilities_blocked"]
+    assert "firecrawl_scrape_jobs" in manifest["capabilities_blocked"]
+    assert "browserbase_provider_sessions" in manifest["capabilities_blocked"]
     assert "mattermost_raw_transcript_storage" in manifest["capabilities_blocked"]
     assert "mattermost_unapproved_connector_writes" in manifest["capabilities_blocked"]
     assert "mattermost_credential_or_cookie_handling" in manifest["capabilities_blocked"]

@@ -1,5 +1,12 @@
 """Policy-controlled WebAccessGateway package."""
 
+from .adapters import (
+    DisabledProviderAdapterShell,
+    DisabledProviderShellContract,
+    DisabledProviderShellStatus,
+    disabled_provider_adapter_shell_catalog,
+    disabled_provider_adapter_shells,
+)
 from .contracts import (
     SourceMetadata,
     WebAccessAdapterKind,
@@ -45,6 +52,9 @@ from .runtime_authority import (
 
 __all__ = [
     "SourceMetadata",
+    "DisabledProviderAdapterShell",
+    "DisabledProviderShellContract",
+    "DisabledProviderShellStatus",
     "WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER",
     "WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_STATUSES",
     "WEB_RUNTIME_CANONICAL_NOUNS",
@@ -83,4 +93,6 @@ __all__ = [
     "WebSideEffectLedgerState",
     "create_default_web_access_gateway",
     "build_web_runtime_authority_contract",
+    "disabled_provider_adapter_shell_catalog",
+    "disabled_provider_adapter_shells",
 ]

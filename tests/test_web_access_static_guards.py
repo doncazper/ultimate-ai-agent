@@ -166,6 +166,16 @@ def test_no_new_direct_public_web_or_browser_imports_outside_gateway() -> None:
     )
 
 
+def test_disabled_provider_shells_do_not_import_provider_sdks() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    adapter_file = repo_root / "src/ultimate_ai_agent/core/web_access/adapters.py"
+
+    imported = _direct_imports(adapter_file)
+    banned = sorted(module for module in imported if _is_banned(module))
+
+    assert banned == []
+
+
 def test_no_new_browser_search_provider_cli_surfaces_outside_exceptions() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     violations: list[str] = []
