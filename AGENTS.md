@@ -73,6 +73,12 @@ Rules:
   `http.client`, Playwright, Selenium, Firecrawl, Browserbase, browser-provider,
   search-provider, or scrape-provider calls outside approved adapter modules or
   explicit temporary exceptions.
+- Provider integration is not execution authority. Review provider/browser
+  follow-up work against
+  `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`: provider shells may
+  arrive as disabled/read-only adapters after the gateway is stable, while
+  clicks, forms, auth/cookies, downloads/uploads, and POST-style mutations remain
+  later authority work.
 - Default policy is deny.
 - Prefer governed evidence/read-only fetch before browser observe.
 - Browser observe is future/controlled and must be routed through the gateway

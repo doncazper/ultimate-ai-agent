@@ -10,6 +10,8 @@ Do not water down the architecture to make implementation easier. The point of t
 Context:
 The repo has pieces split across governed web evidence, tool runtime HTTP fetch, network expansion contracts, browser observe, browser dry-run, low-risk click, and capability policy. The missing piece is a single WebAccessGateway. Without it, agents/tools could eventually route around policy and audit.
 
+Future provider and dangerous-authority sequencing is governed by `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`. Preserve its core recommendation: add providers earlier, add dangerous authority much later.
+
 Non-negotiable architectural rule:
 Agent-facing public web access must go through `ultimate_ai_agent.core.web_access`.
 
@@ -66,6 +68,7 @@ Review checklist:
 5. Confirm `content_untrusted` is true for source/web content.
 6. Confirm browser observe/action/click execution remains disabled.
 7. Confirm temporary exceptions did not grow beyond the documented baseline unless explicitly justified.
+8. Confirm any provider/browser proposal follows `WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md` and does not blend provider integration with execution authority.
 
 Security review self-check:
 Return P0/P1/P2/P3 findings for gateway bypass risks, static guard bypass risks, local-model exception scope, prompt injection risk from fetched pages, audit completeness, private/local network denial, auth/cookie/download/upload/non-GET denial, browser execution accidentally enabled, AGENTS.md wording loopholes, and the smallest safe follow-up PR.

@@ -1,5 +1,10 @@
 # WebAccessGateway PR Sequence
 
+Future provider and dangerous-authority sequencing is governed by
+`docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`. Do not treat provider
+SDK presence as permission to execute browser actions, auth/session work,
+downloads/uploads, or POST-style mutations.
+
 ## PR 1 — M72.5 WebAccessGateway Boundary
 
 Purpose: create the central boundary before adding providers.
@@ -32,16 +37,19 @@ Forbidden:
 - broad direct-HTTP migration
 ```
 
-## PR 2 — WebAccess API/Manifest Integration
+## PR 2 — WebAccess API/Manifest Wording Integration
 
-Purpose: expose status/preview only after the core gateway exists.
+Purpose: align API/manifest wording with the core gateway boundary without
+adding routes or runtime behavior.
 
 Tasks:
 
 ```text
-- Add or update API route for gateway status/preview if useful.
 - Update manifest wording to distinguish unrestricted web fetching from governed web access.
 - Preserve side-effect classification as governed/read-only.
+- No new API route.
+- No status or preview route.
+- No runtime fetch wiring.
 - No new providers.
 - No browser behavior.
 ```

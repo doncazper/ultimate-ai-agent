@@ -37,6 +37,7 @@ docs/network/WEB_ACCESS_GATEWAY_PR_SEQUENCE.md
 docs/network/WEB_ACCESS_GATEWAY_DEFINITION_OF_DONE.md
 docs/network/WEB_ACCESS_GATEWAY_CODEX_PROMPTS.md
 docs/network/WEB_ACCESS_GATEWAY_SECURITY_REVIEW_CHECKLIST.md
+docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md
 prompts/CODEX_REVIEW_AND_INGEST_WEB_ACCESS_GATEWAY_PR.md
 tests/test_web_access_gateway.py
 tests/test_web_access_static_guards.py

@@ -46,6 +46,9 @@ Use this checklist before merging any WebAccessGateway PR.
 
 ## Provider checks
 
+- [ ] Provider/browser proposals were reviewed against `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`.
+- [ ] Provider integration is not treated as execution authority.
+- [ ] Disabled/read-only provider shells are separate from clicks, forms, auth/cookies, downloads/uploads, and POST-style mutations.
 - [ ] No Firecrawl, Browserbase, search, or scrape provider dependency is added in PR 1.
 - [ ] Provider objects do not escape adapters.
 - [ ] Provider-specific behavior is normalized into WebAccessResult.

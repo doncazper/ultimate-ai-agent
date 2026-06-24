@@ -135,6 +135,28 @@ class WebAccessAuditRecord:
 
 
 @dataclass(frozen=True)
+class WebAccessEvidenceBundle:
+    """Quarantined adapter payload.
+
+    Web evidence is data only. Keeping the provider payload behind this wrapper
+    prevents downstream code from treating adapter keys such as "instructions",
+    "tools", "policy", "memory", or "browser" as authority by accident.
+    """
+
+    payload: Mapping[str, Any] = field(default_factory=dict)
+    content_untrusted: bool = True
+    instruction_use_allowed: bool = False
+    blocked_instruction_channels: tuple[str, ...] = (
+        "tool",
+        "shell",
+        "browser",
+        "connector",
+        "memory",
+        "policy",
+    )
+
+
+@dataclass(frozen=True)
 class WebAccessRequest:
     """Request accepted by WebAccessGateway."""
 
@@ -163,7 +185,7 @@ class WebAccessResult:
     decision: WebAccessPolicyDecision
     audit: WebAccessAuditRecord
     source_metadata: tuple[SourceMetadata, ...] = ()
-    evidence_bundle: Mapping[str, Any] | None = None
+    evidence_bundle: WebAccessEvidenceBundle | None = None
     error: str | None = None
     content_untrusted: bool = True
 

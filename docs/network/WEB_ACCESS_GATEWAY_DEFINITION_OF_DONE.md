@@ -34,7 +34,9 @@ PR 1 is complete only when every item below is true.
 
 - [ ] Source metadata includes URL/final URL/host where available.
 - [ ] Source metadata marks content as untrusted.
+- [ ] The gateway forces adapter-provided source metadata to remain untrusted.
 - [ ] Results mark content as untrusted.
+- [ ] Adapter payloads are quarantined in `WebAccessEvidenceBundle`.
 - [ ] Fetched content is never treated as instructions.
 
 ## Static guardrails
@@ -48,6 +50,7 @@ PR 1 is complete only when every item below is true.
 
 - [ ] `WEB_ACCESS_GATEWAY.md` explains the boundary, lanes, authority ladder, non-goals, and future milestones.
 - [ ] `WEB_ACCESS_GATEWAY_PR_SEQUENCE.md` documents PR 1-5 and later scoped execution.
+- [ ] `WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md` is indexed and cross-linked as the future provider/authority sequencing reference.
 - [ ] `WEB_ACCESS_GATEWAY_CODEX_PROMPTS.md` includes implementation and review prompts.
 - [ ] Root `AGENTS.md` contains WebAccessGateway guidance.
 - [ ] Manifest wording is identified as follow-up if not changed in this PR.

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Mapping
 
 from .adapters import GovernedWebEvidenceAdapter, NullWebAccessAdapter
@@ -11,6 +11,8 @@ from .contracts import (
     SourceMetadata,
     WebAccessAdapter,
     WebAccessAdapterKind,
+    WebAccessEvidenceBundle,
+    WebAccessPolicyDecision,
     WebAccessPolicyStatus,
     WebAccessRequest,
     WebAccessRequestKind,
@@ -76,6 +78,27 @@ class WebAccessGateway:
 
         sources = _normalize_sources(request, adapter_result)
         preview = _preview_from_adapter_result(adapter_result)
+        evidence_bundle = _quarantine_adapter_result(adapter_result)
+        adapter_block = _adapter_block_decision(decision, adapter_result)
+        if adapter_block is not None:
+            audit = build_audit_record(
+                request=request,
+                decision=adapter_block,
+                adapter_kind=getattr(adapter, "adapter_kind", WebAccessAdapterKind.NONE),
+                source_metadata=sources,
+                redacted_preview=preview,
+            )
+            return WebAccessResult(
+                request_id=request.request_id,
+                status=adapter_block.status,
+                decision=adapter_block,
+                audit=audit,
+                source_metadata=sources,
+                evidence_bundle=evidence_bundle,
+                error=";".join(adapter_block.reasons),
+                content_untrusted=True,
+            )
+
         audit = build_audit_record(
             request=request,
             decision=decision,
@@ -89,7 +112,7 @@ class WebAccessGateway:
             decision=decision,
             audit=audit,
             source_metadata=sources,
-            evidence_bundle=adapter_result,
+            evidence_bundle=evidence_bundle,
             content_untrusted=True,
         )
 
@@ -119,7 +142,7 @@ def _normalize_sources(
         normalized: list[SourceMetadata] = []
         for item in raw_sources:
             if isinstance(item, SourceMetadata):
-                normalized.append(item)
+                normalized.append(_force_untrusted_source(item))
             elif isinstance(item, Mapping):
                 url = item.get("url") or item.get("final_url") or request.url
                 if isinstance(url, str):
@@ -127,6 +150,41 @@ def _normalize_sources(
         if normalized:
             return tuple(normalized)
     return (build_source_metadata(request),)
+
+
+def _force_untrusted_source(source: SourceMetadata) -> SourceMetadata:
+    if source.content_untrusted:
+        return source
+    return replace(source, content_untrusted=True)
+
+
+def _quarantine_adapter_result(adapter_result: Mapping[str, object]) -> WebAccessEvidenceBundle:
+    return WebAccessEvidenceBundle(payload=adapter_result, content_untrusted=True)
+
+
+def _adapter_block_decision(
+    decision: WebAccessPolicyDecision,
+    adapter_result: Mapping[str, object],
+) -> WebAccessPolicyDecision | None:
+    adapter_allowed = adapter_result.get("allowed")
+    adapter_status = adapter_result.get("status")
+    if adapter_allowed is not False and adapter_status not in {"blocked", "denied"}:
+        return None
+
+    reasons = ["adapter_policy_blocked"]
+    reason_codes = adapter_result.get("reason_codes")
+    if isinstance(reason_codes, (list, tuple)):
+        reasons.extend(f"adapter_reason:{str(reason)}" for reason in reason_codes)
+    elif isinstance(adapter_status, str):
+        reasons.append(f"adapter_status:{adapter_status}")
+
+    return type(decision)(
+        status=WebAccessPolicyStatus.DENIED,
+        risk_class=decision.risk_class,
+        reasons=tuple(reasons),
+        allowed_methods=decision.allowed_methods,
+        requires_approval=False,
+    )
 
 
 def _preview_from_adapter_result(adapter_result: Mapping[str, object]) -> str | None:
