@@ -659,9 +659,13 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
         "founder_loop_source_readiness_posture.v1"
     )
     assert source_posture["backend_owned"] is True
+    assert source_posture["source"] == "python_core_source_readiness_read_model"
     assert source_posture["connector_runtime_enabled"] is False
     assert source_posture["source_refresh_enabled"] is False
     assert source_posture["notification_delivery_enabled"] is False
+    assert source_posture["account_auth_enabled"] is False
+    assert source_posture["raw_source_ingestion_enabled"] is False
+    assert source_posture["write_authority_enabled"] is False
     assert (
         "contract-ref:email-read-only-missing"
         in source_posture["missing_contract_refs"]
@@ -671,7 +675,14 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     )
     assert briefing["items"]
     assert briefing["route_ref"] == "/control-center/morning-briefing/summary"
+    assert today["source_readiness_route_ref"] == "/control-center/sources/readiness"
+    assert briefing["source_readiness_route_ref"] == (
+        "/control-center/sources/readiness"
+    )
     assert "GET /control-center/storage/status" in briefing["read_only_route_refs"]
+    assert (
+        "GET /control-center/sources/readiness" in briefing["read_only_route_refs"]
+    )
     assert "contract-ref:email-read-only-missing" in briefing["missing_contract_refs"]
     assert briefing["source_readiness_posture"] == source_posture
     assert briefing["source_readiness"] == (
@@ -682,6 +693,32 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert briefing["notification_delivery_enabled"] is False
     assert "no_background_refresh" in briefing["blocked_states"]
     assert "no_notification_delivery" in briefing["blocked_states"]
+
+    source_readiness = repo.source_readiness()
+    assert source_readiness["schema_version"] == "founder_loop_source_readiness.v1"
+    assert source_readiness["source"] == "python_core_source_readiness_read_model"
+    assert source_readiness["backend_owned"] is True
+    assert source_readiness["route_ref"] == "/control-center/sources/readiness"
+    assert "GET /control-center/sources/readiness" in source_readiness["route_refs"]
+    assert source_readiness["source_readiness_posture"] == source_posture
+    assert source_readiness["source_readiness_items"] == today["source_readiness_items"]
+    assert source_readiness["connector_runtime_enabled"] is False
+    assert source_readiness["source_refresh_enabled"] is False
+    assert source_readiness["notification_delivery_enabled"] is False
+    assert source_readiness["account_auth_enabled"] is False
+    assert source_readiness["raw_source_ingestion_enabled"] is False
+    assert source_readiness["write_authority_enabled"] is False
+    assert set(source_readiness["supported_statuses"]) >= {
+        "ready",
+        "blocked",
+        "missing",
+        "metadata_only",
+        "unavailable",
+        "not_configured",
+    }
+    assert "blocked-state:no-connector-write" in source_readiness[
+        "blocked_authority_refs"
+    ]
 
     assert today["memory_review_route_ref"] == "/memory"
     assert (

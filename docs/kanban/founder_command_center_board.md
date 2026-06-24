@@ -315,12 +315,13 @@ or Setup copy for next safe source actions.
 readiness, manual or metadata-only source summaries can feed reviewable
 objects, and missing sources explain the next safe action.
 
-**Current Slice:** Today and Morning Briefing now expose embedded backend-owned
-read-only source readiness metadata for inbox, calendar, tasks, CRM-lite/manual
-notes, repo, and local files. This moves the unit toward rank 2, but the
-operational maturity manifest still keeps Inbox/Sources at rank 1 until a
-dedicated source-readiness route, UI status binding, and verifier-backed
-contract exist.
+**Current Slice:** Today, Morning Briefing, and `/inbox` now bind to a
+dedicated backend-owned read-only Source Readiness route,
+`GET /control-center/sources/readiness`, for inbox, calendar, tasks,
+CRM-lite/manual notes, repo, and local files. This moves the unit forward as
+rank-1 read-only status, but the operational maturity manifest does not claim a
+rank-2 proposal-review promotion until draft-only proposal binding and verifier
+coverage justify it.
 
 **Authority Boundary:** No account auth, background polling, raw body
 ingestion, email send, calendar write, external task write, archive, delete,

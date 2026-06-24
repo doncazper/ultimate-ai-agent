@@ -184,6 +184,9 @@ class FounderLoopControlCenterService:
     def morning_briefing_summary(self) -> dict:
         return self.repository.morning_briefing()
 
+    def source_readiness(self) -> dict:
+        return self.repository.source_readiness()
+
     def storage_status(self) -> dict:
         status = self.repository.storage_status()
         status["backup_manifest"] = self.repository.backup_manifest()

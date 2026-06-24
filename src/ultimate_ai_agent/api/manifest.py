@@ -62,6 +62,7 @@ CAPABILITIES_DECLARED = [
     "control_center_memory_context_pack_internal_action_proposal",
     "control_center_evidence_timeline_productization",
     "control_center_morning_briefing_summary",
+    "control_center_source_readiness_status",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
     "local_model_gateway_disabled_by_default",
@@ -305,6 +306,7 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/memory",
     "/control-center/evidence",
     "/control-center/morning-briefing",
+    "/control-center/sources",
     "/control-center/storage",
 )
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
@@ -332,6 +334,7 @@ LOCAL_READONLY_PATHS = {
     "/control-center/runtime-readiness/summary",
     "/control-center/setup-assistant/summary",
     "/control-center/settings/status",
+    "/control-center/sources/readiness",
     "/control-center/status",
     "/extensions/catalog",
     "/remote-workers/mesh/status",

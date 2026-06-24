@@ -147,7 +147,7 @@ describe("Web Control Center shell", () => {
     expect(within(navigation).getByRole("link", { name: "Setup" })).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "API Routes" })).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "Differentiators" })).toBeInTheDocument();
-    expect(within(navigation).getAllByText("blocked").length).toBeGreaterThan(0);
+    expect(within(navigation).getAllByText("partial").length).toBeGreaterThan(0);
     expect(within(navigation).queryByText("blocked/planned")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Product spine contract/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Founder daily loop/i })).toBeInTheDocument();
@@ -682,7 +682,22 @@ describe("Web Control Center shell", () => {
   });
 
   it("renders Inbox as a blocked planned triage surface without connector authority", async () => {
-    mockFetchWithFallback();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, options?: RequestInit) => {
+        const urlText = String(url);
+        if (
+          !options?.method &&
+          READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+        ) {
+          return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        throw new Error("unexpected connector authority call");
+      }),
+    );
     window.history.pushState({}, "", "/inbox");
     render(<App />);
 
@@ -691,16 +706,35 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("blocked/planned").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Route posture/i })).toBeInTheDocument();
-    expect(screen.getByText("not scoped")).toBeInTheDocument();
     expect(screen.getByText("/inbox")).toBeInTheDocument();
-    expect(screen.getByText("none in this slice")).toBeInTheDocument();
-    expect(screen.getByText("local UI state only")).toBeInTheDocument();
     expect(
-      screen.getByText(/future connector or draft actions require exact scoped approval/i),
+      screen.getAllByText("/control-center/sources/readiness").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("local_dev_workspace_only")).toBeInTheDocument();
+    expect(
+      screen.getByText("not required for read-only source readiness"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/define read-only email\/calendar metadata contracts/i),
+      screen.getByRole("heading", { name: /Source readiness states/i }),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Dedicated source readiness route")).toHaveTextContent(
+      "backend-owned",
+    );
+    expect(screen.getByText("Account auth").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(
+      screen.getByText("Raw source ingestion").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(screen.getByText("Write authority").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(
+      screen.getByText(/live email, calendar, draft, account, polling/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:email-read-only-missing").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText(/docs\/control_center\/OPERATOR_SHELL_GAP_MAP.md/i),
     ).toBeInTheDocument();
@@ -713,6 +747,11 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/draft-only response proposal contract is not implemented/i),
     ).toBeInTheDocument();
+    for (const forbiddenControl of [/send/i, /archive/i, /delete/i, /calendar write/i]) {
+      expect(
+        screen.queryByRole("button", { name: forbiddenControl }),
+      ).not.toBeInTheDocument();
+    }
 
     for (const label of [
       /^send$/i,
@@ -2759,7 +2798,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("135")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("136")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -4556,6 +4595,9 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMorningBriefing)).toBe(
       true,
     );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderSourceReadiness)).toBe(
+      true,
+    );
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderStorageStatus)).toBe(
       true,
     );
@@ -4611,6 +4653,17 @@ function envelopeForReadEndpoint(url: string) {
     },
     [API_ENDPOINTS.founderMorningBriefing]:
       mockControlCenterData.founderMorningBriefing,
+    [API_ENDPOINTS.founderSourceReadiness]: {
+      ...mockControlCenterData.founderSourceReadiness,
+      source: "python_core_source_readiness_read_model",
+      backend_owned: true,
+      generated_at: "2026-01-01T00:00:00Z",
+      source_readiness_posture: {
+        ...mockControlCenterData.founderSourceReadiness.source_readiness_posture,
+        source: "python_core_source_readiness_read_model",
+        backend_owned: true,
+      },
+    },
     [API_ENDPOINTS.founderStorageStatus]: mockApiData.founderStorageStatus,
   };
   const endpoint = Object.keys(data).find((candidate) =>
@@ -4672,8 +4725,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 135,
-      control_center_route_count: 32,
+      route_count: 136,
+      control_center_route_count: 37,
       operation_ids_unique: true,
       execution_routes_present: false,
     },

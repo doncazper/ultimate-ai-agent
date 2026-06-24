@@ -1759,7 +1759,7 @@ def _source_readiness_posture(
     )
     posture = {
         "schema_version": "founder_loop_source_readiness_posture.v1",
-        "source": "python_core_morning_briefing_read_model",
+        "source": "python_core_source_readiness_read_model",
         "backend_owned": True,
         "status": "read_only_posture_missing_external_source_contracts",
         "source_count": len(source_readiness_items),
@@ -1791,9 +1791,13 @@ def _source_readiness_posture(
         ],
         "missing_contract_refs": missing_contract_refs,
         "blocked_state_refs": blocked_state_refs,
+        "blocked_authority_refs": blocked_state_refs,
         "connector_runtime_enabled": False,
         "source_refresh_enabled": False,
         "notification_delivery_enabled": False,
+        "account_auth_enabled": False,
+        "raw_source_ingestion_enabled": False,
+        "write_authority_enabled": False,
         "authority_boundary": (
             "Source readiness is a read-only posture summary. It does not grant "
             "email, calendar, connector, polling, refresh, notification, or "
@@ -1806,6 +1810,73 @@ def _source_readiness_posture(
     }
     _validate_safe_payload(posture, "source_readiness_posture")
     return posture
+
+
+def _source_readiness_read_model(
+    *,
+    briefing_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    source_readiness_items = _source_readiness_items(briefing_items=briefing_items)
+    source_readiness_posture = _source_readiness_posture(source_readiness_items)
+    blocked_authority_refs = _unique_sorted_refs(
+        [
+            *source_readiness_posture["blocked_authority_refs"],
+            "blocked-state:no-account-auth",
+            "blocked-state:no-background-polling",
+            "blocked-state:no-connector-runtime",
+            "blocked-state:no-connector-write",
+            "blocked-state:no-email-send",
+            "blocked-state:no-calendar-write",
+            "blocked-state:no-raw-source-ingestion",
+            "blocked-state:no-source-refresh",
+            "blocked-state:no-notification-delivery",
+        ]
+    )
+    evidence_refs = _unique_sorted_refs(
+        ref
+        for item in source_readiness_items
+        for ref in item.get("evidence_refs", [])
+    )
+    route_refs = [
+        "GET /control-center/sources/readiness",
+        "GET /control-center/today/summary",
+        "GET /control-center/morning-briefing/summary",
+    ]
+    read_model = {
+        "schema_version": "founder_loop_source_readiness.v1",
+        "source": "python_core_source_readiness_read_model",
+        "backend_owned": True,
+        "generated_at": _utc_iso(),
+        "status": "read_only_source_readiness_missing_external_contracts",
+        "surface": "Sources",
+        "route_ref": "/control-center/sources/readiness",
+        "route_refs": route_refs,
+        "source_readiness_items": source_readiness_items,
+        "source_readiness_posture": source_readiness_posture,
+        "supported_statuses": source_readiness_posture["supported_statuses"],
+        "missing_contract_refs": source_readiness_posture["missing_contract_refs"],
+        "blocked_state_refs": source_readiness_posture["blocked_state_refs"],
+        "blocked_authority_refs": blocked_authority_refs,
+        "evidence_refs": evidence_refs,
+        "connector_runtime_enabled": False,
+        "source_refresh_enabled": False,
+        "notification_delivery_enabled": False,
+        "account_auth_enabled": False,
+        "raw_source_ingestion_enabled": False,
+        "write_authority_enabled": False,
+        "authority_boundary": (
+            "Dedicated Source Readiness is a read-only local read model. It does "
+            "not authenticate accounts, poll connectors, ingest raw source bodies, "
+            "send or write external data, refresh sources, deliver notifications, "
+            "or grant production authority."
+        ),
+        "next_safe_action": (
+            "Use the dedicated read-only source readiness route to inspect missing "
+            "source contracts before adding any connector metadata contract."
+        ),
+    }
+    _validate_safe_payload(read_model, "source_readiness_read_model")
+    return read_model
 
 
 def _action_inbox_review_filter_facets(
@@ -3532,10 +3603,9 @@ class FounderLoopRepository:
         )
         chat_local_operator_contract = _chat_local_operator_contract_payload()
         governed_code_workbench_contract = _governed_code_workbench_contract_payload()
-        source_readiness_items = _source_readiness_items(
-            briefing_items=briefing_items,
-        )
-        source_readiness_posture = _source_readiness_posture(source_readiness_items)
+        source_readiness = self.source_readiness(briefing_items=briefing_items)
+        source_readiness_items = source_readiness["source_readiness_items"]
+        source_readiness_posture = source_readiness["source_readiness_posture"]
         crm_lite_followups = _crm_lite_followups(
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
             memory_items=memory_items,
@@ -3662,6 +3732,7 @@ class FounderLoopRepository:
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
             "daily_loop_summary": daily_loop_summary,
+            "source_readiness_route_ref": source_readiness["route_ref"],
             "source_readiness_items": source_readiness_items,
             "source_readiness_posture": source_readiness_posture,
             "crm_lite_followups": crm_lite_followups,
@@ -5685,8 +5756,9 @@ class FounderLoopRepository:
         private_beta_readiness_gate_contract = (
             _private_beta_readiness_gate_contract_payload()
         )
-        source_readiness_items = _source_readiness_items(briefing_items=items)
-        source_readiness_posture = _source_readiness_posture(source_readiness_items)
+        source_readiness = self.source_readiness(briefing_items=items)
+        source_readiness_items = source_readiness["source_readiness_items"]
+        source_readiness_posture = source_readiness["source_readiness_posture"]
         crm_lite_followups = _crm_lite_followups(
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
             memory_items=memory_items,
@@ -5735,6 +5807,7 @@ class FounderLoopRepository:
             "route_ref": "/control-center/morning-briefing/summary",
             "read_only_route_refs": [
                 "GET /control-center/morning-briefing/summary",
+                "GET /control-center/sources/readiness",
                 "GET /control-center/storage/status",
                 "GET /control-center/routes",
                 "GET /control-center/runtime-readiness/summary",
@@ -5760,6 +5833,7 @@ class FounderLoopRepository:
                 "contract-ref:calendar-read-only-missing",
                 "contract-ref:notification-delivery-missing",
             ],
+            "source_readiness_route_ref": source_readiness["route_ref"],
             "source_readiness_posture": source_readiness_posture,
             "daily_loop_summary": daily_loop_summary,
             "daily_loop_sections": [
@@ -5869,6 +5943,19 @@ class FounderLoopRepository:
                 "no_model_provider_call",
             ],
         }
+
+    def source_readiness(
+        self,
+        *,
+        briefing_items: list[dict[str, Any]] | None = None,
+        limit: int = 10,
+    ) -> dict[str, Any]:
+        items = (
+            briefing_items
+            if briefing_items is not None
+            else self.list_briefing_items(limit=limit)
+        )
+        return _source_readiness_read_model(briefing_items=items)
 
     def list_action_inbox(self, *, limit: int = 50) -> list[dict[str, Any]]:
         rows = self._fetch_all(

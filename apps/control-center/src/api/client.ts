@@ -11,6 +11,7 @@ import type {
   ControlCenterStatus,
   FounderLoopActionsInbox,
   FounderLoopMorningBriefing,
+  FounderLoopSourceReadiness,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
   LocalModelsInspectionStatus,
@@ -165,6 +166,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<FounderLoopMorningBriefing>(
       API_ENDPOINTS.founderMorningBriefing,
     ),
+    readEnvelope<FounderLoopSourceReadiness>(
+      API_ENDPOINTS.founderSourceReadiness,
+    ),
     readEnvelope<FounderLoopStorageStatus>(API_ENDPOINTS.founderStorageStatus),
   ] as const);
 
@@ -185,7 +189,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderMemoryContextPacks = fulfilledValue(results[11]);
   const founderActionsInbox = fulfilledValue(results[12]);
   const founderMorningBriefing = fulfilledValue(results[13]);
-  const founderStorageStatus = fulfilledValue(results[14]);
+  const founderSourceReadiness = fulfilledValue(results[14]);
+  const founderStorageStatus = fulfilledValue(results[15]);
   const normalizedFounderToday = mergeMissingFields(
     mockControlCenterData.founderToday,
     founderToday,
@@ -206,12 +211,17 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderMorningBriefing,
     founderMorningBriefing,
   );
+  const normalizedFounderSourceReadiness = mergeMissingFields(
+    mockControlCenterData.founderSourceReadiness,
+    founderSourceReadiness,
+  );
   const founderLoopFieldFallbackUsed =
     normalizedFounderToday.usedFallback ||
     normalizedFounderEvidenceTimeline.usedFallback ||
     normalizedFounderActionsInbox.usedFallback ||
     normalizedFounderMemoryContextPacks.usedFallback ||
-    normalizedFounderMorningBriefing.usedFallback;
+    normalizedFounderMorningBriefing.usedFallback ||
+    normalizedFounderSourceReadiness.usedFallback;
   const fulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
@@ -251,6 +261,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     founderMemoryContextPacks: normalizedFounderMemoryContextPacks.value,
     founderActionsInbox: normalizedFounderActionsInbox.value,
     founderMorningBriefing: normalizedFounderMorningBriefing.value,
+    founderSourceReadiness: normalizedFounderSourceReadiness.value,
     founderStorageStatus:
       founderStorageStatus ?? mockControlCenterData.founderStorageStatus,
     source: "api",

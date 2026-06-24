@@ -59,7 +59,8 @@ Routes intentionally not promoted:
 - `/today` remains `partial` because the broader product spine still depends on
   future Inbox, Settings, read-only calendar/email, model lifecycle, and beta
   evidence work.
-- `/inbox` and `/settings` remain `blocked`.
+- `/inbox` remains `partial` read-only source readiness; `/settings` remains
+  `partial` read-only status.
 - `/models` remains blocked or partial until a separate model lifecycle proof
   lane exists.
 

@@ -41,7 +41,7 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     assert manifest["operator_readiness_taxonomy_ref"] == (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     )
-    assert manifest["openapi_path_count"] == 135
+    assert manifest["openapi_path_count"] == 136
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {
@@ -176,7 +176,7 @@ def test_control_center_route_status_manifest_keeps_unready_actions_unready() ->
             action["missing_backend_routes"]
             and action["release_status"] in release_available
         ):
-            assert action["action_id"] == "navigate-settings"
+            assert action["action_id"] in {"navigate-settings", "navigate-inbox"}
 
 
 def test_control_center_product_language_rules_are_current_and_enforced() -> None:

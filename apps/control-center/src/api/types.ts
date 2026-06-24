@@ -1372,9 +1372,39 @@ export interface FounderLoopSourceReadinessPosture {
   supported_statuses: FounderLoopSourceReadinessStatus[];
   missing_contract_refs: string[];
   blocked_state_refs: string[];
+  blocked_authority_refs?: string[];
   connector_runtime_enabled: boolean;
   source_refresh_enabled: boolean;
   notification_delivery_enabled: boolean;
+  account_auth_enabled?: boolean;
+  raw_source_ingestion_enabled?: boolean;
+  write_authority_enabled?: boolean;
+  authority_boundary: string;
+  next_safe_action: string;
+}
+
+export interface FounderLoopSourceReadiness {
+  schema_version: "founder_loop_source_readiness.v1";
+  source: string;
+  backend_owned: boolean;
+  generated_at: string;
+  status: string;
+  surface: string;
+  route_ref: string;
+  route_refs: string[];
+  source_readiness_items: FounderLoopSourceReadinessItem[];
+  source_readiness_posture: FounderLoopSourceReadinessPosture;
+  supported_statuses: FounderLoopSourceReadinessStatus[];
+  missing_contract_refs: string[];
+  blocked_state_refs: string[];
+  blocked_authority_refs: string[];
+  evidence_refs: string[];
+  connector_runtime_enabled: boolean;
+  source_refresh_enabled: boolean;
+  notification_delivery_enabled: boolean;
+  account_auth_enabled: boolean;
+  raw_source_ingestion_enabled: boolean;
+  write_authority_enabled: boolean;
   authority_boundary: string;
   next_safe_action: string;
 }
@@ -2969,6 +2999,7 @@ export interface ControlCenterData {
   founderMemoryContextPacks: FounderLoopMemoryContextPacks;
   founderActionsInbox: FounderLoopActionsInbox;
   founderMorningBriefing: FounderLoopMorningBriefing;
+  founderSourceReadiness: FounderLoopSourceReadiness;
   founderStorageStatus: FounderLoopStorageStatus;
   source: "api" | "mock";
   connection: BackendConnectionSummary;

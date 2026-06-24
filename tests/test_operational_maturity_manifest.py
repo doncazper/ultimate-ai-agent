@@ -587,11 +587,15 @@ def test_operational_maturity_verifier_rejects_authoritative_source_readiness_mo
         fixture.write_text(
             """
 const sourceReadinessPosture = {
-  source: "python_core_morning_briefing_read_model" as const,
+  source: "python_core_source_readiness_read_model" as const,
   backend_owned: true,
 };
 
 export const mockControlCenterData = {
+  founderSourceReadiness: {
+    source: "python_core_source_readiness_read_model" as const,
+    backend_owned: true,
+  },
   founderToday: {
     source_readiness_posture: sourceReadinessPosture,
   },
@@ -604,7 +608,7 @@ export const mockControlCenterData = {
         _append_mock_fallback_fixture_failures(failures, root)
 
         assert any(
-            "mock fallback must not claim python_core_morning_briefing_read_model"
+            "mock fallback must not claim backend-owned source readiness read models"
             in failure
             for failure in failures
         )

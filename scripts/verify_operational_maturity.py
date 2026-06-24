@@ -1258,10 +1258,14 @@ def _append_mock_fallback_fixture_failures(failures: list[str], root: Path) -> N
         "source: 'python_core_morning_briefing_read_model'",
         'source: "python_core_morning_briefing_read_model" as const',
         "source: 'python_core_morning_briefing_read_model' as const",
+        'source: "python_core_source_readiness_read_model"',
+        "source: 'python_core_source_readiness_read_model'",
+        'source: "python_core_source_readiness_read_model" as const',
+        "source: 'python_core_source_readiness_read_model' as const",
     ]
     if any(marker in fixture for marker in source_readiness_markers):
         failures.append(
-            "Control Center mock fallback must not claim python_core_morning_briefing_read_model"
+            "Control Center mock fallback must not claim backend-owned source readiness read models"
         )
     if "local_task_commit_eligible: true" in fixture:
         failures.append(
@@ -1473,14 +1477,81 @@ def _append_read_only_status_probe_failures(failures: list[str]) -> None:
 
     with tempfile.TemporaryDirectory(prefix="uaa-readonly-status-probe-") as tmp:
         repo = FounderLoopRepository(Path(tmp) / "founder_loop")
-        today = repo.today_summary(limit=6)
-        source_posture = today.get("source_readiness_posture", {})
-        if source_posture.get("backend_owned") is not True:
-            failures.append("read-only probe: source readiness is not backend-owned")
+        routes_by_ref = {
+            f"{route.method} {route.path}": route.model_dump(mode="json")
+            for route in build_api_manifest(app).routes
+        }
+        source_route = routes_by_ref.get("GET /control-center/sources/readiness")
+        if not source_route:
+            failures.append("read-only probe: source readiness route missing")
+        else:
+            if source_route.get("route_classification") != "local_readonly":
+                failures.append(
+                    "read-only probe: source readiness route is not local_readonly"
+                )
+            if source_route.get("side_effect_class") != "local_dev_workspace_only":
+                failures.append(
+                    "read-only probe: source readiness route side effect drifted"
+                )
+            if source_route.get("protected_route") is not True:
+                failures.append("read-only probe: source readiness route not protected")
+            if source_route.get("idempotency_required") is not False:
+                failures.append(
+                    "read-only probe: source readiness route requires idempotency"
+                )
+            if source_route.get("approval_posture") != (
+                "not_required_for_route_classification"
+            ):
+                failures.append(
+                    "read-only probe: source readiness route approval posture drifted"
+                )
+        source_readiness = repo.source_readiness()
+        if source_readiness.get("schema_version") != "founder_loop_source_readiness.v1":
+            failures.append("read-only probe: source readiness schema drifted")
+        if source_readiness.get("source") != "python_core_source_readiness_read_model":
+            failures.append("read-only probe: source readiness source drifted")
+        if source_readiness.get("backend_owned") is not True:
+            failures.append("read-only probe: source readiness route data is not backend-owned")
+        if source_readiness.get("route_ref") != "/control-center/sources/readiness":
+            failures.append("read-only probe: source readiness route_ref drifted")
         for field in [
             "connector_runtime_enabled",
             "source_refresh_enabled",
             "notification_delivery_enabled",
+            "account_auth_enabled",
+            "raw_source_ingestion_enabled",
+            "write_authority_enabled",
+        ]:
+            if source_readiness.get(field) is not False:
+                failures.append(
+                    f"read-only probe: source readiness route enabled {field}"
+                )
+        for ref in [
+            "blocked-state:no-connector-write",
+            "blocked-state:no-account-auth",
+            "blocked-state:no-background-polling",
+        ]:
+            if ref not in set(source_readiness.get("blocked_authority_refs", [])):
+                failures.append(
+                    f"read-only probe: source readiness missing blocked authority {ref}"
+                )
+        today = repo.today_summary(limit=6)
+        source_posture = today.get("source_readiness_posture", {})
+        if source_posture.get("backend_owned") is not True:
+            failures.append("read-only probe: source readiness is not backend-owned")
+        if today.get("source_readiness_route_ref") != "/control-center/sources/readiness":
+            failures.append("read-only probe: Today source readiness route ref missing")
+        if source_readiness.get("source_readiness_posture") != source_posture:
+            failures.append(
+                "read-only probe: dedicated source readiness posture is not shared with Today"
+            )
+        for field in [
+            "connector_runtime_enabled",
+            "source_refresh_enabled",
+            "notification_delivery_enabled",
+            "account_auth_enabled",
+            "raw_source_ingestion_enabled",
+            "write_authority_enabled",
         ]:
             if source_posture.get(field) is not False:
                 failures.append(f"read-only probe: source readiness enabled {field}")

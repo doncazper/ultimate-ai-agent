@@ -25,14 +25,14 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 16 |
+| `local_readonly` | 17 |
 | `local_sensitive` | 91 |
-| `mutating_requires_authority` | 24 |
+| `mutating_requires_authority` | 25 |
 
-The current OpenAPI path count is `135` after later scoped FCC-V1-003 through
+The current OpenAPI path count is `136` after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work and the governed memory L1/L2/L3 index
-routes plus Phase 5 context-pack proposals and the Phase 6.1 internal Action
-proposal hook.
+routes, Phase 5 context-pack proposals, the Phase 6.1 internal Action proposal
+hook, and the dedicated read-only Source Readiness route.
 UAA-P1-080 itself added no routes; stable
 methods, operation IDs, tags, summaries, side-effect classes,
 `requires_auth_future=True`, and `blocked_from_production=True` remain preserved

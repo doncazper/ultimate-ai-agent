@@ -27,6 +27,7 @@ import type {
   FounderLoopMemoryReviewItem,
   FounderLoopMorningBriefing,
   FounderLoopPlanSummary,
+  FounderLoopSourceReadiness,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
   ControlCenterSettingsStatus,
@@ -915,9 +916,11 @@ function DailyLoopSummaryCard({
 function SourceReadinessCards({
   items,
   posture,
+  sourceReadiness,
 }: {
-  items: NonNullable<FounderLoopTodaySummary["source_readiness_items"]>;
-  posture?: FounderLoopTodaySummary["source_readiness_posture"];
+  items: FounderLoopSourceReadiness["source_readiness_items"];
+  posture?: FounderLoopSourceReadiness["source_readiness_posture"];
+  sourceReadiness?: FounderLoopSourceReadiness;
 }) {
   if (items.length === 0) {
     return null;
@@ -991,6 +994,41 @@ function SourceReadinessCards({
           <InlineListWithFallback
             emptyLabel="Supported source states: missing"
             items={posture.supported_statuses}
+          />
+        </>
+      ) : null}
+      {sourceReadiness ? (
+        <>
+          <dl aria-label="Dedicated source readiness route" className="detail-list">
+            <DetailTerm label="Route" value={sourceReadiness.route_ref} />
+            <DetailTerm
+              label="Read model"
+              value={sourceReadiness.backend_owned ? "backend-owned" : "mock-only"}
+            />
+            <DetailTerm
+              label="Account auth"
+              value={sourceReadiness.account_auth_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Raw source ingestion"
+              value={
+                sourceReadiness.raw_source_ingestion_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Write authority"
+              value={sourceReadiness.write_authority_enabled ? "enabled" : "blocked"}
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Dedicated readiness route refs: none"
+            refs={sourceReadiness.route_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Blocked source authorities: none"
+            refs={sourceReadiness.blocked_authority_refs}
           />
         </>
       ) : null}
@@ -1228,7 +1266,11 @@ function WeeklyReviewNarrativeCard({
   );
 }
 
-export function InboxSurfacePanel() {
+export function InboxSurfacePanel({
+  sourceReadiness,
+}: {
+  sourceReadiness: FounderLoopSourceReadiness;
+}) {
   const blockedStates = [
     "email/calendar connector runtime is not scoped",
     "account authentication and credential handling are not scoped",
@@ -1252,29 +1294,33 @@ export function InboxSurfacePanel() {
         <span className="status-pill compact">blocked/planned</span>
       </div>
       <p className="section-copy">
-        Inbox is visible as the Founder Command Center triage slot, but no
-        backend email, calendar, draft, or connector contract is enabled here.
-        This surface is presentation-only posture until a scoped milestone adds
-        read-only metadata contracts and tests.
+        Inbox is visible as the Founder Command Center triage slot. A dedicated
+        backend Source Readiness route reports read-only source posture, while
+        live email, calendar, draft, account, polling, and connector runtime
+        behavior remain blocked.
       </p>
       <div className="panel-grid">
+        <SourceReadinessCards
+          items={sourceReadiness.source_readiness_items}
+          posture={sourceReadiness.source_readiness_posture}
+          sourceReadiness={sourceReadiness}
+        />
         <article className="status-card">
           <div className="status-card-header">
             <h3>Route posture</h3>
-            <span>not scoped</span>
+            <span>{sourceReadiness.status}</span>
           </div>
           <dl className="detail-list">
             <DetailTerm label="Frontend route" value="/inbox" />
-            <DetailTerm label="Backend route" value="none in this slice" />
-            <DetailTerm label="Side effect" value="local UI state only" />
+            <DetailTerm label="Backend route" value={sourceReadiness.route_ref} />
+            <DetailTerm label="Side effect" value="local_dev_workspace_only" />
             <DetailTerm
               label="Approval"
-              value="future connector or draft actions require exact scoped approval"
+              value="not required for read-only source readiness"
             />
           </dl>
           <p>
-            Next safe action: define read-only email/calendar metadata contracts
-            before adding source status, draft proposal, or triage controls.
+            Next safe action: {sourceReadiness.next_safe_action}
           </p>
         </article>
         <article className="status-card">

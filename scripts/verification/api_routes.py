@@ -9,21 +9,21 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 135
+EXPECTED_ROUTE_COUNT = 136
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 132,
+    "protected_local_bearer_required": 133,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 110,
+    "not_required_for_route_classification": 111,
     "required_before_mutation_authority": 25,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 110,
+    "not_required_for_route_classification": 111,
     "required_before_mutation_authority": 25,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
-    "not_targeted_for_route": 89,
+    "not_targeted_for_route": 90,
     "targeted_local_fixed_window": 46,
 }
 EXPECTED_MUTATING_ROUTES = {

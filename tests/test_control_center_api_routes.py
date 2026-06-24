@@ -128,6 +128,7 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
         "/control-center/evidence/timeline",
         "/control-center/actions/inbox",
         "/control-center/morning-briefing/summary",
+        "/control-center/sources/readiness",
         "/control-center/storage/status",
     ]:
         response = client.get(path)
@@ -195,18 +196,111 @@ def test_control_center_local_models_status_is_read_only_and_blocks_lifecycle() 
     assert "provider_model_authority" in data["blocked_authorities"]
 
 
+def test_control_center_source_readiness_route_is_backend_owned_read_only() -> None:
+    response = client.get("/control-center/sources/readiness")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_sources_readiness"
+    assert body["redactions_applied"] == [
+        "safe_refs_only",
+        "bounded_summaries_only",
+        "raw_content_omitted",
+        "connector_runtime_omitted",
+    ]
+
+    data = body["data"]
+    assert data["schema_version"] == "founder_loop_source_readiness.v1"
+    assert data["source"] == "python_core_source_readiness_read_model"
+    assert data["backend_owned"] is True
+    assert data["route_ref"] == "/control-center/sources/readiness"
+    assert "GET /control-center/sources/readiness" in data["route_refs"]
+    assert data["source_readiness_items"]
+    assert {item["status"] for item in data["source_readiness_items"]} >= {
+        "ready",
+        "blocked",
+        "metadata_only",
+        "not_configured",
+    }
+    assert set(data["supported_statuses"]) >= {
+        "ready",
+        "blocked",
+        "missing",
+        "metadata_only",
+        "unavailable",
+        "not_configured",
+    }
+    posture = data["source_readiness_posture"]
+    assert posture["source"] == "python_core_source_readiness_read_model"
+    assert posture["backend_owned"] is True
+    assert posture["connector_runtime_enabled"] is False
+    assert posture["source_refresh_enabled"] is False
+    assert posture["notification_delivery_enabled"] is False
+    assert posture["account_auth_enabled"] is False
+    assert posture["raw_source_ingestion_enabled"] is False
+    assert posture["write_authority_enabled"] is False
+    for field in [
+        "connector_runtime_enabled",
+        "source_refresh_enabled",
+        "notification_delivery_enabled",
+        "account_auth_enabled",
+        "raw_source_ingestion_enabled",
+        "write_authority_enabled",
+    ]:
+        assert data[field] is False
+    for ref in [
+        "contract-ref:email-read-only-missing",
+        "contract-ref:calendar-read-only-missing",
+    ]:
+        assert ref in data["missing_contract_refs"]
+    for ref in [
+        "blocked-state:no-connector-write",
+        "blocked-state:no-account-auth",
+        "blocked-state:no-background-polling",
+    ]:
+        assert ref in data["blocked_authority_refs"]
+
+    serialized = response.text.lower()
+    for forbidden in [
+        "raw_prompt",
+        "raw_response",
+        "provider_payload",
+        "api_key",
+        "credential",
+        "email_body",
+        "calendar_body",
+        "account_identifier",
+        "hostname",
+        "username",
+    ]:
+        assert forbidden not in serialized
+
+
 def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> None:
     today = client.get("/control-center/today/summary").json()["data"]
     actions = client.get("/control-center/actions/inbox").json()["data"]
     briefing = client.get("/control-center/morning-briefing/summary").json()["data"]
+    source_readiness = client.get("/control-center/sources/readiness").json()["data"]
 
     assert today["daily_loop_summary"]["home_surface"] == "Morning Briefing"
     assert today["daily_loop_summary"]["action_execution_enabled"] is False
+    assert today["source_readiness_route_ref"] == "/control-center/sources/readiness"
     assert today["source_readiness_items"]
     assert today["source_readiness_posture"]["backend_owned"] is True
+    assert (
+        today["source_readiness_posture"]["source"]
+        == "python_core_source_readiness_read_model"
+    )
     assert today["source_readiness_posture"]["connector_runtime_enabled"] is False
     assert today["source_readiness_posture"]["source_refresh_enabled"] is False
     assert today["source_readiness_posture"]["notification_delivery_enabled"] is False
+    assert today["source_readiness_items"] == source_readiness[
+        "source_readiness_items"
+    ]
+    assert today["source_readiness_posture"] == source_readiness[
+        "source_readiness_posture"
+    ]
     assert {item["status"] for item in today["source_readiness_items"]} >= {
         "ready",
         "blocked",
@@ -276,9 +370,13 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
 
     assert briefing["daily_loop_summary"]["home_surface"] == "Morning Briefing"
     assert briefing["daily_loop_sections"]
+    assert briefing["source_readiness_route_ref"] == "/control-center/sources/readiness"
     assert briefing["source_readiness_items"][0]["source_kind"] == "inbox"
     assert briefing["source_readiness_items"][0]["status"] == "blocked"
     assert briefing["source_readiness_posture"] == today["source_readiness_posture"]
+    assert briefing["source_readiness_items"] == source_readiness[
+        "source_readiness_items"
+    ]
     assert briefing["dogfood_capture"]["public_distribution_enabled"] is False
 
 
@@ -482,8 +580,9 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/observability/client-errors" in paths
     assert "/integrations/mattermost/events/message" in paths
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
-    assert len(paths) == 135
-    assert len(operation_ids) == len(set(operation_ids)) == 135
+    assert "/control-center/sources/readiness" in paths
+    assert len(paths) == 136
+    assert len(operation_ids) == len(set(operation_ids)) == 136
 
 
 def test_control_center_action_local_task_commit_requires_exact_approval_and_receipts(
@@ -649,7 +748,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 135 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 136 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "

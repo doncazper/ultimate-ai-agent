@@ -62,6 +62,10 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
             "/control-center/morning-briefing/summary",
             "control_center_morning_briefing_summary",
         ),
+        (
+            "/control-center/sources/readiness",
+            "control_center_sources_readiness",
+        ),
         ("/control-center/storage/status", "control_center_storage_status"),
     ]:
         response = client.get(path)
@@ -206,10 +210,12 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert setup_item["action_envelope_grant_capture_enabled"] is False
 
     briefing = client.get("/control-center/morning-briefing/summary").json()["data"]
+    source_readiness = client.get("/control-center/sources/readiness").json()["data"]
     assert briefing["route_ref"] == "/control-center/morning-briefing/summary"
     assert briefing["bounded_preview_only"] is True
     assert briefing["refresh_enabled"] is False
     assert briefing["notification_delivery_enabled"] is False
+    assert briefing["source_readiness_route_ref"] == "/control-center/sources/readiness"
     assert briefing["source_readiness"] == (
         "blocked_missing_email_calendar_notification_contracts"
     )
@@ -233,8 +239,31 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert briefing_item["stale_state"] == "recheck_route_status_before_briefing_use"
     assert "source evidence is bound" in briefing_item["evidence_gap"]
     assert "define source contracts" in briefing_item["next_safe_action"]
+    assert source_readiness["schema_version"] == "founder_loop_source_readiness.v1"
+    assert source_readiness["source"] == "python_core_source_readiness_read_model"
+    assert source_readiness["backend_owned"] is True
+    assert source_readiness["route_ref"] == "/control-center/sources/readiness"
+    assert source_readiness["source_readiness_items"] == briefing[
+        "source_readiness_items"
+    ]
+    assert source_readiness["source_readiness_posture"] == briefing[
+        "source_readiness_posture"
+    ]
+    assert source_readiness["connector_runtime_enabled"] is False
+    assert source_readiness["source_refresh_enabled"] is False
+    assert source_readiness["notification_delivery_enabled"] is False
+    assert source_readiness["account_auth_enabled"] is False
+    assert source_readiness["raw_source_ingestion_enabled"] is False
+    assert source_readiness["write_authority_enabled"] is False
 
     today = client.get("/control-center/today/summary").json()["data"]
+    assert today["source_readiness_route_ref"] == "/control-center/sources/readiness"
+    assert today["source_readiness_items"] == source_readiness[
+        "source_readiness_items"
+    ]
+    assert today["source_readiness_posture"] == source_readiness[
+        "source_readiness_posture"
+    ]
     assert today["product_spine_contract_ref"] == TODAY_PRODUCT_SPINE_CONTRACT_REF
     assert (
         today["evidence_history_contract_ref"] == EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF

@@ -75,7 +75,7 @@ export type CommandPaletteItem = {
 
 export const navItems: NavItem[] = [
   { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
-  { path: "/inbox", label: "Inbox", group: "Founder Loop", status: "blocked/planned", releaseStatus: "blocked", role: "primary" },
+  { path: "/inbox", label: "Inbox", group: "Founder Loop", status: "blocked/planned", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
   { path: "/actions", label: "Actions", group: "Founder Loop", status: "storage-backed", releaseStatus: "ship", role: "primary" },
   { path: "/memory", label: "Memory", group: "Founder Loop", status: "review queue", releaseStatus: "ship", role: "primary" },
@@ -192,7 +192,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
-          <InboxSurfacePanel />
+          <InboxSurfacePanel sourceReadiness={data.founderSourceReadiness} />
         </>
       );
     case "/actions":

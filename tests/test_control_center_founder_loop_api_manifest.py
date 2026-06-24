@@ -57,7 +57,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 135
+    assert manifest.route_count == 136
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",
@@ -76,6 +76,16 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         assert routes[path].side_effect_class == "local_dev_workspace_only"
         assert routes[path].operation_id.startswith("get_control_center_")
         assert routes[path].route_classification == "local_sensitive"
+
+    path = "/control-center/sources/readiness"
+    assert path in routes
+    assert routes[path].method == "GET"
+    assert routes[path].operation_id == "get_control_center_sources_readiness"
+    assert routes[path].side_effect_class == "local_dev_workspace_only"
+    assert routes[path].route_classification == "local_readonly"
+    assert routes[path].approval_posture == "not_required_for_route_classification"
+    assert routes[path].idempotency_required is False
+    assert routes[path].protected_route is True
 
     for path in [
         "/control-center/actions/{action_id}/approve",
@@ -135,5 +145,9 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     )
     assert (
         "control_center_evidence_timeline_productization"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_source_readiness_status"
         in manifest.capabilities_declared
     )

@@ -868,6 +868,25 @@ def get_control_center_morning_briefing_summary() -> ResultEnvelope:
     )
 
 
+@router.get("/sources/readiness", response_model=ResultEnvelope)
+def get_control_center_sources_readiness() -> ResultEnvelope:
+    data = get_founder_loop_service().source_readiness()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_sources_readiness",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:sources-readiness",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:source-readiness"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "connector_runtime_omitted",
+        ],
+    )
+
+
 @router.get("/storage/status", response_model=ResultEnvelope)
 def get_control_center_storage_status() -> ResultEnvelope:
     data = get_founder_loop_service().storage_status()

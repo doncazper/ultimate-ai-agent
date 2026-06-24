@@ -55,7 +55,10 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert len(manifest["routes"]) == len(visible_routes) == 33
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/today"]["status"] == "partial"
-    assert by_path["/inbox"]["status"] == "blocked"
+    assert by_path["/inbox"]["status"] == "partial"
+    assert by_path["/inbox"]["backend_routes"][0]["path"] == (
+        "/control-center/sources/readiness"
+    )
     assert by_path["/private-trial"]["status"] == "experimental"
     assert by_path["/actions"]["status"] == "ship"
     assert by_path["/chat"]["status"] == "ship"

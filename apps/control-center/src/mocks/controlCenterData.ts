@@ -2,6 +2,7 @@ import type {
   ControlCenterData,
   FounderLoopEvidenceHistoryAnswer,
   FounderLoopEvidenceHistoryAnswers,
+  FounderLoopSourceReadiness,
   FounderLoopSourceReadinessItem,
   FounderLoopSourceReadinessPosture,
 } from "../api/types";
@@ -1251,6 +1252,41 @@ const sourceReadinessPosture: FounderLoopSourceReadinessPosture = {
     "Reconnect the local backend before treating source readiness as Python-core read-model truth.",
 };
 
+const sourceReadiness: FounderLoopSourceReadiness = {
+  schema_version: "founder_loop_source_readiness.v1",
+  source: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  generated_at: "mock-timestamp",
+  status: "mock_only_backend_read_model_unavailable",
+  surface: "Sources",
+  route_ref: "/control-center/sources/readiness",
+  route_refs: [
+    "GET /control-center/sources/readiness",
+    "GET /control-center/today/summary",
+    "GET /control-center/morning-briefing/summary",
+  ],
+  source_readiness_items: sourceReadinessItems,
+  source_readiness_posture: sourceReadinessPosture,
+  supported_statuses: sourceReadinessPosture.supported_statuses,
+  missing_contract_refs: sourceReadinessPosture.missing_contract_refs,
+  blocked_state_refs: sourceReadinessPosture.blocked_state_refs,
+  blocked_authority_refs: [
+    ...sourceReadinessPosture.blocked_state_refs,
+    "blocked-state:mock-source-readiness-non-authoritative",
+  ],
+  evidence_refs: sourceReadinessItems.flatMap((item) => item.evidence_refs),
+  connector_runtime_enabled: false,
+  source_refresh_enabled: false,
+  notification_delivery_enabled: false,
+  account_auth_enabled: false,
+  raw_source_ingestion_enabled: false,
+  write_authority_enabled: false,
+  authority_boundary:
+    "Mock source readiness describes UI shape only. It is not backend-owned connector truth and does not grant account auth, source reads, polling, raw ingestion, connector runtime, writes, or notifications.",
+  next_safe_action:
+    "Reconnect the local backend before treating source readiness as Python-core read-model truth.",
+};
+
 const crmLiteFollowups = followUpCommitmentRefs.map((followUpRef, index) => ({
   follow_up_ref: followUpRef,
   relationship_ref: `crm-lite-relationship-ref:${index + 1}`,
@@ -1921,7 +1957,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   manifest: {
     manifest_id: "mock_control_center_manifest_m36",
-    version: "v0.103.0",
+    version: "v0.104.0",
     generated_at: "2026-01-01T00:00:00Z",
     declared_capabilities: [
       "control_center_read_only_dashboard",
@@ -2161,7 +2197,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   dashboard: {
     snapshot_id: "mock_control_center_dashboard_m36",
-    baseline_version: "v0.103.0",
+    baseline_version: "v0.104.0",
     generated_at: "2026-01-01T00:00:00Z",
     system_status: {
       label: "Control Center",
@@ -2189,8 +2225,8 @@ export const mockControlCenterData: ControlCenterData = {
       summary: "Mock approval summary only; no approval is granted.",
     },
 	    api_summary: {
-	      route_count: 135,
-	      control_center_route_count: 32,
+	      route_count: 136,
+	      control_center_route_count: 37,
 	      operation_ids_unique: true,
 	      execution_routes_present: false,
 	    },
@@ -2693,7 +2729,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   runtimeReadiness: {
     report_id: "mock_runtime_readiness_m18",
-    baseline_version: "v0.103.0",
+    baseline_version: "v0.104.0",
     status: "report_only",
     production_ready: false,
     real_model_runtime_ready: false,
@@ -2707,7 +2743,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   capabilityMatrix: {
     matrix_id: "mock_runtime_capability_matrix_m18",
-    baseline_version: "v0.103.0",
+    baseline_version: "v0.104.0",
     metadata: { mock: true, no_model_was_called: true },
     entries: [
       {
@@ -5428,7 +5464,7 @@ export const mockControlCenterData: ControlCenterData = {
     context_injection_performed: false,
     provider_model_call_performed: false,
   },
-	  founderActionsInbox: {
+    founderActionsInbox: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_review_queue",
     surface: "Actions",
@@ -5835,8 +5871,8 @@ export const mockControlCenterData: ControlCenterData = {
       "no_context_injection",
       "no_production_authority",
     ],
-  },
-  founderMorningBriefing: {
+    },
+    founderMorningBriefing: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_briefing_skeleton",
     surface: "Morning Briefing",
@@ -6022,8 +6058,9 @@ export const mockControlCenterData: ControlCenterData = {
       "no_memory_write",
       "no_model_provider_call",
     ],
-  },
-  founderStorageStatus: {
+    },
+    founderSourceReadiness: sourceReadiness,
+    founderStorageStatus: {
     schema_version: "founder_loop_storage.v1",
     migration_version: "founder_loop_storage.v1",
     storage_ref: "founder-loop-storage:mock-local-sqlite-jsonl",

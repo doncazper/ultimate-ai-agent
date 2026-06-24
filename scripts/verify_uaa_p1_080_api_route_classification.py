@@ -35,7 +35,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 67,
     "none": 4,
-    "local_dev_workspace_only": 63,
+    "local_dev_workspace_only": 64,
     "governed_network_read_only": 1,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -79,7 +79,7 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
-        "135",
+        "136",
         "public_metadata",
         "local_readonly",
         "local_sensitive",

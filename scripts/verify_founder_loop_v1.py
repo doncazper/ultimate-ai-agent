@@ -45,7 +45,7 @@ PROOF_SCRIPT = "scripts/verify_founder_loop_v1.py"
 PROOF_TEST = "tests/test_founder_loop_v1_proof_lane.py"
 PROOFED_ROUTE_STATUS = "founder_loop_v1_proofed"
 PROMOTED_ROUTES = {"/actions", "/chat", "/memory", "/evidence"}
-BLOCKED_OR_PARTIAL_ROUTES = {"/inbox": "blocked", "/settings": "partial", "/models": "partial"}
+BLOCKED_OR_PARTIAL_ROUTES = {"/inbox": "partial", "/settings": "partial", "/models": "partial"}
 PROMOTED_SURFACES = {"Action Inbox", "Chat Local Operator", "Memory Review", "Evidence"}
 PROMOTED_ACTIONS = {
     "navigate-actions-inbox",
@@ -211,8 +211,8 @@ def _append_route_status_failures(
         _append_no_overclaim_text(failures, str(action), action_id)
     for surface_name in ["Inbox"]:
         surface = _surface(route_status, surface_name)
-        if surface and surface.get("release_status") != "blocked_missing_backend":
-            failures.append(f"{surface_name} must remain blocked")
+        if surface and surface.get("release_status") != "status_available_not_completion":
+            failures.append(f"{surface_name} must remain status-only")
     settings = _surface(route_status, "Settings")
     if settings and settings.get("release_status") != "status_available_not_completion":
         failures.append("Settings must remain status-only")
