@@ -37,6 +37,7 @@ FUTURE_DENIED_KINDS = {
 ALLOWED_PHASE_1_LANES = {
     WebAccessNetworkLane.AGENT_PUBLIC_WEB,
     WebAccessNetworkLane.GOVERNED_WEB_EVIDENCE,
+    WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH,
 }
 
 

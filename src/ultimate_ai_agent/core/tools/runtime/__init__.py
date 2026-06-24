@@ -54,7 +54,7 @@ from ultimate_ai_agent.core.tools.runtime.http_fetch import (
     ReadOnlyHttpFetchRequest,
     ReadOnlyHttpFetchStatus,
     ReadOnlyHttpFetchTransportResponse,
-    build_read_only_http_fetch_output,
+    build_read_only_http_fetch_output_via_web_access_gateway,
     http_fetch_policy_reason_codes,
     normalize_http_fetch_target,
 )
@@ -119,7 +119,7 @@ __all__ = [
     "build_noop_tool_input",
     "build_filesystem_metadata_output",
     "build_redacted_file_preview_output",
-    "build_read_only_http_fetch_output",
+    "build_read_only_http_fetch_output_via_web_access_gateway",
     "build_tool_invocation_receipt_plan",
     "build_tool_runtime_manifest",
     "evaluate_tool_invocation",

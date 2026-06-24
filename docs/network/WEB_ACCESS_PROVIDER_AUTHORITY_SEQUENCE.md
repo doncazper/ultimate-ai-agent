@@ -135,7 +135,7 @@ Bind every promotion step to a named verification lane.
 ```text
 Route existing read-only HTTP fetch through WebAccessGateway.
 Preserve behavior.
-Shrink TOOL_RUNTIME_LEGACY exceptions if possible.
+Shrink legacy tool-runtime fetch exceptions into a named read-only gateway lane if possible.
 No Firecrawl yet unless the boundary and static guards are stable.
 ```
 

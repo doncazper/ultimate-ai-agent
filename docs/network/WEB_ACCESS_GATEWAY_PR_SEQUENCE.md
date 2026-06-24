@@ -64,7 +64,7 @@ Tasks:
 - Route tool runtime read-only fetch through WebAccessGateway.
 - Preserve current behavior where possible.
 - Add deprecation warning or static guard for direct use of old runtime fetch path.
-- Remove or narrow TOOL_RUNTIME_LEGACY exception if possible.
+- Replace TOOL_RUNTIME_LEGACY wording with a narrow read-only tool-runtime lane if possible.
 ```
 
 ## PR 4 — Browser Observe Gateway Integration

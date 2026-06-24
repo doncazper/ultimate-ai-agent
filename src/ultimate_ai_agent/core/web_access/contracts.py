@@ -77,7 +77,7 @@ class WebAccessNetworkLane(str, Enum):
     GOVERNED_WEB_EVIDENCE = "governed_web_evidence"
     LOCAL_MODEL_LOOPBACK = "local_model_loopback"
     MODEL_ACQUISITION = "model_acquisition"
-    TOOL_RUNTIME_LEGACY = "tool_runtime_legacy"
+    TOOL_RUNTIME_READ_ONLY_FETCH = "tool_runtime_read_only_fetch"
 
 
 @dataclass(frozen=True)
