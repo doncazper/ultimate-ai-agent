@@ -20,12 +20,12 @@ from .contracts import (
 READ_ONLY_KINDS = {
     WebAccessRequestKind.GOVERNED_WEB_EVIDENCE,
     WebAccessRequestKind.READ_ONLY_FETCH,
+    WebAccessRequestKind.BROWSER_OBSERVE,
 }
 
 FUTURE_DENIED_KINDS = {
     WebAccessRequestKind.SEARCH,
     WebAccessRequestKind.EXTRACT_SCHEMA,
-    WebAccessRequestKind.BROWSER_OBSERVE,
     WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
     WebAccessRequestKind.BROWSER_CLICK,
     WebAccessRequestKind.FORM_FILL,
@@ -38,6 +38,7 @@ ALLOWED_PHASE_1_LANES = {
     WebAccessNetworkLane.AGENT_PUBLIC_WEB,
     WebAccessNetworkLane.GOVERNED_WEB_EVIDENCE,
     WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH,
+    WebAccessNetworkLane.BROWSER_OBSERVE_ONLY,
 }
 
 
@@ -52,6 +53,7 @@ class WebAccessPolicy:
 
     allow_read_only_fetch: bool = False
     allow_governed_web_evidence: bool = True
+    allow_browser_observe: bool = False
     deny_private_networks: bool = True
 
     def evaluate(self, request: WebAccessRequest) -> WebAccessPolicyDecision:
@@ -66,6 +68,9 @@ class WebAccessPolicy:
                 WebAccessRiskClass.MEDIUM,
                 f"network_lane_not_gateway_phase_1:{request.network_lane.value}",
             )
+        lane_kind_reason = _lane_kind_reason(request)
+        if lane_kind_reason:
+            return self._deny(WebAccessRiskClass.MEDIUM, lane_kind_reason)
 
         if request.kind in FUTURE_DENIED_KINDS:
             return self._deny(risk, f"request_kind_not_enabled:{request.kind.value}")
@@ -75,6 +80,11 @@ class WebAccessPolicy:
 
         if request.kind == WebAccessRequestKind.GOVERNED_WEB_EVIDENCE and not self.allow_governed_web_evidence:
             return self._deny(WebAccessRiskClass.LOW, "governed_web_evidence_not_enabled")
+
+        if request.kind == WebAccessRequestKind.BROWSER_OBSERVE:
+            if not self.allow_browser_observe:
+                return self._deny(WebAccessRiskClass.MEDIUM, "browser_observe_not_enabled")
+            return self._evaluate_browser_observe(request)
 
         if request.kind not in READ_ONLY_KINDS:
             return self._deny(risk, f"unknown_or_unsupported_kind:{request.kind.value}")
@@ -109,6 +119,40 @@ class WebAccessPolicy:
             status=WebAccessPolicyStatus.ALLOWED,
             risk_class=WebAccessRiskClass.LOW,
             reasons=("phase_1_read_only_get_allowed",),
+            allowed_methods=("GET",),
+            requires_approval=False,
+        )
+
+    def _evaluate_browser_observe(self, request: WebAccessRequest) -> WebAccessPolicyDecision:
+        if request.authority_mode != WebAccessAuthorityMode.BROWSER_OBSERVE_ONLY:
+            return self._deny(WebAccessRiskClass.MEDIUM, "browser_observe_authority_mode_required")
+        if request.network_lane != WebAccessNetworkLane.BROWSER_OBSERVE_ONLY:
+            return self._deny(WebAccessRiskClass.MEDIUM, "browser_observe_lane_required")
+        if request.method != "GET":
+            return self._deny(self._method_risk(request.method), f"method_not_allowed:{request.method}")
+        if request.url is not None:
+            return self._deny(WebAccessRiskClass.MEDIUM, "browser_observe_raw_url_denied")
+        safe_url_ref = request.metadata.get("safe_url_ref")
+        if not isinstance(safe_url_ref, str) or not safe_url_ref.startswith("browser-url:"):
+            return self._deny(WebAccessRiskClass.LOW, "browser_observe_safe_url_ref_required")
+        if _truthy_metadata(
+            request,
+            "uses_auth",
+            "cookies",
+            "request_body",
+            "download",
+            "upload",
+            "raw_dom",
+            "screenshot",
+            "navigation",
+            "click",
+            "form_fill",
+        ):
+            return self._deny(WebAccessRiskClass.HIGH, "browser_observe_control_or_raw_content_denied")
+        return WebAccessPolicyDecision(
+            status=WebAccessPolicyStatus.ALLOWED,
+            risk_class=WebAccessRiskClass.MEDIUM,
+            reasons=("browser_observe_only_injected_observation_allowed",),
             allowed_methods=("GET",),
             requires_approval=False,
         )
@@ -150,6 +194,26 @@ class WebAccessPolicy:
 
 def _truthy_metadata(request: WebAccessRequest, *keys: str) -> bool:
     return any(bool(request.metadata.get(key)) for key in keys)
+
+
+def _lane_kind_reason(request: WebAccessRequest) -> str | None:
+    allowed_by_kind = {
+        WebAccessRequestKind.GOVERNED_WEB_EVIDENCE: {
+            WebAccessNetworkLane.AGENT_PUBLIC_WEB,
+            WebAccessNetworkLane.GOVERNED_WEB_EVIDENCE,
+        },
+        WebAccessRequestKind.READ_ONLY_FETCH: {
+            WebAccessNetworkLane.AGENT_PUBLIC_WEB,
+            WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH,
+        },
+        WebAccessRequestKind.BROWSER_OBSERVE: {
+            WebAccessNetworkLane.BROWSER_OBSERVE_ONLY,
+        },
+    }
+    allowed_lanes = allowed_by_kind.get(request.kind)
+    if allowed_lanes is None or request.network_lane in allowed_lanes:
+        return None
+    return f"network_lane_not_valid_for_kind:{request.kind.value}:{request.network_lane.value}"
 
 
 def _host_matches_allowed_domains(host: str, allowed_domains: tuple[str, ...]) -> bool:
