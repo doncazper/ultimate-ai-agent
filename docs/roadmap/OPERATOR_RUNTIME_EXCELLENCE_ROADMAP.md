@@ -206,12 +206,13 @@ Tasks:
 - The exact-scoped Local Model Manager sequence now has UAA-P1-064 completed
   for read-only inventory over consolidated local roots and CLI-first
   `uaa local-model status/list/inspect`. UAA-P1-066 is implemented for
-  read-only Control Center status only at `GET /control-center/local-models/status`
+  read-only Control Center status only at `GET /control-center/local-models/status`,
+  including Ollama and MLX-LM readiness posture without runtime authority,
   and supports, but does not supersede, the memory-first product beta-readiness path. Later stages still require separate
   exact scoped milestones: GGUF-only
   `llama-server --models-dir <approved-gguf-cache-ref> --models-max 1`
   planning, dry-run switch planning, approval-bound switch, Desktop/Hermes UI
-  activation only after CLI/API safety, and MLX/Ollama/LM Studio adapters.
+  activation only after CLI/API safety, and MLX/Ollama/LM Studio runtime adapters.
 - `UAA-P1-064` Done: implements only the read-only Python Agent Core inventory
   and CLI inspection slice from that sequence. This milestone excludes
   lifecycle control, switching, downloads, route/OpenAPI authority, Control

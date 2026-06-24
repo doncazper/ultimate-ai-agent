@@ -2245,6 +2245,21 @@ FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES = frozenset(
 FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES = frozenset(
     {"/control-center/memory/context-packs/{context_pack_ref}/action-proposal"}
 )
+FOUNDER_LOOP_MEMORY_READ_MODEL_ROUTES = frozenset(
+    {
+        "/control-center/memory/citation-integrity",
+        "/control-center/memory/context-manifest",
+        "/control-center/memory/follow-ups",
+        "/control-center/memory/impact-graph",
+        "/control-center/memory/maintenance-runs",
+        "/control-center/memory/quality-issues",
+        "/control-center/memory/recall-health",
+        "/control-center/memory/retrieval-diagnostics",
+    }
+)
+FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES = frozenset(
+    {"/control-center/memory/feedback"}
+)
 FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     frozenset(
         {
@@ -2268,6 +2283,8 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     | FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES
     | FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES
     | FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES
+    | FOUNDER_LOOP_MEMORY_READ_MODEL_ROUTES
+    | FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES
 )
 MATTERMOST_AGENT_ROOMS_ROUTES = {
     "/integrations/mattermost/audit",

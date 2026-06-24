@@ -1612,12 +1612,69 @@ def _append_read_only_status_probe_failures(failures: list[str]) -> None:
         failures.append("read-only probe: local models lifecycle action enabled")
     for authority in [
         "model_download",
+        "model_pull",
         "provider_model_authority",
         "runtime_adapter_execution",
+        "ollama_runtime_call",
+        "mlx_lm_runtime_call",
     ]:
         if authority not in set(local_models.get("blocked_authorities", [])):
             failures.append(
                 f"read-only probe: local models missing blocked authority {authority}"
+            )
+    adapter_readiness = local_models.get("adapter_readiness")
+    if not isinstance(adapter_readiness, list):
+        failures.append("read-only probe: local model adapter readiness missing")
+    else:
+        adapters = {
+            item.get("adapter_id"): item
+            for item in adapter_readiness
+            if isinstance(item, dict)
+        }
+        for adapter_id in ["ollama", "mlx_lm"]:
+            adapter = adapters.get(adapter_id)
+            if not isinstance(adapter, dict):
+                failures.append(
+                    f"read-only probe: local models missing {adapter_id} readiness"
+                )
+                continue
+            for field in [
+                "runtime_calls_enabled",
+                "model_pulls_enabled",
+                "model_downloads_enabled",
+                "lifecycle_start_stop_switch_enabled",
+                "provider_model_authority_enabled",
+                "control_center_subprocess_execution_enabled",
+            ]:
+                if adapter.get(field) is not False:
+                    failures.append(
+                        f"read-only probe: {adapter_id} enabled forbidden field {field}"
+                    )
+            blocked_refs = set(adapter.get("blocked_authority_refs", []))
+            for ref in [
+                "blocked-authority:model-call",
+                "blocked-authority:model-pull-download",
+                "blocked-authority:lifecycle-start-stop-switch",
+                "blocked-authority:provider-model-authority",
+            ]:
+                if ref not in blocked_refs:
+                    failures.append(
+                        f"read-only probe: {adapter_id} missing blocked ref {ref}"
+                    )
+    serialized_local_models = json.dumps(local_models, sort_keys=True).lower()
+    for forbidden in [
+        "/users/",
+        "/home/",
+        "raw_prompt",
+        "raw_response",
+        "provider_payload",
+        "ollama generate",
+        "ollama chat",
+        "mlx_lm.generate",
+    ]:
+        if forbidden in serialized_local_models:
+            failures.append(
+                f"read-only probe: local models status leaks forbidden content {forbidden}"
             )
 
     with tempfile.TemporaryDirectory(prefix="uaa-readonly-status-probe-") as tmp:

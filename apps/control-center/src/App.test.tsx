@@ -1577,6 +1577,199 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
   });
 
+  it("renders memory self-heal recommendations as proposal-only Action Inbox items", async () => {
+    const memoryItem = {
+      ...JSON.parse(JSON.stringify(mockApiData.founderActionsInbox.items[1])),
+      item_ref: "action-item:fcc-health-001:recommendation-memory-quality",
+      title: "Review memory quality and maintenance refs",
+      safe_summary:
+        "Memory quality and maintenance refs can become review tasks only; they do not write memory, inject context, or treat recall as authority.",
+      priority: "medium",
+      risk_class: "medium",
+      action_kind: "self_heal_recommendation",
+      status: "proposed",
+      approval_required: false,
+      approval_envelope_ref: "approval-envelope:fcc-health-001:recommendation-memory",
+      approval_envelope_status: "not_required_recommendation_review_only",
+      state_change_contract_ref:
+        "contract-ref:fcc-health-001:action-inbox-binding:v1",
+      state_change_readiness: "recommendation_review_only_no_execution_path",
+      action_group_id: "proposal_only_no_execution_path",
+      action_group_label: "Proposal-only / no execution path",
+      action_group_reason:
+        "Memory quality recommendation is review-only and cannot apply maintenance.",
+      action_group_available_action: "Record a review receipt only.",
+      health_recommendation_ref:
+        "recommendation:fcc-health-001:memory_quality_issue:test",
+      health_recommendation_kind: "memory_quality_issue",
+      health_recommendation_severity: "medium",
+      health_recommendation_lifecycle_state: "queued_for_review",
+      health_recommendation_missing_proof_refs: [
+        "missing-proof-ref:fcc-mem-021:operator-quality-review",
+      ],
+      health_recommendation_validation_plan_refs: [
+        "validation-plan-ref:fcc-mem-021-action-inbox-proposal-only",
+      ],
+      health_recommendation_expected_receipt_refs: [
+        "expected-receipt-ref:fcc-health-001:recommendation-review-decision",
+      ],
+      health_recommendation_conversion_option_refs: [
+        "conversion-option:fcc-health-001:task-candidate-after-review",
+      ],
+      health_recommendation_blocked_authority_refs: [
+        "blocked-state:no-auto-code",
+        "blocked-state:no-auto-apply",
+        "blocked-state:no-hidden-context-injection",
+        "blocked-state:no-action-execution",
+      ],
+      health_recommendation_source_signal_refs: [
+        "memory-proposal-bridge-ref:fcc-mem-021-action-inbox",
+      ],
+      health_recommendation_source_route_refs: [
+        "GET /control-center/memory/quality-issues",
+        "GET /control-center/memory/maintenance-runs",
+        "GET /control-center/actions/inbox",
+      ],
+      health_recommendation_rollback_or_safe_disable_refs: [
+        "safe-disable-ref:fcc-mem-021:disable-memory-proposal-bridge",
+      ],
+      health_recommendation_auto_apply_authorized: false,
+      health_recommendation_auto_code_authorized: false,
+      health_recommendation_provider_model_call_authorized: false,
+      health_recommendation_shell_execution_authorized: false,
+      health_recommendation_connector_write_authorized: false,
+      health_recommendation_memory_write_authorized: false,
+      health_recommendation_context_injection_authorized: false,
+      health_recommendation_action_execution_authorized: false,
+      health_recommendation_production_authority_enabled: false,
+      local_task_commit_eligible: false,
+      approval_envelope: {
+        schema_version: "founder_loop_action_approval_envelope.v1",
+        contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+        action_kind: "self_heal_recommendation",
+        exact_scope: "scope-ref:fcc-health-001:memory-quality",
+        risk_class: "medium",
+        side_effect_class: "local_dev_workspace_only",
+        approval_requirement: "approval-not-required:recommendation-review-only",
+        expiry_or_staleness: "recheck_recommendation_refs_before_conversion",
+        idempotency_ref: "not_applicable",
+        expected_receipt_refs: [
+          "expected-receipt-ref:fcc-health-001:recommendation-review-decision",
+        ],
+        rollback_safe_disable_posture:
+          "safe-disable-ref:fcc-mem-021:disable-memory-proposal-bridge",
+        blocked_authority_refs: [
+          "blocked-state:no-auto-apply",
+          "blocked-state:no-action-execution",
+        ],
+        evidence_refs: ["evidence-ref:fcc-mem-021:memory-proposal-bridge"],
+        missing_field_states: ["none"],
+      },
+      receipt_visibility: {
+        schema_version: "founder_loop_action_receipt_visibility.v1",
+        contract_ref: "contract-ref:founder-loop-action-receipt-visibility:v1",
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+        decision_receipt_ref: "pending",
+        local_task_ref: "not_applicable",
+        local_task_commit_receipt_ref: "not_applicable",
+        evidence_timeline_event_ref: "pending",
+        replay_posture: "decision_idempotency_replay_available",
+        conflict_posture: "decision_conflicting_idempotency_payload_rejected",
+        missing_field_states: ["none"],
+      },
+    };
+    const inbox = {
+      ...mockApiData.founderActionsInbox,
+      items: [memoryItem],
+      action_groups: [
+        {
+          group_id: "proposal_only_no_execution_path",
+          label: "Proposal-only / no execution path",
+          safe_summary: "Review-only proposals without execution.",
+          available_action: "Record review receipt only.",
+          count: 1,
+        },
+      ],
+    };
+    const receipt = {
+      decision_ref: "action-decision:fcc-mem-021-memory-quality:defer",
+      item_ref: memoryItem.item_ref,
+      decision: "defer",
+      status: "deferred",
+      receipt_ref: "receipt:founder-loop-action:fcc-mem-021-memory-quality",
+      audit_ref: "audit:founder-loop-action:fcc-mem-021-memory-quality",
+      idempotency_key_ref: "idempotency-ref:fcc-mem-021-memory-quality",
+      payload_fingerprint_ref: "payload-fingerprint:action-decision:fcc-mem-021",
+      approval_ref: null,
+      approval_status: "not_required_for_defer_decision",
+      approval_reason_refs: ["approval-reason:defer-recorded-no-execution"],
+      safe_summary:
+        "Action decision defer recorded as backend-owned receipt state; the underlying action was not executed.",
+      evidence_refs: ["evidence-ref:fcc-mem-021:memory-proposal-bridge"],
+      blocked_state_refs: ["blocked-state:no-action-execution"],
+      action_executed: false,
+      connector_write_performed: false,
+      shell_subprocess_performed: false,
+      memory_write_performed: false,
+      provider_model_call_performed: false,
+      created_at: "2026-06-23T00:00:00Z",
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(actionDecisionEndpoint(memoryItem.item_ref, "defer"))
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: /^Action Inbox$/i });
+    expect(
+      screen.getByRole("heading", { name: /Recommendation proposal/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("memory_quality_issue")).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/memory/quality-issues")).toBeInTheDocument();
+    expect(screen.getAllByText("blocked-state:no-auto-apply").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /Record approval/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record rejection/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record defer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record edit/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Memory proposal receipt controls require the local backend/i),
+    ).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, request]) =>
+          request?.method === "POST" &&
+          String(url).includes(`/control-center/actions/${memoryItem.item_ref}`),
+      ),
+    ).toBe(false);
+  });
+
   it("commits only the eligible Action Inbox local task lane through the typed route", async () => {
     const receipt = {
       contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
@@ -2079,8 +2272,8 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("GET /control-center/memory/context-packs").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getByText("context-pack:mock-founder-loop-preferences"),
-    ).toBeInTheDocument();
+      screen.getAllByText("context-pack:mock-founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText("proposal-only context pack over reviewed memory refs", {
         exact: false,
@@ -2589,10 +2782,30 @@ describe("Web Control Center shell", () => {
       screen.getByText("uaa_local_model_inventory.v1"),
     ).toBeInTheDocument();
     expect(screen.getByText("model_download")).toBeInTheDocument();
+    expect(screen.getByText("model_pull")).toBeInTheDocument();
     expect(screen.getByText("provider_model_authority")).toBeInTheDocument();
     expect(screen.getByText("runtime_adapter_execution")).toBeInTheDocument();
+    expect(screen.getByText("ollama_runtime_call")).toBeInTheDocument();
+    expect(screen.getByText("mlx_lm_runtime_call")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /download|switch|start|stop|execute/i }),
+      screen.getByRole("heading", { name: /^Ollama$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^MLX-LM$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("blocked_manual_verification_required").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-authority:model-call").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-authority:model-pull-download").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: /download|pull|switch|start|stop|execute|chat|generate/i,
+      }),
     ).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();
@@ -2989,7 +3202,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("143")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("152")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -3971,6 +4184,30 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("preference").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Memory Workbench V1/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Retrieval Diagnostics/i })).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/memory/retrieval-diagnostics")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Citation Integrity/i })).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/memory/citation-integrity")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Quality Issue Queue/i })).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/memory/quality-issues")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Maintenance Proposals/i })).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/memory/maintenance-runs")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Context Manifest Preview/i })).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/memory/context-manifest")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("cache-key-ref:fcc-mem-016:mock-preferences").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("memory-quality-issue:fcc-mem-018:mock-stale").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("memory-maintenance-proposal:fcc-mem-019:mock-stale")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("context-manifest-ref:fcc-mem-020:mock-preferences")
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("GET /control-center/memory/workbench")).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:fcc-mem-001-memory-workbench:v1"),
@@ -4258,6 +4495,110 @@ describe("Web Control Center shell", () => {
     expect(bodyText).not.toContain("prompt");
     expect(bodyText).not.toContain("response");
     expect(bodyText).not.toContain("provider_payload");
+  });
+
+  it("records Memory quality feedback without memory writes or context injection", async () => {
+    const receipt = {
+      schema_version: "fcc_mem_018_memory_feedback_receipt.v1",
+      contract_ref: "contract-ref:fcc-mem-018-feedback-quality-queue:v1",
+      route_ref: "POST /control-center/memory/feedback",
+      feedback_ref: "memory-feedback:fcc-mem-018:control-center-test",
+      receipt_ref: "receipt:memory-feedback:fcc-mem-018:control-center-test",
+      quality_issue_ref: "memory-quality-issue:fcc-mem-018:control-center-test",
+      target_ref:
+        "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+      target_kind: "memory_candidate",
+      feedback_kind: "wrong",
+      reviewer_ref: "actor-ref:control-center-memory-review",
+      evidence_refs: [],
+      reason_refs: ["reason-ref:control-center-memory-feedback:wrong"],
+      metadata_refs: ["memory-quality-issue:fcc-mem-018:mock-stale"],
+      blocked_state_refs: [
+        "blocked-state:memory-feedback-no-automatic-memory-write",
+        "blocked-state:memory-feedback-no-context-injection",
+        "blocked-state:memory-feedback-no-action-execution",
+      ],
+      idempotency_key_ref:
+        "idempotency-ref:control-center-memory-feedback:wrong:test",
+      payload_fingerprint_ref: "payload-fingerprint:memory-feedback:test",
+      status: "feedback_receipt_recorded_quality_issue_signal_only",
+      quality_issue_created: true,
+      memory_write_performed: false,
+      automatic_memory_write_authorized: false,
+      delete_execution_authorized: false,
+      context_injection_authorized: false,
+      action_execution_authorized: false,
+      production_authority_enabled: false,
+      replayed: false,
+      created_at: "2026-06-23T00:00:00Z",
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.founderMemoryFeedback)
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Memory Review$/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^wrong$/i }));
+
+    await screen.findByText("receipt:memory-feedback:fcc-mem-018:control-center-test");
+    expect(
+      screen.getByText("memory-quality-issue:fcc-mem-018:control-center-test"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Memory write").some((node) =>
+        node.nextElementSibling?.textContent?.match(/no|blocked/i),
+      ),
+    ).toBe(true);
+    expect(
+      screen.getAllByText("Context injection").some((node) =>
+        node.nextElementSibling?.textContent?.match(/blocked/i),
+      ),
+    ).toBe(true);
+    const [, options] =
+      fetchMock.mock.calls.find(
+        ([url, requestOptions]) =>
+          requestOptions?.method === "POST" &&
+          String(url).endsWith(API_ENDPOINTS.founderMemoryFeedback),
+      ) ?? [];
+    expect(options?.headers).toMatchObject({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-UAA-Idempotency-Key": expect.stringMatching(
+        /^idempotency-ref:control-center-memory-feedback:wrong:/,
+      ),
+    });
+    const body = JSON.parse(String(options?.body));
+    expect(body).toMatchObject({
+      target_ref:
+        "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+      target_kind: "memory_candidate",
+      feedback_kind: "wrong",
+      reviewer_ref: "actor-ref:control-center-memory-review",
+      reason_refs: ["reason-ref:control-center-memory-feedback:wrong"],
+    });
+    expect(body.blocked_state_refs).toContain(
+      "blocked-state:memory-feedback-no-context-injection",
+    );
   });
 
   it("attaches a non-persistent local bearer to memory read and write helpers", async () => {
@@ -4799,8 +5140,62 @@ describe("Web Control Center shell", () => {
     expect(API_ENDPOINTS.founderMemoryContextPacks).toBe(
       "/control-center/memory/context-packs",
     );
+    expect(API_ENDPOINTS.founderMemoryImpactGraph).toBe(
+      "/control-center/memory/impact-graph",
+    );
+    expect(API_ENDPOINTS.founderMemoryFollowUps).toBe(
+      "/control-center/memory/follow-ups",
+    );
+    expect(API_ENDPOINTS.founderMemoryRecallHealth).toBe(
+      "/control-center/memory/recall-health",
+    );
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryContextPacks)).toBe(
       true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryImpactGraph)).toBe(
+      true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryFollowUps)).toBe(
+      true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryRecallHealth)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.founderMemoryRetrievalDiagnostics).toBe(
+      "/control-center/memory/retrieval-diagnostics",
+    );
+    expect(API_ENDPOINTS.founderMemoryCitationIntegrity).toBe(
+      "/control-center/memory/citation-integrity",
+    );
+    expect(API_ENDPOINTS.founderMemoryQualityIssues).toBe(
+      "/control-center/memory/quality-issues",
+    );
+    expect(API_ENDPOINTS.founderMemoryMaintenanceRuns).toBe(
+      "/control-center/memory/maintenance-runs",
+    );
+    expect(API_ENDPOINTS.founderMemoryContextManifest).toBe(
+      "/control-center/memory/context-manifest",
+    );
+    expect(API_ENDPOINTS.founderMemoryFeedback).toBe(
+      "/control-center/memory/feedback",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryRetrievalDiagnostics),
+    ).toBe(true);
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryCitationIntegrity),
+    ).toBe(true);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryQualityIssues)).toBe(
+      true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryMaintenanceRuns)).toBe(
+      true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryContextManifest)).toBe(
+      true,
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryFeedback)).toBe(
+      false,
     );
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
@@ -4877,8 +5272,24 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.founderMemoryReview,
     [API_ENDPOINTS.founderMemoryWorkbench]:
       mockControlCenterData.founderMemoryWorkbench,
+    [API_ENDPOINTS.founderMemoryImpactGraph]:
+      mockControlCenterData.founderMemoryImpactGraph,
+    [API_ENDPOINTS.founderMemoryFollowUps]:
+      mockControlCenterData.founderMemoryFollowUpQueue,
+    [API_ENDPOINTS.founderMemoryRecallHealth]:
+      mockControlCenterData.founderMemoryRecallHealth,
     [API_ENDPOINTS.founderMemoryContextPacks]:
       mockControlCenterData.founderMemoryContextPacks,
+    [API_ENDPOINTS.founderMemoryRetrievalDiagnostics]:
+      mockControlCenterData.founderMemoryRetrievalDiagnostics,
+    [API_ENDPOINTS.founderMemoryCitationIntegrity]:
+      mockControlCenterData.founderMemoryCitationIntegrity,
+    [API_ENDPOINTS.founderMemoryQualityIssues]:
+      mockControlCenterData.founderMemoryQualityIssues,
+    [API_ENDPOINTS.founderMemoryMaintenanceRuns]:
+      mockControlCenterData.founderMemoryMaintenanceRuns,
+    [API_ENDPOINTS.founderMemoryContextManifest]:
+      mockControlCenterData.founderMemoryContextManifest,
     [API_ENDPOINTS.founderActionsInbox]: {
       ...mockControlCenterData.founderActionsInbox,
       ...mockApiData.founderActionsInbox,
@@ -4969,8 +5380,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 143,
-      control_center_route_count: 44,
+      route_count: 152,
+      control_center_route_count: 47,
       operation_ids_unique: true,
       execution_routes_present: false,
     },

@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
+    MemoryFeedbackRequest,
     MemoryContextPackActionProposalRequest,
     MemoryReviewDecisionKind,
     MemoryReviewDecisionRequest,
@@ -80,6 +81,91 @@ class FounderLoopControlCenterService:
             limit=limit,
         )
 
+    def memory_impact_graph(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_impact_graph(query_ref=query_ref, limit=limit)
+
+    def memory_follow_up_queue(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_follow_up_queue(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
+    def memory_recall_health_v2(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_recall_health_v2(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
+    def memory_retrieval_diagnostics(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_retrieval_diagnostics(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
+    def memory_citation_integrity(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_citation_integrity(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
+    def memory_quality_issues(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_quality_issues(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
+    def memory_maintenance_runs(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_maintenance_runs(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
+    def memory_context_manifest(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_context_manifest(
+            query_ref=query_ref,
+            limit=limit,
+        )
+
     def memory_l1_hot_index(
         self,
         *,
@@ -130,6 +216,17 @@ class FounderLoopControlCenterService:
     ) -> dict[str, Any]:
         return self.repository.record_memory_context_pack_action_proposal(
             context_pack_ref=context_pack_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
+    def record_memory_feedback(
+        self,
+        *,
+        request: MemoryFeedbackRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_memory_feedback(
             request=request,
             idempotency_key_ref=idempotency_key_ref,
         )

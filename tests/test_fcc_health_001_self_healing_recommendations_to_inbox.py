@@ -5,6 +5,9 @@ from pathlib import Path
 import pytest
 
 import scripts.verify_fcc_health_001_self_healing_recommendations_to_inbox as verifier
+from ultimate_ai_agent.core.control_center.action_decisions import (
+    FounderLoopActionDecisionRequest,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BLOCKED_AUTHORITY_REFS,
@@ -164,6 +167,45 @@ def test_health_recommendations_are_safe_ref_review_candidates(
         )
 
 
+def test_health_signal_converters_cover_verifier_route_ui_memory_and_truth(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder-loop.sqlite3")
+    recommendations = build_fcc_health_recommendations(
+        source_readiness=repo.source_readiness(),
+        dogfood_capture={
+            "friction_refs": ["signal-ref:dogfood:private-ui-friction"]
+        },
+        verifier_failure_refs=["verifier-ref:foundation-gate:failed"],
+        route_manifest_mismatch_refs=["GET /control-center/actions"],
+        api_contract_mismatch_refs=["POST /control-center/actions/{action_id}/defer"],
+        blocked_state_confusion_refs=["blocked-state:operator-state-unclear"],
+        memory_quality_issue_refs=["memory-quality-ref:source-provenance-missing"],
+        release_truth_gap_refs=["release-truth-ref:missing-evidence"],
+    )
+
+    kinds = {candidate.kind for candidate in recommendations}
+    assert kinds >= {
+        "verifier_failure",
+        "route_manifest_mismatch",
+        "api_contract_mismatch",
+        "frontend_ui_friction",
+        "blocked_state_confusion",
+        "memory_quality_issue",
+        "release_truth_gap",
+    }
+    for candidate in recommendations:
+        payload = candidate.model_dump(mode="json")
+        assert payload["redaction_status"] == "safe_refs_only"
+        assert payload["auto_apply_authorized"] is False
+        assert payload["auto_code_authorized"] is False
+        assert payload["memory_write_authorized"] is False
+        assert payload["provider_model_call_authorized"] is False
+        assert payload["shell_execution_authorized"] is False
+        assert payload["connector_write_authorized"] is False
+        assert payload["production_authority_enabled"] is False
+
+
 def test_health_recommendations_project_into_action_inbox_without_execution(
     tmp_path: Path,
 ) -> None:
@@ -197,8 +239,59 @@ def test_health_recommendations_project_into_action_inbox_without_execution(
         assert item["health_recommendation_provider_model_call_authorized"] is False
         assert item["health_recommendation_shell_execution_authorized"] is False
         assert item["health_recommendation_connector_write_authorized"] is False
+        assert item["health_recommendation_memory_write_authorized"] is False
+        assert item["health_recommendation_context_injection_authorized"] is False
         assert item["health_recommendation_action_execution_authorized"] is False
         assert item["health_recommendation_production_authority_enabled"] is False
         assert "blocked-state:no-auto-apply" in item[
             "health_recommendation_blocked_authority_refs"
         ]
+
+
+def test_health_recommendation_review_decision_records_receipt_without_execution(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder-loop.sqlite3")
+    health_item = next(
+        item
+        for item in repo.actions_inbox()["items"]
+        if item.get("action_kind") == FCC_HEALTH_RECOMMENDATION_ACTION_KIND
+    )
+
+    receipt = repo.record_action_decision(
+        action_id=str(health_item["item_ref"]),
+        decision="defer",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:test-health-review-defer",
+            defer_until_ref="defer-until-ref:test-health-review-later",
+            metadata_refs=[
+                "metadata-ref:test-health-review",
+                str(health_item["item_ref"]),
+            ],
+        ),
+        idempotency_key_ref="idempotency-ref:test-health-review-defer",
+    )
+
+    assert receipt["status"] == "deferred"
+    assert receipt["action_executed"] is False
+    assert receipt["connector_write_performed"] is False
+    assert receipt["memory_write_performed"] is False
+    assert receipt["raw_content_stored"] is False
+    assert "evidence-ref:founder-loop:action-decision" in receipt["evidence_refs"]
+    assert "evidence-ref:fcc-health-001:" in " ".join(receipt["evidence_refs"])
+    assert repo.latest_action_receipt(str(health_item["item_ref"]))["receipt_ref"] == (
+        receipt["receipt_ref"]
+    )
+
+    reviewed_item = next(
+        item
+        for item in repo.actions_inbox()["items"]
+        if item.get("item_ref") == health_item["item_ref"]
+    )
+    assert reviewed_item["action_group_id"] == "receipt_recorded"
+    assert reviewed_item["receipt_visibility"]["decision_receipt_ref"] == receipt[
+        "receipt_ref"
+    ]
+    assert receipt["receipt_ref"] in reviewed_item["receipt_refs"]
+    assert reviewed_item["health_recommendation_auto_apply_authorized"] is False
+    assert reviewed_item["health_recommendation_action_execution_authorized"] is False

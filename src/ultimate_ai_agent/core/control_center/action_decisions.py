@@ -318,7 +318,7 @@ class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
 
 
 def action_id_to_item_ref(action_id: str) -> str:
-    if action_id.startswith("founder-action:"):
+    if action_id.startswith(("founder-action:", "action-item:")):
         _validate_safe_ref(action_id, "action_id")
         return action_id
     _validate_safe_text(action_id, "action_id")

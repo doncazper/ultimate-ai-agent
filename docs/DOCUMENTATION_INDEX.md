@@ -20,7 +20,7 @@ blocked, planned, and future-scoped states distinct.
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and release convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
-| Governed cognitive memory spine | FCC-MEM-001 Memory Workbench V1: `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md` |
+| Governed cognitive memory spine | FCC-MEM-001 Memory Workbench V1, FCC-MEM-015 Memory Impact Graph, FCC-MEM-016 through FCC-MEM-020 diagnostics/context manifest layer, FCC-MEM-021 Memory UI + Action Inbox proposal bridge, and the GoatCitadel comparison: `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/memory/MEMORY_MODULE_HARDENING_AND_GOATCITADEL_COMPARISON_2026_06_24.md`, `docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_AND_FOLLOW_UP_QUEUE.md`, `docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md`, `docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center product narrative and strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/founder_loop_api_perimeter_manifest.json`, `docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`, `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`, `docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md`, `docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`, `docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`, `docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`, `docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`, `docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md`, `docs/macos/private_operator_14_day_dogfood_harness_v1.json`, `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`, `docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md`, `docs/control_center/visual_regression_manifest.json`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`, `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`, `docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md`, `docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md`, `docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md` |
 | Operational maturity and authority ramp | `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
@@ -66,7 +66,7 @@ verifier, and focused tests. UAA-P1-079 User Intent Understanding V1 completes
 reviewable intent proposals with confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing. UAA-P1-080 API Route
 Classification And Public/Protected Inventory completes typed route
-classification in `/api/manifest`, the current 143-route inventory fixture,
+classification in `/api/manifest`, the current 152-route inventory fixture,
 route-status manifest alignment, and Control Center API Routes visibility.
 UAA-P1-081 Centralized FastAPI Security Headers completes centralized response
 headers, HTTPS-only HSTS, manifest capability posture, and focused verifier
@@ -130,6 +130,21 @@ receipts, deterministic quality grouping, Control Center workbench cards, CLI
 parity, and `scripts/verify_fcc_mem_001_memory_workbench.py` without
 delete/export execution, semantic/vector search, connector writes, context
 injection, public beta, or production authority.
+FCC-MEM-015 Memory Impact Graph And Follow-Up Queue adds backend-owned
+impact-graph, follow-up queue, and Recall Health V2 read models, Control Center
+merge/supersede comparison, context-pack preview inspection, CLI parity, and
+`scripts/verify_fcc_mem_015_memory_impact_graph_followup_queue.py` without
+action execution, memory write, context injection, CRM/account sync,
+semantic/vector search, provider/model calls, public beta, or production
+authority.
+`docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md`
+records the implemented FCC-MEM-016 through FCC-MEM-020 retrieval diagnostics,
+citation integrity, feedback quality, maintenance run, and context manifest
+lane. `docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md`
+records the implemented Control Center UI wiring and proposal-only Action Inbox
+bridge for those read models. `docs/memory/MEMORY_MODULE_HARDENING_AND_GOATCITADEL_COMPARISON_2026_06_24.md`
+records the 2026-06-24 memory hardening pass and GoatCitadel comparison that
+informed this lane.
 Every module
 feeds Today, Actions, Evidence, and Memory;
 source provenance, reviewed business memory, Evidence-as-history,
@@ -157,6 +172,9 @@ docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md
 docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md
 docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md
 docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md
+docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_AND_FOLLOW_UP_QUEUE.md
+docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md
+docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md
 docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md
 docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md
 docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md

@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import os
+import json
 from collections.abc import Mapping
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from ultimate_ai_agent.core.local_model_management.constants import (
+    _RAW_LOCAL_PATH_RE,
+    _SECRET_LIKE_RE,
+    _URL_RE,
+)
 
 from ultimate_ai_agent.core.local_model_management.gateway import (
     UAA_LLAMA_CPP_GATEWAY_ENV,
@@ -14,6 +22,31 @@ from ultimate_ai_agent.core.openwebui_bridge.local_test_shell import (
     UAA_OPENWEBUI_TEST_GATEWAY_ENV,
     UAA_OPENWEBUI_TEST_GATEWAY_KEY_ENV,
     openwebui_test_gateway_enabled,
+)
+
+
+_UNSAFE_ADAPTER_READINESS_FRAGMENTS = (
+    "raw prompt",
+    "raw_prompt",
+    "raw response",
+    "raw_response",
+    "provider payload",
+    "provider_payload",
+    "raw log",
+    "raw_log",
+    "full shell command",
+    "environment dump",
+    "env_dump",
+    "ollama generate",
+    "ollama chat",
+    "ollama run",
+    "python -m mlx_lm",
+    "mlx_lm.generate",
+    "mlx_lm.chat",
+    "mlx_lm.fuse",
+    "mlx_lm.lora",
+    "hostname=",
+    "username=",
 )
 
 
@@ -34,6 +67,104 @@ class LocalModelGatewayReadiness(BaseModel):
     bearer_env_configured: bool
 
     model_config = ConfigDict(extra="forbid")
+
+
+class OptionalLocalModelAdapterReadiness(BaseModel):
+    adapter_id: Literal["ollama", "mlx_lm"]
+    display_name: str
+    readiness_state: Literal[
+        "ready",
+        "not_installed",
+        "not_configured",
+        "blocked",
+        "unavailable",
+        "unknown",
+    ] = "blocked"
+    install_detection_posture: str = "blocked_manual_verification_required"
+    config_detection_posture: str = "blocked_manual_verification_required"
+    allowed_inspection_refs: list[str] = Field(
+        default_factory=lambda: [
+            "inspection-ref:backend-status-no-binary-execution",
+            "inspection-ref:manual-operator-verification-only",
+        ]
+    )
+    blocked_authority_refs: list[str] = Field(
+        default_factory=lambda: [
+            "blocked-authority:model-call",
+            "blocked-authority:model-pull-download",
+            "blocked-authority:lifecycle-start-stop-switch",
+            "blocked-authority:provider-model-authority",
+            "blocked-authority:control-center-subprocess-execution",
+        ]
+    )
+    next_safe_action: str = (
+        "review local install/config manually; do not pull, start, or call models from UAA"
+    )
+    safe_evidence_refs: list[str]
+    route_refs: list[str] = Field(
+        default_factory=lambda: ["GET /control-center/local-models/status"]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md"
+        ]
+    )
+    runtime_calls_enabled: bool = False
+    model_pulls_enabled: bool = False
+    model_downloads_enabled: bool = False
+    lifecycle_start_stop_switch_enabled: bool = False
+    provider_model_authority_enabled: bool = False
+    control_center_subprocess_execution_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def readiness_remains_read_only(self) -> "OptionalLocalModelAdapterReadiness":
+        if (
+            self.runtime_calls_enabled
+            or self.model_pulls_enabled
+            or self.model_downloads_enabled
+            or self.lifecycle_start_stop_switch_enabled
+            or self.provider_model_authority_enabled
+            or self.control_center_subprocess_execution_enabled
+        ):
+            raise ValueError("OPTIONAL_LOCAL_MODEL_ADAPTER_AUTHORITY_DENIED")
+        serialized = json.dumps(self.model_dump(mode="json"), sort_keys=True)
+        serialized_lower = serialized.lower()
+        if (
+            _RAW_LOCAL_PATH_RE.search(serialized)
+            or _SECRET_LIKE_RE.search(serialized)
+            or _URL_RE.search(serialized)
+            or any(
+                fragment in serialized_lower
+                for fragment in _UNSAFE_ADAPTER_READINESS_FRAGMENTS
+            )
+        ):
+            raise ValueError("OPTIONAL_LOCAL_MODEL_ADAPTER_UNSAFE_PAYLOAD_DENIED")
+        return self
+
+
+def build_optional_local_model_adapter_readiness() -> tuple[
+    OptionalLocalModelAdapterReadiness, ...
+]:
+    return (
+        OptionalLocalModelAdapterReadiness(
+            adapter_id="ollama",
+            display_name="Ollama",
+            safe_evidence_refs=[
+                "evidence-ref:local-model-readiness:ollama:manual-verification-required",
+                "evidence-ref:local-model-readiness:ollama:no-runtime-authority",
+            ],
+        ),
+        OptionalLocalModelAdapterReadiness(
+            adapter_id="mlx_lm",
+            display_name="MLX-LM",
+            safe_evidence_refs=[
+                "evidence-ref:local-model-readiness:mlx-lm:manual-verification-required",
+                "evidence-ref:local-model-readiness:mlx-lm:no-runtime-authority",
+            ],
+        ),
+    )
 
 
 def inspect_local_model_gateway(env: Mapping[str, str] | None = None) -> LocalModelGatewayReadiness:

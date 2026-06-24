@@ -90,7 +90,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     append_expected_route_count(failures, manifest)
 
     policy_schema = load_json(POLICY_SCHEMA)
-    policy_payload = api_rate_limit_policy_payload(targeted_route_count=51)
+    policy_payload = api_rate_limit_policy_payload(targeted_route_count=52)
     for error in sorted(
         Draft202012Validator(policy_schema).iter_errors(policy_payload),
         key=lambda error: error.path,
@@ -128,7 +128,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     targeted_routes = {
         key for key, route in routes_by_key.items() if route["rate_limit_targeted"] is True
     }
-    if len(targeted_routes) != 51:
+    if len(targeted_routes) != 52:
         failures.append(f"targeted rate-limit route count drifted: {len(targeted_routes)}")
     targeted_groups = {
         route["rate_limit_group"]
@@ -146,6 +146,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         ("POST", "/control-center/memory/review/{candidate_ref}/accept"),
         ("POST", "/control-center/memory/review/{candidate_ref}/correct"),
         ("POST", "/control-center/memory/review/{candidate_ref}/reject"),
+        ("POST", "/control-center/memory/feedback"),
         ("POST", "/control-center/actions/{action_id}/reject"),
         ("POST", "/control-center/actions/{action_id}/local-task/commit"),
         ("POST", "/task-decomposition/run"),

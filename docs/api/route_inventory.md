@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `143`.
+Current OpenAPI path count: `152`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,8 +44,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 17 |
-| `local_sensitive` | 93 |
-| `mutating_requires_authority` | 30 |
+| `local_sensitive` | 101 |
+| `mutating_requires_authority` | 31 |
 
 Allowed current side-effect classes are:
 
@@ -198,6 +198,15 @@ readiness, or execute rollback.
 - `GET /control-center/memory/l2-index`
 - `GET /control-center/memory/l3-index`
 - `GET /control-center/memory/context-packs`
+- `GET /control-center/memory/impact-graph`
+- `GET /control-center/memory/follow-ups`
+- `GET /control-center/memory/recall-health`
+- `GET /control-center/memory/retrieval-diagnostics`
+- `GET /control-center/memory/citation-integrity`
+- `GET /control-center/memory/quality-issues`
+- `GET /control-center/memory/maintenance-runs`
+- `GET /control-center/memory/context-manifest`
+- `POST /control-center/memory/feedback`
 - `GET /control-center/memory/review/{candidate_ref}/receipt`
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`
@@ -208,8 +217,12 @@ readiness, or execute rollback.
 These routes expose storage-backed Founder Loop v1 summaries for Today, Action
 Inbox, Memory Review, Morning Briefing, local storage status, Action Inbox
 decision receipts, Memory Review decision receipts, read-only L1 hot local
-memory index previews, L2 ref projections, L3 representation proposals, and
-Phase 5 context-pack proposal envelopes.
+memory index previews, L2 ref projections, L3 representation proposals,
+Phase 5 context-pack proposal envelopes, FCC-MEM-015 impact graph,
+follow-up queue, Recall Health V2 read models, FCC-MEM-016 retrieval
+diagnostics, FCC-MEM-017 citation integrity, FCC-MEM-018 feedback quality
+issues, FCC-MEM-019 proposal-only maintenance runs, and FCC-MEM-020 context
+manifest proposals.
 Action decision routes record backend-owned
 approve/edit/reject/defer state, validate exact approval scope for approve where
 required, handle idempotency replay/conflict locally, and return safe receipt
@@ -218,7 +231,8 @@ idempotency-required receipt routes; accept/correct create reviewed recall-only
 records, and reject preserves blocked review state. The L1 route derives safe
 recall previews from reviewed recall-only records only; the L2, L3, and
 context-pack routes derive deterministic safe-ref inspection/proposal items
-from reviewed source lanes only. They do not execute the
+from reviewed source lanes only. Memory feedback records operator quality
+signal receipts only and does not rewrite reviewed recall. These routes do not execute the
 underlying action, run, send, install, enable, dispatch, call providers, perform
 connector writes, read email/calendar data, automatically write memory, inject
 context, run shell/subprocess work, deliver notifications, use embeddings or

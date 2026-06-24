@@ -19,7 +19,9 @@ evidence-visible.
 | Phase 5 | Context-pack proposals | Implemented read-only proposal envelopes | Proposal-only envelopes; exact user review required before any future use |
 | Phase 6 | Narrow low-risk execution hooks | Future blocked; contract/proof lane only | Requires separate accepted milestone, exact approval, receipt, rollback, and Evidence Timeline proof |
 | Phase 6.1 | Context-pack to internal Action proposal hook | Implemented internal proposal only | Internal Action proposal creation only; no action execution or external side effects |
-| FCC-MEM-001 | Memory Workbench V1 over Phases 1-6.1 | Implemented local functional workbench/read-model hardening | Safe-ref review workbench, lifecycle receipts, quality grouping, search filters, manual intake, Control Center workbench cards, and CLI parity; corrected text storage and explicit merge/supersede multi-select UX remain partial/planned; no delete/export execution, semantic/vector search, context injection, connector writes, or production authority |
+| FCC-MEM-001 | Memory Workbench V1 over Phases 1-6.1 | Implemented local functional workbench/read-model hardening | Safe-ref review workbench, lifecycle receipts, quality grouping, search filters, manual intake, Control Center workbench cards, and CLI parity; corrected text contract cleanup and broader relationship schema remain planned; no delete/export execution, semantic/vector search, context injection, connector writes, or production authority |
+| FCC-MEM-015 | Memory Impact Graph and Follow-Up Queue | Implemented safe read-model slice | Backend-owned memory impact graph, Recall Health V2, proposal-only follow-up queue, merge/supersede multi-select comparison, and context-pack previews; no action execution, memory write, context injection, CRM sync, semantic/vector search, provider/model calls, or production authority |
+| FCC-MEM-016-020 | Retrieval diagnostics, citation integrity, feedback quality, maintenance runs, and context manifests | Implemented backend read models plus feedback receipts | Retrieval diagnostics, citation validation, feedback-derived quality issue queue, proposal-only maintenance scans, and context manifest proposal artifacts; feedback records quality signal receipts only; no auto-write, auto-merge, auto-forget, delete/export execution, context injection, provider/model calls, connector writes, action execution, or production authority |
 
 ## FCC-MEM-001 Workbench Layer
 
@@ -41,6 +43,58 @@ FCC-MEM-001 does not add memory delete/export execution, semantic search,
 vector DBs, embeddings, model/provider extraction, connector writes, CRM/account
 sync, action execution, hidden context injection, public beta, public
 distribution, production readiness, or production authority.
+
+## FCC-MEM-015 Impact Graph Layer
+
+`docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_AND_FOLLOW_UP_QUEUE.md`
+records the current impact graph and follow-up queue slice. It connects Memory
+Workbench items to Today refs, Action proposal refs, Morning Briefing refs,
+Evidence Timeline events, and context-pack preview refs.
+
+FCC-MEM-015 adds:
+
+- `GET /control-center/memory/impact-graph`
+- `GET /control-center/memory/follow-ups`
+- `GET /control-center/memory/recall-health`
+- Recall Health V2 metrics for reviewed recall, stale pressure, duplicate
+  pressure, conflict pressure, missing evidence, defer aging,
+  forget-request aging, suppression count, and top loop-driving memory refs
+- Control Center merge/supersede multi-select comparison and side-by-side peer
+  posture
+- proposal-only memory-derived follow-up candidates grouped by relationship,
+  commitment, stale promise, missing evidence, correction, defer, and
+  forget-request posture
+- context-pack preview inspection without context injection
+
+FCC-MEM-015 does not add action execution, scheduling, memory writes,
+delete/export execution, semantic search, vector DBs, embeddings,
+provider/model extraction, connector writes, CRM/account sync, hidden context
+injection, public beta, public distribution, production readiness, or
+production authority.
+
+## FCC-MEM-016 Through FCC-MEM-020 Diagnostics Layer
+
+`docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md`
+records the implemented diagnostics, citation, feedback, maintenance, and
+context manifest slice.
+
+FCC-MEM-016 through FCC-MEM-020 add:
+
+- `GET /control-center/memory/retrieval-diagnostics`
+- `GET /control-center/memory/citation-integrity`
+- `GET /control-center/memory/quality-issues`
+- `POST /control-center/memory/feedback`
+- `GET /control-center/memory/maintenance-runs`
+- `GET /control-center/memory/context-manifest`
+- CLI parity for each lane
+- focused verifier coverage in
+  `scripts/verify_fcc_mem_016_020_memory_diagnostics.py`
+
+This layer does not add hidden context injection, automatic context use,
+automatic memory writes, auto-merge, auto-supersede, auto-forget, delete/export
+execution, semantic/vector search, embeddings, provider/model calls, connector
+writes, CRM/account sync, action execution, public beta, public distribution,
+production readiness, or production authority.
 
 ## Phase 1 Done Criteria
 

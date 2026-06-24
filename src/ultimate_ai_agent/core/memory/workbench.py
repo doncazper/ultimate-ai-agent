@@ -16,6 +16,14 @@ from ultimate_ai_agent.core.execution.validation import (
 MEMORY_WORKBENCH_CONTRACT_REF = "contract-ref:fcc-mem-001-memory-workbench:v1"
 MEMORY_WORKBENCH_ROUTE_REF = "GET /control-center/memory/workbench"
 MEMORY_SEARCH_ROUTE_REF = "GET /control-center/memory/search"
+MEMORY_IMPACT_GRAPH_CONTRACT_REF = (
+    "contract-ref:fcc-mem-015-memory-impact-graph:v1"
+)
+MEMORY_IMPACT_GRAPH_ROUTE_REF = "GET /control-center/memory/impact-graph"
+MEMORY_FOLLOW_UP_QUEUE_CONTRACT_REF = (
+    "contract-ref:fcc-mem-015-memory-follow-up-queue:v1"
+)
+MEMORY_FOLLOW_UP_QUEUE_ROUTE_REF = "GET /control-center/memory/follow-ups"
 MEMORY_MANUAL_INTAKE_ROUTE_REF = (
     "POST /control-center/memory/review/manual-candidate"
 )
@@ -47,6 +55,28 @@ MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS = [
     "blocked-state:manual-memory-intake-no-delete-execution",
     "blocked-state:manual-memory-intake-no-export-execution",
     "blocked-state:manual-memory-intake-no-production-authority",
+]
+MEMORY_IMPACT_GRAPH_BLOCKED_STATE_REFS = [
+    "blocked-state:memory-impact-graph-no-truth-authority",
+    "blocked-state:memory-impact-graph-no-context-injection",
+    "blocked-state:memory-impact-graph-no-action-execution",
+    "blocked-state:memory-impact-graph-no-connector-write",
+    "blocked-state:memory-impact-graph-no-crm-sync",
+    "blocked-state:memory-impact-graph-no-semantic-search",
+    "blocked-state:memory-impact-graph-no-vector-db",
+    "blocked-state:memory-impact-graph-no-model-provider-call",
+    "blocked-state:memory-impact-graph-no-delete-export-execution",
+    "blocked-state:memory-impact-graph-no-production-authority",
+]
+MEMORY_FOLLOW_UP_QUEUE_BLOCKED_STATE_REFS = [
+    "blocked-state:memory-follow-up-queue-proposal-only",
+    "blocked-state:memory-follow-up-queue-no-action-execution",
+    "blocked-state:memory-follow-up-queue-no-scheduling",
+    "blocked-state:memory-follow-up-queue-no-connector-write",
+    "blocked-state:memory-follow-up-queue-no-crm-sync",
+    "blocked-state:memory-follow-up-queue-no-context-injection",
+    "blocked-state:memory-follow-up-queue-no-memory-write",
+    "blocked-state:memory-follow-up-queue-no-production-authority",
 ]
 
 MemoryWorkbenchGroup = Literal[
@@ -482,6 +512,666 @@ def filter_memory_workbench(
     }
 
 
+def build_memory_impact_graph(
+    *,
+    workbench: dict[str, Any],
+    today_summary: dict[str, Any],
+    actions_inbox: dict[str, Any],
+    morning_briefing: dict[str, Any],
+    evidence_timeline: dict[str, Any],
+    context_packs: dict[str, Any],
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Build FCC-MEM-015 safe-ref-only impact graph from existing read models."""
+
+    workbench_items = list(workbench.get("items", []) or [])[: max(1, min(limit, 50))]
+    memory_to_loop_items = list(today_summary.get("memory_to_loop_items") or [])
+    today_action_proposals = list(
+        today_summary.get("memory_derived_action_proposals") or []
+    )
+    inbox_action_proposals = list(
+        actions_inbox.get("memory_derived_action_proposals") or []
+    )
+    action_proposals = _dedupe_payloads_by_ref(
+        [*today_action_proposals, *inbox_action_proposals],
+        ref_key="proposal_ref",
+    )
+    briefing_sections = list(morning_briefing.get("daily_loop_sections") or [])
+    briefing_memory_items = list(morning_briefing.get("memory_why_shown_items") or [])
+    evidence_events = list(evidence_timeline.get("events") or [])
+    context_pack_proposals = list(context_packs.get("proposals") or [])
+
+    nodes: list[dict[str, Any]] = []
+    for item in workbench_items:
+        memory_ref = _safe_ref(
+            item.get("memory_ref") or item.get("review_ref"),
+            "memory_ref",
+            allow_empty=True,
+        ) or ""
+        review_ref = _safe_ref(
+            item.get("review_ref") or memory_ref,
+            "review_ref",
+            allow_empty=True,
+        ) or memory_ref
+        if not memory_ref:
+            continue
+        match_refs = _safe_refs(
+            [
+                memory_ref,
+                review_ref,
+                *list(item.get("source_refs") or []),
+                *list(item.get("evidence_refs") or []),
+                *list(item.get("receipt_refs") or []),
+            ],
+            "memory_impact_match_refs",
+        )
+        loop_matches = [
+            loop_item
+            for loop_item in memory_to_loop_items
+            if _payload_mentions_any(loop_item, match_refs)
+        ]
+        action_matches = [
+            proposal
+            for proposal in action_proposals
+            if _payload_mentions_any(proposal, match_refs)
+        ]
+        briefing_matches = [
+            section
+            for section in briefing_sections
+            if _payload_mentions_any(section, match_refs)
+        ]
+        briefing_item_matches = [
+            memory_item
+            for memory_item in briefing_memory_items
+            if _payload_mentions_any(memory_item, match_refs)
+        ]
+        event_matches = [
+            event for event in evidence_events if _payload_mentions_any(event, match_refs)
+        ]
+        context_pack_matches = [
+            proposal
+            for proposal in context_pack_proposals
+            if _payload_mentions_any(proposal, match_refs)
+            or str(proposal.get("context_pack_ref") or "")
+            in list(workbench.get("context_pack_refs") or [])
+        ]
+        today_item_refs = _refs_from_payloads(
+            [loop for loop in loop_matches if loop.get("surface") == "Today"],
+            ["loop_item_ref"],
+        )
+        action_proposal_refs = _refs_from_payloads(action_matches, ["proposal_ref"])
+        briefing_refs = list(
+            dict.fromkeys(
+                [
+                    *_refs_from_payloads(briefing_matches, ["section_ref"]),
+                    *_refs_from_payloads(briefing_item_matches, ["loop_item_ref"]),
+                ]
+            )
+        )
+        evidence_event_refs = _refs_from_payloads(event_matches, ["event_ref"])
+        context_pack_refs = _refs_from_payloads(
+            context_pack_matches,
+            ["context_pack_ref", "proposal_ref"],
+        )
+        relationship_refs = _relationship_refs(item)
+        commitment_refs = _refs_containing(
+            [
+                *list(item.get("related_entity_refs") or []),
+                *list(item.get("tag_refs") or []),
+                *list(today_summary.get("follow_up_commitment_refs") or []),
+            ],
+            ["commitment", "follow-up"],
+        )
+        promise_refs = _refs_containing(
+            [
+                *list(item.get("related_entity_refs") or []),
+                *list(item.get("tag_refs") or []),
+                *list(item.get("missing_contract_refs") or []),
+            ],
+            ["promise"],
+        )
+        what_this_affects_refs = list(
+            dict.fromkeys(
+                [
+                    *today_item_refs,
+                    *action_proposal_refs,
+                    *briefing_refs,
+                    *evidence_event_refs,
+                    *context_pack_refs,
+                ]
+            )
+        )
+        nodes.append(
+            {
+                "schema_version": "fcc_mem_015_memory_impact_node.v1",
+                "memory_ref": memory_ref,
+                "review_ref": review_ref,
+                "review_state": _safe_text(
+                    item.get("review_state") or "unknown",
+                    "review_state",
+                ),
+                "candidate_kind": _safe_text(
+                    item.get("candidate_kind") or "unknown",
+                    "candidate_kind",
+                ),
+                "relationship_refs": relationship_refs,
+                "commitment_refs": commitment_refs,
+                "promise_refs": promise_refs,
+                "source_refs": _safe_refs(item.get("source_refs"), "source_refs"),
+                "provenance_refs": _safe_refs(
+                    item.get("provenance_refs"),
+                    "provenance_refs",
+                ),
+                "evidence_refs": _safe_refs(item.get("evidence_refs"), "evidence_refs"),
+                "today_item_refs": today_item_refs,
+                "action_proposal_refs": action_proposal_refs,
+                "briefing_refs": briefing_refs,
+                "evidence_event_refs": evidence_event_refs,
+                "context_pack_refs": context_pack_refs,
+                "why_shown_refs": _safe_refs(
+                    [
+                        *list(item.get("why_shown_refs") or []),
+                        "why-shown-ref:fcc-mem-015:impact-graph-ref-overlap",
+                    ],
+                    "why_shown_refs",
+                ),
+                "what_this_affects_refs": what_this_affects_refs,
+                "stale_state_refs": _safe_refs(
+                    [
+                        _state_ref(
+                            "stale-ref",
+                            str(item.get("stale_state") or "recheck-memory-impact"),
+                        )
+                    ],
+                    "stale_state_refs",
+                ),
+                "quality_state_refs": _safe_refs(
+                    item.get("quality_state_refs"),
+                    "quality_state_refs",
+                ),
+                "blocked_state_refs": _safe_refs(
+                    [
+                        *list(item.get("blocked_state_refs") or []),
+                        *MEMORY_IMPACT_GRAPH_BLOCKED_STATE_REFS,
+                    ],
+                    "blocked_state_refs",
+                ),
+                "changed_refs": _decision_answer_refs(
+                    event_matches,
+                    answer_key="changed",
+                ),
+                "suppressed_refs": _suppressed_refs_for_memory(
+                    memory_ref=memory_ref,
+                    review_ref=review_ref,
+                    decision_receipts=list(workbench.get("decision_receipts") or []),
+                ),
+                "stayed_blocked_refs": _safe_refs(
+                    MEMORY_IMPACT_GRAPH_BLOCKED_STATE_REFS,
+                    "stayed_blocked_refs",
+                ),
+                "affected_surface_refs": _affected_surface_refs(
+                    today_item_refs=today_item_refs,
+                    action_proposal_refs=action_proposal_refs,
+                    briefing_refs=briefing_refs,
+                    evidence_event_refs=evidence_event_refs,
+                    context_pack_refs=context_pack_refs,
+                ),
+                "next_safe_action": (
+                    "Review affected loop refs before creating follow-up or "
+                    "Action Inbox proposal work."
+                ),
+            }
+        )
+
+    context_pack_previews = _context_pack_preview_cards(
+        context_pack_proposals=context_pack_proposals,
+        all_memory_refs=[str(item.get("memory_ref")) for item in workbench_items],
+    )
+    health_v2 = build_recall_health_v2(
+        workbench=workbench,
+        impact_nodes=nodes,
+        decision_receipts=list(workbench.get("decision_receipts") or []),
+    )
+    follow_up_queue = build_memory_follow_up_queue(
+        impact_graph_nodes=nodes,
+        workbench=workbench,
+    )
+    return {
+        "schema_version": "fcc_mem_015_memory_impact_graph.v1",
+        "contract_ref": MEMORY_IMPACT_GRAPH_CONTRACT_REF,
+        "route_ref": MEMORY_IMPACT_GRAPH_ROUTE_REF,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": "implemented_backend_owned_safe_ref_impact_graph",
+        "safe_refs_only": True,
+        "node_count": len(nodes),
+        "nodes": nodes,
+        "health_v2": health_v2,
+        "follow_up_queue": follow_up_queue,
+        "context_pack_previews": context_pack_previews,
+        "blocked_state_refs": list(MEMORY_IMPACT_GRAPH_BLOCKED_STATE_REFS),
+        "memory_truth_authority": False,
+        "context_injection_authorized": False,
+        "action_execution_authorized": False,
+        "connector_write_authorized": False,
+        "crm_sync_authorized": False,
+        "semantic_search_enabled": False,
+        "vector_db_enabled": False,
+        "embedding_search_enabled": False,
+        "model_provider_authority_allowed": False,
+        "production_authority_enabled": False,
+    }
+
+
+def build_recall_health_v2(
+    *,
+    workbench: dict[str, Any],
+    impact_nodes: list[dict[str, Any]],
+    decision_receipts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    health = dict(workbench.get("health") or {})
+    defer_receipts = [
+        receipt for receipt in decision_receipts if receipt.get("decision") == "defer"
+    ]
+    forget_receipts = [
+        receipt
+        for receipt in decision_receipts
+        if receipt.get("decision") == "forget_request"
+    ]
+    suppressed_refs = [
+        ref
+        for receipt in decision_receipts
+        for ref in receipt.get("suppressed_recall_record_refs", []) or []
+    ]
+    top_nodes = sorted(
+        impact_nodes,
+        key=lambda node: (
+            -len(node.get("what_this_affects_refs") or []),
+            str(node.get("memory_ref") or ""),
+        ),
+    )
+    relationship_refs = list(
+        dict.fromkeys(
+            ref
+            for node in top_nodes
+            for ref in node.get("relationship_refs", []) or []
+        )
+    )
+    commitment_refs = list(
+        dict.fromkeys(
+            ref
+            for node in top_nodes
+            for ref in [
+                *list(node.get("commitment_refs") or []),
+                *list(node.get("promise_refs") or []),
+            ]
+        )
+    )
+    return {
+        "schema_version": "fcc_mem_015_recall_health_v2.v1",
+        "reviewed_recall_count": int(health.get("reviewed_recall_count") or 0),
+        "pending_review_count": int(health.get("pending_review_count") or 0),
+        "stale_pressure": int(health.get("stale_count") or 0),
+        "duplicate_pressure": int(health.get("duplicate_count") or 0),
+        "conflict_pressure": int(health.get("conflict_count") or 0),
+        "missing_evidence_pressure": int(health.get("missing_evidence_count") or 0),
+        "defer_aging_count": len(defer_receipts),
+        "defer_aging_refs": _refs_from_payloads(defer_receipts, ["receipt_ref"]),
+        "forget_request_aging_count": len(forget_receipts),
+        "forget_request_aging_refs": _refs_from_payloads(
+            forget_receipts,
+            ["receipt_ref", "forget_request_ref"],
+        ),
+        "merge_supersede_suppression_count": len(set(suppressed_refs)),
+        "suppressed_recall_record_refs": _safe_refs(
+            suppressed_refs,
+            "suppressed_recall_record_refs",
+        ),
+        "top_memory_refs_driving_current_loop": _safe_refs(
+            [node.get("memory_ref") for node in top_nodes[:5]],
+            "top_memory_refs_driving_current_loop",
+        ),
+        "top_relationship_refs_needing_attention": relationship_refs[:5],
+        "top_commitment_refs_needing_attention": commitment_refs[:5],
+        "health_reason_refs": _safe_refs(
+            [
+                "health-reason-ref:fcc-mem-015:workbench-health-counts",
+                "health-reason-ref:fcc-mem-015:impact-graph-affected-ref-count",
+                "health-reason-ref:fcc-mem-015:lifecycle-receipt-aging",
+                "health-reason-ref:fcc-mem-015:merge-supersede-suppression",
+            ],
+            "health_reason_refs",
+        ),
+        "safe_refs_only": True,
+        "semantic_search_enabled": False,
+        "vector_db_enabled": False,
+        "model_provider_authority_allowed": False,
+        "production_authority_enabled": False,
+    }
+
+
+def build_memory_follow_up_queue(
+    *,
+    impact_graph_nodes: list[dict[str, Any]],
+    workbench: dict[str, Any],
+) -> dict[str, Any]:
+    decision_receipts = list(workbench.get("decision_receipts") or [])
+    receipt_by_review_ref = {
+        str(receipt.get("review_ref") or receipt.get("candidate_ref")): receipt
+        for receipt in decision_receipts
+    }
+    candidates: list[dict[str, Any]] = []
+    for node in impact_graph_nodes:
+        review_ref = str(node.get("review_ref") or node.get("memory_ref"))
+        receipt = receipt_by_review_ref.get(review_ref, {})
+        groups = _follow_up_groups_for_node(node, receipt)
+        follow_up_ref = (
+            "memory-follow-up:fcc-mem-015:"
+            f"{_short_digest(str(node.get('memory_ref') or review_ref), length=12)}"
+        )
+        candidates.append(
+            {
+                "schema_version": "fcc_mem_015_follow_up_candidate.v1",
+                "follow_up_ref": follow_up_ref,
+                "source_memory_refs": _safe_refs(
+                    [node.get("memory_ref"), node.get("review_ref")],
+                    "source_memory_refs",
+                ),
+                "relationship_refs": _safe_refs(
+                    node.get("relationship_refs"),
+                    "relationship_refs",
+                ),
+                "commitment_refs": _safe_refs(
+                    [
+                        *list(node.get("commitment_refs") or []),
+                        *list(node.get("promise_refs") or []),
+                    ],
+                    "commitment_refs",
+                ),
+                "action_proposal_ref": _safe_ref(
+                    (node.get("action_proposal_refs") or [None])[0],
+                    "action_proposal_ref",
+                    allow_empty=True,
+                ),
+                "why_shown_refs": _safe_refs(
+                    [
+                        *list(node.get("why_shown_refs") or []),
+                        "why-shown-ref:fcc-mem-015:proposal-only-follow-up",
+                    ],
+                    "why_shown_refs",
+                ),
+                "what_this_affects_refs": _safe_refs(
+                    node.get("what_this_affects_refs"),
+                    "what_this_affects_refs",
+                ),
+                "group_ids": groups,
+                "rank_score": len(node.get("what_this_affects_refs") or []) * 10
+                + len(groups),
+                "proposal_only": True,
+                "approval_required_before_action": True,
+                "action_execution_authorized": False,
+                "connector_write_authorized": False,
+                "memory_write_authorized": False,
+                "context_injection_authorized": False,
+                "production_authority_enabled": False,
+                "blocked_state_refs": list(MEMORY_FOLLOW_UP_QUEUE_BLOCKED_STATE_REFS),
+                "next_safe_action": (
+                    "Review this proposal in Action Inbox before any later "
+                    "approved action lane."
+                ),
+            }
+        )
+    candidates = sorted(
+        candidates,
+        key=lambda candidate: (
+            -int(candidate.get("rank_score") or 0),
+            str(candidate.get("follow_up_ref") or ""),
+        ),
+    )
+    groups = [
+        {"group_id": group, "count": sum(group in item["group_ids"] for item in candidates)}
+        for group in [
+            "relationship",
+            "commitment",
+            "stale_promise",
+            "missing_evidence",
+            "recently_corrected_preference",
+            "deferred_review",
+            "forget_request_follow_up",
+        ]
+    ]
+    return {
+        "schema_version": "fcc_mem_015_memory_follow_up_queue.v1",
+        "contract_ref": MEMORY_FOLLOW_UP_QUEUE_CONTRACT_REF,
+        "route_ref": MEMORY_FOLLOW_UP_QUEUE_ROUTE_REF,
+        "status": "implemented_proposal_only_follow_up_queue",
+        "groups": groups,
+        "candidates": candidates,
+        "candidate_count": len(candidates),
+        "blocked_state_refs": list(MEMORY_FOLLOW_UP_QUEUE_BLOCKED_STATE_REFS),
+        "safe_refs_only": True,
+        "proposal_only": True,
+        "action_execution_authorized": False,
+        "connector_write_authorized": False,
+        "memory_write_authorized": False,
+        "context_injection_authorized": False,
+        "production_authority_enabled": False,
+    }
+
+
+def _json_text(payload: Any) -> str:
+    try:
+        return json.dumps(payload, sort_keys=True, default=str)
+    except TypeError:
+        return str(payload)
+
+
+def _payload_mentions_any(payload: Any, refs: list[str]) -> bool:
+    text = _json_text(payload)
+    return any(ref and ref in text for ref in refs)
+
+
+def _dedupe_payloads_by_ref(
+    payloads: list[dict[str, Any]],
+    *,
+    ref_key: str,
+) -> list[dict[str, Any]]:
+    deduped: dict[str, dict[str, Any]] = {}
+    for payload in payloads:
+        ref = str(payload.get(ref_key) or "")
+        if ref and ref not in deduped:
+            deduped[ref] = payload
+    return list(deduped.values())
+
+
+def _refs_from_payloads(
+    payloads: list[dict[str, Any]],
+    keys: list[str],
+) -> list[str]:
+    refs: list[str] = []
+    for payload in payloads:
+        for key in keys:
+            value = payload.get(key)
+            if isinstance(value, list):
+                refs.extend(str(item) for item in value if item)
+            elif value:
+                refs.append(str(value))
+    return _safe_refs(refs, "derived_refs")
+
+
+def _refs_containing(values: list[Any], markers: list[str]) -> list[str]:
+    refs = [
+        str(value)
+        for value in values
+        if value and any(marker in str(value).lower() for marker in markers)
+    ]
+    return _safe_refs(refs, "matching_refs")
+
+
+def _relationship_refs(item: dict[str, Any]) -> list[str]:
+    values = [
+        *list(item.get("related_entity_refs") or []),
+        *list(item.get("source_refs") or []),
+        *list(item.get("tag_refs") or []),
+    ]
+    relationship_refs = [
+        str(value)
+        for value in values
+        if any(
+            marker in str(value).lower()
+            for marker in ["person", "org", "deal", "relationship", "project"]
+        )
+    ]
+    return _safe_refs(relationship_refs, "relationship_refs")
+
+
+def _decision_answer_refs(
+    events: list[dict[str, Any]],
+    *,
+    answer_key: str,
+) -> list[str]:
+    refs: list[str] = []
+    marker = answer_key.replace("_", "-")
+    for event in events:
+        for key in [
+            "answer_refs",
+            "changed_refs",
+            "suppressed_refs",
+            "stayed_blocked_refs",
+        ]:
+            refs.extend(str(ref) for ref in event.get(key, []) or [] if marker in str(ref))
+        event_ref = str(event.get("event_ref") or "")
+        if event_ref and marker in event_ref:
+            refs.append(event_ref)
+    if not refs:
+        refs.append(f"memory-lifecycle-answer-ref:{marker}:not-recorded")
+    return _safe_refs(refs, "decision_answer_refs")
+
+
+def _suppressed_refs_for_memory(
+    *,
+    memory_ref: str,
+    review_ref: str,
+    decision_receipts: list[dict[str, Any]],
+) -> list[str]:
+    refs: list[str] = []
+    for receipt in decision_receipts:
+        if str(receipt.get("candidate_ref") or "") not in {memory_ref, review_ref} and str(
+            receipt.get("review_ref") or ""
+        ) not in {memory_ref, review_ref}:
+            continue
+        refs.extend(str(ref) for ref in receipt.get("suppressed_recall_record_refs", []) or [])
+        for key in [
+            "merged_from_candidate_refs",
+            "superseded_candidate_refs",
+            "duplicate_candidate_refs",
+            "conflict_candidate_refs",
+        ]:
+            refs.extend(str(ref) for ref in receipt.get(key, []) or [])
+    return _safe_refs(refs, "suppressed_refs")
+
+
+def _affected_surface_refs(
+    *,
+    today_item_refs: list[str],
+    action_proposal_refs: list[str],
+    briefing_refs: list[str],
+    evidence_event_refs: list[str],
+    context_pack_refs: list[str],
+) -> list[str]:
+    refs: list[str] = []
+    if today_item_refs:
+        refs.append("surface-ref:today")
+    if action_proposal_refs:
+        refs.append("surface-ref:actions")
+    if briefing_refs:
+        refs.append("surface-ref:briefing")
+    if evidence_event_refs:
+        refs.append("surface-ref:evidence")
+    if context_pack_refs:
+        refs.append("surface-ref:context-pack-preview")
+    return _safe_refs(refs, "affected_surface_refs")
+
+
+def _context_pack_preview_cards(
+    *,
+    context_pack_proposals: list[dict[str, Any]],
+    all_memory_refs: list[str],
+) -> list[dict[str, Any]]:
+    cards: list[dict[str, Any]] = []
+    for proposal in context_pack_proposals:
+        context_pack_ref = _safe_ref(
+            proposal.get("context_pack_ref"),
+            "context_pack_ref",
+            allow_empty=True,
+        ) or ""
+        proposal_ref = _safe_ref(
+            proposal.get("proposal_ref"),
+            "proposal_ref",
+            allow_empty=True,
+        ) or ""
+        matching_memory_refs = [
+            ref for ref in all_memory_refs if ref and _payload_mentions_any(proposal, [ref])
+        ]
+        cards.append(
+            {
+                "schema_version": "fcc_mem_015_context_pack_preview.v1",
+                "context_pack_ref": context_pack_ref,
+                "proposal_ref": proposal_ref,
+                "included_memory_refs": _safe_refs(
+                    matching_memory_refs,
+                    "included_memory_refs",
+                ),
+                "excluded_reason_refs": _safe_refs(
+                    proposal.get("excluded_reason_refs")
+                    or [
+                        "context-pack-exclusion-ref:fcc-mem-015:no-context-injection",
+                        "context-pack-exclusion-ref:fcc-mem-015:approval-required",
+                    ],
+                    "excluded_reason_refs",
+                ),
+                "why_previewed_refs": _safe_refs(
+                    [
+                        "why-previewed-ref:fcc-mem-015:inspectable-context-pack",
+                        "why-previewed-ref:fcc-mem-015:proposal-artifact-only",
+                    ],
+                    "why_previewed_refs",
+                ),
+                "safe_refs_only": True,
+                "proposal_only": True,
+                "context_injection_authorized": False,
+                "memory_write_authorized": False,
+                "production_authority_enabled": False,
+            }
+        )
+    return cards
+
+
+def _follow_up_groups_for_node(
+    node: dict[str, Any],
+    receipt: dict[str, Any],
+) -> list[str]:
+    groups: list[str] = []
+    if node.get("relationship_refs"):
+        groups.append("relationship")
+    if node.get("commitment_refs"):
+        groups.append("commitment")
+    if node.get("promise_refs") or any(
+        "promise" in str(ref).lower() for ref in node.get("stale_state_refs", []) or []
+    ):
+        groups.append("stale_promise")
+    if "business-memory-quality:evidence-missing" in node.get("quality_state_refs", []):
+        groups.append("missing_evidence")
+    if receipt.get("decision") == "correct":
+        groups.append("recently_corrected_preference")
+    if receipt.get("decision") == "defer" or node.get("review_state") == "deferred":
+        groups.append("deferred_review")
+    if receipt.get("decision") == "forget_request":
+        groups.append("forget_request_follow_up")
+    if not groups:
+        groups.append("relationship")
+    return list(dict.fromkeys(groups))
+
+
 def _candidate_workbench_item(
     candidate: dict[str, Any],
     *,
@@ -891,6 +1581,12 @@ def _matches_filters(item: dict[str, Any], filters: dict[str, str | None]) -> bo
 
 
 __all__ = [
+    "MEMORY_FOLLOW_UP_QUEUE_BLOCKED_STATE_REFS",
+    "MEMORY_FOLLOW_UP_QUEUE_CONTRACT_REF",
+    "MEMORY_FOLLOW_UP_QUEUE_ROUTE_REF",
+    "MEMORY_IMPACT_GRAPH_BLOCKED_STATE_REFS",
+    "MEMORY_IMPACT_GRAPH_CONTRACT_REF",
+    "MEMORY_IMPACT_GRAPH_ROUTE_REF",
     "MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS",
     "MEMORY_MANUAL_INTAKE_CONTRACT_REF",
     "MEMORY_MANUAL_INTAKE_ROUTE_REF",
@@ -900,7 +1596,10 @@ __all__ = [
     "MEMORY_WORKBENCH_GROUPS",
     "MEMORY_WORKBENCH_ROUTE_REF",
     "ManualMemoryCandidateRequest",
+    "build_memory_follow_up_queue",
+    "build_memory_impact_graph",
     "build_memory_workbench",
+    "build_recall_health_v2",
     "filter_memory_workbench",
     "manual_memory_candidate_payload_fingerprint_ref",
     "manual_memory_candidate_payload_for_fingerprint",

@@ -4,6 +4,7 @@ import {
   fetchFounderActionsInbox,
   fetchFounderMemoryContextPacks,
   recordManualMemoryCandidate,
+  recordMemoryFeedback,
   recordMemoryContextPackActionProposal,
   recordMemoryReviewDecision,
   submitActionDecision,
@@ -24,9 +25,19 @@ import type {
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopMemoryContextPackProposal,
   FounderLoopMemoryContextPackActionProposalReceipt,
+  FounderLoopMemoryCitationIntegrity,
+  FounderLoopMemoryContextManifest,
+  FounderLoopMemoryContextManifestItem,
   FounderLoopMemoryContextPacks,
+  FounderLoopMemoryFollowUpQueue,
+  FounderLoopMemoryImpactGraph,
+  FounderLoopMemoryImpactNode,
+  FounderLoopMemoryMaintenanceRuns,
+  FounderLoopMemoryQualityIssue,
+  FounderLoopMemoryQualityIssues,
   FounderLoopMemoryReview,
   FounderLoopMemoryReviewItem,
+  FounderLoopMemoryRetrievalDiagnostics,
   FounderLoopMemoryWorkbench,
   FounderLoopMemoryWorkbenchItem,
   FounderLoopMorningBriefing,
@@ -35,10 +46,13 @@ import type {
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
+  FounderLoopRecallHealthV2,
   ControlCenterSettingsStatus,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
   ManualMemoryCandidateReceipt,
+  MemoryFeedbackKind,
+  MemoryFeedbackReceipt,
 } from "../api/types";
 
 const evidenceHistoryKeys = [
@@ -2166,13 +2180,29 @@ function BriefingSectionCards({
 }
 
 export function MemoryReviewSurfacePanel({
+  citationIntegrity,
   contextPacks,
+  contextManifest,
+  followUpQueue,
+  impactGraph,
+  maintenanceRuns,
   memoryReview,
+  qualityIssues,
+  recallHealth,
+  retrievalDiagnostics,
   today,
   workbench,
 }: {
+  citationIntegrity: FounderLoopMemoryCitationIntegrity;
   contextPacks: FounderLoopMemoryContextPacks;
+  contextManifest: FounderLoopMemoryContextManifest;
+  followUpQueue: FounderLoopMemoryFollowUpQueue;
+  impactGraph: FounderLoopMemoryImpactGraph;
+  maintenanceRuns: FounderLoopMemoryMaintenanceRuns;
   memoryReview: FounderLoopMemoryReview;
+  qualityIssues: FounderLoopMemoryQualityIssues;
+  recallHealth: FounderLoopRecallHealthV2;
+  retrievalDiagnostics: FounderLoopMemoryRetrievalDiagnostics;
   today: FounderLoopTodaySummary;
   workbench: FounderLoopMemoryWorkbench;
 }) {
@@ -2195,11 +2225,29 @@ export function MemoryReviewSurfacePanel({
       </div>
       <MemoryWorkbenchHealthPanel
         memoryReview={memoryReview}
+        recallHealth={recallHealth}
         workbench={workbench}
       />
       <div className="panel-grid">
+        <MemoryRetrievalDiagnosticsPanel diagnostics={retrievalDiagnostics} />
+        <MemoryCitationIntegrityPanel citationIntegrity={citationIntegrity} />
+      </div>
+      <div className="panel-grid">
+        <MemoryQualityIssuePanel qualityIssues={qualityIssues} />
+        <MemoryMaintenanceRunPanel maintenanceRuns={maintenanceRuns} />
+      </div>
+      <MemoryContextManifestPanel contextManifest={contextManifest} />
+      <div className="panel-grid">
         <MemoryWorkbenchSearchPanel items={workbenchItems} />
         <ManualMemoryCandidatePanel />
+      </div>
+      <div className="panel-grid">
+        <MemoryImpactGraphPanel impactGraph={impactGraph} />
+        <MemoryMergeSupersedePanel items={workbenchItems} />
+      </div>
+      <div className="panel-grid">
+        <MemoryFollowUpQueuePanel followUpQueue={followUpQueue} />
+        <MemoryContextPackPreviewPanel impactGraph={impactGraph} />
       </div>
       <div className="review-grid">
         {workbenchItems.map((item) => (
@@ -2610,9 +2658,11 @@ export function MemoryReviewSurfacePanel({
 
 function MemoryWorkbenchHealthPanel({
   memoryReview,
+  recallHealth,
   workbench,
 }: {
   memoryReview: FounderLoopMemoryReview;
+  recallHealth: FounderLoopRecallHealthV2;
   workbench: FounderLoopMemoryWorkbench;
 }) {
   const health = workbench.health;
@@ -2624,6 +2674,15 @@ function MemoryWorkbenchHealthPanel({
     ["Missing evidence", health.missing_evidence_count],
     ["Reviewed recall", health.reviewed_recall_count],
     ["Rejected", health.rejected_count],
+  ] as const;
+  const recallHealthMetrics = [
+    ["Stale pressure", recallHealth.stale_pressure],
+    ["Duplicate pressure", recallHealth.duplicate_pressure],
+    ["Conflict pressure", recallHealth.conflict_pressure],
+    ["Missing evidence", recallHealth.missing_evidence_pressure],
+    ["Defer aging", recallHealth.defer_aging_count],
+    ["Forget aging", recallHealth.forget_request_aging_count],
+    ["Suppressed refs", recallHealth.merge_supersede_suppression_count],
   ] as const;
 
   return (
@@ -2646,9 +2705,18 @@ function MemoryWorkbenchHealthPanel({
           </div>
         ))}
       </div>
+      <div className="metric-grid compact-metric-grid">
+        {recallHealthMetrics.map(([label, value]) => (
+          <div className="metric-card" key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
       <dl className="detail-list">
         <DetailTerm label="Workbench route" value={workbench.route_ref} />
         <DetailTerm label="Workbench contract" value={workbench.contract_ref} />
+        <DetailTerm label="Recall health" value={recallHealth.schema_version} />
         <DetailTerm label="Review route" value={memoryReview.route_ref} />
         <DetailTerm
           label="Lifecycle routes"
@@ -2688,10 +2756,549 @@ function MemoryWorkbenchHealthPanel({
         refs={health.needs_attention_refs}
       />
       <RefListWithFallback
+        emptyLabel="Top loop-driving memories: none"
+        refs={recallHealth.top_memory_refs_driving_current_loop}
+      />
+      <RefListWithFallback
+        emptyLabel="Top relationship refs: none"
+        refs={recallHealth.top_relationship_refs_needing_attention}
+      />
+      <RefListWithFallback
+        emptyLabel="Top commitment refs: none"
+        refs={recallHealth.top_commitment_refs_needing_attention}
+      />
+      <RefListWithFallback
         emptyLabel="Workbench blockers: none"
         refs={workbench.blocked_state_refs}
       />
     </article>
+  );
+}
+
+function MemoryRetrievalDiagnosticsPanel({
+  diagnostics,
+}: {
+  diagnostics: FounderLoopMemoryRetrievalDiagnostics;
+}) {
+  const pressure = diagnostics.pressure;
+  const metrics = [
+    ["Candidates", diagnostics.candidate_count],
+    ["Included", diagnostics.included_count],
+    ["Excluded", diagnostics.excluded_count],
+    ["Token estimate", diagnostics.token_estimate],
+    ["Stale pressure", pressure.stale_pressure],
+    ["Conflict pressure", pressure.conflict_pressure],
+  ] as const;
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Retrieval Diagnostics</h3>
+          <p className="muted">
+            Plain QMD-style stats over safe refs, ranking, source mix, pressure,
+            cache posture, and blockers.
+          </p>
+        </div>
+        <span>{diagnostics.cache_hit ? "cache hit" : diagnostics.cache_status}</span>
+      </div>
+      <div className="metric-grid compact-metric-grid">
+        {metrics.map(([label, value]) => (
+          <div className="metric-card" key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Route" value={diagnostics.route_ref} />
+        <DetailTerm label="Contract" value={diagnostics.contract_ref} />
+        <DetailTerm label="Cache key" value={diagnostics.cache_key_ref} />
+        <DetailTerm
+          label="Semantic/vector"
+          value={
+            diagnostics.semantic_search_enabled ||
+            diagnostics.vector_db_enabled ||
+            diagnostics.embedding_search_enabled
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={diagnostics.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Memory write"
+          value={diagnostics.memory_write_authorized ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Source mix: none"
+        items={diagnostics.source_mix.map(
+          (source) => `${source.source_ref}: ${source.count}`,
+        )}
+      />
+      <RefListWithFallback
+        emptyLabel="Included refs: none"
+        refs={diagnostics.included_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Excluded refs: none"
+        refs={diagnostics.excluded_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked reason refs: none"
+        refs={diagnostics.blocked_reason_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryCitationIntegrityPanel({
+  citationIntegrity,
+}: {
+  citationIntegrity: FounderLoopMemoryCitationIntegrity;
+}) {
+  const visibleResults = citationIntegrity.results.slice(0, 3);
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Citation Integrity</h3>
+          <p className="muted">
+            Context-pack refs must validate before any future use milestone can
+            consider them.
+          </p>
+        </div>
+        <span>{citationIntegrity.status}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Route" value={citationIntegrity.route_ref} />
+        <DetailTerm label="Contract" value={citationIntegrity.contract_ref} />
+        <DetailTerm
+          label="Valid proposals"
+          value={String(citationIntegrity.valid_proposal_count)}
+        />
+        <DetailTerm
+          label="Blocked proposals"
+          value={String(citationIntegrity.blocked_proposal_count)}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            citationIntegrity.context_injection_authorized ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Truth authority"
+          value={citationIntegrity.truth_authority_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      <div className="memory-impact-list">
+        {visibleResults.map((result) => (
+          <div className="memory-impact-row" key={result.citation_integrity_result_ref}>
+            <div className="review-card-heading compact">
+              <h4>{result.context_pack_ref}</h4>
+              <span>{result.status}</span>
+            </div>
+            <dl className="detail-list">
+              <DetailTerm label="Proposal" value={result.proposal_ref} />
+              <DetailTerm
+                label="Blocks use"
+                value={result.blocks_context_pack_use ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Proof event"
+                value={result.evidence_timeline_event_ref || "not needed"}
+              />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Invalid refs: none"
+              refs={result.invalid_citation_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Valid refs: none"
+              refs={result.valid_citation_refs.slice(0, 8)}
+            />
+          </div>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Citation blockers: none"
+        refs={citationIntegrity.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryQualityIssuePanel({
+  qualityIssues,
+}: {
+  qualityIssues: FounderLoopMemoryQualityIssues;
+}) {
+  const issues = qualityIssues.issues.slice(0, 4);
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Quality Issue Queue</h3>
+          <p className="muted">
+            Operator feedback becomes quality signals and ranking inputs only.
+          </p>
+        </div>
+        <span>{qualityIssues.issue_count}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Route" value={qualityIssues.route_ref} />
+        <DetailTerm label="Feedback route" value={qualityIssues.feedback_route_ref} />
+        <DetailTerm label="Feedback receipts" value={String(qualityIssues.feedback_count)} />
+        <DetailTerm
+          label="Memory write"
+          value={qualityIssues.memory_write_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={qualityIssues.action_execution_authorized ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Quality groups: none"
+        items={qualityIssues.groups.map((group) => `${group.group_id}: ${group.count}`)}
+      />
+      <div className="memory-impact-list">
+        {issues.map((issue) => (
+          <MemoryQualityIssueRow issue={issue} key={issue.issue_ref} />
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Feedback receipt refs: none"
+        refs={qualityIssues.feedback_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Quality blockers: none"
+        refs={qualityIssues.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryQualityIssueRow({ issue }: { issue: FounderLoopMemoryQualityIssue }) {
+  return (
+    <div className="memory-impact-row">
+      <div className="review-card-heading compact">
+        <h4>{issue.issue_ref}</h4>
+        <span>{issue.issue_kind}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Target" value={issue.target_ref} />
+        <DetailTerm label="Target kind" value={issue.target_kind} />
+        <DetailTerm label="Severity" value={issue.severity} />
+        <DetailTerm label="Rank" value={String(issue.rank_score)} />
+        <DetailTerm
+          label="Memory write"
+          value={issue.memory_write_authorized ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback emptyLabel="Groups: none" items={issue.group_ids} />
+      <RefListWithFallback
+        emptyLabel="Source signals: none"
+        refs={issue.source_signal_refs}
+      />
+      <MemoryFeedbackControls issue={issue} />
+    </div>
+  );
+}
+
+function MemoryFeedbackControls({
+  issue,
+}: {
+  issue: FounderLoopMemoryQualityIssue;
+}) {
+  const [state, setState] = useState<{
+    status: "idle" | "pending" | "recorded" | "failed";
+    feedbackKind?: MemoryFeedbackKind;
+    receipt?: MemoryFeedbackReceipt;
+    message?: string;
+  }>({ status: "idle" });
+  const pending = state.status === "pending";
+  const feedbackKinds: MemoryFeedbackKind[] = [
+    "useful",
+    "stale",
+    "wrong",
+    "duplicate",
+    "conflict",
+    "irrelevant",
+    "privacy_concern",
+  ];
+
+  async function recordFeedback(feedbackKind: MemoryFeedbackKind) {
+    setState({ status: "pending", feedbackKind });
+    try {
+      const receipt = await recordMemoryFeedback({
+        target_ref: issue.target_ref,
+        target_kind:
+          issue.target_kind === "impact_graph_node"
+            ? "impact_graph_node"
+            : "memory_candidate",
+        feedback_kind: feedbackKind,
+        reviewer_ref: "actor-ref:control-center-memory-review",
+        reason_refs: [`reason-ref:control-center-memory-feedback:${feedbackKind}`],
+        metadata_refs: [issue.issue_ref],
+        blocked_state_refs: memoryFeedbackBlockedRefs,
+      });
+      setState({
+        status: "recorded",
+        feedbackKind,
+        receipt,
+        message: `${receipt.status}: ${receipt.receipt_ref}`,
+      });
+    } catch (error) {
+      setState({
+        status: "failed",
+        feedbackKind,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Memory feedback receipt was not recorded safely.",
+      });
+    }
+  }
+
+  return (
+    <div className="decision-controls" aria-label={`${issue.issue_ref} feedback`}>
+      <div className="decision-button-row">
+        {feedbackKinds.map((feedbackKind) => (
+          <button
+            className="secondary-button"
+            disabled={pending}
+            key={feedbackKind}
+            onClick={() => void recordFeedback(feedbackKind)}
+            type="button"
+          >
+            {pending && state.feedbackKind === feedbackKind
+              ? "Recording"
+              : feedbackKind.replace("_", " ")}
+          </button>
+        ))}
+      </div>
+      {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.receipt ? (
+        <dl className="detail-list">
+          <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+          <DetailTerm label="Quality issue" value={state.receipt.quality_issue_ref} />
+          <DetailTerm
+            label="Memory write"
+            value={state.receipt.memory_write_performed ? "yes" : "no"}
+          />
+          <DetailTerm
+            label="Context injection"
+            value={state.receipt.context_injection_authorized ? "enabled" : "blocked"}
+          />
+        </dl>
+      ) : null}
+    </div>
+  );
+}
+
+function MemoryMaintenanceRunPanel({
+  maintenanceRuns,
+}: {
+  maintenanceRuns: FounderLoopMemoryMaintenanceRuns;
+}) {
+  const proposals = maintenanceRuns.proposals.slice(0, 4);
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Maintenance Proposals</h3>
+          <p className="muted">
+            Quality scans propose review work only; merge, supersede, forget, and
+            writes stay separate.
+          </p>
+        </div>
+        <span>{maintenanceRuns.proposal_count}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Route" value={maintenanceRuns.route_ref} />
+        <DetailTerm label="Run" value={maintenanceRuns.run_ref} />
+        <DetailTerm label="Scan" value={maintenanceRuns.scan_ref} />
+        <DetailTerm
+          label="Auto merge"
+          value={maintenanceRuns.auto_merge_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Auto forget"
+          value={maintenanceRuns.auto_forget_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Memory write"
+          value={
+            maintenanceRuns.automatic_memory_write_authorized ? "enabled" : "blocked"
+          }
+        />
+      </dl>
+      <div className="memory-impact-list">
+        {proposals.map((proposal) => (
+          <div
+            className="memory-impact-row"
+            key={proposal.maintenance_proposal_ref}
+          >
+            <div className="review-card-heading compact">
+              <h4>{proposal.maintenance_proposal_ref}</h4>
+              <span>{proposal.maintenance_kind ?? proposal.proposal_kind}</span>
+            </div>
+            <dl className="detail-list">
+              <DetailTerm label="Target" value={proposal.target_ref} />
+              <DetailTerm
+                label="Envelope kind"
+                value={
+                  proposal.inbox_envelope_kind ??
+                  proposal.proposed_decision_kind ??
+                  "memory_maintenance_proposal"
+                }
+              />
+              <DetailTerm label="Severity" value={proposal.severity ?? "medium"} />
+              <DetailTerm label="Rank" value={String(proposal.rank_score)} />
+              <DetailTerm
+                label="Auto maintenance"
+                value={
+                  proposal.auto_apply_authorized ||
+                  proposal.auto_merge_authorized ||
+                  proposal.auto_supersede_authorized ||
+                  proposal.auto_forget_authorized ||
+                  proposal.automatic_memory_write_authorized
+                    ? "enabled"
+                    : "blocked"
+                }
+              />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Reason refs: none"
+              refs={proposal.reason_refs ?? proposal.source_issue_refs ?? []}
+            />
+            <RefListWithFallback
+              emptyLabel="Source memory refs: none"
+              refs={proposal.source_memory_refs ?? []}
+            />
+            <RefListWithFallback
+              emptyLabel="Expected receipts: none"
+              refs={proposal.expected_receipt_refs ?? []}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked refs: none"
+              refs={proposal.blocked_state_refs}
+            />
+          </div>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Maintenance blockers: none"
+        refs={maintenanceRuns.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryContextManifestPanel({
+  contextManifest,
+}: {
+  contextManifest: FounderLoopMemoryContextManifest;
+}) {
+  const manifests = contextManifest.manifests.slice(0, 4);
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Context Manifest Preview</h3>
+          <p className="muted">
+            Inspectable proposal manifests only; actual context use is a future
+            explicitly approved milestone.
+          </p>
+        </div>
+        <span>{contextManifest.manifest_count}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Route" value={contextManifest.route_ref} />
+        <DetailTerm label="Contract" value={contextManifest.contract_ref} />
+        <DetailTerm
+          label="Cache key"
+          value={contextManifest.retrieval_cache_key_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={contextManifest.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Hidden prompt context"
+          value={
+            contextManifest.hidden_prompt_context_authorized ? "enabled" : "blocked"
+          }
+        />
+      </dl>
+      <div className="review-grid">
+        {manifests.map((manifest) => (
+          <MemoryContextManifestCard
+            key={manifest.context_manifest_ref}
+            manifest={manifest}
+          />
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Context manifest blockers: none"
+        refs={contextManifest.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryContextManifestCard({
+  manifest,
+}: {
+  manifest: FounderLoopMemoryContextManifestItem;
+}) {
+  return (
+    <div className="memory-impact-row">
+      <div className="review-card-heading compact">
+        <h4>{manifest.context_manifest_ref}</h4>
+        <span>{manifest.citation_integrity_status}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Context pack" value={manifest.context_pack_ref} />
+        <DetailTerm label="Risk posture" value={manifest.risk_posture_ref} />
+        <DetailTerm label="Token budget" value={String(manifest.token_budget)} />
+        <DetailTerm label="Token estimate" value={String(manifest.token_estimate)} />
+        <DetailTerm label="Expires" value={manifest.expires_at} />
+        <DetailTerm
+          label="Approval before use"
+          value={manifest.approval_required_before_use ? "required" : "missing"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Included refs: none"
+        refs={manifest.included_memory_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Excluded refs: none"
+        refs={manifest.excluded_memory_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Why included: none"
+        refs={manifest.why_included_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Safe-disable refs: none"
+        refs={manifest.safe_disable_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Quality issue refs: none"
+        refs={manifest.quality_issue_refs}
+      />
+    </div>
   );
 }
 
@@ -2755,6 +3362,304 @@ function MemoryWorkbenchSearchPanel({
       <RefListWithFallback
         emptyLabel="Filtered refs: none"
         refs={filteredItems.slice(0, 8).map((item) => item.review_ref)}
+      />
+    </article>
+  );
+}
+
+function MemoryImpactGraphPanel({
+  impactGraph,
+}: {
+  impactGraph: FounderLoopMemoryImpactGraph;
+}) {
+  const nodes = impactGraph.nodes.slice(0, 4);
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Impact Graph</h3>
+          <p className="muted">
+            Memory refs connected to Today, Actions, Briefing, Evidence, and
+            context-pack previews.
+          </p>
+        </div>
+        <span>{impactGraph.node_count}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Route" value={impactGraph.route_ref} />
+        <DetailTerm label="Contract" value={impactGraph.contract_ref} />
+        <DetailTerm
+          label="Truth authority"
+          value={impactGraph.memory_truth_authority ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            impactGraph.context_injection_authorized ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Action execution"
+          value={impactGraph.action_execution_authorized ? "enabled" : "blocked"}
+        />
+      </dl>
+      <div className="memory-impact-list">
+        {nodes.map((node) => (
+          <MemoryImpactNodeRow key={node.memory_ref} node={node} />
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Impact graph blockers: none"
+        refs={impactGraph.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryImpactNodeRow({
+  node,
+}: {
+  node: FounderLoopMemoryImpactNode;
+}) {
+  return (
+    <div className="memory-impact-row">
+      <div className="review-card-heading compact">
+        <h4>{node.memory_ref}</h4>
+        <span>{node.review_state}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Kind" value={node.candidate_kind} />
+        <DetailTerm
+          label="Affected refs"
+          value={String(node.what_this_affects_refs.length)}
+        />
+        <DetailTerm
+          label="Surfaces"
+          value={node.affected_surface_refs.join(", ") || "none"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="What this affects: none"
+        refs={node.what_this_affects_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Suppressed refs: none"
+        refs={node.suppressed_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Stayed blocked refs: none"
+        refs={node.stayed_blocked_refs}
+      />
+    </div>
+  );
+}
+
+function MemoryMergeSupersedePanel({
+  items,
+}: {
+  items: FounderLoopMemoryWorkbenchItem[];
+}) {
+  const peerItems = items.filter(
+    (item) =>
+      (item.duplicate_of_refs?.length ?? 0) > 0 ||
+      (item.conflict_with_refs?.length ?? 0) > 0 ||
+      item.group_ids.includes("duplicate") ||
+      item.group_ids.includes("conflict"),
+  );
+  const pickerItems = (peerItems.length > 0 ? peerItems : items).slice(0, 8);
+  const [selectedRefs, setSelectedRefs] = useState<string[]>(
+    pickerItems.slice(0, 2).map((item) => item.memory_ref),
+  );
+  const selectedItems = pickerItems.filter((item) =>
+    selectedRefs.includes(item.memory_ref),
+  );
+
+  function toggleSelected(memoryRef: string) {
+    setSelectedRefs((current) =>
+      current.includes(memoryRef)
+        ? current.filter((ref) => ref !== memoryRef)
+        : [...current, memoryRef],
+    );
+  }
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Merge / Supersede</h3>
+          <p className="muted">
+            Multi-select comparison over duplicate and conflict candidates.
+          </p>
+        </div>
+        <span>{selectedItems.length} selected</span>
+      </div>
+      <div className="memory-compare-grid">
+        <div className="memory-picker-list" aria-label="Memory candidate picker">
+          {pickerItems.map((item) => (
+            <label className="check-row" key={item.memory_ref}>
+              <input
+                checked={selectedRefs.includes(item.memory_ref)}
+                onChange={() => toggleSelected(item.memory_ref)}
+                type="checkbox"
+              />
+              <span>
+                {item.title}
+                <small>{item.review_state}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="memory-compare-list">
+          {selectedItems.map((item) => (
+            <div className="memory-compare-row" key={item.memory_ref}>
+              <strong>{item.title}</strong>
+              <dl className="detail-list">
+                <DetailTerm label="Memory ref" value={item.memory_ref} />
+                <DetailTerm label="Kind" value={item.candidate_kind} />
+                <DetailTerm label="State" value={item.review_state} />
+                <DetailTerm label="Rank" value={String(item.rank_score)} />
+              </dl>
+              <InlineListWithFallback
+                emptyLabel="Groups: none"
+                items={item.group_ids}
+              />
+              <RefListWithFallback
+                emptyLabel="Duplicate peers: none"
+                refs={item.duplicate_of_refs ?? []}
+              />
+              <RefListWithFallback
+                emptyLabel="Conflict peers: none"
+                refs={item.conflict_with_refs ?? []}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      <RefListWithFallback
+        emptyLabel="Selected candidate refs: none"
+        refs={selectedRefs}
+      />
+    </article>
+  );
+}
+
+function MemoryFollowUpQueuePanel({
+  followUpQueue,
+}: {
+  followUpQueue: FounderLoopMemoryFollowUpQueue;
+}) {
+  const candidates = followUpQueue.candidates.slice(0, 4);
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Follow-Up Queue</h3>
+          <p className="muted">
+            Ranked proposal-only candidates from reviewed and reviewable memory.
+          </p>
+        </div>
+        <span>{followUpQueue.candidate_count}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Route" value={followUpQueue.route_ref} />
+        <DetailTerm label="Contract" value={followUpQueue.contract_ref} />
+        <DetailTerm
+          label="Action execution"
+          value={
+            followUpQueue.action_execution_authorized ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Memory write"
+          value={followUpQueue.memory_write_authorized ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Follow-up groups: none"
+        items={followUpQueue.groups.map(
+          (group) => `${group.group_id}: ${group.count}`,
+        )}
+      />
+      <div className="memory-impact-list">
+        {candidates.map((candidate) => (
+          <div className="memory-impact-row" key={candidate.follow_up_ref}>
+            <div className="review-card-heading compact">
+              <h4>{candidate.follow_up_ref}</h4>
+              <span>{candidate.rank_score}</span>
+            </div>
+            <InlineListWithFallback
+              emptyLabel="Follow-up groups: none"
+              items={candidate.group_ids}
+            />
+            <RefListWithFallback
+              emptyLabel="Source memories: none"
+              refs={candidate.source_memory_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Affected refs: none"
+              refs={candidate.what_this_affects_refs}
+            />
+          </div>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Follow-up blockers: none"
+        refs={followUpQueue.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryContextPackPreviewPanel({
+  impactGraph,
+}: {
+  impactGraph: FounderLoopMemoryImpactGraph;
+}) {
+  const previews = impactGraph.context_pack_previews.slice(0, 4);
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Context-Pack Preview</h3>
+          <p className="muted">
+            Inspectable proposal artifacts; context injection remains blocked.
+          </p>
+        </div>
+        <span>{previews.length}</span>
+      </div>
+      <div className="memory-impact-list">
+        {previews.map((preview) => (
+          <div className="memory-impact-row" key={preview.context_pack_ref}>
+            <div className="review-card-heading compact">
+              <h4>{preview.context_pack_ref}</h4>
+              <span>{preview.proposal_only ? "proposal" : "review"}</span>
+            </div>
+            <dl className="detail-list">
+              <DetailTerm label="Proposal" value={preview.proposal_ref} />
+              <DetailTerm
+                label="Context injection"
+                value={
+                  preview.context_injection_authorized ? "enabled" : "blocked"
+                }
+              />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Included memory refs: none"
+              refs={preview.included_memory_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Excluded reason refs: none"
+              refs={preview.excluded_reason_refs}
+            />
+          </div>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Preview blockers: none"
+        refs={impactGraph.blocked_state_refs}
       />
     </article>
   );
@@ -3981,6 +4886,7 @@ function ActionItemCard({
         ? "eligible"
         : "blocked"
       : "backend_read_model_unavailable";
+  const memoryProposalReviewOnly = isMemoryRecommendationProposal(displayedItem);
 
   return (
     <article className="review-card">
@@ -3995,6 +4901,7 @@ function ActionItemCard({
       <ApprovalEnvelopeCard envelope={approvalEnvelope} />
       <ReceiptVisibilityCard visibility={receiptVisibility} />
       <SourceReadinessProposalItemDetails item={displayedItem} />
+      <HealthRecommendationItemDetails item={displayedItem} />
       <LocalTaskCommitPostureCard item={displayedItem} />
       <dl className="detail-list">
         <DetailTerm label="Item ref" value={displayedItem.item_ref} />
@@ -4094,6 +5001,22 @@ function ActionItemCard({
           item={displayedItem}
           onReconciledItem={reconcileActionItem}
         />
+      ) : null}
+      {memoryProposalReviewOnly &&
+      backendReadModelAvailable &&
+      actionReadModelAuthoritative ? (
+        <ActionDecisionControls
+          decisions={["approve", "reject", "defer"]}
+          item={displayedItem}
+          onReconciledItem={reconcileActionItem}
+        />
+      ) : null}
+      {memoryProposalReviewOnly &&
+      (!backendReadModelAvailable || !actionReadModelAuthoritative) ? (
+        <p className="muted">
+          Memory proposal receipt controls require the local backend Action Inbox
+          read model; no memory maintenance action is available from React state.
+        </p>
       ) : null}
       {actionGroupId === "ready_for_decision" &&
       (!backendReadModelAvailable || !actionReadModelAuthoritative) ? (
@@ -4201,6 +5124,102 @@ function SourceReadinessProposalItemDetails({
         refs={item.source_readiness_blocked_authority_refs ?? []}
       />
     </section>
+  );
+}
+
+function HealthRecommendationItemDetails({
+  item,
+}: {
+  item: FounderLoopActionItem;
+}) {
+  if (!item.health_recommendation_ref) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Self-healing recommendation detail"
+      className="local-task-posture-card"
+    >
+      <div className="review-card-heading compact">
+        <h4>Recommendation proposal</h4>
+        <span>{item.health_recommendation_kind ?? "review_only"}</span>
+      </div>
+      <p className="muted">
+        Backend-owned recommendation metadata. Review receipts can be recorded,
+        but auto-code, auto-apply, maintenance execution, context injection,
+        memory writes, and provider calls remain blocked.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Recommendation ref"
+          value={item.health_recommendation_ref}
+        />
+        <DetailTerm
+          label="Lifecycle"
+          value={item.health_recommendation_lifecycle_state ?? "queued_for_review"}
+        />
+        <DetailTerm
+          label="Severity"
+          value={item.health_recommendation_severity ?? "medium"}
+        />
+        <DetailTerm
+          label="Auto apply"
+          value={
+            item.health_recommendation_auto_apply_authorized ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Memory write"
+          value={
+            item.health_recommendation_memory_write_authorized ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            item.health_recommendation_context_injection_authorized
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Action execution"
+          value={
+            item.health_recommendation_action_execution_authorized
+              ? "enabled"
+              : "blocked"
+          }
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Recommendation source signals: none"
+        refs={item.health_recommendation_source_signal_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Recommendation route refs: none"
+        refs={item.health_recommendation_source_route_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Recommendation validation refs: none"
+        refs={item.health_recommendation_validation_plan_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Recommendation safe-disable refs: none"
+        refs={item.health_recommendation_rollback_or_safe_disable_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Recommendation blocked authority refs: none"
+        refs={item.health_recommendation_blocked_authority_refs ?? []}
+      />
+    </section>
+  );
+}
+
+function isMemoryRecommendationProposal(item: FounderLoopActionItem): boolean {
+  return (
+    item.action_kind === "self_heal_recommendation" &&
+    item.health_recommendation_kind === "memory_quality_issue" &&
+    item.action_group_id === "proposal_only_no_execution_path"
   );
 }
 
@@ -4453,9 +5472,11 @@ const actionDecisionLabels: Record<FounderLoopActionDecisionKind, string> = {
 };
 
 function ActionDecisionControls({
+  decisions = ["approve", "edit", "reject", "defer"],
   item,
   onReconciledItem,
 }: {
+  decisions?: FounderLoopActionDecisionKind[];
   item: FounderLoopActionItem;
   onReconciledItem: (item: FounderLoopActionItem) => void;
 }) {
@@ -4579,9 +5600,7 @@ function ActionDecisionControls({
   return (
     <div className="decision-controls" aria-label={`${item.title} decisions`}>
       <div className="decision-button-row">
-        {(
-          ["approve", "edit", "reject", "defer"] as FounderLoopActionDecisionKind[]
-        ).map((decision) => (
+        {decisions.map((decision) => (
           <button
             className="secondary-button"
             disabled={pending}
@@ -4966,6 +5985,15 @@ const manualMemoryCandidateBlockedRefs = [
   "blocked-state:manual-memory-intake-no-delete-execution",
   "blocked-state:manual-memory-intake-no-export-execution",
   "blocked-state:manual-memory-intake-no-production-authority",
+];
+
+const memoryFeedbackBlockedRefs = [
+  "blocked-state:memory-feedback-no-automatic-memory-write",
+  "blocked-state:memory-feedback-no-auto-rerank-authority",
+  "blocked-state:memory-feedback-no-delete-execution",
+  "blocked-state:memory-feedback-no-context-injection",
+  "blocked-state:memory-feedback-no-action-execution",
+  "blocked-state:memory-feedback-no-production-authority",
 ];
 
 type MemoryDecisionControlState = {

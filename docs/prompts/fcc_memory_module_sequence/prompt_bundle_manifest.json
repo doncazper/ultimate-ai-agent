@@ -1,8 +1,8 @@
 {
   "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
   "bundle_id": "fcc-memory-module-sequence-001",
-  "version": "1.0.0",
-  "purpose": "Stored prompts for finishing the governed Memory module through FCC-MEM-001 workbench, lifecycle, quality, search, intake, bindings, UI, CLI, tests, docs, review, hardening, commit, annotated tag, and push gates.",
+  "version": "1.3.0",
+  "purpose": "Stored prompts for finishing the governed Memory module through FCC-MEM-001 workbench, lifecycle, quality, search, intake, bindings, UI, CLI, tests, docs, review, hardening, commit, annotated tag, and push gates, plus FCC-MEM-015 Memory Impact Graph and Follow-Up Queue, FCC-MEM-016 through FCC-MEM-020 retrieval diagnostics, citation integrity, feedback quality, proposal-only maintenance, and context manifest lanes, and FCC-MEM-021 Memory read-model UI wiring plus Action Inbox proposal bridge.",
   "developer_prompt_refs": [
     "docs/prompts/fcc_memory_module_sequence/00_execute_all_review_verify_finalize.prompt.md",
     "docs/prompts/fcc_memory_module_sequence/01_memory_baseline_audit.prompt.md",
@@ -18,9 +18,16 @@
     "docs/prompts/fcc_memory_module_sequence/11_evidence_timeline_memory_polish.prompt.md",
     "docs/prompts/fcc_memory_module_sequence/12_memory_health_dashboard.prompt.md",
     "docs/prompts/fcc_memory_module_sequence/13_memory_cli_parity.prompt.md",
-    "docs/prompts/fcc_memory_module_sequence/14_memory_tests_verifiers_docs.prompt.md"
+    "docs/prompts/fcc_memory_module_sequence/14_memory_tests_verifiers_docs.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/15_fcc_mem_015_memory_impact_graph_followup_queue.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/16_fcc_mem_016_retrieval_diagnostics.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/17_fcc_mem_017_citation_integrity.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/18_fcc_mem_018_feedback_quality_queue.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/19_fcc_mem_019_proposal_only_maintenance_runs.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/20_fcc_mem_020_context_manifest.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/21_fcc_mem_021_memory_read_models_ui_action_inbox_bridge.prompt.md"
   ],
-  "bundle_hash": "sha256:6f520bfd0c2be4ac70a600c6914ead80f69708d1e400cf46482f80e5f8bccdbc",
+  "bundle_hash": "sha256:7d8ef27d90d7d69f7005bbfd53db82aa4227834ae3b9645fe271103a8e24c33e",
   "stable_within_run": true,
   "created_at": "2026-06-24"
 }

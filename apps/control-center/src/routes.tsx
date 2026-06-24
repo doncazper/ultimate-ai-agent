@@ -78,7 +78,7 @@ export const navItems: NavItem[] = [
   { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "blocked/planned", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
   { path: "/actions", label: "Action Inbox", group: "Founder Loop", status: "storage-backed", releaseStatus: "ship", role: "primary" },
-  { path: "/memory", label: "Memory", group: "Founder Loop", status: "review queue", releaseStatus: "ship", role: "primary" },
+  { path: "/memory", label: "Memory", group: "Founder Loop", status: "memory diagnostics and context manifest", releaseStatus: "ship", role: "primary" },
   { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", releaseStatus: "ship", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "status-backed", releaseStatus: "partial", role: "primary" },
   { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "supporting" },
@@ -303,8 +303,16 @@ export function renderRoute(path: string, data: ControlCenterData) {
             today={data.founderToday}
           />
           <MemoryReviewSurfacePanel
+            citationIntegrity={data.founderMemoryCitationIntegrity}
             contextPacks={data.founderMemoryContextPacks}
+            contextManifest={data.founderMemoryContextManifest}
+            followUpQueue={data.founderMemoryFollowUpQueue}
+            impactGraph={data.founderMemoryImpactGraph}
+            maintenanceRuns={data.founderMemoryMaintenanceRuns}
             memoryReview={data.founderMemoryReview}
+            qualityIssues={data.founderMemoryQualityIssues}
+            recallHealth={data.founderMemoryRecallHealth}
+            retrievalDiagnostics={data.founderMemoryRetrievalDiagnostics}
             today={data.founderToday}
             workbench={data.founderMemoryWorkbench}
           />

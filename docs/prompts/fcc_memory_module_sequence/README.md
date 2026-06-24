@@ -5,7 +5,10 @@ Status: Stored execution prompts for finishing the governed Memory module.
 Purpose: Give operators a scoped, repeatable prompt sequence for `FCC-MEM-001`
 and its supporting Memory Workbench, lifecycle, quality, search, intake,
 cross-surface binding, CLI, test, docs, review, hardening, tag, commit, and push
-work.
+work, plus `FCC-MEM-015` Memory Impact Graph and Follow-Up Queue and
+`FCC-MEM-016` through `FCC-MEM-020` retrieval diagnostics, citation integrity,
+feedback quality, proposal-only maintenance, and context manifest lanes, plus
+`FCC-MEM-021` Memory read-model UI wiring and Action Inbox proposal bridge.
 
 These prompts are operator-run instructions, not runtime system prompts. They do
 not grant authority by themselves and do not replace `AGENTS.md`,
@@ -29,6 +32,13 @@ or the operational maturity manifest.
 13. `12_memory_health_dashboard.prompt.md`
 14. `13_memory_cli_parity.prompt.md`
 15. `14_memory_tests_verifiers_docs.prompt.md`
+16. `15_fcc_mem_015_memory_impact_graph_followup_queue.prompt.md`
+17. `16_fcc_mem_016_retrieval_diagnostics.prompt.md`
+18. `17_fcc_mem_017_citation_integrity.prompt.md`
+19. `18_fcc_mem_018_feedback_quality_queue.prompt.md`
+20. `19_fcc_mem_019_proposal_only_maintenance_runs.prompt.md`
+21. `20_fcc_mem_020_context_manifest.prompt.md`
+22. `21_fcc_mem_021_memory_read_models_ui_action_inbox_bridge.prompt.md`
 
 ## Global Authority Boundary
 

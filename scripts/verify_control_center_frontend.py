@@ -850,6 +850,8 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("Action Inbox local task commit endpoint helper is missing")
         if "memoryContextPackActionProposalEndpoint" not in text:
             failures.append("Memory context-pack Action proposal endpoint helper is missing")
+        if 'founderMemoryFeedback: "/control-center/memory/feedback"' not in text:
+            failures.append("Memory feedback endpoint declaration is missing")
         if 'controlCenterChatTurns: "/control-center/chat/turns"' not in text:
             failures.append("Chat durable receipt endpoint declaration is missing")
         for fragment in ["chatTurnReceiptEndpoint", "chatTurnHandoffEndpoint"]:
@@ -858,7 +860,7 @@ def verify(root: Path = ROOT) -> list[str]:
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}:
+        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
@@ -971,6 +973,21 @@ def verify(root: Path = ROOT) -> list[str]:
                         "frontend manual Memory candidate intake post missing "
                         f"safety fragment: {fragment}"
                     )
+        if post_count >= 11:
+            required_memory_feedback_fragments = [
+                "recordMemoryFeedback",
+                "API_ENDPOINTS.founderMemoryFeedback",
+                "MemoryFeedbackReceipt",
+                "memoryFeedbackIdempotencyRef",
+                "idempotency-ref:control-center-memory-feedback",
+                "\"X-UAA-Idempotency-Key\"",
+            ]
+            for fragment in required_memory_feedback_fragments:
+                if fragment not in text:
+                    failures.append(
+                        "frontend Memory feedback post missing safety fragment: "
+                        f"{fragment}"
+                    )
         if "resolveApiBaseUrl" not in text:
             failures.append("frontend client must resolve API base through local backend policy")
     if base_url.exists():
@@ -1062,8 +1079,8 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 143:
-        failures.append("route status manifest must record the 143-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != 152:
+        failures.append("route status manifest must record the 152-path OpenAPI boundary")
     if manifest.get("operator_readiness_taxonomy_ref") != (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     ):
@@ -1377,7 +1394,7 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 143 openapi paths"
+            "api boundary: current fastapi manifest has 152 openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "

@@ -523,6 +523,7 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
   const modelEntry = data.capabilityMatrix.entries.find((entry) =>
     entry.surface.toLowerCase().includes("model"),
   );
+  const optionalAdapterReadiness = localModelsStatus.adapter_readiness ?? [];
   const lifecycleBlocked = Object.values(
     localModelsStatus.lifecycle_actions,
   ).every((enabled) => enabled === false);
@@ -545,7 +546,7 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
         eyebrow="Local operator flow"
         heading="Models"
         status={localModelsStatus.status}
-        summary="Local Models now display backend-owned read-only inventory and gateway posture. GGUF download, switch, start/stop, runtime adapter execution, and provider/model authority stay blocked."
+        summary="Local Models display backend-owned read-only inventory, gateway posture, and optional Ollama/MLX-LM readiness. Model pulls/downloads, switch, start/stop, runtime adapter execution, and provider/model authority stay blocked."
       />
 
       <div className="operator-flow-grid">
@@ -615,6 +616,70 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
             </div>
           </dl>
         </article>
+      </div>
+
+      <div
+        className="panel-grid local-model-adapter-grid"
+        aria-label="Optional local model stack readiness"
+      >
+        {optionalAdapterReadiness.map((adapter) => (
+          <article
+            className="panel local-model-adapter-card"
+            key={adapter.adapter_id}
+          >
+            <div className="panel-heading">
+              <h3>{adapter.display_name}</h3>
+              <span>{adapter.readiness_state}</span>
+            </div>
+            <p>{adapter.next_safe_action}</p>
+            <dl className="metadata-list">
+              <div>
+                <dt>Install detection</dt>
+                <dd>{adapter.install_detection_posture}</dd>
+              </div>
+              <div>
+                <dt>Config detection</dt>
+                <dd>{adapter.config_detection_posture}</dd>
+              </div>
+              <div>
+                <dt>Runtime calls</dt>
+                <dd>{adapter.runtime_calls_enabled ? "enabled" : "blocked"}</dd>
+              </div>
+              <div>
+                <dt>Pulls/downloads</dt>
+                <dd>
+                  {adapter.model_pulls_enabled || adapter.model_downloads_enabled
+                    ? "enabled"
+                    : "blocked"}
+                </dd>
+              </div>
+              <div>
+                <dt>Lifecycle actions</dt>
+                <dd>
+                  {adapter.lifecycle_start_stop_switch_enabled
+                    ? "enabled"
+                    : "blocked"}
+                </dd>
+              </div>
+              <div>
+                <dt>Provider/model authority</dt>
+                <dd>
+                  {adapter.provider_model_authority_enabled
+                    ? "enabled"
+                    : "blocked"}
+                </dd>
+              </div>
+            </dl>
+            <div
+              className="note-list"
+              aria-label={`${adapter.display_name} blocked authorities`}
+            >
+              {adapter.blocked_authority_refs.map((authority) => (
+                <span key={authority}>{authority}</span>
+              ))}
+            </div>
+          </article>
+        ))}
       </div>
 
       <OperatorStepStrip steps={[localModelStep]} />

@@ -86,6 +86,14 @@ def validate_memory_record(record: MemoryRecord) -> bool:
         raise ValueError("Cloud-backed memory providers are blocked for M24.")
     if _secret_like(record.model_dump()):
         raise ValueError("Memory record contains secret-like content.")
+    for source_ref in record.source_refs:
+        validate_memory_source_ref(source_ref)
+    if record.provenance is not None:
+        validate_memory_provenance(record.provenance)
+    if record.recall_metadata is not None:
+        validate_memory_recall_metadata(record.recall_metadata)
+    if record.lifecycle is not None:
+        validate_memory_lifecycle_metadata(record.lifecycle)
     return True
 
 

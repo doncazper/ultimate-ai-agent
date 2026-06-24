@@ -312,7 +312,18 @@
         "src/ultimate_ai_agent/api/manifest.py",
         "docs/control_center/route_status_manifest.json"
       ],
-      "blocked_authorities": ["lifecycle_start_stop", "model_switch", "download", "provider_model_authority", "runtime_adapter_execution"],
+      "blocked_authorities": [
+        "lifecycle_start_stop",
+        "model_switch",
+        "download",
+        "model_pull",
+        "provider_model_authority",
+        "runtime_adapter_execution",
+        "ollama_runtime_call",
+        "mlx_lm_runtime_call",
+        "openwebui_handoff_authority",
+        "control_center_subprocess_execution"
+      ],
       "missing_contracts": ["lifecycle_status_receipts", "dry_run_switch_planner", "approval_bound_switch"],
       "ui_status_binding": {
         "surface": "Models",

@@ -320,7 +320,7 @@ def _append_doc_failures(failures: list[str]) -> None:
             ],
             "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": [
                 "Memory Review decisions are backend-owned and receipt-backed",
-                "no context injection, truth authority, CRM/account sync, connector writes, action execution, public beta, or production authority",
+                "no context injection, truth authority, CRM/account sync, connector writes, action execution, provider/model calls, public beta, or production authority",
             ],
         },
     )

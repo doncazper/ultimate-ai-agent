@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `143`.
+Current OpenAPI path count: `152`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -53,6 +53,15 @@ Contract rules:
   `GET /control-center/memory/l2-index`,
   `GET /control-center/memory/l3-index`,
   `GET /control-center/memory/context-packs`,
+  `GET /control-center/memory/impact-graph`,
+  `GET /control-center/memory/follow-ups`,
+  `GET /control-center/memory/recall-health`,
+  `GET /control-center/memory/retrieval-diagnostics`,
+  `GET /control-center/memory/citation-integrity`,
+  `GET /control-center/memory/quality-issues`,
+  `GET /control-center/memory/maintenance-runs`,
+  `GET /control-center/memory/context-manifest`,
+  `POST /control-center/memory/feedback`,
   `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`,
   `GET /control-center/memory/review`,
   `GET /control-center/memory/review/{candidate_ref}/receipt`,
@@ -66,10 +75,14 @@ Contract rules:
   Review decision routes record backend-owned review state and receipt refs;
   accept/correct create reviewed recall-only records. The L1, L2, L3, and context-pack
   routes provide derived read-only recall previews, factual/graph/temporal ref
-  projections, and identity/session/preference/commitment representation
-  proposals plus proposal-only context-pack envelopes from reviewed source
-  lanes with source, evidence, and receipt refs. Phase 6.1 may create an
-  internal Action proposal receipt from an exact-approved context-pack ref only.
+  projections, identity/session/preference/commitment representation
+  proposals, proposal-only context-pack envelopes from reviewed source lanes
+  with source/evidence/receipt refs, retrieval diagnostics, citation integrity,
+  feedback-derived quality issues, proposal-only maintenance scans, and context
+  manifest proposal artifacts. Phase 6.1 may create an internal Action
+  proposal receipt from an exact-approved context-pack ref only. Memory
+  feedback records quality signal receipts only and does not rewrite reviewed
+  recall.
   `local_task_create` commits local task state only after exact local approval,
   idempotency, durable receipt, and Evidence Timeline event posture. They do
   not grant generic action execution,

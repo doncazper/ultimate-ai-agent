@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
     MemoryContextPackActionProposalRequest,
+    MemoryFeedbackRequest,
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import (
@@ -173,6 +174,296 @@ def get_control_center_memory_search(
             "raw_content_omitted",
             "no_semantic_search",
             "no_vector_db",
+        ],
+    )
+
+
+@router.get("/memory/impact-graph", response_model=ResultEnvelope)
+def get_control_center_memory_impact_graph(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_impact_graph(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_IMPACT_GRAPH_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory impact graph query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_impact_graph",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-impact-graph",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-impact-graph"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_context_injection",
+            "no_action_execution",
+            "no_connector_or_crm_sync",
+        ],
+    )
+
+
+@router.get("/memory/follow-ups", response_model=ResultEnvelope)
+def get_control_center_memory_follow_ups(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_follow_up_queue(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_FOLLOW_UPS_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory follow-up queue query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_follow_ups",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-follow-ups",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-follow-ups"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "proposal_only",
+            "no_action_execution",
+            "no_memory_write",
+            "no_connector_or_crm_sync",
+        ],
+    )
+
+
+@router.get("/memory/recall-health", response_model=ResultEnvelope)
+def get_control_center_memory_recall_health(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_recall_health_v2(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_RECALL_HEALTH_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory recall-health query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_recall_health",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-recall-health",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-recall-health"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_truth_authority",
+            "no_context_injection",
+            "no_model_or_provider_calls",
+        ],
+    )
+
+
+@router.get("/memory/retrieval-diagnostics", response_model=ResultEnvelope)
+def get_control_center_memory_retrieval_diagnostics(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_retrieval_diagnostics(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_RETRIEVAL_DIAGNOSTICS_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory retrieval diagnostics query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_retrieval_diagnostics",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-retrieval-diagnostics",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-retrieval-diagnostics"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_context_injection",
+            "no_semantic_search",
+            "no_model_or_provider_calls",
+        ],
+    )
+
+
+@router.get("/memory/citation-integrity", response_model=ResultEnvelope)
+def get_control_center_memory_citation_integrity(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_citation_integrity(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_CITATION_INTEGRITY_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory citation integrity query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_citation_integrity",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-citation-integrity",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-citation-integrity"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "proposal_only",
+            "no_context_injection",
+            "no_truth_authority",
+        ],
+    )
+
+
+@router.get("/memory/quality-issues", response_model=ResultEnvelope)
+def get_control_center_memory_quality_issues(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_quality_issues(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_QUALITY_ISSUES_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory quality issue query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_quality_issues",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-quality-issues",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-quality-issues"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "proposal_only",
+            "no_memory_write",
+            "no_action_execution",
+        ],
+    )
+
+
+@router.get("/memory/maintenance-runs", response_model=ResultEnvelope)
+def get_control_center_memory_maintenance_runs(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_maintenance_runs(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_MAINTENANCE_RUNS_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory maintenance run query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_maintenance_runs",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-maintenance-runs",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-maintenance-runs"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "proposal_only",
+            "no_auto_merge",
+            "no_auto_forget",
+            "no_memory_write",
+        ],
+    )
+
+
+@router.get("/memory/context-manifest", response_model=ResultEnvelope)
+def get_control_center_memory_context_manifest(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_context_manifest(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_CONTEXT_MANIFEST_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory context manifest query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_context_manifest",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-context-manifest",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-context-manifest"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "proposal_only",
+            "no_hidden_context_injection",
+            "no_model_or_provider_calls",
         ],
     )
 
@@ -411,6 +702,75 @@ def post_control_center_memory_context_pack_action_proposal(
             "no_action_execution",
             "no_context_injection",
             "no_external_side_effects",
+        ],
+    )
+
+
+@router.post("/memory/feedback", response_model=ResultEnvelope)
+def post_control_center_memory_feedback(
+    request: MemoryFeedbackRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().record_memory_feedback(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_MEMORY_FEEDBACK_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Memory feedback idempotency key already exists with "
+                    "different safe feedback payload refs."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_MEMORY_FEEDBACK_ERROR"
+        raise HTTPException(
+            status_code=404
+            if code == "FOUNDER_LOOP_MEMORY_FEEDBACK_TARGET_NOT_FOUND"
+            else 400,
+            detail={
+                "code": code,
+                "safe_message": "The Memory feedback receipt could not be recorded safely.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_FEEDBACK_UNSAFE_INPUT",
+                "safe_message": "The Memory feedback request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_feedback",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-feedback",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-feedback"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+            "no_memory_write",
+            "no_context_injection",
+            "no_action_execution",
         ],
     )
 

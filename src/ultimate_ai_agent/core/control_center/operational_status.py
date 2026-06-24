@@ -9,6 +9,8 @@ from ultimate_ai_agent.core.local_model_management.inventory import (
     inspect_local_model_inventory,
 )
 from ultimate_ai_agent.core.local_model_management.readiness import (
+    OptionalLocalModelAdapterReadiness,
+    build_optional_local_model_adapter_readiness,
     inspect_local_model_gateway,
 )
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
@@ -33,11 +35,16 @@ SETTINGS_BLOCKED_AUTHORITIES = [
 ]
 LOCAL_MODEL_BLOCKED_AUTHORITIES = [
     "model_download",
+    "model_pull",
     "model_switch",
     "model_start_stop",
     "provider_model_authority",
     "runtime_adapter_execution",
     "model_lifecycle_mutation",
+    "ollama_runtime_call",
+    "mlx_lm_runtime_call",
+    "openwebui_handoff_authority",
+    "control_center_subprocess_execution",
     "production_authority",
 ]
 
@@ -140,14 +147,20 @@ class ControlCenterLocalModelsStatus(BaseModel):
     proposal_review_only: bool = True
     inventory: dict[str, Any]
     gateway_posture: dict[str, Any]
+    adapter_readiness: list[OptionalLocalModelAdapterReadiness] = Field(
+        default_factory=lambda: list(build_optional_local_model_adapter_readiness())
+    )
     lifecycle_actions: dict[str, bool] = Field(
         default_factory=lambda: {
             "download_enabled": False,
+            "model_pull_enabled": False,
             "switch_enabled": False,
             "start_enabled": False,
             "stop_enabled": False,
             "runtime_adapter_execution_enabled": False,
             "provider_model_authority_enabled": False,
+            "openwebui_handoff_enabled": False,
+            "control_center_subprocess_execution_enabled": False,
         }
     )
     blocked_authorities: list[str] = Field(
@@ -174,6 +187,19 @@ class ControlCenterLocalModelsStatus(BaseModel):
     def lifecycle_remains_blocked(self) -> "ControlCenterLocalModelsStatus":
         if any(self.lifecycle_actions.values()):
             raise ValueError("CONTROL_CENTER_LOCAL_MODELS_LIFECYCLE_DENIED")
+        adapter_ids = [item.adapter_id for item in self.adapter_readiness]
+        if set(adapter_ids) != {"ollama", "mlx_lm"} or len(adapter_ids) != 2:
+            raise ValueError("CONTROL_CENTER_LOCAL_MODELS_OPTIONAL_ADAPTERS_MISSING")
+        for item in self.adapter_readiness:
+            if (
+                item.runtime_calls_enabled
+                or item.model_pulls_enabled
+                or item.model_downloads_enabled
+                or item.lifecycle_start_stop_switch_enabled
+                or item.provider_model_authority_enabled
+                or item.control_center_subprocess_execution_enabled
+            ):
+                raise ValueError("CONTROL_CENTER_LOCAL_MODELS_ADAPTER_AUTHORITY_DENIED")
         if contains_secret_like(self.model_dump(mode="json")):
             raise ValueError("CONTROL_CENTER_LOCAL_MODELS_SECRET_LIKE_VALUE_REJECTED")
         return self
@@ -192,4 +218,5 @@ def build_control_center_local_models_status(
     return ControlCenterLocalModelsStatus(
         inventory=inventory,
         gateway_posture=gateway,
+        adapter_readiness=list(build_optional_local_model_adapter_readiness()),
     )

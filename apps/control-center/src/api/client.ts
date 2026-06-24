@@ -29,12 +29,22 @@ import type {
   FounderLoopMemoryContextPackActionProposalReceipt,
   FounderLoopMemoryContextPackActionProposalRequest,
   FounderLoopMemoryContextPacks,
+  FounderLoopMemoryCitationIntegrity,
+  FounderLoopMemoryContextManifest,
+  FounderLoopMemoryFollowUpQueue,
+  FounderLoopMemoryImpactGraph,
+  FounderLoopMemoryMaintenanceRuns,
+  FounderLoopMemoryQualityIssues,
   FounderLoopMemoryReview,
+  FounderLoopMemoryRetrievalDiagnostics,
   FounderLoopMemoryWorkbench,
+  FounderLoopRecallHealthV2,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopLocalTaskCommitRequest,
   ManualMemoryCandidateReceipt,
   ManualMemoryCandidateRequest,
+  MemoryFeedbackReceipt,
+  MemoryFeedbackRequest,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
   MemoryReviewDecisionRequest,
@@ -167,8 +177,32 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<FounderLoopMemoryWorkbench>(
       API_ENDPOINTS.founderMemoryWorkbench,
     ),
+    readEnvelope<FounderLoopMemoryImpactGraph>(
+      API_ENDPOINTS.founderMemoryImpactGraph,
+    ),
+    readEnvelope<FounderLoopMemoryFollowUpQueue>(
+      API_ENDPOINTS.founderMemoryFollowUps,
+    ),
+    readEnvelope<FounderLoopRecallHealthV2>(
+      API_ENDPOINTS.founderMemoryRecallHealth,
+    ),
     readEnvelope<FounderLoopMemoryContextPacks>(
       API_ENDPOINTS.founderMemoryContextPacks,
+    ),
+    readEnvelope<FounderLoopMemoryRetrievalDiagnostics>(
+      API_ENDPOINTS.founderMemoryRetrievalDiagnostics,
+    ),
+    readEnvelope<FounderLoopMemoryCitationIntegrity>(
+      API_ENDPOINTS.founderMemoryCitationIntegrity,
+    ),
+    readEnvelope<FounderLoopMemoryQualityIssues>(
+      API_ENDPOINTS.founderMemoryQualityIssues,
+    ),
+    readEnvelope<FounderLoopMemoryMaintenanceRuns>(
+      API_ENDPOINTS.founderMemoryMaintenanceRuns,
+    ),
+    readEnvelope<FounderLoopMemoryContextManifest>(
+      API_ENDPOINTS.founderMemoryContextManifest,
     ),
     readEnvelope<FounderLoopActionsInbox>(API_ENDPOINTS.founderActionsInbox),
     readEnvelope<FounderLoopMorningBriefing>(
@@ -196,11 +230,19 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderEvidenceTimeline = fulfilledValue(results[10]);
   const founderMemoryReview = fulfilledValue(results[11]);
   const founderMemoryWorkbench = fulfilledValue(results[12]);
-  const founderMemoryContextPacks = fulfilledValue(results[13]);
-  const founderActionsInbox = fulfilledValue(results[14]);
-  const founderMorningBriefing = fulfilledValue(results[15]);
-  const founderSourceReadiness = fulfilledValue(results[16]);
-  const founderStorageStatus = fulfilledValue(results[17]);
+  const founderMemoryImpactGraph = fulfilledValue(results[13]);
+  const founderMemoryFollowUpQueue = fulfilledValue(results[14]);
+  const founderMemoryRecallHealth = fulfilledValue(results[15]);
+  const founderMemoryContextPacks = fulfilledValue(results[16]);
+  const founderMemoryRetrievalDiagnostics = fulfilledValue(results[17]);
+  const founderMemoryCitationIntegrity = fulfilledValue(results[18]);
+  const founderMemoryQualityIssues = fulfilledValue(results[19]);
+  const founderMemoryMaintenanceRuns = fulfilledValue(results[20]);
+  const founderMemoryContextManifest = fulfilledValue(results[21]);
+  const founderActionsInbox = fulfilledValue(results[22]);
+  const founderMorningBriefing = fulfilledValue(results[23]);
+  const founderSourceReadiness = fulfilledValue(results[24]);
+  const founderStorageStatus = fulfilledValue(results[25]);
   const normalizedFounderToday = mergeMissingFields(
     mockControlCenterData.founderToday,
     founderToday,
@@ -221,9 +263,41 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderMemoryWorkbench,
     founderMemoryWorkbench,
   );
+  const normalizedFounderMemoryImpactGraph = mergeMissingFields(
+    mockControlCenterData.founderMemoryImpactGraph,
+    founderMemoryImpactGraph,
+  );
+  const normalizedFounderMemoryFollowUpQueue = mergeMissingFields(
+    mockControlCenterData.founderMemoryFollowUpQueue,
+    founderMemoryFollowUpQueue,
+  );
+  const normalizedFounderMemoryRecallHealth = mergeMissingFields(
+    mockControlCenterData.founderMemoryRecallHealth,
+    founderMemoryRecallHealth,
+  );
   const normalizedFounderMemoryContextPacks = mergeMissingFields(
     mockControlCenterData.founderMemoryContextPacks,
     founderMemoryContextPacks,
+  );
+  const normalizedFounderMemoryRetrievalDiagnostics = mergeMissingFields(
+    mockControlCenterData.founderMemoryRetrievalDiagnostics,
+    founderMemoryRetrievalDiagnostics,
+  );
+  const normalizedFounderMemoryCitationIntegrity = mergeMissingFields(
+    mockControlCenterData.founderMemoryCitationIntegrity,
+    founderMemoryCitationIntegrity,
+  );
+  const normalizedFounderMemoryQualityIssues = mergeMissingFields(
+    mockControlCenterData.founderMemoryQualityIssues,
+    founderMemoryQualityIssues,
+  );
+  const normalizedFounderMemoryMaintenanceRuns = mergeMissingFields(
+    mockControlCenterData.founderMemoryMaintenanceRuns,
+    founderMemoryMaintenanceRuns,
+  );
+  const normalizedFounderMemoryContextManifest = mergeMissingFields(
+    mockControlCenterData.founderMemoryContextManifest,
+    founderMemoryContextManifest,
   );
   const normalizedFounderMorningBriefing = mergeMissingFields(
     mockControlCenterData.founderMorningBriefing,
@@ -239,7 +313,15 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderActionsInbox.usedFallback ||
     normalizedFounderMemoryReview.usedFallback ||
     normalizedFounderMemoryWorkbench.usedFallback ||
+    normalizedFounderMemoryImpactGraph.usedFallback ||
+    normalizedFounderMemoryFollowUpQueue.usedFallback ||
+    normalizedFounderMemoryRecallHealth.usedFallback ||
     normalizedFounderMemoryContextPacks.usedFallback ||
+    normalizedFounderMemoryRetrievalDiagnostics.usedFallback ||
+    normalizedFounderMemoryCitationIntegrity.usedFallback ||
+    normalizedFounderMemoryQualityIssues.usedFallback ||
+    normalizedFounderMemoryMaintenanceRuns.usedFallback ||
+    normalizedFounderMemoryContextManifest.usedFallback ||
     normalizedFounderMorningBriefing.usedFallback ||
     normalizedFounderSourceReadiness.usedFallback;
   const fulfilledCount = results.filter(
@@ -280,7 +362,16 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,
+    founderMemoryImpactGraph: normalizedFounderMemoryImpactGraph.value,
+    founderMemoryFollowUpQueue: normalizedFounderMemoryFollowUpQueue.value,
+    founderMemoryRecallHealth: normalizedFounderMemoryRecallHealth.value,
     founderMemoryContextPacks: normalizedFounderMemoryContextPacks.value,
+    founderMemoryRetrievalDiagnostics:
+      normalizedFounderMemoryRetrievalDiagnostics.value,
+    founderMemoryCitationIntegrity: normalizedFounderMemoryCitationIntegrity.value,
+    founderMemoryQualityIssues: normalizedFounderMemoryQualityIssues.value,
+    founderMemoryMaintenanceRuns: normalizedFounderMemoryMaintenanceRuns.value,
+    founderMemoryContextManifest: normalizedFounderMemoryContextManifest.value,
     founderActionsInbox: normalizedFounderActionsInbox.value,
     founderMorningBriefing: normalizedFounderMorningBriefing.value,
     founderSourceReadiness: normalizedFounderSourceReadiness.value,
@@ -589,6 +680,36 @@ export async function fetchFounderMemoryContextPacks(): Promise<FounderLoopMemor
   );
 }
 
+export async function fetchFounderMemoryRetrievalDiagnostics(): Promise<FounderLoopMemoryRetrievalDiagnostics> {
+  return readEnvelope<FounderLoopMemoryRetrievalDiagnostics>(
+    API_ENDPOINTS.founderMemoryRetrievalDiagnostics,
+  );
+}
+
+export async function fetchFounderMemoryCitationIntegrity(): Promise<FounderLoopMemoryCitationIntegrity> {
+  return readEnvelope<FounderLoopMemoryCitationIntegrity>(
+    API_ENDPOINTS.founderMemoryCitationIntegrity,
+  );
+}
+
+export async function fetchFounderMemoryQualityIssues(): Promise<FounderLoopMemoryQualityIssues> {
+  return readEnvelope<FounderLoopMemoryQualityIssues>(
+    API_ENDPOINTS.founderMemoryQualityIssues,
+  );
+}
+
+export async function fetchFounderMemoryMaintenanceRuns(): Promise<FounderLoopMemoryMaintenanceRuns> {
+  return readEnvelope<FounderLoopMemoryMaintenanceRuns>(
+    API_ENDPOINTS.founderMemoryMaintenanceRuns,
+  );
+}
+
+export async function fetchFounderMemoryContextManifest(): Promise<FounderLoopMemoryContextManifest> {
+  return readEnvelope<FounderLoopMemoryContextManifest>(
+    API_ENDPOINTS.founderMemoryContextManifest,
+  );
+}
+
 export async function fetchFounderMemoryReview(): Promise<FounderLoopMemoryReview> {
   return readEnvelope<FounderLoopMemoryReview>(API_ENDPOINTS.founderMemoryReview);
 }
@@ -596,6 +717,24 @@ export async function fetchFounderMemoryReview(): Promise<FounderLoopMemoryRevie
 export async function fetchFounderMemoryWorkbench(): Promise<FounderLoopMemoryWorkbench> {
   return readEnvelope<FounderLoopMemoryWorkbench>(
     API_ENDPOINTS.founderMemoryWorkbench,
+  );
+}
+
+export async function fetchFounderMemoryImpactGraph(): Promise<FounderLoopMemoryImpactGraph> {
+  return readEnvelope<FounderLoopMemoryImpactGraph>(
+    API_ENDPOINTS.founderMemoryImpactGraph,
+  );
+}
+
+export async function fetchFounderMemoryFollowUps(): Promise<FounderLoopMemoryFollowUpQueue> {
+  return readEnvelope<FounderLoopMemoryFollowUpQueue>(
+    API_ENDPOINTS.founderMemoryFollowUps,
+  );
+}
+
+export async function fetchFounderMemoryRecallHealth(): Promise<FounderLoopRecallHealthV2> {
+  return readEnvelope<FounderLoopRecallHealthV2>(
+    API_ENDPOINTS.founderMemoryRecallHealth,
   );
 }
 
@@ -626,6 +765,40 @@ export async function recordManualMemoryCandidate(
         extractErrorMessage(
           data,
           "Manual Memory candidate receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return receipt;
+}
+
+export async function recordMemoryFeedback(
+  request: MemoryFeedbackRequest,
+): Promise<MemoryFeedbackReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.founderMemoryFeedback}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": memoryFeedbackIdempotencyRef(request),
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data =
+    (await readJsonSafely(response)) as ResultEnvelope<MemoryFeedbackReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Memory feedback receipt was not recorded safely.",
         ),
       ),
     );
@@ -766,6 +939,20 @@ function memoryContextPackActionIdempotencyRef(
   request?: FounderLoopMemoryContextPackActionProposalRequest,
 ): string {
   return `idempotency-ref:control-center-memory-context-action:${safeChatSuffix(contextPackRef)}:${safeChatSuffix(request?.decision_reason_ref ?? "proposal")}`;
+}
+
+function memoryFeedbackIdempotencyRef(request: MemoryFeedbackRequest): string {
+  const refMaterial = [
+    request.target_ref,
+    request.target_kind,
+    request.feedback_kind,
+    request.reviewer_ref ?? "actor-ref:local-operator",
+    ...(request.evidence_refs ?? []),
+    ...(request.reason_refs ?? []),
+    ...(request.metadata_refs ?? []),
+    ...(request.blocked_state_refs ?? []),
+  ].join("|");
+  return `idempotency-ref:control-center-memory-feedback:${safeChatSuffix(request.feedback_kind)}:${safeHashSuffix(refMaterial)}`;
 }
 
 export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {

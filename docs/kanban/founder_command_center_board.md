@@ -29,8 +29,10 @@ completed the Private Beta-Readiness Gate. UAA-P1-079 completed User Intent
 Understanding V1.
 UAA-P1-066 is implemented as a strictly read-only Local Model Manager support
 lane through `GET /control-center/local-models/status` and does not add
-lifecycle, switching, activation, download, runtime adapter, or production
-authority.
+lifecycle, switching, activation, download, model pull, runtime adapter, model
+call, provider/model authority, or production authority. It now names the
+Optional Local Model Stack: Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM, with
+Ollama and MLX-LM as read-only readiness and inventory evidence surfaces only.
 
 FCC-V1-000 Control Center Release Surface Manifest is complete. FCC-V1-001 API
 Perimeter For Real Mutations is complete as contract/verifier coverage with
@@ -639,6 +641,29 @@ Milestone order:
   reviewed recall-only record writers; delete/export execution,
   semantic/vector search, connector writes, context injection, public beta, and
   production authority remain blocked.
+- `FCC-MEM-015` Memory Impact Graph And Follow-Up Queue: implemented as a
+  backend-owned impact graph, proposal-only follow-up queue, Recall Health V2,
+  merge/supersede comparison UI, context-pack preview surface, CLI commands,
+  focused tests, and verifier. It connects memory refs to Today, Actions,
+  Briefing, Evidence, and context-pack previews without action execution,
+  memory writes, context injection, CRM/account sync, semantic/vector search,
+  provider/model calls, public beta, or production authority.
+- `FCC-MEM-016` through `FCC-MEM-020` Memory Diagnostics And Context Manifest:
+  implemented as backend-owned retrieval diagnostics, citation integrity,
+  feedback quality issues, proposal-only maintenance runs, context manifest
+  proposals, CLI commands, stored execution prompts, focused tests, and
+  verifier. Feedback records quality signal receipts only. It adds no
+  automatic memory writes, auto-merge, auto-forget, delete/export execution,
+  hidden context injection, provider/model calls, connector writes, action
+  execution, public beta, or production authority.
+- `FCC-MEM-021` Memory Read Models UI + Proposal Bridge: implemented as
+  Control Center API client/types, Memory UI sections for MEM-016 through
+  MEM-020, bounded feedback controls, and a proposal-only Action Inbox bridge
+  that reuses `self_heal_recommendation` for memory quality/maintenance refs.
+  Action Inbox decisions record review receipts only and do not merge,
+  supersede, forget, write memory, run maintenance, inject context, call
+  providers, perform connector writes, execute shell/subprocess work, or grant
+  production authority.
 
 Acceptance criteria: Each milestone's detailed goal, tasks, expected routes,
 model fields, storage behavior, UI result, proof lane, and authority boundary
@@ -732,7 +757,8 @@ UAA-P1-068 as complete, UAA-P1-069 as complete, UAA-P1-070 as complete,
 UAA-P1-071 as complete, UAA-P1-072 as complete, UAA-P1-073 as complete,
 UAA-P1-074 as complete, UAA-P1-075 as complete, UAA-P1-076 as complete,
 UAA-P1-077 as complete, UAA-P1-078 as complete, UAA-P1-079 as complete, and
-UAA-P1-066 as read-only local model support.
+UAA-P1-066 as read-only local model support, including Ollama and MLX-LM
+readiness posture without runtime support.
 
 Safety notes: Planning/currentness only. No backend route, OpenAPI operation,
 Control Center implementation, connector runtime, provider/model call,

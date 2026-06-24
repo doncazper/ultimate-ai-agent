@@ -73,10 +73,10 @@ curated gallery and snapshot caveats.
 
 | Area | Current status | What to inspect |
 |---|---|---|
-| API boundary | Implemented for the current 143-path FastAPI/OpenAPI boundary and `/api/manifest` metadata. | [docs/api/README.md](docs/api/README.md) |
+| API boundary | Implemented for the current 152-path FastAPI/OpenAPI boundary and `/api/manifest` metadata. | [docs/api/README.md](docs/api/README.md) |
 | Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task lane. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
 | Chat handoff | Durable safe Chat turn receipts and reviewable Actions/Plans handoff receipts. Model output is not authority. | [docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md](docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md) |
-| Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
+| Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, impact graph/follow-up queues, retrieval diagnostics, citation integrity, feedback quality issues, proposal-only maintenance runs, context manifests, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
 | Evidence | Productized safe-ref timeline for proposals, decisions, receipts, and memory-review events. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
 | Today, Plans, Settings, Runtime, Models | Partial/status/readiness surfaces. Useful for inspection, not full product completion. | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
 | Inbox/email/calendar connectors | Planned or blocked contract lanes only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
@@ -131,7 +131,7 @@ Morning Briefing
 - **Memory Review**: accept/correct/reject receipts for reviewed recall only.
 - **Governed memory spine**: L1/L2/L3 read-only indexes over safe reviewed refs.
 - **Safe workspace previews**: patch proposals, validation proof, and rollback posture.
-- **Local model lane**: llama.cpp/OpenWebUI readiness evidence with local-first limits.
+- **Local model lane**: Optional Local Model Stack readiness evidence for Docker, llama.cpp, OpenWebUI, Ollama, and MLX-LM with local-first limits.
 - **Verification gates**: Foundation Gate, OpenAPI, docs, backend, frontend, and product-truth checks.
 
 ## Current Technical Snapshot
@@ -143,9 +143,9 @@ Morning Briefing
 | Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | Local model lane | **M160-M167**, including **M166** local readiness evidence and **M167** live evidence hardening; non-production by default |
-| API boundary | FastAPI route contract with **143** OpenAPI paths |
+| API boundary | FastAPI route contract with **152** OpenAPI paths |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
-| Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal lanes; Phase 6.1 is internal Action proposal receipts only |
+| Governed Cognitive Memory Spine | Phases 1-5 plus FCC-MEM-001, FCC-MEM-015, and FCC-MEM-016 through FCC-MEM-020 implemented as reviewed/read-only/proposal lanes; Phase 6.1 is internal Action proposal receipts only |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |
 | Implemented support | `UAA-P1-066` read-only Local Model Control Center inventory/status support |
 | Release posture | Local-first, review-gated, disabled by default, non-production by default |
@@ -160,7 +160,7 @@ Morning Briefing
 | Frontend Tests | Vitest, Playwright | Component, safety, and interaction checks |
 | Backend Tests | pytest, repo verifiers | Contract, storage, route, docs, and product-truth checks |
 | Local Tooling | Make, local CLI scripts, npm | Development, launch, inspection, and verification |
-| Optional Model Shell | Docker, llama.cpp, OpenWebUI | Local model readiness evidence and secondary shell support |
+| Optional Model Shell | Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM | Read-only readiness and inventory evidence, secondary shell support, and future exact-scoped local runtime adapters |
 
 ## Quick Start
 
@@ -168,7 +168,7 @@ Morning Briefing
 
 - Python 3.10 or newer.
 - `npm` for the Control Center app.
-- Optional Docker/OpenWebUI tooling for local model experiments.
+- Optional Docker/OpenWebUI/Ollama/MLX-LM tooling for local model experiments; UAA only reports read-only readiness posture here.
 
 ### Installation
 
@@ -313,7 +313,7 @@ These lines keep the active docs and verifiers aligned.
 - UAA-P1-087.2a Private Trial Packet And UI Tuning Surface is complete.
 - UAA-P1-087.2b Private Trial Findings Capture And Acceptance Ledger is complete.
 - UAA-P1-087.2c Private Trial Manual Review Scaffold is complete.
-- UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support via `GET /control-center/local-models/status`. No lifecycle, switching, activation, downloads, runtime adapters, or production-readiness claim is added.
+- UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support via `GET /control-center/local-models/status`, including Ollama and MLX-LM as readiness surfaces only. No lifecycle, switching, activation, downloads, model pulls, runtime adapters, model calls, provider/model authority, or production-readiness claim is added.
 - P0-016 hardens tuning advice without granting runtime authority.
 - P0-017 adds safe local model operational recovery guidance.
 

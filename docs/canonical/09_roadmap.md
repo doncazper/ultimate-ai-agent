@@ -69,7 +69,9 @@ Timeline productization, and promotion/proof lane. Broader P2/provider,
 packaging, public distribution, and commercialization expansion remain outside
 this route-surface proof lane.
 UAA-P1-066 is implemented as a strictly read-only Local Model Control Center
-inventory/status support lane at `GET /control-center/local-models/status`.
+inventory/status support lane at `GET /control-center/local-models/status`,
+including Ollama and MLX-LM readiness posture only; runtime adapters, model
+calls, pulls/downloads, and provider/model authority remain blocked.
 The product path now runs through UAA-P1-080
 API route classification after UAA-P1-079 added reviewable
 user-intent-understanding and UAA-P1-078 added local/private beta-readiness

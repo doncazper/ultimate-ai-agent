@@ -147,6 +147,8 @@ from ultimate_ai_agent.core.local_model_management.gateway import (
 )
 from ultimate_ai_agent.core.local_model_management.readiness import (
     LocalModelGatewayReadiness,
+    OptionalLocalModelAdapterReadiness,
+    build_optional_local_model_adapter_readiness,
     inspect_local_model_gateway,
 )
 from ultimate_ai_agent.core.local_model_management.inventory import (
@@ -324,6 +326,8 @@ __all__ = [
     "llama_cpp_gateway_enabled",
     "llama_cpp_gateway_key",
     "LocalModelGatewayReadiness",
+    "OptionalLocalModelAdapterReadiness",
+    "build_optional_local_model_adapter_readiness",
     "inspect_local_model_gateway",
     "LocalModelAdapterRequirement",
     "LocalModelArtifactKind",

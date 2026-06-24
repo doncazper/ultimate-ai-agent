@@ -225,11 +225,20 @@ export interface FounderLoopActionItem {
   health_recommendation_expected_receipt_refs?: string[];
   health_recommendation_conversion_option_refs?: string[];
   health_recommendation_blocked_authority_refs?: string[];
+  health_recommendation_source_signal_refs?: string[];
+  health_recommendation_source_surface_refs?: string[];
+  health_recommendation_source_route_refs?: string[];
+  health_recommendation_source_doc_refs?: string[];
+  health_recommendation_source_test_refs?: string[];
+  health_recommendation_source_verifier_refs?: string[];
+  health_recommendation_rollback_or_safe_disable_refs?: string[];
   health_recommendation_auto_apply_authorized?: boolean;
   health_recommendation_auto_code_authorized?: boolean;
   health_recommendation_provider_model_call_authorized?: boolean;
   health_recommendation_shell_execution_authorized?: boolean;
   health_recommendation_connector_write_authorized?: boolean;
+  health_recommendation_memory_write_authorized?: boolean;
+  health_recommendation_context_injection_authorized?: boolean;
   health_recommendation_action_execution_authorized?: boolean;
   health_recommendation_production_authority_enabled?: boolean;
   created_at?: string;
@@ -1519,6 +1528,461 @@ export interface FounderLoopMemoryContextPacks {
   provider_model_call_performed: boolean;
 }
 
+export interface FounderLoopMemoryRetrievalRankSignal {
+  rank_signal_ref: string;
+  memory_ref: string;
+  rank_score: number;
+  included: boolean;
+  source_ref: string;
+  quality_state_refs: string[];
+  why_shown_refs: string[];
+  pressure_score: number;
+}
+
+export interface FounderLoopMemoryRetrievalDiagnostics {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  generated_at: string;
+  candidate_count: number;
+  included_count: number;
+  excluded_count: number;
+  included_refs: string[];
+  excluded_refs: string[];
+  excluded_reason_refs: string[];
+  rank_signals: FounderLoopMemoryRetrievalRankSignal[];
+  source_mix: Array<{ source_ref: string; count: number }>;
+  pressure: {
+    stale_pressure: number;
+    duplicate_pressure: number;
+    conflict_pressure: number;
+    missing_evidence_pressure: number;
+    pressure_reason_refs: string[];
+  };
+  token_estimate: number;
+  cache_key_ref: string;
+  cache_hit: boolean;
+  cache_status: string;
+  cache_reason_refs: string[];
+  blocked_reason_refs: string[];
+  safe_refs_only: boolean;
+  context_injection_authorized: boolean;
+  memory_write_authorized: boolean;
+  semantic_search_enabled: boolean;
+  vector_db_enabled: boolean;
+  embedding_search_enabled: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryCitationIntegrityResult {
+  schema_version: string;
+  citation_integrity_result_ref: string;
+  context_pack_ref: string;
+  proposal_ref: string;
+  status: string;
+  valid_citation_refs: string[];
+  invalid_citation_refs: string[];
+  missing_source_refs: string[];
+  missing_evidence_refs: string[];
+  missing_receipt_refs: string[];
+  orphaned_memory_refs: string[];
+  orphaned_projection_refs: string[];
+  unreviewed_memory_refs: string[];
+  deleted_memory_refs: string[];
+  superseded_memory_refs: string[];
+  forget_requested_memory_refs: string[];
+  blocks_context_pack_use: boolean;
+  evidence_timeline_event_ref: string;
+}
+
+export interface FounderLoopMemoryCitationIntegrity {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  generated_at: string;
+  proposal_count: number;
+  valid_proposal_count: number;
+  blocked_proposal_count: number;
+  results: FounderLoopMemoryCitationIntegrityResult[];
+  evidence_timeline_proof_events: Array<Record<string, unknown>>;
+  citation_validation_rule_refs: string[];
+  blocked_state_refs: string[];
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  context_injection_authorized: boolean;
+  memory_write_authorized: boolean;
+  truth_authority_enabled: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryQualityIssue {
+  schema_version: string;
+  issue_ref: string;
+  target_ref: string;
+  target_kind: string;
+  issue_kind: string;
+  severity: string;
+  status: string;
+  group_ids: string[];
+  source_signal_refs: string[];
+  feedback_receipt_refs: string[];
+  why_queued_refs: string[];
+  rank_score: number;
+  proposal_only: boolean;
+  memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  delete_execution_authorized: boolean;
+  context_injection_authorized: boolean;
+  action_execution_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryQualityIssues {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  feedback_route_ref: string;
+  status: string;
+  generated_at: string;
+  issue_count: number;
+  feedback_count: number;
+  groups: Array<{ group_id: string; count: number }>;
+  issues: FounderLoopMemoryQualityIssue[];
+  feedback_receipt_refs: string[];
+  blocked_state_refs: string[];
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  automatic_memory_write_authorized: boolean;
+  memory_write_authorized: boolean;
+  delete_execution_authorized: boolean;
+  context_injection_authorized: boolean;
+  action_execution_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryMaintenanceProposal {
+  schema_version: string;
+  maintenance_proposal_ref: string;
+  maintenance_kind?: string;
+  proposal_kind?: string;
+  source_issue_refs?: string[];
+  source_issue_ref?: string;
+  source_memory_refs?: string[];
+  citation_integrity_result_ref?: string;
+  target_ref: string;
+  target_kind?: string;
+  issue_kind?: string;
+  severity?: string;
+  rank_score: number;
+  proposed_decision_kind?: string;
+  inbox_envelope_kind?: string;
+  reason_refs?: string[];
+  source_signal_refs?: string[];
+  evidence_refs?: string[];
+  affected_surface_refs?: string[];
+  expected_receipt_refs?: string[];
+  blocked_state_refs: string[];
+  next_safe_action?: string;
+  approval_required_before_mutation?: boolean;
+  proposal_only: boolean;
+  auto_apply_authorized?: boolean;
+  auto_merge_authorized?: boolean;
+  auto_supersede_authorized?: boolean;
+  auto_forget_authorized?: boolean;
+  automatic_memory_write_authorized?: boolean;
+  memory_write_authorized?: boolean;
+  delete_execution_authorized: boolean;
+  context_injection_authorized: boolean;
+  action_execution_authorized?: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryMaintenanceRuns {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  run_ref: string;
+  scan_ref: string;
+  generated_at: string;
+  proposal_count: number;
+  proposals: FounderLoopMemoryMaintenanceProposal[];
+  blocked_state_refs: string[];
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  auto_merge_authorized: boolean;
+  auto_supersede_authorized: boolean;
+  auto_forget_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  delete_execution_authorized: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryContextManifestItem {
+  schema_version: string;
+  context_manifest_ref: string;
+  context_pack_ref: string;
+  proposal_ref: string;
+  included_memory_refs: string[];
+  excluded_memory_refs: string[];
+  why_included_refs: string[];
+  why_excluded_refs: string[];
+  citation_integrity_status: string;
+  citation_integrity_result_ref: string;
+  risk_posture_ref: string;
+  token_budget: number;
+  token_estimate: number;
+  cache_key_ref?: string;
+  expires_at: string;
+  safe_disable_refs: string[];
+  quality_issue_refs: string[];
+  blocked_state_refs: string[];
+  proposal_only: boolean;
+  approval_required_before_use: boolean;
+  context_injection_authorized: boolean;
+  hidden_prompt_context_authorized: boolean;
+  automatic_context_injection_authorized: boolean;
+  memory_write_authorized: boolean;
+  action_execution_authorized: boolean;
+  connector_write_authorized: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryContextManifest {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  generated_at: string;
+  manifest_count: number;
+  manifests: FounderLoopMemoryContextManifestItem[];
+  retrieval_cache_key_ref?: string;
+  blocked_state_refs: string[];
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  context_injection_authorized: boolean;
+  hidden_prompt_context_authorized: boolean;
+  automatic_context_injection_authorized: boolean;
+  memory_write_authorized: boolean;
+  action_execution_authorized: boolean;
+  connector_write_authorized: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export type MemoryFeedbackKind =
+  | "useful"
+  | "stale"
+  | "missing"
+  | "wrong"
+  | "duplicate"
+  | "conflict"
+  | "irrelevant"
+  | "privacy_concern";
+
+export type MemoryFeedbackTargetKind =
+  | "memory_candidate"
+  | "reviewed_recall"
+  | "impact_graph_node"
+  | "context_pack_preview"
+  | "follow_up_proposal"
+  | "today_item"
+  | "action_proposal"
+  | "evidence_event";
+
+export interface MemoryFeedbackRequest {
+  target_ref: string;
+  target_kind: MemoryFeedbackTargetKind;
+  feedback_kind: MemoryFeedbackKind;
+  reviewer_ref?: string;
+  evidence_refs?: string[];
+  reason_refs?: string[];
+  metadata_refs?: string[];
+  blocked_state_refs: string[];
+}
+
+export interface MemoryFeedbackReceipt {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  feedback_ref: string;
+  receipt_ref: string;
+  quality_issue_ref: string;
+  target_ref: string;
+  target_kind: MemoryFeedbackTargetKind;
+  feedback_kind: MemoryFeedbackKind;
+  reviewer_ref: string;
+  evidence_refs: string[];
+  reason_refs: string[];
+  metadata_refs: string[];
+  blocked_state_refs: string[];
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  status: string;
+  quality_issue_created: boolean;
+  memory_write_performed: boolean;
+  automatic_memory_write_authorized: boolean;
+  delete_execution_authorized: boolean;
+  context_injection_authorized: boolean;
+  action_execution_authorized: boolean;
+  production_authority_enabled: boolean;
+  replayed: boolean;
+  created_at: string;
+}
+
+export type FounderLoopMemoryFollowUpGroupId =
+  | "relationship"
+  | "commitment"
+  | "stale_promise"
+  | "missing_evidence"
+  | "recently_corrected_preference"
+  | "deferred_review"
+  | "forget_request_follow_up";
+
+export interface FounderLoopMemoryImpactNode {
+  schema_version: string;
+  memory_ref: string;
+  review_ref: string;
+  review_state: string;
+  candidate_kind: string;
+  relationship_refs: string[];
+  commitment_refs: string[];
+  promise_refs: string[];
+  source_refs: string[];
+  provenance_refs: string[];
+  evidence_refs: string[];
+  today_item_refs: string[];
+  action_proposal_refs: string[];
+  briefing_refs: string[];
+  evidence_event_refs: string[];
+  context_pack_refs: string[];
+  why_shown_refs: string[];
+  what_this_affects_refs: string[];
+  stale_state_refs: string[];
+  quality_state_refs: string[];
+  blocked_state_refs: string[];
+  changed_refs: string[];
+  suppressed_refs: string[];
+  stayed_blocked_refs: string[];
+  affected_surface_refs: string[];
+  next_safe_action: string;
+}
+
+export interface FounderLoopRecallHealthV2 {
+  schema_version: string;
+  reviewed_recall_count: number;
+  pending_review_count: number;
+  stale_pressure: number;
+  duplicate_pressure: number;
+  conflict_pressure: number;
+  missing_evidence_pressure: number;
+  defer_aging_count: number;
+  defer_aging_refs: string[];
+  forget_request_aging_count: number;
+  forget_request_aging_refs: string[];
+  merge_supersede_suppression_count: number;
+  suppressed_recall_record_refs: string[];
+  top_memory_refs_driving_current_loop: string[];
+  top_relationship_refs_needing_attention: string[];
+  top_commitment_refs_needing_attention: string[];
+  health_reason_refs: string[];
+  safe_refs_only: boolean;
+  semantic_search_enabled: boolean;
+  vector_db_enabled: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryFollowUpGroup {
+  group_id: FounderLoopMemoryFollowUpGroupId;
+  count: number;
+}
+
+export interface FounderLoopMemoryFollowUpCandidate {
+  schema_version: string;
+  follow_up_ref: string;
+  source_memory_refs: string[];
+  relationship_refs: string[];
+  commitment_refs: string[];
+  action_proposal_ref?: string | null;
+  why_shown_refs: string[];
+  what_this_affects_refs: string[];
+  group_ids: FounderLoopMemoryFollowUpGroupId[];
+  rank_score: number;
+  proposal_only: boolean;
+  approval_required_before_action: boolean;
+  action_execution_authorized: boolean;
+  connector_write_authorized: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+  next_safe_action: string;
+}
+
+export interface FounderLoopMemoryFollowUpQueue {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  groups: FounderLoopMemoryFollowUpGroup[];
+  candidates: FounderLoopMemoryFollowUpCandidate[];
+  candidate_count: number;
+  blocked_state_refs: string[];
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  action_execution_authorized: boolean;
+  connector_write_authorized: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryContextPackPreview {
+  schema_version: string;
+  context_pack_ref: string;
+  proposal_ref: string;
+  included_memory_refs: string[];
+  excluded_reason_refs: string[];
+  why_previewed_refs: string[];
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  context_injection_authorized: boolean;
+  memory_write_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopMemoryImpactGraph {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  generated_at: string;
+  status: string;
+  safe_refs_only: boolean;
+  node_count: number;
+  nodes: FounderLoopMemoryImpactNode[];
+  health_v2: FounderLoopRecallHealthV2;
+  follow_up_queue: FounderLoopMemoryFollowUpQueue;
+  context_pack_previews: FounderLoopMemoryContextPackPreview[];
+  blocked_state_refs: string[];
+  memory_truth_authority: boolean;
+  context_injection_authorized: boolean;
+  action_execution_authorized: boolean;
+  connector_write_authorized: boolean;
+  crm_sync_authorized: boolean;
+  semantic_search_enabled: boolean;
+  vector_db_enabled: boolean;
+  embedding_search_enabled: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopWeeklyCeoReviewSummary {
   weekly_review_ref: string;
   input_refs: string[];
@@ -2623,6 +3087,32 @@ export interface ControlCenterSettingsStatus {
   redactions_applied: string[];
 }
 
+export interface OptionalLocalModelAdapterReadiness {
+  adapter_id: "ollama" | "mlx_lm";
+  display_name: string;
+  readiness_state:
+    | "ready"
+    | "not_installed"
+    | "not_configured"
+    | "blocked"
+    | "unavailable"
+    | "unknown";
+  install_detection_posture: string;
+  config_detection_posture: string;
+  allowed_inspection_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  safe_evidence_refs: string[];
+  route_refs: string[];
+  docs_refs: string[];
+  runtime_calls_enabled: false;
+  model_pulls_enabled: false;
+  model_downloads_enabled: false;
+  lifecycle_start_stop_switch_enabled: false;
+  provider_model_authority_enabled: false;
+  control_center_subprocess_execution_enabled: false;
+}
+
 export interface ControlCenterLocalModelsStatus {
   schema_version: "uaa-control-center-local-models-status.v1";
   module_id: "local_models";
@@ -2633,6 +3123,7 @@ export interface ControlCenterLocalModelsStatus {
   proposal_review_only: boolean;
   inventory: Record<string, unknown>;
   gateway_posture: Record<string, unknown>;
+  adapter_readiness: OptionalLocalModelAdapterReadiness[];
   lifecycle_actions: Record<string, boolean>;
   blocked_authorities: string[];
   evidence_refs: string[];
@@ -3238,7 +3729,15 @@ export interface ControlCenterData {
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;
+  founderMemoryImpactGraph: FounderLoopMemoryImpactGraph;
+  founderMemoryFollowUpQueue: FounderLoopMemoryFollowUpQueue;
+  founderMemoryRecallHealth: FounderLoopRecallHealthV2;
   founderMemoryContextPacks: FounderLoopMemoryContextPacks;
+  founderMemoryRetrievalDiagnostics: FounderLoopMemoryRetrievalDiagnostics;
+  founderMemoryCitationIntegrity: FounderLoopMemoryCitationIntegrity;
+  founderMemoryQualityIssues: FounderLoopMemoryQualityIssues;
+  founderMemoryMaintenanceRuns: FounderLoopMemoryMaintenanceRuns;
+  founderMemoryContextManifest: FounderLoopMemoryContextManifest;
   founderActionsInbox: FounderLoopActionsInbox;
   founderMorningBriefing: FounderLoopMorningBriefing;
   founderSourceReadiness: FounderLoopSourceReadiness;

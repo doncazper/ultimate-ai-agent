@@ -64,7 +64,7 @@ V1 complete, and marks UAA-P1-080 API Route Classification And
 Public/Protected Inventory complete, and marks UAA-P1-081 Centralized FastAPI
 Security Headers complete, and marks UAA-P1-082 Explicit Loopback CORS
 Allowlist complete, and marks UAA-P1-083 Local Bearer Or Session Gate For
-Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. UAA-P1-087.2c is complete for the unanswered manual review scaffold. FCC-V1-000 is complete for Control Center release-surface truth, manifest/schema, verifier, and focused tests. FCC-V1-001 is complete for API perimeter contract/verifier coverage with duplicate replay runtime still blocked until route-owner receipt storage exists outside routes that implement their own receipt-backed replay. FCC-V1-002 is complete for Action Inbox backend decisions, FCC-V1-003 is complete for the first Today-to-Action receipt-bearing vertical slice, FCC-V1-004 is complete for Chat durable receipt and handoff, FCC-V1-005 is complete for Memory Review decisions, FCC-V1-006 is complete for Evidence Timeline productization, and FCC-V1-007 is complete for exact proofed route-surface promotion. FCC-MEM-001 is complete for Memory Workbench V1: a backend-owned workbench/search/manual-intake read model, expanded lifecycle receipts, deterministic quality grouping, Control Center cards, CLI parity, and prompt bundle, without delete/export execution, semantic/vector search, connector writes, context injection, public beta, or production authority. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are deferred until more Founder Loop implementation exists.
+Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. UAA-P1-087.2c is complete for the unanswered manual review scaffold. FCC-V1-000 is complete for Control Center release-surface truth, manifest/schema, verifier, and focused tests. FCC-V1-001 is complete for API perimeter contract/verifier coverage with duplicate replay runtime still blocked until route-owner receipt storage exists outside routes that implement their own receipt-backed replay. FCC-V1-002 is complete for Action Inbox backend decisions, FCC-V1-003 is complete for the first Today-to-Action receipt-bearing vertical slice, FCC-V1-004 is complete for Chat durable receipt and handoff, FCC-V1-005 is complete for Memory Review decisions, FCC-V1-006 is complete for Evidence Timeline productization, and FCC-V1-007 is complete for exact proofed route-surface promotion. FCC-MEM-001 is complete for Memory Workbench V1: a backend-owned workbench/search/manual-intake read model, expanded lifecycle receipts, deterministic quality grouping, Control Center cards, CLI parity, and prompt bundle, without delete/export execution, semantic/vector search, connector writes, context injection, public beta, or production authority. FCC-MEM-015 is complete for the safe Memory Impact Graph and Follow-Up Queue slice: backend-owned impact graph, follow-up queue, Recall Health V2, merge/supersede comparison UI, context-pack previews, CLI parity, and verifier coverage without action execution, memory writes, context injection, CRM/account sync, semantic/vector search, provider/model calls, public beta, or production authority. FCC-MEM-016 through FCC-MEM-020 are complete for backend-owned retrieval diagnostics, citation integrity, feedback quality issues, proposal-only maintenance runs, context manifest proposals, CLI parity, prompt bundle expansion, and verifier coverage without automatic memory writes, auto-merge, auto-forget, delete/export execution, hidden context injection, provider/model calls, connector writes, action execution, public beta, or production authority. FCC-MEM-021 is complete for Memory read-model UI wiring, bounded feedback controls, and a proposal-only Action Inbox bridge for memory quality/maintenance recommendations without context injection, auto-maintenance, memory writes, provider/model calls, connector writes, shell/subprocess execution, action execution, public beta, or production authority. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are deferred until more Founder Loop implementation exists.
 The bounded FCC-V1 Founder Loop V1 conveyor is complete through
 `FCC-V1-000` through `FCC-V1-007`: release surface manifest, API perimeter for
 real mutations, Action Inbox backend state machine, first Today-to-Action
@@ -85,9 +85,10 @@ implemented as read-only, proposal-only inspection envelopes at
 remain future blocked.
 UAA-P1-066 is implemented as a strictly read-only Local Model Control Center
 inventory/status support lane. It exposes backend-owned local model inventory
-and gateway posture through `GET /control-center/local-models/status` while
-leaving lifecycle, switching, activation, downloads, runtime adapters, and
-production-readiness claims blocked.
+and gateway posture plus Ollama and MLX-LM readiness posture through
+`GET /control-center/local-models/status` while leaving lifecycle, switching,
+activation, downloads, model pulls, model calls, runtime adapters,
+provider/model authority, and production-readiness claims blocked.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -155,9 +156,11 @@ UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076 completed
 Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding,
 UAA-P1-078 completed the Private Beta-Readiness Gate, and UAA-P1-079 completed
 the User Intent Understanding V1 lane.
-UAA-P1-066 is implemented as read-only local model status support. Later Local Model Manager lifecycle,
-switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
-downloads still require separate exact scoped milestones.
+UAA-P1-066 is implemented as read-only local model status support, including
+Ollama and MLX-LM readiness posture only. Later Local Model Manager lifecycle,
+switching, Desktop/Hermes activation, MLX/Ollama/LM Studio runtime adapters,
+model calls, and model pulls/downloads still require separate exact scoped
+milestones.
 ```
 
 ## Spec Draft
@@ -362,6 +365,30 @@ reviewed recall-only record writers; defer, merge, supersede, and
 forget-request are posture/receipt states only. Delete/export execution,
 semantic/vector search, provider/model calls, connector writes, context
 injection, public beta, and production authority remain blocked.
+
+FCC-MEM-015 Memory Impact Graph And Follow-Up Queue
+Goal met: Memory Review now has backend-owned `GET /control-center/memory/impact-graph`,
+`GET /control-center/memory/follow-ups`, and
+`GET /control-center/memory/recall-health` read models, Control Center
+merge/supersede multi-select comparison, context-pack preview inspection, and
+repo-local CLI/verifier parity. Follow-ups remain proposal-only; action
+execution, memory writes, CRM/account sync, context injection, semantic/vector
+search, provider/model calls, public beta, and production authority remain
+blocked.
+
+FCC-MEM-016 Through FCC-MEM-020 Memory Diagnostics And Context Manifest
+Goal met: Memory Review now has backend-owned
+`GET /control-center/memory/retrieval-diagnostics`,
+`GET /control-center/memory/citation-integrity`,
+`GET /control-center/memory/quality-issues`,
+`POST /control-center/memory/feedback`,
+`GET /control-center/memory/maintenance-runs`, and
+`GET /control-center/memory/context-manifest` routes, repo-local CLI parity,
+stored execution prompts, and verifier coverage. Feedback records quality
+signal receipts only. Maintenance and context manifests remain proposal-only;
+automatic memory writes, auto-merge, auto-forget, delete/export execution,
+hidden context injection, provider/model calls, connector writes, action
+execution, public beta, and production authority remain blocked.
 ```
 
 ## QA / Verification

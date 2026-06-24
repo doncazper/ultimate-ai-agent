@@ -347,7 +347,7 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
         for item in inbox["items"]
         if item.get("action_kind") == "self_heal_recommendation"
     )
-    assert health_recommendation_count == 3
+    assert health_recommendation_count == 4
     assert groups["proposal_only_no_execution_path"]["count"] == (
         4 + health_recommendation_count
     )

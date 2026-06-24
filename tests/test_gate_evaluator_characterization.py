@@ -19,6 +19,8 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES,
     FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES,
     FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES,
+    FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES,
+    FOUNDER_LOOP_MEMORY_READ_MODEL_ROUTES,
     FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
     _historical_openapi_path_set,
@@ -76,9 +78,18 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/memory/review",
         "/control-center/memory/context-packs",
         "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        "/control-center/memory/citation-integrity",
+        "/control-center/memory/context-manifest",
+        "/control-center/memory/feedback",
+        "/control-center/memory/follow-ups",
+        "/control-center/memory/impact-graph",
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
+        "/control-center/memory/maintenance-runs",
+        "/control-center/memory/quality-issues",
+        "/control-center/memory/recall-health",
+        "/control-center/memory/retrieval-diagnostics",
         "/control-center/memory/search",
         "/control-center/memory/workbench",
         "/control-center/memory/review/{candidate_ref}/accept",
@@ -134,6 +145,19 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     }
     assert FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES == {
         "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+    }
+    assert FOUNDER_LOOP_MEMORY_READ_MODEL_ROUTES == {
+        "/control-center/memory/citation-integrity",
+        "/control-center/memory/context-manifest",
+        "/control-center/memory/follow-ups",
+        "/control-center/memory/impact-graph",
+        "/control-center/memory/maintenance-runs",
+        "/control-center/memory/quality-issues",
+        "/control-center/memory/recall-health",
+        "/control-center/memory/retrieval-diagnostics",
+    }
+    assert FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES == {
+        "/control-center/memory/feedback",
     }
     assert CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES == {
         "/control-center/local-models/status",

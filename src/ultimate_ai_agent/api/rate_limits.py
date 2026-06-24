@@ -80,6 +80,9 @@ MEMORY_REVIEW_DECISION_SUFFIXES = (
 MEMORY_MANUAL_CANDIDATE_PATHS = {
     "/control-center/memory/review/manual-candidate",
 }
+MEMORY_FEEDBACK_PATHS = {
+    "/control-center/memory/feedback",
+}
 TODAY_TO_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
 }
@@ -168,6 +171,7 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         normalized_method == "POST"
         and (
             path in MEMORY_MANUAL_CANDIDATE_PATHS
+            or path in MEMORY_FEEDBACK_PATHS
             or (
                 path.startswith("/control-center/memory/review/")
                 and path.endswith(MEMORY_REVIEW_DECISION_SUFFIXES)

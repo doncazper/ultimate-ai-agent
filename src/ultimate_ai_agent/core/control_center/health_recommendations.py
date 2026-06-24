@@ -242,10 +242,310 @@ def build_recommendation_candidate(
     )
 
 
+def _bounded_refs(refs: Any, *, limit: int = 6) -> list[str]:
+    if refs is None:
+        return []
+    if isinstance(refs, str):
+        values = [refs]
+    else:
+        try:
+            values = list(refs)
+        except TypeError:
+            values = [refs]
+    return [str(ref) for ref in values if str(ref)][:limit]
+
+
+def build_verifier_failure_recommendation(
+    *,
+    verifier_refs: list[str],
+    test_refs: list[str] | None = None,
+    doc_refs: list[str] | None = None,
+) -> RecommendationCandidate:
+    signal_refs = _bounded_refs(verifier_refs) or [
+        "signal-ref:fcc-health-001:verifier-failure-review"
+    ]
+    return build_recommendation_candidate(
+        kind="verifier_failure",
+        severity="medium",
+        safe_title="Review verifier failure refs",
+        safe_summary=(
+            "Verifier failure refs can become repair work only after an operator "
+            "reviews the missing proof and scoped validation plan."
+        ),
+        source_signal_refs=signal_refs,
+        source_surface_refs=["surface-ref:evidence", "surface-ref:settings"],
+        source_doc_refs=_bounded_refs(doc_refs),
+        source_route_refs=[],
+        source_test_refs=_bounded_refs(test_refs),
+        source_verifier_refs=signal_refs,
+        evidence_refs=["evidence-ref:fcc-health-001:verifier-failure"],
+        missing_proof_refs=[
+            "missing-proof-ref:fcc-health-001:verifier-pass-after-review"
+        ],
+        owner_ref="owner-ref:verification-discipline",
+        scope_ref="scope-ref:fcc-health-001:verifier-failure",
+        impact_ref="impact-ref:regression-proof",
+        validation_plan_refs=["validation-plan-ref:rerun-focused-verifier"],
+        rollback_or_safe_disable_refs=[
+            "safe-disable-ref:fcc-health-001:recommendation-review-only"
+        ],
+        next_safe_action=(
+            "Inspect verifier refs and decide whether a scoped repair task is needed."
+        ),
+    )
+
+
+def build_route_manifest_mismatch_recommendation(
+    *,
+    route_refs: list[str],
+    verifier_refs: list[str] | None = None,
+    doc_refs: list[str] | None = None,
+) -> RecommendationCandidate:
+    signal_refs = _bounded_refs(route_refs) or [
+        "route-ref:fcc-health-001:manifest-review"
+    ]
+    return build_recommendation_candidate(
+        kind="route_manifest_mismatch",
+        severity="medium",
+        safe_title="Review route manifest mismatch refs",
+        safe_summary=(
+            "Route manifest mismatch refs need contract review before API or "
+            "Control Center surface changes."
+        ),
+        source_signal_refs=signal_refs,
+        source_surface_refs=["surface-ref:settings", "surface-ref:evidence"],
+        source_doc_refs=_bounded_refs(doc_refs)
+        or ["docs/control_center/ROUTE_STATUS_MANIFEST.md"],
+        source_route_refs=signal_refs,
+        source_test_refs=["tests/test_control_center_api_routes.py"],
+        source_verifier_refs=_bounded_refs(verifier_refs)
+        or ["scripts/verify_control_center_route_status.py"],
+        evidence_refs=["evidence-ref:fcc-health-001:route-manifest-mismatch"],
+        missing_proof_refs=[
+            "missing-proof-ref:fcc-health-001:route-manifest-contract-proof"
+        ],
+        owner_ref="owner-ref:control-center-api",
+        scope_ref="scope-ref:fcc-health-001:route-manifest",
+        impact_ref="impact-ref:route-contract-truth",
+        validation_plan_refs=[
+            "validation-plan-ref:verify-openapi-contract",
+            "validation-plan-ref:test-control-center-api-routes",
+        ],
+        rollback_or_safe_disable_refs=[
+            "safe-disable-ref:fcc-health-001:recommendation-review-only"
+        ],
+        next_safe_action=(
+            "Compare route refs against OpenAPI and manifest docs before filing work."
+        ),
+    )
+
+
+def build_api_contract_mismatch_recommendation(
+    *,
+    route_refs: list[str],
+    test_refs: list[str] | None = None,
+    verifier_refs: list[str] | None = None,
+) -> RecommendationCandidate:
+    signal_refs = _bounded_refs(route_refs) or [
+        "api-contract-ref:fcc-health-001:openapi-review"
+    ]
+    return build_recommendation_candidate(
+        kind="api_contract_mismatch",
+        severity="high",
+        safe_title="Review API contract mismatch refs",
+        safe_summary=(
+            "API contract mismatches must stay as recommendation refs until "
+            "OpenAPI, route tests, and typed clients agree."
+        ),
+        source_signal_refs=signal_refs,
+        source_surface_refs=["surface-ref:control-center", "surface-ref:cli"],
+        source_doc_refs=["docs/control_center/founder_loop_api_perimeter_manifest.json"],
+        source_route_refs=signal_refs,
+        source_test_refs=_bounded_refs(test_refs)
+        or ["tests/test_control_center_api_routes.py"],
+        source_verifier_refs=_bounded_refs(verifier_refs)
+        or ["scripts/verify_openapi_contract.py"],
+        evidence_refs=["evidence-ref:fcc-health-001:api-contract-mismatch"],
+        missing_proof_refs=[
+            "missing-proof-ref:fcc-health-001:openapi-route-client-alignment"
+        ],
+        owner_ref="owner-ref:python-core-api",
+        scope_ref="scope-ref:fcc-health-001:api-contract",
+        impact_ref="impact-ref:contract-first-control-center",
+        validation_plan_refs=[
+            "validation-plan-ref:verify-openapi-contract",
+            "validation-plan-ref:test-api-manifest",
+        ],
+        rollback_or_safe_disable_refs=[
+            "safe-disable-ref:fcc-health-001:recommendation-review-only"
+        ],
+        next_safe_action=(
+            "Review API contract refs before creating an exact route/client task."
+        ),
+    )
+
+
+def build_blocked_state_confusion_recommendation(
+    *,
+    blocked_state_refs: list[str],
+    surface_refs: list[str] | None = None,
+) -> RecommendationCandidate:
+    signal_refs = _bounded_refs(blocked_state_refs) or [
+        "blocked-state:fcc-health-001:operator-confusion-review"
+    ]
+    return build_recommendation_candidate(
+        kind="blocked_state_confusion",
+        severity="medium",
+        safe_title="Review blocked-state clarity refs",
+        safe_summary=(
+            "Blocked-state confusion should become wording or state-machine work "
+            "only after safe review confirms the exact operator ambiguity."
+        ),
+        source_signal_refs=signal_refs,
+        source_surface_refs=_bounded_refs(surface_refs)
+        or ["surface-ref:actions", "surface-ref:evidence"],
+        source_doc_refs=["docs/control_center/PRODUCT_LANGUAGE_RULES.md"],
+        source_route_refs=[],
+        source_test_refs=["apps/control-center/src/App.test.tsx"],
+        source_verifier_refs=["scripts/verify_control_center_frontend.py"],
+        evidence_refs=["evidence-ref:fcc-health-001:blocked-state-confusion"],
+        missing_proof_refs=[
+            "missing-proof-ref:fcc-health-001:operator-state-copy-review"
+        ],
+        owner_ref="owner-ref:operator-experience",
+        scope_ref="scope-ref:fcc-health-001:blocked-state-clarity",
+        impact_ref="impact-ref:operator-trust",
+        validation_plan_refs=[
+            "validation-plan-ref:frontend-copy-test",
+            "validation-plan-ref:product-language-check",
+        ],
+        rollback_or_safe_disable_refs=[
+            "safe-disable-ref:fcc-health-001:recommendation-review-only"
+        ],
+        next_safe_action=(
+            "Review blocked-state refs before drafting a scoped UX or copy task."
+        ),
+    )
+
+
+def build_memory_quality_issue_recommendation(
+    *,
+    memory_signal_refs: list[str],
+    evidence_refs: list[str] | None = None,
+) -> RecommendationCandidate:
+    signal_refs = _bounded_refs(memory_signal_refs) or [
+        "memory-quality-ref:fcc-health-001:review-needed"
+    ]
+    return build_recommendation_candidate(
+        kind="memory_quality_issue",
+        severity="medium",
+        safe_title="Review memory quality and maintenance refs",
+        safe_summary=(
+            "Memory quality and maintenance refs can become review tasks only; "
+            "they do not write memory, inject context, or treat recall as authority."
+        ),
+        source_signal_refs=signal_refs,
+        source_surface_refs=[
+            "surface-ref:memory",
+            "surface-ref:actions",
+            "surface-ref:evidence",
+        ],
+        source_doc_refs=[
+            "docs/control_center/"
+            "FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md",
+            "docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md",
+        ],
+        source_route_refs=[
+            "GET /control-center/memory/quality-issues",
+            "GET /control-center/memory/maintenance-runs",
+            "GET /control-center/actions/inbox",
+        ],
+        source_test_refs=[
+            "tests/test_fcc_mem_016_020_memory_diagnostics.py",
+            "tests/test_fcc_mem_021_memory_ui_action_inbox_bridge.py",
+        ],
+        source_verifier_refs=[
+            "scripts/verify_fcc_mem_021_memory_ui_action_inbox_bridge.py"
+        ],
+        evidence_refs=_bounded_refs(evidence_refs)
+        or [
+            "evidence-ref:fcc-health-001:memory-quality",
+            "evidence-ref:fcc-mem-021:memory-proposal-bridge",
+        ],
+        missing_proof_refs=[
+            "missing-proof-ref:fcc-mem-021:operator-quality-review",
+            "missing-proof-ref:fcc-mem-021:no-auto-maintenance",
+        ],
+        owner_ref="owner-ref:memory-governance",
+        scope_ref="scope-ref:fcc-health-001:memory-quality",
+        impact_ref="impact-ref:memory-trust",
+        validation_plan_refs=[
+            "validation-plan-ref:fcc-mem-021-action-inbox-proposal-only",
+            "validation-plan-ref:fcc-mem-021-context-use-remains-blocked",
+        ],
+        rollback_or_safe_disable_refs=[
+            "safe-disable-ref:fcc-health-001:recommendation-review-only",
+            "safe-disable-ref:fcc-mem-021:disable-memory-proposal-bridge",
+        ],
+        next_safe_action=(
+            "Review memory quality and maintenance refs before creating a memory task."
+        ),
+    )
+
+
+def build_release_truth_gap_recommendation(
+    *,
+    signal_refs: list[str],
+    doc_refs: list[str] | None = None,
+) -> RecommendationCandidate:
+    bounded_signal_refs = _bounded_refs(signal_refs) or [
+        "release-truth-ref:fcc-health-001:proof-gap"
+    ]
+    return build_recommendation_candidate(
+        kind="release_truth_gap",
+        severity="medium",
+        safe_title="Review release truth gap refs",
+        safe_summary=(
+            "Release truth gaps must stay review-only until implemented, partial, "
+            "blocked, and missing states are reconciled with evidence."
+        ),
+        source_signal_refs=bounded_signal_refs,
+        source_surface_refs=["surface-ref:evidence", "surface-ref:settings"],
+        source_doc_refs=_bounded_refs(doc_refs)
+        or ["docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"],
+        source_route_refs=[],
+        source_test_refs=[],
+        source_verifier_refs=["scripts/verify_documentation_integrity.py"],
+        evidence_refs=["evidence-ref:fcc-health-001:release-truth-gap"],
+        missing_proof_refs=[
+            "missing-proof-ref:fcc-health-001:release-truth-evidence-review"
+        ],
+        owner_ref="owner-ref:release-truth",
+        scope_ref="scope-ref:fcc-health-001:release-truth",
+        impact_ref="impact-ref:portfolio-truth",
+        validation_plan_refs=[
+            "validation-plan-ref:verify-documentation-integrity",
+            "validation-plan-ref:product-language-check",
+        ],
+        rollback_or_safe_disable_refs=[
+            "safe-disable-ref:fcc-health-001:recommendation-review-only"
+        ],
+        next_safe_action=(
+            "Review release truth refs before changing product-readiness claims."
+        ),
+    )
+
+
 def build_fcc_health_recommendations(
     *,
     source_readiness: dict[str, Any] | None = None,
     dogfood_capture: dict[str, Any] | None = None,
+    verifier_failure_refs: list[str] | None = None,
+    route_manifest_mismatch_refs: list[str] | None = None,
+    api_contract_mismatch_refs: list[str] | None = None,
+    blocked_state_confusion_refs: list[str] | None = None,
+    memory_quality_issue_refs: list[str] | None = None,
+    release_truth_gap_refs: list[str] | None = None,
 ) -> list[RecommendationCandidate]:
     recommendations: list[RecommendationCandidate] = []
     source_readiness = source_readiness or {}
@@ -290,6 +590,46 @@ def build_fcc_health_recommendations(
                     "contract work."
                 ),
             )
+        )
+
+    if verifier_failure_refs:
+        recommendations.append(
+            build_verifier_failure_recommendation(
+                verifier_refs=verifier_failure_refs,
+            )
+        )
+
+    if route_manifest_mismatch_refs:
+        recommendations.append(
+            build_route_manifest_mismatch_recommendation(
+                route_refs=route_manifest_mismatch_refs,
+            )
+        )
+
+    if api_contract_mismatch_refs:
+        recommendations.append(
+            build_api_contract_mismatch_recommendation(
+                route_refs=api_contract_mismatch_refs,
+            )
+        )
+
+    if blocked_state_confusion_refs:
+        recommendations.append(
+            build_blocked_state_confusion_recommendation(
+                blocked_state_refs=blocked_state_confusion_refs,
+            )
+        )
+
+    if memory_quality_issue_refs:
+        recommendations.append(
+            build_memory_quality_issue_recommendation(
+                memory_signal_refs=memory_quality_issue_refs,
+            )
+        )
+
+    if release_truth_gap_refs:
+        recommendations.append(
+            build_release_truth_gap_recommendation(signal_refs=release_truth_gap_refs)
         )
 
     recommendations.append(

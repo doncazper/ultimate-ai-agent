@@ -4070,6 +4070,18 @@ class FoundationGateEvaluator:
                 and route.rate_limit_group == "memory_context_pack_action_proposal"
                 and route.blocked_from_production
             )
+            is_founder_loop_memory_feedback_state = (
+                path in FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES
+                and route.method == "POST"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "memory_review_decision"
+                and route.blocked_from_production
+            )
             if (
                 not route.validation_only
                 and not is_founder_loop_summary
@@ -4079,6 +4091,7 @@ class FoundationGateEvaluator:
                 and not is_founder_loop_memory_review_decision_state
                 and not is_founder_loop_local_task_commit_state
                 and not is_founder_loop_memory_context_action_proposal_state
+                and not is_founder_loop_memory_feedback_state
             ):
                 failures.append(
                     f"{path} is not read-only/preview-only/founder-loop-state"
@@ -4274,6 +4287,7 @@ class FoundationGateEvaluator:
             "API_ENDPOINTS.controlCenterChatTurns",
             "chatTurnHandoffEndpoint(turnRef)",
             "API_ENDPOINTS.founderMemoryManualCandidate",
+            "API_ENDPOINTS.founderMemoryFeedback",
             "memoryReviewDecisionEndpoint(candidateRef, decision)",
             "memoryContextPackActionProposalEndpoint(contextPackRef)",
             "API_ENDPOINTS.localChatCompletions",
@@ -4360,7 +4374,7 @@ class FoundationGateEvaluator:
                 f"boundary: expected {EXPECTED_M36_OPENAPI_PATH_COUNT}, found {len(historical_paths)}"
             )
         control_center_routes = [path for path in paths if path.startswith("/control-center")]
-        if len(control_center_routes) != 44:
+        if len(control_center_routes) != 53:
             failures.append(f"unexpected Control Center route count: {len(control_center_routes)}")
         forbidden = [
             "/control-center/actions/execute",

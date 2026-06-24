@@ -57,7 +57,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 143
+    assert manifest.route_count == 152
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",
@@ -67,6 +67,14 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
         "/control-center/memory/context-packs",
+        "/control-center/memory/impact-graph",
+        "/control-center/memory/follow-ups",
+        "/control-center/memory/recall-health",
+        "/control-center/memory/retrieval-diagnostics",
+        "/control-center/memory/citation-integrity",
+        "/control-center/memory/quality-issues",
+        "/control-center/memory/maintenance-runs",
+        "/control-center/memory/context-manifest",
         "/control-center/memory/review",
         "/control-center/memory/workbench",
         "/control-center/memory/search",
@@ -113,6 +121,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/memory/review/{candidate_ref}/supersede",
         "/control-center/memory/review/{candidate_ref}/forget-request",
         "/control-center/memory/review/manual-candidate",
+        "/control-center/memory/feedback",
     ]:
         assert path in routes
         assert routes[path].method == "POST"
@@ -152,6 +161,30 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     )
     assert (
         "control_center_memory_search_filters"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_retrieval_diagnostics"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_citation_integrity"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_feedback_quality_queue"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_feedback_receipts"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_proposal_only_maintenance_runs"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_context_manifest"
         in manifest.capabilities_declared
     )
     assert (

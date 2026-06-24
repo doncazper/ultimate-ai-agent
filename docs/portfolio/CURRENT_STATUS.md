@@ -38,7 +38,7 @@ public release, public beta, public distribution, or broad autonomy claims.
 | Area | Implemented scope |
 |---|---|
 | Baseline | Active product/package baseline is `v0.104.0` / `0.104.0`. |
-| API boundary | FastAPI/OpenAPI boundary with 143 paths, `/api/manifest`, route classification, auth posture, approval posture, idempotency posture, targeted local rate-limit posture, and route inventory checks. |
+| API boundary | FastAPI/OpenAPI boundary with 152 paths, `/api/manifest`, route classification, auth posture, approval posture, idempotency posture, targeted local rate-limit posture, and route inventory checks. |
 | Product language | Control Center product-language rules and operator readiness taxonomy distinguish shipped, partial, planned, blocked, skipped, mock-only, status-only, review-only, validation-only, and not-scoped states. |
 | Founder Loop V1 proof lane | `FCC-V1-000` through `FCC-V1-007` are complete for bounded route-surface proof: release surface truth, API perimeter posture, Action decisions, Today-to-Action receipt loop, Chat receipts/handoff, Memory Review decisions, Evidence Timeline productization, and proofed `/actions`, `/chat`, `/memory`, and `/evidence` surfaces. |
 | Action Inbox | Backend-owned approve/edit/reject/defer decision state, idempotency replay/conflict posture, local receipt refs, receipt visibility, and one exact approved `local_task_create` local task lane. |

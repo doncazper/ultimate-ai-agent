@@ -23,8 +23,10 @@ from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
 )
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
+    MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
     MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS,
     ManualMemoryCandidateRequest,
+    MemoryFeedbackRequest,
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import (  # noqa: E402
@@ -347,6 +349,222 @@ def _search_memory(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_memory_impact_graph(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        impact_graph = repo.memory_impact_graph(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-impact-graph",
+                error_ref="FOUNDER_LOOP_MEMORY_IMPACT_GRAPH_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-impact-graph",
+        "impact_graph": impact_graph,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_memory_follow_ups(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        follow_up_queue = repo.memory_follow_up_queue(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-follow-ups",
+                error_ref="FOUNDER_LOOP_MEMORY_FOLLOW_UPS_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-follow-ups",
+        "follow_up_queue": follow_up_queue,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_memory_recall_health(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        recall_health = repo.memory_recall_health_v2(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-recall-health",
+                error_ref="FOUNDER_LOOP_MEMORY_RECALL_HEALTH_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-recall-health",
+        "recall_health": recall_health,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_memory_retrieval_diagnostics(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        diagnostics = repo.memory_retrieval_diagnostics(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-retrieval-diagnostics",
+                error_ref="FOUNDER_LOOP_MEMORY_RETRIEVAL_DIAGNOSTICS_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-retrieval-diagnostics",
+        "retrieval_diagnostics": diagnostics,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_memory_citation_integrity(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        citation_integrity = repo.memory_citation_integrity(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-citation-integrity",
+                error_ref="FOUNDER_LOOP_MEMORY_CITATION_INTEGRITY_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-citation-integrity",
+        "citation_integrity": citation_integrity,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_memory_quality_issues(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        quality_issues = repo.memory_quality_issues(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-quality-issues",
+                error_ref="FOUNDER_LOOP_MEMORY_QUALITY_ISSUES_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-quality-issues",
+        "quality_issues": quality_issues,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_memory_maintenance_runs(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        maintenance_runs = repo.memory_maintenance_runs(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-maintenance-runs",
+                error_ref="FOUNDER_LOOP_MEMORY_MAINTENANCE_RUNS_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-maintenance-runs",
+        "maintenance_runs": maintenance_runs,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_memory_context_manifest(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        context_manifest = repo.memory_context_manifest(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-context-manifest",
+                error_ref="FOUNDER_LOOP_MEMORY_CONTEXT_MANIFEST_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-context-manifest",
+        "context_manifest": context_manifest,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_memory_receipts(args: argparse.Namespace) -> int:
     repo = _repository(args)
     review = repo.memory_review(limit=args.limit)
@@ -358,6 +576,66 @@ def _inspect_memory_receipts(args: argparse.Namespace) -> int:
         "decision_receipts": list(review.get("decision_receipts") or []),
         "decision_receipt_refs": list(review.get("decision_receipt_refs") or []),
         "workbench_health": review.get("workbench_health"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _record_memory_feedback(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        request = MemoryFeedbackRequest(
+            target_ref=args.target_ref,
+            target_kind=args.target_kind,
+            feedback_kind=args.feedback_kind,
+            reviewer_ref=args.reviewer_ref,
+            evidence_refs=args.evidence_ref,
+            reason_refs=args.reason_ref,
+            metadata_refs=args.metadata_ref,
+            blocked_state_refs=(
+                args.blocked_state_ref
+                or list(MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS)
+            ),
+        )
+        receipt = repo.record_memory_feedback(
+            request=request,
+            idempotency_key_ref=args.idempotency_ref,
+        )
+    except (ValidationError, ValueError):
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-feedback",
+                error_ref="FOUNDER_LOOP_MEMORY_FEEDBACK_REF_DENIED",
+                target_ref=args.target_ref,
+                feedback_kind=args.feedback_kind,
+                idempotency_ref=args.idempotency_ref,
+            )
+        )
+        return 1
+    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": "repo-local-command:founder-loop-memory-feedback",
+                "status": "blocked",
+                "error_ref": str(exc) or "FOUNDER_LOOP_MEMORY_FEEDBACK_BLOCKED",
+                "target_ref": args.target_ref,
+                "feedback_kind": args.feedback_kind,
+                "idempotency_ref": args.idempotency_ref,
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
+
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-feedback",
+        "receipt": receipt,
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
@@ -639,12 +917,128 @@ def build_parser() -> argparse.ArgumentParser:
     memory_search_parser.add_argument("--limit", type=int, default=20)
     memory_search_parser.set_defaults(func=_search_memory)
 
+    memory_impact_parser = subparsers.add_parser(
+        "memory-impact-graph",
+        help="Inspect the FCC-MEM-015 Memory Impact Graph read model.",
+    )
+    memory_impact_parser.add_argument("--query-ref", default=None)
+    memory_impact_parser.add_argument("--limit", type=int, default=20)
+    memory_impact_parser.set_defaults(func=_inspect_memory_impact_graph)
+
+    memory_follow_ups_parser = subparsers.add_parser(
+        "memory-follow-ups",
+        help="Inspect proposal-only memory-derived follow-up candidates.",
+    )
+    memory_follow_ups_parser.add_argument("--query-ref", default=None)
+    memory_follow_ups_parser.add_argument("--limit", type=int, default=20)
+    memory_follow_ups_parser.set_defaults(func=_inspect_memory_follow_ups)
+
+    memory_recall_health_parser = subparsers.add_parser(
+        "memory-recall-health",
+        help="Inspect FCC-MEM-015 Recall Health Dashboard V2 metrics.",
+    )
+    memory_recall_health_parser.add_argument("--query-ref", default=None)
+    memory_recall_health_parser.add_argument("--limit", type=int, default=20)
+    memory_recall_health_parser.set_defaults(func=_inspect_memory_recall_health)
+
+    memory_retrieval_diagnostics_parser = subparsers.add_parser(
+        "memory-retrieval-diagnostics",
+        help="Inspect FCC-MEM-016 retrieval diagnostics without context injection.",
+    )
+    memory_retrieval_diagnostics_parser.add_argument("--query-ref", default=None)
+    memory_retrieval_diagnostics_parser.add_argument("--limit", type=int, default=20)
+    memory_retrieval_diagnostics_parser.set_defaults(
+        func=_inspect_memory_retrieval_diagnostics
+    )
+
+    memory_citation_integrity_parser = subparsers.add_parser(
+        "memory-citation-integrity",
+        help="Inspect FCC-MEM-017 context-pack citation integrity.",
+    )
+    memory_citation_integrity_parser.add_argument("--query-ref", default=None)
+    memory_citation_integrity_parser.add_argument("--limit", type=int, default=20)
+    memory_citation_integrity_parser.set_defaults(
+        func=_inspect_memory_citation_integrity
+    )
+
+    memory_quality_issues_parser = subparsers.add_parser(
+        "memory-quality-issues",
+        help="Inspect FCC-MEM-018 feedback-derived memory quality issues.",
+    )
+    memory_quality_issues_parser.add_argument("--query-ref", default=None)
+    memory_quality_issues_parser.add_argument("--limit", type=int, default=20)
+    memory_quality_issues_parser.set_defaults(func=_inspect_memory_quality_issues)
+
+    memory_maintenance_runs_parser = subparsers.add_parser(
+        "memory-maintenance-runs",
+        help="Inspect FCC-MEM-019 proposal-only maintenance scan output.",
+    )
+    memory_maintenance_runs_parser.add_argument("--query-ref", default=None)
+    memory_maintenance_runs_parser.add_argument("--limit", type=int, default=20)
+    memory_maintenance_runs_parser.set_defaults(func=_inspect_memory_maintenance_runs)
+
+    memory_context_manifest_parser = subparsers.add_parser(
+        "memory-context-manifest",
+        help="Inspect FCC-MEM-020 context manifests without hidden injection.",
+    )
+    memory_context_manifest_parser.add_argument("--query-ref", default=None)
+    memory_context_manifest_parser.add_argument("--limit", type=int, default=20)
+    memory_context_manifest_parser.set_defaults(func=_inspect_memory_context_manifest)
+
     memory_receipts_parser = subparsers.add_parser(
         "memory-receipts",
         help="Inspect memory review lifecycle receipt refs and workbench health.",
     )
     memory_receipts_parser.add_argument("--limit", type=int, default=20)
     memory_receipts_parser.set_defaults(func=_inspect_memory_receipts)
+
+    memory_feedback_parser = subparsers.add_parser(
+        "record-memory-feedback",
+        help="Record a memory feedback quality signal receipt without memory writes.",
+    )
+    memory_feedback_parser.add_argument("--target-ref", required=True)
+    memory_feedback_parser.add_argument(
+        "--target-kind",
+        choices=[
+            "memory_candidate",
+            "reviewed_recall",
+            "impact_graph_node",
+            "context_pack_preview",
+            "follow_up_proposal",
+            "today_item",
+            "action_proposal",
+            "evidence_event",
+        ],
+        required=True,
+    )
+    memory_feedback_parser.add_argument(
+        "--feedback-kind",
+        choices=[
+            "useful",
+            "stale",
+            "missing",
+            "wrong",
+            "duplicate",
+            "conflict",
+            "irrelevant",
+            "privacy_concern",
+        ],
+        required=True,
+    )
+    memory_feedback_parser.add_argument("--idempotency-ref", required=True)
+    memory_feedback_parser.add_argument(
+        "--reviewer-ref",
+        default="actor-ref:founder-loop-cli-memory-feedback",
+    )
+    memory_feedback_parser.add_argument("--evidence-ref", action="append", default=[])
+    memory_feedback_parser.add_argument("--reason-ref", action="append", default=[])
+    memory_feedback_parser.add_argument("--metadata-ref", action="append", default=[])
+    memory_feedback_parser.add_argument(
+        "--blocked-state-ref",
+        action="append",
+        default=[],
+    )
+    memory_feedback_parser.set_defaults(func=_record_memory_feedback)
 
     memory_decision_parser = subparsers.add_parser(
         "record-memory-decision",

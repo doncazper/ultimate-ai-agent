@@ -41,7 +41,7 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     assert manifest["operator_readiness_taxonomy_ref"] == (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     )
-    assert manifest["openapi_path_count"] == 143
+    assert manifest["openapi_path_count"] == 152
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {

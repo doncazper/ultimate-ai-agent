@@ -19,6 +19,11 @@ Control Center may render backend-owned inventory/status state, but it must not
 own model truth in React state and must not expose lifecycle, switch, activate,
 download, adapter, or settings mutation authority.
 
+Optional Local Model Stack: Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM.
+Ollama and MLX-LM are included as read-only readiness and inventory evidence
+surfaces only. They represent secondary shell support and future exact-scoped
+local runtime adapters, not implemented runtime execution backends.
+
 ## Implementation Evidence
 
 - Backend route: `GET /control-center/local-models/status`.
@@ -26,6 +31,8 @@ download, adapter, or settings mutation authority.
   `build_control_center_local_models_status` in
   `src/ultimate_ai_agent/core/control_center/operational_status.py`.
 - Inventory source: `src/ultimate_ai_agent/core/local_model_management/inventory.py`.
+- Optional adapter readiness source:
+  `src/ultimate_ai_agent/core/local_model_management/readiness.py::OptionalLocalModelAdapterReadiness`.
 - CLI parity path: `scripts/dev/uaa_local_model.py` for `uaa local-model status`,
   `uaa local-model list`, and `uaa local-model inspect <model-ref>`.
 - Frontend binding: `apps/control-center/src/api/endpoints.ts::controlCenterLocalModelsStatus`,
@@ -41,9 +48,10 @@ download, adapter, or settings mutation authority.
 Current truth: this is a read-only status and proposal-review slice. The
 response includes `proposal_review_only`, backend-owned inventory/gateway
 posture, and `lifecycle_actions` where all lifecycle actions are false.
-Blocked authorities include `model_download`, `model_switch`,
-`provider_model_authority`, runtime adapter execution, model lifecycle
-mutation, and production authority.
+Blocked authorities include `model_download`, `model_pull`, `model_switch`,
+`provider_model_authority`, runtime adapter execution, Ollama runtime calls,
+MLX-LM runtime calls, OpenWebUI handoff authority, Control Center subprocess
+execution, model lifecycle mutation, and production authority.
 
 ## Scope
 
@@ -53,6 +61,11 @@ mutation, and production authority.
   hints, size bucket, runnable status, blocked reason code, memory posture
   bucket, adapter requirement, inventory summary state, and explicit
   unavailable/blocked states.
+- Show Ollama and MLX-LM adapter readiness entries with adapter id, display
+  name, readiness state, manual-verification posture, allowed inspection refs,
+  blocked authority refs, next safe action, safe evidence refs, route/docs refs,
+  and false authority flags for runtime calls, model pulls/downloads, lifecycle
+  actions, Control Center subprocess execution, and provider/model authority.
 - Preserve CLI parity through `uaa local-model status`, `uaa local-model list`,
   and `uaa local-model inspect <model-ref>` as the inspection path.
 - The backend route is read-only, side-effect classified, covered by
@@ -79,7 +92,10 @@ mutation, and production authority.
 - No `llama-server` process control or router-mode wiring.
 - No dry-run switch planner and no executable switch.
 - No model downloads, model movement, search/acquisition, or adapter execution.
-- No MLX, Ollama, or LM Studio runtime adapter start.
+- No model pulls.
+- No MLX-LM, Ollama, or LM Studio runtime adapter start.
+- No Ollama generate/chat calls and no MLX-LM generation/fine-tuning calls.
+- No model calls and no provider/model authority.
 - No model/provider calls, web fetching, browser automation, plugin runtime
   import, connector writes, shell/subprocess execution, remote execution, or
   public distribution authority.

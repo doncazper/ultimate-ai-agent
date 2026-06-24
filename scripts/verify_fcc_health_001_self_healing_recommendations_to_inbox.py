@@ -17,6 +17,7 @@ DOCS_README = ROOT / "docs/README.md"
 DOCS_INDEX = ROOT / "docs/DOCUMENTATION_INDEX.md"
 MATURITY_MANIFEST = ROOT / "docs/control_center/operational_maturity_manifest.json"
 HEALTH_MODULE = ROOT / "src/ultimate_ai_agent/core/control_center/health_recommendations.py"
+ACTION_DECISIONS = ROOT / "src/ultimate_ai_agent/core/control_center/action_decisions.py"
 STORAGE = ROOT / "src/ultimate_ai_agent/core/storage/founder_loop.py"
 API_TYPES = ROOT / "apps/control-center/src/api/types.ts"
 FOCUSED_TEST = ROOT / "tests/test_fcc_health_001_self_healing_recommendations_to_inbox.py"
@@ -89,9 +90,21 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "_UNSAFE_HUMAN_TEXT_PATTERNS",
             "RecommendationCandidate",
             "build_fcc_health_recommendations",
+            "build_verifier_failure_recommendation",
+            "build_route_manifest_mismatch_recommendation",
+            "build_api_contract_mismatch_recommendation",
+            "build_blocked_state_confusion_recommendation",
+            "build_memory_quality_issue_recommendation",
+            "build_release_truth_gap_recommendation",
+            "verifier_failure",
             "documentation_currentness_drift",
+            "route_manifest_mismatch",
+            "api_contract_mismatch",
+            "blocked_state_confusion",
             "source_readiness_gap",
+            "memory_quality_issue",
             "operational_maturity_gap",
+            "release_truth_gap",
             "auto_code_authorized: bool = False",
             "auto_apply_authorized: bool = False",
             "provider_model_call_authorized: bool = False",
@@ -106,6 +119,8 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
         STORAGE: [
             "build_fcc_health_recommendations",
             "_health_recommendation_action_items",
+            "_generated_action_payload_for_item_ref",
+            "_action_decision_receipts_for_item_ref",
             ACTION_KIND,
             "not_required_recommendation_review_only",
             "recommendation_review_only_no_execution_path",
@@ -114,6 +129,11 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "health_recommendation_provider_model_call_authorized",
             "health_recommendation_connector_write_authorized",
             "health_recommendation_production_authority_enabled",
+        ],
+        ACTION_DECISIONS: [
+            "action_id_to_item_ref",
+            "action-item:",
+            "founder-action:",
         ],
         API_TYPES: [
             "health_recommendation_ref",
@@ -130,9 +150,12 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "test_recommendation_candidate_denies_unsafe_human_text",
             "test_recommendation_candidate_bounds_summary_and_evidence_refs",
             "test_health_recommendations_are_safe_ref_review_candidates",
+            "test_health_signal_converters_cover_verifier_route_ui_memory_and_truth",
             "test_health_recommendations_project_into_action_inbox_without_execution",
+            "test_health_recommendation_review_decision_records_receipt_without_execution",
             ACTION_KIND,
             "proposal_only_no_execution_path",
+            "receipt_recorded",
         ],
     }
     for path, fragments in requirements.items():

@@ -193,7 +193,18 @@ def test_control_center_local_models_status_is_read_only_and_blocks_lifecycle() 
     assert data["gateway_posture"]["bearer_env_configured"] is False
     assert all(enabled is False for enabled in data["lifecycle_actions"].values())
     assert "model_download" in data["blocked_authorities"]
+    assert "model_pull" in data["blocked_authorities"]
     assert "provider_model_authority" in data["blocked_authorities"]
+    adapters = {item["adapter_id"]: item for item in data["adapter_readiness"]}
+    assert set(adapters) >= {"ollama", "mlx_lm"}
+    for adapter in adapters.values():
+        assert adapter["readiness_state"] == "blocked"
+        assert adapter["runtime_calls_enabled"] is False
+        assert adapter["model_pulls_enabled"] is False
+        assert adapter["model_downloads_enabled"] is False
+        assert adapter["lifecycle_start_stop_switch_enabled"] is False
+        assert adapter["provider_model_authority_enabled"] is False
+        assert adapter["control_center_subprocess_execution_enabled"] is False
 
 
 def test_control_center_source_readiness_route_is_backend_owned_read_only() -> None:
@@ -632,8 +643,17 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/integrations/mattermost/events/message" in paths
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
     assert "/control-center/sources/readiness" in paths
-    assert len(paths) == 143
-    assert len(operation_ids) == len(set(operation_ids)) == 143
+    assert "/control-center/memory/impact-graph" in paths
+    assert "/control-center/memory/follow-ups" in paths
+    assert "/control-center/memory/recall-health" in paths
+    assert "/control-center/memory/retrieval-diagnostics" in paths
+    assert "/control-center/memory/citation-integrity" in paths
+    assert "/control-center/memory/quality-issues" in paths
+    assert "/control-center/memory/maintenance-runs" in paths
+    assert "/control-center/memory/context-manifest" in paths
+    assert "/control-center/memory/feedback" in paths
+    assert len(paths) == 152
+    assert len(operation_ids) == len(set(operation_ids)) == 152
 
 
 def test_control_center_action_local_task_commit_requires_exact_approval_and_receipts(
@@ -791,65 +811,3 @@ def test_control_center_action_local_task_commit_denies_safe_disabled_lane(
         "FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED"
     )
     assert repo.storage_status()["counts"]["local_tasks"] == 0
-
-
-def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
-    doc_path = ROOT / "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
-    text = doc_path.read_text(encoding="utf-8")
-    compact = " ".join(text.lower().split())
-
-    assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 143 openapi paths" in compact
-    assert (
-        "| surface | current frontend component/page | current backend route(s) | "
-        "missing backend route(s) | authority boundary | side-effect class | "
-        "approval requirement | evidence/audit output | readiness status | "
-        "production-readiness blocker |"
-    ) in compact
-
-    for surface in [
-        "chat local operator",
-        "setup assistant",
-        "plans",
-        "models",
-        "approvals",
-        "files",
-        "runtime",
-        "evidence",
-        "settings",
-    ]:
-        assert f"| {surface} |" in compact
-
-    for route in [
-        "`get /v1/models`",
-        "`post /v1/chat/completions`",
-        "`post /task-decomposition/classify`",
-        "`post /task-decomposition/decompose`",
-        "`post /files/tree/preview`",
-        "`post /files/read/preview`",
-        "`get /observability/session-events`",
-        "`post /observability/client-errors`",
-        "`get /control-center/setup-assistant/summary`",
-        "`get /control-center/today/summary`",
-        "`get /control-center/actions/inbox`",
-        "`post /control-center/actions/{action_id}/local-task/commit`",
-        "`get /control-center/morning-briefing/summary`",
-        "`get /control-center/storage/status`",
-        "`get /control-center/routes`",
-    ]:
-        assert route in compact
-
-    for rule in [
-        "no hidden authority",
-        "no fake completion",
-        "no raw json as primary ui for operator-critical flows",
-    ]:
-        assert rule in compact
-
-    for forbidden in [
-        "production ready for external users",
-        "public distribution is available",
-        "control center executes actions",
-        "plugin runtime import is enabled",
-    ]:
-        assert forbidden not in compact

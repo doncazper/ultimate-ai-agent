@@ -194,6 +194,22 @@ from ultimate_ai_agent.core.memory.l3_index import (
 from ultimate_ai_agent.core.memory.context_packs import (
     build_context_pack_proposal_index,
 )
+from ultimate_ai_agent.core.memory.diagnostics import (
+    MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
+    MEMORY_FEEDBACK_QUALITY_CONTRACT_REF,
+    MEMORY_FEEDBACK_ROUTE_REF,
+    MemoryFeedbackRequest,
+    build_memory_citation_integrity,
+    build_memory_context_manifest,
+    build_memory_feedback_quality_queue,
+    build_memory_maintenance_runs,
+    build_memory_retrieval_diagnostics,
+    known_memory_feedback_target_refs,
+    memory_feedback_payload_fingerprint_ref,
+    memory_feedback_payload_for_fingerprint,
+    memory_feedback_receipt_ref,
+    memory_feedback_ref,
+)
 from ultimate_ai_agent.core.memory.execution_hooks import (
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF,
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION,
@@ -249,6 +265,7 @@ from ultimate_ai_agent.core.memory.workbench import (
     MEMORY_WORKBENCH_CONTRACT_REF,
     MEMORY_WORKBENCH_ROUTE_REF,
     ManualMemoryCandidateRequest,
+    build_memory_impact_graph,
     build_memory_workbench,
     filter_memory_workbench,
     manual_memory_candidate_payload_fingerprint_ref,
@@ -2222,11 +2239,34 @@ def _health_recommendation_action_items(
                     "conversion_option_refs"
                 ],
                 "health_recommendation_blocked_authority_refs": blocked_refs,
+                "health_recommendation_source_signal_refs": recommendation[
+                    "source_signal_refs"
+                ],
+                "health_recommendation_source_surface_refs": recommendation[
+                    "source_surface_refs"
+                ],
+                "health_recommendation_source_route_refs": recommendation[
+                    "source_route_refs"
+                ],
+                "health_recommendation_source_doc_refs": recommendation[
+                    "source_doc_refs"
+                ],
+                "health_recommendation_source_test_refs": recommendation[
+                    "source_test_refs"
+                ],
+                "health_recommendation_source_verifier_refs": recommendation[
+                    "source_verifier_refs"
+                ],
+                "health_recommendation_rollback_or_safe_disable_refs": recommendation[
+                    "rollback_or_safe_disable_refs"
+                ],
                 "health_recommendation_auto_apply_authorized": False,
                 "health_recommendation_auto_code_authorized": False,
                 "health_recommendation_provider_model_call_authorized": False,
                 "health_recommendation_shell_execution_authorized": False,
                 "health_recommendation_connector_write_authorized": False,
+                "health_recommendation_memory_write_authorized": False,
+                "health_recommendation_context_injection_authorized": False,
                 "health_recommendation_action_execution_authorized": False,
                 "health_recommendation_production_authority_enabled": False,
             }
@@ -3952,6 +3992,7 @@ class FounderLoopRepository:
             "memory_manual_candidate_replays": self._count(
                 "memory_manual_candidate_replays"
             ),
+            "memory_feedback_receipts": self._count("memory_feedback_receipts"),
             "memory_context_pack_action_proposals": self._count(
                 "memory_context_pack_action_proposals"
             ),
@@ -6485,7 +6526,12 @@ class FounderLoopRepository:
         )
         actions.extend(source_readiness_actions)
         health_recommendation_actions = _health_recommendation_action_items(
-            build_fcc_health_recommendations(source_readiness=source_readiness)
+            build_fcc_health_recommendations(
+                source_readiness=source_readiness,
+                memory_quality_issue_refs=self._memory_action_inbox_signal_refs(
+                    limit=10
+                ),
+            )
         )
         actions.extend(health_recommendation_actions)
         projected_actions: list[dict[str, Any]] = []
@@ -6505,6 +6551,24 @@ class FounderLoopRepository:
             decision_receipts = self._action_decision_receipts_for_item_ref(
                 str(projected["item_ref"])
             )
+            receipt_refs = list(projected.get("receipt_refs") or [])
+            audit_refs = list(projected.get("audit_refs") or [])
+            for decision_receipt in decision_receipts:
+                receipt_ref = decision_receipt.get("receipt_ref")
+                audit_ref = decision_receipt.get("audit_ref")
+                if isinstance(receipt_ref, str) and receipt_ref:
+                    receipt_refs.append(receipt_ref)
+                if isinstance(audit_ref, str) and audit_ref:
+                    audit_refs.append(audit_ref)
+            if local_task_receipt is not None:
+                receipt_ref = local_task_receipt.get("receipt_ref")
+                audit_ref = local_task_receipt.get("audit_ref")
+                if isinstance(receipt_ref, str) and receipt_ref:
+                    receipt_refs.append(receipt_ref)
+                if isinstance(audit_ref, str) and audit_ref:
+                    audit_refs.append(audit_ref)
+            projected["receipt_refs"] = list(dict.fromkeys(receipt_refs))
+            projected["audit_refs"] = list(dict.fromkeys(audit_refs))
             projected["receipt_visibility"] = _action_receipt_visibility_read_model(
                 action=projected,
                 decision_receipts=decision_receipts,
@@ -8186,8 +8250,92 @@ class FounderLoopRepository:
             (item_ref,),
         )
         if not rows:
-            return None
+            return self._generated_action_payload_for_item_ref(item_ref)
         return _row_to_payload(rows[0])
+
+    def _generated_action_payload_for_item_ref(
+        self,
+        item_ref: str,
+    ) -> dict[str, Any] | None:
+        _validate_safe_ref(item_ref, "item_ref")
+        if not item_ref.startswith("action-item:fcc-health-001:"):
+            return None
+        source_readiness = self.source_readiness()
+        health_actions = _health_recommendation_action_items(
+            build_fcc_health_recommendations(
+                source_readiness=source_readiness,
+                memory_quality_issue_refs=self._memory_action_inbox_signal_refs(
+                    limit=10
+                ),
+            )
+        )
+        return next(
+            (action for action in health_actions if action.get("item_ref") == item_ref),
+            None,
+        )
+
+    def _memory_action_inbox_signal_refs(self, *, limit: int = 10) -> list[str]:
+        """Recursion-safe MEM-018/MEM-019 signal refs for Action Inbox projection."""
+
+        bounded_limit = self._bounded_limit(limit)
+        refs: list[str] = []
+        for item in self.list_memory_review_queue(limit=bounded_limit):
+            memory_ref = str(
+                item.get("business_memory_candidate_ref")
+                or item.get("review_ref")
+                or ""
+            )
+            quality_refs = list(item.get("business_memory_quality_state_refs") or [])
+            stale_state = str(item.get("business_memory_stale_state") or "")
+            duplicate_refs = list(item.get("business_memory_duplicate_of_refs") or [])
+            conflict_refs = list(item.get("business_memory_conflict_with_refs") or [])
+            if (
+                quality_refs
+                or duplicate_refs
+                or conflict_refs
+                or stale_state
+                not in {"", "fresh", "current", "not_stale", "not-stale"}
+            ):
+                refs.append(memory_ref)
+                refs.extend(str(ref) for ref in quality_refs)
+            if stale_state and stale_state not in {
+                "fresh",
+                "current",
+                "not_stale",
+                "not-stale",
+            }:
+                refs.append(_status_ref("memory-maintenance-signal-ref", stale_state))
+            if duplicate_refs:
+                refs.append("memory-maintenance-signal-ref:duplicate-review")
+                refs.extend(str(ref) for ref in duplicate_refs)
+            if conflict_refs:
+                refs.append("memory-maintenance-signal-ref:conflict-review")
+                refs.extend(str(ref) for ref in conflict_refs)
+            if not item.get("evidence_refs"):
+                refs.append("memory-quality-signal-ref:missing-evidence")
+        for receipt in self.list_memory_feedback_receipts(limit=bounded_limit):
+            refs.extend(
+                str(ref)
+                for ref in [
+                    receipt.get("feedback_ref"),
+                    receipt.get("receipt_ref"),
+                    receipt.get("target_ref"),
+                    _status_ref(
+                        "memory-feedback-kind-ref",
+                        str(receipt.get("feedback_kind") or "missing"),
+                    ),
+                ]
+                if ref
+            )
+        if refs:
+            refs.extend(
+                [
+                    "memory-read-model-ref:fcc-mem-018-quality-issues",
+                    "memory-read-model-ref:fcc-mem-019-maintenance-runs",
+                    "memory-proposal-bridge-ref:fcc-mem-021-action-inbox",
+                ]
+            )
+        return _unique_sorted_refs(refs)[:bounded_limit]
 
     def _today_item_payload_for_ref(self, today_item_ref: str) -> dict[str, Any] | None:
         _validate_safe_ref(today_item_ref, "today_item_ref")
@@ -9172,6 +9320,311 @@ class FounderLoopRepository:
             conflict_state=conflict_state,
             limit=limit,
         )
+
+    def memory_impact_graph(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        bounded_limit = self._bounded_limit(limit)
+        workbench = self.memory_workbench(query_ref=query_ref, limit=bounded_limit)
+        return build_memory_impact_graph(
+            workbench=workbench,
+            today_summary=self.today_summary(limit=bounded_limit),
+            actions_inbox=self.actions_inbox(limit=bounded_limit),
+            morning_briefing=self.morning_briefing(limit=bounded_limit),
+            evidence_timeline=self.evidence_timeline(limit=bounded_limit),
+            context_packs=self.memory_context_pack_proposals(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            limit=bounded_limit,
+        )
+
+    def memory_follow_up_queue(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        impact_graph = self.memory_impact_graph(query_ref=query_ref, limit=limit)
+        return dict(impact_graph.get("follow_up_queue") or {})
+
+    def memory_recall_health_v2(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        impact_graph = self.memory_impact_graph(query_ref=query_ref, limit=limit)
+        return dict(impact_graph.get("health_v2") or {})
+
+    def memory_retrieval_diagnostics(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        bounded_limit = self._bounded_limit(limit)
+        workbench = self.memory_workbench(query_ref=query_ref, limit=bounded_limit)
+        impact_graph = self.memory_impact_graph(query_ref=query_ref, limit=bounded_limit)
+        return build_memory_retrieval_diagnostics(
+            workbench=workbench,
+            impact_graph=impact_graph,
+            context_packs=self.memory_context_pack_proposals(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            feedback_receipts=self.list_memory_feedback_receipts(limit=bounded_limit),
+            limit=bounded_limit,
+        )
+
+    def memory_citation_integrity(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        bounded_limit = self._bounded_limit(limit)
+        workbench = self.memory_workbench(query_ref=query_ref, limit=bounded_limit)
+        return build_memory_citation_integrity(
+            context_packs=self.memory_context_pack_proposals(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            workbench=workbench,
+            decision_receipts=self.list_memory_review_decisions(limit=bounded_limit),
+            evidence_timeline=self.evidence_timeline(limit=bounded_limit),
+            limit=bounded_limit,
+        )
+
+    def memory_quality_issues(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        bounded_limit = self._bounded_limit(limit)
+        workbench = self.memory_workbench(query_ref=query_ref, limit=bounded_limit)
+        impact_graph = self.memory_impact_graph(query_ref=query_ref, limit=bounded_limit)
+        return build_memory_feedback_quality_queue(
+            workbench=workbench,
+            impact_graph=impact_graph,
+            feedback_receipts=self.list_memory_feedback_receipts(limit=bounded_limit),
+            limit=bounded_limit,
+        )
+
+    def memory_maintenance_runs(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        bounded_limit = self._bounded_limit(limit)
+        return build_memory_maintenance_runs(
+            quality_queue=self.memory_quality_issues(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            citation_integrity=self.memory_citation_integrity(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            limit=bounded_limit,
+        )
+
+    def memory_context_manifest(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        if query_ref is not None:
+            _validate_safe_ref(query_ref, "query_ref")
+        bounded_limit = self._bounded_limit(limit)
+        quality_queue = self.memory_quality_issues(
+            query_ref=query_ref,
+            limit=bounded_limit,
+        )
+        return build_memory_context_manifest(
+            context_packs=self.memory_context_pack_proposals(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            retrieval_diagnostics=self.memory_retrieval_diagnostics(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            citation_integrity=self.memory_citation_integrity(
+                query_ref=query_ref,
+                limit=bounded_limit,
+            ),
+            quality_queue=quality_queue,
+            limit=bounded_limit,
+        )
+
+    def list_memory_feedback_receipts(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM memory_feedback_receipts
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (self._bounded_limit(limit),),
+        )
+        return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+
+    def record_memory_feedback(
+        self,
+        *,
+        request: MemoryFeedbackRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        target_refs = known_memory_feedback_target_refs(
+            workbench=self.memory_workbench(limit=200),
+            impact_graph=self.memory_impact_graph(limit=200),
+            context_packs=self.memory_context_pack_proposals(limit=200),
+            evidence_timeline=self.evidence_timeline(limit=200),
+        )
+        if request.target_ref not in set(target_refs):
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_FEEDBACK_TARGET_NOT_FOUND")
+        fingerprint_payload = memory_feedback_payload_for_fingerprint(request)
+        payload_fingerprint_ref = memory_feedback_payload_fingerprint_ref(
+            fingerprint_payload
+        )
+        replay = self._memory_feedback_replay(idempotency_key_ref)
+        if replay is not None:
+            if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
+                raise FounderLoopStorageDuplicateError(
+                    "FOUNDER_LOOP_MEMORY_FEEDBACK_IDEMPOTENCY_CONFLICT"
+                )
+            return dict(json.loads(str(replay["receipt_json"])))
+
+        feedback_ref = memory_feedback_ref(idempotency_key_ref)
+        receipt_ref = memory_feedback_receipt_ref(idempotency_key_ref)
+        quality_issue_ref = (
+            "memory-quality-issue:fcc-mem-018:"
+            f"{_short_ref_suffix(request.target_ref)}:"
+            f"{_safe_suffix(request.feedback_kind)}"
+        )
+        receipt = {
+            "schema_version": "fcc_mem_018_memory_feedback_receipt.v1",
+            "contract_ref": MEMORY_FEEDBACK_QUALITY_CONTRACT_REF,
+            "route_ref": MEMORY_FEEDBACK_ROUTE_REF,
+            "feedback_ref": feedback_ref,
+            "receipt_ref": receipt_ref,
+            "quality_issue_ref": quality_issue_ref,
+            "target_ref": request.target_ref,
+            "target_kind": request.target_kind,
+            "feedback_kind": request.feedback_kind,
+            "reviewer_ref": request.reviewer_ref,
+            "evidence_refs": list(request.evidence_refs),
+            "reason_refs": list(request.reason_refs),
+            "metadata_refs": list(request.metadata_refs),
+            "blocked_state_refs": list(MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS),
+            "idempotency_key_ref": idempotency_key_ref,
+            "payload_fingerprint_ref": payload_fingerprint_ref,
+            "status": "feedback_receipt_recorded_quality_issue_signal_only",
+            "quality_issue_created": True,
+            "memory_write_performed": False,
+            "automatic_memory_write_authorized": False,
+            "delete_execution_authorized": False,
+            "context_injection_authorized": False,
+            "action_execution_authorized": False,
+            "production_authority_enabled": False,
+            "replayed": False,
+            "created_at": _utc_iso(),
+        }
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO memory_feedback_receipts (
+                        receipt_ref, feedback_ref, target_ref, feedback_kind,
+                        payload_fingerprint_ref, receipt_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        receipt_ref,
+                        feedback_ref,
+                        request.target_ref,
+                        request.feedback_kind,
+                        payload_fingerprint_ref,
+                        _json_dumps(receipt),
+                        receipt["created_at"],
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO memory_feedback_replays (
+                        key_ref, receipt_ref, feedback_ref,
+                        payload_fingerprint_ref, receipt_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        idempotency_key_ref,
+                        receipt_ref,
+                        feedback_ref,
+                        payload_fingerprint_ref,
+                        _json_dumps(receipt),
+                        receipt["created_at"],
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                replay = self._memory_feedback_replay(idempotency_key_ref)
+                if (
+                    replay is not None
+                    and replay["payload_fingerprint_ref"] == payload_fingerprint_ref
+                ):
+                    return dict(json.loads(str(replay["receipt_json"])))
+                raise FounderLoopStorageDuplicateError(
+                    "FOUNDER_LOOP_MEMORY_FEEDBACK_IDEMPOTENCY_CONFLICT"
+                ) from exc
+        self.append_log(
+            JsonlLogKind.receipt,
+            {
+                "event_ref": receipt_ref,
+                "safe_summary": (
+                    "Memory feedback receipt recorded as a quality signal only; "
+                    "no memory write, delete, context injection, or action execution occurred."
+                ),
+                "evidence_refs": receipt["evidence_refs"] or receipt["reason_refs"],
+            },
+        )
+        return receipt
+
+    def _memory_feedback_replay(
+        self,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any] | None:
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        rows = self._fetch_all(
+            """
+            SELECT payload_fingerprint_ref, receipt_json
+            FROM memory_feedback_replays
+            WHERE key_ref = ?
+            LIMIT 1
+            """,
+            (idempotency_key_ref,),
+        )
+        if not rows:
+            return None
+        return dict(rows[0])
 
     def _record_memory_review_local_approval(
         self,
@@ -10970,6 +11423,23 @@ class FounderLoopRepository:
                     receipt_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS memory_feedback_receipts (
+                    receipt_ref TEXT PRIMARY KEY,
+                    feedback_ref TEXT NOT NULL,
+                    target_ref TEXT NOT NULL,
+                    feedback_kind TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS memory_feedback_replays (
+                    key_ref TEXT PRIMARY KEY,
+                    receipt_ref TEXT NOT NULL,
+                    feedback_ref TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS briefing_items (
                     briefing_ref TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
@@ -11730,6 +12200,8 @@ class FounderLoopRepository:
             "memory_review_decisions",
             "memory_review_queue",
             "memory_manual_candidate_replays",
+            "memory_feedback_receipts",
+            "memory_feedback_replays",
             "memory_context_pack_action_proposals",
             "memory_context_pack_action_replays",
             "idempotency_keys",

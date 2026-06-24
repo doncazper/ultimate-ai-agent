@@ -27,6 +27,7 @@ OPERATIONAL_MATURITY_MANIFEST = (
     ROOT / "docs/control_center/operational_maturity_manifest.json"
 )
 CORE_STATUS = ROOT / "src/ultimate_ai_agent/core/control_center/operational_status.py"
+CORE_READINESS = ROOT / "src/ultimate_ai_agent/core/local_model_management/readiness.py"
 API_APP = ROOT / "src/ultimate_ai_agent/api/app.py"
 API_MANIFEST = ROOT / "src/ultimate_ai_agent/api/manifest.py"
 FRONTEND_ENDPOINTS = ROOT / "apps/control-center/src/api/endpoints.ts"
@@ -36,6 +37,7 @@ FRONTEND_PANEL = ROOT / "apps/control-center/src/components/OperatorFlowPanels.t
 FRONTEND_STATES = ROOT / "apps/control-center/src/components/OperatorSurfaceStates.tsx"
 FRONTEND_TEST = ROOT / "apps/control-center/src/App.test.tsx"
 ROUTE_TEST = ROOT / "tests/test_control_center_api_routes.py"
+SCOPE_TEST = ROOT / "tests/test_uaa_p1_066_local_model_control_center_status.py"
 MANIFEST_TEST = ROOT / "tests/test_api_manifest.py"
 
 SCOPE_REF = "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md"
@@ -112,9 +114,17 @@ def _validate_scope_doc(root: Path, failures: list[str]) -> None:
             "proposal_review_only",
             "lifecycle_actions",
             "all lifecycle actions are false",
+            "Optional Local Model Stack: Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM",
+            "read-only readiness and inventory evidence",
+            "secondary shell support",
+            "future exact-scoped local runtime adapters",
             "model_download",
+            "model_pull",
             "model_switch",
             "provider_model_authority",
+            "no model pulls",
+            "no model calls",
+            "no provider/model authority",
             "No start, stop, activate, switch, unload, or lifecycle controls",
             "No React-owned model truth",
             VERIFIER_REF,
@@ -131,17 +141,29 @@ def _validate_backend_contract(root: Path, failures: list[str]) -> None:
             "LOCAL_MODELS_STATUS_ROUTE_REF",
             ROUTE_REF,
             "ControlCenterLocalModelsStatus",
+            "OptionalLocalModelAdapterReadiness",
+            "build_optional_local_model_adapter_readiness",
             "build_control_center_local_models_status",
             "inspect_local_model_inventory",
             "inspect_local_model_gateway",
             "proposal_review_only: bool = True",
+            "adapter_readiness",
             "download_enabled",
+            "model_pull_enabled",
             "switch_enabled",
             "start_enabled",
             "stop_enabled",
             "runtime_adapter_execution_enabled",
             "provider_model_authority_enabled",
+            "control_center_subprocess_execution_enabled",
             "CONTROL_CENTER_LOCAL_MODELS_LIFECYCLE_DENIED",
+            "CONTROL_CENTER_LOCAL_MODELS_ADAPTER_AUTHORITY_DENIED",
+        ],
+        CORE_READINESS: [
+            "OptionalLocalModelAdapterReadiness",
+            "build_optional_local_model_adapter_readiness",
+            "OPTIONAL_LOCAL_MODEL_ADAPTER_AUTHORITY_DENIED",
+            "OPTIONAL_LOCAL_MODEL_ADAPTER_UNSAFE_PAYLOAD_DENIED",
         ],
         API_APP: [
             '@app.get("/control-center/local-models/status"',
@@ -156,7 +178,14 @@ def _validate_backend_contract(root: Path, failures: list[str]) -> None:
             "test_control_center_local_models_status_is_read_only_and_blocks_lifecycle",
             "all(enabled is False",
             "model_download",
+            "model_pull",
             "provider_model_authority",
+            "adapter_readiness",
+            "runtime_calls_enabled",
+        ],
+        SCOPE_TEST: [
+            "test_optional_local_model_adapter_readiness_rejects_unsafe_payload_text",
+            "test_control_center_local_models_status_rejects_duplicate_adapter_entries",
         ],
         MANIFEST_TEST: [
             'routes_by_path["/control-center/local-models/status"]',
@@ -184,13 +213,17 @@ def _validate_frontend_binding(root: Path, failures: list[str]) -> None:
         FRONTEND_TYPES: [
             "ControlCenterLocalModelsStatus",
             'route_ref: "GET /control-center/local-models/status"',
+            "OptionalLocalModelAdapterReadiness",
+            "adapter_readiness",
             "lifecycle_actions",
             "blocked_authorities",
         ],
         FRONTEND_PANEL: [
             "ModelsOperatorPanel",
             "Backend-owned Local Models status",
+            "Optional local model stack readiness",
             "localModelsStatus.lifecycle_actions",
+            "localModelsStatus.adapter_readiness",
             "provider/model authority stay blocked",
         ],
         FRONTEND_STATES: [
@@ -201,6 +234,9 @@ def _validate_frontend_binding(root: Path, failures: list[str]) -> None:
             "renders Settings and Local Models backend-owned status routes",
             "Backend-owned Local Models status",
             "model_download",
+            "model_pull",
+            "Ollama",
+            "MLX-LM",
             "keeps read endpoints separate from the single preview POST endpoint",
         ],
     }
@@ -272,8 +308,13 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
     required_by_doc = {
         README: [
             "UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support",
+            "Optional Model Shell | Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM",
             ROUTE_REF,
-            "No lifecycle, switching, activation, downloads, runtime adapters, or production-readiness claim",
+            "No lifecycle, switching, activation, downloads",
+            "model pulls",
+            "model calls",
+            "provider/model authority",
+            "production-readiness claim",
         ],
         CURRENT_BOARD: [
             "UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status",
@@ -284,6 +325,7 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
         ],
         FCC_BOARD: [
             "UAA-P1-066 is implemented as a strictly read-only Local Model Manager support lane",
+            "Ollama and MLX-LM",
             ROUTE_REF,
         ],
         ROADMAP: [
@@ -298,6 +340,7 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
         ],
         GAP_MAP: [
             "UAA-P1-066 renders read-only backend-owned inventory/status state",
+            "Ollama and MLX-LM",
             ROUTE_REF,
         ],
         DOCS_README: [
@@ -325,7 +368,30 @@ def validate_uaa_p1_066_local_model_control_center_status(
     _validate_frontend_binding(root, failures)
     _validate_operational_maturity_manifest(root, failures)
     _validate_active_docs(root, failures)
+    _validate_forbidden_runtime_claims(root, failures)
     return failures
+
+
+def _validate_forbidden_runtime_claims(root: Path, failures: list[str]) -> None:
+    forbidden_fragments = [
+        "ollama runtime backend is implemented",
+        "mlx-lm runtime backend is implemented",
+        "ollama model calls are enabled",
+        "mlx-lm model calls are enabled",
+        "ollama pulls are enabled",
+        "mlx-lm downloads are enabled",
+        "ollama generate calls",
+        "ollama chat calls",
+        "mlx_lm.generate calls",
+        "provider/model authority enabled",
+    ]
+    for path in [README, SCOPE_DOC, GAP_MAP, FCC_BOARD, DOCS_README, DOCS_INDEX]:
+        text = _read_text(root, path, failures).lower()
+        for fragment in forbidden_fragments:
+            if fragment in text:
+                failures.append(
+                    f"{_rel(path)} contains forbidden local-model runtime claim: {fragment}"
+                )
 
 
 def main(argv: list[str] | None = None) -> int:
