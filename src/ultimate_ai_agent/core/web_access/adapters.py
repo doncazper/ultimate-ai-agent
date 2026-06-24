@@ -159,7 +159,7 @@ class DisabledProviderShellContract:
             raise ValueError("WEB_PROVIDER_SHELL_LABEL_REQUIRED")
         if not self.supported_request_kinds:
             raise ValueError("WEB_PROVIDER_SHELL_REQUEST_KIND_REQUIRED")
-        if any(kind not in WebAccessRequestKind for kind in self.supported_request_kinds):
+        if any(not isinstance(kind, WebAccessRequestKind) for kind in self.supported_request_kinds):
             raise ValueError("WEB_PROVIDER_SHELL_REQUEST_KIND_INVALID")
         if self.configured:
             raise ValueError("WEB_PROVIDER_SHELL_MUST_NOT_BE_CONFIGURED")
@@ -190,6 +190,10 @@ class DisabledProviderShellContract:
             "provider_label": self.provider_label,
             "adapter_kind": self.adapter_kind.value,
             "request_kind": request.kind.value,
+            "supported_request_kinds": [
+                kind.value for kind in self.supported_request_kinds
+            ],
+            "supported_request_kind_matched": request.kind in self.supported_request_kinds,
             "status": self.status.value,
             "configured": False,
             "credentials_configured": False,
@@ -227,14 +231,17 @@ class DisabledProviderAdapterShell:
         decision: WebAccessPolicyDecision,
     ) -> Mapping[str, Any]:
         payload = dict(self.contract.diagnostic_payload(request))
+        reason_codes = [
+            "WEB_PROVIDER_ADAPTER_SHELL_DISABLED",
+            "WEB_PROVIDER_RUNTIME_AUTHORITY_NOT_GRANTED",
+            "WEB_PROVIDER_DIAGNOSTIC_ONLY",
+        ]
+        if request.kind not in self.contract.supported_request_kinds:
+            reason_codes.append("WEB_PROVIDER_SHELL_REQUEST_KIND_UNSUPPORTED")
         payload.update(
             {
                 "allowed": False,
-                "reason_codes": [
-                    "WEB_PROVIDER_ADAPTER_SHELL_DISABLED",
-                    "WEB_PROVIDER_RUNTIME_AUTHORITY_NOT_GRANTED",
-                    "WEB_PROVIDER_DIAGNOSTIC_ONLY",
-                ],
+                "reason_codes": reason_codes,
                 "summary": "Provider adapter shell is disabled and diagnostic-only.",
             }
         )

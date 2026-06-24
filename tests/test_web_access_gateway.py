@@ -549,6 +549,8 @@ def test_disabled_provider_shell_returns_blocked_diagnostic_payload_with_audit()
     assert payload["allowed"] is False
     assert payload["status"] == "disabled"
     assert payload["provider_ref"] == "web-provider-shell:firecrawl"
+    assert payload["supported_request_kinds"] == ["search", "extract_schema"]
+    assert payload["supported_request_kind_matched"] is True
     assert payload["configured"] is False
     assert payload["credentials_configured"] is False
     assert payload["provider_sdk_imported"] is False
@@ -562,6 +564,34 @@ def test_disabled_provider_shell_returns_blocked_diagnostic_payload_with_audit()
     assert payload["callable_runtime_authority"] is False
     assert payload["content_untrusted"] is True
     assert "WEB_PROVIDER_ADAPTER_SHELL_DISABLED" in payload["reason_codes"]
+
+
+def test_disabled_provider_shell_reports_unsupported_request_kind_without_authority() -> None:
+    contract = next(
+        item
+        for item in disabled_provider_adapter_shell_catalog()
+        if item.provider_ref == "web-provider-shell:search-neutral"
+    )
+    shell = DisabledProviderAdapterShell(contract=contract)
+
+    payload = shell.execute(
+        WebAccessRequest(kind=WebAccessRequestKind.EXTRACT_SCHEMA),
+        WebAccessPolicyDecision(
+            status=WebAccessPolicyStatus.ALLOWED,
+            risk_class=WebAccessRiskClass.MEDIUM,
+            reasons=("test_only_direct_shell_inspection",),
+            allowed_methods=("GET",),
+        ),
+    )
+
+    assert payload["allowed"] is False
+    assert payload["provider_ref"] == "web-provider-shell:search-neutral"
+    assert payload["supported_request_kinds"] == ["search"]
+    assert payload["supported_request_kind_matched"] is False
+    assert "WEB_PROVIDER_SHELL_REQUEST_KIND_UNSUPPORTED" in payload["reason_codes"]
+    assert payload["provider_sdk_call_performed"] is False
+    assert payload["network_call_performed"] is False
+    assert payload["callable_runtime_authority"] is False
 
 
 def test_post_is_denied_before_adapter_call() -> None:
