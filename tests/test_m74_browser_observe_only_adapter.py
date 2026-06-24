@@ -1,13 +1,21 @@
 from typing import Any
+
 import pytest
 
+import ultimate_ai_agent.core.browser as browser_core
 from ultimate_ai_agent.core.browser import (
     BrowserObserveOnlyAdapter,
     BrowserObserveOnlyObservation,
     BrowserObserveOnlyPolicy,
     BrowserObserveOnlyRequest,
     BrowserObserveOnlyStatus,
-    build_browser_observe_only_output,
+    build_browser_observe_only_output_via_web_access_gateway,
+)
+from ultimate_ai_agent.core.web_access import (
+    WebAccessAuthorityMode,
+    WebAccessGateway,
+    WebAccessNetworkLane,
+    WebAccessRequestKind,
 )
 
 
@@ -37,8 +45,8 @@ def _transport(_request: Any, _policy: Any) -> Any:
     return _observation()
 
 
-def test_browser_observe_only_adapter_redacts_preview_and_grants_no_control_authority() -> None:
-    output = build_browser_observe_only_output(
+def test_browser_observe_only_gateway_redacts_preview_and_grants_no_control_authority() -> None:
+    output = build_browser_observe_only_output_via_web_access_gateway(
         request=_request(),
         policy=BrowserObserveOnlyPolicy(),
         observe_transport=_transport,
@@ -69,12 +77,79 @@ def test_browser_observe_only_adapter_redacts_preview_and_grants_no_control_auth
     assert "M75_REMAINS_FUTURE" in output.reason_codes
 
 
+def test_browser_observe_package_exports_gateway_builder_not_direct_bypass() -> None:
+    assert hasattr(browser_core, "build_browser_observe_only_output_via_web_access_gateway")
+    assert not hasattr(browser_core, "build_browser_observe_only_output")
+
+
+def test_browser_observe_only_adapter_routes_through_web_access_gateway(monkeypatch: Any) -> None:
+    calls = []
+    results = []
+    original_execute = WebAccessGateway.execute
+
+    def spy_execute(self: WebAccessGateway, request: Any) -> Any:
+        calls.append((self, request))
+        result = original_execute(self, request)
+        results.append(result)
+        return result
+
+    monkeypatch.setattr(WebAccessGateway, "execute", spy_execute)
+
+    output = BrowserObserveOnlyAdapter().observe(_request(), observe_transport=_transport)
+
+    assert output.status == BrowserObserveOnlyStatus.observation_ready
+    assert calls
+    gateway, web_request = calls[0]
+    assert gateway.policy.allow_browser_observe is True
+    assert web_request.kind == WebAccessRequestKind.BROWSER_OBSERVE
+    assert web_request.authority_mode == WebAccessAuthorityMode.BROWSER_OBSERVE_ONLY
+    assert web_request.network_lane == WebAccessNetworkLane.BROWSER_OBSERVE_ONLY
+    assert web_request.url is None
+    assert web_request.metadata["safe_url_ref"] == "browser-url:docs-example-test/status"
+    assert results[0].evidence_bundle is not None
+    evidence_payload = repr(results[0].evidence_bundle.payload)
+    assert "https://" not in evidence_payload
+    assert "browser-url:docs-example-test/status" in evidence_payload
+
+
 def test_browser_observe_only_adapter_requires_explicit_transport() -> None:
     decision = BrowserObserveOnlyAdapter().observe(_request())
 
     assert decision.status == BrowserObserveOnlyStatus.transport_unavailable
     assert decision.observe_allowed is False
     assert "BROWSER_OBSERVE_TRANSPORT_REQUIRED" in decision.reason_codes
+
+
+def test_browser_observe_only_transport_required_is_gateway_bound(monkeypatch: Any) -> None:
+    calls = []
+    original_execute = WebAccessGateway.execute
+
+    def spy_execute(self: WebAccessGateway, request: Any) -> Any:
+        calls.append(request)
+        return original_execute(self, request)
+
+    monkeypatch.setattr(WebAccessGateway, "execute", spy_execute)
+
+    decision = BrowserObserveOnlyAdapter().observe(_request())
+
+    assert decision.status == BrowserObserveOnlyStatus.transport_unavailable
+    assert "BROWSER_OBSERVE_TRANSPORT_REQUIRED" in decision.reason_codes
+    assert calls
+    assert calls[0].network_lane == WebAccessNetworkLane.BROWSER_OBSERVE_ONLY
+
+
+def test_browser_observe_control_request_is_denied_before_transport() -> None:
+    def forbidden_transport(_request: Any, _policy: Any) -> Any:
+        raise AssertionError("browser observe transport must not run after gateway denial")
+
+    decision = BrowserObserveOnlyAdapter().observe(
+        _request(click_requested=True),
+        observe_transport=forbidden_transport,
+    )
+
+    assert decision.observe_allowed is False
+    assert decision.status == BrowserObserveOnlyStatus.denied
+    assert "BROWSER_CLICK_DENIED" in decision.reason_codes
 
 
 @pytest.mark.parametrize(

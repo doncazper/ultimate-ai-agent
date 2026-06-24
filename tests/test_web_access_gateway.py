@@ -5,6 +5,7 @@ from typing import Any, Mapping
 from ultimate_ai_agent.core.web_access import (
     SourceMetadata,
     WebAccessAdapterKind,
+    WebAccessAuthorityMode,
     WebAccessEvidenceBundle,
     WebAccessGateway,
     WebAccessNetworkLane,
@@ -86,6 +87,29 @@ class InstructionLikePayloadAdapter:
         }
 
 
+class DummyBrowserObserveAdapter:
+    adapter_kind = WebAccessAdapterKind.LOCAL_BROWSER_OBSERVE
+
+    def __init__(self) -> None:
+        self.calls: list[WebAccessRequest] = []
+
+    def execute(
+        self,
+        request: WebAccessRequest,
+        decision: WebAccessPolicyDecision,
+    ) -> Mapping[str, Any]:
+        self.calls.append(request)
+        return {
+            "preview": "bounded redacted accessibility summary",
+            "source_refs": [
+                {
+                    "safe_url_ref": request.metadata.get("safe_url_ref"),
+                    "content_untrusted": True,
+                }
+            ],
+        }
+
+
 def _gateway(adapter: DummyReadOnlyAdapter | None = None) -> WebAccessGateway:
     adapter = adapter or DummyReadOnlyAdapter()
     return WebAccessGateway(
@@ -134,6 +158,107 @@ def test_tool_runtime_read_only_fetch_lane_is_narrowly_allowed() -> None:
     assert adapter.calls
     assert result.audit.network_lane == WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH
     assert not hasattr(WebAccessNetworkLane, "TOOL_RUNTIME_LEGACY")
+
+
+def test_read_only_fetch_cannot_claim_browser_observe_lane() -> None:
+    adapter = DummyReadOnlyAdapter()
+    gateway = _gateway(adapter)
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.READ_ONLY_FETCH,
+            url="https://example.com/page",
+            allowed_domains=("example.com",),
+            network_lane=WebAccessNetworkLane.BROWSER_OBSERVE_ONLY,
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.DENIED
+    assert not adapter.calls
+    assert result.decision.reasons == (
+        "network_lane_not_valid_for_kind:read_only_fetch:browser_observe_only",
+    )
+
+
+def test_browser_observe_is_denied_by_default_before_adapter_call() -> None:
+    adapter = DummyBrowserObserveAdapter()
+    gateway = WebAccessGateway(
+        adapters={WebAccessRequestKind.BROWSER_OBSERVE: adapter},
+    )
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_OBSERVE,
+            authority_mode=WebAccessAuthorityMode.BROWSER_OBSERVE_ONLY,
+            network_lane=WebAccessNetworkLane.BROWSER_OBSERVE_ONLY,
+            metadata={"safe_url_ref": "browser-url:example/page"},
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.DENIED
+    assert not adapter.calls
+    assert result.decision.reasons == ("browser_observe_not_enabled",)
+
+
+def test_browser_observe_only_policy_allows_injected_summary_and_audit() -> None:
+    adapter = DummyBrowserObserveAdapter()
+    gateway = WebAccessGateway(
+        policy=WebAccessPolicy(allow_browser_observe=True),
+        adapters={WebAccessRequestKind.BROWSER_OBSERVE: adapter},
+    )
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_OBSERVE,
+            authority_mode=WebAccessAuthorityMode.BROWSER_OBSERVE_ONLY,
+            network_lane=WebAccessNetworkLane.BROWSER_OBSERVE_ONLY,
+            metadata={"safe_url_ref": "browser-url:example/page"},
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.ALLOWED
+    assert adapter.calls
+    assert result.audit.adapter_kind == WebAccessAdapterKind.LOCAL_BROWSER_OBSERVE
+    assert result.audit.network_lane == WebAccessNetworkLane.BROWSER_OBSERVE_ONLY
+    assert result.audit.url is None
+    assert result.content_untrusted is True
+    assert result.evidence_bundle is not None
+    assert result.evidence_bundle.content_untrusted is True
+
+
+def test_browser_observe_raw_url_or_control_metadata_is_denied_before_adapter() -> None:
+    adapter = DummyBrowserObserveAdapter()
+    gateway = WebAccessGateway(
+        policy=WebAccessPolicy(allow_browser_observe=True),
+        adapters={WebAccessRequestKind.BROWSER_OBSERVE: adapter},
+    )
+
+    raw_url_result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_OBSERVE,
+            url="https://example.com/page",
+            authority_mode=WebAccessAuthorityMode.BROWSER_OBSERVE_ONLY,
+            network_lane=WebAccessNetworkLane.BROWSER_OBSERVE_ONLY,
+            metadata={"safe_url_ref": "browser-url:example/page"},
+        )
+    )
+    assert raw_url_result.status == WebAccessPolicyStatus.DENIED
+    assert "browser_observe_raw_url_denied" in raw_url_result.decision.reasons
+
+    control_result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_OBSERVE,
+            authority_mode=WebAccessAuthorityMode.BROWSER_OBSERVE_ONLY,
+            network_lane=WebAccessNetworkLane.BROWSER_OBSERVE_ONLY,
+            metadata={
+                "safe_url_ref": "browser-url:example/page",
+                "click": True,
+            },
+        )
+    )
+    assert control_result.status == WebAccessPolicyStatus.DENIED
+    assert "browser_observe_click_denied" in control_result.decision.reasons
+    assert not adapter.calls
 
 
 def test_post_is_denied_before_adapter_call() -> None:
