@@ -56,8 +56,8 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Today" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Inbox" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Actions" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Source Inbox" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Action Inbox" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Setup" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Runtime" })).toBeInTheDocument();
     expect(
@@ -105,9 +105,9 @@ describe("Web Control Center shell", () => {
   it("prioritizes the Founder Loop while keeping supporting routes reachable", async () => {
     expect(primaryNavItems.map((item) => item.label)).toEqual([
       "Today",
-      "Inbox",
+      "Source Inbox",
       "Plans",
-      "Actions",
+      "Action Inbox",
       "Memory",
       "Evidence",
       "Settings",
@@ -136,9 +136,9 @@ describe("Web Control Center shell", () => {
       .map((link) => link.getAttribute("aria-label"));
     expect(labels.slice(0, 7)).toEqual([
       "Today",
-      "Inbox",
+      "Source Inbox",
       "Plans",
-      "Actions",
+      "Action Inbox",
       "Memory",
       "Evidence",
       "Settings",
@@ -161,9 +161,9 @@ describe("Web Control Center shell", () => {
     expect(loopLinks[0]).toHaveAttribute("aria-current", "page");
     for (const surface of [
       "Today",
-      "Inbox",
+      "Source Inbox",
       "Plans",
-      "Actions",
+      "Action Inbox",
       "Memory",
       "Evidence",
       "Settings",
@@ -265,9 +265,9 @@ describe("Web Control Center shell", () => {
   it("renders the daily loop spine across primary Founder Loop surfaces", async () => {
     const primarySurfaces = [
       ["/today", "Today"],
-      ["/inbox", "Inbox"],
+      ["/inbox", "Source Inbox"],
       ["/plans", "Plans"],
-      ["/actions", "Actions"],
+      ["/actions", "Action Inbox"],
       ["/memory", "Memory"],
       ["/evidence", "Evidence"],
       ["/settings", "Settings"],
@@ -624,8 +624,8 @@ describe("Web Control Center shell", () => {
     const expectedHeadings = [
       ["/", /Dashboard overview/i],
       ["/today", /^Today$/i],
-      ["/inbox", /^Inbox$/i],
-      ["/actions", /^Actions$/i],
+      ["/inbox", /^Source Inbox$/i],
+      ["/actions", /^Action Inbox$/i],
       ["/briefing", /Morning Briefing/i],
       ["/private-trial", /Private Operator Trial/i],
       ["/setup", /macOS Setup Assistant/i],
@@ -702,7 +702,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Inbox$/i }),
+      await screen.findByRole("heading", { name: /^Source Inbox$/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("blocked/planned").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Route posture/i })).toBeInTheDocument();
@@ -843,7 +843,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Actions$/i }),
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /State posture/i })).toBeInTheDocument();
     expect(screen.getAllByText("/control-center/actions/inbox").length).toBeGreaterThan(0);
@@ -1538,7 +1538,7 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/actions");
     render(<App />);
 
-    await screen.findByRole("heading", { name: /^Actions$/i });
+    await screen.findByRole("heading", { name: /^Action Inbox$/i });
     expect(screen.getByRole("button", { name: /Record approval/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
 
@@ -1705,7 +1705,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Actions$/i }),
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("Backend online")).toBeInTheDocument();
     expect(
@@ -1861,7 +1861,7 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/actions");
     render(<App />);
 
-    await screen.findByRole("heading", { name: /^Actions$/i });
+    await screen.findByRole("heading", { name: /^Action Inbox$/i });
     fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
 
     await screen.findByText(receipt.receipt_ref);
@@ -1986,7 +1986,7 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/actions");
     render(<App />);
 
-    await screen.findByRole("heading", { name: /^Actions$/i });
+    await screen.findByRole("heading", { name: /^Action Inbox$/i });
     fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
 
     expect(
@@ -2047,7 +2047,7 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/actions");
     render(<App />);
 
-    await screen.findByRole("heading", { name: /^Actions$/i });
+    await screen.findByRole("heading", { name: /^Action Inbox$/i });
     fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
 
     expect(
@@ -2989,7 +2989,7 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("136")).toBeInTheDocument();
+    expect(within(routePanel!).getByText("143")).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -3952,33 +3952,40 @@ describe("Web Control Center shell", () => {
       screen.getByText("Memory deletes").nextElementSibling,
     ).toHaveTextContent("disabled");
     expect(
-      screen.getAllByText("Context injection")[0].nextElementSibling,
-    ).toHaveTextContent("disabled");
+      screen.getAllByText("Context injection").some((node) =>
+        node.nextElementSibling?.textContent?.match(/disabled|blocked/i),
+      ),
+    ).toBe(true);
     expect(
       screen.getByText(
         /Review-only memory candidates; recall is not truth/i,
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Memory review can record safe accept, correction, and reject receipts/i),
+      screen.getByText(
+        /Memory review can record safe accept, correction, reject, defer, merge, supersede, and forget-request receipts/i,
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("memory-review:founder-loop-preferences"),
-    ).toBeInTheDocument();
+      screen.getAllByText("memory-review:founder-loop-preferences").length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("preference").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("review_needed").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Memory Workbench V1/i })).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/memory/workbench")).toBeInTheDocument();
     expect(
-      screen.getByText("correction_requires_scoped_memory_write_contract"),
+      screen.getByText("contract-ref:fcc-mem-001-memory-workbench:v1"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Search \/ Filter/i })).toBeInTheDocument();
+    expect(screen.getByText("GET /control-center/memory/search")).toBeInTheDocument();
     expect(
-      screen.getByText("rejection_is_review_state_only_until_capture_contract"),
+      screen.getByRole("heading", { name: /Manual Candidate Intake/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("retention_policy_not_bound")).toBeInTheDocument();
-    expect(screen.getByText("delete_execution_not_scoped")).toBeInTheDocument();
-    expect(screen.getByText("safe_summary_unverified")).toBeInTheDocument();
+    expect(screen.getByText(/Creates review queue state only/i)).toBeInTheDocument();
+    expect(screen.getByText(/high \/ review_needed/i)).toBeInTheDocument();
+    expect(screen.getAllByText("memory_review_queue").length).toBeGreaterThan(0);
     expect(
-      screen.getByText("recheck_source_refs_before_memory_use"),
-    ).toBeInTheDocument();
+      screen.getAllByText("recheck_source_refs_before_memory_use").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText("provenance-ref:manual-note:mock-preferences"),
     ).toBeInTheDocument();
@@ -3995,6 +4002,17 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("contract-ref:context-injection-missing").length,
     ).toBeGreaterThan(0);
+    expect(screen.getAllByText("quality-state:needs-review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("quality-state:stale").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("quality-reason:review-state:review-needed").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("why-shown:loop-relevance:founder-loop").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("blocked-state:manual-memory-intake-no-recall-record"),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("no_memory_write").length).toBeGreaterThan(0);
     expect(screen.getAllByText("no_context_injection").length).toBeGreaterThan(0);
     expect(screen.getAllByText("no_memory_delete").length).toBeGreaterThan(0);
@@ -4009,8 +4027,8 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("no_background_sync").length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/Review provenance and evidence refs/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Review provenance and evidence refs/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Review decisions/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:memory-review-decision:v1").length).toBeGreaterThan(0);
     expect(
@@ -4025,25 +4043,17 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("button", { name: /Record reject receipt/i }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("review_needed_no_decision_captured").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("actor-ref:local-operator-review-required").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("blocked-state:no-memory-write").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/Corrected bounded safe summary/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Corrected safe-summary ref/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Business memory/i })).toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:business-memory-quality-controls:v1").length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText("business-memory-quality:blocked").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("business-memory-quality:low-confidence").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("low_confidence").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("business-memory-candidate:preference:memory-review-founder-loop-preferences").length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText("manual_note").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("untrusted_until_reviewed").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("redacted_summary_only").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("blocked-state:no-external-crm-write").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("blocked-state:no-account-sync").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("blocked-state:no-connector-runtime").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("blocked-state:no-model-provider-authority").length).toBeGreaterThan(0);
     expect(screen.getAllByText("weekly-review-ref:business-memory-carry-forward").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Memory intake/i })).toBeInTheDocument();
     expect(
@@ -4139,6 +4149,7 @@ describe("Web Control Center shell", () => {
       review_ref: "memory-review:founder-loop-preferences",
       decision: "accept",
       corrected_summary_ref: null,
+      corrected_safe_summary: null,
       source_refs: ["source-ref:manual-note:founder-loop-storage"],
       evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
       reviewer_ref: "actor-ref:control-center-memory-review",
@@ -4149,14 +4160,24 @@ describe("Web Control Center shell", () => {
       payload_fingerprint_ref: "payload-fingerprint:memory-review-decision:test",
       evidence_timeline_event_ref:
         "evidence-ref:memory-review:accept:control-center-test",
+      approval_ref: "approval-ref:memory-review:accept:control-center-test",
+      approval_status: "approved",
+      approval_reason_refs: ["approval-reason:approval-validated"],
       reviewed_recall_ref: "reviewed-recall-ref:memory-review:control-center-test",
       reviewed_recall_record_ref: "memory-record-ref:mem_control_center_test",
       correction_ref: null,
       rejection_ref: null,
+      defer_ref: null,
+      merge_ref: null,
+      supersede_ref: null,
+      forget_request_ref: null,
+      merge_refs: [],
+      supersedes_refs: [],
+      suppressed_recall_record_refs: [],
       safe_summary_ref: "safe-summary-ref:memory-review:accept",
       blocked_state_refs: ["blocked-state:no-context-injection"],
       authority_boundary:
-        "Memory Review decisions create backend-owned safe decision receipts only.",
+        "Memory Review decisions create backend-owned safe receipts; accept/correct may create recall-only local records.",
       context_injection_authorized: false,
       connector_write_authorized: false,
       external_crm_sync_authorized: false,
@@ -4248,6 +4269,7 @@ describe("Web Control Center shell", () => {
       review_ref: "memory-review:auth-header-test",
       decision: "accept",
       corrected_summary_ref: null,
+      corrected_safe_summary: null,
       reviewed_recall_record_ref: "memory-record-ref:auth-header-test",
       source_refs: ["source-ref:auth-header-test"],
       evidence_refs: ["evidence-ref:auth-header-test"],
@@ -4258,6 +4280,22 @@ describe("Web Control Center shell", () => {
       idempotency_key_ref: "idempotency-ref:memory-review:auth-header-test",
       payload_fingerprint_ref: "payload-fingerprint:memory-review:auth-header-test",
       evidence_timeline_event_ref: "evidence-timeline-event:memory-review:auth-header-test",
+      approval_ref: "approval-ref:memory-review:auth-header-test",
+      approval_status: "approved",
+      approval_reason_refs: ["approval-reason:approval-validated"],
+      safe_summary_ref: "safe-summary-ref:memory-review:accept",
+      reviewed_recall_ref: "reviewed-recall-ref:memory-review:auth-header-test",
+      correction_ref: null,
+      rejection_ref: null,
+      defer_ref: null,
+      merge_ref: null,
+      supersede_ref: null,
+      forget_request_ref: null,
+      merge_refs: [],
+      supersedes_refs: [],
+      suppressed_recall_record_refs: [],
+      authority_boundary:
+        "Memory Review decisions create backend-owned safe receipts; accept/correct may create recall-only local records.",
       context_injection_authorized: false,
       source_truth_authority: false,
       memory_truth_authority: false,
@@ -4835,6 +4873,10 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
+    [API_ENDPOINTS.founderMemoryReview]:
+      mockControlCenterData.founderMemoryReview,
+    [API_ENDPOINTS.founderMemoryWorkbench]:
+      mockControlCenterData.founderMemoryWorkbench,
     [API_ENDPOINTS.founderMemoryContextPacks]:
       mockControlCenterData.founderMemoryContextPacks,
     [API_ENDPOINTS.founderActionsInbox]: {
@@ -4927,8 +4969,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 136,
-      control_center_route_count: 37,
+      route_count: 143,
+      control_center_route_count: 44,
       operation_ids_unique: true,
       execution_routes_present: false,
     },

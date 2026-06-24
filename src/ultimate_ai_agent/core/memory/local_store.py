@@ -155,6 +155,37 @@ class LocalMemoryStore(MemoryProvider):
         self._save(record)
         return record
 
+    def suppress_record(
+        self,
+        *,
+        memory_id: str,
+        receipt_ref: str,
+        reason: str,
+        status: MemoryStatus = MemoryStatus.revoked,
+        retention_state: MemoryRetentionState = MemoryRetentionState.blocked,
+    ) -> MemoryRecord:
+        record = self.get_record(memory_id)
+        if record is None:
+            raise KeyError(memory_id)
+        record.status = status
+        record.retention_state = retention_state
+        record.conflict_state = MemoryConflictState.superseded
+        record.stale_state = MemoryConflictState.stale
+        record.updated_at = utc_now()
+        if receipt_ref not in record.receipt_refs:
+            record.receipt_refs.append(receipt_ref)
+        record.metadata["suppression_receipt_ref"] = receipt_ref
+        record.metadata["suppression_reason"] = reason
+        record.metadata["recall_projection_suppressed"] = True
+        if record.lifecycle is not None:
+            record.lifecycle.retention_state = retention_state
+            record.lifecycle.conflict_state = MemoryConflictState.superseded
+            record.lifecycle.stale_state = MemoryConflictState.stale
+            record.lifecycle.metadata["suppression_receipt_ref"] = receipt_ref
+            record.lifecycle.metadata["suppression_reason"] = reason
+        self._save(record)
+        return record
+
     def export_records(self, request: MemoryExportRequest) -> Any:
         decision = validate_memory_export_request(request)
         if not decision.allowed:

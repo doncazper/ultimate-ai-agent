@@ -79,13 +79,21 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
+        "/control-center/memory/search",
+        "/control-center/memory/workbench",
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
+        "/control-center/memory/review/{candidate_ref}/defer",
+        "/control-center/memory/review/{candidate_ref}/forget-request",
+        "/control-center/memory/review/{candidate_ref}/merge",
         "/control-center/memory/review/{candidate_ref}/reject",
         "/control-center/memory/review/{candidate_ref}/receipt",
+        "/control-center/memory/review/{candidate_ref}/supersede",
+        "/control-center/memory/review/manual-candidate",
         "/control-center/actions/{action_id}/local-task/commit",
         "/control-center/today/action-envelope",
         "/control-center/morning-briefing/summary",
+        "/control-center/sources/readiness",
         "/control-center/storage/status",
         "/control-center/today/summary",
     }
@@ -105,8 +113,13 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES == {
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
+        "/control-center/memory/review/{candidate_ref}/defer",
+        "/control-center/memory/review/{candidate_ref}/forget-request",
+        "/control-center/memory/review/{candidate_ref}/merge",
         "/control-center/memory/review/{candidate_ref}/reject",
         "/control-center/memory/review/{candidate_ref}/receipt",
+        "/control-center/memory/review/{candidate_ref}/supersede",
+        "/control-center/memory/review/manual-candidate",
     }
     assert FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES == {
         "/control-center/actions/{action_id}/local-task/commit",
@@ -116,6 +129,8 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
+        "/control-center/memory/search",
+        "/control-center/memory/workbench",
     }
     assert FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES == {
         "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",

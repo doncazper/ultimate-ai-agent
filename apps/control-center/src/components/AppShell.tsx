@@ -39,8 +39,10 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
       (item) => item.path === activePath,
     )?.label ?? "Control Center";
   const activeRoute =
-    activePath === "/actions" || activePath === "/inbox"
+    activePath === "/actions"
       ? "Action Inbox"
+      : activePath === "/inbox"
+        ? "Source Inbox"
       : activePath === "/setup"
         ? "Setup Assistant"
         : activePath === "/api-routes"
@@ -202,8 +204,10 @@ function navIconForLabel(label: string): string {
   const icons: Record<string, string> = {
     Today: "sun",
     Inbox: "inbox",
+    "Source Inbox": "inbox",
     Plans: "list",
     Actions: "check-circle",
+    "Action Inbox": "check-circle",
     Memory: "brain",
     Evidence: "file-text",
     Settings: "settings",

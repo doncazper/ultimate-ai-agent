@@ -447,24 +447,13 @@ def _append_behavior_failures(
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
         os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
+            repo = FounderLoopRepository.from_env()
             candidate_ref = _candidate_ref(context, auth_headers)
             accept = _post_decision(context, candidate_ref, "accept", auth_headers)
             correct = _post_decision(context, candidate_ref, "correct", auth_headers)
-            reject = _post_decision(context, candidate_ref, "reject", auth_headers)
             for label, receipt in [("accept", accept), ("correct", correct)]:
                 if not receipt.get("reviewed_recall_record_ref"):
                     failures.append(f"governed memory {label} missing recall record ref")
-            if reject.get("reviewed_recall_record_ref"):
-                failures.append("governed memory reject must not create recall record ref")
-            lookup = context.client.get(
-                f"/control-center/memory/review/{candidate_ref}/receipt",
-                headers=auth_headers,
-            )
-            if lookup.status_code != 200:
-                failures.append("governed memory receipt lookup failed")
-            elif lookup.json().get("data", {}).get("receipt_ref") != reject.get("receipt_ref"):
-                failures.append("governed memory receipt lookup did not return latest receipt")
-            repo = FounderLoopRepository.from_env()
             records = repo.list_memory_review_recall_records()
             if len(records) < 2:
                 failures.append("governed memory accept/correct must create recall records")
@@ -617,6 +606,17 @@ def _append_behavior_failures(
                         CONTEXT_PACK_PROPOSAL_DENIED_FLAGS,
                         "context pack proposal",
                     )
+            reject = _post_decision(context, candidate_ref, "reject", auth_headers)
+            if reject.get("reviewed_recall_record_ref"):
+                failures.append("governed memory reject must not create recall record ref")
+            lookup = context.client.get(
+                f"/control-center/memory/review/{candidate_ref}/receipt",
+                headers=auth_headers,
+            )
+            if lookup.status_code != 200:
+                failures.append("governed memory receipt lookup failed")
+            elif lookup.json().get("data", {}).get("receipt_ref") != reject.get("receipt_ref"):
+                failures.append("governed memory receipt lookup did not return latest receipt")
         finally:
             if old_state_dir is None:
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
@@ -666,15 +666,11 @@ def _post_decision(
     }
     if decision == "correct":
         body["corrected_summary_ref"] = "safe-summary-ref:governed-memory-spine-correction"
+        body["corrected_safe_summary"] = "Corrected bounded safe summary for governed memory spine."
     response = context.client.post(
         f"/control-center/memory/review/{candidate_ref}/{decision}",
         json=body,
-        headers={
-            **auth_headers,
-            "x-uaa-idempotency-key": (
-                f"idempotency-ref:governed-memory-spine:{decision}"
-            )
-        },
+        headers={**auth_headers, "x-uaa-idempotency-key": f"idempotency-ref:governed-memory-spine:{decision}"},
     )
     if response.status_code != 200:
         return {"error_status": response.status_code, "decision": decision}

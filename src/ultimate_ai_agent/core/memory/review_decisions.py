@@ -27,13 +27,29 @@ MEMORY_REVIEW_DECISION_ROUTE_REFS = (
     "POST /control-center/memory/review/{candidate_ref}/accept",
     "POST /control-center/memory/review/{candidate_ref}/correct",
     "POST /control-center/memory/review/{candidate_ref}/reject",
+    "POST /control-center/memory/review/{candidate_ref}/defer",
+    "POST /control-center/memory/review/{candidate_ref}/merge",
+    "POST /control-center/memory/review/{candidate_ref}/supersede",
+    "POST /control-center/memory/review/{candidate_ref}/forget-request",
 )
 
-MemoryReviewDecisionKind = Literal["accept", "correct", "reject"]
+MemoryReviewDecisionKind = Literal[
+    "accept",
+    "correct",
+    "reject",
+    "defer",
+    "merge",
+    "supersede",
+    "forget_request",
+]
 MEMORY_REVIEW_DECISION_KINDS: list[MemoryReviewDecisionKind] = [
     "accept",
     "correct",
     "reject",
+    "defer",
+    "merge",
+    "supersede",
+    "forget_request",
 ]
 
 MemoryReviewDecisionState = Literal[
@@ -158,6 +174,11 @@ def _safe_text(value: str, field_name: str) -> None:
     for fragment in _UNSAFE_TEXT_FRAGMENTS:
         if fragment in lowered:
             raise ValueError(f"{field_name} contains unsafe memory review text")
+
+
+def _safe_optional_text(value: str | None, field_name: str) -> None:
+    if value is not None:
+        _safe_text(value, field_name)
 
 
 def _safe_refs(values: list[str], field_name: str) -> None:
@@ -327,9 +348,17 @@ class MemoryReviewDecisionEnvelope(BaseModel):
 class MemoryReviewDecisionRequest(BaseModel):
     reviewer_ref: str = Field(default="actor-ref:local-operator", min_length=1)
     corrected_summary_ref: str | None = Field(default=None, min_length=1)
+    corrected_safe_summary: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=500,
+    )
     source_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     metadata_refs: list[str] = Field(default_factory=list)
+    merge_refs: list[str] = Field(default_factory=list)
+    supersedes_refs: list[str] = Field(default_factory=list)
+    forget_request_ref: str | None = Field(default=None, min_length=1)
     blocked_state_refs: list[str] = Field(
         default_factory=lambda: list(FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS)
     )
@@ -340,14 +369,18 @@ class MemoryReviewDecisionRequest(BaseModel):
     def validate_request(self) -> "MemoryReviewDecisionRequest":
         _safe_ref(self.reviewer_ref, "reviewer_ref")
         _safe_optional_ref(self.corrected_summary_ref, "corrected_summary_ref")
+        _safe_optional_text(self.corrected_safe_summary, "corrected_safe_summary")
         for field_name in [
             "source_refs",
             "evidence_refs",
             "metadata_refs",
+            "merge_refs",
+            "supersedes_refs",
             "blocked_state_refs",
         ]:
             for value in getattr(self, field_name):
                 _safe_ref(value, field_name)
+        _safe_optional_ref(self.forget_request_ref, "forget_request_ref")
         missing_blocked_refs = [
             ref
             for ref in FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS
@@ -364,6 +397,11 @@ class MemoryReviewDecisionReceipt(BaseModel):
     review_ref: str = Field(..., min_length=1)
     decision: MemoryReviewDecisionKind
     corrected_summary_ref: str | None = Field(default=None, min_length=1)
+    corrected_safe_summary: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=500,
+    )
     source_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     reviewer_ref: str = Field(..., min_length=1)
@@ -373,22 +411,35 @@ class MemoryReviewDecisionReceipt(BaseModel):
     idempotency_key_ref: str = Field(..., min_length=1)
     payload_fingerprint_ref: str = Field(..., min_length=1)
     evidence_timeline_event_ref: str = Field(..., min_length=1)
+    approval_ref: str = Field(..., min_length=1)
+    approval_status: str = Field(default="approved", min_length=1)
+    approval_reason_refs: list[str] = Field(
+        default_factory=lambda: ["approval-reason:local-memory-review-scope-validated"]
+    )
     reviewed_recall_ref: str | None = Field(default=None, min_length=1)
     reviewed_recall_record_ref: str | None = Field(default=None, min_length=1)
     correction_ref: str | None = Field(default=None, min_length=1)
     rejection_ref: str | None = Field(default=None, min_length=1)
+    defer_ref: str | None = Field(default=None, min_length=1)
+    merge_ref: str | None = Field(default=None, min_length=1)
+    supersede_ref: str | None = Field(default=None, min_length=1)
+    forget_request_ref: str | None = Field(default=None, min_length=1)
+    merge_refs: list[str] = Field(default_factory=list)
+    supersedes_refs: list[str] = Field(default_factory=list)
+    suppressed_recall_record_refs: list[str] = Field(default_factory=list)
     safe_summary_ref: str = Field(..., min_length=1)
     blocked_state_refs: list[str] = Field(
         default_factory=lambda: list(FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS)
     )
     authority_boundary: str = Field(
         default=(
-            "Memory Review decisions create backend-owned safe decision receipts only; "
-            "recall is not truth and context injection, connector writes, CRM sync, "
-            "automatic action execution, public beta, and production authority remain blocked."
+            "Memory Review decisions create backend-owned safe receipts; accept/correct "
+            "may create recall-only local records. Recall is not truth and context "
+            "injection, connector writes, CRM sync, automatic action execution, public "
+            "beta, and production authority remain blocked."
         ),
         min_length=1,
-        max_length=300,
+        max_length=360,
     )
     context_injection_authorized: bool = False
     connector_write_authorized: bool = False
@@ -421,7 +472,14 @@ class MemoryReviewDecisionReceipt(BaseModel):
             "safe_summary_ref",
         ]:
             _safe_ref(getattr(self, field_name), field_name)
-        for field_name in ["source_refs", "evidence_refs", "blocked_state_refs"]:
+        _safe_ref(self.approval_ref, "approval_ref")
+        _safe_text(self.approval_status, "approval_status")
+        for field_name in [
+            "source_refs",
+            "evidence_refs",
+            "approval_reason_refs",
+            "blocked_state_refs",
+        ]:
             _safe_refs(getattr(self, field_name), field_name)
         for field_name in [
             "corrected_summary_ref",
@@ -429,8 +487,20 @@ class MemoryReviewDecisionReceipt(BaseModel):
             "reviewed_recall_record_ref",
             "correction_ref",
             "rejection_ref",
+            "defer_ref",
+            "merge_ref",
+            "supersede_ref",
+            "forget_request_ref",
         ]:
             _safe_optional_ref(getattr(self, field_name), field_name)
+        _safe_optional_text(self.corrected_safe_summary, "corrected_safe_summary")
+        for field_name in [
+            "merge_refs",
+            "supersedes_refs",
+            "suppressed_recall_record_refs",
+        ]:
+            for ref in getattr(self, field_name):
+                _safe_ref(ref, field_name)
         _safe_text(self.authority_boundary, "authority_boundary")
         missing_blocked_refs = [
             ref
@@ -441,8 +511,12 @@ class MemoryReviewDecisionReceipt(BaseModel):
             raise ValueError("FCC memory review decision missing blocked states")
         if self.decision == "correct" and self.corrected_summary_ref is None:
             raise ValueError("correct memory review decisions require corrected_summary_ref")
+        if self.decision == "correct" and self.corrected_safe_summary is None:
+            raise ValueError("correct memory review decisions require corrected_safe_summary")
         if self.decision != "correct" and self.corrected_summary_ref is not None:
             raise ValueError("corrected_summary_ref belongs only to correct decisions")
+        if self.decision != "correct" and self.corrected_safe_summary is not None:
+            raise ValueError("corrected_safe_summary belongs only to correct decisions")
         if self.decision in {"accept", "correct"} and self.reviewed_recall_ref is None:
             raise ValueError("accept/correct decisions require reviewed recall ref")
         if self.decision in {"accept", "correct"} and self.reviewed_recall_record_ref is None:
@@ -451,6 +525,22 @@ class MemoryReviewDecisionReceipt(BaseModel):
             raise ValueError("reject decisions must not create reviewed recall records")
         if self.decision == "reject" and self.rejection_ref is None:
             raise ValueError("reject decisions require rejection ref")
+        if self.decision == "defer" and self.defer_ref is None:
+            raise ValueError("defer decisions require defer ref")
+        if self.decision == "merge" and (self.merge_ref is None or not self.merge_refs):
+            raise ValueError("merge decisions require merge refs")
+        if (
+            self.decision == "supersede"
+            and (self.supersede_ref is None or not self.supersedes_refs)
+        ):
+            raise ValueError("supersede decisions require supersede refs")
+        if self.decision == "forget_request" and self.forget_request_ref is None:
+            raise ValueError("forget_request decisions require forget request ref")
+        if self.decision not in {"accept", "correct"} and (
+            self.reviewed_recall_ref is not None
+            or self.reviewed_recall_record_ref is not None
+        ):
+            raise ValueError("non-accept/correct decisions must not create recall records")
         denied_flags = [
             "context_injection_authorized",
             "connector_write_authorized",
@@ -524,9 +614,13 @@ def memory_review_decision_payload_for_fingerprint(
         "decision": decision,
         "reviewer_ref": request.reviewer_ref,
         "corrected_summary_ref": request.corrected_summary_ref,
+        "corrected_safe_summary": request.corrected_safe_summary,
         "source_refs": list(request.source_refs),
         "evidence_refs": list(request.evidence_refs),
         "metadata_refs": list(request.metadata_refs),
+        "merge_refs": list(request.merge_refs),
+        "supersedes_refs": list(request.supersedes_refs),
+        "forget_request_ref": request.forget_request_ref,
         "blocked_state_refs": list(request.blocked_state_refs),
     }
 
@@ -587,6 +681,22 @@ def memory_review_correction_ref(candidate_ref: str) -> str:
 
 def memory_review_rejection_ref(candidate_ref: str) -> str:
     return f"rejected-memory-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
+
+
+def memory_review_defer_ref(candidate_ref: str) -> str:
+    return f"deferred-memory-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
+
+
+def memory_review_merge_ref(candidate_ref: str) -> str:
+    return f"merged-memory-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
+
+
+def memory_review_supersede_ref(candidate_ref: str) -> str:
+    return f"superseded-memory-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
+
+
+def memory_review_forget_request_ref(candidate_ref: str) -> str:
+    return f"forget-request-ref:memory-review:{_short_ref_suffix(candidate_ref)}"
 
 
 def validate_memory_review_decision_envelope(
@@ -654,6 +764,7 @@ __all__ = [
     "MemoryReviewDecisionState",
     "build_memory_review_decision_envelope",
     "memory_review_correction_ref",
+    "memory_review_defer_ref",
     "memory_review_decision_audit_ref",
     "memory_review_decision_authority_posture",
     "memory_review_decision_evidence_ref",
@@ -661,8 +772,11 @@ __all__ = [
     "memory_review_decision_receipt_ref",
     "memory_review_decision_ref",
     "memory_review_decision_state_rows",
+    "memory_review_forget_request_ref",
+    "memory_review_merge_ref",
     "memory_review_payload_fingerprint_ref",
     "memory_review_rejection_ref",
     "memory_review_reviewed_recall_ref",
+    "memory_review_supersede_ref",
     "validate_memory_review_decision_envelope",
 ]

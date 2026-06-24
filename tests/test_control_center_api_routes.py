@@ -632,8 +632,8 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/integrations/mattermost/events/message" in paths
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
     assert "/control-center/sources/readiness" in paths
-    assert len(paths) == 136
-    assert len(operation_ids) == len(set(operation_ids)) == 136
+    assert len(paths) == 143
+    assert len(operation_ids) == len(set(operation_ids)) == 143
 
 
 def test_control_center_action_local_task_commit_requires_exact_approval_and_receipts(
@@ -799,7 +799,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 136 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 143 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "

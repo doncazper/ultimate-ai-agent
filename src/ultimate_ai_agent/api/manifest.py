@@ -55,6 +55,9 @@ CAPABILITIES_DECLARED = [
     "control_center_chat_durable_receipts",
     "control_center_chat_reviewable_handoffs",
     "control_center_memory_review_decision_receipts",
+    "control_center_memory_workbench_read_model",
+    "control_center_memory_search_filters",
+    "control_center_manual_memory_candidate_intake",
     "control_center_memory_l1_hot_local_index",
     "control_center_memory_l2_factual_graph_temporal_index",
     "control_center_memory_l3_identity_session_preference_modeling",
@@ -140,6 +143,13 @@ CAPABILITIES_BLOCKED = [
     "control_center_memory_review_crm_sync",
     "control_center_memory_review_action_execution",
     "control_center_memory_review_truth_authority",
+    "control_center_manual_memory_candidate_as_recall_record",
+    "control_center_manual_memory_candidate_delete_or_export_execution",
+    "control_center_memory_workbench_ui_only_truth",
+    "control_center_memory_search_embeddings",
+    "control_center_memory_search_vector_db",
+    "control_center_memory_search_semantic_search",
+    "control_center_memory_search_context_injection",
     "control_center_memory_l1_index_context_injection",
     "control_center_memory_l1_index_automatic_recall",
     "control_center_memory_l1_index_automatic_writes",
@@ -312,7 +322,15 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}
 CONTROL_CENTER_ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
-CONTROL_CENTER_MEMORY_DECISION_SUFFIXES = ("/accept", "/correct", "/reject")
+CONTROL_CENTER_MEMORY_DECISION_SUFFIXES = (
+    "/accept",
+    "/correct",
+    "/reject",
+    "/defer",
+    "/merge",
+    "/supersede",
+    "/forget-request",
+)
 CONTROL_CENTER_TODAY_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
 }

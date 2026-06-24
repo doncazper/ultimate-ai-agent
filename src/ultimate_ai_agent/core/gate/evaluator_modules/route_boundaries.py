@@ -2220,8 +2220,13 @@ FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES = frozenset(
     {
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
+        "/control-center/memory/review/{candidate_ref}/defer",
+        "/control-center/memory/review/{candidate_ref}/forget-request",
+        "/control-center/memory/review/{candidate_ref}/merge",
         "/control-center/memory/review/{candidate_ref}/reject",
         "/control-center/memory/review/{candidate_ref}/receipt",
+        "/control-center/memory/review/{candidate_ref}/supersede",
+        "/control-center/memory/review/manual-candidate",
     }
 )
 FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES = frozenset(
@@ -2233,6 +2238,8 @@ FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES = frozenset(
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
+        "/control-center/memory/search",
+        "/control-center/memory/workbench",
     }
 )
 FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES = frozenset(
@@ -2249,6 +2256,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
             "/control-center/evidence/timeline",
             "/control-center/memory/review",
             "/control-center/morning-briefing/summary",
+            "/control-center/sources/readiness",
             "/control-center/storage/status",
             "/control-center/today/summary",
         }

@@ -9,22 +9,22 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 136
+EXPECTED_ROUTE_COUNT = 143
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 133,
+    "protected_local_bearer_required": 140,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 111,
-    "required_before_mutation_authority": 25,
+    "not_required_for_route_classification": 113,
+    "required_before_mutation_authority": 30,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 111,
-    "required_before_mutation_authority": 25,
+    "not_required_for_route_classification": 113,
+    "required_before_mutation_authority": 30,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
-    "not_targeted_for_route": 90,
-    "targeted_local_fixed_window": 46,
+    "not_targeted_for_route": 92,
+    "targeted_local_fixed_window": 51,
 }
 EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/approve"),
@@ -37,7 +37,12 @@ EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/memory/context-packs/{context_pack_ref}/action-proposal"),
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"),
     ("POST", "/control-center/memory/review/{candidate_ref}/correct"),
+    ("POST", "/control-center/memory/review/{candidate_ref}/defer"),
+    ("POST", "/control-center/memory/review/{candidate_ref}/forget-request"),
+    ("POST", "/control-center/memory/review/{candidate_ref}/merge"),
     ("POST", "/control-center/memory/review/{candidate_ref}/reject"),
+    ("POST", "/control-center/memory/review/{candidate_ref}/supersede"),
+    ("POST", "/control-center/memory/review/manual-candidate"),
     ("POST", "/control-center/today/action-envelope"),
     ("POST", "/files/review/approvals/capture"),
     ("POST", "/integrations/mattermost/events/message"),

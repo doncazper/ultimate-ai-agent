@@ -3,6 +3,7 @@ import {
   commitLocalTask,
   fetchFounderActionsInbox,
   fetchFounderMemoryContextPacks,
+  recordManualMemoryCandidate,
   recordMemoryContextPackActionProposal,
   recordMemoryReviewDecision,
   submitActionDecision,
@@ -24,7 +25,10 @@ import type {
   FounderLoopMemoryContextPackProposal,
   FounderLoopMemoryContextPackActionProposalReceipt,
   FounderLoopMemoryContextPacks,
+  FounderLoopMemoryReview,
   FounderLoopMemoryReviewItem,
+  FounderLoopMemoryWorkbench,
+  FounderLoopMemoryWorkbenchItem,
   FounderLoopMorningBriefing,
   FounderLoopPlanSummary,
   FounderLoopSourceReadiness,
@@ -34,6 +38,7 @@ import type {
   ControlCenterSettingsStatus,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
+  ManualMemoryCandidateReceipt,
 } from "../api/types";
 
 const evidenceHistoryKeys = [
@@ -120,6 +125,7 @@ type FounderLoopPrimarySurface =
 
 type FounderLoopSpineItem = {
   surface: FounderLoopPrimarySurface;
+  label: string;
   path: string;
   status: string;
   posture: "implemented" | "partial" | "blocked" | "receipt-backed" | "authority-gated";
@@ -172,8 +178,9 @@ export function FounderLoopSpinePanel({
         </span>
       </div>
       <p className="section-copy">
-        Morning Briefing and Today are the local home, then Inbox, Plans,
-        Actions, Memory, Evidence, and Settings stay visible as one loop.
+        Morning Briefing and Today are the local home, then Source Inbox,
+        Plans, Action Inbox, Memory, Evidence, and Settings stay visible as one
+        loop.
         {` ${loopTruthCopy} `}No generic execution is available; the only
         mutating FCC authority shown
         here is the exact local task lane after backend approval.
@@ -187,7 +194,7 @@ export function FounderLoopSpinePanel({
             key={item.surface}
           >
             <span className="loop-spine-card-topline">
-              <strong>{item.surface}</strong>
+              <strong>{item.label}</strong>
               <small>{item.posture}</small>
             </span>
             <span className="loop-spine-status">{item.status}</span>
@@ -252,6 +259,7 @@ function buildFounderLoopSpineItems({
   return [
     {
       surface: "Today",
+      label: "Today",
       path: "/today",
       status: today.daily_loop_summary?.home_surface ?? today.status,
       posture: "partial",
@@ -269,6 +277,7 @@ function buildFounderLoopSpineItems({
     },
     {
       surface: "Inbox",
+      label: "Source Inbox",
       path: "/inbox",
       status: inboxSource?.status ?? "blocked/planned",
       posture: "blocked",
@@ -285,6 +294,7 @@ function buildFounderLoopSpineItems({
     },
     {
       surface: "Plans",
+      label: "Plans",
       path: "/plans",
       status: today.plans_action_envelope_status ?? "partial_backend_not_product_ready",
       posture: "partial",
@@ -299,6 +309,7 @@ function buildFounderLoopSpineItems({
     },
     {
       surface: "Actions",
+      label: "Action Inbox",
       path: "/actions",
       status:
         localTaskReceipts > 0
@@ -324,6 +335,7 @@ function buildFounderLoopSpineItems({
     },
     {
       surface: "Memory",
+      label: "Memory",
       path: "/memory",
       status: today.memory_review_status ?? "review_queue_status_unknown",
       posture: "receipt-backed",
@@ -339,6 +351,7 @@ function buildFounderLoopSpineItems({
     },
     {
       surface: "Evidence",
+      label: "Evidence",
       path: "/evidence",
       status:
         evidence?.status ??
@@ -357,6 +370,7 @@ function buildFounderLoopSpineItems({
     },
     {
       surface: "Settings",
+      label: "Settings",
       path: "/settings",
       status: settingsStatus?.status ?? "read_only_status_unavailable",
       posture: "blocked",
@@ -1410,7 +1424,7 @@ export function InboxSurfacePanel({
       <div className="section-heading">
         <div>
           <p className="eyebrow">Founder Loop</p>
-          <h2 id="inbox-surface-heading">Inbox</h2>
+          <h2 id="inbox-surface-heading">Source Inbox</h2>
         </div>
         <span className="status-pill compact">blocked/planned</span>
       </div>
@@ -1517,7 +1531,7 @@ export function ActionInboxSurfacePanel({
       <div className="section-heading">
         <div>
           <p className="eyebrow">Founder Loop</p>
-          <h2 id="actions-surface-heading">Actions</h2>
+          <h2 id="actions-surface-heading">Action Inbox</h2>
         </div>
         <span className="status-pill compact">{inbox.status}</span>
       </div>
@@ -2153,11 +2167,19 @@ function BriefingSectionCards({
 
 export function MemoryReviewSurfacePanel({
   contextPacks,
+  memoryReview,
   today,
+  workbench,
 }: {
   contextPacks: FounderLoopMemoryContextPacks;
+  memoryReview: FounderLoopMemoryReview;
   today: FounderLoopTodaySummary;
+  workbench: FounderLoopMemoryWorkbench;
 }) {
+  const workbenchItems = workbench.items.length > 0 ? workbench.items : [];
+  const legacyReviewItems =
+    workbenchItems.length === 0 ? today.memory_review_queue : [];
+
   return (
     <section className="page-section" aria-labelledby="memory-review-heading">
       <div className="section-heading">
@@ -2166,8 +2188,23 @@ export function MemoryReviewSurfacePanel({
           <h2 id="memory-review-heading">Memory Review</h2>
         </div>
         <span className="status-pill compact">
-          {today.memory_review_status ?? "storage_backed_review_queue"}
+          {workbench.status ??
+            today.memory_review_status ??
+            "storage_backed_review_queue"}
         </span>
+      </div>
+      <MemoryWorkbenchHealthPanel
+        memoryReview={memoryReview}
+        workbench={workbench}
+      />
+      <div className="panel-grid">
+        <MemoryWorkbenchSearchPanel items={workbenchItems} />
+        <ManualMemoryCandidatePanel />
+      </div>
+      <div className="review-grid">
+        {workbenchItems.map((item) => (
+          <MemoryWorkbenchItemCard item={item} key={item.review_ref} />
+        ))}
       </div>
       <div className="panel-grid">
         <article className="status-card">
@@ -2215,9 +2252,10 @@ export function MemoryReviewSurfacePanel({
             <span>explicit blockers</span>
           </div>
           <p>
-            Memory review can record safe accept, correction, and reject
-            receipts. Retain, delete, write, connector sync, action execution,
-            and context injection remain blocked.
+            Memory review can record safe accept, correction, reject, defer,
+            merge, supersede, and forget-request receipts. Delete/export
+            execution, connector sync, action execution, and context injection
+            remain blocked.
           </p>
           <RefList refs={today.memory_review_missing_contract_refs ?? []} />
         </article>
@@ -2561,12 +2599,356 @@ export function MemoryReviewSurfacePanel({
         ))}
       </div>
       <div className="review-grid">
-        {today.memory_review_queue.map((item) => (
+        {legacyReviewItems.map((item) => (
           <MemoryReviewCard item={item} key={item.review_ref} />
         ))}
       </div>
       <BlockedStateList states={today.memory_review_blocked_states ?? []} />
     </section>
+  );
+}
+
+function MemoryWorkbenchHealthPanel({
+  memoryReview,
+  workbench,
+}: {
+  memoryReview: FounderLoopMemoryReview;
+  workbench: FounderLoopMemoryWorkbench;
+}) {
+  const health = workbench.health;
+  const metrics = [
+    ["Pending review", health.pending_review_count],
+    ["Stale", health.stale_count],
+    ["Conflicts", health.conflict_count],
+    ["Duplicates", health.duplicate_count],
+    ["Missing evidence", health.missing_evidence_count],
+    ["Reviewed recall", health.reviewed_recall_count],
+    ["Rejected", health.rejected_count],
+  ] as const;
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Memory Workbench V1</h3>
+          <p className="muted">
+            Backend-owned review model over candidates, receipts, projections,
+            context-pack proposals, and quality states.
+          </p>
+        </div>
+        <span>{workbench.schema_version}</span>
+      </div>
+      <div className="metric-grid">
+        {metrics.map(([label, value]) => (
+          <div className="metric-card" key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Workbench route" value={workbench.route_ref} />
+        <DetailTerm label="Workbench contract" value={workbench.contract_ref} />
+        <DetailTerm label="Review route" value={memoryReview.route_ref} />
+        <DetailTerm
+          label="Lifecycle routes"
+          value={String(memoryReview.decision_route_refs.length)}
+        />
+        <DetailTerm
+          label="Safe refs only"
+          value={workbench.safe_refs_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Semantic/vector search"
+          value={
+            workbench.semantic_search_enabled ||
+            workbench.vector_db_enabled ||
+            workbench.embedding_search_enabled
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={workbench.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Memory truth authority"
+          value={workbench.memory_truth_authority ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Workbench groups: none"
+        items={workbench.groups.map(
+          (group) => `${group.group_id}: ${group.count}`,
+        )}
+      />
+      <RefListWithFallback
+        emptyLabel="Needs attention refs: none"
+        refs={health.needs_attention_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Workbench blockers: none"
+        refs={workbench.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryWorkbenchSearchPanel({
+  items,
+}: {
+  items: FounderLoopMemoryWorkbenchItem[];
+}) {
+  const [filter, setFilter] = useState("");
+  const normalizedFilter = filter.trim().toLowerCase();
+  const filteredItems = normalizedFilter
+    ? items.filter((item) =>
+        [
+          item.title,
+          item.safe_summary,
+          item.candidate_kind,
+          item.review_state,
+          item.stale_state,
+          item.conflict_state,
+          item.memory_ref,
+          item.review_ref,
+          ...item.source_refs,
+          ...item.related_entity_refs,
+          ...item.quality_state_refs,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedFilter),
+      )
+    : items;
+
+  return (
+    <article className="status-card" aria-label="Memory Workbench read-only filter">
+      <div className="status-card-header">
+        <div>
+          <h3>Search / Filter</h3>
+          <p className="muted">
+            Read-only filter over the loaded backend workbench; semantic search
+            and vector DB remain blocked.
+          </p>
+        </div>
+        <span>{filteredItems.length} shown</span>
+      </div>
+      <label className="field-label">
+        Safe ref or review state
+        <input
+          className="text-input"
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="kind, source ref, quality state, review state..."
+          value={filter}
+        />
+      </label>
+      <dl className="detail-list">
+        <DetailTerm label="Backend route" value="GET /control-center/memory/search" />
+        <DetailTerm label="Total workbench items" value={String(items.length)} />
+        <DetailTerm
+          label="Semantic/vector search"
+          value="blocked"
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Filtered refs: none"
+        refs={filteredItems.slice(0, 8).map((item) => item.review_ref)}
+      />
+    </article>
+  );
+}
+
+function ManualMemoryCandidatePanel() {
+  const [title, setTitle] = useState("Manual memory candidate");
+  const [safeSummary, setSafeSummary] = useState(
+    "Bounded safe summary for operator review only.",
+  );
+  const [candidateKind, setCandidateKind] = useState("preference");
+  const [state, setState] = useState<{
+    status: "idle" | "pending" | "recorded" | "failed";
+    receipt?: ManualMemoryCandidateReceipt;
+    message?: string;
+  }>({ status: "idle" });
+  const pending = state.status === "pending";
+
+  async function submitManualCandidate() {
+    setState({ status: "pending" });
+    try {
+      const safeSuffix = safeRefSuffix(`${candidateKind}:${title}`);
+      const receipt = await recordManualMemoryCandidate({
+        candidate_kind: candidateKind.trim(),
+        title: title.trim(),
+        safe_summary: safeSummary.trim(),
+        priority: "medium",
+        reviewer_ref: "actor-ref:control-center-memory-review",
+        source_refs: [`source-ref:manual-note:${safeSuffix}`],
+        provenance_refs: [`provenance-ref:manual-note:${safeSuffix}`],
+        missing_evidence_refs: [`missing-evidence-ref:manual-note:${safeSuffix}`],
+        tag_refs: ["tag-ref:manual-memory-candidate"],
+        blocked_state_refs: manualMemoryCandidateBlockedRefs,
+      });
+      setState({
+        status: "recorded",
+        receipt,
+        message: `recorded: ${receipt.receipt_ref}`,
+      });
+    } catch (error) {
+      setState({
+        status: "failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Manual Memory candidate was not recorded safely.",
+      });
+    }
+  }
+
+  return (
+    <article className="status-card" aria-label="Manual Memory candidate intake">
+      <div className="status-card-header">
+        <div>
+          <h3>Manual Candidate Intake</h3>
+          <p className="muted">
+            Creates review queue state only; no recall record, delete, export,
+            context injection, or connector write.
+          </p>
+        </div>
+        <span>{state.status}</span>
+      </div>
+      <label className="field-label">
+        Kind
+        <input
+          className="text-input"
+          onChange={(event) => setCandidateKind(event.target.value)}
+          value={candidateKind}
+        />
+      </label>
+      <label className="field-label">
+        Title
+        <input
+          className="text-input"
+          onChange={(event) => setTitle(event.target.value)}
+          value={title}
+        />
+      </label>
+      <label className="field-label">
+        Bounded safe summary
+        <textarea
+          className="text-input"
+          onChange={(event) => setSafeSummary(event.target.value)}
+          rows={3}
+          value={safeSummary}
+        />
+      </label>
+      <button
+        className="secondary-button"
+        disabled={pending}
+        onClick={() => void submitManualCandidate()}
+        type="button"
+      >
+        {pending ? "Recording..." : "Create review candidate"}
+      </button>
+      {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.receipt ? (
+        <dl className="detail-list">
+          <DetailTerm label="Review ref" value={state.receipt.review_ref} />
+          <DetailTerm label="Receipt ref" value={state.receipt.receipt_ref} />
+          <DetailTerm
+            label="Approval ref"
+            value={state.receipt.approval_ref ?? "local review approval recorded"}
+          />
+          <DetailTerm
+            label="Recall record"
+            value={
+              state.receipt.reviewed_recall_record_created
+                ? "created"
+                : "not created"
+            }
+          />
+        </dl>
+      ) : null}
+      <RefListWithFallback
+        emptyLabel="Manual intake blockers: none"
+        refs={manualMemoryCandidateBlockedRefs}
+      />
+    </article>
+  );
+}
+
+function MemoryWorkbenchItemCard({
+  item,
+}: {
+  item: FounderLoopMemoryWorkbenchItem;
+}) {
+  const subject = memoryDecisionSubjectFromWorkbenchItem(item);
+  const reviewLifecycleAvailable = item.source === "memory_review_queue";
+
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>{item.title}</h3>
+        <span>{item.priority} / {item.review_state}</span>
+      </div>
+      <p>{item.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Memory ref" value={item.memory_ref} />
+        <DetailTerm label="Review ref" value={item.review_ref} />
+        <DetailTerm label="Source" value={item.source} />
+        <DetailTerm label="Kind" value={item.candidate_kind} />
+        <DetailTerm label="Quality score" value={String(item.rank_score)} />
+        <DetailTerm label="Stale posture" value={item.stale_state} />
+        <DetailTerm label="Conflict posture" value={item.conflict_state} />
+        <DetailTerm label="Side effect" value={item.side_effect_class} />
+        <DetailTerm label="Boundary" value={item.authority_boundary} />
+        <DetailTerm label="Next safe action" value={item.next_safe_action} />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Workbench groups: none"
+        items={item.group_ids}
+      />
+      <RefListWithFallback
+        emptyLabel="Why shown refs: missing"
+        refs={item.why_shown_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Quality state refs: missing"
+        refs={item.quality_state_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Quality reason refs: missing"
+        refs={item.quality_reason_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Source refs: missing"
+        refs={item.source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Provenance refs: missing"
+        refs={item.provenance_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Related entity refs: none"
+        refs={item.related_entity_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={item.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing evidence or contracts: none"
+        refs={item.missing_contract_refs}
+      />
+      {reviewLifecycleAvailable ? (
+        <MemoryReviewDecisionControls subject={subject} />
+      ) : (
+        <p className="muted">
+          Read-only projection. Lifecycle controls are available only for
+          backend review-queue candidates.
+        </p>
+      )}
+    </article>
   );
 }
 
@@ -4549,7 +4931,21 @@ const memoryDecisionLabels: Record<MemoryReviewDecisionKind, string> = {
   accept: "Record accept receipt",
   correct: "Record correction receipt",
   reject: "Record reject receipt",
+  defer: "Record defer receipt",
+  merge: "Record merge receipt",
+  supersede: "Record supersede receipt",
+  forget_request: "Record forget-request receipt",
 };
+
+const memoryDecisionOrder: MemoryReviewDecisionKind[] = [
+  "accept",
+  "correct",
+  "reject",
+  "defer",
+  "merge",
+  "supersede",
+  "forget_request",
+];
 
 const memoryReviewDecisionBlockedRefs = [
   "blocked-state:no-memory-write",
@@ -4563,12 +4959,84 @@ const memoryReviewDecisionBlockedRefs = [
   "blocked-state:no-public-beta-or-production-authority",
 ];
 
+const manualMemoryCandidateBlockedRefs = [
+  "blocked-state:manual-memory-intake-no-recall-record",
+  "blocked-state:manual-memory-intake-no-context-injection",
+  "blocked-state:manual-memory-intake-no-connector-write",
+  "blocked-state:manual-memory-intake-no-delete-execution",
+  "blocked-state:manual-memory-intake-no-export-execution",
+  "blocked-state:manual-memory-intake-no-production-authority",
+];
+
 type MemoryDecisionControlState = {
   status: "idle" | "pending" | "recorded" | "replayed" | "failed";
   decision?: MemoryReviewDecisionKind;
   receipt?: MemoryReviewDecisionReceipt;
   message?: string;
 };
+
+type MemoryReviewDecisionSubject = {
+  title: string;
+  reviewRef: string;
+  candidateRef: string;
+  sourceRefs: string[];
+  evidenceRefs: string[];
+  duplicateRefs: string[];
+  conflictRefs: string[];
+  availableDecisionStates?: string[];
+};
+
+function memoryDecisionSubjectFromReviewItem(
+  item: FounderLoopMemoryReviewItem,
+): MemoryReviewDecisionSubject {
+  return {
+    title: item.title,
+    reviewRef: item.review_ref,
+    candidateRef: item.business_memory_candidate_ref || item.review_ref,
+    sourceRefs: item.source_refs ?? [],
+    evidenceRefs: item.evidence_refs ?? [],
+    duplicateRefs: item.business_memory_duplicate_of_refs ?? [],
+    conflictRefs: item.business_memory_conflict_with_refs ?? [],
+    availableDecisionStates: item.available_decision_states ?? [],
+  };
+}
+
+function memoryDecisionSubjectFromWorkbenchItem(
+  item: FounderLoopMemoryWorkbenchItem,
+): MemoryReviewDecisionSubject {
+  return {
+    title: item.title,
+    reviewRef: item.review_ref,
+    candidateRef: item.memory_ref || item.review_ref,
+    sourceRefs: item.source_refs ?? [],
+    evidenceRefs: item.evidence_refs ?? [],
+    duplicateRefs: item.duplicate_of_refs ?? [],
+    conflictRefs: item.conflict_with_refs ?? [],
+    availableDecisionStates: memoryDecisionOrder,
+  };
+}
+
+function isMemoryReviewDecisionKind(
+  value: string,
+): value is MemoryReviewDecisionKind {
+  return (memoryDecisionOrder as string[]).includes(value);
+}
+
+function stableMemoryDecisionEvidenceRefs(refs: string[]): string[] {
+  const mutablePrefixes = [
+    "receipt:memory-review:",
+    "evidence-ref:memory-review:accept:",
+    "evidence-ref:memory-review:correct:",
+    "evidence-ref:memory-review:reject:",
+    "evidence-ref:memory-review:defer:",
+    "evidence-ref:memory-review:merge:",
+    "evidence-ref:memory-review:supersede:",
+    "evidence-ref:memory-review:forget-request:",
+  ];
+  return refs.filter(
+    (ref) => !mutablePrefixes.some((prefix) => ref.startsWith(prefix)),
+  );
+}
 
 function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
   const candidateKind = item.candidate_kind ?? "memory_candidate";
@@ -4752,7 +5220,9 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
         emptyLabel="Decision blocked refs: memory mutation remains unscoped"
         refs={item.decision_blocked_state_refs ?? []}
       />
-      <MemoryReviewDecisionControls item={item} />
+      <MemoryReviewDecisionControls
+        subject={memoryDecisionSubjectFromReviewItem(item)}
+      />
       <InlineListWithFallback
         emptyLabel="Decision labels only: accept, correct, reject, defer, merge, supersede, forget request"
         items={item.available_decision_states ?? []}
@@ -4767,31 +5237,70 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
 }
 
 function MemoryReviewDecisionControls({
-  item,
+  subject,
 }: {
-  item: FounderLoopMemoryReviewItem;
+  subject: MemoryReviewDecisionSubject;
 }) {
   const [state, setState] = useState<MemoryDecisionControlState>({
     status: "idle",
   });
+  const [correctedSummaryRef, setCorrectedSummaryRef] = useState(
+    `safe-summary-ref:control-center-memory-correction:${safeRefSuffix(
+      subject.candidateRef,
+    )}`,
+  );
+  const [correctedSafeSummary, setCorrectedSafeSummary] = useState(
+    "Corrected bounded safe summary for review-only recall.",
+  );
   const pending = state.status === "pending";
-  const candidateRef = item.business_memory_candidate_ref || item.review_ref;
+  const availableDecisions =
+    subject.availableDecisionStates
+      ?.filter(isMemoryReviewDecisionKind)
+      .filter((decision, index, decisions) => decisions.indexOf(decision) === index) ??
+    memoryDecisionOrder;
+
+  function blockedReason(decision: MemoryReviewDecisionKind): string | null {
+    if (decision === "merge" && subject.duplicateRefs.length === 0) {
+      return "Requires duplicate refs from the backend workbench.";
+    }
+    if (decision === "supersede" && subject.conflictRefs.length === 0) {
+      return "Requires conflict or supersedable refs from the backend workbench.";
+    }
+    if (decision === "correct" && correctedSummaryRef.trim().length === 0) {
+      return "Requires a corrected safe-summary ref.";
+    }
+    if (decision === "correct" && correctedSafeSummary.trim().length === 0) {
+      return "Requires corrected bounded safe-summary text.";
+    }
+    return null;
+  }
 
   async function recordDecision(decision: MemoryReviewDecisionKind) {
+    const unavailable = blockedReason(decision);
+    if (unavailable) {
+      setState({ status: "failed", decision, message: unavailable });
+      return;
+    }
+
     setState({ status: "pending", decision });
     try {
-      const safeCandidateSuffix = safeRefSuffix(candidateRef);
-      const receipt = await recordMemoryReviewDecision(candidateRef, decision, {
+      const receipt = await recordMemoryReviewDecision(subject.candidateRef, decision, {
         reviewer_ref: "actor-ref:control-center-memory-review",
         corrected_summary_ref:
-          decision === "correct"
-            ? `safe-summary-ref:control-center-memory-correction:${safeCandidateSuffix}`
+          decision === "correct" ? correctedSummaryRef.trim() : undefined,
+        corrected_safe_summary:
+          decision === "correct" ? correctedSafeSummary.trim() : undefined,
+        merge_refs:
+          decision === "merge"
+            ? [subject.candidateRef, ...subject.duplicateRefs]
             : undefined,
-        source_refs: item.source_refs ?? [],
-        evidence_refs: item.evidence_refs ?? [],
+        supersedes_refs:
+          decision === "supersede" ? subject.conflictRefs : undefined,
+        source_refs: subject.sourceRefs,
+        evidence_refs: stableMemoryDecisionEvidenceRefs(subject.evidenceRefs),
         metadata_refs: [
           `metadata-ref:control-center-memory-review:${decision}`,
-          item.review_ref,
+          subject.reviewRef,
         ],
         blocked_state_refs: memoryReviewDecisionBlockedRefs,
       });
@@ -4815,15 +5324,36 @@ function MemoryReviewDecisionControls({
   }
 
   return (
-    <div className="decision-controls" aria-label={`${item.title} memory decisions`}>
+    <div
+      className="decision-controls"
+      aria-label={`${subject.title} memory decisions`}
+    >
+      <label className="field-label">
+        Corrected safe-summary ref
+        <input
+          className="text-input"
+          onChange={(event) => setCorrectedSummaryRef(event.target.value)}
+          value={correctedSummaryRef}
+        />
+      </label>
+      <label className="field-label">
+        Corrected bounded safe summary
+        <textarea
+          className="text-input"
+          onChange={(event) => setCorrectedSafeSummary(event.target.value)}
+          rows={3}
+          value={correctedSafeSummary}
+        />
+      </label>
       <div className="decision-button-row">
-        {(["accept", "correct", "reject"] as MemoryReviewDecisionKind[]).map(
+        {availableDecisions.map(
           (decision) => (
             <button
               className="secondary-button"
-              disabled={pending}
+              disabled={pending || blockedReason(decision) !== null}
               key={decision}
               onClick={() => void recordDecision(decision)}
+              title={blockedReason(decision) ?? undefined}
               type="button"
             >
               {pending && state.decision === decision
@@ -4846,6 +5376,30 @@ function MemoryReviewDecisionControls({
           <DetailTerm
             label="Evidence event"
             value={state.receipt.evidence_timeline_event_ref}
+          />
+          <DetailTerm
+            label="Approval ref"
+            value={state.receipt.approval_ref ?? "local review approval recorded"}
+          />
+          <DetailTerm
+            label="Suppressed recall refs"
+            value={String(state.receipt.suppressed_recall_record_refs?.length ?? 0)}
+          />
+          <DetailTerm
+            label="Defer ref"
+            value={state.receipt.defer_ref ?? "not created"}
+          />
+          <DetailTerm
+            label="Merge ref"
+            value={state.receipt.merge_ref ?? "not created"}
+          />
+          <DetailTerm
+            label="Supersede ref"
+            value={state.receipt.supersede_ref ?? "not created"}
+          />
+          <DetailTerm
+            label="Forget-request ref"
+            value={state.receipt.forget_request_ref ?? "not created"}
           />
           <DetailTerm
             label="Context injection"

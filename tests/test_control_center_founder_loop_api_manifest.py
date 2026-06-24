@@ -57,7 +57,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 136
+    assert manifest.route_count == 143
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",
@@ -68,6 +68,8 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/memory/l3-index",
         "/control-center/memory/context-packs",
         "/control-center/memory/review",
+        "/control-center/memory/workbench",
+        "/control-center/memory/search",
         "/control-center/morning-briefing/summary",
         "/control-center/storage/status",
     ]:
@@ -106,6 +108,11 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
         "/control-center/memory/review/{candidate_ref}/reject",
+        "/control-center/memory/review/{candidate_ref}/defer",
+        "/control-center/memory/review/{candidate_ref}/merge",
+        "/control-center/memory/review/{candidate_ref}/supersede",
+        "/control-center/memory/review/{candidate_ref}/forget-request",
+        "/control-center/memory/review/manual-candidate",
     ]:
         assert path in routes
         assert routes[path].method == "POST"
@@ -137,6 +144,18 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     )
     assert (
         "control_center_memory_context_pack_proposals"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_workbench_read_model"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_search_filters"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_manual_memory_candidate_intake"
         in manifest.capabilities_declared
     )
     assert (

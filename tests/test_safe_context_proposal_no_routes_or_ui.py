@@ -28,7 +28,7 @@ def test_openapi_path_count_remains_at_current_boundary() -> None:
     data = client.get("/openapi.json").json()
 
     assert data["info"]["version"] == __version__
-    assert len(data.get("paths", {})) == 136
+    assert len(data.get("paths", {})) == 143
     assert "/v1/models" in data.get("paths", {})
     assert "/v1/chat/completions" in data.get("paths", {})
     assert "/task-decomposition/run" in data.get("paths", {})

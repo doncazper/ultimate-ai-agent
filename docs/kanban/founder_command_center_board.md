@@ -632,6 +632,13 @@ Milestone order:
   are visible without approval, rollback execution, action execution, context
   injection, connector writes, public beta, or production authority.
 - `FCC-V1-007` Promotion And Proof Lane: implemented for `founder_loop_v1_proofed` route-surface promotion of `/actions`, `/chat`, `/memory`, and `/evidence` only.
+- `FCC-MEM-001` Memory Workbench V1: implemented as a backend-owned Memory
+  Review workbench/search/manual-intake hardening pass with expanded lifecycle
+  receipts, deterministic quality grouping, Control Center workbench cards,
+  CLI parity, and stored execution prompts. Accept/correct remain the only
+  reviewed recall-only record writers; delete/export execution,
+  semantic/vector search, connector writes, context injection, public beta, and
+  production authority remain blocked.
 
 Acceptance criteria: Each milestone's detailed goal, tasks, expected routes,
 model fields, storage behavior, UI result, proof lane, and authority boundary

@@ -48,6 +48,7 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
         "actionLocalTaskCommitEndpoint(actionId)",
         "API_ENDPOINTS.founderTodayActionEnvelope",
         "API_ENDPOINTS.controlCenterChatTurns",
+        "API_ENDPOINTS.founderMemoryManualCandidate",
         "chatTurnHandoffEndpoint(turnRef)",
         "memoryReviewDecisionEndpoint(candidateRef, decision)",
         "memoryContextPackActionProposalEndpoint(contextPackRef)",

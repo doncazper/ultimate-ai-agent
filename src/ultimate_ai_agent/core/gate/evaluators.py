@@ -4273,6 +4273,7 @@ class FoundationGateEvaluator:
             "API_ENDPOINTS.founderTodayActionEnvelope",
             "API_ENDPOINTS.controlCenterChatTurns",
             "chatTurnHandoffEndpoint(turnRef)",
+            "API_ENDPOINTS.founderMemoryManualCandidate",
             "memoryReviewDecisionEndpoint(candidateRef, decision)",
             "memoryContextPackActionProposalEndpoint(contextPackRef)",
             "API_ENDPOINTS.localChatCompletions",
@@ -4359,7 +4360,7 @@ class FoundationGateEvaluator:
                 f"boundary: expected {EXPECTED_M36_OPENAPI_PATH_COUNT}, found {len(historical_paths)}"
             )
         control_center_routes = [path for path in paths if path.startswith("/control-center")]
-        if len(control_center_routes) != 36:
+        if len(control_center_routes) != 44:
             failures.append(f"unexpected Control Center route count: {len(control_center_routes)}")
         forbidden = [
             "/control-center/actions/execute",

@@ -277,7 +277,7 @@ export interface FounderLoopActionDecisionReceipt {
   audit_ref: string;
   idempotency_key_ref: string;
   payload_fingerprint_ref: string;
-  approval_ref?: string | null;
+  approval_ref: string;
   approval_status: string;
   approval_reason_refs: string[];
   action_executed: boolean;
@@ -444,14 +444,25 @@ export interface ChatHandoffReceipt {
   created_at: string;
 }
 
-export type MemoryReviewDecisionKind = "accept" | "correct" | "reject";
+export type MemoryReviewDecisionKind =
+  | "accept"
+  | "correct"
+  | "reject"
+  | "defer"
+  | "merge"
+  | "supersede"
+  | "forget_request";
 
 export interface MemoryReviewDecisionRequest {
   reviewer_ref: string;
   corrected_summary_ref?: string | null;
+  corrected_safe_summary?: string | null;
   source_refs?: string[];
   evidence_refs?: string[];
   metadata_refs?: string[];
+  merge_refs?: string[];
+  supersedes_refs?: string[];
+  forget_request_ref?: string | null;
   blocked_state_refs?: string[];
 }
 
@@ -461,6 +472,7 @@ export interface MemoryReviewDecisionReceipt {
   review_ref: string;
   decision: MemoryReviewDecisionKind;
   corrected_summary_ref?: string | null;
+  corrected_safe_summary?: string | null;
   source_refs: string[];
   evidence_refs: string[];
   reviewer_ref: string;
@@ -470,10 +482,20 @@ export interface MemoryReviewDecisionReceipt {
   idempotency_key_ref: string;
   payload_fingerprint_ref: string;
   evidence_timeline_event_ref: string;
+  approval_ref: string;
+  approval_status: string;
+  approval_reason_refs: string[];
   reviewed_recall_ref?: string | null;
   reviewed_recall_record_ref?: string | null;
   correction_ref?: string | null;
   rejection_ref?: string | null;
+  defer_ref?: string | null;
+  merge_ref?: string | null;
+  supersede_ref?: string | null;
+  forget_request_ref?: string | null;
+  merge_refs?: string[];
+  supersedes_refs?: string[];
+  suppressed_recall_record_refs?: string[];
   safe_summary_ref: string;
   blocked_state_refs: string[];
   authority_boundary: string;
@@ -490,11 +512,148 @@ export interface MemoryReviewDecisionReceipt {
   created_at: string;
 }
 
+export interface ManualMemoryCandidateRequest {
+  candidate_kind: string;
+  title: string;
+  safe_summary: string;
+  priority?: string;
+  reviewer_ref?: string;
+  source_refs?: string[];
+  provenance_refs?: string[];
+  evidence_refs?: string[];
+  missing_evidence_refs?: string[];
+  related_entity_refs?: string[];
+  tag_refs?: string[];
+  metadata_refs?: string[];
+  blocked_state_refs?: string[];
+}
+
+export interface ManualMemoryCandidateReceipt {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  review_ref: string;
+  candidate_ref: string;
+  candidate_kind: string;
+  status: string;
+  receipt_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  source_refs: string[];
+  provenance_refs: string[];
+  evidence_refs: string[];
+  missing_evidence_refs: string[];
+  related_entity_refs: string[];
+  tag_refs: string[];
+  metadata_refs: string[];
+  safe_summary_ref: string;
+  approval_ref?: string | null;
+  approval_status?: string;
+  approval_reason_refs?: string[];
+  blocked_state_refs: string[];
+  review_candidate_created: boolean;
+  reviewed_recall_record_created: boolean;
+  memory_write_performed: boolean;
+  memory_delete_performed: boolean;
+  memory_export_performed: boolean;
+  context_injection_authorized: boolean;
+  connector_write_authorized: boolean;
+  production_authority_enabled: boolean;
+  replayed: boolean;
+  created_at: string;
+}
+
+export interface FounderLoopMemoryWorkbenchGroup {
+  group_id:
+    | "needs_review"
+    | "conflict"
+    | "duplicate"
+    | "stale"
+    | "missing_evidence"
+    | "reviewed"
+    | "rejected";
+  count: number;
+}
+
+export interface FounderLoopMemoryWorkbenchItem {
+  memory_ref: string;
+  review_ref: string;
+  source: string;
+  title: string;
+  safe_summary: string;
+  candidate_kind: string;
+  priority: string;
+  status: string;
+  review_state: string;
+  stale_state: string;
+  conflict_state: string;
+  side_effect_class: string;
+  authority_boundary: string;
+  source_refs: string[];
+  provenance_refs: string[];
+  evidence_refs: string[];
+  missing_contract_refs: string[];
+  related_entity_refs: string[];
+  tag_refs: string[];
+  blocked_state_refs: string[];
+  receipt_refs: string[];
+  quality_state_refs: string[];
+  quality_reason_refs: string[];
+  why_shown_refs: string[];
+  duplicate_key_ref: string;
+  conflict_key_ref: string;
+  duplicate_of_refs?: string[];
+  conflict_with_refs?: string[];
+  group_ids: FounderLoopMemoryWorkbenchGroup["group_id"][];
+  rank_score: number;
+  next_safe_action: string;
+  created_at?: string;
+}
+
+export interface FounderLoopMemoryWorkbenchHealth {
+  schema_version: string;
+  pending_review_count: number;
+  stale_count: number;
+  conflict_count: number;
+  duplicate_count: number;
+  missing_evidence_count: number;
+  reviewed_recall_count: number;
+  rejected_count: number;
+  needs_attention_refs: string[];
+}
+
+export interface FounderLoopMemoryWorkbench {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  groups: FounderLoopMemoryWorkbenchGroup[];
+  items: FounderLoopMemoryWorkbenchItem[];
+  health: FounderLoopMemoryWorkbenchHealth;
+  decision_receipts: MemoryReviewDecisionReceipt[];
+  l1_preview_refs: string[];
+  l2_projection_refs: string[];
+  l3_projection_refs: string[];
+  context_pack_refs: string[];
+  blocked_state_refs: string[];
+  safe_refs_only: boolean;
+  semantic_search_enabled: boolean;
+  vector_db_enabled: boolean;
+  embedding_search_enabled: boolean;
+  context_injection_authorized: boolean;
+  memory_truth_authority: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopMemoryReview {
   route_ref: string;
   surface_ref: string;
   contract_ref: string;
   legacy_decision_contract_ref: string;
+  workbench_route_ref?: string;
+  workbench_contract_ref?: string;
+  workbench_health?: FounderLoopMemoryWorkbenchHealth;
+  workbench_groups?: FounderLoopMemoryWorkbenchGroup[];
   decision_route_refs: string[];
   decision_kinds: MemoryReviewDecisionKind[];
   items: FounderLoopMemoryReviewItem[];
@@ -3077,6 +3236,8 @@ export interface ControlCenterData {
   localModelsStatus: ControlCenterLocalModelsStatus;
   founderToday: FounderLoopTodaySummary;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
+  founderMemoryReview: FounderLoopMemoryReview;
+  founderMemoryWorkbench: FounderLoopMemoryWorkbench;
   founderMemoryContextPacks: FounderLoopMemoryContextPacks;
   founderActionsInbox: FounderLoopActionsInbox;
   founderMorningBriefing: FounderLoopMorningBriefing;

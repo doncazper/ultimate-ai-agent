@@ -71,7 +71,7 @@
     },
     {
       "path": "/inbox",
-      "label": "Inbox",
+      "label": "Source Inbox",
       "group": "Founder Loop",
       "ui_status": "blocked/planned",
       "status": "partial",
@@ -152,7 +152,7 @@
     },
     {
       "path": "/actions",
-      "label": "Actions",
+      "label": "Action Inbox",
       "group": "Founder Loop",
       "ui_status": "storage-backed",
       "status": "ship",
@@ -318,6 +318,55 @@
           "operation_id": "post_control_center_memory_review_candidate_ref_reject",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/defer",
+          "operation_id": "post_control_center_memory_review_candidate_ref_defer",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/merge",
+          "operation_id": "post_control_center_memory_review_candidate_ref_merge",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/supersede",
+          "operation_id": "post_control_center_memory_review_candidate_ref_supersede",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/forget-request",
+          "operation_id": "post_control_center_memory_review_candidate_ref_forget_request",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/manual-candidate",
+          "operation_id": "post_control_center_memory_review_manual_candidate",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/workbench",
+          "operation_id": "get_control_center_memory_workbench",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/search",
+          "operation_id": "get_control_center_memory_search",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "side_effect_class": "local_dev_workspace_only",

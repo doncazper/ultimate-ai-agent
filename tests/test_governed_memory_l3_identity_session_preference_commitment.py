@@ -47,7 +47,10 @@ def _record_decision(
     request = _decision_request(
         metadata_refs=[metadata_ref],
         **(
-            {"corrected_summary_ref": "safe-summary-ref:l3-index-correction"}
+            {
+                "corrected_summary_ref": "safe-summary-ref:l3-index-correction",
+                "corrected_safe_summary": "Corrected safe summary for L3 index.",
+            }
             if decision == "correct"
             else {}
         ),

@@ -970,6 +970,24 @@ main {
   margin: 1rem 0;
 }
 
+.field-label {
+  display: grid;
+  gap: 6px;
+  color: #334e68;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.text-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #bcccdc;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #1f2933;
+  background: #ffffff;
+}
+
 .decision-button-row {
   display: flex;
   flex-wrap: wrap;

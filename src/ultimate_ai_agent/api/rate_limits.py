@@ -68,7 +68,18 @@ ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
 ACTION_LOCAL_TASK_COMMIT_PATHS = {
     "/control-center/actions/{action_id}/local-task/commit",
 }
-MEMORY_REVIEW_DECISION_SUFFIXES = ("/accept", "/correct", "/reject")
+MEMORY_REVIEW_DECISION_SUFFIXES = (
+    "/accept",
+    "/correct",
+    "/reject",
+    "/defer",
+    "/merge",
+    "/supersede",
+    "/forget-request",
+)
+MEMORY_MANUAL_CANDIDATE_PATHS = {
+    "/control-center/memory/review/manual-candidate",
+}
 TODAY_TO_ACTION_ENVELOPE_PATHS = {
     "/control-center/today/action-envelope",
 }
@@ -155,8 +166,13 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "action_decision"
     if (
         normalized_method == "POST"
-        and path.startswith("/control-center/memory/review/")
-        and path.endswith(MEMORY_REVIEW_DECISION_SUFFIXES)
+        and (
+            path in MEMORY_MANUAL_CANDIDATE_PATHS
+            or (
+                path.startswith("/control-center/memory/review/")
+                and path.endswith(MEMORY_REVIEW_DECISION_SUFFIXES)
+            )
+        )
     ):
         return "memory_review_decision"
     if (

@@ -76,6 +76,12 @@ The completed bounded Founder Loop V1 productization conveyor is tracked in
 decisions, Today-to-Action vertical loop, Chat durable receipts and handoff,
 Memory Review accept/correct/reject decisions, Evidence Timeline
 productization, and proofed route-surface promotion.
+FCC-MEM-001 Memory Workbench V1 is the current active memory hardening layer:
+it adds the backend-owned memory workbench/search/manual-intake routes,
+expanded lifecycle receipts, quality grouping, `/memory` workbench UI, and CLI
+parity without memory truth authority, delete/export execution, semantic/vector
+search, connector writes, context injection, public beta, or production
+authority.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -97,6 +103,7 @@ product-truth ledgers.
 | Product story and current repository truth | `README.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
+| Memory Workbench V1 | `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md` |
 | Operational maturity and authority ramp | `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Version and checkpoint currentness | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and future tag convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |

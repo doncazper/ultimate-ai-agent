@@ -19,6 +19,28 @@ evidence-visible.
 | Phase 5 | Context-pack proposals | Implemented read-only proposal envelopes | Proposal-only envelopes; exact user review required before any future use |
 | Phase 6 | Narrow low-risk execution hooks | Future blocked; contract/proof lane only | Requires separate accepted milestone, exact approval, receipt, rollback, and Evidence Timeline proof |
 | Phase 6.1 | Context-pack to internal Action proposal hook | Implemented internal proposal only | Internal Action proposal creation only; no action execution or external side effects |
+| FCC-MEM-001 | Memory Workbench V1 over Phases 1-6.1 | Implemented local functional workbench/read-model hardening | Safe-ref review workbench, lifecycle receipts, quality grouping, search filters, manual intake, Control Center workbench cards, and CLI parity; corrected text storage and explicit merge/supersede multi-select UX remain partial/planned; no delete/export execution, semantic/vector search, context injection, connector writes, or production authority |
+
+## FCC-MEM-001 Workbench Layer
+
+`docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md` records the current
+Memory Workbench V1 slice. It does not replace the phase model; it makes the
+implemented Phase 1-6.1 behavior easier to inspect and operate through a
+backend-owned read model, Control Center cards, and CLI commands.
+
+FCC-MEM-001 adds:
+
+- `GET /control-center/memory/workbench`
+- `GET /control-center/memory/search`
+- `POST /control-center/memory/review/manual-candidate`
+- expanded lifecycle receipts for defer, merge, supersede, and forget-request
+- deterministic duplicate/conflict/stale/missing-evidence grouping
+- explainable `quality_reason_refs` and `why_shown_refs`
+
+FCC-MEM-001 does not add memory delete/export execution, semantic search,
+vector DBs, embeddings, model/provider extraction, connector writes, CRM/account
+sync, action execution, hidden context injection, public beta, public
+distribution, production readiness, or production authority.
 
 ## Phase 1 Done Criteria
 

@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
 )
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.memory import (
+    ManualMemoryCandidateRequest,
     MemoryContextPackActionProposalRequest,
     MemoryReviewDecisionKind,
     MemoryReviewDecisionRequest,
@@ -39,6 +40,45 @@ class FounderLoopControlCenterService:
 
     def memory_review(self) -> dict:
         return self.repository.memory_review()
+
+    def memory_workbench(
+        self,
+        *,
+        query_ref: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_workbench(query_ref=query_ref, limit=limit)
+
+    def memory_search(
+        self,
+        *,
+        query_ref: str | None = None,
+        kind: str | None = None,
+        source_ref: str | None = None,
+        project_ref: str | None = None,
+        person_ref: str | None = None,
+        org_ref: str | None = None,
+        deal_ref: str | None = None,
+        review_state: str | None = None,
+        quality_state: str | None = None,
+        stale_state: str | None = None,
+        conflict_state: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_search(
+            query_ref=query_ref,
+            kind=kind,
+            source_ref=source_ref,
+            project_ref=project_ref,
+            person_ref=person_ref,
+            org_ref=org_ref,
+            deal_ref=deal_ref,
+            review_state=review_state,
+            quality_state=quality_state,
+            stale_state=stale_state,
+            conflict_state=conflict_state,
+            limit=limit,
+        )
 
     def memory_l1_hot_index(
         self,
@@ -174,6 +214,17 @@ class FounderLoopControlCenterService:
         return self.repository.record_memory_review_decision(
             candidate_ref=candidate_ref,
             decision=decision,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
+    def record_manual_memory_candidate(
+        self,
+        *,
+        request: ManualMemoryCandidateRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_manual_memory_candidate(
             request=request,
             idempotency_key_ref=idempotency_key_ref,
         )

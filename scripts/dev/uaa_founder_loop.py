@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
+from pydantic import ValidationError
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
@@ -18,6 +20,12 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
+)
+from ultimate_ai_agent.core.memory import (  # noqa: E402
+    FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
+    MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS,
+    ManualMemoryCandidateRequest,
+    MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     FounderLoopRepository,
@@ -174,7 +182,12 @@ def _record_action_decision(args: argparse.Namespace) -> int:
             request=request,
             idempotency_key_ref=args.idempotency_ref,
         )
-    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+    except (
+        FounderLoopStorageDuplicateError,
+        FounderLoopStorageError,
+        ValidationError,
+        ValueError,
+    ) as exc:
         _print_json(
             {
                 "schema_version": "founder-loop-cli:v1",
@@ -237,7 +250,12 @@ def _commit_local_task(args: argparse.Namespace) -> int:
             request=request,
             idempotency_key_ref=args.idempotency_ref,
         )
-    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+    except (
+        FounderLoopStorageDuplicateError,
+        FounderLoopStorageError,
+        ValidationError,
+        ValueError,
+    ) as exc:
         _print_json(
             {
                 "schema_version": "founder-loop-cli:v1",
@@ -265,8 +283,236 @@ def _commit_local_task(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_memory_workbench(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        workbench = repo.memory_workbench(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-workbench",
+                error_ref="FOUNDER_LOOP_MEMORY_WORKBENCH_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-workbench",
+        "workbench": workbench,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _search_memory(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        search = repo.memory_search(
+            query_ref=args.query_ref,
+            kind=args.kind,
+            source_ref=args.source_ref,
+            project_ref=args.project_ref,
+            person_ref=args.person_ref,
+            org_ref=args.org_ref,
+            deal_ref=args.deal_ref,
+            review_state=args.review_state,
+            quality_state=args.quality_state,
+            stale_state=args.stale_state,
+            conflict_state=args.conflict_state,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-search",
+                error_ref="FOUNDER_LOOP_MEMORY_SEARCH_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-search",
+        "search": search,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_memory_receipts(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    review = repo.memory_review(limit=args.limit)
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-receipts",
+        "route_ref": review.get("route_ref"),
+        "decision_route_refs": review.get("decision_route_refs"),
+        "decision_receipts": list(review.get("decision_receipts") or []),
+        "decision_receipt_refs": list(review.get("decision_receipt_refs") or []),
+        "workbench_health": review.get("workbench_health"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _record_memory_decision(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        request = MemoryReviewDecisionRequest(
+            reviewer_ref=args.reviewer_ref,
+            corrected_summary_ref=args.corrected_summary_ref,
+            corrected_safe_summary=args.corrected_safe_summary,
+            source_refs=args.source_ref,
+            evidence_refs=args.evidence_ref,
+            metadata_refs=args.metadata_ref,
+            merge_refs=args.merge_ref,
+            supersedes_refs=args.supersedes_ref,
+            forget_request_ref=args.forget_request_ref,
+            blocked_state_refs=(
+                args.blocked_state_ref
+                or list(FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS)
+            ),
+        )
+        receipt = repo.record_memory_review_decision(
+            candidate_ref=args.candidate_ref,
+            decision=args.decision,
+            request=request,
+            idempotency_key_ref=args.idempotency_ref,
+        )
+    except (ValidationError, ValueError):
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-decision",
+                error_ref="FOUNDER_LOOP_MEMORY_DECISION_REF_DENIED",
+                candidate_ref=args.candidate_ref,
+                decision=args.decision,
+                idempotency_ref=args.idempotency_ref,
+            )
+        )
+        return 1
+    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": "repo-local-command:founder-loop-memory-decision",
+                "status": "blocked",
+                "error_ref": str(exc) or "FOUNDER_LOOP_MEMORY_DECISION_BLOCKED",
+                "candidate_ref": args.candidate_ref,
+                "decision": args.decision,
+                "idempotency_ref": args.idempotency_ref,
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
+
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-decision",
+        "receipt": receipt,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _record_manual_memory_candidate(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        request = ManualMemoryCandidateRequest(
+            candidate_kind=args.candidate_kind,
+            title=args.title,
+            safe_summary=args.safe_summary,
+            priority=args.priority,
+            reviewer_ref=args.reviewer_ref,
+            source_refs=args.source_ref,
+            provenance_refs=args.provenance_ref,
+            evidence_refs=args.evidence_ref,
+            missing_evidence_refs=args.missing_evidence_ref,
+            related_entity_refs=args.related_entity_ref,
+            tag_refs=args.tag_ref,
+            metadata_refs=args.metadata_ref,
+            blocked_state_refs=(
+                args.blocked_state_ref
+                or list(MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS)
+            ),
+        )
+        receipt = repo.record_manual_memory_candidate(
+            request=request,
+            idempotency_key_ref=args.idempotency_ref,
+        )
+    except (ValidationError, ValueError):
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-manual-candidate",
+                error_ref="FOUNDER_LOOP_MANUAL_MEMORY_CANDIDATE_REF_DENIED",
+                candidate_kind=args.candidate_kind,
+                idempotency_ref=args.idempotency_ref,
+            )
+        )
+        return 1
+    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": "repo-local-command:founder-loop-memory-manual-candidate",
+                "status": "blocked",
+                "error_ref": str(exc) or "FOUNDER_LOOP_MANUAL_MEMORY_CANDIDATE_BLOCKED",
+                "candidate_kind": args.candidate_kind,
+                "idempotency_ref": args.idempotency_ref,
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
+
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-manual-candidate",
+        "receipt": receipt,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _print_json(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
+
+
+def _blocked_cli_payload(
+    *,
+    command_ref: str,
+    error_ref: str,
+    **extra: str | None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": command_ref,
+        "status": "blocked",
+        "error_ref": error_ref,
+        **{key: value for key, value in extra.items() if value is not None},
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -366,6 +612,116 @@ def build_parser() -> argparse.ArgumentParser:
         help="Safe metadata ref to attach to the receipt. May be repeated.",
     )
     commit_parser.set_defaults(func=_commit_local_task)
+
+    memory_workbench_parser = subparsers.add_parser(
+        "memory-workbench",
+        help="Inspect the backend-owned Memory Workbench read model.",
+    )
+    memory_workbench_parser.add_argument("--query-ref", default=None)
+    memory_workbench_parser.add_argument("--limit", type=int, default=20)
+    memory_workbench_parser.set_defaults(func=_inspect_memory_workbench)
+
+    memory_search_parser = subparsers.add_parser(
+        "memory-search",
+        help="Search reviewed safe memory summaries and refs without semantic search.",
+    )
+    memory_search_parser.add_argument("--query-ref", default=None)
+    memory_search_parser.add_argument("--kind", default=None)
+    memory_search_parser.add_argument("--source-ref", default=None)
+    memory_search_parser.add_argument("--project-ref", default=None)
+    memory_search_parser.add_argument("--person-ref", default=None)
+    memory_search_parser.add_argument("--org-ref", default=None)
+    memory_search_parser.add_argument("--deal-ref", default=None)
+    memory_search_parser.add_argument("--review-state", default=None)
+    memory_search_parser.add_argument("--quality-state", default=None)
+    memory_search_parser.add_argument("--stale-state", default=None)
+    memory_search_parser.add_argument("--conflict-state", default=None)
+    memory_search_parser.add_argument("--limit", type=int, default=20)
+    memory_search_parser.set_defaults(func=_search_memory)
+
+    memory_receipts_parser = subparsers.add_parser(
+        "memory-receipts",
+        help="Inspect memory review lifecycle receipt refs and workbench health.",
+    )
+    memory_receipts_parser.add_argument("--limit", type=int, default=20)
+    memory_receipts_parser.set_defaults(func=_inspect_memory_receipts)
+
+    memory_decision_parser = subparsers.add_parser(
+        "record-memory-decision",
+        help="Record a Memory Review lifecycle receipt without executing memory delete/export/context authority.",
+    )
+    memory_decision_parser.add_argument("--candidate-ref", required=True)
+    memory_decision_parser.add_argument(
+        "--decision",
+        choices=[
+            "accept",
+            "correct",
+            "reject",
+            "defer",
+            "merge",
+            "supersede",
+            "forget_request",
+        ],
+        required=True,
+    )
+    memory_decision_parser.add_argument("--idempotency-ref", required=True)
+    memory_decision_parser.add_argument(
+        "--reviewer-ref",
+        default="actor-ref:founder-loop-cli-memory-review",
+    )
+    memory_decision_parser.add_argument("--corrected-summary-ref", default=None)
+    memory_decision_parser.add_argument("--corrected-safe-summary", default=None)
+    memory_decision_parser.add_argument("--forget-request-ref", default=None)
+    memory_decision_parser.add_argument("--source-ref", action="append", default=[])
+    memory_decision_parser.add_argument("--evidence-ref", action="append", default=[])
+    memory_decision_parser.add_argument("--metadata-ref", action="append", default=[])
+    memory_decision_parser.add_argument("--merge-ref", action="append", default=[])
+    memory_decision_parser.add_argument("--supersedes-ref", action="append", default=[])
+    memory_decision_parser.add_argument(
+        "--blocked-state-ref",
+        action="append",
+        default=[],
+    )
+    memory_decision_parser.set_defaults(func=_record_memory_decision)
+
+    manual_memory_parser = subparsers.add_parser(
+        "memory-manual-candidate",
+        help="Create a manual safe-summary Memory Review candidate; no recall record is created.",
+    )
+    manual_memory_parser.add_argument("--candidate-kind", required=True)
+    manual_memory_parser.add_argument("--title", required=True)
+    manual_memory_parser.add_argument("--safe-summary", required=True)
+    manual_memory_parser.add_argument("--idempotency-ref", required=True)
+    manual_memory_parser.add_argument(
+        "--priority",
+        choices=["low", "medium", "high"],
+        default="medium",
+    )
+    manual_memory_parser.add_argument(
+        "--reviewer-ref",
+        default="actor-ref:founder-loop-cli-memory-intake",
+    )
+    manual_memory_parser.add_argument("--source-ref", action="append", default=[])
+    manual_memory_parser.add_argument("--provenance-ref", action="append", default=[])
+    manual_memory_parser.add_argument("--evidence-ref", action="append", default=[])
+    manual_memory_parser.add_argument(
+        "--missing-evidence-ref",
+        action="append",
+        default=[],
+    )
+    manual_memory_parser.add_argument(
+        "--related-entity-ref",
+        action="append",
+        default=[],
+    )
+    manual_memory_parser.add_argument("--tag-ref", action="append", default=[])
+    manual_memory_parser.add_argument("--metadata-ref", action="append", default=[])
+    manual_memory_parser.add_argument(
+        "--blocked-state-ref",
+        action="append",
+        default=[],
+    )
+    manual_memory_parser.set_defaults(func=_record_manual_memory_candidate)
     return parser
 
 

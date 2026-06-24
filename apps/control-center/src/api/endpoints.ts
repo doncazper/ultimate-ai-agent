@@ -17,6 +17,9 @@ export const API_ENDPOINTS = {
   founderEvidenceTimeline: "/control-center/evidence/timeline",
   controlCenterChatTurns: "/control-center/chat/turns",
   founderMemoryReview: "/control-center/memory/review",
+  founderMemoryWorkbench: "/control-center/memory/workbench",
+  founderMemorySearch: "/control-center/memory/search",
+  founderMemoryManualCandidate: "/control-center/memory/review/manual-candidate",
   founderMemoryContextPacks: "/control-center/memory/context-packs",
   founderActionsInbox: "/control-center/actions/inbox",
   founderMorningBriefing: "/control-center/morning-briefing/summary",
@@ -42,6 +45,10 @@ export const MEMORY_REVIEW_DECISION_KINDS = [
   "accept",
   "correct",
   "reject",
+  "defer",
+  "merge",
+  "supersede",
+  "forget_request",
 ] as const;
 
 export type MemoryReviewDecisionKind =
@@ -74,7 +81,8 @@ export function memoryReviewDecisionEndpoint(
   candidateRef: string,
   decision: MemoryReviewDecisionKind,
 ): string {
-  return `/control-center/memory/review/${encodeURIComponent(candidateRef)}/${decision}`;
+  const routeDecision = decision === "forget_request" ? "forget-request" : decision;
+  return `/control-center/memory/review/${encodeURIComponent(candidateRef)}/${routeDecision}`;
 }
 
 export function memoryReviewReceiptEndpoint(candidateRef: string): string {
@@ -116,6 +124,8 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.founderTodaySummary,
   API_ENDPOINTS.founderEvidenceTimeline,
   API_ENDPOINTS.founderMemoryReview,
+  API_ENDPOINTS.founderMemoryWorkbench,
+  API_ENDPOINTS.founderMemorySearch,
   API_ENDPOINTS.founderMemoryContextPacks,
   API_ENDPOINTS.founderActionsInbox,
   API_ENDPOINTS.founderMorningBriefing,

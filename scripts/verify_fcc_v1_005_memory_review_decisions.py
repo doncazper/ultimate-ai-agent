@@ -62,6 +62,41 @@ MEMORY_REVIEW_DECISION_ROUTES = {
         "idempotency_required": True,
         "rate_limit_group": "memory_review_decision",
     },
+    ("POST", "/control-center/memory/review/{candidate_ref}/defer"): {
+        "operation_id": "post_control_center_memory_review_candidate_ref_defer",
+        "route_classification": "mutating_requires_authority",
+        "side_effect_class": "local_dev_workspace_only",
+        "idempotency_required": True,
+        "rate_limit_group": "memory_review_decision",
+    },
+    ("POST", "/control-center/memory/review/{candidate_ref}/merge"): {
+        "operation_id": "post_control_center_memory_review_candidate_ref_merge",
+        "route_classification": "mutating_requires_authority",
+        "side_effect_class": "local_dev_workspace_only",
+        "idempotency_required": True,
+        "rate_limit_group": "memory_review_decision",
+    },
+    ("POST", "/control-center/memory/review/{candidate_ref}/supersede"): {
+        "operation_id": "post_control_center_memory_review_candidate_ref_supersede",
+        "route_classification": "mutating_requires_authority",
+        "side_effect_class": "local_dev_workspace_only",
+        "idempotency_required": True,
+        "rate_limit_group": "memory_review_decision",
+    },
+    ("POST", "/control-center/memory/review/{candidate_ref}/forget-request"): {
+        "operation_id": "post_control_center_memory_review_candidate_ref_forget_request",
+        "route_classification": "mutating_requires_authority",
+        "side_effect_class": "local_dev_workspace_only",
+        "idempotency_required": True,
+        "rate_limit_group": "memory_review_decision",
+    },
+    ("POST", "/control-center/memory/review/manual-candidate"): {
+        "operation_id": "post_control_center_memory_review_manual_candidate",
+        "route_classification": "mutating_requires_authority",
+        "side_effect_class": "local_dev_workspace_only",
+        "idempotency_required": True,
+        "rate_limit_group": "memory_review_decision",
+    },
 }
 ROUTES = {
     MEMORY_REVIEW_GET_ROUTE: {
@@ -279,7 +314,7 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "POST /control-center/memory/review/{candidate_ref}/reject",
                 "reviewed_recall_record_ref",
                 "LocalMemoryStore",
-                "Correct stores corrected_summary_ref only",
+                "Correct stores corrected_summary_ref and bounded corrected_safe_summary",
                 "Accept records reviewed recall only; it is not truth authority",
                 "scripts/verify_fcc_v1_005_memory_review_decisions.py",
             ],
@@ -389,8 +424,15 @@ def _exercise_decision(
         json=body,
         headers={**auth_headers, "x-uaa-idempotency-key": key},
     )
-    if replay.status_code != 200 or replay.json().get("data", {}).get("replayed") is not True:
-        failures.append(f"Memory Review {decision} must replay matching payload")
+    replay_data = replay.json().get("data", {}) if replay.status_code == 200 else {}
+    if (
+        replay.status_code != 200
+        or replay_data.get("receipt_ref") != receipt.get("receipt_ref")
+        or replay_data.get("replayed") is not False
+    ):
+        failures.append(
+            f"Memory Review {decision} must return the stored receipt for matching replay"
+        )
     conflict = context.client.post(
         route,
         json={**body, "reviewer_ref": f"actor-ref:fcc-v1-005-{decision}-changed"},
@@ -419,8 +461,8 @@ def _exercise_correction(
     if missing_ref.status_code != 400:
         failures.append("Memory Review correction must require corrected_summary_ref")
     receipt = _exercise_decision(failures, context, candidate_ref, "correct", auth_headers)
-    if "corrected_summary" in receipt:
-        failures.append("Memory Review correction receipt must not store raw corrected content")
+    if not receipt.get("corrected_safe_summary"):
+        failures.append("Memory Review correction must store bounded corrected_safe_summary")
     if receipt.get("corrected_summary_ref") != "safe-summary-ref:fcc-v1-005-correction":
         failures.append("Memory Review correction must store corrected_summary_ref")
     if not receipt.get("reviewed_recall_record_ref"):
@@ -440,6 +482,7 @@ def _decision_body(
     }
     if decision == "correct" and corrected_summary_ref is not None:
         body["corrected_summary_ref"] = corrected_summary_ref
+        body["corrected_safe_summary"] = "Corrected bounded safe summary for FCC-V1-005."
     return body
 
 
@@ -455,6 +498,9 @@ def _append_receipt_shape_failures(
         "idempotency_key_ref",
         "payload_fingerprint_ref",
         "evidence_timeline_event_ref",
+        "approval_ref",
+        "approval_status",
+        "approval_reason_refs",
         "reviewer_ref",
         "source_refs",
         "evidence_refs",

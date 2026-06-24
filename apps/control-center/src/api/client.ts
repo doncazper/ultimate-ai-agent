@@ -29,8 +29,12 @@ import type {
   FounderLoopMemoryContextPackActionProposalReceipt,
   FounderLoopMemoryContextPackActionProposalRequest,
   FounderLoopMemoryContextPacks,
+  FounderLoopMemoryReview,
+  FounderLoopMemoryWorkbench,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopLocalTaskCommitRequest,
+  ManualMemoryCandidateReceipt,
+  ManualMemoryCandidateRequest,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
   MemoryReviewDecisionRequest,
@@ -159,6 +163,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<FounderLoopEvidenceTimelineIndex>(
       API_ENDPOINTS.founderEvidenceTimeline,
     ),
+    readEnvelope<FounderLoopMemoryReview>(API_ENDPOINTS.founderMemoryReview),
+    readEnvelope<FounderLoopMemoryWorkbench>(
+      API_ENDPOINTS.founderMemoryWorkbench,
+    ),
     readEnvelope<FounderLoopMemoryContextPacks>(
       API_ENDPOINTS.founderMemoryContextPacks,
     ),
@@ -186,11 +194,13 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const controlCenterLocalModelsStatus = fulfilledValue(results[8]);
   const founderToday = fulfilledValue(results[9]);
   const founderEvidenceTimeline = fulfilledValue(results[10]);
-  const founderMemoryContextPacks = fulfilledValue(results[11]);
-  const founderActionsInbox = fulfilledValue(results[12]);
-  const founderMorningBriefing = fulfilledValue(results[13]);
-  const founderSourceReadiness = fulfilledValue(results[14]);
-  const founderStorageStatus = fulfilledValue(results[15]);
+  const founderMemoryReview = fulfilledValue(results[11]);
+  const founderMemoryWorkbench = fulfilledValue(results[12]);
+  const founderMemoryContextPacks = fulfilledValue(results[13]);
+  const founderActionsInbox = fulfilledValue(results[14]);
+  const founderMorningBriefing = fulfilledValue(results[15]);
+  const founderSourceReadiness = fulfilledValue(results[16]);
+  const founderStorageStatus = fulfilledValue(results[17]);
   const normalizedFounderToday = mergeMissingFields(
     mockControlCenterData.founderToday,
     founderToday,
@@ -202,6 +212,14 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const normalizedFounderActionsInbox = mergeMissingFields(
     mockControlCenterData.founderActionsInbox,
     founderActionsInbox,
+  );
+  const normalizedFounderMemoryReview = mergeMissingFields(
+    mockControlCenterData.founderMemoryReview,
+    founderMemoryReview,
+  );
+  const normalizedFounderMemoryWorkbench = mergeMissingFields(
+    mockControlCenterData.founderMemoryWorkbench,
+    founderMemoryWorkbench,
   );
   const normalizedFounderMemoryContextPacks = mergeMissingFields(
     mockControlCenterData.founderMemoryContextPacks,
@@ -219,6 +237,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderToday.usedFallback ||
     normalizedFounderEvidenceTimeline.usedFallback ||
     normalizedFounderActionsInbox.usedFallback ||
+    normalizedFounderMemoryReview.usedFallback ||
+    normalizedFounderMemoryWorkbench.usedFallback ||
     normalizedFounderMemoryContextPacks.usedFallback ||
     normalizedFounderMorningBriefing.usedFallback ||
     normalizedFounderSourceReadiness.usedFallback;
@@ -258,6 +278,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       controlCenterLocalModelsStatus ?? mockControlCenterData.localModelsStatus,
     founderToday: normalizedFounderToday.value,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
+    founderMemoryReview: normalizedFounderMemoryReview.value,
+    founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,
     founderMemoryContextPacks: normalizedFounderMemoryContextPacks.value,
     founderActionsInbox: normalizedFounderActionsInbox.value,
     founderMorningBriefing: normalizedFounderMorningBriefing.value,
@@ -567,6 +589,50 @@ export async function fetchFounderMemoryContextPacks(): Promise<FounderLoopMemor
   );
 }
 
+export async function fetchFounderMemoryReview(): Promise<FounderLoopMemoryReview> {
+  return readEnvelope<FounderLoopMemoryReview>(API_ENDPOINTS.founderMemoryReview);
+}
+
+export async function fetchFounderMemoryWorkbench(): Promise<FounderLoopMemoryWorkbench> {
+  return readEnvelope<FounderLoopMemoryWorkbench>(
+    API_ENDPOINTS.founderMemoryWorkbench,
+  );
+}
+
+export async function recordManualMemoryCandidate(
+  request: ManualMemoryCandidateRequest,
+): Promise<ManualMemoryCandidateReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.founderMemoryManualCandidate}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": manualMemoryCandidateIdempotencyRef(request),
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data =
+    (await readJsonSafely(response)) as ResultEnvelope<ManualMemoryCandidateReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Manual Memory candidate receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return receipt;
+}
+
 export async function recordMemoryContextPackActionProposal(
   contextPackRef: string,
   request: FounderLoopMemoryContextPackActionProposalRequest,
@@ -672,7 +738,27 @@ function memoryReviewDecisionIdempotencyRef(
   decision: MemoryReviewDecisionKind,
   request?: MemoryReviewDecisionRequest,
 ): string {
-  return `idempotency-ref:control-center-memory-review:${decision}:${safeChatSuffix(candidateRef)}:${safeChatSuffix(request?.reviewer_ref ?? "reviewer")}:${safeChatSuffix(request?.corrected_summary_ref ?? "none")}`;
+  return `idempotency-ref:control-center-memory-review:${decision}:${safeChatSuffix(candidateRef)}:${safeChatSuffix(request?.reviewer_ref ?? "reviewer")}:${safeChatSuffix(request?.corrected_summary_ref ?? "none")}:${safeHashSuffix(request?.corrected_safe_summary ?? "none")}:${safeChatSuffix((request?.merge_refs ?? []).join("-") || "no-merge")}:${safeChatSuffix((request?.supersedes_refs ?? []).join("-") || "no-supersede")}:${safeChatSuffix(request?.forget_request_ref ?? "no-forget")}`;
+}
+
+function manualMemoryCandidateIdempotencyRef(
+  request: ManualMemoryCandidateRequest,
+): string {
+  const refMaterial = [
+    request.candidate_kind,
+    request.priority ?? "medium",
+    request.reviewer_ref ?? "actor-ref:local-operator",
+    ...(request.source_refs ?? []),
+    ...(request.provenance_refs ?? []),
+    ...(request.evidence_refs ?? []),
+    ...(request.missing_evidence_refs ?? []),
+    ...(request.related_entity_refs ?? []),
+    ...(request.tag_refs ?? []),
+    ...(request.metadata_refs ?? []),
+    ...(request.blocked_state_refs ?? []),
+    safeHashSuffix(`${request.title}|${request.safe_summary}`),
+  ].join("|");
+  return `idempotency-ref:control-center-manual-memory:${safeChatSuffix(request.candidate_kind)}:${safeHashSuffix(refMaterial)}`;
 }
 
 function memoryContextPackActionIdempotencyRef(
@@ -880,6 +966,15 @@ function safeChatSuffix(value: string): string {
       .replace(/[^a-z0-9_.@-]+/g, "-")
       .replace(/^-+|-+$/g, "") || "missing"
   );
+}
+
+function safeHashSuffix(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
 }
 
 function extractSafetyRecord(data: unknown): Record<string, unknown> {

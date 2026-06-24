@@ -43,7 +43,10 @@ def _record_decision(
 ) -> dict:
     request = _decision_request(
         **(
-            {"corrected_summary_ref": "safe-summary-ref:l2-index-correction"}
+            {
+                "corrected_summary_ref": "safe-summary-ref:l2-index-correction",
+                "corrected_safe_summary": "Corrected safe summary for L2 index.",
+            }
             if decision == "correct"
             else {}
         )

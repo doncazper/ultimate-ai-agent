@@ -38,7 +38,10 @@ def _accepted_record(repo: FounderLoopRepository, *, decision: str = "accept") -
     candidate_ref = _first_candidate_ref(repo)
     request = _decision_request(
         **(
-            {"corrected_summary_ref": "safe-summary-ref:l1-index-correction"}
+            {
+                "corrected_summary_ref": "safe-summary-ref:l1-index-correction",
+                "corrected_safe_summary": "Corrected safe summary for L1 index.",
+            }
             if decision == "correct"
             else {}
         )

@@ -3,10 +3,14 @@
 Status: implemented for backend-owned Memory Review decision receipts.
 Baseline: v0.104.0 / 0.104.0.
 
-FCC-V1-005 makes Memory Review accept, correct, and reject decisions real
-backend-owned receipt state. Memory remains recall, not truth or authority.
+FCC-V1-005 originally made Memory Review accept, correct, and reject decisions
+real backend-owned receipt state. FCC-MEM-001 expands that lifecycle with
+defer, merge, supersede, and forget-request receipts while preserving the same
+authority boundary. Memory remains recall, not truth or authority.
 Accept/correct decisions create reviewed recall-only `LocalMemoryStore` records
-with safe summaries and refs. These decisions do not automatically write memory,
+with safe summaries and refs. Defer/merge/supersede/forget-request are posture
+and receipt states only. These decisions do not automatically write memory
+beyond reviewed recall-only accept/correct records, delete/export memory,
 inject context, sync CRM/accounts, write connectors, execute actions, call
 providers, or grant public beta or production authority.
 
@@ -22,11 +26,16 @@ Implemented routes:
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`
 - `POST /control-center/memory/review/{candidate_ref}/reject`
+- `POST /control-center/memory/review/{candidate_ref}/defer`
+- `POST /control-center/memory/review/{candidate_ref}/merge`
+- `POST /control-center/memory/review/{candidate_ref}/supersede`
+- `POST /control-center/memory/review/{candidate_ref}/forget-request`
+- `POST /control-center/memory/review/manual-candidate`
 
 Every mutating decision route requires `X-UAA-Idempotency-Key` or
 `X-UAA-Idempotency-Ref`. The same key with the same safe payload returns the
-prior receipt with `replayed=true`. The same key with a different safe payload
-returns a conflict.
+same stored receipt payload. The same key with a different safe payload returns
+a conflict.
 
 ## Receipt
 
@@ -38,7 +47,15 @@ returns a conflict.
 - `idempotency_key_ref`
 - `payload_fingerprint_ref`
 - `evidence_timeline_event_ref`
+- `approval_ref`
+- `approval_status`
+- `approval_reason_refs`
 - `reviewed_recall_record_ref` for accept/correct only
+- `corrected_summary_ref` and bounded `corrected_safe_summary` for correct only
+- `defer_ref`, `merge_ref`, `supersede_ref`, or `forget_request_ref` when
+  those posture receipts are recorded
+- `suppressed_recall_record_refs` when a terminal decision suppresses prior
+  recall projection without deleting/exporting memory
 - `reviewer_ref`
 - `source_refs`
 - `evidence_refs`
@@ -46,10 +63,15 @@ returns a conflict.
 - `created_at`
 
 Accept records reviewed recall only; it is not truth authority and does not
-authorize context injection. Correct stores corrected_summary_ref only and
-writes a reviewed recall-only safe-summary record; raw corrected content is not
-stored. Reject preserves the candidate as rejected review state so stale
-candidates do not silently return as fresh and does not create a recall record.
+authorize context injection. Correct stores corrected_summary_ref and bounded
+corrected_safe_summary, then writes a reviewed recall-only safe-summary record;
+raw corrected content is not stored. Reject preserves the candidate as rejected
+review state so stale candidates do not silently return as fresh and does not
+create a recall record. Defer, merge, supersede, and forget-request preserve
+auditable posture without deleting, exporting, or silently rewriting memory.
+Reject/merge/supersede/forget-request suppress prior recall projections by
+marking local recall records inactive; the records remain inspectable audit
+state and are not deleted.
 
 Denied authority flags stay false: no context injection, no source truth
 authority, no connector/CRM/account sync, no action execution, and no production
@@ -74,6 +96,7 @@ authority.
 Primary proof lanes:
 
 - `scripts/verify_fcc_v1_005_memory_review_decisions.py`
+- `tests/test_fcc_mem_001_memory_workbench.py`
 - `tests/test_fcc_v1_005_memory_review_decisions.py`
 - `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
 - `apps/control-center/src/components/FounderLoopPanels.tsx`

@@ -1,0 +1,26 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "fcc-memory-module-sequence-001",
+  "version": "1.0.0",
+  "purpose": "Stored prompts for finishing the governed Memory module through FCC-MEM-001 workbench, lifecycle, quality, search, intake, bindings, UI, CLI, tests, docs, review, hardening, commit, annotated tag, and push gates.",
+  "developer_prompt_refs": [
+    "docs/prompts/fcc_memory_module_sequence/00_execute_all_review_verify_finalize.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/01_memory_baseline_audit.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/02_fcc_mem_001_workbench_read_model.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/03_memory_review_lifecycle_expansion.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/04_memory_quality_engine.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/05_memory_why_shown_ranking.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/06_memory_search_filter_route.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/07_manual_memory_candidate_intake.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/08_cross_surface_candidate_feeds.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/09_memory_to_today_action_briefing_bindings.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/10_memory_correction_merge_supersede_ux.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/11_evidence_timeline_memory_polish.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/12_memory_health_dashboard.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/13_memory_cli_parity.prompt.md",
+    "docs/prompts/fcc_memory_module_sequence/14_memory_tests_verifiers_docs.prompt.md"
+  ],
+  "bundle_hash": "sha256:6f520bfd0c2be4ac70a600c6914ead80f69708d1e400cf46482f80e5f8bccdbc",
+  "stable_within_run": true,
+  "created_at": "2026-06-24"
+}

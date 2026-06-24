@@ -20,6 +20,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.memory import (
+    ManualMemoryCandidateRequest,
     MemoryContextPackActionProposalRequest,
     MemoryReviewDecisionRequest,
 )
@@ -83,6 +84,95 @@ def get_control_center_memory_review() -> ResultEnvelope:
             "safe_refs_only",
             "bounded_summaries_only",
             "raw_content_omitted",
+        ],
+    )
+
+
+@router.get("/memory/workbench", response_model=ResultEnvelope)
+def get_control_center_memory_workbench(
+    query_ref: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_workbench(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_WORKBENCH_UNSAFE_QUERY_REF",
+                "safe_message": "The Memory Workbench query ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_workbench",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-workbench",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-workbench"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_context_injection",
+        ],
+    )
+
+
+@router.get("/memory/search", response_model=ResultEnvelope)
+def get_control_center_memory_search(
+    query_ref: str | None = Query(default=None, max_length=200),
+    kind: str | None = Query(default=None, max_length=80),
+    source_ref: str | None = Query(default=None, max_length=200),
+    project_ref: str | None = Query(default=None, max_length=200),
+    person_ref: str | None = Query(default=None, max_length=200),
+    org_ref: str | None = Query(default=None, max_length=200),
+    deal_ref: str | None = Query(default=None, max_length=200),
+    review_state: str | None = Query(default=None, max_length=80),
+    quality_state: str | None = Query(default=None, max_length=80),
+    stale_state: str | None = Query(default=None, max_length=200),
+    conflict_state: str | None = Query(default=None, max_length=80),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_search(
+            query_ref=query_ref,
+            kind=kind,
+            source_ref=source_ref,
+            project_ref=project_ref,
+            person_ref=person_ref,
+            org_ref=org_ref,
+            deal_ref=deal_ref,
+            review_state=review_state,
+            quality_state=quality_state,
+            stale_state=stale_state,
+            conflict_state=conflict_state,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_SEARCH_UNSAFE_FILTER",
+                "safe_message": "The Memory search filter could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_search",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-search",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-search"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_semantic_search",
+            "no_vector_db",
         ],
     )
 
@@ -327,7 +417,18 @@ def post_control_center_memory_context_pack_action_proposal(
 
 @router.get("/memory/review/{candidate_ref}/receipt", response_model=ResultEnvelope)
 def get_control_center_memory_review_receipt(candidate_ref: str) -> ResultEnvelope:
-    data = get_founder_loop_service().memory_review_receipt(candidate_ref=candidate_ref)
+    try:
+        data = get_founder_loop_service().memory_review_receipt(
+            candidate_ref=candidate_ref
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_DECISION_RECEIPT_REF_DENIED",
+                "safe_message": "Memory Review receipt lookup requires a safe candidate ref.",
+            },
+        ) from exc
     if data is None:
         raise HTTPException(
             status_code=404,
@@ -591,6 +692,71 @@ def post_control_center_chat_handoff(
     )
 
 
+@router.post("/memory/review/manual-candidate", response_model=ResultEnvelope)
+def post_control_center_memory_review_manual_candidate(
+    request: ManualMemoryCandidateRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().record_manual_memory_candidate(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc)
+                or "FOUNDER_LOOP_MEMORY_MANUAL_CANDIDATE_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The manual Memory candidate idempotency key already exists "
+                    "with different safe candidate payload refs."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_MEMORY_MANUAL_CANDIDATE_ERROR",
+                "safe_message": "The manual Memory candidate could not be recorded safely.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_MANUAL_CANDIDATE_UNSAFE_INPUT",
+                "safe_message": "The manual Memory candidate contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_manual_candidate",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-manual-candidate",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-manual-candidate"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_recall_record_created",
+        ],
+    )
+
+
 @router.post("/memory/review/{candidate_ref}/accept", response_model=ResultEnvelope)
 def post_control_center_memory_review_accept(
     candidate_ref: str,
@@ -651,6 +817,97 @@ def post_control_center_memory_review_reject(
     return _record_memory_review_decision(
         candidate_ref=candidate_ref,
         decision="reject",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
+@router.post("/memory/review/{candidate_ref}/defer", response_model=ResultEnvelope)
+def post_control_center_memory_review_defer(
+    candidate_ref: str,
+    request: MemoryReviewDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="defer",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
+@router.post("/memory/review/{candidate_ref}/merge", response_model=ResultEnvelope)
+def post_control_center_memory_review_merge(
+    candidate_ref: str,
+    request: MemoryReviewDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="merge",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
+@router.post("/memory/review/{candidate_ref}/supersede", response_model=ResultEnvelope)
+def post_control_center_memory_review_supersede(
+    candidate_ref: str,
+    request: MemoryReviewDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="supersede",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
+@router.post(
+    "/memory/review/{candidate_ref}/forget-request",
+    response_model=ResultEnvelope,
+)
+def post_control_center_memory_review_forget_request(
+    candidate_ref: str,
+    request: MemoryReviewDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="forget_request",
         request=request,
         idempotency_key=x_uaa_idempotency_key,
         idempotency_ref=x_uaa_idempotency_ref,
@@ -964,7 +1221,15 @@ def _record_action_decision(
 def _record_memory_review_decision(
     *,
     candidate_ref: str,
-    decision: Literal["accept", "correct", "reject"],
+    decision: Literal[
+        "accept",
+        "correct",
+        "reject",
+        "defer",
+        "merge",
+        "supersede",
+        "forget_request",
+    ],
     request: MemoryReviewDecisionRequest,
     idempotency_key: str | None,
     idempotency_ref: str | None,

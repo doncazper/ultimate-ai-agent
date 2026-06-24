@@ -34,6 +34,9 @@ def _safe_receipt(**overrides: object) -> MemoryReviewDecisionReceipt:
         "idempotency_key_ref": "idempotency-ref:memory-review:test",
         "payload_fingerprint_ref": "payload-fingerprint:memory-review-decision:test",
         "evidence_timeline_event_ref": "evidence-ref:memory-review:accept:test",
+        "approval_ref": "approval-ref:memory-review:test",
+        "approval_status": "approved",
+        "approval_reason_refs": ["approval-reason:approval-validated"],
         "reviewed_recall_ref": "reviewed-recall-ref:memory-review:test",
         "reviewed_recall_record_ref": "memory-record-ref:mem_test",
         "safe_summary_ref": "safe-summary-ref:memory-review:accept",
@@ -160,8 +163,8 @@ def test_memory_review_decisions_persist_append_first_replay_and_conflict(
         request=request,
         idempotency_key_ref="idempotency-ref:test-memory-accept",
     )
-    assert replay["replayed"] is True
-    assert replay["receipt_ref"] == receipt["receipt_ref"]
+    assert replay == receipt
+    assert replay["replayed"] is False
 
     with pytest.raises(FounderLoopStorageDuplicateError):
         repo.record_memory_review_decision(
@@ -172,7 +175,7 @@ def test_memory_review_decisions_persist_append_first_replay_and_conflict(
         )
 
 
-def test_memory_review_correction_stores_only_corrected_summary_ref(
+def test_memory_review_correction_stores_bounded_safe_summary_and_ref(
     tmp_path: Path,
 ) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop")
@@ -185,12 +188,25 @@ def test_memory_review_correction_stores_only_corrected_summary_ref(
             request=_decision_request(),
             idempotency_key_ref="idempotency-ref:test-memory-correct-missing",
         )
+    with pytest.raises(
+        Exception,
+        match="FOUNDER_LOOP_MEMORY_CORRECTION_SUMMARY_REQUIRED",
+    ):
+        repo.record_memory_review_decision(
+            candidate_ref=candidate_ref,
+            decision="correct",
+            request=_decision_request(
+                corrected_summary_ref="safe-summary-ref:memory-review-correction:test"
+            ),
+            idempotency_key_ref="idempotency-ref:test-memory-correct-summary-missing",
+        )
 
     receipt = repo.record_memory_review_decision(
         candidate_ref=candidate_ref,
         decision="correct",
         request=_decision_request(
-            corrected_summary_ref="safe-summary-ref:memory-review-correction:test"
+            corrected_summary_ref="safe-summary-ref:memory-review-correction:test",
+            corrected_safe_summary="Corrected bounded safe summary for review only.",
         ),
         idempotency_key_ref="idempotency-ref:test-memory-correct",
     )
@@ -200,19 +216,22 @@ def test_memory_review_correction_stores_only_corrected_summary_ref(
         receipt["corrected_summary_ref"]
         == "safe-summary-ref:memory-review-correction:test"
     )
-    assert "corrected_summary" not in receipt
+    assert (
+        receipt["corrected_safe_summary"]
+        == "Corrected bounded safe summary for review only."
+    )
     assert "raw" not in str(receipt).lower()
+    assert receipt["approval_ref"].startswith("approval-ref:memory-review:")
     assert receipt["reviewed_recall_record_ref"].startswith("memory-record-ref:")
     recall_records = repo.list_memory_review_recall_records()
     assert len(recall_records) == 1
     recall_record = recall_records[0]
     assert recall_record["memory_kind"] == "correction"
     assert (
-        "safe-summary-ref:memory-review-correction:test"
+        "Corrected bounded safe summary for review only."
         in recall_record["safe_summary"]
     )
     assert receipt["receipt_ref"] in recall_record["receipt_refs"]
-    assert "corrected_summary" not in str(recall_record).lower()
     assert "raw" not in str(recall_record).lower()
     queue_item = repo.list_memory_review_queue(limit=1)[0]
     assert queue_item["correction_posture"] == "corrected_summary_ref_recorded_no_raw_content"
@@ -247,8 +266,46 @@ def test_rejected_candidate_is_preserved_and_evidence_visible(tmp_path: Path) ->
     assert receipt["receipt_ref"] in memory_event["receipt_refs"]
     history = memory_event["history_answers"]
     assert history["approved"]["status"] == "decision_receipt_recorded"
-    assert "Memory Review accept, correct, or reject decisions" in history["happened"]["answer"]
+    assert (
+        "Memory Review accept, correct, reject, defer, merge, supersede, "
+        "and forget-request decisions"
+        in history["happened"]["answer"]
+    )
     assert "context injection" in history["blocked"]["answer"]
+
+
+def test_terminal_memory_review_decision_suppresses_prior_recall_projection(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    candidate_ref = _first_candidate_ref(repo)
+    accept_receipt = repo.record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="accept",
+        request=_decision_request(),
+        idempotency_key_ref="idempotency-ref:test-memory-accept-before-reject",
+    )
+    assert repo.memory_l1_hot_index()["preview_count"] == 1
+
+    reject_receipt = repo.record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="reject",
+        request=_decision_request(),
+        idempotency_key_ref="idempotency-ref:test-memory-reject-after-accept",
+    )
+
+    assert reject_receipt["suppressed_recall_record_refs"] == [
+        accept_receipt["reviewed_recall_record_ref"]
+    ]
+    recall_record = repo.list_memory_review_recall_records()[0]
+    assert recall_record["status"] == "revoked"
+    assert recall_record["retention_state"] == "blocked"
+    assert reject_receipt["receipt_ref"] in recall_record["receipt_refs"]
+    assert repo.memory_l1_hot_index()["preview_count"] == 0
+    assert all(
+        item["source"] != "l1_reviewed_recall_projection"
+        for item in repo.memory_workbench()["items"]
+    )
 
 
 def test_memory_review_decision_api_requires_idempotency_replays_and_conflicts(
@@ -306,7 +363,7 @@ def test_memory_review_decision_api_requires_idempotency_replays_and_conflicts(
         headers={"x-uaa-idempotency-key": "idempotency-ref:test-api-memory-reject"},
     )
     assert replay.status_code == 200
-    assert replay.json()["data"]["replayed"] is True
+    assert replay.json()["data"]["replayed"] is False
 
     conflict = client.post(
         f"/control-center/memory/review/{candidate_ref}/reject",

@@ -68,3 +68,14 @@ authority by themselves. Use
 `docs/prompts/fcc_planned_sequence/00_execute_all_review_verify_finalize.prompt.md`
 to run the sequence with review, verification, repair, commit, annotated-tag,
 and push gates.
+
+## Founder Command Center memory module prompts
+
+Stored execution prompts for `FCC-MEM-001` Memory Workbench V1 and the
+supporting Memory module hardening pass live in
+`docs/prompts/fcc_memory_module_sequence/`. They are operator-run prompts, not
+runtime system prompts, and they do not grant authority by themselves. Use
+`docs/prompts/fcc_memory_module_sequence/00_execute_all_review_verify_finalize.prompt.md`
+to run the sequence from baseline audit through workbench read model,
+lifecycle expansion, quality/ranking/search/intake, cross-surface bindings, UI,
+CLI parity, tests, docs, review, hardening, annotated tag, and push gates.
