@@ -111,6 +111,17 @@ inventory/status support lane. It exposes backend-owned local model inventory
 and gateway posture through `GET /control-center/local-models/status` while
 leaving lifecycle, switching, activation, downloads, runtime adapters, and
 production-readiness claims blocked.
+Web Runtime Authority Promotion Ladder is now an explicit P1 shaping lane for
+the next web/provider authority sequence. Current authority still flows through
+`ultimate_ai_agent.core.web_access`; older M72/M74/M75/M94/M95 and M121-M140
+docs remain historical/contract evidence, not blanket callable runtime
+authority. Keep the runtime authority WIP limit at one lane. This lane adds no
+live web fetching, browser automation, provider SDK calls, POST/click/form/
+download/upload, generic public-web mutation, or callable runtime authority.
+Provider shells and diagnostics are metadata-only until a later exact milestone
+adds WebAccessGateway routing, durable audit, side-effect ledger blockers,
+exact approval scope, blocked/degraded/partial operator labels, CostGovernor
+posture for paid/frontier use, CLI/UI inspection, and verifier evidence.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -208,6 +219,19 @@ until a separate milestone grants explicit approval, receipt, rollback,
 safe-disable, redaction, citation validation, and Evidence proof.
 Subagents: required. Use an independent repo-evidence reviewer and a
 safety/product-language reviewer before final hardening.
+
+WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
+Goal: promote the web/provider/browser authority ladder into active roadmap and
+board truth before any new web runtime authority is implemented.
+Scope: P1 shaping lane only. Order future work as roadmap/currentness stitching,
+governed read-only fetch, provider shells and diagnostics, read-only provider
+adapter, browser observe, browser action dry-run, low-risk clicks,
+connector-specific writes, and callable runtime authority. No live web fetching,
+browser automation, provider SDK calls, POST/click/form/download/upload,
+mutation execution, or callable runtime authority is authorized in this slice.
+Paid/frontier provider use must remain CostGovernor-bound with cost estimate
+refs, budget decision refs, provider/model safe refs, cost receipt refs,
+unknown paid-cost approval, and budget-exceeded blocking before routing.
 ```
 
 ## Shaping

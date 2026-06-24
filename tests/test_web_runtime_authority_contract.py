@@ -4,6 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from ultimate_ai_agent.core.web_access import (
+    WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER,
+    WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_STATUSES,
     WEB_RUNTIME_CANONICAL_NOUNS,
     WEB_RUNTIME_PROMOTION_STEPS,
     WEB_RUNTIME_REQUIRED_OPERATOR_LABELS,
@@ -11,8 +13,10 @@ from ultimate_ai_agent.core.web_access import (
     WebApprovalLinkageContract,
     WebCatalogManifestVisibilityContract,
     WebProviderDiagnosticContract,
+    WebRuntimeCostGovernorPostureContract,
     WebRuntimeAuditRecordContract,
     WebRuntimeNoun,
+    WebRuntimePromotionLadderStepContract,
     WebSideEffectLedgerContract,
     build_web_runtime_authority_contract,
 )
@@ -179,6 +183,89 @@ def test_provider_diagnostics_do_not_imply_provider_authority() -> None:
     ]:
         with pytest.raises((ValidationError, ValueError)):
             diagnostic.model_copy(update=update)
+
+
+def test_web_runtime_promotion_ladder_is_ordered_and_blocked() -> None:
+    contract = build_web_runtime_authority_contract()
+    ladder = contract.promotion_ladder
+
+    assert tuple(step.model_dump(mode="python")["step"] for step in ladder) == (
+        WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER
+    )
+    assert tuple(step.sequence for step in ladder) == tuple(range(1, 10))
+    assert tuple(step.model_dump(mode="python")["status"] for step in ladder) == (
+        WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_STATUSES
+    )
+    assert all(step.web_access_gateway_required is True for step in ladder)
+    assert all(step.exact_approval_required_before_execution is True for step in ladder)
+    assert all(
+        step.cost_governor_binding_required_before_paid_provider_use is True
+        for step in ladder
+    )
+    assert all(step.runtime_authority_granted is False for step in ladder)
+    assert all(step.live_web_fetching_allowed is False for step in ladder)
+    assert all(step.browser_automation_allowed is False for step in ladder)
+    assert all(step.provider_sdk_call_allowed is False for step in ladder)
+    assert all(step.generic_public_web_mutation_allowed is False for step in ladder)
+    assert all(step.callable_runtime_authority is False for step in ladder)
+
+    callable_runtime_step = ladder[-1]
+    assert "frontier paid usage without cost receipts" in (
+        callable_runtime_step.keep_blocked
+    )
+
+    with pytest.raises((ValidationError, ValueError)):
+        WebRuntimePromotionLadderStepContract(
+            sequence=1,
+            step="roadmap_currentness_stitching",
+            first_safe_mode="Active roadmap and board promotion only.",
+            keep_blocked=(),
+            verification_lane_ref=(
+                "verification-lane:web-runtime-authority:"
+                "roadmap-currentness-stitching"
+            ),
+        )
+
+    with pytest.raises((ValidationError, ValueError)):
+        callable_runtime_step.model_copy(update={"callable_runtime_authority": True})
+
+    with pytest.raises((ValidationError, ValueError)):
+        build_web_runtime_authority_contract().model_copy(
+            update={
+                "promotion_ladder": (
+                    *ladder[:-1],
+                    callable_runtime_step.model_copy(update={"status": "shaping"}),
+                )
+            }
+        )
+
+
+def test_cost_governor_posture_blocks_paid_frontier_provider_use() -> None:
+    posture = WebRuntimeCostGovernorPostureContract()
+
+    assert posture.cost_governor_required_before_paid_provider_use is True
+    assert posture.unknown_paid_cost_requires_explicit_approval is True
+    assert posture.estimated_cost_ref_required is True
+    assert posture.budget_decision_ref_required is True
+    assert posture.cost_receipt_refs_required_for_frontier_usage_claims is True
+    assert posture.provider_model_refs_required_before_frontier_usage is True
+    assert posture.budget_exceeded_blocks_execution is True
+    assert posture.frontier_ai_scope_separated_from_web_provider_scope is True
+    assert posture.web_provider_diagnostics_are_not_frontier_ai_authority is True
+    assert posture.provider_sdk_calls_allowed is False
+    assert posture.runtime_model_calls_allowed is False
+    assert posture.callable_runtime_authority is False
+
+    for update in [
+        {"unknown_paid_cost_requires_explicit_approval": False},
+        {"cost_receipt_refs_required_for_frontier_usage_claims": False},
+        {"provider_model_refs_required_before_frontier_usage": False},
+        {"provider_sdk_calls_allowed": True},
+        {"runtime_model_calls_allowed": True},
+        {"callable_runtime_authority": True},
+    ]:
+        with pytest.raises((ValidationError, ValueError)):
+            posture.model_copy(update=update)
 
 
 def test_catalog_manifest_visibility_is_metadata_not_callable_runtime() -> None:

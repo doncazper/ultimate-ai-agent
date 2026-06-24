@@ -10,6 +10,32 @@ Non-goals: live web fetching, browser automation, provider SDK calls, POST,
 click, form, download, upload, mutation execution, callable runtime authority,
 new API routes, or route side-effect reclassification.
 
+## Web Runtime Authority Promotion Ladder
+
+The active promotion ladder is ordered and blocked by default:
+
+| Step | First safe mode | Keep blocked |
+|---|---|---|
+| Roadmap/currentness stitching | Active roadmap and board promotion only | live web fetching, provider SDK calls, browser automation, callable runtime authority |
+| Governed read-only fetch | HTTPS GET only through `WebAccessGateway` | browser execution, non-GET methods, provider SDK calls, downloads/uploads |
+| Provider shells and diagnostics | provider manifests and diagnostics as metadata only | provider network calls, provider SDK calls, credential validation, runtime sessions |
+| Read-only provider adapter | disabled read-only adapter behind `WebAccessGateway` | provider Interact, sessions, clicks/forms, downloads/uploads, POST |
+| Browser observe | observe-only browser summaries behind `WebAccessGateway` | cookies, auth, raw DOM retention, click, form, download |
+| Browser action dry-run | reviewable `web_action_plan` only | browser control from planner, real clicks, form submission, auth, downloads/uploads |
+| Low-risk click execution | exact-approved low-risk clicks only | forms, purchases, downloads, auth, destructive actions |
+| Connector-specific writes | connector-specific write dry-run before execution | generic public-web form submit, arbitrary POST, credential leakage, unscoped uploads |
+| Callable runtime authority | scoped autonomy windows with receipts and revocation | unrestricted browsing, unscoped runtime authority, frontier paid usage without cost receipts, provider output as authority |
+
+The ladder is shaping guidance and verifier input. It does not enable live web
+fetching, browser automation, provider SDK calls, POST/click/form/download/
+upload behavior, mutation execution, or callable runtime authority.
+
+Paid/frontier provider use requires CostGovernor posture before any promotion:
+estimated cost refs, budget decision refs, cost receipt refs for claimed
+frontier usage, provider/model safe refs, unknown paid cost explicit approval,
+budget-exceeded blocking, and separate scope for web providers versus frontier
+AI providers.
+
 ## Canonical Runtime Nouns
 
 All future agent-facing public-web runtime work must use these nouns:
@@ -113,6 +139,7 @@ Run:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_web_runtime_authority_contract.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_web_access_static_guards.py
 .venv/bin/python scripts/verify_web_runtime_authority.py
 ```
 

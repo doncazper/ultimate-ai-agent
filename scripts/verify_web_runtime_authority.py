@@ -17,6 +17,8 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.web_access import (  # noqa: E402
+    WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER,
+    WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_STATUSES,
     WEB_RUNTIME_CANONICAL_NOUNS,
     WEB_RUNTIME_PROMOTION_STEPS,
     WEB_RUNTIME_REQUIRED_OPERATOR_LABELS,
@@ -29,6 +31,9 @@ SUCCESS_MESSAGE = "Web Runtime Authority hardening verification passed."
 CONTRACT_PATH = Path("src/ultimate_ai_agent/core/web_access/runtime_authority.py")
 DOC_PATH = Path("docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md")
 TEST_PATH = Path("tests/test_web_runtime_authority_contract.py")
+ROADMAP_PATH = Path("docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md")
+BOARD_PATH = Path("docs/kanban/current_board.md")
+PROVIDER_SEQUENCE_PATH = Path("docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md")
 FORBIDDEN_IMPORT_ROOTS = {
     "browserbase",
     "firecrawl",
@@ -52,6 +57,54 @@ FORBIDDEN_CALL_ROOTS = {
     "urllib",
     "webbrowser",
 }
+FORBIDDEN_PUBLIC_WEB_IMPORTS = {
+    "apify",
+    "apify_client",
+    "browserbase",
+    "bs4",
+    "ddgs",
+    "duckduckgo_search",
+    "exa",
+    "exa_py",
+    "firecrawl",
+    "http.client",
+    "httpx",
+    "newspaper",
+    "newspaper3k",
+    "playwright",
+    "requests",
+    "scrapy",
+    "selenium",
+    "serpapi",
+    "tavily",
+    "tavily_client",
+    "trafilatura",
+    "urllib.request",
+    "urllib3",
+}
+APPROVED_PUBLIC_WEB_IMPORT_FILES = {
+    "src/ultimate_ai_agent/core/web_access/adapters.py",
+    "src/ultimate_ai_agent/core/local_model_management/gateway.py",
+    "src/ultimate_ai_agent/core/local_model_management/hf_search.py",
+    "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py",
+    "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
+    "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
+    "src/ultimate_ai_agent/core/network/governed_web_evidence.py",
+    "scripts/dev/uaa_launcher.py",
+    "scripts/dev/uaa_setup.py",
+    "scripts/run_local_runtime_packaging_proof.py",
+}
+SCAN_ROOTS = (Path("src"), Path("scripts"))
+IGNORED_DIR_NAMES = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "build",
+    "dist",
+    "node_modules",
+}
 REQUIRED_DOC_FRAGMENTS = (
     "web_request",
     "web_observation",
@@ -65,6 +118,31 @@ REQUIRED_DOC_FRAGMENTS = (
     "Blocked",
     "Degraded",
     "Partial",
+    "Web Runtime Authority Promotion Ladder",
+    "Roadmap/currentness stitching",
+    "Governed read-only fetch",
+    "Provider shells and diagnostics",
+    "Read-only provider adapter",
+    "Browser observe",
+    "Browser action dry-run",
+    "Low-risk click execution",
+    "Connector-specific writes",
+    "Callable runtime authority",
+    "CostGovernor",
+    "frontier paid usage without cost receipts",
+)
+REQUIRED_ROADMAP_FRAGMENTS = (
+    "Web Runtime Authority Promotion Ladder",
+    "ultimate_ai_agent.core.web_access",
+    "historical/contract evidence, not blanket callable runtime authority",
+    "provider shells and diagnostics",
+    "paid/frontier provider use requires CostGovernor",
+)
+REQUIRED_BOARD_FRAGMENTS = (
+    "Web Runtime Authority Promotion Ladder",
+    "P1 shaping lane",
+    "runtime authority WIP limit at one lane",
+    "no live web fetching, browser automation, provider SDK calls",
 )
 
 
@@ -73,12 +151,13 @@ def verify() -> list[str]:
     _append_file_failures(failures)
     _append_contract_failures(failures)
     _append_static_source_failures(failures)
+    _append_public_web_bypass_failures(failures)
     _append_doc_failures(failures)
     return failures
 
 
 def _append_file_failures(failures: list[str]) -> None:
-    for path in [CONTRACT_PATH, DOC_PATH, TEST_PATH]:
+    for path in [CONTRACT_PATH, DOC_PATH, TEST_PATH, ROADMAP_PATH, BOARD_PATH]:
         if not (ROOT / path).exists():
             failures.append(f"missing Web Runtime Authority file: {path.as_posix()}")
 
@@ -106,6 +185,44 @@ def _append_contract_failures(failures: list[str]) -> None:
     for step in contract.promotion_steps:
         if not step.verification_lane_ref.startswith("verification-lane:web-runtime-authority:"):
             failures.append(f"{step.model_dump(mode='python')['step']} is missing named verification lane")
+    ladder_steps = tuple(
+        step.model_dump(mode="python")["step"] for step in contract.promotion_ladder
+    )
+    if ladder_steps != WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER:
+        failures.append("web runtime authority promotion ladder is incomplete or unordered")
+    ladder_statuses = tuple(
+        step.model_dump(mode="python")["status"] for step in contract.promotion_ladder
+    )
+    if ladder_statuses != WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_STATUSES:
+        failures.append("web runtime authority promotion ladder statuses drifted")
+    for index, ladder_step in enumerate(contract.promotion_ladder, start=1):
+        if ladder_step.sequence != index:
+            failures.append(f"{ladder_step.step} ladder sequence drifted")
+        if ladder_step.runtime_authority_granted is not False:
+            failures.append(f"{ladder_step.step} grants runtime authority")
+        if ladder_step.live_web_fetching_allowed is not False:
+            failures.append(f"{ladder_step.step} allows live web fetching")
+        if ladder_step.browser_automation_allowed is not False:
+            failures.append(f"{ladder_step.step} allows browser automation")
+        if ladder_step.provider_sdk_call_allowed is not False:
+            failures.append(f"{ladder_step.step} allows provider SDK calls")
+        if ladder_step.generic_public_web_mutation_allowed is not False:
+            failures.append(f"{ladder_step.step} allows generic public-web mutation")
+        if ladder_step.callable_runtime_authority is not False:
+            failures.append(f"{ladder_step.step} grants callable runtime authority")
+    cost_posture = contract.cost_governor_posture
+    if cost_posture.cost_governor_required_before_paid_provider_use is not True:
+        failures.append("paid/frontier provider use is not CostGovernor-bound")
+    if cost_posture.unknown_paid_cost_requires_explicit_approval is not True:
+        failures.append("unknown paid/frontier cost is not approval-bound")
+    if cost_posture.cost_receipt_refs_required_for_frontier_usage_claims is not True:
+        failures.append("frontier usage claims do not require cost receipt refs")
+    if cost_posture.provider_model_refs_required_before_frontier_usage is not True:
+        failures.append("frontier usage does not require provider/model refs")
+    if cost_posture.provider_sdk_calls_allowed is not False:
+        failures.append("cost posture allows provider SDK calls")
+    if cost_posture.callable_runtime_authority is not False:
+        failures.append("cost posture grants callable runtime authority")
     if contract.approval_linkage.execution_authorized is not False:
         failures.append("approval linkage implies execution authority")
     if contract.approval_linkage.exact_scope_validation_required is not True:
@@ -158,14 +275,75 @@ def _append_static_source_failures(failures: list[str]) -> None:
                 failures.append(f"forbidden runtime call in Web Runtime Authority: {call_name}")
 
 
+def _append_public_web_bypass_failures(failures: list[str]) -> None:
+    for root in SCAN_ROOTS:
+        scan_root = ROOT / root
+        if not scan_root.exists():
+            continue
+        for path in scan_root.rglob("*.py"):
+            if any(part in IGNORED_DIR_NAMES for part in path.parts):
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in APPROVED_PUBLIC_WEB_IMPORT_FILES:
+                continue
+            for imported in sorted(_direct_imports(path)):
+                if _is_public_web_import(imported):
+                    failures.append(
+                        "public web/provider import bypasses WebAccessGateway: "
+                        f"{rel}: {imported}"
+                    )
+
+
 def _append_doc_failures(failures: list[str]) -> None:
     path = ROOT / DOC_PATH
     if not path.exists():
         return
     text = path.read_text(encoding="utf-8")
     for fragment in REQUIRED_DOC_FRAGMENTS:
-        if fragment not in text:
+        if not _contains_fragment(text, fragment):
             failures.append(f"Web Runtime Authority doc missing required fragment: {fragment}")
+    for path, fragments, label in [
+        (ROOT / ROADMAP_PATH, REQUIRED_ROADMAP_FRAGMENTS, "roadmap"),
+        (ROOT / BOARD_PATH, REQUIRED_BOARD_FRAGMENTS, "board"),
+        (
+            ROOT / PROVIDER_SEQUENCE_PATH,
+            ("Add providers earlier. Add dangerous authority much later.",),
+            "provider sequence",
+        ),
+    ]:
+        if not path.exists():
+            failures.append(f"missing {label} document for Web Runtime Authority")
+            continue
+        doc_text = path.read_text(encoding="utf-8")
+        for fragment in fragments:
+            if not _contains_fragment(doc_text, fragment):
+                failures.append(f"Web Runtime Authority {label} missing required fragment: {fragment}")
+
+
+def _direct_imports(path: Path) -> set[str]:
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except SyntaxError:
+        return set()
+    imports: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.add(node.module)
+            imports.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return imports
+
+
+def _is_public_web_import(module: str) -> bool:
+    return any(
+        module == banned or module.startswith(f"{banned}.")
+        for banned in FORBIDDEN_PUBLIC_WEB_IMPORTS
+    )
+
+
+def _contains_fragment(text: str, fragment: str) -> bool:
+    return fragment in text or " ".join(fragment.split()) in " ".join(text.split())
 
 
 def _call_name(node: ast.AST) -> str:

@@ -52,6 +52,18 @@ class WebPromotionStep(str, Enum):
     CATALOG_MANIFEST_VISIBILITY = "catalog_manifest_visibility"
 
 
+class WebRuntimePromotionLadderStep(str, Enum):
+    ROADMAP_CURRENTNESS_STITCHING = "roadmap_currentness_stitching"
+    GOVERNED_READ_ONLY_FETCH = "governed_read_only_fetch"
+    PROVIDER_SHELLS_DIAGNOSTICS = "provider_shells_diagnostics"
+    READ_ONLY_PROVIDER_ADAPTER = "read_only_provider_adapter"
+    BROWSER_OBSERVE = "browser_observe"
+    BROWSER_ACTION_DRY_RUN = "browser_action_dry_run"
+    LOW_RISK_CLICK_EXECUTION = "low_risk_click_execution"
+    CONNECTOR_SPECIFIC_WRITES = "connector_specific_writes"
+    CALLABLE_RUNTIME_AUTHORITY = "callable_runtime_authority"
+
+
 WEB_RUNTIME_CANONICAL_NOUNS: tuple[str, ...] = tuple(noun.value for noun in WebRuntimeNoun)
 WEB_RUNTIME_REQUIRED_SIDE_EFFECTS: tuple[str, ...] = tuple(
     side_effect.value for side_effect in WebSideEffectKind
@@ -60,6 +72,20 @@ WEB_RUNTIME_REQUIRED_OPERATOR_LABELS: tuple[str, ...] = tuple(
     label.value for label in WebOperatorStateLabel
 )
 WEB_RUNTIME_PROMOTION_STEPS: tuple[str, ...] = tuple(step.value for step in WebPromotionStep)
+WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER: tuple[str, ...] = tuple(
+    step.value for step in WebRuntimePromotionLadderStep
+)
+WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_STATUSES: tuple[str, ...] = (
+    "shaping",
+    "blocked",
+    "blocked",
+    "blocked",
+    "blocked",
+    "blocked",
+    "future_blocked",
+    "future_blocked",
+    "future_blocked",
+)
 
 _FORBIDDEN_RAW_PRIVATE_MARKERS = (
     "raw prompt",
@@ -310,6 +336,64 @@ class WebCatalogManifestVisibilityContract(_WebRuntimeAuthorityModel):
         return self
 
 
+class WebRuntimePromotionLadderStepContract(_WebRuntimeAuthorityModel):
+    sequence: int = Field(..., ge=1)
+    step: WebRuntimePromotionLadderStep
+    status: Literal["shaping", "blocked", "future_blocked"] = "blocked"
+    first_safe_mode: str = Field(..., min_length=1, max_length=160)
+    keep_blocked: tuple[str, ...] = Field(default_factory=tuple)
+    verification_lane_ref: str
+    web_access_gateway_required: Literal[True] = True
+    exact_approval_required_before_execution: Literal[True] = True
+    cost_governor_binding_required_before_paid_provider_use: Literal[True] = True
+    runtime_authority_granted: Literal[False] = False
+    live_web_fetching_allowed: Literal[False] = False
+    browser_automation_allowed: Literal[False] = False
+    provider_sdk_call_allowed: Literal[False] = False
+    generic_public_web_mutation_allowed: Literal[False] = False
+    callable_runtime_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_ladder_step(self) -> "WebRuntimePromotionLadderStepContract":
+        _validate_safe_payload(
+            self.first_safe_mode,
+            "WEB_RUNTIME_PROMOTION_LADDER_UNSAFE_SAFE_MODE",
+        )
+        _validate_safe_ref(self.verification_lane_ref, "verification_lane_ref")
+        _require_verification_lane(self.verification_lane_ref)
+        if not self.keep_blocked:
+            raise ValueError("WEB_RUNTIME_PROMOTION_LADDER_BLOCKED_ITEMS_REQUIRED")
+        for blocked in self.keep_blocked:
+            _validate_safe_payload(
+                blocked,
+                "WEB_RUNTIME_PROMOTION_LADDER_UNSAFE_BLOCKED_ITEM",
+            )
+        return self
+
+
+class WebRuntimeCostGovernorPostureContract(_WebRuntimeAuthorityModel):
+    cost_posture_ref: str = (
+        "cost-posture-ref:web-runtime-authority:paid-frontier-providers"
+    )
+    cost_governor_required_before_paid_provider_use: Literal[True] = True
+    unknown_paid_cost_requires_explicit_approval: Literal[True] = True
+    estimated_cost_ref_required: Literal[True] = True
+    budget_decision_ref_required: Literal[True] = True
+    cost_receipt_refs_required_for_frontier_usage_claims: Literal[True] = True
+    provider_model_refs_required_before_frontier_usage: Literal[True] = True
+    budget_exceeded_blocks_execution: Literal[True] = True
+    frontier_ai_scope_separated_from_web_provider_scope: Literal[True] = True
+    web_provider_diagnostics_are_not_frontier_ai_authority: Literal[True] = True
+    provider_sdk_calls_allowed: Literal[False] = False
+    runtime_model_calls_allowed: Literal[False] = False
+    callable_runtime_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_cost_posture(self) -> "WebRuntimeCostGovernorPostureContract":
+        _validate_safe_ref(self.cost_posture_ref, "cost_posture_ref")
+        return self
+
+
 class WebRuntimeAuthorityContract(_WebRuntimeAuthorityModel):
     contract_ref: str = "contract-ref:web-runtime-authority-hardening:v1"
     canonical_nouns: tuple[WebRuntimeNoun, ...] = tuple(WebRuntimeNoun)
@@ -406,6 +490,156 @@ class WebRuntimeAuthorityContract(_WebRuntimeAuthorityModel):
     catalog_manifest_visibility: WebCatalogManifestVisibilityContract = Field(
         default_factory=WebCatalogManifestVisibilityContract
     )
+    promotion_ladder: tuple[WebRuntimePromotionLadderStepContract, ...] = Field(
+        default_factory=lambda: (
+            WebRuntimePromotionLadderStepContract(
+                sequence=1,
+                step=WebRuntimePromotionLadderStep.ROADMAP_CURRENTNESS_STITCHING,
+                status="shaping",
+                first_safe_mode="Active roadmap and board promotion only.",
+                keep_blocked=(
+                    "live web fetching",
+                    "provider SDK calls",
+                    "browser automation",
+                    "callable runtime authority",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:"
+                    "roadmap-currentness-stitching"
+                ),
+            ),
+            WebRuntimePromotionLadderStepContract(
+                sequence=2,
+                step=WebRuntimePromotionLadderStep.GOVERNED_READ_ONLY_FETCH,
+                first_safe_mode="HTTPS GET only through WebAccessGateway.",
+                keep_blocked=(
+                    "browser execution",
+                    "non-GET methods",
+                    "provider SDK calls",
+                    "downloads/uploads",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:"
+                    "governed-read-only-fetch"
+                ),
+            ),
+            WebRuntimePromotionLadderStepContract(
+                sequence=3,
+                step=WebRuntimePromotionLadderStep.PROVIDER_SHELLS_DIAGNOSTICS,
+                first_safe_mode="Provider manifests and diagnostics as metadata only.",
+                keep_blocked=(
+                    "provider network calls",
+                    "provider SDK calls",
+                    "credential validation",
+                    "runtime sessions",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:"
+                    "provider-shells-diagnostics"
+                ),
+            ),
+            WebRuntimePromotionLadderStepContract(
+                sequence=4,
+                step=WebRuntimePromotionLadderStep.READ_ONLY_PROVIDER_ADAPTER,
+                first_safe_mode="Disabled read-only adapter behind WebAccessGateway.",
+                keep_blocked=(
+                    "provider Interact",
+                    "sessions",
+                    "clicks/forms",
+                    "downloads/uploads",
+                    "POST",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:"
+                    "read-only-provider-adapter"
+                ),
+            ),
+            WebRuntimePromotionLadderStepContract(
+                sequence=5,
+                step=WebRuntimePromotionLadderStep.BROWSER_OBSERVE,
+                first_safe_mode="Observe-only browser summaries behind WebAccessGateway.",
+                keep_blocked=(
+                    "cookies",
+                    "auth",
+                    "raw DOM retention",
+                    "click",
+                    "form",
+                    "download",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:browser-observe"
+                ),
+            ),
+            WebRuntimePromotionLadderStepContract(
+                sequence=6,
+                step=WebRuntimePromotionLadderStep.BROWSER_ACTION_DRY_RUN,
+                first_safe_mode="Reviewable web_action_plan only.",
+                keep_blocked=(
+                    "browser control from planner",
+                    "real clicks",
+                    "form submission",
+                    "auth",
+                    "downloads/uploads",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:"
+                    "browser-action-dry-run"
+                ),
+            ),
+            WebRuntimePromotionLadderStepContract(
+                sequence=7,
+                step=WebRuntimePromotionLadderStep.LOW_RISK_CLICK_EXECUTION,
+                status="future_blocked",
+                first_safe_mode="Exact-approved low-risk clicks only.",
+                keep_blocked=(
+                    "forms",
+                    "purchases",
+                    "downloads",
+                    "auth",
+                    "destructive actions",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:"
+                    "low-risk-click-execution"
+                ),
+            ),
+            WebRuntimePromotionLadderStepContract(
+                sequence=8,
+                step=WebRuntimePromotionLadderStep.CONNECTOR_SPECIFIC_WRITES,
+                status="future_blocked",
+                first_safe_mode="Connector-specific write dry-run before execution.",
+                keep_blocked=(
+                    "generic public-web form submit",
+                    "arbitrary POST",
+                    "credential leakage",
+                    "unscoped uploads",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:"
+                    "connector-specific-writes"
+                ),
+            ),
+            WebRuntimePromotionLadderStepContract(
+                sequence=9,
+                step=WebRuntimePromotionLadderStep.CALLABLE_RUNTIME_AUTHORITY,
+                status="future_blocked",
+                first_safe_mode="Scoped autonomy windows with receipts and revocation.",
+                keep_blocked=(
+                    "unrestricted browsing",
+                    "unscoped runtime authority",
+                    "frontier paid usage without cost receipts",
+                    "provider output as authority",
+                ),
+                verification_lane_ref=(
+                    "verification-lane:web-runtime-authority:"
+                    "callable-runtime-authority"
+                ),
+            ),
+        )
+    )
+    cost_governor_posture: WebRuntimeCostGovernorPostureContract = Field(
+        default_factory=WebRuntimeCostGovernorPostureContract
+    )
     live_web_fetching_allowed: Literal[False] = False
     browser_automation_allowed: Literal[False] = False
     provider_sdk_calls_allowed: Literal[False] = False
@@ -428,6 +662,16 @@ class WebRuntimeAuthorityContract(_WebRuntimeAuthorityModel):
             raise ValueError("WEB_RUNTIME_PROMOTION_STEPS_REQUIRED")
         for step in self.promotion_steps:
             _require_verification_lane(step.verification_lane_ref)
+        ladder_steps = tuple(_enum_value(step.step) for step in self.promotion_ladder)
+        if ladder_steps != WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER:
+            raise ValueError("WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_REQUIRED")
+        expected_sequence = tuple(range(1, len(self.promotion_ladder) + 1))
+        actual_sequence = tuple(step.sequence for step in self.promotion_ladder)
+        if actual_sequence != expected_sequence:
+            raise ValueError("WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_SEQUENCE_REQUIRED")
+        actual_statuses = tuple(step.status for step in self.promotion_ladder)
+        if actual_statuses != WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_STATUSES:
+            raise ValueError("WEB_RUNTIME_AUTHORITY_PROMOTION_LADDER_STATUS_REQUIRED")
         return self
 
 
