@@ -1339,10 +1339,18 @@ export interface FounderLoopWeeklyCeoReviewSummary {
   next_safe_action: string;
 }
 
+export type FounderLoopSourceReadinessStatus =
+  | "ready"
+  | "blocked"
+  | "missing"
+  | "metadata_only"
+  | "unavailable"
+  | "not_configured";
+
 export interface FounderLoopSourceReadinessItem {
   source_ref: string;
   source_kind: string;
-  status: string;
+  status: FounderLoopSourceReadinessStatus;
   safe_summary: string;
   next_safe_action: string;
   source_refs: string[];
@@ -1358,7 +1366,10 @@ export interface FounderLoopSourceReadinessPosture {
   status: string;
   source_count: number;
   ready_source_count: number;
-  contract_only_source_count: number;
+  blocked_source_count: number;
+  metadata_only_source_count: number;
+  not_configured_source_count: number;
+  supported_statuses: FounderLoopSourceReadinessStatus[];
   missing_contract_refs: string[];
   blocked_state_refs: string[];
   connector_runtime_enabled: boolean;

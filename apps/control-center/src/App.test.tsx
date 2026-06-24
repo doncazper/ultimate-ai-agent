@@ -189,7 +189,22 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Daily command loop/i })).toBeInTheDocument();
     expect(screen.getByText("Home").nextElementSibling).toHaveTextContent("Morning Briefing");
     expect(screen.getByRole("heading", { name: /Source readiness states/i })).toBeInTheDocument();
-    expect(screen.getByText(/inbox: contract_only/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Non-authoritative source readiness fallback from mock_fallback_non_authoritative/i,
+      ),
+    ).toBeInTheDocument();
+    const sourcePosture = screen.getByLabelText("Source readiness posture");
+    expect(within(sourcePosture).getByText("Backend owned").nextElementSibling).toHaveTextContent(
+      "no",
+    );
+    expect(screen.getByText(/inbox: blocked/i)).toBeInTheDocument();
+    expect(screen.getByText("Blocked sources").nextElementSibling).toHaveTextContent("1");
+    expect(screen.getByText("Metadata-only sources").nextElementSibling).toHaveTextContent("3");
+    expect(screen.getByText("Not configured sources").nextElementSibling).toHaveTextContent("1");
+    expect(screen.getAllByText("metadata_only").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("not_configured").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("unavailable").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Review queue groups/i })).toBeInTheDocument();
     expect(screen.getByText(/crm_followups: 1; review_only/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /CRM-lite follow-ups/i })).toBeInTheDocument();
@@ -294,7 +309,8 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Daily command loop/i })).toBeInTheDocument();
     expect(screen.getByText("Home").nextElementSibling).toHaveTextContent("Morning Briefing");
     expect(screen.getByRole("heading", { name: /Source readiness states/i })).toBeInTheDocument();
-    expect(screen.getByText(/calendar: contract_only/i)).toBeInTheDocument();
+    expect(screen.getByText(/calendar: not_configured/i)).toBeInTheDocument();
+    expect(screen.getByText(/inbox: blocked/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /CRM-lite follow-ups/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Memory why shown/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Dogfood capture/i })).toBeInTheDocument();

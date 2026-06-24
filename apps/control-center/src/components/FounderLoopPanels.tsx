@@ -931,9 +931,9 @@ function SourceReadinessCards({
       {posture ? (
         <>
           <p className="muted">
-            Backend-owned source readiness posture from {posture.source}. This
-            is read-only metadata; connector runtime, refresh, notifications,
-            and delivery remain blocked.
+            {posture.backend_owned
+              ? `Backend-owned source readiness posture from ${posture.source}. This is read-only metadata; connector runtime, refresh, notifications, and delivery remain blocked.`
+              : `Non-authoritative source readiness fallback from ${posture.source}. This describes UI shape only; reconnect the backend before treating source readiness as Python-core truth.`}
           </p>
           <dl
             aria-label="Source readiness posture"
@@ -950,8 +950,16 @@ function SourceReadinessCards({
               value={`${posture.ready_source_count}/${posture.source_count}`}
             />
             <DetailTerm
-              label="Contract-only sources"
-              value={String(posture.contract_only_source_count)}
+              label="Blocked sources"
+              value={String(posture.blocked_source_count)}
+            />
+            <DetailTerm
+              label="Metadata-only sources"
+              value={String(posture.metadata_only_source_count)}
+            />
+            <DetailTerm
+              label="Not configured sources"
+              value={String(posture.not_configured_source_count)}
             />
             <DetailTerm
               label="Connector runtime"
@@ -979,6 +987,10 @@ function SourceReadinessCards({
           <RefListWithFallback
             emptyLabel="Source posture blockers: none"
             refs={posture.blocked_state_refs}
+          />
+          <InlineListWithFallback
+            emptyLabel="Supported source states: missing"
+            items={posture.supported_statuses}
           />
         </>
       ) : null}

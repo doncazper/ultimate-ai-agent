@@ -1591,12 +1591,12 @@ def _source_readiness_items(
     ] or ["briefing-ref:source-readiness:not-yet-seeded"]
     return [
         {
-            "source_ref": "source-ref:inbox:contract-only",
+            "source_ref": "source-ref:inbox:readiness-blocked",
             "source_kind": "inbox",
-            "status": "contract_only",
+            "status": "blocked",
             "safe_summary": (
-                "Inbox can appear only through future read-only metadata "
-                "contracts; live email access is not present."
+                "Inbox source readiness is blocked until a read-only email "
+                "metadata contract exists; live email access is not present."
             ),
             "next_safe_action": (
                 "Define a read-only email metadata contract before inbox-derived "
@@ -1616,12 +1616,12 @@ def _source_readiness_items(
             ),
         },
         {
-            "source_ref": "source-ref:calendar:contract-only",
+            "source_ref": "source-ref:calendar:not-configured",
             "source_kind": "calendar",
-            "status": "contract_only",
+            "status": "not_configured",
             "safe_summary": (
-                "Calendar commitments remain blocked until a read-only metadata "
-                "contract exists."
+                "Calendar source readiness is not configured; commitments remain "
+                "blocked until a read-only metadata contract exists."
             ),
             "next_safe_action": (
                 "Define calendar metadata refs and stale-state checks before "
@@ -1643,7 +1643,7 @@ def _source_readiness_items(
         {
             "source_ref": "source-ref:tasks:manual-only",
             "source_kind": "tasks",
-            "status": "manual_only",
+            "status": "metadata_only",
             "safe_summary": (
                 "Tasks are represented by local Plans, Today items, and Action "
                 "Inbox safe refs; external task systems are not connected."
@@ -1667,7 +1667,7 @@ def _source_readiness_items(
         {
             "source_ref": "source-ref:crm-manual-notes:manual-only",
             "source_kind": "crm_manual_notes",
-            "status": "manual_only",
+            "status": "metadata_only",
             "safe_summary": (
                 "CRM-lite relationship signals come from reviewed memory, local "
                 "follow-up refs, and manual safe summaries."
@@ -1766,11 +1766,29 @@ def _source_readiness_posture(
         "ready_source_count": sum(
             1 for item in source_readiness_items if item.get("status") == "ready"
         ),
-        "contract_only_source_count": sum(
+        "blocked_source_count": sum(
             1
             for item in source_readiness_items
-            if item.get("status") == "contract_only"
+            if item.get("status") == "blocked"
         ),
+        "metadata_only_source_count": sum(
+            1
+            for item in source_readiness_items
+            if item.get("status") == "metadata_only"
+        ),
+        "not_configured_source_count": sum(
+            1
+            for item in source_readiness_items
+            if item.get("status") == "not_configured"
+        ),
+        "supported_statuses": [
+            "ready",
+            "blocked",
+            "missing",
+            "metadata_only",
+            "unavailable",
+            "not_configured",
+        ],
         "missing_contract_refs": missing_contract_refs,
         "blocked_state_refs": blocked_state_refs,
         "connector_runtime_enabled": False,
@@ -2260,7 +2278,7 @@ def _weekly_review_narrative(
             source["source_ref"]
             for source in source_readiness_items
             if source["status"]
-            in {"missing", "blocked", "contract_only", "manual_only"}
+            in {"missing", "blocked", "unavailable", "not_configured"}
         ],
         "dogfood_refs": [
             dogfood_capture["capture_ref"],

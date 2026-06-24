@@ -289,8 +289,10 @@ require the terminal.
 
 **Current Slice:** `/briefing` includes a read-only source readiness metadata
 card over existing backend fields: route refs, missing email/calendar/
-notification contracts, refresh/notification blockers, and blocked source
-states. No connector runtime or source refresh authority is added.
+notification contracts, refresh/notification blockers, blocked source states,
+and explicit `ready`, `blocked`, `missing`, `metadata_only`, `unavailable`, and
+`not_configured` source-readiness labels. No connector runtime or source
+refresh authority is added.
 
 **Authority Boundary:** Do not fake live email, calendar, or task access. No
 send/write/delete authority, account auth, background polling, raw source
@@ -312,6 +314,13 @@ or Setup copy for next safe source actions.
 **Done Gate:** Morning Briefing and Today can show inbox/calendar/task source
 readiness, manual or metadata-only source summaries can feed reviewable
 objects, and missing sources explain the next safe action.
+
+**Current Slice:** Today and Morning Briefing now expose embedded backend-owned
+read-only source readiness metadata for inbox, calendar, tasks, CRM-lite/manual
+notes, repo, and local files. This moves the unit toward rank 2, but the
+operational maturity manifest still keeps Inbox/Sources at rank 1 until a
+dedicated source-readiness route, UI status binding, and verifier-backed
+contract exist.
 
 **Authority Boundary:** No account auth, background polling, raw body
 ingestion, email send, calendar write, external task write, archive, delete,

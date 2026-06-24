@@ -2,6 +2,8 @@ import type {
   ControlCenterData,
   FounderLoopEvidenceHistoryAnswer,
   FounderLoopEvidenceHistoryAnswers,
+  FounderLoopSourceReadinessItem,
+  FounderLoopSourceReadinessPosture,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
@@ -1091,13 +1093,13 @@ const weeklyCeoReviewSummary = {
     "Review carry-forward memory refs before any later action, recall, or memory-write milestone.",
 };
 
-const sourceReadinessItems = [
+const sourceReadinessItems: FounderLoopSourceReadinessItem[] = [
   {
-    source_ref: "source-ref:inbox:contract-only",
+    source_ref: "source-ref:inbox:readiness-blocked",
     source_kind: "inbox",
-    status: "contract_only",
+    status: "blocked",
     safe_summary:
-      "Inbox can appear only through future read-only metadata contracts; live email access is not present.",
+      "Inbox source readiness is blocked until a read-only email metadata contract exists; live email access is not present.",
     next_safe_action:
       "Define a read-only email metadata contract before inbox-derived items enter the daily loop.",
     source_refs: ["contract-ref:email-read-only-missing"],
@@ -1112,11 +1114,11 @@ const sourceReadinessItems = [
       "Readiness display only; no account auth, polling, email send, archive, label, move, or connector write authority.",
   },
   {
-    source_ref: "source-ref:calendar:contract-only",
+    source_ref: "source-ref:calendar:not-configured",
     source_kind: "calendar",
-    status: "contract_only",
+    status: "not_configured",
     safe_summary:
-      "Calendar commitments remain blocked until a read-only metadata contract exists.",
+      "Calendar source readiness is not configured; commitments remain blocked until a read-only metadata contract exists.",
     next_safe_action:
       "Define calendar metadata refs and stale-state checks before calendar-derived commitments enter Today.",
     source_refs: ["contract-ref:calendar-read-only-missing"],
@@ -1133,7 +1135,7 @@ const sourceReadinessItems = [
   {
     source_ref: "source-ref:tasks:manual-only",
     source_kind: "tasks",
-    status: "manual_only",
+    status: "metadata_only",
     safe_summary:
       "Tasks are represented by local Plans, Today items, and Action Inbox safe refs; external task systems are not connected.",
     next_safe_action:
@@ -1151,7 +1153,7 @@ const sourceReadinessItems = [
   {
     source_ref: "source-ref:crm-manual-notes:manual-only",
     source_kind: "crm_manual_notes",
-    status: "manual_only",
+    status: "metadata_only",
     safe_summary:
       "CRM-lite relationship signals come from reviewed memory, local follow-up refs, and manual safe summaries.",
     next_safe_action:
@@ -1206,6 +1208,48 @@ const sourceReadinessItems = [
       "Metadata-only local posture; no file body ingestion, private identifier display, background watch, or connector write authority.",
   },
 ];
+
+const sourceReadinessPosture: FounderLoopSourceReadinessPosture = {
+  schema_version: "founder_loop_source_readiness_posture.v1" as const,
+  source: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  status: "mock_only_backend_read_model_unavailable",
+  source_count: sourceReadinessItems.length,
+  ready_source_count: sourceReadinessItems.filter(
+    (item) => item.status === "ready",
+  ).length,
+  blocked_source_count: sourceReadinessItems.filter(
+    (item) => item.status === "blocked",
+  ).length,
+  metadata_only_source_count: sourceReadinessItems.filter(
+    (item) => item.status === "metadata_only",
+  ).length,
+  not_configured_source_count: sourceReadinessItems.filter(
+    (item) => item.status === "not_configured",
+  ).length,
+  supported_statuses: [
+    "ready",
+    "blocked",
+    "missing",
+    "metadata_only",
+    "unavailable",
+    "not_configured",
+  ],
+  missing_contract_refs: [
+    "contract-ref:email-read-only-missing",
+    "contract-ref:calendar-read-only-missing",
+  ],
+  blocked_state_refs: sourceReadinessItems.flatMap(
+    (item) => item.blocked_state_refs,
+  ).concat("blocked-state:mock-source-readiness-non-authoritative"),
+  connector_runtime_enabled: false,
+  source_refresh_enabled: false,
+  notification_delivery_enabled: false,
+  authority_boundary:
+    "Mock source readiness describes UI shape only. It is not backend-owned connector truth and does not grant email, calendar, connector, polling, refresh, notification, or delivery authority.",
+  next_safe_action:
+    "Reconnect the local backend before treating source readiness as Python-core read-model truth.",
+};
 
 const crmLiteFollowups = followUpCommitmentRefs.map((followUpRef, index) => ({
   follow_up_ref: followUpRef,
@@ -1436,7 +1480,7 @@ const weeklyReviewNarrative = {
   stale_refs: staleMemoryRefs,
   missing_source_refs: sourceReadinessItems
     .filter((item) =>
-      ["missing", "blocked", "contract_only", "manual_only"].includes(item.status),
+      ["missing", "blocked", "unavailable", "not_configured"].includes(item.status),
     )
     .map((item) => item.source_ref),
   dogfood_refs: [dogfoodCapture.capture_ref, ...dogfoodCapture.friction_refs],
@@ -4053,6 +4097,7 @@ export const mockControlCenterData: ControlCenterData = {
     memory_to_loop_blocked_state_refs: memoryToLoopBlockedRefs,
     daily_loop_summary: dailyLoopSummary,
     source_readiness_items: sourceReadinessItems,
+    source_readiness_posture: sourceReadinessPosture,
     crm_lite_followups: crmLiteFollowups,
     memory_why_shown_items: memoryWhyShownItems,
     review_queue_groups: reviewQueueGroups,
@@ -5907,6 +5952,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
     ],
     source_readiness_items: sourceReadinessItems,
+    source_readiness_posture: sourceReadinessPosture,
     crm_lite_followups: crmLiteFollowups,
     memory_why_shown_items: memoryWhyShownItems,
     review_queue_groups: reviewQueueGroups,

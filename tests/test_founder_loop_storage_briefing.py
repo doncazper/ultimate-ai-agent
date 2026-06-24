@@ -101,11 +101,26 @@ def test_founder_loop_briefing_defaults_are_blocked_and_read_only(
     assert briefing["daily_loop_summary"]["action_execution_enabled"] is False
     assert briefing["source_readiness_items"]
     assert {source["status"] for source in briefing["source_readiness_items"]} >= {
-        "contract_only",
-        "manual_only",
+        "blocked",
+        "not_configured",
         "metadata_only",
         "ready",
     }
+    posture = briefing["source_readiness_posture"]
+    assert posture["backend_owned"] is True
+    assert posture["blocked_source_count"] >= 1
+    assert posture["metadata_only_source_count"] >= 1
+    assert posture["not_configured_source_count"] >= 1
+    assert set(posture["supported_statuses"]) >= {
+        "ready",
+        "blocked",
+        "missing",
+        "metadata_only",
+        "unavailable",
+        "not_configured",
+    }
+    assert posture["connector_runtime_enabled"] is False
+    assert posture["source_refresh_enabled"] is False
     assert briefing["daily_loop_sections"]
     assert {section["title"] for section in briefing["daily_loop_sections"]} >= {
         "Today priorities",

@@ -207,6 +207,23 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     assert today["source_readiness_posture"]["connector_runtime_enabled"] is False
     assert today["source_readiness_posture"]["source_refresh_enabled"] is False
     assert today["source_readiness_posture"]["notification_delivery_enabled"] is False
+    assert {item["status"] for item in today["source_readiness_items"]} >= {
+        "ready",
+        "blocked",
+        "metadata_only",
+        "not_configured",
+    }
+    assert set(today["source_readiness_posture"]["supported_statuses"]) >= {
+        "ready",
+        "blocked",
+        "missing",
+        "metadata_only",
+        "unavailable",
+        "not_configured",
+    }
+    assert today["source_readiness_posture"]["blocked_source_count"] >= 1
+    assert today["source_readiness_posture"]["not_configured_source_count"] >= 1
+    assert today["source_readiness_posture"]["metadata_only_source_count"] >= 1
     assert today["crm_lite_followups"]
     assert today["memory_why_shown_items"]
     assert today["weekly_review_narrative"]["status"] == "safe_ref_history_ready"
@@ -260,6 +277,7 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     assert briefing["daily_loop_summary"]["home_surface"] == "Morning Briefing"
     assert briefing["daily_loop_sections"]
     assert briefing["source_readiness_items"][0]["source_kind"] == "inbox"
+    assert briefing["source_readiness_items"][0]["status"] == "blocked"
     assert briefing["source_readiness_posture"] == today["source_readiness_posture"]
     assert briefing["dogfood_capture"]["public_distribution_enabled"] is False
 

@@ -577,6 +577,44 @@ export const mockControlCenterData = {
         )
 
 
+def test_operational_maturity_verifier_rejects_authoritative_source_readiness_mock_fixture() -> (
+    None
+):
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        fixture = root / "apps/control-center/src/mocks/controlCenterData.ts"
+        fixture.parent.mkdir(parents=True)
+        fixture.write_text(
+            """
+const sourceReadinessPosture = {
+  source: "python_core_morning_briefing_read_model" as const,
+  backend_owned: true,
+};
+
+export const mockControlCenterData = {
+  founderToday: {
+    source_readiness_posture: sourceReadinessPosture,
+  },
+};
+""",
+            encoding="utf-8",
+        )
+        failures: list[str] = []
+
+        _append_mock_fallback_fixture_failures(failures, root)
+
+        assert any(
+            "mock fallback must not claim python_core_morning_briefing_read_model"
+            in failure
+            for failure in failures
+        )
+        assert any(
+            "mock fallback source readiness posture must not claim backend_owned true"
+            in failure
+            for failure in failures
+        )
+
+
 def _manifest_copy() -> dict:
     return deepcopy(load_json(MANIFEST_PATH))
 

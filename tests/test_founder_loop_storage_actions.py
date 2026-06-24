@@ -263,6 +263,12 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
         receipt_visibility["conflict_posture"]
         == "conflicting_idempotency_payload_rejected"
     )
+    assert committed_action["action_group_id"] == "receipt_recorded"
+    assert receipt_visibility["replay_posture"] == "idempotency_replay_available"
+    assert (
+        receipt_visibility["conflict_posture"]
+        == "conflicting_idempotency_payload_rejected"
+    )
 
     timeline = repo.evidence_timeline()
     assert "local_task_created" in timeline["event_types"]

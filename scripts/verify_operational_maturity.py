@@ -1253,9 +1253,40 @@ def _append_mock_fallback_fixture_failures(failures: list[str], root: Path) -> N
         failures.append(
             "Control Center mock fallback must not claim python_core_action_inbox_read_model"
         )
+    source_readiness_markers = [
+        'source: "python_core_morning_briefing_read_model"',
+        "source: 'python_core_morning_briefing_read_model'",
+        'source: "python_core_morning_briefing_read_model" as const',
+        "source: 'python_core_morning_briefing_read_model' as const",
+    ]
+    if any(marker in fixture for marker in source_readiness_markers):
+        failures.append(
+            "Control Center mock fallback must not claim python_core_morning_briefing_read_model"
+        )
     if "local_task_commit_eligible: true" in fixture:
         failures.append(
             "Control Center mock fallback must not claim local_task_commit_eligible true"
+        )
+    source_readiness_fixture = ""
+    source_start = fixture.find("const sourceReadinessPosture")
+    if source_start >= 0:
+        source_readiness_fixture = fixture[source_start:]
+        source_end_candidates = [
+            index
+            for marker in ["\nconst crmLiteFollowups", "\nexport const mockControlCenterData"]
+            if (index := source_readiness_fixture.find(marker, 1)) > 0
+        ]
+        if source_end_candidates:
+            source_readiness_fixture = source_readiness_fixture[
+                : min(source_end_candidates)
+            ]
+        source_readiness_fixture = _compact_string(source_readiness_fixture)
+    if (
+        "backend_owned: true" in source_readiness_fixture
+        or "backend_owned:true" in source_readiness_fixture
+    ):
+        failures.append(
+            "Control Center mock fallback source readiness posture must not claim backend_owned true"
         )
 
 
