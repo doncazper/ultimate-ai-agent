@@ -36,6 +36,11 @@ Do not add direct public-web/browser calls from agent/tool/API logic using `requ
 
 Future provider work must preserve the sequence in
 `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`.
+Runtime authority promotion must also preserve the contract-first lane in
+`docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md`: canonical web nouns,
+durable audit storage, side-effect ledger blockers, approval linkage, operator
+blocked/degraded/partial labels, provider diagnostics, metadata-only catalog
+visibility, and named verification lanes come before scoped execution.
 
 The core rule is: add providers earlier, add dangerous authority much later.
 Firecrawl and Browserbase may appear as disabled/read-only adapters after this
