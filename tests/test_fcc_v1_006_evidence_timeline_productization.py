@@ -19,8 +19,12 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
 from ultimate_ai_agent.core.storage import (
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
+    FRONTIER_AI_COST_USAGE_CONTRACT_REF,
     FounderLoopEvidenceTimelineEvent,
     FounderLoopRepository,
+    OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS,
+    OPERATOR_RUN_TIMELINE_CONTRACT_REF,
+    OPERATOR_RUN_TIMELINE_STATES,
 )
 
 
@@ -261,6 +265,69 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
     assert chat_response.json()["data"]["receipt_ref"] in str(data["events"])
     assert handoff_response.json()["data"]["receipt_ref"] in str(data["events"])
     assert memory_response.json()["data"]["receipt_ref"] in str(data["events"])
+    operator_run_timeline = data["operator_run_timeline"]
+    assert operator_run_timeline["contract_ref"] == OPERATOR_RUN_TIMELINE_CONTRACT_REF
+    assert (
+        operator_run_timeline["status"]
+        == "implemented_read_only_operator_run_timeline_safe_refs_only"
+    )
+    assert operator_run_timeline["source"] == "python_core_evidence_timeline_read_model"
+    assert operator_run_timeline["route_ref"] == "GET /control-center/evidence/timeline"
+    assert operator_run_timeline["safe_refs_only"] is True
+    assert operator_run_timeline["action_execution_enabled"] is False
+    assert operator_run_timeline["connector_write_enabled"] is False
+    assert operator_run_timeline["runtime_model_calls_enabled"] is False
+    assert operator_run_timeline["provider_sdk_call_enabled"] is False
+    assert operator_run_timeline["provider_model_authority_allowed"] is False
+    assert operator_run_timeline["prompt_content_stored"] is False
+    assert operator_run_timeline["response_content_stored"] is False
+    assert operator_run_timeline["provider_exchange_content_stored"] is False
+    assert operator_run_timeline["event_count"] == len(data["events"])
+    assert {
+        pattern["pattern_id"]
+        for pattern in operator_run_timeline["borrowed_patterns"]
+    } == {
+        pattern["pattern_id"] for pattern in OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS
+    }
+    assert set(operator_run_timeline["run_control_summary"]["states"]) == set(
+        OPERATOR_RUN_TIMELINE_STATES
+    )
+    assert (
+        operator_run_timeline["run_control_summary"]["receipt_recorded_count"] >= 1
+    )
+    assert {
+        event["event_source"] for event in operator_run_timeline["run_events"]
+    } == {"python_core_evidence_timeline"}
+    assert {
+        event["llm_role_projection"] for event in operator_run_timeline["run_events"]
+    } == {"not_sent_to_model"}
+    assert any(
+        event["completion_state"] == "evidence_refs_present"
+        for event in operator_run_timeline["run_events"]
+    )
+    first_cost_slot = operator_run_timeline["run_events"][0]["cost_usage"]
+    assert first_cost_slot["contract_ref"] == FRONTIER_AI_COST_USAGE_CONTRACT_REF
+    assert first_cost_slot["provider_ref"] == "provider-ref:not-invoked"
+    assert first_cost_slot["model_profile_ref"] == "model-profile-ref:not-invoked"
+    assert first_cost_slot["estimated_cost_usd"] == 0.0
+    assert first_cost_slot["captured_cost_usd"] == 0.0
+    assert first_cost_slot["approval_required_for_unknown_paid_cost"] is True
+    frontier_ai_usage = operator_run_timeline["frontier_ai_usage_summary"]
+    assert frontier_ai_usage["contract_ref"] == FRONTIER_AI_COST_USAGE_CONTRACT_REF
+    assert frontier_ai_usage["status"] == "accounting_slots_ready_no_provider_calls"
+    assert frontier_ai_usage["provider_model_authority_allowed"] is False
+    assert frontier_ai_usage["provider_sdk_call_enabled"] is False
+    assert frontier_ai_usage["runtime_model_calls_enabled"] is False
+    assert frontier_ai_usage["prompt_content_stored"] is False
+    assert frontier_ai_usage["response_content_stored"] is False
+    assert frontier_ai_usage["provider_exchange_content_stored"] is False
+    assert frontier_ai_usage["estimated_total_cost_usd"] == 0.0
+    assert frontier_ai_usage["captured_total_cost_usd"] == 0.0
+    assert frontier_ai_usage["unknown_paid_cost_requires_approval_before_routing"] is True
+    assert (
+        frontier_ai_usage["budget_status_ref"]
+        == "budget-status:unknown-paid-cost-requires-approval"
+    )
     assert "raw prompt" not in str(data).lower()
     assert "provider_payload" not in str(data).lower()
 

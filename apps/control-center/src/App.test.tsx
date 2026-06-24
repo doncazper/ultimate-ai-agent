@@ -39,6 +39,72 @@ function mockFetchWithFallback() {
   );
 }
 
+function safeCostSuffix(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9_.@-]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function approvedActionCostFields(sourceRef: string) {
+  const suffix = safeCostSuffix(sourceRef);
+  const costReceiptRefs = [
+    `budget-decision-ref:${suffix}`,
+    `cost-estimate-ref:${suffix}`,
+    "model-profile-ref:frontier-approved-test",
+    "provider-ref:frontier-approved-test",
+    `usage-capture-ref:${suffix}`,
+  ];
+  return {
+    action_envelope_cost_contract_ref:
+      "contract-ref:frontier-ai-cost-usage-telemetry:v1",
+    action_envelope_estimated_cost_usd: 0,
+    action_envelope_max_approved_cost_usd: 0,
+    action_envelope_provider_ref: "provider-ref:frontier-approved-test",
+    action_envelope_model_profile_ref: "model-profile-ref:frontier-approved-test",
+    action_envelope_input_metered_units: 0,
+    action_envelope_output_metered_units: 0,
+    action_envelope_total_metered_units: 0,
+    action_envelope_cost_estimate_ref: `cost-estimate-ref:${suffix}`,
+    action_envelope_captured_usage_ref: `usage-capture-ref:${suffix}`,
+    action_envelope_budget_decision_ref: `budget-decision-ref:${suffix}`,
+    action_envelope_cost_receipt_refs: costReceiptRefs,
+    action_envelope_cost_blocked_state_refs: [],
+    action_envelope_cost_state_label: "Cost approved",
+    action_envelope_provider_authority_state_label: "Provider/model refs present",
+    action_envelope_unknown_paid_cost_requires_explicit_approval: true,
+    action_envelope_frontier_usage_claimed: false,
+  };
+}
+
+function applyApprovedActionCost(item: {
+  item_ref: string;
+  approval_envelope?: Record<string, unknown>;
+  [key: string]: unknown;
+}) {
+  const fields = approvedActionCostFields(item.item_ref);
+  Object.assign(item, fields);
+  if (item.approval_envelope) {
+    Object.assign(item.approval_envelope, {
+      estimated_cost_usd: fields.action_envelope_estimated_cost_usd,
+      max_approved_cost_usd: fields.action_envelope_max_approved_cost_usd,
+      provider_ref: fields.action_envelope_provider_ref,
+      model_profile_ref: fields.action_envelope_model_profile_ref,
+      input_metered_units: fields.action_envelope_input_metered_units,
+      output_metered_units: fields.action_envelope_output_metered_units,
+      total_metered_units: fields.action_envelope_total_metered_units,
+      cost_estimate_ref: fields.action_envelope_cost_estimate_ref,
+      captured_usage_ref: fields.action_envelope_captured_usage_ref,
+      budget_decision_ref: fields.action_envelope_budget_decision_ref,
+      cost_receipt_refs: fields.action_envelope_cost_receipt_refs,
+      cost_blocked_state_refs: fields.action_envelope_cost_blocked_state_refs,
+      cost_state_label: fields.action_envelope_cost_state_label,
+      provider_authority_state_label:
+        fields.action_envelope_provider_authority_state_label,
+      unknown_paid_cost_requires_explicit_approval:
+        fields.action_envelope_unknown_paid_cost_requires_explicit_approval,
+      frontier_usage_claimed: fields.action_envelope_frontier_usage_claimed,
+    });
+  }
+}
+
 describe("Web Control Center shell", () => {
   it("renders mock dashboard summaries without production authority", async () => {
     mockFetchWithFallback();
@@ -279,6 +345,9 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-action-execution").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cost blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No provider authority").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unknown paid cost").length).toBeGreaterThan(0);
     expect(
       screen.getAllByRole("button", { name: /Record Action-envelope receipt/i }).length,
     ).toBeGreaterThan(0);
@@ -966,6 +1035,9 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("contract-ref:founder-loop:mock-setup-hardening").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("blocked_pending_scoped_mutation_contract")).toBeInTheDocument();
+    expect(screen.getAllByText("Cost blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No provider authority").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unknown paid cost").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("receipt-plan:founder-loop:mock-setup-hardening").length,
     ).toBeGreaterThan(0);
@@ -1355,6 +1427,90 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("blocks Action Inbox approval when cost posture is not approved", async () => {
+    const inbox = JSON.parse(
+      JSON.stringify({
+        ...mockControlCenterData.founderActionsInbox,
+        ...mockApiData.founderActionsInbox,
+        items: mockApiData.founderActionsInbox.items,
+      }),
+    );
+    const readyItem = inbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    Object.assign(readyItem, {
+      status: "proposed",
+      action_group_id: "ready_for_decision",
+      action_group_label: "Ready for decision",
+      action_group_reason:
+        "Backend exact scope is ready, but cost posture is blocked.",
+      action_group_available_action:
+        "Resolve cost posture before recording approval.",
+      approval_envelope_status: "ready_for_backend_decision",
+      action_envelope_cost_state_label: "Cost blocked",
+      action_envelope_provider_ref: "provider-ref:not-invoked",
+      action_envelope_model_profile_ref: "model-profile-ref:not-invoked",
+      action_envelope_provider_authority_state_label: "No provider authority",
+      action_envelope_cost_receipt_refs: [],
+      action_envelope_cost_blocked_state_refs: [
+        "blocked-state:frontier-provider-model-ref-missing",
+      ],
+      local_task_commit_approval_ref: null,
+      local_task_commit_approval_status: "missing",
+      local_task_commit_eligible: false,
+      local_task_commit_blocked_reasons: [
+        "blocked-state:backend-owned-approval-missing",
+      ],
+    });
+    Object.assign(readyItem.approval_envelope, {
+      cost_state_label: "Cost blocked",
+      provider_ref: "provider-ref:not-invoked",
+      model_profile_ref: "model-profile-ref:not-invoked",
+      provider_authority_state_label: "No provider authority",
+      cost_receipt_refs: [],
+      cost_blocked_state_refs: [
+        "blocked-state:frontier-provider-model-ref-missing",
+      ],
+    });
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ ok: false }), { status: 500 });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    const approvalButton = await screen.findByRole("button", {
+      name: /Record approval/i,
+    });
+    expect(approvalButton).toBeDisabled();
+    expect(screen.getAllByText("Cost blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No provider authority").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Approval blocked by cost posture: Cost blocked, No provider authority/i),
+    ).toBeInTheDocument();
+    fireEvent.click(approvalButton);
+    expect(
+      fetchMock.mock.calls.some(
+        ([, request]) => request?.method === "POST",
+      ),
+    ).toBe(false);
+  });
+
   it("records approval through backend refresh before committing the local task lane", async () => {
     const approvedInbox = JSON.parse(
       JSON.stringify({
@@ -1400,6 +1556,7 @@ describe("Web Control Center shell", () => {
       },
       updated_at: "2026-06-22T00:00:00Z",
     });
+    applyApprovedActionCost(readyItem);
     const approvalReceipt = {
       contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
       decision_ref: "decision-ref:mock-local-task-create:approve",
@@ -1462,6 +1619,7 @@ describe("Web Control Center shell", () => {
       },
       updated_at: "2026-06-22T00:00:30Z",
     });
+    applyApprovedActionCost(approvedItem);
     const commitReceipt = {
       contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
       item_ref: "founder-action:mock-local-task-create",
@@ -1567,16 +1725,26 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
-    expect(screen.getByRole("button", { name: /Record approval/i })).toBeInTheDocument();
+    const approvalButton = screen.getByRole("button", { name: /Record approval/i });
+    expect(approvalButton).toBeInTheDocument();
+    expect(approvalButton).not.toBeDisabled();
+    expect(screen.getAllByText("Cost approved").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Provider/model refs present").length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /Record local-task commit receipt/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Record approval/i }));
+    fireEvent.click(approvalButton);
     expect(
       (await screen.findAllByText(approvalReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
-    expect(await screen.findByRole("button", { name: /Record local-task commit receipt/i })).toBeInTheDocument();
+    const commitButton = await screen.findByRole("button", {
+      name: /Record local-task commit receipt/i,
+    });
+    expect(commitButton).toBeInTheDocument();
+    expect(commitButton).not.toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /Record local-task commit receipt/i }));
+    fireEvent.click(commitButton);
     expect(
       (await screen.findAllByText(commitReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
@@ -3442,6 +3610,45 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("GET /control-center/evidence/timeline").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Operator Run Timeline/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:operator-run-timeline:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("implemented_read_only_operator_run_timeline_safe_refs_only")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(/Five borrowed patterns/i)).toBeInTheDocument();
+    for (const patternId of [
+      "typed_event_ledger",
+      "run_control_states",
+      "evidence_based_completion",
+      "approval_preview_and_rejection_feedback",
+      "evidence_condensing_with_safe_refs",
+    ]) {
+      expect(screen.getAllByText(new RegExp(patternId)).length).toBeGreaterThan(
+        0,
+      );
+    }
+    expect(
+      screen.getByText(/Frontier AI cost telemetry/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:frontier-ai-cost-usage-telemetry:v1")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("accounting_slots_ready_no_provider_calls").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("budget-status:unknown-paid-cost-requires-approval")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("provider-ref:not-invoked")).toBeInTheDocument();
+    expect(screen.getByText("model-profile-ref:not-invoked")).toBeInTheDocument();
+    expect(screen.getByText("Estimated cost USD")).toBeInTheDocument();
     expect(screen.getByText("Evidence history grammar")).toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:evidence-history-grammar:v1").length,
@@ -6910,3 +7117,10 @@ const mockApiData = {
     updated_at: "2026-01-01T00:00:00Z",
   },
 };
+
+const mockApiLocalTaskCreateItem = mockApiData.founderActionsInbox.items.find(
+  (candidate) => candidate.item_ref === "founder-action:mock-local-task-create",
+);
+if (mockApiLocalTaskCreateItem) {
+  applyApprovedActionCost(mockApiLocalTaskCreateItem);
+}

@@ -37,6 +37,9 @@ FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS = (
 )
 FOUNDER_LOOP_ACTION_DECISION_KINDS = ("approve", "edit", "reject", "defer")
 FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_STATUS = "action_envelope_created"
+FRONTIER_AI_COST_USAGE_CONTRACT_REF = (
+    "contract-ref:frontier-ai-cost-usage-telemetry:v1"
+)
 FOUNDER_LOOP_ACTION_STATUSES = (
     "proposed",
     "approved",
@@ -56,6 +59,13 @@ FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS = (
     "blocked-state:no-context-injection",
     "blocked-state:approval-ref-must-validate-exact-scope",
     "blocked-state:no-production-authority",
+)
+FOUNDER_LOOP_ACTION_COST_BLOCKED_REFS = (
+    "blocked-state:no-provider-model-authority",
+    "blocked-state:no-provider-sdk-call",
+    "blocked-state:no-runtime-model-call",
+    "blocked-state:frontier-provider-model-ref-missing",
+    "blocked-state:unknown-paid-cost-requires-approval",
 )
 ACTION_DECISION_REQUESTED_ACTION = "approve_founder_loop_action_decision"
 SAFE_ACTION_SUFFIX_CHARS = re.compile(r"[^a-z0-9_.@-]+")
@@ -112,6 +122,18 @@ class FounderLoopActionEnvelopePromotionRequest(BaseModel):
     risk_class: Literal["low", "medium", "high", "critical"] = "medium"
     priority: Literal["low", "medium", "high"] = "medium"
     metadata_refs: list[str] = Field(default_factory=list)
+    estimated_cost_usd: float = Field(default=0.0, ge=0)
+    max_approved_cost_usd: float = Field(default=0.0, ge=0)
+    provider_ref: str = Field(default="provider-ref:not-invoked", min_length=1)
+    model_profile_ref: str = Field(
+        default="model-profile-ref:not-invoked",
+        min_length=1,
+    )
+    input_metered_units: int = Field(default=0, ge=0)
+    output_metered_units: int = Field(default=0, ge=0)
+    total_metered_units: int = Field(default=0, ge=0)
+    unknown_paid_cost_requires_explicit_approval: bool = True
+    frontier_usage_claimed: bool = False
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
@@ -119,8 +141,16 @@ class FounderLoopActionEnvelopePromotionRequest(BaseModel):
     def validate_safe_refs(self) -> "FounderLoopActionEnvelopePromotionRequest":
         _validate_safe_ref(self.today_item_ref, "today_item_ref")
         _validate_safe_ref(self.decision_reason_ref, "decision_reason_ref")
+        _validate_safe_ref(self.provider_ref, "provider_ref")
+        _validate_safe_ref(self.model_profile_ref, "model_profile_ref")
         for ref_value in self.metadata_refs:
             _validate_safe_ref(ref_value, "metadata_refs")
+        if self.total_metered_units != (
+            self.input_metered_units + self.output_metered_units
+        ):
+            raise ValueError("cost metered unit total must match inputs")
+        if not self.unknown_paid_cost_requires_explicit_approval:
+            raise ValueError("unknown paid cost must require explicit approval")
         _validate_safe_payload(
             self.model_dump(mode="json"),
             "action_envelope_promotion_request",
@@ -155,6 +185,29 @@ class FounderLoopActionEnvelope(BaseModel):
     shell_subprocess_execution_enabled: bool = False
     model_provider_authority_allowed: bool = False
     production_authority_enabled: bool = False
+    cost_contract_ref: str = FRONTIER_AI_COST_USAGE_CONTRACT_REF
+    estimated_cost_usd: float = Field(default=0.0, ge=0)
+    max_approved_cost_usd: float = Field(default=0.0, ge=0)
+    provider_ref: str = Field(default="provider-ref:not-invoked", min_length=1)
+    model_profile_ref: str = Field(
+        default="model-profile-ref:not-invoked",
+        min_length=1,
+    )
+    input_metered_units: int = Field(default=0, ge=0)
+    output_metered_units: int = Field(default=0, ge=0)
+    total_metered_units: int = Field(default=0, ge=0)
+    cost_estimate_ref: str = Field(..., min_length=1)
+    captured_usage_ref: str = Field(..., min_length=1)
+    budget_decision_ref: str = Field(..., min_length=1)
+    cost_receipt_refs: list[str] = Field(default_factory=list)
+    cost_blocked_state_refs: list[str] = Field(default_factory=list)
+    cost_state_label: str = Field(default="Cost blocked", min_length=1)
+    provider_authority_state_label: str = Field(
+        default="No provider authority",
+        min_length=1,
+    )
+    unknown_paid_cost_requires_explicit_approval: bool = True
+    frontier_usage_claimed: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
@@ -169,16 +222,39 @@ class FounderLoopActionEnvelope(BaseModel):
             "expected_receipt_ref",
             "rollback_ref",
             "safe_disable_ref",
+            "cost_contract_ref",
+            "provider_ref",
+            "model_profile_ref",
+            "cost_estimate_ref",
+            "captured_usage_ref",
+            "budget_decision_ref",
         ]:
             _validate_safe_ref(getattr(self, field_name), field_name)
-        for ref_value in self.blocked_state_refs:
-            _validate_safe_ref(ref_value, "blocked_state_refs")
+        for field_name in [
+            "blocked_state_refs",
+            "cost_receipt_refs",
+            "cost_blocked_state_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
         if self.status not in FOUNDER_LOOP_ACTION_STATUSES:
             raise ValueError("unsupported Founder Loop action status")
         if not set(FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS).issubset(
             set(self.blocked_state_refs)
         ):
             raise ValueError("action envelope must preserve blocked authority refs")
+        if not set(FOUNDER_LOOP_ACTION_COST_BLOCKED_REFS).issubset(
+            set(self.cost_blocked_state_refs)
+        ):
+            raise ValueError("action envelope must preserve cost blocked refs")
+        if self.total_metered_units != (
+            self.input_metered_units + self.output_metered_units
+        ):
+            raise ValueError("cost metered unit total must match inputs")
+        if self.frontier_usage_claimed and not self.cost_receipt_refs:
+            raise ValueError("frontier usage claims require cost receipt refs")
+        if not self.unknown_paid_cost_requires_explicit_approval:
+            raise ValueError("unknown paid cost must require explicit approval")
         denied_flags = {
             "action_execution_enabled": self.action_execution_enabled,
             "connector_write_enabled": self.connector_write_enabled,
@@ -215,6 +291,29 @@ class FounderLoopActionDecisionReceipt(BaseModel):
     safe_summary: str = Field(..., min_length=1, max_length=320)
     evidence_refs: list[str] = Field(default_factory=list)
     blocked_state_refs: list[str] = Field(default_factory=list)
+    cost_contract_ref: str = FRONTIER_AI_COST_USAGE_CONTRACT_REF
+    estimated_cost_usd: float = Field(default=0.0, ge=0)
+    max_approved_cost_usd: float = Field(default=0.0, ge=0)
+    provider_ref: str = Field(default="provider-ref:not-invoked", min_length=1)
+    model_profile_ref: str = Field(
+        default="model-profile-ref:not-invoked",
+        min_length=1,
+    )
+    input_metered_units: int = Field(default=0, ge=0)
+    output_metered_units: int = Field(default=0, ge=0)
+    total_metered_units: int = Field(default=0, ge=0)
+    cost_estimate_ref: str = Field(..., min_length=1)
+    captured_usage_ref: str = Field(..., min_length=1)
+    budget_decision_ref: str = Field(..., min_length=1)
+    cost_receipt_refs: list[str] = Field(default_factory=list)
+    cost_blocked_state_refs: list[str] = Field(default_factory=list)
+    cost_state_label: str = Field(default="Cost blocked", min_length=1)
+    provider_authority_state_label: str = Field(
+        default="No provider authority",
+        min_length=1,
+    )
+    unknown_paid_cost_requires_explicit_approval: bool = True
+    frontier_usage_claimed: bool = False
     created_at: str = Field(default_factory=lambda: utc_now().isoformat())
 
     model_config = ConfigDict(extra="forbid")
@@ -238,9 +337,28 @@ class FounderLoopActionDecisionReceipt(BaseModel):
             "approval_reason_refs",
             "evidence_refs",
             "blocked_state_refs",
+            "cost_receipt_refs",
+            "cost_blocked_state_refs",
         ]:
             for ref_value in getattr(self, field_name):
                 _validate_safe_ref(ref_value, field_name)
+        for field_name in [
+            "cost_contract_ref",
+            "provider_ref",
+            "model_profile_ref",
+            "cost_estimate_ref",
+            "captured_usage_ref",
+            "budget_decision_ref",
+        ]:
+            _validate_safe_ref(getattr(self, field_name), field_name)
+        if self.total_metered_units != (
+            self.input_metered_units + self.output_metered_units
+        ):
+            raise ValueError("cost metered unit total must match inputs")
+        if self.frontier_usage_claimed and not self.cost_receipt_refs:
+            raise ValueError("frontier usage claims require cost receipt refs")
+        if not self.unknown_paid_cost_requires_explicit_approval:
+            raise ValueError("unknown paid cost must require explicit approval")
         denied_flags = {
             "action_executed": self.action_executed,
             "approval_grants_execution": self.approval_grants_execution,
@@ -279,6 +397,29 @@ class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
     safe_summary: str = Field(..., min_length=1, max_length=320)
     evidence_refs: list[str] = Field(default_factory=list)
     blocked_state_refs: list[str] = Field(default_factory=list)
+    cost_contract_ref: str = FRONTIER_AI_COST_USAGE_CONTRACT_REF
+    estimated_cost_usd: float = Field(default=0.0, ge=0)
+    max_approved_cost_usd: float = Field(default=0.0, ge=0)
+    provider_ref: str = Field(default="provider-ref:not-invoked", min_length=1)
+    model_profile_ref: str = Field(
+        default="model-profile-ref:not-invoked",
+        min_length=1,
+    )
+    input_metered_units: int = Field(default=0, ge=0)
+    output_metered_units: int = Field(default=0, ge=0)
+    total_metered_units: int = Field(default=0, ge=0)
+    cost_estimate_ref: str = Field(..., min_length=1)
+    captured_usage_ref: str = Field(..., min_length=1)
+    budget_decision_ref: str = Field(..., min_length=1)
+    cost_receipt_refs: list[str] = Field(default_factory=list)
+    cost_blocked_state_refs: list[str] = Field(default_factory=list)
+    cost_state_label: str = Field(default="Cost blocked", min_length=1)
+    provider_authority_state_label: str = Field(
+        default="No provider authority",
+        min_length=1,
+    )
+    unknown_paid_cost_requires_explicit_approval: bool = True
+    frontier_usage_claimed: bool = False
     created_at: str = Field(default_factory=lambda: utc_now().isoformat())
 
     model_config = ConfigDict(extra="forbid")
@@ -295,11 +436,34 @@ class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
             "idempotency_key_ref",
             "payload_fingerprint_ref",
             "evidence_timeline_event_ref",
+            "cost_contract_ref",
+            "provider_ref",
+            "model_profile_ref",
+            "cost_estimate_ref",
+            "captured_usage_ref",
+            "budget_decision_ref",
         ]:
             _validate_safe_ref(getattr(self, field_name), field_name)
-        for field_name in ["evidence_refs", "blocked_state_refs"]:
+        for field_name in [
+            "evidence_refs",
+            "blocked_state_refs",
+            "cost_receipt_refs",
+            "cost_blocked_state_refs",
+        ]:
             for ref_value in getattr(self, field_name):
                 _validate_safe_ref(ref_value, field_name)
+        if not set(FOUNDER_LOOP_ACTION_COST_BLOCKED_REFS).issubset(
+            set(self.cost_blocked_state_refs)
+        ):
+            raise ValueError("action envelope receipt must preserve cost blocked refs")
+        if self.total_metered_units != (
+            self.input_metered_units + self.output_metered_units
+        ):
+            raise ValueError("cost metered unit total must match inputs")
+        if self.frontier_usage_claimed and not self.cost_receipt_refs:
+            raise ValueError("frontier usage claims require cost receipt refs")
+        if not self.unknown_paid_cost_requires_explicit_approval:
+            raise ValueError("unknown paid cost must require explicit approval")
         denied_flags = {
             "action_executed": self.action_executed,
             "approval_grants_execution": self.approval_grants_execution,
@@ -461,6 +625,17 @@ def promotion_payload_for_fingerprint(
         "risk_class": request.risk_class,
         "priority": request.priority,
         "metadata_refs": sorted(request.metadata_refs),
+        "estimated_cost_usd": request.estimated_cost_usd,
+        "max_approved_cost_usd": request.max_approved_cost_usd,
+        "provider_ref": request.provider_ref,
+        "model_profile_ref": request.model_profile_ref,
+        "input_metered_units": request.input_metered_units,
+        "output_metered_units": request.output_metered_units,
+        "total_metered_units": request.total_metered_units,
+        "unknown_paid_cost_requires_explicit_approval": (
+            request.unknown_paid_cost_requires_explicit_approval
+        ),
+        "frontier_usage_claimed": request.frontier_usage_claimed,
     }
 
 

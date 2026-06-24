@@ -94,6 +94,22 @@ export interface FounderLoopActionApprovalEnvelope {
   idempotency_ref: string;
   expected_receipt_refs: string[];
   rollback_safe_disable_posture: string;
+  estimated_cost_usd: number;
+  max_approved_cost_usd: number;
+  provider_ref: string;
+  model_profile_ref: string;
+  input_metered_units: number;
+  output_metered_units: number;
+  total_metered_units: number;
+  cost_estimate_ref: string;
+  captured_usage_ref: string;
+  budget_decision_ref: string;
+  cost_receipt_refs: string[];
+  cost_blocked_state_refs?: string[];
+  cost_state_label: string;
+  provider_authority_state_label: string;
+  unknown_paid_cost_requires_explicit_approval: boolean;
+  frontier_usage_claimed: boolean;
   blocked_authority_refs: string[];
   evidence_refs: string[];
   missing_field_states: string[];
@@ -256,6 +272,39 @@ export interface FounderLoopActionItem {
   action_envelope_model_provider_authority_allowed?: boolean;
   action_envelope_safe_refs_only?: boolean;
   action_envelope_raw_content_included?: boolean;
+  action_envelope_cost_contract_ref?: string;
+  action_envelope_estimated_cost_usd?: number;
+  action_envelope_max_approved_cost_usd?: number;
+  action_envelope_provider_ref?: string;
+  action_envelope_model_profile_ref?: string;
+  action_envelope_input_metered_units?: number;
+  action_envelope_output_metered_units?: number;
+  action_envelope_total_metered_units?: number;
+  action_envelope_cost_estimate_ref?: string;
+  action_envelope_captured_usage_ref?: string;
+  action_envelope_budget_decision_ref?: string;
+  action_envelope_cost_receipt_refs?: string[];
+  action_envelope_cost_blocked_state_refs?: string[];
+  action_envelope_cost_state_label?: string;
+  action_envelope_provider_authority_state_label?: string;
+  action_envelope_unknown_paid_cost_requires_explicit_approval?: boolean;
+  action_envelope_frontier_usage_claimed?: boolean;
+  estimated_cost_usd?: number;
+  max_approved_cost_usd?: number;
+  provider_ref?: string;
+  model_profile_ref?: string;
+  input_metered_units?: number;
+  output_metered_units?: number;
+  total_metered_units?: number;
+  cost_estimate_ref?: string;
+  captured_usage_ref?: string;
+  budget_decision_ref?: string;
+  cost_receipt_refs?: string[];
+  cost_blocked_state_refs?: string[];
+  cost_state_label?: string;
+  provider_authority_state_label?: string;
+  unknown_paid_cost_requires_explicit_approval?: boolean;
+  frontier_usage_claimed?: boolean;
   action_kind?: string;
   local_task_commit_contract_ref?: string;
   local_task_commit_route_ref?: string;
@@ -440,6 +489,15 @@ export interface FounderLoopActionEnvelopePromotionRequest {
   risk_class: "low" | "medium" | "high" | "critical";
   priority: "low" | "medium" | "high";
   metadata_refs?: string[];
+  estimated_cost_usd?: number;
+  max_approved_cost_usd?: number;
+  provider_ref?: string;
+  model_profile_ref?: string;
+  input_metered_units?: number;
+  output_metered_units?: number;
+  total_metered_units?: number;
+  unknown_paid_cost_requires_explicit_approval?: boolean;
+  frontier_usage_claimed?: boolean;
 }
 
 export interface FounderLoopActionEnvelopePromotionReceipt {
@@ -462,6 +520,23 @@ export interface FounderLoopActionEnvelopePromotionReceipt {
   safe_summary: string;
   evidence_refs: string[];
   blocked_state_refs: string[];
+  cost_contract_ref: string;
+  estimated_cost_usd: number;
+  max_approved_cost_usd: number;
+  provider_ref: string;
+  model_profile_ref: string;
+  input_metered_units: number;
+  output_metered_units: number;
+  total_metered_units: number;
+  cost_estimate_ref: string;
+  captured_usage_ref: string;
+  budget_decision_ref: string;
+  cost_receipt_refs: string[];
+  cost_blocked_state_refs: string[];
+  cost_state_label: string;
+  provider_authority_state_label: string;
+  unknown_paid_cost_requires_explicit_approval: boolean;
+  frontier_usage_claimed: boolean;
   created_at: string;
 }
 
@@ -868,6 +943,23 @@ export interface FounderLoopPlanSummary {
   model_provider_authority_allowed?: boolean;
   safe_refs_only?: boolean;
   raw_content_included?: boolean;
+  action_envelope_cost_contract_ref?: string;
+  action_envelope_estimated_cost_usd?: number;
+  action_envelope_max_approved_cost_usd?: number;
+  action_envelope_provider_ref?: string;
+  action_envelope_model_profile_ref?: string;
+  action_envelope_input_metered_units?: number;
+  action_envelope_output_metered_units?: number;
+  action_envelope_total_metered_units?: number;
+  action_envelope_cost_estimate_ref?: string;
+  action_envelope_captured_usage_ref?: string;
+  action_envelope_budget_decision_ref?: string;
+  action_envelope_cost_receipt_refs?: string[];
+  action_envelope_cost_blocked_state_refs?: string[];
+  action_envelope_cost_state_label?: string;
+  action_envelope_provider_authority_state_label?: string;
+  action_envelope_unknown_paid_cost_requires_explicit_approval?: boolean;
+  action_envelope_frontier_usage_claimed?: boolean;
   plan_action_envelope_ref?: string;
   plan_action_scope_ref?: string;
   plan_action_approval_requirement_ref?: string;
@@ -1133,6 +1225,144 @@ export interface FounderLoopEvidenceTimelineGroup {
   rollback_posture: string;
 }
 
+export interface FounderLoopOperatorRunBorrowedPattern {
+  pattern_id: string;
+  label: string;
+  safe_summary: string;
+  implemented: boolean;
+  source_ref: string;
+}
+
+export interface FounderLoopOperatorRunCostUsage {
+  schema_version: string;
+  contract_ref: string;
+  cost_event_ref: string;
+  cost_estimate_ref: string;
+  captured_usage_ref: string;
+  budget_decision_ref: string;
+  source_event_ref: string;
+  provider_ref: string;
+  model_profile_ref: string;
+  provider_model_ref_status: string;
+  usage_capture_status: string;
+  cost_capture_status: string;
+  cost_state_label: string;
+  provider_authority_state_label: string;
+  frontier_usage_claimed: boolean;
+  frontier_ai_routing_allowed: boolean;
+  input_metered_units: number;
+  output_metered_units: number;
+  total_metered_units: number;
+  estimated_cost_usd: number;
+  captured_cost_usd: number;
+  max_approved_cost_usd: number;
+  unknown_cost: boolean;
+  approval_required_for_unknown_paid_cost: boolean;
+  cost_governor_ref: string;
+  cost_governor_allowed: boolean;
+  cost_governor_decision_status: string;
+  cost_governor_reason_refs: string[];
+  budget_status_ref: string;
+  cost_receipt_refs: string[];
+  cost_blocked_state_refs: string[];
+  prompt_content_stored: boolean;
+  response_content_stored: boolean;
+  provider_exchange_content_stored: boolean;
+}
+
+export interface FounderLoopOperatorRunEvent {
+  run_event_ref: string;
+  event_ref: string;
+  event_kind: string;
+  event_source: string;
+  llm_role_projection: string;
+  operator_state: string;
+  approval_state: string;
+  completion_state: string;
+  completion_claim_allowed: boolean;
+  safe_summary: string;
+  condensed_summary_ref: string;
+  source_refs: string[];
+  status_refs: string[];
+  receipt_refs: string[];
+  approval_refs: string[];
+  audit_refs: string[];
+  idempotency_refs: string[];
+  rollback_refs: string[];
+  blocked_state_refs: string[];
+  evidence_refs: string[];
+  related_route_refs: string[];
+  authority_boundary: string;
+  cost_usage: FounderLoopOperatorRunCostUsage;
+  prompt_content_stored: boolean;
+  response_content_stored: boolean;
+  provider_exchange_content_stored: boolean;
+  provider_model_authority_allowed: boolean;
+}
+
+export interface FounderLoopOperatorRunControlSummary {
+  states: string[];
+  state_refs: string[];
+  waiting_for_approval_count: number;
+  receipt_recorded_count: number;
+  blocked_count: number;
+  needs_evidence_count: number;
+  stuck_detection_status: string;
+  pause_resume_status: string;
+  goal_completion_status: string;
+}
+
+export interface FounderLoopFrontierAiUsageSummary {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  provider_model_authority_allowed: boolean;
+  provider_sdk_call_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  prompt_content_stored: boolean;
+  response_content_stored: boolean;
+  provider_exchange_content_stored: boolean;
+  estimated_total_cost_usd: number;
+  captured_total_cost_usd: number;
+  input_metered_units: number;
+  output_metered_units: number;
+  total_metered_units: number;
+  unknown_paid_cost_requires_approval_before_routing: boolean;
+  cost_governor_ref: string;
+  budget_status_ref: string;
+  cost_event_refs: string[];
+  cost_receipt_refs: string[];
+  cost_blocked_state_refs: string[];
+}
+
+export interface FounderLoopOperatorRunTimeline {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  source: string;
+  route_ref: string;
+  frontend_route_refs: string[];
+  safe_refs_only: boolean;
+  redacted_summaries_only: boolean;
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  provider_model_authority_allowed: boolean;
+  prompt_content_stored: boolean;
+  response_content_stored: boolean;
+  provider_exchange_content_stored: boolean;
+  borrowed_patterns: FounderLoopOperatorRunBorrowedPattern[];
+  event_count: number;
+  group_count: number;
+  narrative_item_count: number;
+  run_events: FounderLoopOperatorRunEvent[];
+  run_control_summary: FounderLoopOperatorRunControlSummary;
+  frontier_ai_usage_summary: FounderLoopFrontierAiUsageSummary;
+  blocked_state_refs: string[];
+  authority_boundary: string;
+}
+
 export interface FounderLoopEvidenceTimelineIndex {
   schema_version: string;
   contract_ref: string;
@@ -1162,6 +1392,7 @@ export interface FounderLoopEvidenceTimelineIndex {
   group_count: number;
   groups: FounderLoopEvidenceTimelineGroup[];
   events: FounderLoopEvidenceTimelineEvent[];
+  operator_run_timeline?: FounderLoopOperatorRunTimeline;
   narrative_items?: FounderLoopEvidenceTimelineItem[];
   review_answer_refs?: Record<
     | "proposed"

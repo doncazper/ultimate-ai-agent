@@ -75,6 +75,12 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     promotion_payload_for_fingerprint,
     today_item_to_action_item_ref,
 )
+from ultimate_ai_agent.core.costs import (
+    BudgetScope,
+    CostBudget,
+    CostEstimate,
+    CostGovernor,
+)
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
@@ -308,6 +314,58 @@ EVIDENCE_TIMELINE_PRODUCTIZED_GROUP_KINDS = (
     "action",
     "chat_turn",
     "memory_candidate",
+)
+OPERATOR_RUN_TIMELINE_CONTRACT_REF = "contract-ref:operator-run-timeline:v1"
+FRONTIER_AI_COST_USAGE_CONTRACT_REF = (
+    "contract-ref:frontier-ai-cost-usage-telemetry:v1"
+)
+OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS = (
+    {
+        "pattern_id": "typed_event_ledger",
+        "label": "Typed event ledger",
+        "safe_summary": (
+            "Each operator-visible step is represented as a typed event with "
+            "stable safe refs."
+        ),
+    },
+    {
+        "pattern_id": "run_control_states",
+        "label": "Run control states",
+        "safe_summary": (
+            "Waiting, blocked, evidence-needed, and receipt-recorded states are "
+            "visible without adding runtime pause or resume authority."
+        ),
+    },
+    {
+        "pattern_id": "evidence_based_completion",
+        "label": "Evidence-based completion",
+        "safe_summary": (
+            "Completion posture depends on receipt, audit, and evidence refs "
+            "instead of model-written claims."
+        ),
+    },
+    {
+        "pattern_id": "approval_preview_and_rejection_feedback",
+        "label": "Approval preview and rejection feedback",
+        "safe_summary": (
+            "Approval posture and blocked decisions stay reviewable before any "
+            "future scoped mutation is considered."
+        ),
+    },
+    {
+        "pattern_id": "evidence_condensing_with_safe_refs",
+        "label": "Evidence condensing with safe refs",
+        "safe_summary": (
+            "Dense receipts are condensed into safe summaries that keep source "
+            "refs inspectable."
+        ),
+    },
+)
+OPERATOR_RUN_TIMELINE_STATES = (
+    "waiting_for_approval",
+    "receipt_recorded",
+    "blocked",
+    "needs_evidence",
 )
 ACTION_INBOX_GROUP_DEFINITIONS = (
     {
@@ -791,6 +849,29 @@ class FounderLoopActionRecord(BaseModel):
     )
     rollback_ref: str | None = Field(default=None, max_length=120)
     safe_disable_ref: str | None = Field(default=None, max_length=120)
+    estimated_cost_usd: float = Field(default=0.0, ge=0)
+    max_approved_cost_usd: float = Field(default=0.0, ge=0)
+    provider_ref: str = Field(default="provider-ref:not-invoked", min_length=1)
+    model_profile_ref: str = Field(
+        default="model-profile-ref:not-invoked",
+        min_length=1,
+    )
+    input_metered_units: int = Field(default=0, ge=0)
+    output_metered_units: int = Field(default=0, ge=0)
+    total_metered_units: int = Field(default=0, ge=0)
+    cost_estimate_ref: str = Field(default="cost-estimate-ref:not-invoked")
+    captured_usage_ref: str = Field(default="usage-capture-ref:not-invoked")
+    budget_decision_ref: str = Field(default="budget-decision-ref:not-invoked")
+    cost_receipt_refs: list[str] = Field(default_factory=list)
+    cost_blocked_state_refs: list[str] = Field(default_factory=list)
+    cost_state_label: str = Field(default="Cost blocked", min_length=1, max_length=80)
+    provider_authority_state_label: str = Field(
+        default="No provider authority",
+        min_length=1,
+        max_length=80,
+    )
+    unknown_paid_cost_requires_explicit_approval: bool = True
+    frontier_usage_claimed: bool = False
     next_safe_action: str = Field(
         default="Review the safe summary and keep mutation blocked until a scoped backend contract exists.",
         min_length=1,
@@ -810,13 +891,32 @@ class FounderLoopActionRecord(BaseModel):
             "idempotency_key_ref",
             "rollback_ref",
             "safe_disable_ref",
+            "provider_ref",
+            "model_profile_ref",
+            "cost_estimate_ref",
+            "captured_usage_ref",
+            "budget_decision_ref",
         ]:
             ref_value = getattr(self, field_name)
             if ref_value is not None:
                 _validate_safe_ref(ref_value, field_name)
-        for field_name in ["evidence_refs", "receipt_refs", "audit_refs"]:
+        for field_name in [
+            "evidence_refs",
+            "receipt_refs",
+            "audit_refs",
+            "cost_receipt_refs",
+            "cost_blocked_state_refs",
+        ]:
             for ref_value in getattr(self, field_name):
                 _validate_safe_ref(ref_value, field_name)
+        if self.total_metered_units != (
+            self.input_metered_units + self.output_metered_units
+        ):
+            raise ValueError("action cost metered unit total must match inputs")
+        if self.frontier_usage_claimed and not self.cost_receipt_refs:
+            raise ValueError("frontier usage claims require cost receipt refs")
+        if not self.unknown_paid_cost_requires_explicit_approval:
+            raise ValueError("unknown paid cost must require explicit approval")
         _validate_safe_ref(f"action-kind:{self.action_kind}", "action_kind")
         _validate_safe_payload(self.model_dump(mode="json"), "action_record")
         return self
@@ -1208,6 +1308,344 @@ class FounderLoopEvidenceTimelineGroup(BaseModel):
             for ref_value in getattr(self, field_name):
                 _validate_safe_ref(ref_value, field_name)
         _validate_safe_payload(self.model_dump(mode="json"), "evidence_timeline_group")
+        return self
+
+
+class FounderLoopOperatorRunBorrowedPattern(BaseModel):
+    pattern_id: str = Field(..., min_length=1, max_length=80)
+    label: str = Field(..., min_length=1, max_length=120)
+    safe_summary: str = Field(..., min_length=1, max_length=320)
+    implemented: bool = True
+    source_ref: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_pattern(self) -> "FounderLoopOperatorRunBorrowedPattern":
+        if self.pattern_id not in {
+            str(pattern["pattern_id"])
+            for pattern in OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS
+        }:
+            raise ValueError("operator run borrowed pattern is not recognized")
+        _validate_safe_ref(self.source_ref, "operator_run_pattern_source_ref")
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "operator_run_borrowed_pattern",
+        )
+        return self
+
+
+class FounderLoopOperatorRunCostUsage(BaseModel):
+    schema_version: str = "uaa_frontier_ai_cost_usage_slot.v1"
+    contract_ref: str = FRONTIER_AI_COST_USAGE_CONTRACT_REF
+    cost_event_ref: str = Field(..., min_length=1)
+    cost_estimate_ref: str = Field(..., min_length=1)
+    captured_usage_ref: str = Field(..., min_length=1)
+    budget_decision_ref: str = Field(..., min_length=1)
+    source_event_ref: str = Field(..., min_length=1)
+    provider_ref: str = Field(..., min_length=1)
+    model_profile_ref: str = Field(..., min_length=1)
+    provider_model_ref_status: str = Field(..., min_length=1, max_length=120)
+    usage_capture_status: str = Field(..., min_length=1, max_length=120)
+    cost_capture_status: str = Field(..., min_length=1, max_length=120)
+    cost_state_label: str = Field(..., min_length=1, max_length=80)
+    provider_authority_state_label: str = Field(..., min_length=1, max_length=80)
+    frontier_usage_claimed: bool = False
+    frontier_ai_routing_allowed: bool = False
+    input_metered_units: int = Field(default=0, ge=0)
+    output_metered_units: int = Field(default=0, ge=0)
+    total_metered_units: int = Field(default=0, ge=0)
+    estimated_cost_usd: float = Field(default=0.0, ge=0)
+    captured_cost_usd: float = Field(default=0.0, ge=0)
+    max_approved_cost_usd: float = Field(default=0.0, ge=0)
+    unknown_cost: bool = False
+    approval_required_for_unknown_paid_cost: bool = True
+    cost_governor_ref: str = "core.costs.CostGovernor"
+    cost_governor_allowed: bool = False
+    cost_governor_decision_status: str = Field(..., min_length=1, max_length=80)
+    cost_governor_reason_refs: list[str] = Field(default_factory=list)
+    budget_status_ref: str = Field(..., min_length=1)
+    cost_receipt_refs: list[str] = Field(default_factory=list)
+    cost_blocked_state_refs: list[str] = Field(default_factory=list)
+    prompt_content_stored: bool = False
+    response_content_stored: bool = False
+    provider_exchange_content_stored: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_cost_usage(self) -> "FounderLoopOperatorRunCostUsage":
+        for field_name in [
+            "contract_ref",
+            "cost_event_ref",
+            "cost_estimate_ref",
+            "captured_usage_ref",
+            "budget_decision_ref",
+            "source_event_ref",
+            "provider_ref",
+            "model_profile_ref",
+            "budget_status_ref",
+        ]:
+            _validate_safe_ref(getattr(self, field_name), field_name)
+        for field_name in [
+            "cost_governor_reason_refs",
+            "cost_receipt_refs",
+            "cost_blocked_state_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        if self.total_metered_units != (
+            self.input_metered_units + self.output_metered_units
+        ):
+            raise ValueError("frontier AI metered unit total must match inputs")
+        if self.unknown_cost and not self.approval_required_for_unknown_paid_cost:
+            raise ValueError("unknown paid cost must require explicit approval")
+        if self.frontier_usage_claimed and not self.cost_receipt_refs:
+            raise ValueError("frontier usage claims require cost receipt refs")
+        if self.frontier_usage_claimed and (
+            self.provider_ref == "provider-ref:not-invoked"
+            or self.model_profile_ref == "model-profile-ref:not-invoked"
+        ):
+            if "blocked-state:frontier-provider-model-ref-missing" not in set(
+                self.cost_blocked_state_refs
+            ):
+                raise ValueError("claimed frontier usage requires provider/model refs")
+        if self.estimated_cost_usd > self.max_approved_cost_usd:
+            if "blocked-state:frontier-ai-cost-budget-exceeded" not in set(
+                self.cost_blocked_state_refs
+            ):
+                raise ValueError("cost above approved max must be blocked")
+        denied_flags = {
+            "prompt_content_stored": self.prompt_content_stored,
+            "response_content_stored": self.response_content_stored,
+            "provider_exchange_content_stored": self.provider_exchange_content_stored,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(f"frontier AI cost usage stored denied content: {enabled[0]}")
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "operator_run_cost_usage",
+        )
+        return self
+
+
+class FounderLoopOperatorRunEvent(BaseModel):
+    run_event_ref: str = Field(..., min_length=1)
+    event_ref: str = Field(..., min_length=1)
+    event_kind: str = Field(..., min_length=1, max_length=80)
+    event_source: str = Field(..., min_length=1, max_length=120)
+    llm_role_projection: str = Field(..., min_length=1, max_length=80)
+    operator_state: str = Field(..., min_length=1, max_length=80)
+    approval_state: str = Field(..., min_length=1, max_length=120)
+    completion_state: str = Field(..., min_length=1, max_length=120)
+    completion_claim_allowed: bool = False
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    condensed_summary_ref: str = Field(..., min_length=1)
+    source_refs: list[str] = Field(default_factory=list)
+    status_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    approval_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    related_route_refs: list[str] = Field(default_factory=list)
+    authority_boundary: str = Field(..., min_length=1, max_length=360)
+    cost_usage: FounderLoopOperatorRunCostUsage
+    prompt_content_stored: bool = False
+    response_content_stored: bool = False
+    provider_exchange_content_stored: bool = False
+    provider_model_authority_allowed: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_run_event(self) -> "FounderLoopOperatorRunEvent":
+        if self.operator_state not in set(OPERATOR_RUN_TIMELINE_STATES):
+            raise ValueError("operator run state is not recognized")
+        for field_name in [
+            "run_event_ref",
+            "event_ref",
+            "condensed_summary_ref",
+        ]:
+            _validate_safe_ref(getattr(self, field_name), field_name)
+        for field_name in [
+            "source_refs",
+            "status_refs",
+            "receipt_refs",
+            "approval_refs",
+            "audit_refs",
+            "idempotency_refs",
+            "rollback_refs",
+            "blocked_state_refs",
+            "evidence_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        for route_ref in self.related_route_refs:
+            _validate_safe_text(route_ref, "operator_run_route_ref")
+        denied_flags = {
+            "prompt_content_stored": self.prompt_content_stored,
+            "response_content_stored": self.response_content_stored,
+            "provider_exchange_content_stored": self.provider_exchange_content_stored,
+            "provider_model_authority_allowed": self.provider_model_authority_allowed,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(f"operator run event enabled denied authority: {enabled[0]}")
+        _validate_safe_payload(self.model_dump(mode="json"), "operator_run_event")
+        return self
+
+
+class FounderLoopOperatorRunControlSummary(BaseModel):
+    states: list[str]
+    state_refs: list[str]
+    waiting_for_approval_count: int = Field(..., ge=0)
+    receipt_recorded_count: int = Field(..., ge=0)
+    blocked_count: int = Field(..., ge=0)
+    needs_evidence_count: int = Field(..., ge=0)
+    stuck_detection_status: str = Field(..., min_length=1, max_length=120)
+    pause_resume_status: str = Field(..., min_length=1, max_length=120)
+    goal_completion_status: str = Field(..., min_length=1, max_length=120)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_control_summary(self) -> "FounderLoopOperatorRunControlSummary":
+        if set(self.states) != set(OPERATOR_RUN_TIMELINE_STATES):
+            raise ValueError("operator run control summary must include all states")
+        for ref_value in self.state_refs:
+            _validate_safe_ref(ref_value, "operator_run_state_ref")
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "operator_run_control_summary",
+        )
+        return self
+
+
+class FounderLoopFrontierAiUsageSummary(BaseModel):
+    schema_version: str = "uaa_frontier_ai_usage_summary.v1"
+    contract_ref: str = FRONTIER_AI_COST_USAGE_CONTRACT_REF
+    status: str = Field(..., min_length=1, max_length=120)
+    provider_model_authority_allowed: bool = False
+    provider_sdk_call_enabled: bool = False
+    runtime_model_calls_enabled: bool = False
+    prompt_content_stored: bool = False
+    response_content_stored: bool = False
+    provider_exchange_content_stored: bool = False
+    estimated_total_cost_usd: float = Field(default=0.0, ge=0)
+    captured_total_cost_usd: float = Field(default=0.0, ge=0)
+    input_metered_units: int = Field(default=0, ge=0)
+    output_metered_units: int = Field(default=0, ge=0)
+    total_metered_units: int = Field(default=0, ge=0)
+    unknown_paid_cost_requires_approval_before_routing: bool = True
+    cost_governor_ref: str = "core.costs.CostGovernor"
+    budget_status_ref: str = Field(..., min_length=1)
+    cost_event_refs: list[str] = Field(default_factory=list)
+    cost_receipt_refs: list[str] = Field(default_factory=list)
+    cost_blocked_state_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_usage_summary(self) -> "FounderLoopFrontierAiUsageSummary":
+        _validate_safe_ref(self.contract_ref, "frontier_ai_usage_contract_ref")
+        _validate_safe_ref(self.budget_status_ref, "budget_status_ref")
+        if self.total_metered_units != (
+            self.input_metered_units + self.output_metered_units
+        ):
+            raise ValueError("frontier AI usage summary metered total mismatch")
+        for field_name in [
+            "cost_event_refs",
+            "cost_receipt_refs",
+            "cost_blocked_state_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        denied_flags = {
+            "provider_model_authority_allowed": self.provider_model_authority_allowed,
+            "provider_sdk_call_enabled": self.provider_sdk_call_enabled,
+            "runtime_model_calls_enabled": self.runtime_model_calls_enabled,
+            "prompt_content_stored": self.prompt_content_stored,
+            "response_content_stored": self.response_content_stored,
+            "provider_exchange_content_stored": self.provider_exchange_content_stored,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(
+                f"frontier AI usage summary enabled denied authority: {enabled[0]}"
+            )
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "frontier_ai_usage_summary",
+        )
+        return self
+
+
+class FounderLoopOperatorRunTimeline(BaseModel):
+    schema_version: str = "founder_loop_operator_run_timeline.v1"
+    contract_ref: str = OPERATOR_RUN_TIMELINE_CONTRACT_REF
+    status: str = Field(..., min_length=1, max_length=120)
+    source: str = Field(..., min_length=1, max_length=120)
+    route_ref: str = Field(..., min_length=1, max_length=120)
+    frontend_route_refs: list[str]
+    safe_refs_only: bool = True
+    redacted_summaries_only: bool = True
+    action_execution_enabled: bool = False
+    connector_write_enabled: bool = False
+    runtime_model_calls_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    prompt_content_stored: bool = False
+    response_content_stored: bool = False
+    provider_exchange_content_stored: bool = False
+    borrowed_patterns: list[FounderLoopOperatorRunBorrowedPattern]
+    event_count: int = Field(..., ge=0)
+    group_count: int = Field(..., ge=0)
+    narrative_item_count: int = Field(..., ge=0)
+    run_events: list[FounderLoopOperatorRunEvent]
+    run_control_summary: FounderLoopOperatorRunControlSummary
+    frontier_ai_usage_summary: FounderLoopFrontierAiUsageSummary
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    authority_boundary: str = Field(..., min_length=1, max_length=420)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_timeline(self) -> "FounderLoopOperatorRunTimeline":
+        _validate_safe_ref(self.contract_ref, "operator_run_timeline_contract_ref")
+        _validate_safe_text(self.route_ref, "operator_run_timeline_route_ref")
+        for route_ref in self.frontend_route_refs:
+            _validate_safe_text(route_ref, "operator_run_frontend_route_ref")
+        if {
+            pattern.pattern_id for pattern in self.borrowed_patterns
+        } != {str(pattern["pattern_id"]) for pattern in OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS}:
+            raise ValueError("operator run timeline must expose all borrowed patterns")
+        if self.event_count != len(self.run_events):
+            raise ValueError("operator run timeline event count mismatch")
+        for ref_value in self.blocked_state_refs:
+            _validate_safe_ref(ref_value, "operator_run_blocked_state_ref")
+        denied_flags = {
+            "safe_refs_only": not self.safe_refs_only,
+            "redacted_summaries_only": not self.redacted_summaries_only,
+            "action_execution_enabled": self.action_execution_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "runtime_model_calls_enabled": self.runtime_model_calls_enabled,
+            "provider_sdk_call_enabled": self.provider_sdk_call_enabled,
+            "provider_model_authority_allowed": self.provider_model_authority_allowed,
+            "prompt_content_stored": self.prompt_content_stored,
+            "response_content_stored": self.response_content_stored,
+            "provider_exchange_content_stored": self.provider_exchange_content_stored,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(f"operator run timeline violated authority: {enabled[0]}")
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "operator_run_timeline",
+        )
         return self
 
 
@@ -2857,8 +3295,13 @@ def _row_to_payload(row: sqlite3.Row) -> dict[str, Any]:
     for key in list(payload):
         if key.endswith("_json"):
             payload[key.removesuffix("_json")] = json.loads(payload.pop(key) or "[]")
-    if "approval_required" in payload:
-        payload["approval_required"] = bool(payload["approval_required"])
+    for bool_key in [
+        "approval_required",
+        "unknown_paid_cost_requires_explicit_approval",
+        "frontier_usage_claimed",
+    ]:
+        if bool_key in payload:
+            payload[bool_key] = bool(payload[bool_key])
     return payload
 
 
@@ -3142,6 +3585,7 @@ def _plan_action_envelope_contract_payload(plan: dict[str, Any]) -> dict[str, An
         ),
     )
     payload = envelope.model_dump(mode="json")
+    cost_slot = _frontier_ai_cost_slot(str(payload["action_envelope_ref"]))
     return {
         "action_envelope_contract_ref": payload["contract_ref"],
         "action_envelope_ref": payload["action_envelope_ref"],
@@ -3178,8 +3622,38 @@ def _plan_action_envelope_contract_payload(plan: dict[str, Any]) -> dict[str, An
         "plan_action_approval_requirement_ref": payload["approval_requirement_ref"],
         "plan_action_review_posture_refs": payload["review_posture_refs"],
         "plan_action_expected_receipt_refs": payload["expected_receipt_refs"],
-        "plan_action_blocked_state_refs": payload["blocked_state_refs"],
+        "plan_action_blocked_state_refs": [
+            *payload["blocked_state_refs"],
+            *cost_slot["cost_blocked_state_refs"],
+        ],
         "plan_action_authority_boundary": payload["authority_boundary"],
+        "action_envelope_cost_contract_ref": FRONTIER_AI_COST_USAGE_CONTRACT_REF,
+        "action_envelope_estimated_cost_usd": cost_slot["estimated_cost_usd"],
+        "action_envelope_max_approved_cost_usd": cost_slot[
+            "max_approved_cost_usd"
+        ],
+        "action_envelope_provider_ref": cost_slot["provider_ref"],
+        "action_envelope_model_profile_ref": cost_slot["model_profile_ref"],
+        "action_envelope_input_metered_units": cost_slot["input_metered_units"],
+        "action_envelope_output_metered_units": cost_slot["output_metered_units"],
+        "action_envelope_total_metered_units": cost_slot["total_metered_units"],
+        "action_envelope_cost_estimate_ref": cost_slot["cost_estimate_ref"],
+        "action_envelope_captured_usage_ref": cost_slot["captured_usage_ref"],
+        "action_envelope_budget_decision_ref": cost_slot["budget_decision_ref"],
+        "action_envelope_cost_receipt_refs": cost_slot["cost_receipt_refs"],
+        "action_envelope_cost_blocked_state_refs": cost_slot[
+            "cost_blocked_state_refs"
+        ],
+        "action_envelope_cost_state_label": cost_slot["cost_state_label"],
+        "action_envelope_provider_authority_state_label": cost_slot[
+            "provider_authority_state_label"
+        ],
+        "action_envelope_unknown_paid_cost_requires_explicit_approval": cost_slot[
+            "approval_required_for_unknown_paid_cost"
+        ],
+        "action_envelope_frontier_usage_claimed": cost_slot[
+            "frontier_usage_claimed"
+        ],
     }
 
 
@@ -3254,6 +3728,153 @@ def _task_decomposition_action_proposal_summary(
     }
 
 
+def _frontier_ai_cost_slot(
+    source_ref: str,
+    *,
+    estimated_cost_usd: float = 0.0,
+    max_approved_cost_usd: float = 0.0,
+    provider_ref: str = "provider-ref:not-invoked",
+    model_profile_ref: str = "model-profile-ref:not-invoked",
+    input_metered_units: int = 0,
+    output_metered_units: int = 0,
+    frontier_usage_claimed: bool = False,
+    unknown_cost: bool = False,
+) -> dict[str, Any]:
+    total_metered_units = input_metered_units + output_metered_units
+    cost_event_ref = _status_ref("cost-estimate-ref", source_ref)
+    cost_estimate_ref = cost_event_ref
+    captured_usage_ref = _status_ref("usage-capture-ref", source_ref)
+    estimate = CostEstimate(
+        estimate_id=cost_estimate_ref,
+        input_tokens=input_metered_units,
+        output_tokens=output_metered_units,
+        total_tokens=total_metered_units,
+        estimated_cost_usd=None if unknown_cost else estimated_cost_usd,
+        estimated_token_cost_usd=None if unknown_cost else estimated_cost_usd,
+        model_profile_id=model_profile_ref,
+        provider_id=provider_ref,
+        unknown_cost=unknown_cost,
+    )
+    decision = CostGovernor().evaluate(
+        estimate,
+        [
+            CostBudget(
+                budget_id="budget:frontier-ai:operator-run-default",
+                scope=BudgetScope.run,
+                max_cost_usd=max_approved_cost_usd,
+                hard_limit=True,
+            )
+        ],
+    )
+    budget_decision_ref = _status_ref("budget-decision-ref", str(decision.decision_id))
+    cost_blocked_state_refs = [
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-provider-sdk-call",
+        "blocked-state:no-runtime-model-call",
+        "blocked-state:unknown-paid-cost-requires-approval",
+    ]
+    provider_model_ref_missing = (
+        provider_ref == "provider-ref:not-invoked"
+        or model_profile_ref == "model-profile-ref:not-invoked"
+    )
+    if provider_model_ref_missing:
+        cost_blocked_state_refs.append(
+            "blocked-state:frontier-provider-model-ref-missing"
+        )
+    if decision.approval_required:
+        cost_blocked_state_refs.append(
+            "blocked-state:unknown-paid-cost-requires-approval"
+        )
+    if not decision.allowed:
+        cost_blocked_state_refs.append("blocked-state:frontier-ai-cost-blocked")
+    if estimated_cost_usd > max_approved_cost_usd:
+        cost_blocked_state_refs.append("blocked-state:frontier-ai-cost-budget-exceeded")
+    if frontier_usage_claimed:
+        cost_blocked_state_refs.append(
+            "blocked-state:frontier-ai-usage-claim-requires-cost-receipts"
+        )
+    cost_receipt_refs = _unique_sorted_refs(
+        [
+            cost_estimate_ref,
+            captured_usage_ref,
+            budget_decision_ref,
+            provider_ref,
+            model_profile_ref,
+        ]
+    )
+    slot = FounderLoopOperatorRunCostUsage(
+        cost_event_ref=cost_event_ref,
+        cost_estimate_ref=cost_estimate_ref,
+        captured_usage_ref=captured_usage_ref,
+        budget_decision_ref=budget_decision_ref,
+        source_event_ref=source_ref,
+        provider_ref=provider_ref,
+        model_profile_ref=model_profile_ref,
+        provider_model_ref_status=(
+            "provider_model_ref_missing_or_not_invoked"
+            if provider_model_ref_missing
+            else "provider_model_ref_present_safe_ref_only"
+        ),
+        usage_capture_status=(
+            "frontier_ai_usage_claimed_receipt_required"
+            if frontier_usage_claimed
+            else "no_frontier_ai_usage_recorded"
+        ),
+        cost_capture_status=(
+            "cost_receipts_required_for_claimed_frontier_usage"
+            if frontier_usage_claimed
+            else "accounting_slot_ready_no_provider_call"
+        ),
+        cost_state_label=(
+            "Unknown paid cost"
+            if decision.approval_required
+            else (
+                "Cost blocked"
+                if provider_model_ref_missing
+                or not decision.allowed
+                or estimated_cost_usd > max_approved_cost_usd
+                else "Cost approved"
+            )
+        ),
+        provider_authority_state_label=(
+            "No provider authority"
+            if provider_model_ref_missing
+            else "Provider/model refs present"
+        ),
+        frontier_usage_claimed=frontier_usage_claimed,
+        frontier_ai_routing_allowed=False,
+        input_metered_units=input_metered_units,
+        output_metered_units=output_metered_units,
+        total_metered_units=total_metered_units,
+        estimated_cost_usd=estimated_cost_usd,
+        captured_cost_usd=0.0,
+        max_approved_cost_usd=max_approved_cost_usd,
+        unknown_cost=unknown_cost,
+        approval_required_for_unknown_paid_cost=True,
+        cost_governor_ref="core.costs.CostGovernor",
+        cost_governor_allowed=bool(decision.allowed),
+        cost_governor_decision_status=str(decision.status),
+        cost_governor_reason_refs=[
+            _status_ref(
+                "cost-governor-reason",
+                str(reason).lower().replace("token", "metered-unit"),
+            )
+            for reason in decision.reason_codes
+        ],
+        budget_status_ref=(
+            "budget-status:unknown-paid-cost-requires-approval"
+            if decision.approval_required
+            else _status_ref("budget-status", str(decision.status))
+        ),
+        cost_receipt_refs=cost_receipt_refs,
+        cost_blocked_state_refs=_unique_sorted_refs(cost_blocked_state_refs),
+        prompt_content_stored=False,
+        response_content_stored=False,
+        provider_exchange_content_stored=False,
+    )
+    return slot.model_dump(mode="json")
+
+
 def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
     action_ref = str(action.get("item_ref", "founder-action:missing"))
     source_plan_ref = _status_ref("plan-summary", str(action.get("surface", "Actions")))
@@ -3317,6 +3938,19 @@ def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
                 "approval-requirement:memory-context-pack-action:"
                 f"{_short_ref_suffix(context_pack_ref)}"
             )
+    cost_slot = _frontier_ai_cost_slot(
+        action_envelope_ref,
+        estimated_cost_usd=float(action.get("estimated_cost_usd") or 0.0),
+        max_approved_cost_usd=float(action.get("max_approved_cost_usd") or 0.0),
+        provider_ref=str(action.get("provider_ref") or "provider-ref:not-invoked"),
+        model_profile_ref=str(
+            action.get("model_profile_ref") or "model-profile-ref:not-invoked"
+        ),
+        input_metered_units=int(action.get("input_metered_units") or 0),
+        output_metered_units=int(action.get("output_metered_units") or 0),
+        frontier_usage_claimed=bool(action.get("frontier_usage_claimed", False)),
+        unknown_cost=False,
+    )
     return {
         "action_envelope_contract_ref": payload["contract_ref"],
         "action_envelope_ref": action_envelope_ref,
@@ -3349,6 +3983,33 @@ def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
         ],
         "action_envelope_safe_refs_only": payload["safe_refs_only"],
         "action_envelope_raw_content_included": payload["raw_content_included"],
+        "action_envelope_cost_contract_ref": FRONTIER_AI_COST_USAGE_CONTRACT_REF,
+        "action_envelope_estimated_cost_usd": cost_slot["estimated_cost_usd"],
+        "action_envelope_max_approved_cost_usd": cost_slot[
+            "max_approved_cost_usd"
+        ],
+        "action_envelope_provider_ref": cost_slot["provider_ref"],
+        "action_envelope_model_profile_ref": cost_slot["model_profile_ref"],
+        "action_envelope_input_metered_units": cost_slot["input_metered_units"],
+        "action_envelope_output_metered_units": cost_slot["output_metered_units"],
+        "action_envelope_total_metered_units": cost_slot["total_metered_units"],
+        "action_envelope_cost_estimate_ref": cost_slot["cost_estimate_ref"],
+        "action_envelope_captured_usage_ref": cost_slot["captured_usage_ref"],
+        "action_envelope_budget_decision_ref": cost_slot["budget_decision_ref"],
+        "action_envelope_cost_receipt_refs": cost_slot["cost_receipt_refs"],
+        "action_envelope_cost_blocked_state_refs": cost_slot[
+            "cost_blocked_state_refs"
+        ],
+        "action_envelope_cost_state_label": cost_slot["cost_state_label"],
+        "action_envelope_provider_authority_state_label": cost_slot[
+            "provider_authority_state_label"
+        ],
+        "action_envelope_unknown_paid_cost_requires_explicit_approval": cost_slot[
+            "approval_required_for_unknown_paid_cost"
+        ],
+        "action_envelope_frontier_usage_claimed": cost_slot[
+            "frontier_usage_claimed"
+        ],
     }
 
 
@@ -3394,6 +4055,8 @@ def _action_approval_envelope_read_model(action: dict[str, Any]) -> dict[str, An
     blocked_authority_refs = _approval_envelope_list(
         [
             *(action.get("action_blocked_state_refs") or []),
+            *(action.get("action_envelope_cost_blocked_state_refs") or []),
+            *(action.get("cost_blocked_state_refs") or []),
             *(action.get("local_task_commit_blocked_reasons") or []),
             *(action.get("local_task_commit_external_authority_blocked_refs") or []),
         ],
@@ -3426,6 +4089,88 @@ def _action_approval_envelope_read_model(action: dict[str, Any]) -> dict[str, An
         "expected_receipt_refs": expected_receipt_refs,
         "rollback_safe_disable_posture": (
             f"{rollback_safe_disable_refs[0]}; {rollback_safe_disable_refs[1]}"
+        ),
+        "estimated_cost_usd": float(
+            action.get("action_envelope_estimated_cost_usd")
+            or action.get("estimated_cost_usd")
+            or 0.0
+        ),
+        "max_approved_cost_usd": float(
+            action.get("action_envelope_max_approved_cost_usd")
+            or action.get("max_approved_cost_usd")
+            or 0.0
+        ),
+        "provider_ref": str(
+            action.get("action_envelope_provider_ref")
+            or action.get("provider_ref")
+            or "provider-ref:not-invoked"
+        ),
+        "model_profile_ref": str(
+            action.get("action_envelope_model_profile_ref")
+            or action.get("model_profile_ref")
+            or "model-profile-ref:not-invoked"
+        ),
+        "input_metered_units": int(
+            action.get("action_envelope_input_metered_units")
+            or action.get("input_metered_units")
+            or 0
+        ),
+        "output_metered_units": int(
+            action.get("action_envelope_output_metered_units")
+            or action.get("output_metered_units")
+            or 0
+        ),
+        "total_metered_units": int(
+            action.get("action_envelope_total_metered_units")
+            or action.get("total_metered_units")
+            or 0
+        ),
+        "cost_estimate_ref": str(
+            action.get("action_envelope_cost_estimate_ref")
+            or action.get("cost_estimate_ref")
+            or "cost-estimate-ref:not-invoked"
+        ),
+        "captured_usage_ref": str(
+            action.get("action_envelope_captured_usage_ref")
+            or action.get("captured_usage_ref")
+            or "usage-capture-ref:not-invoked"
+        ),
+        "budget_decision_ref": str(
+            action.get("action_envelope_budget_decision_ref")
+            or action.get("budget_decision_ref")
+            or "budget-decision-ref:not-invoked"
+        ),
+        "cost_receipt_refs": _approval_envelope_list(
+            action.get("action_envelope_cost_receipt_refs")
+            or action.get("cost_receipt_refs"),
+            missing_state="missing",
+        ),
+        "cost_blocked_state_refs": _approval_envelope_list(
+            action.get("action_envelope_cost_blocked_state_refs")
+            or action.get("cost_blocked_state_refs"),
+            missing_state="missing",
+        ),
+        "cost_state_label": str(
+            action.get("action_envelope_cost_state_label")
+            or action.get("cost_state_label")
+            or "Cost blocked"
+        ),
+        "provider_authority_state_label": str(
+            action.get("action_envelope_provider_authority_state_label")
+            or action.get("provider_authority_state_label")
+            or "No provider authority"
+        ),
+        "unknown_paid_cost_requires_explicit_approval": bool(
+            action.get("action_envelope_unknown_paid_cost_requires_explicit_approval")
+            if action.get(
+                "action_envelope_unknown_paid_cost_requires_explicit_approval"
+            )
+            is not None
+            else action.get("unknown_paid_cost_requires_explicit_approval", True)
+        ),
+        "frontier_usage_claimed": bool(
+            action.get("action_envelope_frontier_usage_claimed")
+            or action.get("frontier_usage_claimed", False)
         ),
         "blocked_authority_refs": blocked_authority_refs,
         "evidence_refs": evidence_refs,
@@ -4465,6 +5210,11 @@ class FounderLoopRepository:
             "group_count": len(groups),
             "groups": groups,
             "events": events,
+            "operator_run_timeline": self._operator_run_timeline(
+                events=events,
+                groups=groups,
+                narrative_items=timeline,
+            ),
             "narrative_items": timeline,
             "review_answer_refs": {
                 "proposed": _unique_sorted_refs(
@@ -4815,6 +5565,266 @@ class FounderLoopRepository:
             ).model_dump(mode="json")
             for group in groups.values()
         ]
+
+    def _operator_run_timeline(
+        self,
+        *,
+        events: list[dict[str, Any]],
+        groups: list[dict[str, Any]],
+        narrative_items: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        run_events = [self._operator_run_timeline_event(event) for event in events]
+        state_counts = {
+            state: sum(
+                1 for event in run_events if event.get("operator_state") == state
+            )
+            for state in OPERATOR_RUN_TIMELINE_STATES
+        }
+        event_cost_slots = [event["cost_usage"] for event in run_events]
+        estimated_total_cost = round(
+            sum(float(slot.get("estimated_cost_usd", 0.0)) for slot in event_cost_slots),
+            6,
+        )
+        captured_total_cost = round(
+            sum(float(slot.get("captured_cost_usd", 0.0)) for slot in event_cost_slots),
+            6,
+        )
+        total_input_metered_units = sum(
+            int(slot.get("input_metered_units", 0)) for slot in event_cost_slots
+        )
+        total_output_metered_units = sum(
+            int(slot.get("output_metered_units", 0)) for slot in event_cost_slots
+        )
+        blocked_state_refs = _unique_sorted_refs(
+            [
+                "blocked-state:no-action-execution",
+                "blocked-state:no-connector-write",
+                "blocked-state:no-provider-model-authority",
+                "blocked-state:no-provider-sdk-call",
+                "blocked-state:no-runtime-model-call",
+                *[
+                    str(blocked_state)
+                    for event in run_events
+                    for blocked_state in event.get("blocked_state_refs", [])
+                ],
+            ]
+        )
+        frontier_ai_usage = FounderLoopFrontierAiUsageSummary(
+            status="accounting_slots_ready_no_provider_calls",
+            provider_model_authority_allowed=False,
+            provider_sdk_call_enabled=False,
+            runtime_model_calls_enabled=False,
+            prompt_content_stored=False,
+            response_content_stored=False,
+            provider_exchange_content_stored=False,
+            estimated_total_cost_usd=estimated_total_cost,
+            captured_total_cost_usd=captured_total_cost,
+            input_metered_units=total_input_metered_units,
+            output_metered_units=total_output_metered_units,
+            total_metered_units=(
+                total_input_metered_units + total_output_metered_units
+            ),
+            unknown_paid_cost_requires_approval_before_routing=True,
+            cost_governor_ref="core.costs.CostGovernor",
+            budget_status_ref="budget-status:unknown-paid-cost-requires-approval",
+            cost_event_refs=_unique_sorted_refs(
+                slot.get("cost_event_ref") for slot in event_cost_slots
+            )
+            or ["cost-estimate-ref:pending-frontier-ai-usage"],
+            cost_receipt_refs=_unique_sorted_refs(
+                ref
+                for slot in event_cost_slots
+                for ref in slot.get("cost_receipt_refs", [])
+            ),
+            cost_blocked_state_refs=_unique_sorted_refs(
+                ref
+                for slot in event_cost_slots
+                for ref in slot.get("cost_blocked_state_refs", [])
+            ),
+        )
+        timeline = FounderLoopOperatorRunTimeline(
+            status="implemented_read_only_operator_run_timeline_safe_refs_only",
+            source="python_core_evidence_timeline_read_model",
+            route_ref="GET /control-center/evidence/timeline",
+            frontend_route_refs=[
+                "/",
+                "/actions",
+                "/plans",
+                "/memory",
+                "/evidence",
+                "/settings",
+            ],
+            safe_refs_only=True,
+            redacted_summaries_only=True,
+            action_execution_enabled=False,
+            connector_write_enabled=False,
+            runtime_model_calls_enabled=False,
+            provider_sdk_call_enabled=False,
+            provider_model_authority_allowed=False,
+            prompt_content_stored=False,
+            response_content_stored=False,
+            provider_exchange_content_stored=False,
+            borrowed_patterns=[
+                FounderLoopOperatorRunBorrowedPattern(
+                    **pattern,
+                    implemented=True,
+                    source_ref=f"borrowed-pattern:{pattern['pattern_id']}",
+                )
+                for pattern in OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS
+            ],
+            event_count=len(run_events),
+            group_count=len(groups),
+            narrative_item_count=len(narrative_items),
+            run_events=run_events,
+            run_control_summary=FounderLoopOperatorRunControlSummary(
+                states=list(OPERATOR_RUN_TIMELINE_STATES),
+                state_refs=[
+                    f"operator-run-state:{state}"
+                    for state in OPERATOR_RUN_TIMELINE_STATES
+                ],
+                waiting_for_approval_count=state_counts["waiting_for_approval"],
+                receipt_recorded_count=state_counts["receipt_recorded"],
+                blocked_count=state_counts["blocked"],
+                needs_evidence_count=state_counts["needs_evidence"],
+                stuck_detection_status=(
+                    "timeline_state_counts_available_no_autonomous_resume"
+                ),
+                pause_resume_status="status_visible_no_runtime_pause_resume_route",
+                goal_completion_status=(
+                    "evidence_refs_required_no_model_judge_authority"
+                ),
+            ),
+            frontier_ai_usage_summary=frontier_ai_usage,
+            blocked_state_refs=blocked_state_refs,
+            authority_boundary=(
+                "Operator Run Timeline is a read-only projection over Evidence "
+                "Timeline safe refs. It records state, receipt posture, and "
+                "frontier AI cost accounting slots without approving work, "
+                "executing actions, invoking provider SDKs, calling models, or "
+                "storing prompt, response, or provider exchange content."
+            ),
+        )
+        return timeline.model_dump(mode="json")
+
+    def _operator_run_timeline_event(self, event: dict[str, Any]) -> dict[str, Any]:
+        receipt_refs = list(event.get("receipt_refs") or [])
+        approval_refs = list(event.get("approval_refs") or [])
+        blocked_state_refs = _unique_sorted_refs(
+            [
+                (
+                    str(ref)
+                    if str(ref).startswith("blocked-state:")
+                    else _status_ref("blocked-state", str(ref))
+                )
+                for ref in [
+                    *list(event.get("blocked_states") or []),
+                    *list(event.get("rollback_blockers") or []),
+                ]
+            ]
+        )
+        if receipt_refs:
+            operator_state = "receipt_recorded"
+        elif blocked_state_refs:
+            operator_state = "blocked"
+        elif approval_refs:
+            operator_state = "waiting_for_approval"
+        else:
+            operator_state = "needs_evidence"
+        completion_state = (
+            "evidence_refs_present"
+            if receipt_refs or event.get("audit_refs")
+            else "needs_receipt_or_validation_evidence"
+        )
+        event_ref = str(event["event_ref"])
+        evidence_refs = _unique_sorted_refs(
+            [
+                event_ref,
+                str(event.get("timeline_item_ref", "")),
+                *list(event.get("source_refs") or []),
+                *list(event.get("status_refs") or []),
+                *receipt_refs,
+                *approval_refs,
+                *list(event.get("audit_refs") or []),
+                *list(event.get("idempotency_refs") or []),
+                *list(event.get("rollback_refs") or []),
+                *blocked_state_refs,
+            ]
+        )
+        run_event = FounderLoopOperatorRunEvent(
+            run_event_ref=_status_ref("operator-run-event", event_ref),
+            event_ref=event_ref,
+            event_kind=str(event["event_type"]),
+            event_source="python_core_evidence_timeline",
+            llm_role_projection="not_sent_to_model",
+            operator_state=operator_state,
+            approval_state=(
+                "receipt_recorded"
+                if receipt_refs
+                else (
+                    "waiting_for_approval"
+                    if approval_refs
+                    else "approval_not_required_or_not_scoped"
+                )
+            ),
+            completion_state=completion_state,
+            completion_claim_allowed=bool(receipt_refs),
+            safe_summary=str(event["safe_summary"]),
+            condensed_summary_ref=_status_ref(
+                "safe-summary-ref:operator-run",
+                event_ref,
+            ),
+            source_refs=list(event.get("source_refs") or []),
+            status_refs=list(event.get("status_refs") or []),
+            receipt_refs=receipt_refs,
+            approval_refs=approval_refs,
+            audit_refs=list(event.get("audit_refs") or []),
+            idempotency_refs=list(event.get("idempotency_refs") or []),
+            rollback_refs=list(event.get("rollback_refs") or []),
+            blocked_state_refs=blocked_state_refs,
+            evidence_refs=evidence_refs,
+            related_route_refs=_unique_sorted_refs(
+                [
+                    *list(event.get("related_route_refs") or []),
+                    "GET /control-center/evidence/timeline",
+                ]
+            ),
+            authority_boundary=(
+                "Run event is read-only evidence projection. It does not grant "
+                "approval, execute actions, call models, invoke provider SDKs, "
+                "or store prompt, response, or provider exchange content."
+            ),
+            cost_usage=self._operator_run_timeline_cost_slot(event_ref),
+            prompt_content_stored=False,
+            response_content_stored=False,
+            provider_exchange_content_stored=False,
+            provider_model_authority_allowed=False,
+        )
+        return run_event.model_dump(mode="json")
+
+    def _operator_run_timeline_cost_slot(
+        self,
+        event_ref: str,
+        *,
+        estimated_cost_usd: float = 0.0,
+        max_approved_cost_usd: float = 0.0,
+        provider_ref: str = "provider-ref:not-invoked",
+        model_profile_ref: str = "model-profile-ref:not-invoked",
+        input_metered_units: int = 0,
+        output_metered_units: int = 0,
+        frontier_usage_claimed: bool = False,
+        unknown_cost: bool = False,
+    ) -> dict[str, Any]:
+        return _frontier_ai_cost_slot(
+            event_ref,
+            estimated_cost_usd=estimated_cost_usd,
+            max_approved_cost_usd=max_approved_cost_usd,
+            provider_ref=provider_ref,
+            model_profile_ref=model_profile_ref,
+            input_metered_units=input_metered_units,
+            output_metered_units=output_metered_units,
+            frontier_usage_claimed=frontier_usage_claimed,
+            unknown_cost=unknown_cost,
+        )
 
     def _build_evidence_timeline(
         self,
@@ -6593,6 +7603,14 @@ class FounderLoopRepository:
                    state_change_readiness, blocked_state, evidence_refs_json,
                    receipt_refs_json, audit_refs_json, idempotency_key_ref,
                    expires_at, stale_state, rollback_ref, safe_disable_ref,
+                   estimated_cost_usd, max_approved_cost_usd, provider_ref,
+                   model_profile_ref, input_metered_units, output_metered_units,
+                   total_metered_units, cost_estimate_ref, captured_usage_ref,
+                   budget_decision_ref, cost_receipt_refs_json,
+                   cost_blocked_state_refs_json, cost_state_label,
+                   provider_authority_state_label,
+                   unknown_paid_cost_requires_explicit_approval,
+                   frontier_usage_claimed,
                    next_safe_action, created_at, updated_at
             FROM action_inbox
             ORDER BY created_at ASC
@@ -7040,11 +8058,23 @@ class FounderLoopRepository:
         )
         audit_ref = action_envelope_promotion_audit_ref(item_ref, idempotency_key_ref)
         evidence_event_ref = action_envelope_promotion_event_ref(item_ref)
+        cost_slot = self._operator_run_timeline_cost_slot(
+            action_envelope_ref,
+            estimated_cost_usd=request.estimated_cost_usd,
+            max_approved_cost_usd=request.max_approved_cost_usd,
+            provider_ref=request.provider_ref,
+            model_profile_ref=request.model_profile_ref,
+            input_metered_units=request.input_metered_units,
+            output_metered_units=request.output_metered_units,
+            frontier_usage_claimed=request.frontier_usage_claimed,
+            unknown_cost=False,
+        )
         evidence_refs = list(
             dict.fromkeys(
                 [
                     "evidence-ref:founder-loop:today-action-envelope",
                     evidence_event_ref,
+                    *cost_slot["cost_receipt_refs"],
                     request.today_item_ref,
                     *list((existing_action or {}).get("evidence_refs") or []),
                     *list(source.get("evidence_refs") or []),
@@ -7086,7 +8116,30 @@ class FounderLoopRepository:
                 "work, provider/model call, or production authority occurred."
             ),
             evidence_refs=evidence_refs,
-            blocked_state_refs=list(FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS),
+            blocked_state_refs=[
+                *list(FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS),
+                *cost_slot["cost_blocked_state_refs"],
+            ],
+            estimated_cost_usd=cost_slot["estimated_cost_usd"],
+            max_approved_cost_usd=cost_slot["max_approved_cost_usd"],
+            provider_ref=cost_slot["provider_ref"],
+            model_profile_ref=cost_slot["model_profile_ref"],
+            input_metered_units=cost_slot["input_metered_units"],
+            output_metered_units=cost_slot["output_metered_units"],
+            total_metered_units=cost_slot["total_metered_units"],
+            cost_estimate_ref=cost_slot["cost_estimate_ref"],
+            captured_usage_ref=cost_slot["captured_usage_ref"],
+            budget_decision_ref=cost_slot["budget_decision_ref"],
+            cost_receipt_refs=cost_slot["cost_receipt_refs"],
+            cost_blocked_state_refs=cost_slot["cost_blocked_state_refs"],
+            cost_state_label=cost_slot["cost_state_label"],
+            provider_authority_state_label=cost_slot[
+                "provider_authority_state_label"
+            ],
+            unknown_paid_cost_requires_explicit_approval=cost_slot[
+                "approval_required_for_unknown_paid_cost"
+            ],
+            frontier_usage_claimed=cost_slot["frontier_usage_claimed"],
         )
         receipt_payload = receipt.model_dump(mode="json")
         action_record = FounderLoopActionRecord(
@@ -7123,6 +8176,26 @@ class FounderLoopRepository:
             stale_state="recheck_today_item_before_action_decision",
             rollback_ref=f"rollback-plan:founder-loop-v1:{_safe_suffix(item_ref)}",
             safe_disable_ref=f"safe-disable:founder-loop-v1:{_safe_suffix(item_ref)}",
+            estimated_cost_usd=cost_slot["estimated_cost_usd"],
+            max_approved_cost_usd=cost_slot["max_approved_cost_usd"],
+            provider_ref=cost_slot["provider_ref"],
+            model_profile_ref=cost_slot["model_profile_ref"],
+            input_metered_units=cost_slot["input_metered_units"],
+            output_metered_units=cost_slot["output_metered_units"],
+            total_metered_units=cost_slot["total_metered_units"],
+            cost_estimate_ref=cost_slot["cost_estimate_ref"],
+            captured_usage_ref=cost_slot["captured_usage_ref"],
+            budget_decision_ref=cost_slot["budget_decision_ref"],
+            cost_receipt_refs=cost_slot["cost_receipt_refs"],
+            cost_blocked_state_refs=cost_slot["cost_blocked_state_refs"],
+            cost_state_label=cost_slot["cost_state_label"],
+            provider_authority_state_label=cost_slot[
+                "provider_authority_state_label"
+            ],
+            unknown_paid_cost_requires_explicit_approval=cost_slot[
+                "approval_required_for_unknown_paid_cost"
+            ],
+            frontier_usage_claimed=cost_slot["frontier_usage_claimed"],
             next_safe_action=(
                 "Review the Action envelope and record approve, edit, reject, or "
                 "defer; execution remains blocked."
@@ -7150,6 +8223,27 @@ class FounderLoopRepository:
             "shell_subprocess_execution_enabled": False,
             "model_provider_authority_allowed": False,
             "production_authority_enabled": False,
+            "cost_contract_ref": FRONTIER_AI_COST_USAGE_CONTRACT_REF,
+            "estimated_cost_usd": cost_slot["estimated_cost_usd"],
+            "max_approved_cost_usd": cost_slot["max_approved_cost_usd"],
+            "provider_ref": cost_slot["provider_ref"],
+            "model_profile_ref": cost_slot["model_profile_ref"],
+            "input_metered_units": cost_slot["input_metered_units"],
+            "output_metered_units": cost_slot["output_metered_units"],
+            "total_metered_units": cost_slot["total_metered_units"],
+            "cost_estimate_ref": cost_slot["cost_estimate_ref"],
+            "captured_usage_ref": cost_slot["captured_usage_ref"],
+            "budget_decision_ref": cost_slot["budget_decision_ref"],
+            "cost_receipt_refs": cost_slot["cost_receipt_refs"],
+            "cost_blocked_state_refs": cost_slot["cost_blocked_state_refs"],
+            "cost_state_label": cost_slot["cost_state_label"],
+            "provider_authority_state_label": cost_slot[
+                "provider_authority_state_label"
+            ],
+            "unknown_paid_cost_requires_explicit_approval": cost_slot[
+                "approval_required_for_unknown_paid_cost"
+            ],
+            "frontier_usage_claimed": cost_slot["frontier_usage_claimed"],
         }
         _validate_safe_payload(envelope_payload, "action_envelope_promotion")
         self.upsert_action(action_record)
@@ -8898,9 +9992,20 @@ class FounderLoopRepository:
                 [
                     "evidence-ref:founder-loop:action-inbox",
                     "evidence-ref:founder-loop:action-decision",
+                    *list(action.get("cost_receipt_refs") or []),
                     *list(action.get("evidence_refs") or []),
                 ]
             )
+        )
+        cost_blocked_state_refs = _unique_sorted_refs(
+            list(action.get("cost_blocked_state_refs") or [])
+            or [
+                "blocked-state:no-provider-model-authority",
+                "blocked-state:no-provider-sdk-call",
+                "blocked-state:no-runtime-model-call",
+                "blocked-state:frontier-provider-model-ref-missing",
+                "blocked-state:unknown-paid-cost-requires-approval",
+            ]
         )
         return FounderLoopActionDecisionReceipt(
             decision_ref=decision_ref,
@@ -8917,6 +10022,35 @@ class FounderLoopRepository:
             safe_summary=_action_decision_safe_summary(decision, status),
             evidence_refs=evidence_refs,
             blocked_state_refs=list(FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS),
+            estimated_cost_usd=float(action.get("estimated_cost_usd") or 0.0),
+            max_approved_cost_usd=float(action.get("max_approved_cost_usd") or 0.0),
+            provider_ref=str(action.get("provider_ref") or "provider-ref:not-invoked"),
+            model_profile_ref=str(
+                action.get("model_profile_ref") or "model-profile-ref:not-invoked"
+            ),
+            input_metered_units=int(action.get("input_metered_units") or 0),
+            output_metered_units=int(action.get("output_metered_units") or 0),
+            total_metered_units=int(action.get("total_metered_units") or 0),
+            cost_estimate_ref=str(
+                action.get("cost_estimate_ref") or "cost-estimate-ref:not-invoked"
+            ),
+            captured_usage_ref=str(
+                action.get("captured_usage_ref") or "usage-capture-ref:not-invoked"
+            ),
+            budget_decision_ref=str(
+                action.get("budget_decision_ref") or "budget-decision-ref:not-invoked"
+            ),
+            cost_receipt_refs=list(action.get("cost_receipt_refs") or []),
+            cost_blocked_state_refs=cost_blocked_state_refs,
+            cost_state_label=str(action.get("cost_state_label") or "Cost blocked"),
+            provider_authority_state_label=str(
+                action.get("provider_authority_state_label")
+                or "No provider authority"
+            ),
+            unknown_paid_cost_requires_explicit_approval=bool(
+                action.get("unknown_paid_cost_requires_explicit_approval", True)
+            ),
+            frontier_usage_claimed=bool(action.get("frontier_usage_claimed", False)),
         )
 
     def _decision_status(
@@ -10572,10 +11706,18 @@ class FounderLoopRepository:
                 state_change_readiness, blocked_state, evidence_refs_json,
                 receipt_refs_json, audit_refs_json, idempotency_key_ref,
                 expires_at, stale_state, rollback_ref, safe_disable_ref,
+                estimated_cost_usd, max_approved_cost_usd, provider_ref,
+                model_profile_ref, input_metered_units, output_metered_units,
+                total_metered_units, cost_estimate_ref, captured_usage_ref,
+                budget_decision_ref, cost_receipt_refs_json,
+                cost_blocked_state_refs_json, cost_state_label,
+                provider_authority_state_label,
+                unknown_paid_cost_requires_explicit_approval,
+                frontier_usage_claimed,
                 next_safe_action, created_at, updated_at
             )
             VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             ON CONFLICT(item_ref) DO UPDATE SET
                 title = excluded.title,
@@ -10601,6 +11743,22 @@ class FounderLoopRepository:
                 stale_state = excluded.stale_state,
                 rollback_ref = excluded.rollback_ref,
                 safe_disable_ref = excluded.safe_disable_ref,
+                estimated_cost_usd = excluded.estimated_cost_usd,
+                max_approved_cost_usd = excluded.max_approved_cost_usd,
+                provider_ref = excluded.provider_ref,
+                model_profile_ref = excluded.model_profile_ref,
+                input_metered_units = excluded.input_metered_units,
+                output_metered_units = excluded.output_metered_units,
+                total_metered_units = excluded.total_metered_units,
+                cost_estimate_ref = excluded.cost_estimate_ref,
+                captured_usage_ref = excluded.captured_usage_ref,
+                budget_decision_ref = excluded.budget_decision_ref,
+                cost_receipt_refs_json = excluded.cost_receipt_refs_json,
+                cost_blocked_state_refs_json = excluded.cost_blocked_state_refs_json,
+                cost_state_label = excluded.cost_state_label,
+                provider_authority_state_label = excluded.provider_authority_state_label,
+                unknown_paid_cost_requires_explicit_approval = excluded.unknown_paid_cost_requires_explicit_approval,
+                frontier_usage_claimed = excluded.frontier_usage_claimed,
                 next_safe_action = excluded.next_safe_action,
                 updated_at = excluded.updated_at
             """,
@@ -10629,6 +11787,22 @@ class FounderLoopRepository:
                 record.stale_state,
                 record.rollback_ref,
                 record.safe_disable_ref,
+                record.estimated_cost_usd,
+                record.max_approved_cost_usd,
+                record.provider_ref,
+                record.model_profile_ref,
+                record.input_metered_units,
+                record.output_metered_units,
+                record.total_metered_units,
+                record.cost_estimate_ref,
+                record.captured_usage_ref,
+                record.budget_decision_ref,
+                _json_dumps(record.cost_receipt_refs),
+                _json_dumps(record.cost_blocked_state_refs),
+                record.cost_state_label,
+                record.provider_authority_state_label,
+                int(record.unknown_paid_cost_requires_explicit_approval),
+                int(record.frontier_usage_claimed),
                 record.next_safe_action,
                 record.created_at.isoformat(),
                 record.updated_at.isoformat(),
@@ -10871,6 +12045,22 @@ class FounderLoopRepository:
                     stale_state TEXT NOT NULL DEFAULT 'recheck_required_before_mutation',
                     rollback_ref TEXT,
                     safe_disable_ref TEXT,
+                    estimated_cost_usd REAL NOT NULL DEFAULT 0.0,
+                    max_approved_cost_usd REAL NOT NULL DEFAULT 0.0,
+                    provider_ref TEXT NOT NULL DEFAULT 'provider-ref:not-invoked',
+                    model_profile_ref TEXT NOT NULL DEFAULT 'model-profile-ref:not-invoked',
+                    input_metered_units INTEGER NOT NULL DEFAULT 0,
+                    output_metered_units INTEGER NOT NULL DEFAULT 0,
+                    total_metered_units INTEGER NOT NULL DEFAULT 0,
+                    cost_estimate_ref TEXT NOT NULL DEFAULT 'cost-estimate-ref:not-invoked',
+                    captured_usage_ref TEXT NOT NULL DEFAULT 'usage-capture-ref:not-invoked',
+                    budget_decision_ref TEXT NOT NULL DEFAULT 'budget-decision-ref:not-invoked',
+                    cost_receipt_refs_json TEXT NOT NULL DEFAULT '[]',
+                    cost_blocked_state_refs_json TEXT NOT NULL DEFAULT '[]',
+                    cost_state_label TEXT NOT NULL DEFAULT 'Cost blocked',
+                    provider_authority_state_label TEXT NOT NULL DEFAULT 'No provider authority',
+                    unknown_paid_cost_requires_explicit_approval INTEGER NOT NULL DEFAULT 1,
+                    frontier_usage_claimed INTEGER NOT NULL DEFAULT 0,
                     next_safe_action TEXT NOT NULL DEFAULT 'Review the safe summary and keep mutation blocked until a scoped backend contract exists.',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
@@ -11205,6 +12395,26 @@ class FounderLoopRepository:
             "stale_state": "TEXT NOT NULL DEFAULT 'recheck_required_before_mutation'",
             "rollback_ref": "TEXT",
             "safe_disable_ref": "TEXT",
+            "estimated_cost_usd": "REAL NOT NULL DEFAULT 0.0",
+            "max_approved_cost_usd": "REAL NOT NULL DEFAULT 0.0",
+            "provider_ref": "TEXT NOT NULL DEFAULT 'provider-ref:not-invoked'",
+            "model_profile_ref": "TEXT NOT NULL DEFAULT 'model-profile-ref:not-invoked'",
+            "input_metered_units": "INTEGER NOT NULL DEFAULT 0",
+            "output_metered_units": "INTEGER NOT NULL DEFAULT 0",
+            "total_metered_units": "INTEGER NOT NULL DEFAULT 0",
+            "cost_estimate_ref": "TEXT NOT NULL DEFAULT 'cost-estimate-ref:not-invoked'",
+            "captured_usage_ref": "TEXT NOT NULL DEFAULT 'usage-capture-ref:not-invoked'",
+            "budget_decision_ref": "TEXT NOT NULL DEFAULT 'budget-decision-ref:not-invoked'",
+            "cost_receipt_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "cost_blocked_state_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+            "cost_state_label": "TEXT NOT NULL DEFAULT 'Cost blocked'",
+            "provider_authority_state_label": (
+                "TEXT NOT NULL DEFAULT 'No provider authority'"
+            ),
+            "unknown_paid_cost_requires_explicit_approval": (
+                "INTEGER NOT NULL DEFAULT 1"
+            ),
+            "frontier_usage_claimed": "INTEGER NOT NULL DEFAULT 0",
             "next_safe_action": (
                 "TEXT NOT NULL DEFAULT 'Review the safe summary and keep mutation blocked "
                 "until a scoped backend contract exists.'"

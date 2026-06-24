@@ -1686,6 +1686,42 @@ function safeEnvelopeSuffix(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9_.@-]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function mockActionCostFields(sourceRef: string) {
+  const suffix = safeEnvelopeSuffix(sourceRef);
+  return {
+    action_envelope_cost_contract_ref:
+      "contract-ref:frontier-ai-cost-usage-telemetry:v1",
+    action_envelope_estimated_cost_usd: 0,
+    action_envelope_max_approved_cost_usd: 0,
+    action_envelope_provider_ref: "provider-ref:not-invoked",
+    action_envelope_model_profile_ref: "model-profile-ref:not-invoked",
+    action_envelope_input_metered_units: 0,
+    action_envelope_output_metered_units: 0,
+    action_envelope_total_metered_units: 0,
+    action_envelope_cost_estimate_ref: `cost-estimate-ref:${suffix}`,
+    action_envelope_captured_usage_ref: `usage-capture-ref:${suffix}`,
+    action_envelope_budget_decision_ref: `budget-decision-ref:${suffix}`,
+    action_envelope_cost_receipt_refs: [
+      `budget-decision-ref:${suffix}`,
+      `cost-estimate-ref:${suffix}`,
+      "model-profile-ref:not-invoked",
+      "provider-ref:not-invoked",
+      `usage-capture-ref:${suffix}`,
+    ],
+    action_envelope_cost_blocked_state_refs: [
+      "blocked-state:frontier-provider-model-ref-missing",
+      "blocked-state:no-provider-model-authority",
+      "blocked-state:no-provider-sdk-call",
+      "blocked-state:no-runtime-model-call",
+      "blocked-state:unknown-paid-cost-requires-approval",
+    ],
+    action_envelope_cost_state_label: "Cost blocked",
+    action_envelope_provider_authority_state_label: "No provider authority",
+    action_envelope_unknown_paid_cost_requires_explicit_approval: true,
+    action_envelope_frontier_usage_claimed: false,
+  };
+}
+
 function planActionEnvelopeFields(planRef: string) {
   const suffix = safeEnvelopeSuffix(planRef);
   const reviewPostureRefs = plansActionEnvelopeReviewActions.map(
@@ -1728,12 +1764,17 @@ function planActionEnvelopeFields(planRef: string) {
     model_provider_authority_allowed: false,
     safe_refs_only: true,
     raw_content_included: false,
+    ...mockActionCostFields(`action-envelope:plans:${suffix}`),
     plan_action_envelope_ref: `action-envelope:plans:${suffix}`,
     plan_action_scope_ref: `scope-ref:plans-action-envelope:${suffix}`,
     plan_action_approval_requirement_ref: `approval-requirement:plans-action-envelope:${suffix}`,
     plan_action_review_posture_refs: reviewPostureRefs,
     plan_action_expected_receipt_refs: [`receipt-plan:plans-action-envelope:${suffix}`],
-    plan_action_blocked_state_refs: blockedStateRefs,
+    plan_action_blocked_state_refs: [
+      ...blockedStateRefs,
+      ...mockActionCostFields(`action-envelope:plans:${suffix}`)
+        .action_envelope_cost_blocked_state_refs,
+    ],
     plan_action_authority_boundary:
       "Reviewable Action envelope only; execution and approval grant capture remain blocked until exact scoped LocalApprovalAuthority validation exists.",
   };
@@ -1764,6 +1805,7 @@ function actionEnvelopeFields(
   options: ApprovalEnvelopeCardOptions = {},
 ) {
   const suffix = safeEnvelopeSuffix(actionRef);
+  const costFields = mockActionCostFields(`action-envelope:plans:${suffix}`);
   const unavailableState = "mock_only_backend_read_model_unavailable";
   const unavailableRef = "backend_read_model_unavailable";
   const exactScope =
@@ -1853,6 +1895,7 @@ function actionEnvelopeFields(
     action_envelope_model_provider_authority_allowed: false,
     action_envelope_safe_refs_only: true,
     action_envelope_raw_content_included: false,
+    ...costFields,
     approval_envelope: {
       schema_version: "founder_loop_action_approval_envelope.v1" as const,
       contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
@@ -1871,6 +1914,24 @@ function actionEnvelopeFields(
       rollback_safe_disable_posture:
         options.rollbackSafeDisablePosture ??
         `${options.approvalRequired === false ? "not_applicable" : unavailableRef}; ${options.approvalRequired === false ? "not_applicable" : unavailableRef}`,
+      estimated_cost_usd: costFields.action_envelope_estimated_cost_usd,
+      max_approved_cost_usd: costFields.action_envelope_max_approved_cost_usd,
+      provider_ref: costFields.action_envelope_provider_ref,
+      model_profile_ref: costFields.action_envelope_model_profile_ref,
+      input_metered_units: costFields.action_envelope_input_metered_units,
+      output_metered_units: costFields.action_envelope_output_metered_units,
+      total_metered_units: costFields.action_envelope_total_metered_units,
+      cost_estimate_ref: costFields.action_envelope_cost_estimate_ref,
+      captured_usage_ref: costFields.action_envelope_captured_usage_ref,
+      budget_decision_ref: costFields.action_envelope_budget_decision_ref,
+      cost_receipt_refs: costFields.action_envelope_cost_receipt_refs,
+      cost_blocked_state_refs: costFields.action_envelope_cost_blocked_state_refs,
+      cost_state_label: costFields.action_envelope_cost_state_label,
+      provider_authority_state_label:
+        costFields.action_envelope_provider_authority_state_label,
+      unknown_paid_cost_requires_explicit_approval:
+        costFields.action_envelope_unknown_paid_cost_requires_explicit_approval,
+      frontier_usage_claimed: costFields.action_envelope_frontier_usage_claimed,
       blocked_authority_refs: blockedAuthorityRefs,
       evidence_refs: options.evidenceRefs ?? [
         "evidence-ref:founder-loop:action-inbox",
@@ -5464,6 +5525,261 @@ export const mockControlCenterData: ControlCenterData = {
 	        context_injection_authorized: false,
 	      },
 	    ],
+	    operator_run_timeline: {
+	      schema_version: "founder_loop_operator_run_timeline.v1",
+	      contract_ref: "contract-ref:operator-run-timeline:v1",
+	      status: "implemented_read_only_operator_run_timeline_safe_refs_only",
+	      source: "python_core_evidence_timeline_read_model",
+	      route_ref: "GET /control-center/evidence/timeline",
+	      frontend_route_refs: [
+	        "/",
+	        "/actions",
+	        "/plans",
+	        "/memory",
+	        "/evidence",
+	        "/settings",
+	      ],
+	      safe_refs_only: true,
+	      redacted_summaries_only: true,
+	      action_execution_enabled: false,
+	      connector_write_enabled: false,
+	      runtime_model_calls_enabled: false,
+	      provider_sdk_call_enabled: false,
+	      provider_model_authority_allowed: false,
+	      prompt_content_stored: false,
+	      response_content_stored: false,
+	      provider_exchange_content_stored: false,
+	      borrowed_patterns: [
+	        {
+	          pattern_id: "typed_event_ledger",
+	          label: "Typed event ledger",
+	          safe_summary:
+	            "Each operator-visible step is represented as a typed event with stable safe refs.",
+	          implemented: true,
+	          source_ref: "borrowed-pattern:typed_event_ledger",
+	        },
+	        {
+	          pattern_id: "run_control_states",
+	          label: "Run control states",
+	          safe_summary:
+	            "Waiting, blocked, evidence-needed, and receipt-recorded states are visible without runtime pause or resume authority.",
+	          implemented: true,
+	          source_ref: "borrowed-pattern:run_control_states",
+	        },
+	        {
+	          pattern_id: "evidence_based_completion",
+	          label: "Evidence-based completion",
+	          safe_summary:
+	            "Completion posture depends on receipt, audit, and evidence refs instead of model-written claims.",
+	          implemented: true,
+	          source_ref: "borrowed-pattern:evidence_based_completion",
+	        },
+	        {
+	          pattern_id: "approval_preview_and_rejection_feedback",
+	          label: "Approval preview and rejection feedback",
+	          safe_summary:
+	            "Approval posture and blocked decisions stay reviewable before any future scoped mutation is considered.",
+	          implemented: true,
+	          source_ref:
+	            "borrowed-pattern:approval_preview_and_rejection_feedback",
+	        },
+	        {
+	          pattern_id: "evidence_condensing_with_safe_refs",
+	          label: "Evidence condensing with safe refs",
+	          safe_summary:
+	            "Dense receipts are condensed into safe summaries that keep source refs inspectable.",
+	          implemented: true,
+	          source_ref: "borrowed-pattern:evidence_condensing_with_safe_refs",
+	        },
+	      ],
+	      event_count: 1,
+	      group_count: 1,
+	      narrative_item_count: 1,
+	      run_events: [
+	        {
+	          run_event_ref:
+	            "operator-run-event:evidence-event-action-envelope-created-mock-founder-loop",
+	          event_ref: "evidence-event:action-envelope-created-mock-founder-loop",
+	          event_kind: "action_envelope_created",
+	          event_source: "python_core_evidence_timeline",
+	          llm_role_projection: "not_sent_to_model",
+	          operator_state: "blocked",
+	          approval_state: "waiting_for_approval",
+	          completion_state: "evidence_refs_present",
+	          completion_claim_allowed: false,
+	          safe_summary:
+	            "Mock evidence index event for a reviewable Today-to-Action envelope; no action execution or approval grant capture occurs.",
+	          condensed_summary_ref:
+	            "safe-summary-ref:operator-run:evidence-event-action-envelope-created-mock-founder-loop",
+	          source_refs: ["founder-action:mock-setup-hardening"],
+	          status_refs: [
+	            "status-ref:founder-loop-action-inbox",
+	            "contract-ref:plans-action-envelope:v1",
+	            "action-envelope:plans:founder-loop-mock",
+	          ],
+	          receipt_refs: [],
+	          approval_refs: ["approval-status:refs-identifiers-only"],
+	          audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+	          idempotency_refs: [
+	            "idempotency-ref:founder-loop:mock-setup-hardening",
+	          ],
+	          rollback_refs: [],
+	          blocked_state_refs: [
+	            "blocked_pending_scoped_mutation_contract",
+	            "rollback_execution_not_scoped",
+	          ],
+	          evidence_refs: [
+	            "action-envelope:plans:founder-loop-mock",
+	            "approval-status:refs-identifiers-only",
+	            "audit-plan:founder-loop:mock-setup-hardening",
+	            "blocked_pending_scoped_mutation_contract",
+	            "contract-ref:plans-action-envelope:v1",
+	            "evidence-event:action-envelope-created-mock-founder-loop",
+	            "evidence-timeline:action/founder-action/mock-setup-hardening",
+	            "founder-action:mock-setup-hardening",
+	            "idempotency-ref:founder-loop:mock-setup-hardening",
+	            "rollback_execution_not_scoped",
+	            "status-ref:founder-loop-action-inbox",
+	          ],
+	          related_route_refs: [
+	            "/evidence",
+	            "GET /control-center/actions/inbox",
+	            "GET /control-center/evidence/timeline",
+	          ],
+	          authority_boundary:
+	            "Run event is read-only evidence projection. It does not grant approval, execute actions, call models, invoke provider SDKs, or store prompt, response, or provider exchange content.",
+		          cost_usage: {
+		            schema_version: "uaa_frontier_ai_cost_usage_slot.v1",
+		            contract_ref: "contract-ref:frontier-ai-cost-usage-telemetry:v1",
+		            cost_event_ref:
+		              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		            cost_estimate_ref:
+		              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		            captured_usage_ref:
+		              "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		            budget_decision_ref:
+		              "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		            source_event_ref:
+		              "evidence-event:action-envelope-created-mock-founder-loop",
+		            provider_ref: "provider-ref:not-invoked",
+		            model_profile_ref: "model-profile-ref:not-invoked",
+		            provider_model_ref_status:
+		              "provider_model_ref_missing_or_not_invoked",
+		            usage_capture_status: "no_frontier_ai_usage_recorded",
+		            cost_capture_status: "accounting_slot_ready_no_provider_call",
+		            cost_state_label: "Cost blocked",
+		            provider_authority_state_label: "No provider authority",
+		            frontier_usage_claimed: false,
+		            frontier_ai_routing_allowed: false,
+		            input_metered_units: 0,
+		            output_metered_units: 0,
+		            total_metered_units: 0,
+		            estimated_cost_usd: 0,
+		            captured_cost_usd: 0,
+		            max_approved_cost_usd: 0,
+		            unknown_cost: false,
+		            approval_required_for_unknown_paid_cost: true,
+		            cost_governor_ref: "core.costs.CostGovernor",
+		            cost_governor_allowed: true,
+		            cost_governor_decision_status: "allowed",
+		            cost_governor_reason_refs: [],
+		            budget_status_ref:
+		              "budget-status:unknown-paid-cost-requires-approval",
+		            cost_receipt_refs: [
+		              "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		              "model-profile-ref:not-invoked",
+		              "provider-ref:not-invoked",
+		              "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		            ],
+		            cost_blocked_state_refs: [
+		              "blocked-state:frontier-provider-model-ref-missing",
+		              "blocked-state:no-provider-model-authority",
+		              "blocked-state:no-provider-sdk-call",
+		              "blocked-state:no-runtime-model-call",
+		              "blocked-state:unknown-paid-cost-requires-approval",
+		            ],
+		            prompt_content_stored: false,
+		            response_content_stored: false,
+		            provider_exchange_content_stored: false,
+		          },
+	          prompt_content_stored: false,
+	          response_content_stored: false,
+	          provider_exchange_content_stored: false,
+	          provider_model_authority_allowed: false,
+	        },
+	      ],
+	      run_control_summary: {
+	        states: [
+	          "waiting_for_approval",
+	          "receipt_recorded",
+	          "blocked",
+	          "needs_evidence",
+	        ],
+	        state_refs: [
+	          "operator-run-state:waiting_for_approval",
+	          "operator-run-state:receipt_recorded",
+	          "operator-run-state:blocked",
+	          "operator-run-state:needs_evidence",
+	        ],
+	        waiting_for_approval_count: 0,
+	        receipt_recorded_count: 0,
+	        blocked_count: 1,
+	        needs_evidence_count: 0,
+	        stuck_detection_status:
+	          "timeline_state_counts_available_no_autonomous_resume",
+	        pause_resume_status: "status_visible_no_runtime_pause_resume_route",
+	        goal_completion_status:
+	          "evidence_refs_required_no_model_judge_authority",
+	      },
+	      frontier_ai_usage_summary: {
+	        schema_version: "uaa_frontier_ai_usage_summary.v1",
+	        contract_ref: "contract-ref:frontier-ai-cost-usage-telemetry:v1",
+	        status: "accounting_slots_ready_no_provider_calls",
+	        provider_model_authority_allowed: false,
+	        provider_sdk_call_enabled: false,
+	        runtime_model_calls_enabled: false,
+	        prompt_content_stored: false,
+	        response_content_stored: false,
+	        provider_exchange_content_stored: false,
+	        estimated_total_cost_usd: 0,
+	        captured_total_cost_usd: 0,
+	        input_metered_units: 0,
+	        output_metered_units: 0,
+	        total_metered_units: 0,
+	        unknown_paid_cost_requires_approval_before_routing: true,
+	        cost_governor_ref: "core.costs.CostGovernor",
+	        budget_status_ref: "budget-status:unknown-paid-cost-requires-approval",
+		        cost_event_refs: [
+		          "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		        ],
+		        cost_receipt_refs: [
+		          "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		          "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		          "model-profile-ref:not-invoked",
+		          "provider-ref:not-invoked",
+		          "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
+		        ],
+		        cost_blocked_state_refs: [
+		          "blocked-state:frontier-provider-model-ref-missing",
+		          "blocked-state:no-provider-model-authority",
+		          "blocked-state:no-provider-sdk-call",
+		          "blocked-state:no-runtime-model-call",
+		          "blocked-state:unknown-paid-cost-requires-approval",
+		        ],
+		      },
+	      blocked_state_refs: [
+	        "blocked-state:no-action-execution",
+	        "blocked-state:no-connector-write",
+	        "blocked-state:no-provider-model-authority",
+	        "blocked-state:no-provider-sdk-call",
+	        "blocked-state:no-runtime-model-call",
+	        "blocked_pending_scoped_mutation_contract",
+	        "rollback_execution_not_scoped",
+	      ],
+	      authority_boundary:
+	        "Operator Run Timeline is a read-only projection over Evidence Timeline safe refs. It records state, receipt posture, and frontier AI cost accounting slots without approving work, executing actions, invoking provider SDKs, calling models, or storing prompt, response, or provider exchange content.",
+	    },
 	    receipt_refs: [],
 	    approval_refs: ["approval-status:refs-identifiers-only"],
 	    idempotency_refs: ["idempotency-ref:founder-loop:mock-setup-hardening"],

@@ -30,6 +30,7 @@ import type {
   FounderLoopMemoryWorkbench,
   FounderLoopMemoryWorkbenchItem,
   FounderLoopMorningBriefing,
+  FounderLoopOperatorRunTimeline,
   FounderLoopPlanSummary,
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessProposalCandidate,
@@ -205,6 +206,7 @@ export function FounderLoopSpinePanel({
           </a>
         ))}
       </div>
+      <OperatorRunTimelineSummary timeline={evidence?.operator_run_timeline} />
       <div
         aria-label="Founder Loop authority boundaries"
         className="loop-authority-strip"
@@ -867,6 +869,576 @@ function EvidenceOperatorSummary({
   );
 }
 
+function OperatorRunTimelineSummary({
+  timeline,
+}: {
+  timeline?: FounderLoopOperatorRunTimeline;
+}) {
+  const usage = timeline?.frontier_ai_usage_summary;
+  const control = timeline?.run_control_summary;
+  return (
+    <section
+      aria-label="Operator Run Timeline"
+      className="operator-loop-summary"
+    >
+      <div className="operator-loop-summary-main">
+        <p className="eyebrow">Run control</p>
+        <h3>Operator Run Timeline</h3>
+        <p>
+          Shared run state is projected from Evidence safe refs, with approval,
+          completion, blocked-state, and frontier AI cost posture visible before
+          broader authority exists.
+        </p>
+      </div>
+      <div className="operator-loop-summary-grid">
+        <Metric label="run events" value={timeline?.event_count ?? 0} />
+        <Metric
+          label="waiting"
+          value={control?.waiting_for_approval_count ?? 0}
+        />
+        <Metric
+          label="receipts"
+          value={control?.receipt_recorded_count ?? 0}
+        />
+        <Metric label="cost USD x1000" value={Math.round((usage?.estimated_total_cost_usd ?? 0) * 1000)} />
+      </div>
+      <dl className="detail-list compact">
+        <DetailTerm
+          label="Contract ref"
+          value={timeline?.contract_ref ?? "contract-ref:operator-run-timeline:v1"}
+        />
+        <DetailTerm
+          label="Cost contract"
+          value={
+            usage?.contract_ref ??
+            "contract-ref:frontier-ai-cost-usage-telemetry:v1"
+          }
+        />
+        <DetailTerm
+          label="Cost status"
+          value={usage?.status ?? "accounting_slots_pending_backend"}
+        />
+        <DetailTerm
+          label="Provider/model authority"
+          value={timeline?.provider_model_authority_allowed ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Borrowed pattern refs pending"
+        items={(timeline?.borrowed_patterns ?? []).map(
+          (pattern) => `${pattern.pattern_id}: ${pattern.label}`,
+        )}
+      />
+    </section>
+  );
+}
+
+function OperatorRunTimelinePanel({
+  timeline,
+}: {
+  timeline?: FounderLoopOperatorRunTimeline;
+}) {
+  const usage = timeline?.frontier_ai_usage_summary;
+  const events = timeline?.run_events ?? [];
+  const firstCostSlot = events[0]?.cost_usage;
+  if (!timeline) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Operator Run Timeline</h3>
+          <span>pending</span>
+        </div>
+        <p>
+          Run timeline data is unavailable from the backend response; the
+          Evidence Timeline remains the current safe-ref source.
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <div aria-label="Operator Run Timeline details" className="panel-grid">
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Operator Run Timeline</h3>
+          <span>{timeline.status}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm label="Contract ref" value={timeline.contract_ref} />
+          <DetailTerm label="Source" value={timeline.source} />
+          <DetailTerm label="Route" value={timeline.route_ref} />
+          <DetailTerm
+            label="Provider/model authority"
+            value={timeline.provider_model_authority_allowed ? "enabled" : "blocked"}
+          />
+          <DetailTerm
+            label="Runtime model calls"
+            value={timeline.runtime_model_calls_enabled ? "enabled" : "blocked"}
+          />
+          <DetailTerm
+            label="Prompt content stored"
+            value={timeline.prompt_content_stored ? "yes" : "no"}
+          />
+          <DetailTerm
+            label="Response content stored"
+            value={timeline.response_content_stored ? "yes" : "no"}
+          />
+          <DetailTerm
+            label="Provider exchange content stored"
+            value={timeline.provider_exchange_content_stored ? "yes" : "no"}
+          />
+        </dl>
+        <p>{timeline.authority_boundary}</p>
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Five borrowed patterns</h3>
+          <span>{timeline.borrowed_patterns.length}</span>
+        </div>
+        <ul className="ref-list">
+          {timeline.borrowed_patterns.map((pattern) => (
+            <li key={pattern.pattern_id}>
+              <strong>{pattern.pattern_id}</strong>: {pattern.label}.{" "}
+              {pattern.safe_summary}
+            </li>
+          ))}
+        </ul>
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Run control states</h3>
+          <span>{timeline.run_control_summary.goal_completion_status}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Waiting"
+            value={String(timeline.run_control_summary.waiting_for_approval_count)}
+          />
+          <DetailTerm
+            label="Receipts"
+            value={String(timeline.run_control_summary.receipt_recorded_count)}
+          />
+          <DetailTerm
+            label="Blocked"
+            value={String(timeline.run_control_summary.blocked_count)}
+          />
+          <DetailTerm
+            label="Needs evidence"
+            value={String(timeline.run_control_summary.needs_evidence_count)}
+          />
+          <DetailTerm
+            label="Pause/resume"
+            value={timeline.run_control_summary.pause_resume_status}
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="No run state refs recorded"
+          refs={timeline.run_control_summary.state_refs}
+        />
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Frontier AI cost telemetry</h3>
+          <span>{usage?.status ?? "not_reported"}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract ref"
+            value={
+              usage?.contract_ref ??
+              "contract-ref:frontier-ai-cost-usage-telemetry:v1"
+            }
+          />
+          <DetailTerm
+            label="Estimated cost USD"
+            value={formatCostUsd(usage?.estimated_total_cost_usd)}
+          />
+          <DetailTerm
+            label="Captured cost USD"
+            value={formatCostUsd(usage?.captured_total_cost_usd)}
+          />
+          <DetailTerm
+            label="Provider ref"
+            value={firstCostSlot?.provider_ref ?? "provider-ref:not-invoked"}
+          />
+          <DetailTerm
+            label="Model profile"
+            value={
+              firstCostSlot?.model_profile_ref ?? "model-profile-ref:not-invoked"
+            }
+          />
+          <DetailTerm
+            label="Input metered units"
+            value={String(usage?.input_metered_units ?? 0)}
+          />
+          <DetailTerm
+            label="Output metered units"
+            value={String(usage?.output_metered_units ?? 0)}
+          />
+          <DetailTerm label="Budget ref" value={usage?.budget_status_ref ?? "budget-status:pending"} />
+          <DetailTerm
+            label="Unknown paid cost"
+            value={
+              usage?.unknown_paid_cost_requires_approval_before_routing
+                ? "approval required before routing"
+                : "not reported"
+            }
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="No cost event refs recorded"
+          refs={usage?.cost_event_refs ?? []}
+        />
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Run events</h3>
+          <span>{events.length}</span>
+        </div>
+        <ul className="ref-list">
+          {events.slice(0, 6).map((event) => (
+            <li key={event.run_event_ref}>
+              <strong>{event.operator_state}</strong>: {event.event_kind} -{" "}
+              {event.condensed_summary_ref} - {event.cost_usage.cost_capture_status}
+            </li>
+          ))}
+        </ul>
+        <RefListWithFallback
+          emptyLabel="No run blockers recorded"
+          refs={timeline.blocked_state_refs}
+        />
+      </article>
+    </div>
+  );
+}
+
+type TodayPriorityRow = {
+  affects: string;
+  href: string;
+  item: string;
+  status: string;
+  tone: "green" | "gray" | "orange" | "red";
+  whyShown: string;
+};
+
+function NorthStarTodayCockpit({
+  actionReadModelAuthoritative,
+  today,
+}: {
+  actionReadModelAuthoritative: boolean;
+  today: FounderLoopTodaySummary;
+}) {
+  const commandItems = buildDailyLoopCommandItems(today);
+  const priorityRows = buildTodayPriorityRows(today);
+  const proposalOnlyCount =
+    countProposalOnly(today.actions) +
+    today.memory_derived_action_proposal_count +
+    today.task_decomposition_proposal_count;
+  const receiptBackedCount = countReceiptBacked(today);
+  const blockedCount = countBlockedToday(today);
+  const noActionCount = Math.max(
+    0,
+    today.sections.action_inbox_count +
+      today.sections.plan_count +
+      today.sections.memory_review_count +
+      today.sections.briefing_count -
+      proposalOnlyCount -
+      receiptBackedCount -
+      blockedCount,
+  );
+  const evidenceCount =
+    today.sections.evidence_timeline_count ?? today.evidence_timeline.length;
+
+  return (
+    <section
+      aria-label="North-star Today command deck"
+      className="north-star-today"
+    >
+      <div className="north-star-section-title">
+        <div>
+          <p className="eyebrow">Daily Command Deck</p>
+          <h3>Daily Status</h3>
+        </div>
+        <span className="status-pill compact">
+          {actionReadModelAuthoritative
+            ? "backend-owned read model"
+            : "non-authoritative fallback"}
+        </span>
+      </div>
+      <div className="north-star-status-grid">
+        <TodayStatusTile
+          detail="reviewable today"
+          label="Actions Due"
+          tone={today.sections.action_inbox_count > 0 ? "orange" : "green"}
+          value={String(today.sections.action_inbox_count)}
+        />
+        <TodayStatusTile
+          detail="no receipt yet"
+          label="Proposal Only"
+          tone={proposalOnlyCount > 0 ? "orange" : "gray"}
+          value={String(proposalOnlyCount)}
+        />
+        <TodayStatusTile
+          detail="source proof visible"
+          label="Receipt-Backed"
+          tone="green"
+          value={String(receiptBackedCount)}
+        />
+        <TodayStatusTile
+          detail="requires attention"
+          label="Risks / Alerts"
+          tone={blockedCount > 0 ? "red" : "green"}
+          value={String(blockedCount)}
+        />
+        <TodayStatusTile
+          detail={actionReadModelAuthoritative ? "backend current" : "fallback only"}
+          label="Loop Health"
+          tone={actionReadModelAuthoritative ? "green" : "orange"}
+          value={actionReadModelAuthoritative ? "Live" : "Check"}
+        />
+      </div>
+      <div className="north-star-loop-rail" aria-label="Daily loop order">
+        {commandItems.map((item, index) => (
+          <a
+            className={`north-star-loop-step ${item.posture}`}
+            href={item.href}
+            key={item.commandRef}
+          >
+            <span>{index + 1}</span>
+            <strong>{item.surface}</strong>
+            <small>{northStarLoopCaption(index)}</small>
+          </a>
+        ))}
+      </div>
+      <div className="north-star-work-grid">
+        <article className="north-star-panel north-star-priorities">
+          <div className="north-star-panel-header">
+            <h3>Top Priorities</h3>
+            <span>{priorityRows.length}</span>
+          </div>
+          <div className="north-star-table-wrap">
+            <table className="north-star-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Why shown</th>
+                  <th>Affects</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {priorityRows.map((row) => (
+                  <tr key={`${row.href}:${row.item}`}>
+                    <td>
+                      <a href={row.href}>{row.item}</a>
+                    </td>
+                    <td>{row.whyShown}</td>
+                    <td>{row.affects}</td>
+                    <td>
+                      <span className={`north-star-state ${row.tone}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <a className="text-link" href="/actions">
+            View Action Inbox
+          </a>
+        </article>
+        <article className="north-star-panel">
+          <div className="north-star-panel-header">
+            <h3>Backend Truth Summary</h3>
+            <span>{today.status}</span>
+          </div>
+          <div className="north-star-summary-list">
+            <TodaySummaryRow label="Receipt-backed" tone="green" value={receiptBackedCount} />
+            <TodaySummaryRow label="Proposal-only" tone="orange" value={proposalOnlyCount} />
+            <TodaySummaryRow label="Blocked" tone="red" value={blockedCount} />
+            <TodaySummaryRow label="No action needed" tone="gray" value={noActionCount} />
+            <TodaySummaryRow label="Evidence added" tone="green" value={evidenceCount} />
+          </div>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Why shown"
+              value={
+                today.daily_loop_summary?.safe_summary ??
+                "Today aggregates backend-owned safe refs for the founder loop."
+              }
+            />
+            <DetailTerm
+              label="What this affects"
+              value="Today, Briefing, Action Inbox, Plans, Memory, Evidence"
+            />
+            <DetailTerm
+              label="Blocked authority"
+              value="no generic execution, connector write, shell, provider/model, context injection, or production authority"
+            />
+          </dl>
+          <a className="text-link" href="/evidence">
+            View Evidence
+          </a>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function TodayStatusTile({
+  detail,
+  label,
+  tone,
+  value,
+}: {
+  detail: string;
+  label: string;
+  tone: "green" | "gray" | "orange" | "red";
+  value: string;
+}) {
+  return (
+    <article className={`north-star-status-tile ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+function TodaySummaryRow({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone: "green" | "gray" | "orange" | "red";
+  value: number;
+}) {
+  return (
+    <div className="north-star-summary-row">
+      <span className={`north-star-dot ${tone}`} />
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function northStarLoopCaption(index: number): string {
+  return [
+    "Start here",
+    "Triage and prioritize",
+    "Execute and track",
+    "Learn and improve",
+    "Resolve and unlock",
+  ][index] ?? "Inspect safely";
+}
+
+function buildTodayPriorityRows(today: FounderLoopTodaySummary): TodayPriorityRow[] {
+  const actionRows = today.actions.slice(0, 5).map((action) => ({
+    affects: action.surface,
+    href: "/actions",
+    item: action.title,
+    status: action.blocked_state ?? action.approval_envelope_status ?? action.status,
+    tone: toneForState(action.blocked_state ?? action.approval_envelope_status ?? action.status),
+    whyShown: action.safe_summary,
+  }));
+  const planRows = today.plans.slice(0, Math.max(0, 5 - actionRows.length)).map((plan) => ({
+    affects: "Plans",
+    href: "/plans",
+    item: plan.title,
+    status: plan.action_envelope_status ?? plan.status,
+    tone: toneForState(plan.action_envelope_status ?? plan.status),
+    whyShown: plan.next_step_summary || plan.safe_summary,
+  }));
+  const briefingRows = today.briefing_items
+    .slice(0, Math.max(0, 5 - actionRows.length - planRows.length))
+    .map((item) => ({
+      affects: "Briefing",
+      href: "/briefing",
+      item: item.title,
+      status: item.status,
+      tone: toneForState(item.status),
+      whyShown: item.safe_summary,
+    }));
+  return [...actionRows, ...planRows, ...briefingRows].map((row) => ({
+    ...row,
+    status: compactLabel(row.status),
+    whyShown: compactSentence(row.whyShown),
+  }));
+}
+
+function countProposalOnly(actions: FounderLoopActionItem[]): number {
+  return actions.filter((action) =>
+    [
+      action.status,
+      action.approval_envelope_status,
+      action.action_envelope_status,
+      action.state_change_readiness,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes("proposal")),
+  ).length;
+}
+
+function countReceiptBacked(today: FounderLoopTodaySummary): number {
+  const actionReceiptCount = today.actions.reduce(
+    (count, action) => count + action.receipt_refs.length,
+    0,
+  );
+  const evidenceReceiptCount = today.evidence_timeline.reduce(
+    (count, item) => count + item.receipt_refs.length,
+    0,
+  );
+  return actionReceiptCount + evidenceReceiptCount;
+}
+
+function countBlockedToday(today: FounderLoopTodaySummary): number {
+  const blockedRefs = new Set([
+    ...today.blocker_refs,
+    ...today.memory_review_blocked_states,
+    ...today.memory_to_loop_blocked_state_refs,
+    ...today.private_beta_readiness_blocked_state_refs,
+    ...today.task_decomposition_required_blocked_refs,
+    ...today.actions.flatMap((action) =>
+      action.blocked_state ? [action.blocked_state] : [],
+    ),
+  ]);
+  return blockedRefs.size;
+}
+
+function toneForState(value: string | undefined | null): "green" | "gray" | "orange" | "red" {
+  const lower = String(value ?? "").toLowerCase();
+  if (lower.includes("blocked") || lower.includes("denied") || lower.includes("risk")) {
+    return "red";
+  }
+  if (
+    lower.includes("proposal") ||
+    lower.includes("pending") ||
+    lower.includes("review") ||
+    lower.includes("partial")
+  ) {
+    return "orange";
+  }
+  if (
+    lower.includes("receipt") ||
+    lower.includes("implemented") ||
+    lower.includes("ready") ||
+    lower.includes("approved")
+  ) {
+    return "green";
+  }
+  return "gray";
+}
+
+function compactSentence(value: string): string {
+  return value.length > 82 ? `${value.slice(0, 79).trim()}...` : value;
+}
+
+function compactLabel(value: string): string {
+  return value.replaceAll("_", " ");
+}
+
 export function TodaySurfacePanel({
   actionReadModelAuthoritative,
   today,
@@ -883,12 +1455,10 @@ export function TodaySurfacePanel({
         </div>
         <span className="status-pill compact">{today.status}</span>
       </div>
-      <div className="metric-grid">
-        <Metric label="Actions" value={today.sections.action_inbox_count} />
-        <Metric label="Plans" value={today.sections.plan_count} />
-        <Metric label="Memory" value={today.sections.memory_review_count} />
-        <Metric label="Briefing" value={today.sections.briefing_count} />
-      </div>
+      <NorthStarTodayCockpit
+        actionReadModelAuthoritative={actionReadModelAuthoritative}
+        today={today}
+      />
       <DailyLoopCommandDeck
         actionReadModelAuthoritative={actionReadModelAuthoritative}
         today={today}
@@ -3977,6 +4547,7 @@ export function EvidenceTimelineSurfacePanel({
         />
       </div>
       <EvidenceOperatorSummary evidence={evidence} today={today} />
+      <OperatorRunTimelinePanel timeline={evidence?.operator_run_timeline} />
       <div className="panel-grid">
         <article className="status-card">
           <div className="status-card-header">
@@ -4496,6 +5067,21 @@ const missingActionEnvelope: NonNullable<FounderLoopActionItem["approval_envelop
   idempotency_ref: "missing",
   expected_receipt_refs: [],
   rollback_safe_disable_posture: "missing",
+  estimated_cost_usd: 0,
+  max_approved_cost_usd: 0,
+  provider_ref: "provider-ref:not-invoked",
+  model_profile_ref: "model-profile-ref:not-invoked",
+  input_metered_units: 0,
+  output_metered_units: 0,
+  total_metered_units: 0,
+  cost_estimate_ref: "cost-estimate-ref:not-invoked",
+  captured_usage_ref: "usage-capture-ref:not-invoked",
+  budget_decision_ref: "budget-decision-ref:not-invoked",
+  cost_receipt_refs: [],
+  cost_state_label: "Cost blocked",
+  provider_authority_state_label: "No provider authority",
+  unknown_paid_cost_requires_explicit_approval: true,
+  frontier_usage_claimed: false,
   blocked_authority_refs: ["blocked-state:backend-owned-envelope-missing"],
   evidence_refs: [],
   missing_field_states: ["approval_envelope:missing"],
@@ -4565,6 +5151,85 @@ function canShowLocalTaskCommitControl(
     item.action_kind === "local_task_create" &&
     Boolean(item.local_task_commit_approval_ref)
   );
+}
+
+type ActionCostGatePosture = {
+  approved: boolean;
+  summary: string;
+  blockers: string[];
+};
+
+function uniqueText(values: string[]) {
+  return values.filter((value, index) => value && values.indexOf(value) === index);
+}
+
+function actionCostGatePosture(item: FounderLoopActionItem): ActionCostGatePosture {
+  const envelope = actionEnvelopeOrFallback(item.approval_envelope);
+  const costStateLabel =
+    item.action_envelope_cost_state_label ?? envelope.cost_state_label ?? "Cost blocked";
+  const providerAuthorityStateLabel =
+    item.action_envelope_provider_authority_state_label ??
+    envelope.provider_authority_state_label ??
+    "No provider authority";
+  const providerRef =
+    item.action_envelope_provider_ref ?? envelope.provider_ref ?? "provider-ref:not-invoked";
+  const modelProfileRef =
+    item.action_envelope_model_profile_ref ??
+    envelope.model_profile_ref ??
+    "model-profile-ref:not-invoked";
+  const estimatedCostUsd =
+    item.action_envelope_estimated_cost_usd ?? envelope.estimated_cost_usd;
+  const maxApprovedCostUsd =
+    item.action_envelope_max_approved_cost_usd ?? envelope.max_approved_cost_usd;
+  const frontierUsageClaimed =
+    item.action_envelope_frontier_usage_claimed ??
+    envelope.frontier_usage_claimed ??
+    false;
+  const costReceiptRefs =
+    item.action_envelope_cost_receipt_refs ?? envelope.cost_receipt_refs ?? [];
+  const costBlockers =
+    item.action_envelope_cost_blocked_state_refs ??
+    envelope.cost_blocked_state_refs ??
+    [];
+  const blockers: string[] = [];
+
+  if (costStateLabel === "Unknown paid cost") {
+    blockers.push("Unknown paid cost");
+  } else if (costStateLabel !== "Cost approved") {
+    blockers.push("Cost blocked");
+  }
+  if (
+    providerAuthorityStateLabel === "No provider authority" ||
+    providerRef === "provider-ref:not-invoked" ||
+    modelProfileRef === "model-profile-ref:not-invoked"
+  ) {
+    blockers.push("No provider authority");
+  }
+  if (
+    typeof estimatedCostUsd !== "number" ||
+    typeof maxApprovedCostUsd !== "number" ||
+    estimatedCostUsd > maxApprovedCostUsd
+  ) {
+    blockers.push("Cost blocked");
+  }
+  if (costReceiptRefs.length === 0) {
+    blockers.push("Cost blocked");
+  }
+  if (frontierUsageClaimed && costReceiptRefs.length === 0) {
+    blockers.push("Cost blocked");
+  }
+
+  const activeBlockers = uniqueText(blockers);
+  const refsSummary =
+    costBlockers.length > 0 ? ` Cost refs: ${costBlockers.slice(0, 3).join(", ")}` : "";
+  return {
+    approved: activeBlockers.length === 0,
+    summary:
+      activeBlockers.length === 0
+        ? "Cost approved"
+        : `${activeBlockers.join(", ")}.${refsSummary}`.trim(),
+    blockers: activeBlockers,
+  };
 }
 
 function committedSafeRef(value: string | null | undefined): string | null {
@@ -4667,6 +5332,7 @@ function ActionItemCard({
         ? "eligible"
         : "blocked"
       : "backend_read_model_unavailable";
+  const costGate = actionCostGatePosture(displayedItem);
 
   return (
     <article className="review-card">
@@ -4764,6 +5430,7 @@ function ActionItemCard({
           label="Local task approval ref"
           value={displayedItem.local_task_commit_approval_ref ?? "missing"}
         />
+        <DetailTerm label="Cost approval gate" value={costGate.summary} />
         <DetailTerm
           label={localTaskRefLabel}
           value={localTaskRefValue}
@@ -5185,6 +5852,40 @@ function ApprovalEnvelopeCard({
           value={envelope.rollback_safe_disable_posture}
         />
         <DetailTerm
+          label="Cost state"
+          value={envelope.cost_state_label}
+        />
+        <DetailTerm
+          label="Estimated cost USD"
+          value={formatCostUsd(envelope.estimated_cost_usd)}
+        />
+        <DetailTerm
+          label="Max approved USD"
+          value={formatCostUsd(envelope.max_approved_cost_usd)}
+        />
+        <DetailTerm label="Provider ref" value={envelope.provider_ref} />
+        <DetailTerm label="Model profile" value={envelope.model_profile_ref} />
+        <DetailTerm
+          label="Input metered units"
+          value={String(envelope.input_metered_units)}
+        />
+        <DetailTerm
+          label="Output metered units"
+          value={String(envelope.output_metered_units)}
+        />
+        <DetailTerm
+          label="Unknown paid cost"
+          value={
+            envelope.unknown_paid_cost_requires_explicit_approval
+              ? "explicit approval required"
+              : "not required"
+          }
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={envelope.provider_authority_state_label}
+        />
+        <DetailTerm
           label="Backend owned"
           value={backendOwned ? "yes" : "unavailable"}
         />
@@ -5192,6 +5893,14 @@ function ApprovalEnvelopeCard({
       <RefListWithFallback
         emptyLabel="Expected receipt refs: missing"
         refs={envelope.expected_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Cost receipt refs: missing"
+        refs={envelope.cost_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Cost blockers: missing"
+        refs={envelope.cost_blocked_state_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Blocked authority refs: not applicable"
@@ -5297,6 +6006,7 @@ function ActionDecisionControls({
     refreshMessage?: string;
   }>({ status: "idle", refreshStatus: "idle" });
   const pending = state.status === "pending";
+  const costGate = actionCostGatePosture(item);
 
   async function refreshDecisionActionItem(
     receipt: FounderLoopActionDecisionReceipt,
@@ -5405,20 +6115,27 @@ function ActionDecisionControls({
       <div className="decision-button-row">
         {(
           ["approve", "edit", "reject", "defer"] as FounderLoopActionDecisionKind[]
-        ).map((decision) => (
-          <button
-            className="secondary-button"
-            disabled={pending}
-            key={decision}
-            onClick={() => void recordDecision(decision)}
-            type="button"
-          >
-            {pending && state.decision === decision
-              ? "Recording"
-              : actionDecisionLabels[decision]}
-          </button>
-        ))}
+        ).map((decision) => {
+          const costBlocked = decision === "approve" && !costGate.approved;
+          return (
+            <button
+              className="secondary-button"
+              disabled={pending || costBlocked}
+              key={decision}
+              onClick={() => void recordDecision(decision)}
+              title={costBlocked ? costGate.summary : undefined}
+              type="button"
+            >
+              {pending && state.decision === decision
+                ? "Recording"
+                : actionDecisionLabels[decision]}
+            </button>
+          );
+        })}
       </div>
+      {!costGate.approved ? (
+        <p className="muted">Approval blocked by cost posture: {costGate.summary}</p>
+      ) : null}
       {state.message ? <p className="muted">{state.message}</p> : null}
       {state.refreshMessage ? (
         <p className="muted">{state.refreshMessage}</p>
@@ -5476,6 +6193,7 @@ function LocalTaskCommitControls({
   }
   const commitApprovalRef = approvalRef as string;
   const pending = state.status === "pending";
+  const costGate = actionCostGatePosture(item);
 
   async function refreshCommittedActionItem(
     receipt: FounderLoopLocalTaskCommitReceipt,
@@ -5572,13 +6290,17 @@ function LocalTaskCommitControls({
         <div className="decision-button-row">
           <button
             className="secondary-button"
-            disabled={pending}
+            disabled={pending || !costGate.approved}
             onClick={() => void recordLocalTaskCommit()}
+            title={!costGate.approved ? costGate.summary : undefined}
             type="button"
           >
             {pending ? "Recording commit receipt" : "Record local-task commit receipt"}
           </button>
         </div>
+      ) : null}
+      {!costGate.approved ? (
+        <p className="muted">Commit blocked by cost posture: {costGate.summary}</p>
       ) : null}
       <p className="muted">
         Local-only task commit. Connector writes, shell, model authority,
@@ -5672,6 +6394,44 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
           label="Grant capture"
           value={plan.approval_grant_capture_enabled ? "enabled" : "disabled"}
         />
+        <DetailTerm
+          label="Cost state"
+          value={plan.action_envelope_cost_state_label ?? "Cost blocked"}
+        />
+        <DetailTerm
+          label="Estimated cost USD"
+          value={formatCostUsd(plan.action_envelope_estimated_cost_usd)}
+        />
+        <DetailTerm
+          label="Max approved USD"
+          value={formatCostUsd(plan.action_envelope_max_approved_cost_usd)}
+        />
+        <DetailTerm
+          label="Provider ref"
+          value={plan.action_envelope_provider_ref ?? "provider-ref:not-invoked"}
+        />
+        <DetailTerm
+          label="Model profile"
+          value={
+            plan.action_envelope_model_profile_ref ??
+            "model-profile-ref:not-invoked"
+          }
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={
+            plan.action_envelope_provider_authority_state_label ??
+            "No provider authority"
+          }
+        />
+        <DetailTerm
+          label="Unknown paid cost"
+          value={
+            plan.action_envelope_unknown_paid_cost_requires_explicit_approval
+              ? "explicit approval required"
+              : "not required"
+          }
+        />
       </dl>
       <InlineListWithFallback
         emptyLabel="Review actions: missing"
@@ -5684,6 +6444,14 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
       <RefListWithFallback
         emptyLabel="Action envelope blockers: missing"
         refs={plan.blocked_state_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Cost receipt refs: missing"
+        refs={plan.action_envelope_cost_receipt_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Cost blockers: missing"
+        refs={plan.action_envelope_cost_blocked_state_refs ?? []}
       />
       <TaskDecompositionPlanDetails plan={plan} />
       <RefList refs={plan.evidence_refs} />
@@ -6506,6 +7274,10 @@ function Metric({ label, value }: { label: string; value: number }) {
   );
 }
 
+function formatCostUsd(value?: number) {
+  return typeof value === "number" ? `$${value.toFixed(6)}` : "missing";
+}
+
 function BlockedStateList({ states }: { states: string[] }) {
   if (states.length === 0) {
     return null;
@@ -6543,12 +7315,13 @@ function RefListWithFallback({
   refs,
 }: {
   emptyLabel: string;
-  refs: string[];
+  refs?: string[];
 }) {
-  if (refs.length === 0) {
+  const safeRefs = refs ?? [];
+  if (safeRefs.length === 0) {
     return <p className="muted">{emptyLabel}</p>;
   }
-  return <RefList refs={refs} />;
+  return <RefList refs={safeRefs} />;
 }
 
 function InlineListWithFallback({
@@ -6556,14 +7329,15 @@ function InlineListWithFallback({
   items,
 }: {
   emptyLabel: string;
-  items: string[];
+  items?: string[];
 }) {
-  if (items.length === 0) {
+  const safeItems = items ?? [];
+  if (safeItems.length === 0) {
     return <p className="muted">{emptyLabel}</p>;
   }
   return (
     <ul className="ref-list">
-      {items.map((item, index) => (
+      {safeItems.map((item, index) => (
         <li key={`${item}-${index}`}>{item}</li>
       ))}
     </ul>

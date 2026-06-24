@@ -167,16 +167,16 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/today":
       return (
         <>
+          <TodaySurfacePanel
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            today={data.founderToday}
+          />
           <FounderLoopSpinePanel
             activeSurface="Today"
             actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
-            today={data.founderToday}
-          />
-          <TodaySurfacePanel
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             today={data.founderToday}
           />
         </>

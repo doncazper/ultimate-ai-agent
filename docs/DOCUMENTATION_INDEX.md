@@ -980,6 +980,7 @@ docs/control_center/RECEIPT_EVENT_VIEWER.md
 docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md
 docs/control_center/EVENT_TIMELINE_UI.md
 docs/control_center/RUN_RECEIPT_TRACE_VIEWER.md
+docs/control_center/OPERATOR_RUN_TIMELINE.md
 docs/control_center/TRACE_REDACTION_POLICY.md
 docs/control_center/EVIDENCE_VIEWER.md
 docs/control_center/FILE_REFERENCE_VIEWER.md
