@@ -293,6 +293,7 @@ def _browser_action_dry_run_capability_reasons(request: WebAccessRequest) -> tup
         ("cookies", "browser_action_dry_run_cookies_or_credentials_denied"),
         ("download", "browser_action_dry_run_download_or_upload_denied"),
         ("upload", "browser_action_dry_run_download_or_upload_denied"),
+        ("request_body", "browser_action_dry_run_request_body_denied"),
         ("remote_browser", "browser_action_dry_run_remote_browser_denied"),
         ("network_interception", "browser_action_dry_run_network_interception_denied"),
         ("network_call", "browser_action_dry_run_network_call_denied"),

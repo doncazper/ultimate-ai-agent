@@ -397,6 +397,18 @@ def test_browser_action_dry_run_raw_url_or_execution_metadata_is_denied_before_a
     assert "browser_action_dry_run_click_execution_denied" in execution_result.decision.reasons
     assert not adapter.calls
 
+    body_result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+            authority_mode=WebAccessAuthorityMode.BROWSER_ACTION_DRY_RUN,
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+            metadata=_browser_action_metadata(request_body=True),
+        )
+    )
+    assert body_result.status == WebAccessPolicyStatus.DENIED
+    assert "browser_action_dry_run_request_body_denied" in body_result.decision.reasons
+    assert not adapter.calls
+
 
 def test_browser_action_dry_run_requires_untrusted_non_instruction_inputs() -> None:
     adapter = DummyBrowserActionDryRunAdapter()

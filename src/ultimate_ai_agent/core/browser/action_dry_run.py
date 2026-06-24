@@ -394,6 +394,7 @@ def _web_access_metadata_from_request(request: BrowserActionDryRunPlannerRequest
         "safe_url_ref": request.safe_url_ref,
         "source_observation_content_untrusted": True,
         "web_content_instruction_use_allowed": False,
+        "request_body": False,
         "browser_action_execution": request.browser_action_execution_requested,
         "browser_session_start": request.browser_session_start_requested,
         "navigation_execution": request.navigation_execution_requested,
