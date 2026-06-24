@@ -351,7 +351,6 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
     from fastapi.testclient import TestClient
     from ultimate_ai_agent.api import app as api_app
 
-    client = TestClient(api_app.app)
     local_api_headers = {
         "Authorization": f"Bearer {RELEASE_LATENCY_LOCAL_API_BEARER}"
     }
@@ -363,103 +362,104 @@ def _measure_release_paths(*, repeat: int, warmup: int) -> list[dict[str, object
         **local_gateway_headers,
         "X-UAA-Idempotency-Key": RELEASE_LATENCY_CHAT_IDEMPOTENCY_KEY,
     }
-    return [
-        _measure_path(
-            "health",
-            "GET /health",
-            RELEASE_LATENCY_BUDGETS_MS["health"],
-            repeat,
-            warmup,
-            lambda: _ok_status(client.get("/health")),
-        ),
-        _measure_path(
-            "api_manifest",
-            "GET /api/manifest",
-            RELEASE_LATENCY_BUDGETS_MS["api_manifest"],
-            repeat,
-            warmup,
-            lambda: _ok_status(client.get("/api/manifest")),
-        ),
-        _measure_path(
-            "model_route_preview",
-            "POST /models/route/preview",
-            RELEASE_LATENCY_BUDGETS_MS["model_route_preview"],
-            repeat,
-            warmup,
-            lambda: _ok_result_envelope(
-                client.post(
-                    "/models/route/preview",
-                    headers=local_api_headers,
-                    json=_model_route_payload(),
-                )
+    with TestClient(api_app.app) as client:
+        return [
+            _measure_path(
+                "health",
+                "GET /health",
+                RELEASE_LATENCY_BUDGETS_MS["health"],
+                repeat,
+                warmup,
+                lambda: _ok_status(client.get("/health")),
             ),
-        ),
-        _measure_path(
-            "task_decomposition_classify",
-            "POST /task-decomposition/classify",
-            RELEASE_LATENCY_BUDGETS_MS["task_decomposition_classify"],
-            repeat,
-            warmup,
-            lambda: _ok_result_envelope(
-                client.post(
-                    "/task-decomposition/classify",
-                    headers=task_headers,
-                    json=_task_decomposition_payload(),
-                )
+            _measure_path(
+                "api_manifest",
+                "GET /api/manifest",
+                RELEASE_LATENCY_BUDGETS_MS["api_manifest"],
+                repeat,
+                warmup,
+                lambda: _ok_status(client.get("/api/manifest")),
             ),
-        ),
-        _measure_path(
-            "task_decomposition_decompose",
-            "POST /task-decomposition/decompose",
-            RELEASE_LATENCY_BUDGETS_MS["task_decomposition_decompose"],
-            repeat,
-            warmup,
-            lambda: _ok_result_envelope(
-                client.post(
-                    "/task-decomposition/decompose",
-                    headers=task_headers,
-                    json=_task_decomposition_payload(),
-                )
+            _measure_path(
+                "model_route_preview",
+                "POST /models/route/preview",
+                RELEASE_LATENCY_BUDGETS_MS["model_route_preview"],
+                repeat,
+                warmup,
+                lambda: _ok_result_envelope(
+                    client.post(
+                        "/models/route/preview",
+                        headers=local_api_headers,
+                        json=_model_route_payload(),
+                    )
+                ),
             ),
-        ),
-        _measure_path(
-            "file_read_preview_bounded_text",
-            "POST /files/read/preview",
-            RELEASE_LATENCY_BUDGETS_MS["file_read_preview_bounded_text"],
-            repeat,
-            warmup,
-            lambda: _ok_result_envelope(
-                client.post(
-                    "/files/read/preview",
-                    headers=local_api_headers,
-                    json=_file_preview_payload(),
-                )
+            _measure_path(
+                "task_decomposition_classify",
+                "POST /task-decomposition/classify",
+                RELEASE_LATENCY_BUDGETS_MS["task_decomposition_classify"],
+                repeat,
+                warmup,
+                lambda: _ok_result_envelope(
+                    client.post(
+                        "/task-decomposition/classify",
+                        headers=task_headers,
+                        json=_task_decomposition_payload(),
+                    )
+                ),
             ),
-        ),
-        _measure_path(
-            "v1_models_local_gateway",
-            "GET /v1/models",
-            RELEASE_LATENCY_BUDGETS_MS["v1_models_local_gateway"],
-            repeat,
-            warmup,
-            lambda: _ok_status(client.get("/v1/models", headers=local_gateway_headers)),
-        ),
-        _measure_path(
-            "v1_chat_completions_local_path",
-            "POST /v1/chat/completions",
-            RELEASE_LATENCY_BUDGETS_MS["v1_chat_completions_local_path"],
-            repeat,
-            warmup,
-            lambda: _ok_status(
-                client.post(
-                    "/v1/chat/completions",
-                    headers=local_gateway_write_headers,
-                    json=_local_chat_payload(),
-                )
+            _measure_path(
+                "task_decomposition_decompose",
+                "POST /task-decomposition/decompose",
+                RELEASE_LATENCY_BUDGETS_MS["task_decomposition_decompose"],
+                repeat,
+                warmup,
+                lambda: _ok_result_envelope(
+                    client.post(
+                        "/task-decomposition/decompose",
+                        headers=task_headers,
+                        json=_task_decomposition_payload(),
+                    )
+                ),
             ),
-        ),
-        _control_center_render_measurement(),
-    ]
+            _measure_path(
+                "file_read_preview_bounded_text",
+                "POST /files/read/preview",
+                RELEASE_LATENCY_BUDGETS_MS["file_read_preview_bounded_text"],
+                repeat,
+                warmup,
+                lambda: _ok_result_envelope(
+                    client.post(
+                        "/files/read/preview",
+                        headers=local_api_headers,
+                        json=_file_preview_payload(),
+                    )
+                ),
+            ),
+            _measure_path(
+                "v1_models_local_gateway",
+                "GET /v1/models",
+                RELEASE_LATENCY_BUDGETS_MS["v1_models_local_gateway"],
+                repeat,
+                warmup,
+                lambda: _ok_status(client.get("/v1/models", headers=local_gateway_headers)),
+            ),
+            _measure_path(
+                "v1_chat_completions_local_path",
+                "POST /v1/chat/completions",
+                RELEASE_LATENCY_BUDGETS_MS["v1_chat_completions_local_path"],
+                repeat,
+                warmup,
+                lambda: _ok_status(
+                    client.post(
+                        "/v1/chat/completions",
+                        headers=local_gateway_write_headers,
+                        json=_local_chat_payload(),
+                    )
+                ),
+            ),
+            _control_center_render_measurement(),
+        ]
 
 
 def _prime_release_latency_prerequisites() -> dict[str, object]:
@@ -467,9 +467,9 @@ def _prime_release_latency_prerequisites() -> dict[str, object]:
     from ultimate_ai_agent.api import app as api_app
 
     reason_codes: list[str] = []
-    client = TestClient(api_app.app)
     try:
-        response = client.get("/api/manifest")
+        with TestClient(api_app.app) as client:
+            response = client.get("/api/manifest")
         api_manifest_static_cache_primed = _ok_status(response)
     except Exception:
         api_manifest_static_cache_primed = False
@@ -499,46 +499,46 @@ def _measure_hot_paths(*, repeat: int, warmup: int) -> list[dict[str, object]]:
     from fastapi.testclient import TestClient
     from ultimate_ai_agent.api import app as api_app
 
-    client = TestClient(api_app.app)
     task_headers = {"Authorization": f"Bearer {RELEASE_LATENCY_TASK_BEARER}"}
-    return [
-        _profile_hot_path(
-            "task_decomposition_classify",
-            "POST /task-decomposition/classify route handler",
-            repeat,
-            warmup,
-            lambda: _ok_result_envelope(
-                client.post(
-                    "/task-decomposition/classify",
-                    headers=task_headers,
-                    json=_task_decomposition_payload(),
-                )
+    with TestClient(api_app.app) as client:
+        return [
+            _profile_hot_path(
+                "task_decomposition_classify",
+                "POST /task-decomposition/classify route handler",
+                repeat,
+                warmup,
+                lambda: _ok_result_envelope(
+                    client.post(
+                        "/task-decomposition/classify",
+                        headers=task_headers,
+                        json=_task_decomposition_payload(),
+                    )
+                ),
+                authority_boundary="task_decomposition_bearer_gate_and_route_handler",
             ),
-            authority_boundary="task_decomposition_bearer_gate_and_route_handler",
-        ),
-        _profile_hot_path(
-            "task_decomposition_decompose",
-            "POST /task-decomposition/decompose route handler",
-            repeat,
-            warmup,
-            lambda: _ok_result_envelope(
-                client.post(
-                    "/task-decomposition/decompose",
-                    headers=task_headers,
-                    json=_task_decomposition_payload(),
-                )
+            _profile_hot_path(
+                "task_decomposition_decompose",
+                "POST /task-decomposition/decompose route handler",
+                repeat,
+                warmup,
+                lambda: _ok_result_envelope(
+                    client.post(
+                        "/task-decomposition/decompose",
+                        headers=task_headers,
+                        json=_task_decomposition_payload(),
+                    )
+                ),
+                authority_boundary="task_decomposition_bearer_gate_and_route_handler",
             ),
-            authority_boundary="task_decomposition_bearer_gate_and_route_handler",
-        ),
-        _profile_hot_path(
-            "openapi_build",
-            "OpenAPI schema build",
-            repeat,
-            warmup,
-            lambda: _profile_openapi_build(api_app.app),
-            authority_boundary="openapi_schema_generation_no_runtime_authority",
-        ),
-    ]
+            _profile_hot_path(
+                "openapi_build",
+                "OpenAPI schema build",
+                repeat,
+                warmup,
+                lambda: _profile_openapi_build(api_app.app),
+                authority_boundary="openapi_schema_generation_no_runtime_authority",
+            ),
+        ]
 
 
 def _profile_hot_path(

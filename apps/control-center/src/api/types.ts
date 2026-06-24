@@ -767,11 +767,45 @@ export interface FounderLoopMemoryRankingPressureCounts {
   missing_evidence: number;
 }
 
+export interface FounderLoopMemorySearchIndexStatus {
+  status: string;
+  provider_kind?: string;
+  fts5_enabled: boolean;
+  indexed_record_count: number;
+  safe_summary_refs_only: boolean;
+  raw_content_indexed: boolean;
+  embedding_index_enabled: boolean;
+  vector_db_enabled: boolean;
+  semantic_search_enabled: boolean;
+  hrr_enabled: boolean;
+  algebraic_retrieval_enabled: boolean;
+}
+
+export interface FounderLoopMemoryHrrReadiness {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  required_milestone_ref: string;
+  hrr_enabled: boolean;
+  algebraic_retrieval_enabled: boolean;
+  ranking_influence_enabled: boolean;
+  shadow_mode_enabled: boolean;
+  raw_content_input_enabled: boolean;
+  embedding_provider_enabled: boolean;
+  vector_db_enabled: boolean;
+  context_injection_authorized: boolean;
+  action_execution_authorized: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+}
+
 export interface FounderLoopMemoryRankingSummary {
   schema_version: string;
   contract_ref: string;
   status: string;
   query_ref: string;
+  safe_query_ref?: string | null;
+  query_mode?: string;
   candidate_count: number;
   ranked_candidate_refs: string[];
   included_ranked_refs: string[];
@@ -784,7 +818,10 @@ export interface FounderLoopMemoryRankingSummary {
   cache_hit: boolean;
   token_estimate: number;
   rank_signal_refs: string[];
+  retrieval_strategy_refs?: string[];
   blocked_authority_refs: string[];
+  safe_query_blocked_authority_refs?: string[];
+  hrr_readiness?: FounderLoopMemoryHrrReadiness;
   safe_refs_only: boolean;
   lexical_tag_ref_only: boolean;
   embedding_search_enabled: boolean;
@@ -829,6 +866,8 @@ export interface FounderLoopMemoryWorkbenchItem {
   group_ids: FounderLoopMemoryWorkbenchGroup["group_id"][];
   rank_score: number;
   rank_components: Record<string, number>;
+  score_components?: Record<string, number>;
+  retrieval_strategy_refs?: string[];
   included_reason_refs: string[];
   excluded_reason_refs: string[];
   stale_pressure: number;
@@ -870,6 +909,11 @@ export interface FounderLoopMemoryWorkbench {
   l3_projection_refs: string[];
   context_pack_refs: string[];
   ranking: FounderLoopMemoryRankingSummary;
+  safe_query_ref?: string | null;
+  query_mode?: string;
+  retrieval_strategy_refs?: string[];
+  search_index_status?: FounderLoopMemorySearchIndexStatus;
+  hrr_readiness?: FounderLoopMemoryHrrReadiness;
   blocked_state_refs: string[];
   safe_refs_only: boolean;
   semantic_search_enabled: boolean;
@@ -1833,6 +1877,8 @@ export interface FounderLoopMemoryContextPackProposal {
   proposal_ref: string;
   safe_summary: string;
   query_ref?: string | null;
+  safe_query_ref?: string | null;
+  query_mode?: string;
   status?: string;
   side_effect_class?: string;
   risk_class?: string;
@@ -1845,11 +1891,156 @@ export interface FounderLoopMemoryContextPackProposal {
   source_refs?: string[];
   evidence_refs?: string[];
   receipt_refs?: string[];
+  observed_ref?: string | null;
+  observer_ref?: string | null;
+  representation_scope_ref?: string | null;
+  score_components?: Record<string, number>;
+  retrieval_strategy_refs?: string[];
   missing_evidence_refs?: string[];
   blocked_state_refs?: string[];
   internal_action_proposal_refs?: string[];
   internal_action_receipt_refs?: string[];
   phase6_1_internal_action_proposal_status?: string;
+}
+
+export type FounderLoopMemoryFeedbackKind =
+  | "helpful"
+  | "unhelpful"
+  | "stale"
+  | "conflict"
+  | "not_relevant";
+
+export interface FounderLoopMemoryFeedbackRequest {
+  memory_record_ref: string;
+  feedback_kind: FounderLoopMemoryFeedbackKind;
+  reviewer_ref?: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  note_ref?: string | null;
+  blocked_state_refs: string[];
+}
+
+export interface FounderLoopMemoryFeedbackReceipt {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  receipt_ref: string;
+  memory_record_ref: string;
+  feedback_kind: FounderLoopMemoryFeedbackKind;
+  reviewer_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  approval_ref: string;
+  approval_status: string;
+  approval_reason_refs: string[];
+  source_refs: string[];
+  evidence_refs: string[];
+  note_ref?: string | null;
+  trust_delta: number;
+  trust_score_after: number;
+  stale_state_after: string;
+  conflict_state_after: string;
+  blocked_state_refs: string[];
+  receipt_recorded: boolean;
+  reviewed_recall_record_created: boolean;
+  memory_delete_performed: boolean;
+  memory_export_performed: boolean;
+  context_injection_authorized: boolean;
+  connector_write_authorized: boolean;
+  automatic_action_execution_authorized: boolean;
+  production_authority_enabled: boolean;
+  replayed: boolean;
+  created_at: string;
+}
+
+export interface FounderLoopMemoryObservationCandidate {
+  observation_candidate_ref: string;
+  epistemic_role: string;
+  memory_kind: string;
+  safe_summary: string;
+  proof_count: number;
+  supporting_memory_record_refs: string[];
+  supporting_l2_refs: string[];
+  supporting_source_refs: string[];
+  supporting_evidence_refs: string[];
+  supporting_receipt_refs: string[];
+  duplicate_ref: string;
+  conflict_ref: string;
+  duplicate_candidate_refs: string[];
+  conflict_candidate_refs: string[];
+  freshness_refs: string[];
+  score_components: Record<string, number>;
+  retrieval_strategy_refs: string[];
+  query_mode: string;
+  safe_query_ref?: string | null;
+  hrr_enabled: boolean;
+  algebraic_retrieval_enabled: boolean;
+}
+
+export interface FounderLoopMemoryObservationCandidateIndex {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  query_ref?: string | null;
+  safe_query_ref?: string | null;
+  query_mode: string;
+  candidate_count: number;
+  candidates: FounderLoopMemoryObservationCandidate[];
+  source_l1_preview_count: number;
+  source_l2_projection_count: number;
+  retrieval_strategy_refs: string[];
+  search_index_status: FounderLoopMemorySearchIndexStatus;
+  hrr_readiness: FounderLoopMemoryHrrReadiness;
+  blocked_state_refs: string[];
+}
+
+export interface FounderLoopMemoryProbeIndex {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  entity_ref: string;
+  reviewed_recall_refs: string[];
+  workbench_item_refs: string[];
+  l1_preview_refs: string[];
+  l2_projection_refs: string[];
+  l3_representation_refs: string[];
+  context_pack_refs: string[];
+  feedback_receipt_refs: string[];
+  observation_candidate_refs: string[];
+  counts: Record<string, number>;
+  search_index_status: FounderLoopMemorySearchIndexStatus;
+  hrr_readiness: FounderLoopMemoryHrrReadiness;
+  blocked_state_refs: string[];
+}
+
+export interface FounderLoopMemoryContradictionPreview {
+  contradiction_preview_ref: string;
+  memory_ref: string;
+  duplicate_key_ref: string;
+  conflict_key_ref: string;
+  stale_state_ref: string;
+  reason_refs: string[];
+  supporting_source_refs: string[];
+  supporting_evidence_refs: string[];
+  supporting_receipt_refs: string[];
+  safe_summary: string;
+  hrr_enabled: boolean;
+  algebraic_retrieval_enabled: boolean;
+}
+
+export interface FounderLoopMemoryContradictionPreviewIndex {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  preview_count: number;
+  previews: FounderLoopMemoryContradictionPreview[];
+  ranking_contract_ref: string;
+  search_index_status: FounderLoopMemorySearchIndexStatus;
+  hrr_readiness: FounderLoopMemoryHrrReadiness;
+  blocked_state_refs: string[];
 }
 
 export interface FounderLoopMemoryContextPackActionProposalRequest {

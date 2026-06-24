@@ -285,6 +285,34 @@
           "route_classification": "mutating_requires_authority"
         },
         {
+          "method": "POST",
+          "path": "/control-center/memory/feedback",
+          "operation_id": "post_control_center_memory_feedback",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/observation-candidates",
+          "operation_id": "get_control_center_memory_observation_candidates",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/probe",
+          "operation_id": "get_control_center_memory_probe",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/contradictions",
+          "operation_id": "get_control_center_memory_contradictions",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
           "method": "GET",
           "path": "/control-center/memory/review",
           "operation_id": "get_control_center_memory_review",

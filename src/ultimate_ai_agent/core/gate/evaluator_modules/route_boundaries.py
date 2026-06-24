@@ -2245,6 +2245,14 @@ FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES = frozenset(
 FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES = frozenset(
     {"/control-center/memory/context-packs/{context_pack_ref}/action-proposal"}
 )
+FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES = frozenset(
+    {
+        "/control-center/memory/contradictions",
+        "/control-center/memory/feedback",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
+    }
+)
 FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     frozenset(
         {
@@ -2268,6 +2276,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     | FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES
     | FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES
     | FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES
+    | FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES
 )
 MATTERMOST_AGENT_ROOMS_ROUTES = {
     "/integrations/mattermost/audit",

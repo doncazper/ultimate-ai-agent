@@ -7,6 +7,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT  # noqa: E402
 
 
 def _current_version(root: Path = ROOT) -> str:
@@ -1062,8 +1065,11 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 143:
-        failures.append("route status manifest must record the 143-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != EXPECTED_ROUTE_COUNT:
+        failures.append(
+            "route status manifest must record the "
+            f"{EXPECTED_ROUTE_COUNT}-path OpenAPI boundary"
+        )
     if manifest.get("operator_readiness_taxonomy_ref") != (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     ):
@@ -1377,7 +1383,8 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 143 openapi paths"
+            "api boundary: current fastapi manifest has "
+            f"{EXPECTED_ROUTE_COUNT} openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "

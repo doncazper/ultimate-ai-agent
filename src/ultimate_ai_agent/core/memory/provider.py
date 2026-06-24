@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ultimate_ai_agent.core.memory.decisions import MemoryExportDecision, MemoryWriteDecision
 from ultimate_ai_agent.core.memory.enums import (
     MemoryDataClassification,
+    MemoryEpistemicRole,
     MemoryLayer,
     MemoryProviderKind,
     MemoryRecordKind,
@@ -22,6 +23,7 @@ class MemoryProviderWriteRequest(BaseModel):
     provider_ref: str = Field(..., min_length=1)
     memory_kind: MemoryRecordKind
     memory_layer: MemoryLayer = MemoryLayer.record
+    epistemic_role: MemoryEpistemicRole = MemoryEpistemicRole.unknown
     provider_kind: MemoryProviderKind = MemoryProviderKind.local_in_memory
     safe_summary: str = Field(..., min_length=1, max_length=4000)
     source_refs: List[str] = Field(default_factory=list)

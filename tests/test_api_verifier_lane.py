@@ -7,6 +7,7 @@ import pytest
 
 from scripts.verification import api_lane
 from scripts.verification import run_all_legacy
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
 
 
 @pytest.fixture(scope="module")
@@ -21,7 +22,7 @@ def test_default_api_verifier_context_is_cached() -> None:
 
     assert first is second
     assert first.client is second.client
-    assert first.manifest["route_count"] == 143
+    assert first.manifest["route_count"] == EXPECTED_ROUTE_COUNT
 
 
 def test_individual_api_verifiers_accept_shared_context(shared_context) -> None:

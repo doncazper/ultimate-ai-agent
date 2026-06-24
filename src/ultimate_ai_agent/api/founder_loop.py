@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
     MemoryContextPackActionProposalRequest,
+    MemoryFeedbackRequest,
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import (
@@ -91,11 +92,13 @@ def get_control_center_memory_review() -> ResultEnvelope:
 @router.get("/memory/workbench", response_model=ResultEnvelope)
 def get_control_center_memory_workbench(
     query_ref: str | None = Query(default=None, max_length=200),
+    safe_query: str | None = Query(default=None, max_length=240),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> ResultEnvelope:
     try:
         data = get_founder_loop_service().memory_workbench(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
     except ValueError as exc:
@@ -125,6 +128,7 @@ def get_control_center_memory_workbench(
 @router.get("/memory/search", response_model=ResultEnvelope)
 def get_control_center_memory_search(
     query_ref: str | None = Query(default=None, max_length=200),
+    safe_query: str | None = Query(default=None, max_length=240),
     kind: str | None = Query(default=None, max_length=80),
     source_ref: str | None = Query(default=None, max_length=200),
     project_ref: str | None = Query(default=None, max_length=200),
@@ -140,6 +144,7 @@ def get_control_center_memory_search(
     try:
         data = get_founder_loop_service().memory_search(
             query_ref=query_ref,
+            safe_query=safe_query,
             kind=kind,
             source_ref=source_ref,
             project_ref=project_ref,
@@ -180,11 +185,13 @@ def get_control_center_memory_search(
 @router.get("/memory/l1-index", response_model=ResultEnvelope)
 def get_control_center_memory_l1_index(
     query_ref: str | None = Query(default=None, max_length=200),
+    safe_query: str | None = Query(default=None, max_length=240),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> ResultEnvelope:
     try:
         data = get_founder_loop_service().memory_l1_hot_index(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
     except ValueError as exc:
@@ -214,11 +221,13 @@ def get_control_center_memory_l1_index(
 @router.get("/memory/l2-index", response_model=ResultEnvelope)
 def get_control_center_memory_l2_index(
     query_ref: str | None = Query(default=None, max_length=200),
+    safe_query: str | None = Query(default=None, max_length=240),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> ResultEnvelope:
     try:
         data = get_founder_loop_service().memory_l2_factual_graph_temporal_index(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
     except ValueError as exc:
@@ -250,11 +259,13 @@ def get_control_center_memory_l2_index(
 @router.get("/memory/l3-index", response_model=ResultEnvelope)
 def get_control_center_memory_l3_index(
     query_ref: str | None = Query(default=None, max_length=200),
+    safe_query: str | None = Query(default=None, max_length=240),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> ResultEnvelope:
     try:
         data = get_founder_loop_service().memory_l3_identity_session_preference_index(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
     except ValueError as exc:
@@ -287,11 +298,13 @@ def get_control_center_memory_l3_index(
 @router.get("/memory/context-packs", response_model=ResultEnvelope)
 def get_control_center_memory_context_packs(
     query_ref: str | None = Query(default=None, max_length=200),
+    safe_query: str | None = Query(default=None, max_length=240),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> ResultEnvelope:
     try:
         data = get_founder_loop_service().memory_context_pack_proposals(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
     except ValueError as exc:
@@ -411,6 +424,176 @@ def post_control_center_memory_context_pack_action_proposal(
             "no_action_execution",
             "no_context_injection",
             "no_external_side_effects",
+        ],
+    )
+
+
+@router.post("/memory/feedback", response_model=ResultEnvelope)
+def post_control_center_memory_feedback(
+    request: MemoryFeedbackRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().record_memory_feedback(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_MEMORY_FEEDBACK_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Memory feedback idempotency key already exists with "
+                    "different safe feedback refs."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_MEMORY_FEEDBACK_ERROR"
+        raise HTTPException(
+            status_code=404
+            if code == "FOUNDER_LOOP_MEMORY_FEEDBACK_RECORD_NOT_FOUND"
+            else 400,
+            detail={
+                "code": code,
+                "safe_message": "The Memory feedback receipt could not be recorded safely.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_FEEDBACK_UNSAFE_INPUT",
+                "safe_message": "The Memory feedback request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_feedback",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-feedback",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-feedback"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+            "no_context_injection",
+            "no_action_execution",
+            "no_connector_write",
+        ],
+    )
+
+
+@router.get("/memory/observation-candidates", response_model=ResultEnvelope)
+def get_control_center_memory_observation_candidates(
+    query_ref: str | None = Query(default=None, max_length=200),
+    safe_query: str | None = Query(default=None, max_length=240),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_observation_candidates(
+            query_ref=query_ref,
+            safe_query=safe_query,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_OBSERVATION_UNSAFE_QUERY",
+                "safe_message": "The Memory observation query could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_observation_candidates",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-observation-candidates",
+        data=data,
+        evidence=[
+            {
+                "evidence_ref": (
+                    "evidence-ref:founder-loop:memory-observation-candidates"
+                )
+            }
+        ],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "no_context_injection",
+            "no_truth_authority",
+        ],
+    )
+
+
+@router.get("/memory/probe", response_model=ResultEnvelope)
+def get_control_center_memory_probe(
+    entity_ref: str = Query(..., max_length=220),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_probe(
+            entity_ref=entity_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_PROBE_UNSAFE_ENTITY_REF",
+                "safe_message": "The Memory probe entity ref could not be inspected safely.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_probe",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-probe",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-probe"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "inspection_only",
+            "no_context_injection",
+        ],
+    )
+
+
+@router.get("/memory/contradictions", response_model=ResultEnvelope)
+def get_control_center_memory_contradictions(
+    limit: int = Query(default=20, ge=1, le=50),
+) -> ResultEnvelope:
+    data = get_founder_loop_service().memory_contradictions(limit=limit)
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_contradictions",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-contradictions",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-contradictions"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "preview_only",
+            "no_context_injection",
+            "no_auto_merge",
         ],
     )
 

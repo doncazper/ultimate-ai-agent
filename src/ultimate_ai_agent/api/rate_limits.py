@@ -22,6 +22,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "chat_durable_receipt": {"max_requests": 60, "window_seconds": 60},
     "memory_review_decision": {"max_requests": 60, "window_seconds": 60},
     "memory_context_pack_action_proposal": {"max_requests": 60, "window_seconds": 60},
+    "memory_feedback": {"max_requests": 60, "window_seconds": 60},
     "action_decision": {"max_requests": 60, "window_seconds": 60},
     "local_model_validation": {"max_requests": 120, "window_seconds": 60},
 }
@@ -85,6 +86,9 @@ TODAY_TO_ACTION_ENVELOPE_PATHS = {
 }
 MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+}
+MEMORY_FEEDBACK_PATHS = {
+    "/control-center/memory/feedback",
 }
 CHAT_DURABLE_RECEIPT_PATHS = {
     "/control-center/chat/turns",
@@ -180,6 +184,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         and path in MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS
     ):
         return "memory_context_pack_action_proposal"
+    if normalized_method == "POST" and path in MEMORY_FEEDBACK_PATHS:
+        return "memory_feedback"
     if normalized_method == "POST" and path in LOCAL_MODEL_VALIDATION_PATHS:
         return "local_model_validation"
     return None

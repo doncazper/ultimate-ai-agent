@@ -8,6 +8,7 @@ from typing import Any
 from scripts import verify_fcc_v1_001_api_perimeter as verifier
 from scripts.verification import api_lane
 from scripts.verification.api_lane import ApiVerifierContext
+from scripts.verification.api_routes import EXPECTED_MUTATING_ROUTE_COUNT
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,7 +30,7 @@ def test_fcc_v1_001_manifest_inventory_matches_api_manifest() -> None:
     assert manifest["runtime_authority_added"] is False
     assert manifest["routes_added"] is False
     assert manifest["manual_review_completion_claimed"] is False
-    assert manifest["current_mutating_route_count"] == 30
+    assert manifest["current_mutating_route_count"] == EXPECTED_MUTATING_ROUTE_COUNT
     assert manifest["current_mutating_routes"] == verifier.expected_mutating_inventory(context)
     assert {family["family_ref"] for family in manifest["founder_loop_mutation_families"]} == (
         verifier.REQUIRED_FAMILY_REFS

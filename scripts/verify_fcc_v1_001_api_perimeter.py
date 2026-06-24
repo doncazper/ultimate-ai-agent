@@ -70,6 +70,7 @@ TARGETED_ROUTE_EXPECTATIONS = {
     ("POST", "/control-center/chat/turns"): "chat_durable_receipt",
     ("POST", "/control-center/chat/turns/{turn_ref}/handoff"): "chat_durable_receipt",
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"): "memory_review_decision",
+    ("POST", "/control-center/memory/feedback"): "memory_feedback",
     ("POST", "/control-center/actions/{action_id}/reject"): "action_decision",
     ("POST", "/control-center/actions/{action_id}/local-task/commit"): "action_decision",
     ("POST", "/task-decomposition/approval-requests"): "task_decomposition",
@@ -82,6 +83,7 @@ REQUIRED_FAMILY_REFS = {
     "local_task_commit",
     "chat_receipt_handoff",
     "memory_review_decision",
+    "memory_feedback_receipt",
     "evidence_timeline_mutation",
     "file_proposal_or_approval_capture",
 }
@@ -91,6 +93,7 @@ REQUIRED_FAMILY_RECEIPT_REFS = {
     "local_task_commit": "future-local-task-commit-receipt",
     "chat_receipt_handoff": "future-chat-turn-or-handoff-receipt",
     "memory_review_decision": "future-memory-review-decision-receipt",
+    "memory_feedback_receipt": "future-memory-feedback-receipt",
     "evidence_timeline_mutation": "future-evidence-timeline-receipt",
     "file_proposal_or_approval_capture": "future-file-proposal-or-approval-receipt",
 }

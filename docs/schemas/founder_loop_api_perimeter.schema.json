@@ -117,20 +117,20 @@
       }
     },
     "current_mutating_route_count": {
-      "const": 30
+      "const": 31
     },
     "current_mutating_routes": {
       "type": "array",
-      "minItems": 30,
-      "maxItems": 30,
+      "minItems": 31,
+      "maxItems": 31,
       "items": {
         "$ref": "#/$defs/mutating_route"
       }
     },
     "founder_loop_mutation_families": {
       "type": "array",
-      "minItems": 7,
-      "maxItems": 7,
+      "minItems": 8,
+      "maxItems": 8,
       "items": {
         "$ref": "#/$defs/mutation_family"
       },
@@ -266,6 +266,7 @@
             "local_task_commit",
             "chat_receipt_handoff",
             "memory_review_decision",
+            "memory_feedback_receipt",
             "evidence_timeline_mutation",
             "file_proposal_or_approval_capture",
             "memory_context_pack_internal_action_proposal"
@@ -303,6 +304,7 @@
             "future-local-task-commit-receipt",
             "future-chat-turn-or-handoff-receipt",
             "future-memory-review-decision-receipt",
+            "future-memory-feedback-receipt",
             "future-evidence-timeline-receipt",
             "future-file-proposal-or-approval-receipt",
             "memory-context-pack-internal-action-proposal-receipt"

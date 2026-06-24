@@ -10,6 +10,9 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
+export const MOCK_OPENAPI_ROUTE_COUNT = 147;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 48;
+
 const evidenceHistoryQuestions: Record<EvidenceHistoryKey, string> = {
   proposed: "What was proposed?",
   approved: "What was approved?",
@@ -2345,12 +2348,12 @@ export const mockControlCenterData: ControlCenterData = {
       arbitrary_approval_ref_authority: false,
       summary: "Mock approval summary only; no approval is granted.",
     },
-	    api_summary: {
-	      route_count: 143,
-	      control_center_route_count: 44,
-	      operation_ids_unique: true,
-	      execution_routes_present: false,
-	    },
+    api_summary: {
+      route_count: MOCK_OPENAPI_ROUTE_COUNT,
+      control_center_route_count: MOCK_CONTROL_CENTER_ROUTE_COUNT,
+      operation_ids_unique: true,
+      execution_routes_present: false,
+    },
     remote_worker_summary: {
       status: "dry_run_only",
       execution_enabled: false,

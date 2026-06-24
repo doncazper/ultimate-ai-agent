@@ -11,6 +11,11 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.memory.feature_mine import (
+    MEMORY_SAFE_QUERY_BLOCKED_STATE_REFS,
+    memory_hrr_readiness,
+    validate_query_mode,
+)
 
 
 MEMORY_WORKBENCH_CONTRACT_REF = "contract-ref:fcc-mem-001-memory-workbench:v1"
@@ -316,11 +321,17 @@ def build_memory_workbench(
     context_packs: dict[str, Any],
     loop_refs: list[str] | None = None,
     query_ref: str | None = None,
+    safe_query: str | None = None,
+    search_index_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the FCC-MEM-001 safe-ref-only Memory Workbench read model."""
 
     loop_ref_set = set(_safe_refs(loop_refs or [], "loop_refs"))
-    safe_query_ref = _safe_ref(query_ref, "query_ref", allow_empty=True)
+    safe_query_ref, hashed_safe_query_ref, query_mode = validate_query_mode(
+        query_ref=query_ref,
+        safe_query=safe_query,
+    )
+    safe_query_text = _safe_text(safe_query, "safe_query") if safe_query else None
     receipt_by_candidate: dict[str, list[dict[str, Any]]] = {}
     for receipt in decision_receipts:
         for key in ["candidate_ref", "review_ref"]:
@@ -383,6 +394,7 @@ def build_memory_workbench(
             _ranked_memory_payload(
                 item,
                 query_ref=safe_query_ref,
+                safe_query=safe_query_text,
                 loop_refs=loop_ref_set,
             )
         )
@@ -443,7 +455,17 @@ def build_memory_workbench(
         "ranking": _ranking_read_model(
             ranked_items,
             query_ref=safe_query_ref,
+            safe_query_ref=hashed_safe_query_ref,
+            query_mode=query_mode,
         ),
+        "safe_query_ref": hashed_safe_query_ref,
+        "query_mode": query_mode,
+        "retrieval_strategy_refs": _retrieval_strategy_refs(
+            query_mode=query_mode,
+            search_index_status=search_index_status,
+        ),
+        "search_index_status": _search_index_status(search_index_status),
+        "hrr_readiness": memory_hrr_readiness(),
         "blocked_state_refs": list(MEMORY_WORKBENCH_BLOCKED_STATE_REFS),
         "safe_refs_only": True,
         "semantic_search_enabled": False,
@@ -460,6 +482,7 @@ def filter_memory_workbench(
     *,
     workbench: dict[str, Any],
     query_ref: str | None = None,
+    safe_query: str | None = None,
     kind: str | None = None,
     source_ref: str | None = None,
     project_ref: str | None = None,
@@ -474,10 +497,14 @@ def filter_memory_workbench(
 ) -> dict[str, Any]:
     """Read-only safe-ref search over reviewed summaries and candidate refs."""
 
+    safe_query_ref, hashed_safe_query_ref, query_mode = validate_query_mode(
+        query_ref=query_ref,
+        safe_query=safe_query,
+    )
+    safe_query_text = _safe_text(safe_query, "safe_query") if safe_query else None
     filters = {
-        "query_ref": _safe_ref(query_ref, "query_ref", allow_empty=True)
-        if query_ref
-        else None,
+        "query_ref": safe_query_ref,
+        "safe_query": safe_query_text,
         "kind": _safe_text(kind, "kind", allow_empty=True) if kind else None,
         "source_ref": _safe_ref(source_ref, "source_ref", allow_empty=True)
         if source_ref
@@ -517,15 +544,31 @@ def filter_memory_workbench(
         "schema_version": "fcc_mem_001_memory_search.v1",
         "contract_ref": MEMORY_WORKBENCH_CONTRACT_REF,
         "route_ref": MEMORY_SEARCH_ROUTE_REF,
-        "filters": {key: value for key, value in filters.items() if value},
+        "filters": {
+            key: value
+            for key, value in filters.items()
+            if value and key != "safe_query"
+        },
+        "safe_query_ref": hashed_safe_query_ref,
+        "query_mode": query_mode,
         "items": filtered,
         "count": len(filtered),
         "total_workbench_count": len(items),
         "ranking": _ranking_read_model(
             filtered,
             query_ref=filters["query_ref"],
+            safe_query_ref=hashed_safe_query_ref,
+            query_mode=query_mode,
             status="implemented_filtered_ranked_read_model_safe_refs_only",
         ),
+        "retrieval_strategy_refs": _retrieval_strategy_refs(
+            query_mode=query_mode,
+            search_index_status=workbench.get("search_index_status"),
+        ),
+        "search_index_status": _search_index_status(
+            workbench.get("search_index_status")
+        ),
+        "hrr_readiness": memory_hrr_readiness(),
         "safe_refs_only": True,
         "semantic_search_enabled": False,
         "vector_db_enabled": False,
@@ -849,14 +892,26 @@ def _ranked_memory_payload(
     item: dict[str, Any],
     *,
     query_ref: str | None,
+    safe_query: str | None,
     loop_refs: set[str],
 ) -> dict[str, Any]:
-    components = _rank_components(item, query_ref=query_ref, loop_refs=loop_refs)
+    components = _rank_components(
+        item,
+        query_ref=query_ref,
+        safe_query=safe_query,
+        loop_refs=loop_refs,
+    )
     rank_score = min(sum(components.values()), sum(MEMORY_RANKING_COMPONENT_BOUNDS.values()))
     excluded_reason_refs = _excluded_reason_refs(item)
     return {
         "rank_score": rank_score,
         "rank_components": components,
+        "score_components": components,
+        "retrieval_strategy_refs": _item_retrieval_strategy_refs(
+            item,
+            query_ref=query_ref,
+            safe_query=safe_query,
+        ),
         "included_reason_refs": _included_reason_refs(
             item,
             components,
@@ -879,9 +934,14 @@ def _rank_components(
     item: dict[str, Any],
     *,
     query_ref: str | None,
+    safe_query: str | None,
     loop_refs: set[str],
 ) -> dict[str, int]:
-    query_tokens = _ranking_query_tokens(query_ref=query_ref, loop_refs=loop_refs)
+    query_tokens = _ranking_query_tokens(
+        query_ref=query_ref,
+        safe_query=safe_query,
+        loop_refs=loop_refs,
+    )
     title_summary_tokens = set(
         _tokenize_ranking_text(
             " ".join(
@@ -971,6 +1031,8 @@ def _ranking_read_model(
     ranked_items: list[dict[str, Any]],
     *,
     query_ref: str | None,
+    safe_query_ref: str | None = None,
+    query_mode: str = "default",
     status: str = "implemented_ranked_read_model_safe_refs_only",
 ) -> dict[str, Any]:
     ranked_candidate_refs = [str(item["memory_ref"]) for item in ranked_items]
@@ -989,6 +1051,8 @@ def _ranking_read_model(
     ]
     payload_for_cache = {
         "query_ref": query_ref or "query-ref:memory-ranking:default",
+        "safe_query_ref": safe_query_ref,
+        "query_mode": query_mode,
         "ranked_refs": ranked_candidate_refs,
         "included_refs": included_ranked_refs,
         "scores": [
@@ -1007,6 +1071,7 @@ def _ranking_read_model(
         "excluded_refs": excluded_refs,
         "excluded_ref_count": len(excluded_refs),
         "score_component_bounds": dict(MEMORY_RANKING_COMPONENT_BOUNDS),
+        "retrieval_strategy_refs": _retrieval_strategy_refs(query_mode=query_mode),
         "source_mix": _aggregate_source_mix(ranked_items),
         "pressure_counts": {
             "stale": sum(1 for item in ranked_items if item.get("stale_pressure")),
@@ -1024,6 +1089,8 @@ def _ranking_read_model(
         "token_estimate": sum(int(item.get("token_estimate", 0)) for item in ranked_items),
         "rank_signal_refs": _rank_signal_refs(ranked_items),
         "blocked_authority_refs": list(MEMORY_RANKING_BLOCKED_STATE_REFS),
+        "safe_query_blocked_authority_refs": list(MEMORY_SAFE_QUERY_BLOCKED_STATE_REFS),
+        "hrr_readiness": memory_hrr_readiness(),
         "safe_refs_only": True,
         "lexical_tag_ref_only": True,
         "embedding_search_enabled": False,
@@ -1173,9 +1240,10 @@ def _rank_signal_refs(items: list[dict[str, Any]]) -> list[str]:
 def _ranking_query_tokens(
     *,
     query_ref: str | None,
+    safe_query: str | None = None,
     loop_refs: set[str],
 ) -> set[str]:
-    query_text = " ".join([query_ref or "", *sorted(loop_refs)])
+    query_text = " ".join([query_ref or "", safe_query or "", *sorted(loop_refs)])
     return set(_tokenize_ranking_text(query_text))
 
 
@@ -1237,6 +1305,26 @@ def _matches_filters(item: dict[str, Any], filters: dict[str, str | None]) -> bo
         )
         if filters["query_ref"] not in refs:
             return False
+    if filters.get("safe_query"):
+        query_tokens = set(_tokenize_ranking_text(str(filters["safe_query"])))
+        item_tokens = set(
+            _tokenize_ranking_text(
+                " ".join(
+                    [
+                        str(item.get("title") or ""),
+                        str(item.get("safe_summary") or ""),
+                        str(item.get("candidate_kind") or ""),
+                        *list(item.get("source_refs") or []),
+                        *list(item.get("evidence_refs") or []),
+                        *list(item.get("related_entity_refs") or []),
+                        *list(item.get("tag_refs") or []),
+                        *list(item.get("receipt_refs") or []),
+                    ]
+                )
+            )
+        )
+        if query_tokens and not query_tokens.intersection(item_tokens):
+            return False
     if filters["kind"] and item.get("candidate_kind") != filters["kind"]:
         return False
     if filters["source_ref"] and filters["source_ref"] not in item.get("source_refs", []):
@@ -1266,6 +1354,63 @@ def _matches_filters(item: dict[str, Any], filters: dict[str, str | None]) -> bo
         if filters["conflict_state"] == "clear" and has_conflict:
             return False
     return True
+
+
+def _retrieval_strategy_refs(
+    *,
+    query_mode: str,
+    search_index_status: dict[str, Any] | None = None,
+) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-safe-summary-lexical",
+        "retrieval-strategy-ref:fcc-mem-022-safe-ref-match",
+        "retrieval-strategy-ref:fcc-mem-022-deterministic-score-components",
+    ]
+    if query_mode == "query_ref":
+        refs.append("retrieval-strategy-ref:fcc-mem-022-query-ref")
+    if query_mode == "safe_query":
+        refs.append("retrieval-strategy-ref:fcc-mem-022-safe-query-hashed")
+    if (search_index_status or {}).get("fts5_enabled"):
+        refs.append("retrieval-strategy-ref:fcc-mem-022-local-sqlite-fts5-safe-fields")
+    else:
+        refs.append("retrieval-strategy-ref:fcc-mem-022-lexical-fallback")
+    return list(dict.fromkeys(refs))
+
+
+def _item_retrieval_strategy_refs(
+    item: dict[str, Any],
+    *,
+    query_ref: str | None,
+    safe_query: str | None,
+) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-ranked-workbench-item",
+        "retrieval-strategy-ref:fcc-mem-022-safe-summary-and-refs",
+    ]
+    if query_ref:
+        refs.append("retrieval-strategy-ref:fcc-mem-022-query-ref")
+    if safe_query:
+        refs.append("retrieval-strategy-ref:fcc-mem-022-safe-query-hashed")
+    if item.get("source") == "l1_reviewed_recall_projection":
+        refs.append("retrieval-strategy-ref:fcc-mem-022-reviewed-l1-projection")
+    return refs
+
+
+def _search_index_status(status: dict[str, Any] | None) -> dict[str, Any]:
+    if status:
+        return dict(status)
+    return {
+        "status": "deterministic_lexical_fallback_unavailable_status",
+        "fts5_enabled": False,
+        "indexed_record_count": 0,
+        "safe_summary_refs_only": True,
+        "raw_content_indexed": False,
+        "embedding_index_enabled": False,
+        "vector_db_enabled": False,
+        "semantic_search_enabled": False,
+        "hrr_enabled": False,
+        "algebraic_retrieval_enabled": False,
+    }
 
 
 __all__ = [

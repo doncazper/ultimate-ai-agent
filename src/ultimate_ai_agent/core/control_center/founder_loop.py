@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptReque
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
     MemoryContextPackActionProposalRequest,
+    MemoryFeedbackRequest,
     MemoryReviewDecisionKind,
     MemoryReviewDecisionRequest,
 )
@@ -45,14 +46,20 @@ class FounderLoopControlCenterService:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        return self.repository.memory_workbench(query_ref=query_ref, limit=limit)
+        return self.repository.memory_workbench(
+            query_ref=query_ref,
+            safe_query=safe_query,
+            limit=limit,
+        )
 
     def memory_search(
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         kind: str | None = None,
         source_ref: str | None = None,
         project_ref: str | None = None,
@@ -67,6 +74,7 @@ class FounderLoopControlCenterService:
     ) -> dict[str, Any]:
         return self.repository.memory_search(
             query_ref=query_ref,
+            safe_query=safe_query,
             kind=kind,
             source_ref=source_ref,
             project_ref=project_ref,
@@ -84,18 +92,25 @@ class FounderLoopControlCenterService:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        return self.repository.memory_l1_hot_index(query_ref=query_ref, limit=limit)
+        return self.repository.memory_l1_hot_index(
+            query_ref=query_ref,
+            safe_query=safe_query,
+            limit=limit,
+        )
 
     def memory_l2_factual_graph_temporal_index(
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
         return self.repository.memory_l2_factual_graph_temporal_index(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
 
@@ -103,10 +118,12 @@ class FounderLoopControlCenterService:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
         return self.repository.memory_l3_identity_session_preference_index(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
 
@@ -114,12 +131,44 @@ class FounderLoopControlCenterService:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
         return self.repository.memory_context_pack_proposals(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
+
+    def record_memory_feedback(
+        self,
+        *,
+        request: MemoryFeedbackRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_memory_feedback(
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
+    def memory_observation_candidates(
+        self,
+        *,
+        query_ref: str | None = None,
+        safe_query: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.repository.memory_observation_candidates(
+            query_ref=query_ref,
+            safe_query=safe_query,
+            limit=limit,
+        )
+
+    def memory_probe(self, *, entity_ref: str, limit: int = 20) -> dict[str, Any]:
+        return self.repository.memory_probe(entity_ref=entity_ref, limit=limit)
+
+    def memory_contradictions(self, *, limit: int = 20) -> dict[str, Any]:
+        return self.repository.memory_contradictions(limit=limit)
 
     def record_memory_context_pack_action_proposal(
         self,

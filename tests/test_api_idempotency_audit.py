@@ -12,6 +12,7 @@ from ultimate_ai_agent.api.idempotency import (
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from scripts.verification.api_routes import (
     EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY,
+    EXPECTED_MUTATING_ROUTE_COUNT,
     EXPECTED_MUTATING_ROUTES,
 )
 
@@ -105,7 +106,9 @@ def test_idempotency_audit_policy_payload_matches_schema() -> None:
             encoding="utf-8"
         )
     )
-    payload = api_idempotency_audit_policy_payload(mutating_route_count=30)
+    payload = api_idempotency_audit_policy_payload(
+        mutating_route_count=EXPECTED_MUTATING_ROUTE_COUNT
+    )
 
     errors = sorted(Draft202012Validator(schema).iter_errors(payload), key=lambda error: error.path)
     assert errors == []

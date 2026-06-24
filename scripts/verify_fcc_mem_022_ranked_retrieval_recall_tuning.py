@@ -20,10 +20,14 @@ from scripts.verification.repo import (  # noqa: E402
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.memory import (  # noqa: E402
+    MEMORY_FEEDBACK_BLOCKED_STATE_REFS,
+    MEMORY_HRR_REQUIRED_MILESTONE_REF,
     MEMORY_RANKING_BLOCKED_STATE_REFS,
     MEMORY_RANKING_COMPONENT_BOUNDS,
     MEMORY_RANKING_CONTRACT_REF,
     ManualMemoryCandidateRequest,
+    MemoryFeedbackRequest,
+    MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
@@ -37,6 +41,7 @@ CURRENT_BOARD_PATH = "docs/kanban/current_board.md"
 ROADMAP_PATH = "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
 TRUTH_PACKET_PATH = "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
 WORKBENCH_PATH = "src/ultimate_ai_agent/core/memory/workbench.py"
+FEATURE_MINE_PATH = "src/ultimate_ai_agent/core/memory/feature_mine.py"
 STORAGE_PATH = "src/ultimate_ai_agent/core/storage/founder_loop.py"
 MANIFEST_PATH = "src/ultimate_ai_agent/api/manifest.py"
 FRONTEND_TYPES_PATH = "apps/control-center/src/api/types.ts"
@@ -46,17 +51,26 @@ TEST_PATH = "tests/test_fcc_mem_022_ranked_retrieval_recall_tuning.py"
 
 REQUIRED_DOC_SNIPPETS = {
     DOC_PATH: [
-        "Status: implemented ranked recall read-model slice",
+        "Status: implemented P0-P4 memory feature-mine umbrella with HRR milestone blocked",
         "FCC-MEM-022",
-        "lexical/tag/ref-only",
-        "No embeddings, vector DB, semantic provider, model/provider calls, context injection, memory writes, auto-maintenance, or action execution",
+        "POST /control-center/memory/feedback",
+        "GET /control-center/memory/observation-candidates",
+        "GET /control-center/memory/probe",
+        "GET /control-center/memory/contradictions",
+        "milestone-ref:fcc-mem-hrr-001-explicit-authority",
+        "No embeddings, vector DB, semantic provider, model/provider calls, context injection",
         "scripts/verify_fcc_mem_022_ranked_retrieval_recall_tuning.py",
     ],
     DOC_INDEX_PATH: ["FCC-MEM-022", DOC_PATH],
     DOCS_README_PATH: ["Ranked Retrieval / Recall Tuning", DOC_PATH],
     CURRENT_BOARD_PATH: ["FCC-MEM-022 Ranked Retrieval / Recall Tuning", "Done"],
-    ROADMAP_PATH: ["FCC-MEM-022` Done: Ranked Retrieval / Recall Tuning"],
-    TRUTH_PACKET_PATH: ["FCC-MEM-022 adds deterministic ranked recall diagnostics"],
+    ROADMAP_PATH: [
+        "FCC-MEM-022` Done: Ranked Retrieval / Recall Tuning",
+        "safe-query hash refs, feedback receipts",
+    ],
+    TRUTH_PACKET_PATH: [
+        "FCC-MEM-022 adds deterministic ranked recall diagnostics, safe-query hash refs",
+    ],
 }
 
 FORBIDDEN_CLAIMS = [
@@ -67,6 +81,8 @@ FORBIDDEN_CLAIMS = [
     "memory ranking writes memory",
     "memory ranking applies maintenance",
     "memory ranking executes actions",
+    "hrr retrieval is implemented",
+    "algebraic retrieval is enabled",
     "production ready",
     "public beta ready",
 ]
@@ -106,7 +122,26 @@ REQUIRED_MANIFEST_BLOCKERS = [
     "control_center_memory_ranked_retrieval_connector_writes",
     "control_center_memory_ranked_retrieval_background_indexing",
     "control_center_memory_ranked_retrieval_truth_authority",
+    "control_center_memory_ranked_retrieval_hrr",
+    "control_center_memory_ranked_retrieval_algebraic_retrieval",
+    "control_center_memory_safe_query_raw_echo",
     "control_center_memory_ranked_retrieval_production_authority",
+    "control_center_memory_feedback_recall_record_create",
+    "control_center_memory_feedback_delete_or_export_execution",
+    "control_center_memory_feedback_context_injection",
+    "control_center_memory_feedback_action_execution",
+    "control_center_memory_feedback_connector_writes",
+    "control_center_memory_feedback_provider_model_calls",
+    "control_center_memory_feedback_cloud_sync",
+    "control_center_memory_observation_candidates_truth_authority",
+    "control_center_memory_probe_context_injection",
+    "control_center_memory_contradictions_auto_merge",
+    "control_center_memory_hrr_enabled_without_explicit_milestone",
+    "control_center_memory_hrr_ranking_influence",
+    "control_center_memory_hrr_raw_content_input",
+    "control_center_memory_hrr_embeddings_provider",
+    "control_center_memory_hrr_vector_db",
+    "control_center_memory_hrr_context_injection",
 ]
 
 
@@ -137,6 +172,7 @@ def _append_required_file_failures(failures: list[str], root: Path) -> None:
     for rel_path in [
         DOC_PATH,
         WORKBENCH_PATH,
+        FEATURE_MINE_PATH,
         STORAGE_PATH,
         MANIFEST_PATH,
         FRONTEND_TYPES_PATH,
@@ -155,6 +191,16 @@ def _append_manifest_failures(failures: list[str]) -> None:
         not in manifest.capabilities_declared
     ):
         failures.append("/api/manifest missing ranked retrieval read-model capability")
+    for declared in [
+        "control_center_memory_safe_query_hashed_read_model",
+        "control_center_memory_feedback_receipts",
+        "control_center_memory_observation_candidates",
+        "control_center_memory_probe_index",
+        "control_center_memory_contradiction_previews",
+        "control_center_memory_hrr_readiness_blocked_contract",
+    ]:
+        if declared not in manifest.capabilities_declared:
+            failures.append(f"/api/manifest missing capability {declared}")
     for blocked in REQUIRED_MANIFEST_BLOCKERS:
         if blocked not in manifest.capabilities_blocked:
             failures.append(f"/api/manifest missing blocked capability {blocked}")
@@ -162,6 +208,8 @@ def _append_manifest_failures(failures: list[str]) -> None:
 
 def _append_static_failures(failures: list[str]) -> None:
     workbench_text = read_text(WORKBENCH_PATH)
+    feature_mine_text = read_text(FEATURE_MINE_PATH)
+    storage_text = read_text(STORAGE_PATH)
     panel_text = read_text(FRONTEND_PANEL_PATH)
     types_text = read_text(FRONTEND_TYPES_PATH)
     mock_text = read_text(FRONTEND_MOCK_PATH)
@@ -177,9 +225,37 @@ def _append_static_failures(failures: list[str]) -> None:
         "memory_write_performed\": False",
         "auto_maintenance_performed\": False",
         "action_execution_authorized\": False",
+        "safe_query_ref",
+        "query_mode",
+        "retrieval_strategy_refs",
+        "search_index_status",
+        "hrr_readiness",
     ]:
         if token not in workbench_text:
             failures.append(f"{WORKBENCH_PATH} missing static token {token}")
+
+    for token in [
+        "MEMORY_FEEDBACK_CONTRACT_REF",
+        "MEMORY_OBSERVATION_CANDIDATE_CONTRACT_REF",
+        "MEMORY_PROBE_CONTRACT_REF",
+        "MEMORY_CONTRADICTION_PREVIEW_CONTRACT_REF",
+        "MEMORY_HRR_REQUIRED_MILESTONE_REF",
+        "MemoryFeedbackRequest",
+        "epistemic_role_for_candidate_kind",
+        "safe_query_ref_for_query",
+    ]:
+        if token not in feature_mine_text:
+            failures.append(f"{FEATURE_MINE_PATH} missing static token {token}")
+
+    for token in [
+        "record_memory_feedback",
+        "memory_observation_candidates",
+        "memory_probe",
+        "memory_contradictions",
+        "epistemic_role_for_candidate_kind",
+    ]:
+        if token not in storage_text:
+            failures.append(f"{STORAGE_PATH} missing static token {token}")
 
     for forbidden in FORBIDDEN_ACTIVE_IMPORTS:
         import_fragment = f"import {forbidden}"
@@ -227,6 +303,11 @@ def _append_static_failures(failures: list[str]) -> None:
         "embedding_search_enabled",
         "context_injection_authorized",
         "memory_write_performed",
+        "MemoryFeedbackRequest",
+        "safe_query",
+        "observation_candidates",
+        "memory_probe",
+        "memory_contradictions",
     ]:
         if token not in test_text:
             failures.append(f"{TEST_PATH} missing test token {token}")
@@ -266,6 +347,45 @@ def _append_behavior_failures(failures: list[str], root: Path) -> None:
             failures.append("query ref did not improve matching ranked-alpha candidate")
         if search["count"] != 1:
             failures.append("memory search did not keep exact safe-ref filter behavior")
+
+        decision = _record_accepted_candidate(repo, "safe-query-alpha")
+        safe_query_model = repo.memory_workbench(safe_query="safe query alpha", limit=20)
+        serialized = _stable_json(safe_query_model).lower()
+        if safe_query_model.get("query_mode") != "safe_query":
+            failures.append("safe_query workbench missing query_mode")
+        if not str(safe_query_model.get("safe_query_ref") or "").startswith(
+            "safe-query-ref:fcc-mem-022:"
+        ):
+            failures.append("safe_query workbench missing hashed safe_query_ref")
+        if "safe query alpha" in serialized:
+            failures.append("safe_query raw text echoed in workbench payload")
+        if (
+            safe_query_model.get("hrr_readiness", {}).get("required_milestone_ref")
+            != MEMORY_HRR_REQUIRED_MILESTONE_REF
+        ):
+            failures.append("HRR readiness missing required milestone ref")
+        feedback = repo.record_memory_feedback(
+            request=MemoryFeedbackRequest(
+                memory_record_ref=str(decision["reviewed_recall_record_ref"]),
+                feedback_kind="helpful",
+                reviewer_ref="actor-ref:local-operator",
+                source_refs=["source-ref:memory-feedback:safe-query-alpha"],
+                evidence_refs=["evidence-ref:memory-feedback:safe-query-alpha"],
+                blocked_state_refs=MEMORY_FEEDBACK_BLOCKED_STATE_REFS,
+            ),
+            idempotency_key_ref="idempotency-ref:memory-feedback-safe-query-alpha",
+        )
+        if not str(feedback.get("receipt_ref") or "").startswith("receipt:memory-feedback:"):
+            failures.append("memory feedback receipt ref missing")
+        observations = repo.memory_observation_candidates(safe_query="safe query alpha")
+        if observations.get("candidate_count", 0) < 1:
+            failures.append("memory observation candidates missing reviewed candidate")
+        probe = repo.memory_probe(entity_ref=str(decision["reviewed_recall_record_ref"]))
+        if feedback["receipt_ref"] not in probe.get("feedback_receipt_refs", []):
+            failures.append("memory probe missing feedback receipt ref")
+        contradictions = repo.memory_contradictions()
+        if "hrr_readiness" not in contradictions:
+            failures.append("memory contradictions missing HRR readiness")
 
 
 def _append_ranking_payload_failures(
@@ -353,6 +473,30 @@ def _record_manual_candidate(repo: FounderLoopRepository, slug: str) -> None:
             missing_evidence_refs=[f"missing-evidence-ref:manual-note:{slug}"],
         ),
         idempotency_key_ref=f"idempotency-ref:manual-memory-{slug}",
+    )
+
+
+def _record_accepted_candidate(repo: FounderLoopRepository, slug: str) -> dict[str, Any]:
+    candidate = repo.record_manual_memory_candidate(
+        request=ManualMemoryCandidateRequest(
+            candidate_kind="preference",
+            title=f"{slug} reviewed preference",
+            safe_summary=f"{slug} reviewed safe preference summary.",
+            source_refs=[f"source-ref:manual-note:{slug}"],
+            provenance_refs=[f"provenance-ref:manual-note:{slug}"],
+            evidence_refs=[f"evidence-ref:manual-note:{slug}"],
+        ),
+        idempotency_key_ref=f"idempotency-ref:manual-memory-reviewed-{slug}",
+    )
+    return repo.record_memory_review_decision(
+        candidate_ref=str(candidate["candidate_ref"]),
+        decision="accept",
+        request=MemoryReviewDecisionRequest(
+            reviewer_ref="actor-ref:local-operator",
+            source_refs=[f"source-ref:manual-note:{slug}"],
+            evidence_refs=[f"evidence-ref:manual-note:{slug}"],
+        ),
+        idempotency_key_ref=f"idempotency-ref:memory-accept-{slug}",
     )
 
 

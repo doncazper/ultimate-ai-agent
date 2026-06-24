@@ -185,12 +185,15 @@ hidden memory writes, automatic maintenance, public beta, or production
 authority.
 
 FCC-MEM-022 Ranked Retrieval / Recall Tuning
-Goal: use retrieval diagnostics to improve memory ranking with deterministic
-lexical, tag, and ref scoring only.
-Scope: implemented as a Memory Workbench/Search read-model and Control Center
-display lane only; no embeddings, vector database, context injection,
-model/provider calls, connector writes, hidden memory writes, automatic
-maintenance, action execution, or production claim.
+Goal: use safe retrieval diagnostics, feedback receipts, epistemic roles,
+observation candidates, probe, and contradiction previews to improve memory
+recall inspection with deterministic lexical, tag, and ref scoring only.
+Scope: implemented as Memory read models and a local idempotent feedback
+receipt lane; no external memory provider runtime, cloud sync, embeddings,
+vector database, HRR/algebraic retrieval, semantic provider calls, context
+injection, model/provider calls, connector writes, hidden memory writes,
+automatic maintenance, action execution, or production claim. HRR remains
+blocked until `milestone-ref:fcc-mem-hrr-001-explicit-authority`.
 ```
 
 ## Ready Next

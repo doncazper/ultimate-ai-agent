@@ -16,6 +16,7 @@ from ultimate_ai_agent.core.memory.l3_index import (
     L3IdentitySessionPreferenceIndex,
     L3MemoryModelItem,
 )
+from ultimate_ai_agent.core.memory.feature_mine import memory_hrr_readiness
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -208,6 +209,13 @@ class ContextPackProposal(_ContextPackAuthorityPosture):
     source_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
+    observed_ref: str | None = None
+    observer_ref: str | None = None
+    representation_scope_ref: str | None = None
+    score_components: dict[str, float] = Field(default_factory=dict)
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    query_mode: str = "default"
+    safe_query_ref: str | None = None
     stale_state_refs: list[str] = Field(default_factory=list)
     conflict_state_refs: list[str] = Field(default_factory=list)
     risk_class: ContextPackRiskClass = "medium"
@@ -255,6 +263,7 @@ class ContextPackProposal(_ContextPackAuthorityPosture):
             "source_refs",
             "evidence_refs",
             "receipt_refs",
+            "retrieval_strategy_refs",
             "stale_state_refs",
             "conflict_state_refs",
             "approval_requirement_refs",
@@ -264,6 +273,16 @@ class ContextPackProposal(_ContextPackAuthorityPosture):
             refs = getattr(self, field_name)
             for ref in refs:
                 _validate_safe_ref(str(ref), field_name)
+        for field_name in [
+            "observed_ref",
+            "observer_ref",
+            "representation_scope_ref",
+            "safe_query_ref",
+        ]:
+            value = getattr(self, field_name)
+            if value is not None:
+                _validate_safe_ref(str(value), field_name)
+        _validate_safe_text(self.query_mode, "query_mode")
         for ref, reason in self.excluded_ref_reasons.items():
             _validate_safe_ref(str(ref), "excluded_ref_reasons")
             _validate_safe_ref(str(reason), "excluded_ref_reasons")
@@ -300,6 +319,8 @@ class ContextPackProposalIndex(_ContextPackAuthorityPosture):
     source_l2_contract_ref: str
     source_l3_contract_ref: str
     query_ref: str | None = None
+    safe_query_ref: str | None = None
+    query_mode: str = "default"
     generated_at: datetime = Field(default_factory=utc_now)
     source_l1_preview_count: int = Field(default=0, ge=0)
     source_l2_projection_count: int = Field(default=0, ge=0)
@@ -310,6 +331,9 @@ class ContextPackProposalIndex(_ContextPackAuthorityPosture):
     safe_refs_only: bool = True
     proposal_only: bool = True
     derived_from_reviewed_memory_only: bool = True
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    search_index_status: dict[str, Any] = Field(default_factory=dict)
+    hrr_readiness: dict[str, Any] = Field(default_factory=memory_hrr_readiness)
     context_injection_performed: bool = False
     provider_model_call_performed: bool = False
     blocked_state_refs: list[str] = Field(
@@ -331,6 +355,11 @@ class ContextPackProposalIndex(_ContextPackAuthorityPosture):
         _validate_safe_text(self.status, "status")
         if self.query_ref is not None:
             _validate_safe_ref(self.query_ref, "query_ref")
+        if self.safe_query_ref is not None:
+            _validate_safe_ref(self.safe_query_ref, "safe_query_ref")
+        _validate_safe_text(self.query_mode, "query_mode")
+        for ref in self.retrieval_strategy_refs:
+            _validate_safe_ref(ref, "retrieval_strategy_refs")
         for ref in self.blocked_state_refs:
             _validate_safe_ref(ref, "blocked_state_refs")
         for ref, reason in self.skipped_ref_reasons.items():
@@ -360,6 +389,7 @@ def build_context_pack_proposal_index(
     l3_index: L3IdentitySessionPreferenceIndex | dict[str, Any],
     *,
     query_ref: str | None = None,
+    safe_query: str | None = None,
     limit: int = 20,
 ) -> ContextPackProposalIndex:
     source_l1 = l1_index if isinstance(l1_index, L1HotMemoryIndex) else L1HotMemoryIndex(**l1_index)
@@ -402,6 +432,8 @@ def build_context_pack_proposal_index(
         source_l2_contract_ref=source_l2.contract_ref,
         source_l3_contract_ref=source_l3.contract_ref,
         query_ref=query_ref or source_l3.query_ref or source_l2.query_ref or source_l1.query_ref,
+        safe_query_ref=source_l3.safe_query_ref,
+        query_mode=source_l3.query_mode,
         source_l1_preview_count=source_l1.indexed_record_count,
         source_l2_projection_count=(
             source_l2.fact_count + source_l2.relation_count + source_l2.temporal_count
@@ -410,6 +442,8 @@ def build_context_pack_proposal_index(
         context_pack_count=len(proposals),
         proposals=proposals,
         skipped_ref_reasons=skipped,
+        retrieval_strategy_refs=_retrieval_strategy_refs(source_l3),
+        search_index_status=dict(source_l3.search_index_status),
     )
 
 
@@ -449,7 +483,30 @@ def _proposal_from_l3_item(
         source_refs=_unique_refs(item.source_refs),
         evidence_refs=_unique_refs(item.evidence_refs),
         receipt_refs=_unique_refs(item.receipt_refs),
+        observed_ref=item.observed_ref,
+        observer_ref=item.observer_ref,
+        representation_scope_ref=item.representation_scope_ref,
+        score_components=dict(item.score_components),
+        retrieval_strategy_refs=_retrieval_strategy_refs_from_l3_item(item),
+        query_mode=item.query_mode,
+        safe_query_ref=item.safe_query_ref,
         stale_state_refs=stale_state_refs,
         conflict_state_refs=conflict_state_refs,
         risk_class="medium",
     )
+
+
+def _retrieval_strategy_refs(source_l3: L3IdentitySessionPreferenceIndex) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-context-pack-proposal-only",
+        *source_l3.retrieval_strategy_refs,
+    ]
+    return list(dict.fromkeys(refs))
+
+
+def _retrieval_strategy_refs_from_l3_item(item: L3MemoryModelItem) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-context-pack-from-l3-proposal",
+        *item.retrieval_strategy_refs,
+    ]
+    return list(dict.fromkeys(refs))

@@ -200,6 +200,32 @@ from ultimate_ai_agent.core.memory.l3_index import (
 from ultimate_ai_agent.core.memory.context_packs import (
     build_context_pack_proposal_index,
 )
+from ultimate_ai_agent.core.memory.feature_mine import (
+    MEMORY_CONTRADICTION_BLOCKED_STATE_REFS,
+    MEMORY_CONTRADICTION_PREVIEW_CONTRACT_REF,
+    MEMORY_CONTRADICTION_PREVIEW_ROUTE_REF,
+    MEMORY_FEEDBACK_BLOCKED_STATE_REFS,
+    MEMORY_FEEDBACK_CONTRACT_REF,
+    MEMORY_FEEDBACK_ROUTE_REF,
+    MEMORY_OBSERVATION_BLOCKED_STATE_REFS,
+    MEMORY_OBSERVATION_CANDIDATE_CONTRACT_REF,
+    MEMORY_OBSERVATION_CANDIDATE_ROUTE_REF,
+    MEMORY_PROBE_BLOCKED_STATE_REFS,
+    MEMORY_PROBE_CONTRACT_REF,
+    MEMORY_PROBE_ROUTE_REF,
+    MemoryFeedbackReceipt,
+    MemoryFeedbackRequest,
+    bounded_observation_summary,
+    epistemic_role_for_candidate_kind,
+    memory_feature_flags,
+    memory_feedback_payload_fingerprint_ref,
+    memory_feedback_payload_for_fingerprint,
+    memory_feedback_receipt_ref,
+    memory_hrr_readiness,
+    refs_intersect,
+    trust_delta_for_feedback,
+    validate_query_mode,
+)
 from ultimate_ai_agent.core.memory.execution_hooks import (
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF,
     MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_REQUESTED_ACTION,
@@ -252,6 +278,7 @@ from ultimate_ai_agent.core.memory.workbench import (
     MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS,
     MEMORY_MANUAL_INTAKE_CONTRACT_REF,
     MEMORY_MANUAL_INTAKE_ROUTE_REF,
+    MEMORY_RANKING_CONTRACT_REF,
     MEMORY_WORKBENCH_CONTRACT_REF,
     MEMORY_WORKBENCH_ROUTE_REF,
     ManualMemoryCandidateRequest,
@@ -1659,6 +1686,10 @@ def _validate_safe_text(value: str, field_name: str) -> None:
     for fragment in UNSAFE_STORAGE_TEXT_FRAGMENTS:
         if fragment in lowered:
             raise ValueError(f"{field_name} contains unsafe Founder Loop storage text")
+
+
+def _enum_value(value: Any) -> str:
+    return str(getattr(value, "value", value))
 
 
 def _validate_safe_payload(value: Any, field_name: str) -> None:
@@ -9594,6 +9625,43 @@ class FounderLoopRepository:
             )
         return dict(json.loads(str(rows[0]["receipt_json"])))
 
+    def _memory_feedback_replay(
+        self,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any] | None:
+        rows = self._fetch_all(
+            """
+            SELECT key_ref, memory_record_ref, payload_fingerprint_ref,
+                   receipt_ref, created_at
+            FROM memory_feedback_replays
+            WHERE key_ref = ?
+            LIMIT 1
+            """,
+            (idempotency_key_ref,),
+        )
+        if not rows:
+            return None
+        return dict(rows[0])
+
+    def _memory_feedback_receipt_by_ref(
+        self,
+        receipt_ref: str,
+    ) -> dict[str, Any]:
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM memory_feedback_receipts
+            WHERE receipt_ref = ?
+            LIMIT 1
+            """,
+            (receipt_ref,),
+        )
+        if not rows:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_FEEDBACK_RECEIPT_NOT_FOUND"
+            )
+        return dict(json.loads(str(rows[0]["receipt_json"])))
+
     def list_memory_context_pack_action_proposal_receipts(
         self,
         *,
@@ -10377,22 +10445,33 @@ class FounderLoopRepository:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        if query_ref is not None:
-            _validate_safe_ref(query_ref, "query_ref")
+        query_ref, _safe_query_ref, _query_mode = validate_query_mode(
+            query_ref=query_ref,
+            safe_query=safe_query,
+        )
         bounded_limit = self._bounded_limit(limit)
-        l1_index = self.memory_l1_hot_index(query_ref=query_ref, limit=bounded_limit)
+        search_index_status = self._memory_review_recall_search_index_status()
+        l1_index = self.memory_l1_hot_index(
+            query_ref=query_ref,
+            safe_query=safe_query,
+            limit=bounded_limit,
+        )
         l2_index = self.memory_l2_factual_graph_temporal_index(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=bounded_limit,
         )
         l3_index = self.memory_l3_identity_session_preference_index(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=bounded_limit,
         )
         context_packs = self.memory_context_pack_proposals(
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=bounded_limit,
         )
         return build_memory_workbench(
@@ -10404,12 +10483,15 @@ class FounderLoopRepository:
             context_packs=context_packs,
             loop_refs=self._memory_workbench_loop_refs(limit=bounded_limit),
             query_ref=query_ref,
+            safe_query=safe_query,
+            search_index_status=search_index_status,
         )
 
     def memory_search(
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         kind: str | None = None,
         source_ref: str | None = None,
         project_ref: str | None = None,
@@ -10422,10 +10504,19 @@ class FounderLoopRepository:
         conflict_state: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        workbench = self.memory_workbench(query_ref=query_ref, limit=limit)
+        query_ref, _safe_query_ref, _query_mode = validate_query_mode(
+            query_ref=query_ref,
+            safe_query=safe_query,
+        )
+        workbench = self.memory_workbench(
+            query_ref=query_ref,
+            safe_query=safe_query,
+            limit=limit,
+        )
         return filter_memory_workbench(
             workbench=workbench,
             query_ref=query_ref,
+            safe_query=safe_query,
             kind=kind,
             source_ref=source_ref,
             project_ref=project_ref,
@@ -11055,13 +11146,19 @@ class FounderLoopRepository:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        if query_ref is not None:
-            _validate_safe_ref(query_ref, "query_ref")
+        query_ref, _safe_query_ref, _query_mode = validate_query_mode(
+            query_ref=query_ref,
+            safe_query=safe_query,
+        )
+        search_index_status = self._memory_review_recall_search_index_status()
         index = build_l1_hot_memory_index(
             self.list_memory_review_recall_records(),
             query_ref=query_ref,
+            safe_query=safe_query,
+            search_index_status=search_index_status,
             limit=limit,
         )
         return index.model_dump(mode="json")
@@ -11070,18 +11167,25 @@ class FounderLoopRepository:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        if query_ref is not None:
-            _validate_safe_ref(query_ref, "query_ref")
+        query_ref, _safe_query_ref, _query_mode = validate_query_mode(
+            query_ref=query_ref,
+            safe_query=safe_query,
+        )
+        search_index_status = self._memory_review_recall_search_index_status()
         l1_index = build_l1_hot_memory_index(
             self.list_memory_review_recall_records(),
             query_ref=query_ref,
+            safe_query=safe_query,
+            search_index_status=search_index_status,
             limit=limit,
         )
         l2_index = build_l2_factual_graph_temporal_index(
             l1_index,
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
         return l2_index.model_dump(mode="json")
@@ -11090,23 +11194,31 @@ class FounderLoopRepository:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        if query_ref is not None:
-            _validate_safe_ref(query_ref, "query_ref")
+        query_ref, _safe_query_ref, _query_mode = validate_query_mode(
+            query_ref=query_ref,
+            safe_query=safe_query,
+        )
+        search_index_status = self._memory_review_recall_search_index_status()
         l1_index = build_l1_hot_memory_index(
             self.list_memory_review_recall_records(),
             query_ref=query_ref,
+            safe_query=safe_query,
+            search_index_status=search_index_status,
             limit=limit,
         )
         l2_index = build_l2_factual_graph_temporal_index(
             l1_index,
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
         l3_index = build_l3_identity_session_preference_index(
             l2_index,
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
         return l3_index.model_dump(mode="json")
@@ -11115,23 +11227,31 @@ class FounderLoopRepository:
         self,
         *,
         query_ref: str | None = None,
+        safe_query: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        if query_ref is not None:
-            _validate_safe_ref(query_ref, "query_ref")
+        query_ref, _safe_query_ref, _query_mode = validate_query_mode(
+            query_ref=query_ref,
+            safe_query=safe_query,
+        )
+        search_index_status = self._memory_review_recall_search_index_status()
         l1_index = build_l1_hot_memory_index(
             self.list_memory_review_recall_records(),
             query_ref=query_ref,
+            safe_query=safe_query,
+            search_index_status=search_index_status,
             limit=limit,
         )
         l2_index = build_l2_factual_graph_temporal_index(
             l1_index,
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
         l3_index = build_l3_identity_session_preference_index(
             l2_index,
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
         context_packs = build_context_pack_proposal_index(
@@ -11139,6 +11259,7 @@ class FounderLoopRepository:
             l2_index,
             l3_index,
             query_ref=query_ref,
+            safe_query=safe_query,
             limit=limit,
         )
         payload = context_packs.model_dump(mode="json")
@@ -11170,6 +11291,536 @@ class FounderLoopRepository:
             "implemented_internal_action_proposal_only_execution_blocked"
         )
         return payload
+
+    def record_memory_feedback(
+        self,
+        *,
+        request: MemoryFeedbackRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        memory_record_ref = request.memory_record_ref
+        memory_id = memory_record_ref.removeprefix("memory-record-ref:")
+        if memory_id == memory_record_ref:
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_FEEDBACK_RECORD_REF_DENIED")
+        fingerprint_payload = memory_feedback_payload_for_fingerprint(request)
+        payload_fingerprint_ref = memory_feedback_payload_fingerprint_ref(
+            fingerprint_payload
+        )
+        replay = self._memory_feedback_replay(idempotency_key_ref)
+        if replay is not None:
+            if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
+                raise FounderLoopStorageDuplicateError(
+                    "FOUNDER_LOOP_MEMORY_FEEDBACK_IDEMPOTENCY_CONFLICT"
+                )
+            receipt = self._memory_feedback_receipt_by_ref(str(replay["receipt_ref"]))
+            receipt["replayed"] = True
+            return receipt
+
+        approval = self._record_memory_review_local_approval(
+            subject_ref=memory_record_ref,
+            reviewer_ref=request.reviewer_ref,
+            requested_action="record_memory_feedback_receipt",
+            resource_refs=[
+                MEMORY_FEEDBACK_CONTRACT_REF,
+                "route-ref:control-center-memory-feedback",
+                idempotency_key_ref,
+                *request.source_refs,
+                *request.evidence_refs,
+                *request.blocked_state_refs,
+            ],
+            idempotency_key_ref=idempotency_key_ref,
+        )
+        receipt_ref = memory_feedback_receipt_ref(
+            memory_record_ref,
+            idempotency_key_ref,
+        )
+        store = self._memory_review_recall_store()
+        try:
+            updated = store.record_feedback(
+                memory_id=memory_id,
+                feedback_kind=request.feedback_kind,
+                receipt_ref=receipt_ref,
+            )
+        except KeyError as exc:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_FEEDBACK_RECORD_NOT_FOUND"
+            ) from exc
+        finally:
+            store.close()
+
+        receipt = MemoryFeedbackReceipt(
+            receipt_ref=receipt_ref,
+            memory_record_ref=memory_record_ref,
+            feedback_kind=request.feedback_kind,
+            reviewer_ref=request.reviewer_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            approval_ref=approval["approval_ref"],
+            approval_status=approval["approval_status"],
+            approval_reason_refs=approval["approval_reason_refs"],
+            source_refs=request.source_refs,
+            evidence_refs=request.evidence_refs,
+            note_ref=request.note_ref,
+            trust_delta=trust_delta_for_feedback(request.feedback_kind),
+            trust_score_after=updated.trust_score,
+            stale_state_after=_enum_value(updated.stale_state),
+            conflict_state_after=_enum_value(updated.conflict_state),
+            blocked_state_refs=list(request.blocked_state_refs),
+        ).model_dump(mode="json")
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO memory_feedback_receipts (
+                        receipt_ref, memory_record_ref, feedback_kind,
+                        receipt_json, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        receipt["receipt_ref"],
+                        receipt["memory_record_ref"],
+                        receipt["feedback_kind"],
+                        _json_dumps(receipt),
+                        receipt["created_at"],
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO memory_feedback_replays (
+                        key_ref, memory_record_ref, payload_fingerprint_ref,
+                        receipt_ref, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        idempotency_key_ref,
+                        receipt["memory_record_ref"],
+                        payload_fingerprint_ref,
+                        receipt["receipt_ref"],
+                        receipt["created_at"],
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                replay = self._memory_feedback_replay(idempotency_key_ref)
+                if replay and replay["payload_fingerprint_ref"] == payload_fingerprint_ref:
+                    return self._memory_feedback_receipt_by_ref(str(replay["receipt_ref"]))
+                raise FounderLoopStorageDuplicateError(
+                    "FOUNDER_LOOP_MEMORY_FEEDBACK_IDEMPOTENCY_CONFLICT"
+                ) from exc
+        self.append_log(
+            JsonlLogKind.receipt,
+            {
+                "event_ref": receipt["receipt_ref"],
+                "safe_summary": (
+                    "Memory feedback receipt recorded locally; only reviewed recall "
+                    "trust/stale/conflict posture changed."
+                ),
+                "evidence_refs": receipt["evidence_refs"],
+            },
+        )
+        return receipt
+
+    def list_memory_feedback_receipts(
+        self,
+        *,
+        memory_record_ref: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        params: tuple[Any, ...]
+        where_clause = ""
+        if memory_record_ref is not None:
+            _validate_safe_ref(memory_record_ref, "memory_record_ref")
+            where_clause = "WHERE memory_record_ref = ?"
+            params = (memory_record_ref, self._bounded_limit(limit))
+        else:
+            params = (self._bounded_limit(limit),)
+        rows = self._fetch_all(
+            f"""
+            SELECT receipt_json
+            FROM memory_feedback_receipts
+            {where_clause}
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            params,
+        )
+        return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+
+    def memory_observation_candidates(
+        self,
+        *,
+        query_ref: str | None = None,
+        safe_query: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        query_ref, safe_query_ref, query_mode = validate_query_mode(
+            query_ref=query_ref,
+            safe_query=safe_query,
+        )
+        l1_index = self.memory_l1_hot_index(
+            query_ref=query_ref,
+            safe_query=safe_query,
+            limit=limit,
+        )
+        l2_index = self.memory_l2_factual_graph_temporal_index(
+            query_ref=query_ref,
+            safe_query=safe_query,
+            limit=limit,
+        )
+        l2_by_memory_ref: dict[str, list[str]] = {}
+        for key, ref_key in [
+            ("facts", "fact_ref"),
+            ("graph_relations", "relation_ref"),
+            ("temporal_items", "temporal_ref"),
+        ]:
+            for item in l2_index.get(key, []) or []:
+                l2_by_memory_ref.setdefault(str(item["memory_record_ref"]), []).append(
+                    str(item[ref_key])
+                )
+        candidates: list[dict[str, Any]] = []
+        for preview in l1_index.get("previews", [])[: self._bounded_limit(limit)]:
+            role = str(preview.get("epistemic_role") or "unknown")
+            memory_record_ref = str(preview["memory_record_ref"])
+            supporting_l2_refs = list(dict.fromkeys(l2_by_memory_ref.get(memory_record_ref, [])))
+            supporting_memory_refs = [memory_record_ref]
+            source_refs = list(preview.get("source_refs") or [])
+            evidence_refs = list(preview.get("evidence_refs") or [])
+            receipt_refs = list(preview.get("receipt_refs") or [])
+            stale_state = str(preview.get("stale_state") or "none")
+            conflict_state = str(preview.get("conflict_state") or "none")
+            suffix = _safe_suffix(memory_record_ref)
+            candidates.append(
+                {
+                    "observation_candidate_ref": (
+                        f"observation-candidate-ref:fcc-mem-022:{suffix}"
+                    ),
+                    "epistemic_role": role,
+                    "memory_kind": str(preview.get("memory_kind") or "unknown"),
+                    "safe_summary": bounded_observation_summary(
+                        role,
+                        len(supporting_memory_refs),
+                    ),
+                    "proof_count": len(
+                        list(
+                            dict.fromkeys(
+                                [
+                                    *supporting_memory_refs,
+                                    *supporting_l2_refs,
+                                    *source_refs,
+                                    *evidence_refs,
+                                    *receipt_refs,
+                                ]
+                            )
+                        )
+                    ),
+                    "supporting_memory_record_refs": supporting_memory_refs,
+                    "supporting_l2_refs": supporting_l2_refs,
+                    "supporting_source_refs": source_refs,
+                    "supporting_evidence_refs": evidence_refs,
+                    "supporting_receipt_refs": receipt_refs,
+                    "duplicate_ref": f"duplicate-key-ref:observation:{suffix}",
+                    "conflict_ref": f"conflict-key-ref:observation:{suffix}",
+                    "duplicate_candidate_refs": [],
+                    "conflict_candidate_refs": (
+                        [f"conflict-state-ref:{conflict_state}"]
+                        if conflict_state != "none"
+                        else []
+                    ),
+                    "freshness_refs": [
+                        f"stale-state-ref:{stale_state}",
+                        f"freshness-ref:reviewed-record:{suffix}",
+                    ],
+                    "score_components": dict(preview.get("score_components") or {}),
+                    "retrieval_strategy_refs": list(
+                        preview.get("retrieval_strategy_refs") or []
+                    ),
+                    "query_mode": query_mode,
+                    "safe_query_ref": safe_query_ref,
+                    **memory_feature_flags(),
+                }
+            )
+        return {
+            "schema_version": "fcc_mem_022_observation_candidates.v1",
+            "contract_ref": MEMORY_OBSERVATION_CANDIDATE_CONTRACT_REF,
+            "route_ref": MEMORY_OBSERVATION_CANDIDATE_ROUTE_REF,
+            "status": "implemented_read_only_observation_candidates",
+            "query_ref": query_ref,
+            "safe_query_ref": safe_query_ref,
+            "query_mode": query_mode,
+            "candidate_count": len(candidates),
+            "candidates": candidates,
+            "source_l1_preview_count": int(l1_index.get("preview_count") or 0),
+            "source_l2_projection_count": sum(
+                len(l2_index.get(key, []) or [])
+                for key in ["facts", "graph_relations", "temporal_items"]
+            ),
+            "retrieval_strategy_refs": list(l1_index.get("retrieval_strategy_refs") or []),
+            "search_index_status": dict(l1_index.get("search_index_status") or {}),
+            "hrr_readiness": memory_hrr_readiness(),
+            "blocked_state_refs": list(MEMORY_OBSERVATION_BLOCKED_STATE_REFS),
+            **memory_feature_flags(),
+        }
+
+    def memory_probe(
+        self,
+        *,
+        entity_ref: str,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        _validate_safe_ref(entity_ref, "entity_ref")
+        bounded_limit = self._bounded_limit(limit)
+        workbench = self.memory_workbench(limit=bounded_limit)
+        l1_index = self.memory_l1_hot_index(limit=bounded_limit)
+        l2_index = self.memory_l2_factual_graph_temporal_index(limit=bounded_limit)
+        l3_index = self.memory_l3_identity_session_preference_index(limit=bounded_limit)
+        context_packs = self.memory_context_pack_proposals(limit=bounded_limit)
+        observations = self.memory_observation_candidates(limit=bounded_limit)
+        feedback = self.list_memory_feedback_receipts(limit=bounded_limit)
+
+        def _matching_items(items: Sequence[dict[str, Any]], keys: Sequence[str]) -> list[dict[str, Any]]:
+            matches: list[dict[str, Any]] = []
+            for item in items:
+                refs: list[str] = []
+                for key in keys:
+                    value = item.get(key)
+                    if isinstance(value, list):
+                        refs.extend(str(ref) for ref in value)
+                    elif value:
+                        refs.append(str(value))
+                if refs_intersect(entity_ref, refs):
+                    matches.append(item)
+            return matches[:bounded_limit]
+
+        workbench_items = _matching_items(
+            workbench.get("items", []) or [],
+            [
+                "memory_ref",
+                "review_ref",
+                "source_refs",
+                "evidence_refs",
+                "related_entity_refs",
+                "tag_refs",
+                "receipt_refs",
+                "metadata_refs",
+            ],
+        )
+        l1_previews = _matching_items(
+            l1_index.get("previews", []) or [],
+            [
+                "memory_record_ref",
+                "reviewed_recall_ref",
+                "source_refs",
+                "evidence_refs",
+                "receipt_refs",
+                "metadata_refs",
+                "tag_refs",
+            ],
+        )
+        l2_items = _matching_items(
+            [
+                *list(l2_index.get("facts", []) or []),
+                *list(l2_index.get("graph_relations", []) or []),
+                *list(l2_index.get("temporal_items", []) or []),
+            ],
+            [
+                "memory_record_ref",
+                "reviewed_recall_ref",
+                "fact_subject_ref",
+                "fact_value_ref",
+                "source_node_ref",
+                "target_node_ref",
+                "temporal_anchor_ref",
+                "source_refs",
+                "evidence_refs",
+                "receipt_refs",
+                "metadata_refs",
+                "tag_refs",
+                "supporting_refs",
+            ],
+        )
+        l3_items = _matching_items(
+            l3_index.get("items", []) or [],
+            [
+                "l3_item_ref",
+                "subject_ref",
+                "observer_ref",
+                "observed_ref",
+                "workspace_ref",
+                "session_ref",
+                "representation_scope_ref",
+                "supporting_memory_record_refs",
+                "supporting_l1_preview_refs",
+                "supporting_l2_item_refs",
+                "source_refs",
+                "evidence_refs",
+                "receipt_refs",
+            ],
+        )
+        pack_items = _matching_items(
+            context_packs.get("proposals", []) or [],
+            [
+                "context_pack_ref",
+                "observed_ref",
+                "observer_ref",
+                "representation_scope_ref",
+                "source_memory_record_refs",
+                "l1_preview_refs",
+                "l2_projection_refs",
+                "l3_representation_refs",
+                "source_refs",
+                "evidence_refs",
+                "receipt_refs",
+            ],
+        )
+        feedback_items = _matching_items(
+            feedback,
+            ["memory_record_ref", "receipt_ref", "source_refs", "evidence_refs"],
+        )
+        observation_items = _matching_items(
+            observations.get("candidates", []) or [],
+            [
+                "observation_candidate_ref",
+                "supporting_memory_record_refs",
+                "supporting_l2_refs",
+                "supporting_source_refs",
+                "supporting_evidence_refs",
+                "supporting_receipt_refs",
+            ],
+        )
+        return {
+            "schema_version": "fcc_mem_022_memory_probe.v1",
+            "contract_ref": MEMORY_PROBE_CONTRACT_REF,
+            "route_ref": MEMORY_PROBE_ROUTE_REF,
+            "status": "implemented_read_only_safe_ref_probe",
+            "entity_ref": entity_ref,
+            "reviewed_recall_refs": [
+                str(item.get("memory_record_ref")) for item in l1_previews
+            ],
+            "workbench_item_refs": [str(item.get("memory_ref")) for item in workbench_items],
+            "l1_preview_refs": [str(item.get("memory_record_ref")) for item in l1_previews],
+            "l2_projection_refs": [
+                str(
+                    item.get("fact_ref")
+                    or item.get("relation_ref")
+                    or item.get("temporal_ref")
+                )
+                for item in l2_items
+            ],
+            "l3_representation_refs": [
+                str(item.get("l3_item_ref")) for item in l3_items
+            ],
+            "context_pack_refs": [
+                str(item.get("context_pack_ref")) for item in pack_items
+            ],
+            "feedback_receipt_refs": [
+                str(item.get("receipt_ref")) for item in feedback_items
+            ],
+            "observation_candidate_refs": [
+                str(item.get("observation_candidate_ref")) for item in observation_items
+            ],
+            "counts": {
+                "workbench": len(workbench_items),
+                "l1": len(l1_previews),
+                "l2": len(l2_items),
+                "l3": len(l3_items),
+                "context_packs": len(pack_items),
+                "feedback": len(feedback_items),
+                "observations": len(observation_items),
+            },
+            "search_index_status": dict(l1_index.get("search_index_status") or {}),
+            "hrr_readiness": memory_hrr_readiness(),
+            "blocked_state_refs": list(MEMORY_PROBE_BLOCKED_STATE_REFS),
+            **memory_feature_flags(),
+        }
+
+    def memory_contradictions(self, *, limit: int = 20) -> dict[str, Any]:
+        bounded_limit = self._bounded_limit(limit)
+        workbench = self.memory_workbench(limit=bounded_limit)
+        feedback = self.list_memory_feedback_receipts(limit=bounded_limit)
+        previews: list[dict[str, Any]] = []
+        for item in workbench.get("items", []) or []:
+            reason_refs = [
+                ref
+                for ref in list(item.get("excluded_reason_refs") or [])
+                if any(marker in ref for marker in ["conflict", "stale", "duplicate"])
+            ]
+            quality_refs = [
+                ref
+                for ref in list(item.get("quality_state_refs") or [])
+                if any(marker in ref for marker in ["conflict", "stale", "duplicate"])
+            ]
+            if not reason_refs and not quality_refs:
+                continue
+            suffix = _safe_suffix(str(item.get("memory_ref") or "memory-ref:none"))
+            previews.append(
+                {
+                    "contradiction_preview_ref": (
+                        f"contradiction-preview-ref:fcc-mem-022:{suffix}"
+                    ),
+                    "memory_ref": str(item.get("memory_ref")),
+                    "duplicate_key_ref": str(item.get("duplicate_key_ref")),
+                    "conflict_key_ref": str(item.get("conflict_key_ref")),
+                    "stale_state_ref": _status_ref(
+                        "stale-state-ref",
+                        str(item.get("stale_state") or "none"),
+                    ),
+                    "reason_refs": list(dict.fromkeys([*reason_refs, *quality_refs])),
+                    "supporting_source_refs": list(item.get("source_refs") or []),
+                    "supporting_evidence_refs": list(item.get("evidence_refs") or []),
+                    "supporting_receipt_refs": list(item.get("receipt_refs") or []),
+                    "safe_summary": (
+                        "Contradiction preview for reviewed memory refs; "
+                        "inspection only, no merge or forget action performed."
+                    ),
+                    **memory_feature_flags(),
+                }
+            )
+        for receipt in feedback:
+            if receipt.get("feedback_kind") not in {"stale", "conflict"}:
+                continue
+            suffix = _safe_suffix(str(receipt.get("receipt_ref") or "receipt:none"))
+            previews.append(
+                {
+                    "contradiction_preview_ref": (
+                        f"contradiction-preview-ref:memory-feedback:{suffix}"
+                    ),
+                    "memory_ref": str(receipt.get("memory_record_ref")),
+                    "duplicate_key_ref": f"duplicate-key-ref:feedback:{suffix}",
+                    "conflict_key_ref": f"conflict-key-ref:feedback:{suffix}",
+                    "stale_state_ref": _status_ref(
+                        "stale-state-ref",
+                        str(receipt.get("stale_state_after") or "none"),
+                    ),
+                    "reason_refs": [
+                        f"feedback-kind-ref:memory:{receipt.get('feedback_kind')}",
+                        str(receipt.get("receipt_ref")),
+                    ],
+                    "supporting_source_refs": list(receipt.get("source_refs") or []),
+                    "supporting_evidence_refs": list(receipt.get("evidence_refs") or []),
+                    "supporting_receipt_refs": [str(receipt.get("receipt_ref"))],
+                    "safe_summary": (
+                        "Contradiction preview from memory feedback receipt; "
+                        "inspection only, no merge or forget action performed."
+                    ),
+                    **memory_feature_flags(),
+                }
+            )
+        previews = previews[:bounded_limit]
+        return {
+            "schema_version": "fcc_mem_022_memory_contradiction_previews.v1",
+            "contract_ref": MEMORY_CONTRADICTION_PREVIEW_CONTRACT_REF,
+            "route_ref": MEMORY_CONTRADICTION_PREVIEW_ROUTE_REF,
+            "status": "implemented_read_only_contradiction_preview",
+            "preview_count": len(previews),
+            "previews": previews,
+            "ranking_contract_ref": MEMORY_RANKING_CONTRACT_REF,
+            "search_index_status": dict(workbench.get("search_index_status") or {}),
+            "hrr_readiness": memory_hrr_readiness(),
+            "blocked_state_refs": list(MEMORY_CONTRADICTION_BLOCKED_STATE_REFS),
+            **memory_feature_flags(),
+        }
 
     def _memory_context_pack_payload_for_ref(
         self,
@@ -11207,6 +11858,9 @@ class FounderLoopRepository:
                 else MemoryRecordKind.structured_fact
             ),
             memory_layer=MemoryLayer.record,
+            epistemic_role=epistemic_role_for_candidate_kind(
+                str(candidate.get("candidate_kind") or "unknown")
+            ),
             provider_kind=MemoryProviderKind.local_sqlite,
             safe_summary=safe_summary,
             source_refs=request.source_refs,
@@ -11263,6 +11917,13 @@ class FounderLoopRepository:
 
     def _memory_review_recall_store(self) -> LocalMemoryStore:
         return LocalMemoryStore(storage_path=self.memory_review_recall_db_path)
+
+    def _memory_review_recall_search_index_status(self) -> dict[str, Any]:
+        store = self._memory_review_recall_store()
+        try:
+            return store.search_index_status()
+        finally:
+            store.close()
 
     def _memory_review_payload_for_ref(
         self,
@@ -12200,6 +12861,20 @@ class FounderLoopRepository:
                     action_envelope_ref TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS memory_feedback_receipts (
+                    receipt_ref TEXT PRIMARY KEY,
+                    memory_record_ref TEXT NOT NULL,
+                    feedback_kind TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS memory_feedback_replays (
+                    key_ref TEXT PRIMARY KEY,
+                    memory_record_ref TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    receipt_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS chat_turn_receipts (
                     receipt_ref TEXT PRIMARY KEY,
                     turn_ref TEXT NOT NULL,
@@ -13074,6 +13749,8 @@ class FounderLoopRepository:
             "memory_manual_candidate_replays",
             "memory_context_pack_action_proposals",
             "memory_context_pack_action_replays",
+            "memory_feedback_receipts",
+            "memory_feedback_replays",
             "idempotency_keys",
             "route_state_snapshots",
             "evidence_refs",

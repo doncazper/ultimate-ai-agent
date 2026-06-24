@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_ROUTE_COUNT,
     append_expected_route_count,
     append_route_fixture_mismatches,
     classification_counter,
@@ -35,7 +36,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 67,
     "none": 4,
-    "local_dev_workspace_only": 71,
+    "local_dev_workspace_only": 75,
     "governed_network_read_only": 1,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -79,7 +80,7 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
-        "143",
+        str(EXPECTED_ROUTE_COUNT),
         "public_metadata",
         "local_readonly",
         "local_sensitive",

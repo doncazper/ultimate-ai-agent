@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import re
 
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 
@@ -41,7 +42,7 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     assert manifest["operator_readiness_taxonomy_ref"] == (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     )
-    assert manifest["openapi_path_count"] == 143
+    assert manifest["openapi_path_count"] == EXPECTED_ROUTE_COUNT
     assert _visible_frontend_routes().issubset(action_routes)
 
     required_fields = {

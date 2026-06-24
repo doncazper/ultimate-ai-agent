@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.memory.enums import (
     MemoryConflictState,
     MemoryDataClassification,
     MemoryDecayState,
+    MemoryEpistemicRole,
     MemoryLayer,
     MemoryProviderKind,
     MemoryRecallEligibility,
@@ -105,6 +106,7 @@ class MemoryRecord(BaseModel):
     memory_type: MemoryType = MemoryType.semantic
     memory_kind: MemoryRecordKind = MemoryRecordKind.structured_fact
     memory_layer: MemoryLayer = MemoryLayer.record
+    epistemic_role: MemoryEpistemicRole = MemoryEpistemicRole.unknown
     provider_kind: MemoryProviderKind = MemoryProviderKind.local_in_memory
     review_state: MemoryReviewState = MemoryReviewState.user_review_required
     authority_level: MemoryAuthorityLevel = MemoryAuthorityLevel.recall_only

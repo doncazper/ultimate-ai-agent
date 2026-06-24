@@ -2,6 +2,7 @@
 from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
@@ -57,7 +58,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 143
+    assert manifest.route_count == EXPECTED_ROUTE_COUNT
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",
@@ -66,7 +67,10 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
+        "/control-center/memory/contradictions",
         "/control-center/memory/context-packs",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
         "/control-center/memory/review",
         "/control-center/memory/workbench",
         "/control-center/memory/search",
@@ -103,6 +107,15 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         assert routes[path].approval_posture == "required_before_mutation_authority"
         assert routes[path].idempotency_required is True
         assert routes[path].rate_limit_group == "action_decision"
+
+    feedback_path = "/control-center/memory/feedback"
+    assert feedback_path in routes
+    assert routes[feedback_path].method == "POST"
+    assert routes[feedback_path].side_effect_class == "local_dev_workspace_only"
+    assert routes[feedback_path].route_classification == "mutating_requires_authority"
+    assert routes[feedback_path].approval_posture == "required_before_mutation_authority"
+    assert routes[feedback_path].idempotency_required is True
+    assert routes[feedback_path].rate_limit_group == "memory_feedback"
 
     for path in [
         "/control-center/memory/review/{candidate_ref}/accept",

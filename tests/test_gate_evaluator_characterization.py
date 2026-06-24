@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES,
     FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES,
     FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES,
+    FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES,
     FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
     _historical_openapi_path_set,
@@ -76,9 +77,13 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/memory/review",
         "/control-center/memory/context-packs",
         "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+        "/control-center/memory/contradictions",
+        "/control-center/memory/feedback",
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
         "/control-center/memory/search",
         "/control-center/memory/workbench",
         "/control-center/memory/review/{candidate_ref}/accept",
@@ -134,6 +139,12 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     }
     assert FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES == {
         "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+    }
+    assert FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES == {
+        "/control-center/memory/contradictions",
+        "/control-center/memory/feedback",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
     }
     assert CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES == {
         "/control-center/local-models/status",

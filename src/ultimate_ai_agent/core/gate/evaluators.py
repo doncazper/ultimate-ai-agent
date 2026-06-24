@@ -75,6 +75,8 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 48
+
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
@@ -2473,40 +2475,54 @@ class FoundationGateEvaluator:
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/model_runtime/requests.py"])
 
     def check_m8_api_validation_secret_echo_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
-        from fastapi.testclient import TestClient
-
-        from ultimate_ai_agent.api.app import app
-        from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
+        from ultimate_ai_agent.api.app import (
+            ModelRuntimeRequestValidatePayload,
+            ModelRuntimeSimulatePayload,
+            post_simulate_model_runtime,
+            post_validate_model_runtime_manifest,
+            post_validate_model_runtime_request,
+        )
 
         failures = []
-        client = TestClient(app)
-        old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
-        bearer = "foundation-gate-m8-local-bearer"
-        os.environ[LOCAL_API_BEARER_ENV] = bearer
-        auth_headers = {"Authorization": f"Bearer {bearer}"}
         secret = "sk_" + "test_" + "secret_" + "value"
         assignment = "api_" + "key=" + secret
-        manifest = self._m8_gate_manifest()
-        manifest_with_secret = {**manifest, "metadata": {"note": assignment}}
-        request = self._m8_gate_request()
+        manifest_with_secret = {"metadata": {"note": assignment}}
+        request_with_secret = {"prompt_summary": assignment}
         cases = [
-            ("/model-runtime/manifests/validate", manifest_with_secret),
-            ("/model-runtime/manifests/validate", {**manifest, "api_" + "key": secret}),
-            ("/model-runtime/requests/validate", {"request": request, "manifest": manifest_with_secret}),
-            ("/model-runtime/simulate", {"request": request, "manifest": manifest_with_secret}),
+            (
+                "/model-runtime/manifests/validate",
+                lambda: post_validate_model_runtime_manifest(manifest_with_secret),
+            ),
+            (
+                "/model-runtime/manifests/validate",
+                lambda: post_validate_model_runtime_manifest({"api_" + "key": secret}),
+            ),
+            (
+                "/model-runtime/requests/validate",
+                lambda: post_validate_model_runtime_request(
+                    ModelRuntimeRequestValidatePayload(
+                        request=request_with_secret,
+                        manifest=manifest_with_secret,
+                    )
+                ),
+            ),
+            (
+                "/model-runtime/simulate",
+                lambda: post_simulate_model_runtime(
+                    ModelRuntimeSimulatePayload(
+                        request=request_with_secret,
+                        manifest=manifest_with_secret,
+                    )
+                ),
+            ),
         ]
-        try:
-            for path, payload in cases:
-                response = client.post(path, json=payload, headers=auth_headers)
-                if response.status_code not in {200, 422}:
-                    failures.append(f"{path} returned unexpected status {response.status_code}")
-                if secret in response.text or assignment in response.text:
-                    failures.append(f"{path} echoed secret-like input")
-        finally:
-            if old_bearer is None:
-                os.environ.pop(LOCAL_API_BEARER_ENV, None)
-            else:
-                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
+        for path, call in cases:
+            response = call()
+            if response.success is not False:
+                failures.append(f"{path} did not return a validation failure")
+            response_text = response.model_dump_json()
+            if secret in response_text or assignment in response_text:
+                failures.append(f"{path} echoed secret-like input")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
 
     def check_m85_approval_authority_files_present(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
@@ -2705,34 +2721,18 @@ class FoundationGateEvaluator:
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/approvals"])
 
     def check_m85_approval_api_secret_echo_absent(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
-        from fastapi.testclient import TestClient
+        from ultimate_ai_agent.api.app import post_validate_approval_request
 
-        from ultimate_ai_agent.api.app import app
-        from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
-
-        client = TestClient(app)
-        old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
-        bearer = "foundation-gate-m85-local-bearer"
-        os.environ[LOCAL_API_BEARER_ENV] = bearer
         secret = "sk_" + "test_" + "secret_" + "value"
         assignment = "api_" + "key=" + secret
         payload = self._m85_gate_approval_request().model_dump(mode="json")
         payload["metadata"] = {"note": assignment}
-        try:
-            response = client.post(
-                "/approvals/requests/validate",
-                json=payload,
-                headers={"Authorization": f"Bearer {bearer}"},
-            )
-        finally:
-            if old_bearer is None:
-                os.environ.pop(LOCAL_API_BEARER_ENV, None)
-            else:
-                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
+        response = post_validate_approval_request(payload)
+        response_text = response.model_dump_json()
         failures = []
-        if response.status_code not in {200, 422}:
-            failures.append(f"unexpected approval API status {response.status_code}")
-        if secret in response.text or assignment in response.text or "api_key" in response.text:
+        if response.success is not False:
+            failures.append("approval API did not return a validation failure")
+        if secret in response_text or assignment in response_text or "api_key" in response_text:
             failures.append("approval API echoed secret-like input")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
 
@@ -3332,33 +3332,24 @@ class FoundationGateEvaluator:
         return self._result(criterion, failures, ["src/ultimate_ai_agent/core/remote_workers/policy.py"])
 
     def check_m105_remote_worker_api_extra_fields_forbidden(self, criterion: FoundationGateCriterion) -> FoundationGateResult:
-        from fastapi.testclient import TestClient
+        from pydantic import ValidationError as PydanticValidationError
 
-        from ultimate_ai_agent.api.app import app
-        from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
+        from ultimate_ai_agent.api.app import (
+            RemotePolicyValidatePayload,
+            sanitize_validation_errors,
+        )
 
         failures = []
-        client = TestClient(app)
-        old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
-        bearer = "foundation-gate-m105-local-bearer"
-        os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
-            response = client.post(
-                "/remote-workers/policy/validate",
-                json={"policy": {"policy_id": "m105_extra_policy"}, "api_key": "sk_secret_value_123456"},
-                headers={"Authorization": f"Bearer {bearer}"},
+            RemotePolicyValidatePayload(
+                policy={"policy_id": "m105_extra_policy"},
+                **{"api_" + "key": "sk_" + "secret_" + "value_" + "123456"},
             )
-        finally:
-            if old_bearer is None:
-                os.environ.pop(LOCAL_API_BEARER_ENV, None)
-            else:
-                os.environ[LOCAL_API_BEARER_ENV] = old_bearer
-        body = response.json()
-        if response.status_code != 422:
-            failures.append(f"extra top-level field returned status {response.status_code}")
-        if body.get("success") is not False:
-            failures.append("extra top-level field did not produce failure envelope")
-        if "api_key" in response.text or "sk_secret_value_123456" in response.text:
+            failures.append("extra top-level field did not produce validation failure")
+            response_text = ""
+        except PydanticValidationError as exc:
+            response_text = json.dumps(sanitize_validation_errors(exc.errors()))
+        if "api_key" in response_text or "sk_secret_value_123456" in response_text:
             failures.append("extra top-level secret-like field leaked in validation response")
         return self._result(criterion, failures, ["src/ultimate_ai_agent/api/app.py"])
 
@@ -4070,6 +4061,18 @@ class FoundationGateEvaluator:
                 and route.rate_limit_group == "memory_context_pack_action_proposal"
                 and route.blocked_from_production
             )
+            is_founder_loop_memory_feedback_state = (
+                path == "/control-center/memory/feedback"
+                and route.method == "POST"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "memory_feedback"
+                and route.blocked_from_production
+            )
             if (
                 not route.validation_only
                 and not is_founder_loop_summary
@@ -4079,6 +4082,7 @@ class FoundationGateEvaluator:
                 and not is_founder_loop_memory_review_decision_state
                 and not is_founder_loop_local_task_commit_state
                 and not is_founder_loop_memory_context_action_proposal_state
+                and not is_founder_loop_memory_feedback_state
             ):
                 failures.append(
                     f"{path} is not read-only/preview-only/founder-loop-state"
@@ -4360,7 +4364,7 @@ class FoundationGateEvaluator:
                 f"boundary: expected {EXPECTED_M36_OPENAPI_PATH_COUNT}, found {len(historical_paths)}"
             )
         control_center_routes = [path for path in paths if path.startswith("/control-center")]
-        if len(control_center_routes) != 44:
+        if len(control_center_routes) != EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT:
             failures.append(f"unexpected Control Center route count: {len(control_center_routes)}")
         forbidden = [
             "/control-center/actions/execute",
@@ -49939,13 +49943,17 @@ class FoundationGateEvaluator:
         ]
         failures = [f"missing v0.29.2 hardening file: {path}" for path in required_files if not (self.root / path).exists()]
         try:
-            from fastapi.testclient import TestClient
+            from pydantic import ValidationError as PydanticValidationError
 
-            from ultimate_ai_agent.api.app import app
+            from ultimate_ai_agent.api.app import (
+                FileReadPreviewAPIRequest,
+                post_preview_file_read,
+                post_run_kernel_task,
+                sanitize_validation_errors,
+            )
             from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
             from ultimate_ai_agent.core.kernel import KernelTaskStatus, MinimumKernelRunner
 
-            client = TestClient(app)
             old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
             bearer = "foundation-gate-v0292-local-bearer"
             os.environ[LOCAL_API_BEARER_ENV] = bearer
@@ -49988,99 +49996,91 @@ class FoundationGateEvaluator:
                     "tags": ["foundation_gate", "v0292"],
                 }
 
-            with tempfile.TemporaryDirectory(prefix="uaa-gate-v0292-kernel-") as probe_dir:
-                probe_root = Path(probe_dir)
-                payload = kernel_payload(probe_root, "approval_test_gate")
-                response = client.post(
-                    "/kernel/tasks/run",
-                    headers={
-                        **auth_headers,
-                        "X-UAA-Idempotency-Key": "idempotency:foundation-gate-v0292-kernel",
-                    },
-                    json=payload,
-                )
-                if response.status_code != 200:
-                    failures.append(f"kernel API dry-run probe returned HTTP {response.status_code}")
-                else:
-                    body = response.json()
-                    data = body.get("data") or {}
-                    if body.get("success") is not True or data.get("status") != KernelTaskStatus.dry_run:
-                        failures.append("kernel API did not force local-dev mutation requests into dry-run")
-                    if (probe_root / "notes" / "m5.md").exists():
-                        failures.append("kernel API dry-run probe created a file")
+            try:
+                with tempfile.TemporaryDirectory(prefix="uaa-gate-v0292-kernel-") as probe_dir:
+                    probe_root = Path(probe_dir)
+                    payload = kernel_payload(probe_root, "approval_test_gate")
+                    response = post_run_kernel_task(payload)
+                    if response.success is not True:
+                        failures.append("kernel API dry-run probe returned failure envelope")
+                    else:
+                        data = response.data or {}
+                        if data.get("status") != KernelTaskStatus.dry_run:
+                            failures.append("kernel API did not force local-dev mutation requests into dry-run")
+                        if (probe_root / "notes" / "m5.md").exists():
+                            failures.append("kernel API dry-run probe created a file")
 
-                direct_result = MinimumKernelRunner().run_payload(kernel_payload(probe_root, "approval_test_gate"))
-                if direct_result.success or "APPROVAL_REF_UNVALIDATED" not in direct_result.errors:
-                    failures.append("kernel runner accepted a test-prefixed approval without authority")
+                    direct_result = MinimumKernelRunner().run_payload(kernel_payload(probe_root, "approval_test_gate"))
+                    if direct_result.success or "APPROVAL_REF_UNVALIDATED" not in direct_result.errors:
+                        failures.append("kernel runner accepted a test-prefixed approval without authority")
 
-            with tempfile.TemporaryDirectory(prefix="uaa-gate-v0292-preview-") as preview_dir:
-                preview_root = Path(preview_dir)
-                preview_file = preview_root / "note.txt"
-                preview_file.write_text("hello", encoding="utf-8")
-                old_safe_root = os.environ.get("UAA_FILE_API_SAFE_ROOT")
-                os.environ["UAA_FILE_API_SAFE_ROOT"] = str(preview_root)
-                preview_response = client.post(
-                    "/files/read/preview",
-                    headers=auth_headers,
-                    json={
-                        "safe_root_ref": "local_dev_workspace",
-                        "request": {
-                            "request_id": "frr_gate_v0292",
-                            "run_id": "run_gate_v0292",
-                            "actor_context": {
-                                "actor_type": "human_user",
-                                "actor_id": "gate_user",
-                                "authority_source": "explicit_user_request",
-                            },
-                            "path": "note.txt",
-                            "purpose": "preview",
-                            "max_bytes": 100,
-                        },
-                    },
-                )
-                if preview_response.status_code != 200:
-                    failures.append(f"file preview probe returned HTTP {preview_response.status_code}")
-                else:
-                    preview_body = preview_response.json()
-                    preview_data = preview_body.get("data") or {}
-                    if preview_body.get("success") is not True:
-                        failures.append("file preview metadata probe failed")
-                    if preview_data.get("text_preview") != "":
-                        failures.append("file preview API returned raw text content")
-                    if preview_data.get("content_hash") != "redacted":
-                        failures.append("file preview API returned a content hash")
-                    if "hello" in preview_response.text:
-                        failures.append("file preview API echoed raw file content")
-                    if "raw_content_omitted" not in preview_data.get("redactions_applied", []):
-                        failures.append("file preview API did not mark raw content omitted")
-                caller_root_response = client.post(
-                    "/files/read/preview",
-                    headers=auth_headers,
-                    json={
-                        "workspace_root": str(preview_root),
-                        "safe_root_ref": "local_dev_workspace",
-                        "request": {
-                            "request_id": "frr_gate_v0292_caller_root",
-                            "run_id": "run_gate_v0292",
-                            "actor_context": {
-                                "actor_type": "human_user",
-                                "actor_id": "gate_user",
-                                "authority_source": "explicit_user_request",
-                            },
-                            "path": "note.txt",
-                            "purpose": "preview",
-                            "max_bytes": 100,
-                        },
-                    },
-                )
-                if caller_root_response.status_code != 422:
-                    failures.append("file preview API accepted caller-selected workspace_root")
-                if str(preview_root) in caller_root_response.text:
-                    failures.append("file preview API echoed caller-selected workspace_root")
-                if old_safe_root is None:
-                    os.environ.pop("UAA_FILE_API_SAFE_ROOT", None)
-                else:
-                    os.environ["UAA_FILE_API_SAFE_ROOT"] = old_safe_root
+                with tempfile.TemporaryDirectory(prefix="uaa-gate-v0292-preview-") as preview_dir:
+                    preview_root = Path(preview_dir)
+                    preview_file = preview_root / "note.txt"
+                    preview_file.write_text("hello", encoding="utf-8")
+                    old_safe_root = os.environ.get("UAA_FILE_API_SAFE_ROOT")
+                    os.environ["UAA_FILE_API_SAFE_ROOT"] = str(preview_root)
+                    try:
+                        preview_response = post_preview_file_read(
+                            FileReadPreviewAPIRequest(
+                                safe_root_ref="local_dev_workspace",
+                                request={
+                                    "request_id": "frr_gate_v0292",
+                                    "run_id": "run_gate_v0292",
+                                    "actor_context": {
+                                        "actor_type": "human_user",
+                                        "actor_id": "gate_user",
+                                        "authority_source": "explicit_user_request",
+                                    },
+                                    "path": "note.txt",
+                                    "purpose": "preview",
+                                    "max_bytes": 100,
+                                },
+                            )
+                        )
+                        if preview_response.success is not True:
+                            failures.append("file preview metadata probe failed")
+                        else:
+                            preview_data = preview_response.data or {}
+                            if preview_data.get("text_preview") != "":
+                                failures.append("file preview API returned raw text content")
+                            if preview_data.get("content_hash") != "redacted":
+                                failures.append("file preview API returned a content hash")
+                            if "hello" in preview_response.model_dump_json():
+                                failures.append("file preview API echoed raw file content")
+                            if "raw_content_omitted" not in preview_data.get("redactions_applied", []):
+                                failures.append("file preview API did not mark raw content omitted")
+                        try:
+                            FileReadPreviewAPIRequest(
+                                workspace_root=str(preview_root),
+                                safe_root_ref="local_dev_workspace",
+                                request={
+                                    "request_id": "frr_gate_v0292_caller_root",
+                                    "run_id": "run_gate_v0292",
+                                    "actor_context": {
+                                        "actor_type": "human_user",
+                                        "actor_id": "gate_user",
+                                        "authority_source": "explicit_user_request",
+                                    },
+                                    "path": "note.txt",
+                                    "purpose": "preview",
+                                    "max_bytes": 100,
+                                },
+                            )
+                            failures.append("file preview API accepted caller-selected workspace_root")
+                            caller_root_response_text = ""
+                        except PydanticValidationError as exc:
+                            caller_root_response_text = json.dumps(
+                                sanitize_validation_errors(exc.errors())
+                            )
+                        if str(preview_root) in caller_root_response_text:
+                            failures.append("file preview API echoed caller-selected workspace_root")
+                    finally:
+                        if old_safe_root is None:
+                            os.environ.pop("UAA_FILE_API_SAFE_ROOT", None)
+                        else:
+                            os.environ["UAA_FILE_API_SAFE_ROOT"] = old_safe_root
+            finally:
                 if old_bearer is None:
                     os.environ.pop(LOCAL_API_BEARER_ENV, None)
                 else:

@@ -57,6 +57,7 @@ CAPABILITIES_DECLARED = [
     "control_center_memory_review_decision_receipts",
     "control_center_memory_workbench_read_model",
     "control_center_memory_ranked_retrieval_read_model",
+    "control_center_memory_safe_query_hashed_read_model",
     "control_center_memory_search_filters",
     "control_center_manual_memory_candidate_intake",
     "control_center_memory_l1_hot_local_index",
@@ -64,6 +65,11 @@ CAPABILITIES_DECLARED = [
     "control_center_memory_l3_identity_session_preference_modeling",
     "control_center_memory_context_pack_proposals",
     "control_center_memory_context_pack_internal_action_proposal",
+    "control_center_memory_feedback_receipts",
+    "control_center_memory_observation_candidates",
+    "control_center_memory_probe_index",
+    "control_center_memory_contradiction_previews",
+    "control_center_memory_hrr_readiness_blocked_contract",
     "control_center_evidence_timeline_productization",
     "control_center_morning_briefing_summary",
     "control_center_source_readiness_status",
@@ -157,6 +163,9 @@ CAPABILITIES_BLOCKED = [
     "control_center_memory_ranked_retrieval_connector_writes",
     "control_center_memory_ranked_retrieval_background_indexing",
     "control_center_memory_ranked_retrieval_truth_authority",
+    "control_center_memory_ranked_retrieval_hrr",
+    "control_center_memory_ranked_retrieval_algebraic_retrieval",
+    "control_center_memory_safe_query_raw_echo",
     "control_center_memory_ranked_retrieval_production_authority",
     "control_center_memory_search_embeddings",
     "control_center_memory_search_vector_db",
@@ -221,6 +230,27 @@ CAPABILITIES_BLOCKED = [
     "control_center_memory_context_pack_phase6_execution_hooks",
     "control_center_memory_context_pack_internal_action_proposal_as_execution",
     "control_center_memory_context_pack_external_side_effects",
+    "control_center_memory_feedback_recall_record_create",
+    "control_center_memory_feedback_delete_or_export_execution",
+    "control_center_memory_feedback_context_injection",
+    "control_center_memory_feedback_action_execution",
+    "control_center_memory_feedback_connector_writes",
+    "control_center_memory_feedback_provider_model_calls",
+    "control_center_memory_feedback_cloud_sync",
+    "control_center_memory_observation_candidates_truth_authority",
+    "control_center_memory_observation_candidates_automatic_opinion",
+    "control_center_memory_observation_candidates_context_injection",
+    "control_center_memory_probe_context_injection",
+    "control_center_memory_probe_action_execution",
+    "control_center_memory_contradictions_auto_merge",
+    "control_center_memory_contradictions_auto_forget",
+    "control_center_memory_contradictions_truth_authority",
+    "control_center_memory_hrr_enabled_without_explicit_milestone",
+    "control_center_memory_hrr_ranking_influence",
+    "control_center_memory_hrr_raw_content_input",
+    "control_center_memory_hrr_embeddings_provider",
+    "control_center_memory_hrr_vector_db",
+    "control_center_memory_hrr_context_injection",
     "control_center_plugin_enablement",
     "control_center_frontend_native_build_control",
     "control_center_mobile_sensor_access",
@@ -351,6 +381,9 @@ CONTROL_CENTER_ACTION_LOCAL_TASK_COMMIT_PATHS = {
 }
 CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
+}
+CONTROL_CENTER_MEMORY_FEEDBACK_PATHS = {
+    "/control-center/memory/feedback",
 }
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
@@ -554,6 +587,11 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Memory context-pack internal Action proposal authority route; exact approval, idempotency, receipt, rollback, and evidence posture required while execution stays blocked",
+        )
+    if normalized_method == "POST" and path in CONTROL_CENTER_MEMORY_FEEDBACK_PATHS:
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Memory feedback receipt route; exact local authority, approval, idempotency, audit, and evidence posture required while deletes, exports, context injection, connector writes, and execution stay blocked",
         )
     if (
         normalized_method == "POST"

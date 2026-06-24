@@ -27,7 +27,11 @@ import {
   setLocalApiBearerForSession,
 } from "./api/client";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
-import { mockControlCenterData } from "./mocks/controlCenterData";
+import {
+  MOCK_CONTROL_CENTER_ROUTE_COUNT,
+  MOCK_OPENAPI_ROUTE_COUNT,
+  mockControlCenterData,
+} from "./mocks/controlCenterData";
 import { primaryNavItems, supportingNavItems } from "./routes";
 
 function mockFetchWithFallback() {
@@ -3185,7 +3189,9 @@ describe("Web Control Center shell", () => {
       .closest("article");
     expect(routePanel).not.toBeNull();
     expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("143")).toBeInTheDocument();
+    expect(
+      within(routePanel!).getByText(String(MOCK_OPENAPI_ROUTE_COUNT)),
+    ).toBeInTheDocument();
     expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
     expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
     expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
@@ -5235,8 +5241,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 143,
-      control_center_route_count: 44,
+      route_count: MOCK_OPENAPI_ROUTE_COUNT,
+      control_center_route_count: MOCK_CONTROL_CENTER_ROUTE_COUNT,
       operation_ids_unique: true,
       execution_routes_present: false,
     },

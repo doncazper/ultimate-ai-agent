@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `143`.
+Current OpenAPI path count: `147`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,8 +44,8 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 17 |
-| `local_sensitive` | 93 |
-| `mutating_requires_authority` | 30 |
+| `local_sensitive` | 96 |
+| `mutating_requires_authority` | 31 |
 
 Allowed current side-effect classes are:
 
@@ -90,7 +90,7 @@ UAA-P1-085 implements targeted local fixed-window rate-limit posture for
 model/chat, task decomposition, action preview/proposal, Action Inbox decisions,
 Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
 Review decision receipts, Memory context-pack internal Action proposal receipts,
-and local model validation route groups.
+Memory feedback receipts, and local model validation route groups.
 `/api/manifest` and the frozen route inventory expose
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production
@@ -194,6 +194,10 @@ readiness, or execute rollback.
 - `POST /control-center/actions/{action_id}/defer`
 - `GET /control-center/actions/{action_id}/receipt`
 - `GET /control-center/memory/review`
+- `GET /control-center/memory/contradictions`
+- `POST /control-center/memory/feedback`
+- `GET /control-center/memory/observation-candidates`
+- `GET /control-center/memory/probe`
 - `GET /control-center/memory/l1-index`
 - `GET /control-center/memory/l2-index`
 - `GET /control-center/memory/l3-index`
@@ -209,7 +213,9 @@ These routes expose storage-backed Founder Loop v1 summaries for Today, Action
 Inbox, Memory Review, Morning Briefing, local storage status, Action Inbox
 decision receipts, Memory Review decision receipts, read-only L1 hot local
 memory index previews, L2 ref projections, L3 representation proposals, and
-Phase 5 context-pack proposal envelopes.
+Phase 5 context-pack proposal envelopes, plus FCC-MEM-022 feedback receipts,
+observation-candidate previews, probe index summaries, and contradiction
+previews.
 Action decision routes record backend-owned
 approve/edit/reject/defer state, validate exact approval scope for approve where
 required, handle idempotency replay/conflict locally, and return safe receipt

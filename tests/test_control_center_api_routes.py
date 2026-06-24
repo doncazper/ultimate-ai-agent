@@ -6,6 +6,7 @@ import re
 
 import pytest
 
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
@@ -603,6 +604,10 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/actions/inbox",
         "/control-center/morning-briefing/summary",
         "/control-center/storage/status",
+        "/control-center/memory/feedback",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
+        "/control-center/memory/contradictions",
     }
     assert required.issubset(paths)
     for forbidden in [
@@ -632,8 +637,8 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/integrations/mattermost/events/message" in paths
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
     assert "/control-center/sources/readiness" in paths
-    assert len(paths) == 143
-    assert len(operation_ids) == len(set(operation_ids)) == 143
+    assert len(paths) == EXPECTED_ROUTE_COUNT
+    assert len(operation_ids) == len(set(operation_ids)) == EXPECTED_ROUTE_COUNT
 
 
 def test_control_center_action_local_task_commit_requires_exact_approval_and_receipts(
@@ -799,7 +804,10 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 143 openapi paths" in compact
+    assert (
+        f"api boundary: current fastapi manifest has {EXPECTED_ROUTE_COUNT} openapi paths"
+        in compact
+    )
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "
