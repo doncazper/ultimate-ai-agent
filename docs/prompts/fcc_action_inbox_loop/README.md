@@ -18,6 +18,7 @@ adding broader authority.
 5. `05_recommended_next_local_task_create_gate.prompt.md`
 6. `06_execute_next_planned_steps.prompt.md`
 7. `07_recommended_next_safe_disable_ui_followup.prompt.md`
+8. `08_source_readiness_dedicated_route.prompt.md`
 
 Use `00_execute_all_review_verify_harden.prompt.md` when the operator wants one
 end-to-end run through the full sequence.
@@ -30,6 +31,10 @@ source readiness, verification, and finalization.
 Use `07_recommended_next_safe_disable_ui_followup.prompt.md` when the operator
 wants the active Action Inbox UI to display backend-owned local task posture
 without adding authority.
+
+Use `08_source_readiness_dedicated_route.prompt.md` when the operator wants to
+promote embedded Morning Briefing source readiness into a dedicated, typed,
+read-only backend route without pretending live connectors exist.
 
 ## Authority Boundary
 
