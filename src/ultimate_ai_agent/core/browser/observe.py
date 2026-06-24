@@ -348,15 +348,6 @@ class _BrowserObserveOnlyWebAccessAdapter:
         request: WebAccessRequest,
         decision: WebAccessPolicyDecision,
     ) -> Mapping[str, Any]:
-        if self.observe_transport is None:
-            output = _decision_output(
-                request=self.observe_request,
-                status=BrowserObserveOnlyStatus.transport_unavailable,
-                observe_allowed=False,
-                reason_codes=["BROWSER_OBSERVE_TRANSPORT_REQUIRED"],
-                safe_message="BROWSER_OBSERVE_ONLY_TRANSPORT_REQUIRED",
-            )
-            return _blocked_browser_observe_adapter_result(output)
         if request.kind != WebAccessRequestKind.BROWSER_OBSERVE:
             output = _decision_output(
                 request=self.observe_request,
@@ -425,16 +416,25 @@ def build_browser_observe_only_output_via_web_access_gateway(
                 "request_ref": request.request_ref,
                 "target_ref": request.target_ref,
                 "safe_url_ref": request.safe_url_ref,
-                "uses_auth": False,
-                "cookies": False,
                 "request_body": False,
-                "download": False,
-                "upload": False,
-                "raw_dom": False,
-                "screenshot": False,
-                "navigation": False,
-                "click": False,
-                "form_fill": False,
+                "raw_dom": request.raw_dom_requested,
+                "screenshot": request.screenshot_requested,
+                "navigation": request.navigation_requested,
+                "click": request.click_requested,
+                "form_fill": request.form_fill_requested,
+                "uses_auth": request.authenticated_profile_requested,
+                "cookies": request.cookies_or_credentials_requested,
+                "download": request.download_or_upload_requested,
+                "upload": request.download_or_upload_requested,
+                "network_interception": request.network_interception_requested,
+                "network_call": request.network_call_requested,
+                "model_call": request.model_call_requested,
+                "tool_execution": request.tool_execution_requested,
+                "memory_write": request.memory_write_requested,
+                "context_injection": request.context_injection_requested,
+                "backend_route": request.backend_route_requested,
+                "control_center_control": request.control_center_control_requested,
+                "production_authority": request.production_authority_requested,
             },
         )
     )
@@ -501,6 +501,42 @@ def _browser_observe_reasons_from_web_access_result(reasons: tuple[str, ...]) ->
             mapped.append("BROWSER_OBSERVE_SAFE_REF_ONLY_REQUIRED")
         elif reason == "browser_observe_control_or_raw_content_denied":
             mapped.append("BROWSER_OBSERVE_CONTROL_OR_RAW_CONTENT_DENIED")
+        elif reason == "browser_observe_navigation_denied":
+            mapped.append("BROWSER_NAVIGATION_DENIED")
+        elif reason == "browser_observe_click_denied":
+            mapped.append("BROWSER_CLICK_DENIED")
+        elif reason == "browser_observe_form_fill_denied":
+            mapped.append("FORM_FILL_DENIED")
+        elif reason == "browser_observe_screenshot_denied":
+            mapped.append("SCREENSHOT_DENIED")
+        elif reason == "browser_observe_raw_dom_denied":
+            mapped.append("RAW_DOM_DENIED")
+        elif reason == "browser_observe_authenticated_profile_denied":
+            mapped.append("AUTHENTICATED_PROFILE_DENIED")
+        elif reason == "browser_observe_cookies_or_credentials_denied":
+            mapped.append("COOKIES_OR_CREDENTIALS_DENIED")
+        elif reason == "browser_observe_download_or_upload_denied":
+            mapped.append("DOWNLOAD_OR_UPLOAD_DENIED")
+        elif reason == "browser_observe_network_interception_denied":
+            mapped.append("NETWORK_INTERCEPTION_DENIED")
+        elif reason == "browser_observe_network_call_denied":
+            mapped.append("NETWORK_CALL_DENIED")
+        elif reason == "browser_observe_model_call_denied":
+            mapped.append("MODEL_CALL_DENIED")
+        elif reason == "browser_observe_tool_execution_denied":
+            mapped.append("TOOL_EXECUTION_DENIED")
+        elif reason == "browser_observe_memory_write_denied":
+            mapped.append("MEMORY_WRITE_DENIED")
+        elif reason == "browser_observe_context_injection_denied":
+            mapped.append("CONTEXT_INJECTION_DENIED")
+        elif reason == "browser_observe_backend_route_denied":
+            mapped.append("BACKEND_ROUTE_DENIED")
+        elif reason == "browser_observe_control_center_control_denied":
+            mapped.append("CONTROL_CENTER_CONTROL_DENIED")
+        elif reason == "browser_observe_production_authority_denied":
+            mapped.append("PRODUCTION_AUTHORITY_DENIED")
+        elif reason == "browser_observe_request_body_denied":
+            mapped.append("REQUEST_BODY_DENIED")
         elif reason.startswith("method_not_allowed:"):
             mapped.append("BROWSER_OBSERVE_NON_GET_METHOD_DENIED")
     return list(dict.fromkeys(mapped or ["BROWSER_OBSERVE_GATEWAY_DENIED"]))

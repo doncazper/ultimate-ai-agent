@@ -135,20 +135,9 @@ class WebAccessPolicy:
         safe_url_ref = request.metadata.get("safe_url_ref")
         if not isinstance(safe_url_ref, str) or not safe_url_ref.startswith("browser-url:"):
             return self._deny(WebAccessRiskClass.LOW, "browser_observe_safe_url_ref_required")
-        if _truthy_metadata(
-            request,
-            "uses_auth",
-            "cookies",
-            "request_body",
-            "download",
-            "upload",
-            "raw_dom",
-            "screenshot",
-            "navigation",
-            "click",
-            "form_fill",
-        ):
-            return self._deny(WebAccessRiskClass.HIGH, "browser_observe_control_or_raw_content_denied")
+        denied_capability_reasons = _browser_observe_capability_reasons(request)
+        if denied_capability_reasons:
+            return self._deny(WebAccessRiskClass.HIGH, *denied_capability_reasons)
         return WebAccessPolicyDecision(
             status=WebAccessPolicyStatus.ALLOWED,
             risk_class=WebAccessRiskClass.MEDIUM,
@@ -214,6 +203,32 @@ def _lane_kind_reason(request: WebAccessRequest) -> str | None:
     if allowed_lanes is None or request.network_lane in allowed_lanes:
         return None
     return f"network_lane_not_valid_for_kind:{request.kind.value}:{request.network_lane.value}"
+
+
+def _browser_observe_capability_reasons(request: WebAccessRequest) -> tuple[str, ...]:
+    capability_reasons = [
+        ("navigation", "browser_observe_navigation_denied"),
+        ("click", "browser_observe_click_denied"),
+        ("form_fill", "browser_observe_form_fill_denied"),
+        ("screenshot", "browser_observe_screenshot_denied"),
+        ("raw_dom", "browser_observe_raw_dom_denied"),
+        ("uses_auth", "browser_observe_authenticated_profile_denied"),
+        ("cookies", "browser_observe_cookies_or_credentials_denied"),
+        ("download", "browser_observe_download_or_upload_denied"),
+        ("upload", "browser_observe_download_or_upload_denied"),
+        ("network_interception", "browser_observe_network_interception_denied"),
+        ("network_call", "browser_observe_network_call_denied"),
+        ("model_call", "browser_observe_model_call_denied"),
+        ("tool_execution", "browser_observe_tool_execution_denied"),
+        ("memory_write", "browser_observe_memory_write_denied"),
+        ("context_injection", "browser_observe_context_injection_denied"),
+        ("backend_route", "browser_observe_backend_route_denied"),
+        ("control_center_control", "browser_observe_control_center_control_denied"),
+        ("production_authority", "browser_observe_production_authority_denied"),
+        ("request_body", "browser_observe_request_body_denied"),
+    ]
+    reasons = [reason for key, reason in capability_reasons if bool(request.metadata.get(key))]
+    return tuple(dict.fromkeys(reasons))
 
 
 def _host_matches_allowed_domains(host: str, allowed_domains: tuple[str, ...]) -> bool:

@@ -257,7 +257,7 @@ def test_browser_observe_raw_url_or_control_metadata_is_denied_before_adapter() 
         )
     )
     assert control_result.status == WebAccessPolicyStatus.DENIED
-    assert "browser_observe_control_or_raw_content_denied" in control_result.decision.reasons
+    assert "browser_observe_click_denied" in control_result.decision.reasons
     assert not adapter.calls
 
 

@@ -138,6 +138,20 @@ def test_browser_observe_only_transport_required_is_gateway_bound(monkeypatch: A
     assert calls[0].network_lane == WebAccessNetworkLane.BROWSER_OBSERVE_ONLY
 
 
+def test_browser_observe_control_request_is_denied_before_transport() -> None:
+    def forbidden_transport(_request: Any, _policy: Any) -> Any:
+        raise AssertionError("browser observe transport must not run after gateway denial")
+
+    decision = BrowserObserveOnlyAdapter().observe(
+        _request(click_requested=True),
+        observe_transport=forbidden_transport,
+    )
+
+    assert decision.observe_allowed is False
+    assert decision.status == BrowserObserveOnlyStatus.denied
+    assert "BROWSER_CLICK_DENIED" in decision.reason_codes
+
+
 @pytest.mark.parametrize(
     ("field", "reason"),
     [
