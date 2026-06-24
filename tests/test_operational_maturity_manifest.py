@@ -591,10 +591,18 @@ const sourceReadinessPosture = {
   backend_owned: true,
 };
 
+const sourceReadinessProposalCandidates = [
+  {
+    source: "mock_fallback_non_authoritative" as const,
+    backend_owned: true,
+  },
+];
+
 export const mockControlCenterData = {
   founderSourceReadiness: {
     source: "python_core_source_readiness_read_model" as const,
     backend_owned: true,
+    source_readiness_proposal_candidates: sourceReadinessProposalCandidates,
   },
   founderToday: {
     source_readiness_posture: sourceReadinessPosture,
@@ -614,6 +622,11 @@ export const mockControlCenterData = {
         )
         assert any(
             "mock fallback source readiness posture must not claim backend_owned true"
+            in failure
+            for failure in failures
+        )
+        assert any(
+            "mock fallback source readiness proposals must not be backend-owned"
             in failure
             for failure in failures
         )

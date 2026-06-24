@@ -1292,6 +1292,25 @@ def _append_mock_fallback_fixture_failures(failures: list[str], root: Path) -> N
         failures.append(
             "Control Center mock fallback source readiness posture must not claim backend_owned true"
         )
+    proposal_start = fixture.find("const sourceReadinessProposalCandidates")
+    proposal_end = fixture.find("const sourceReadiness:", proposal_start)
+    if proposal_start >= 0:
+        if proposal_end <= proposal_start:
+            proposal_end_candidates = [
+                index
+                for marker in ["\nexport const mockControlCenterData", "\nconst crmLiteFollowups"]
+                if (index := fixture.find(marker, proposal_start + 1)) > proposal_start
+            ]
+            proposal_end = min(proposal_end_candidates) if proposal_end_candidates else len(fixture)
+        proposal_fixture = fixture[proposal_start:proposal_end]
+        if "backend_owned: true" in proposal_fixture:
+            failures.append(
+                "Control Center mock fallback source readiness proposals must not be backend-owned"
+            )
+        if "python_core_source_readiness_read_model" in proposal_fixture:
+            failures.append(
+                "Control Center mock fallback source readiness proposals must not claim python_core_source_readiness_read_model"
+            )
 
 
 def _append_behavior_probe_failures(failures: list[str], root: Path) -> None:
@@ -1535,6 +1554,45 @@ def _append_read_only_status_probe_failures(failures: list[str]) -> None:
                 failures.append(
                     f"read-only probe: source readiness missing blocked authority {ref}"
                 )
+        source_proposals = source_readiness.get("source_readiness_proposal_candidates")
+        if not isinstance(source_proposals, list) or len(source_proposals) < 3:
+            failures.append("read-only probe: source readiness proposal candidates missing")
+            source_proposals = []
+        expected_proposal_titles = {
+            "Define email read-only metadata contract",
+            "Define calendar read-only metadata contract",
+            "Resolve missing account-auth boundary",
+        }
+        actual_proposal_titles = {
+            str(proposal.get("title"))
+            for proposal in source_proposals
+            if isinstance(proposal, dict)
+        }
+        if not expected_proposal_titles.issubset(actual_proposal_titles):
+            failures.append("read-only probe: source readiness proposal titles drifted")
+        for proposal in source_proposals:
+            if not isinstance(proposal, dict):
+                continue
+            if proposal.get("source") != "python_core_source_readiness_read_model":
+                failures.append("read-only probe: source readiness proposal source drifted")
+            if proposal.get("backend_owned") is not True:
+                failures.append("read-only probe: source readiness proposal is not backend-owned")
+            if proposal.get("proposal_classification") != "proposal_only_no_execution_path":
+                failures.append(
+                    "read-only probe: source readiness proposal classification drifted"
+                )
+            for field in [
+                "connector_runtime_enabled",
+                "source_refresh_enabled",
+                "account_auth_enabled",
+                "raw_source_ingestion_enabled",
+                "write_authority_enabled",
+                "local_task_commit_eligible",
+            ]:
+                if proposal.get(field) is not False:
+                    failures.append(
+                        f"read-only probe: source readiness proposal enabled {field}"
+                    )
         today = repo.today_summary(limit=6)
         source_posture = today.get("source_readiness_posture", {})
         if source_posture.get("backend_owned") is not True:
@@ -1572,6 +1630,32 @@ def _append_read_only_status_probe_failures(failures: list[str]) -> None:
             failures.append("read-only probe: Action Inbox enabled execution")
         if not actions.get("review_queue_groups"):
             failures.append("read-only probe: Action Inbox queue groups missing")
+        action_proposals = [
+            item
+            for item in actions.get("items", [])
+            if item.get("action_kind") == "source_readiness_contract_proposal"
+        ]
+        if len(action_proposals) < 3:
+            failures.append(
+                "read-only probe: source readiness Action Inbox proposals missing"
+            )
+        for item in action_proposals:
+            if item.get("action_group_id") != "proposal_only_no_execution_path":
+                failures.append(
+                    "read-only probe: source readiness Action proposal is executable"
+                )
+            if item.get("local_task_commit_eligible") is not False:
+                failures.append(
+                    "read-only probe: source readiness Action proposal is local-task eligible"
+                )
+            if item.get("approval_required") is not False:
+                failures.append(
+                    "read-only probe: source readiness Action proposal requires approval"
+                )
+            if item.get("source_readiness_backend_owned") is not True:
+                failures.append(
+                    "read-only probe: source readiness Action proposal is not backend-owned"
+                )
         for facet in actions.get("review_filter_facets", []):
             if facet.get("backend_owned") is not True:
                 failures.append("read-only probe: Action Inbox facet not backend-owned")

@@ -321,6 +321,10 @@ ACTION_INBOX_GROUP_DEFINITIONS = (
 ACTION_INBOX_GROUP_ORDER = tuple(
     str(group["group_id"]) for group in ACTION_INBOX_GROUP_DEFINITIONS
 )
+SOURCE_READINESS_PROPOSAL_BINDING_CONTRACT_REF = (
+    "contract-ref:founder-loop-source-readiness-draft-proposals:v1"
+)
+SOURCE_READINESS_PROPOSAL_ACTION_KIND = "source_readiness_contract_proposal"
 TODAY_PRODUCT_SPINE_LOOP_SURFACES = ["Today", "Actions", "Evidence", "Memory"]
 EVIDENCE_HISTORY_GRAMMAR_KEYS = (
     "proposed",
@@ -1837,6 +1841,12 @@ def _source_readiness_read_model(
         for item in source_readiness_items
         for ref in item.get("evidence_refs", [])
     )
+    proposal_candidates = _source_readiness_proposal_candidates(
+        source_readiness_items=source_readiness_items,
+        source_readiness_posture=source_readiness_posture,
+        blocked_authority_refs=blocked_authority_refs,
+        evidence_refs=evidence_refs,
+    )
     route_refs = [
         "GET /control-center/sources/readiness",
         "GET /control-center/today/summary",
@@ -1853,6 +1863,7 @@ def _source_readiness_read_model(
         "route_refs": route_refs,
         "source_readiness_items": source_readiness_items,
         "source_readiness_posture": source_readiness_posture,
+        "source_readiness_proposal_candidates": proposal_candidates,
         "supported_statuses": source_readiness_posture["supported_statuses"],
         "missing_contract_refs": source_readiness_posture["missing_contract_refs"],
         "blocked_state_refs": source_readiness_posture["blocked_state_refs"],
@@ -1877,6 +1888,204 @@ def _source_readiness_read_model(
     }
     _validate_safe_payload(read_model, "source_readiness_read_model")
     return read_model
+
+
+def _source_readiness_proposal_candidates(
+    *,
+    source_readiness_items: list[dict[str, Any]],
+    source_readiness_posture: dict[str, Any],
+    blocked_authority_refs: list[str],
+    evidence_refs: list[str],
+) -> list[dict[str, Any]]:
+    items_by_kind = {
+        str(item.get("source_kind")): item for item in source_readiness_items
+    }
+    missing_contract_refs = set(source_readiness_posture.get("missing_contract_refs", []))
+    blocked_ref_set = set(blocked_authority_refs)
+    candidate_specs = [
+        {
+            "slug": "email-read-only-metadata-contract",
+            "title": "Define email read-only metadata contract",
+            "source_kind": "email",
+            "missing_contract_ref": "contract-ref:email-read-only-missing",
+            "proposal_kind": "proposal-kind:read-only-email-metadata-contract",
+            "trigger_ref": "contract-ref:email-read-only-missing",
+            "safe_summary": (
+                "Email source readiness is blocked until a safe read-only "
+                "metadata contract exists; no account auth, source-body access, "
+                "polling, send, archive, label, move, or connector write is available."
+            ),
+            "next_safe_action": (
+                "Draft the email metadata contract with safe refs, configured posture, "
+                "blocked authority refs, and no source body ingestion."
+            ),
+        },
+        {
+            "slug": "calendar-read-only-metadata-contract",
+            "title": "Define calendar read-only metadata contract",
+            "source_kind": "calendar",
+            "missing_contract_ref": "contract-ref:calendar-read-only-missing",
+            "proposal_kind": "proposal-kind:read-only-calendar-metadata-contract",
+            "trigger_ref": "contract-ref:calendar-read-only-missing",
+            "safe_summary": (
+                "Calendar source readiness is blocked until a safe read-only "
+                "metadata contract exists; no account auth, event body access, "
+                "polling, create, update, delete, or connector write is available."
+            ),
+            "next_safe_action": (
+                "Draft the calendar metadata contract with safe refs, configured "
+                "posture, blocked authority refs, and no event body ingestion."
+            ),
+        },
+        {
+            "slug": "account-auth-boundary",
+            "title": "Resolve missing account-auth boundary",
+            "source_kind": "inbox",
+            "missing_contract_ref": "contract-ref:source-account-auth-boundary-missing",
+            "proposal_kind": "proposal-kind:source-account-auth-boundary",
+            "trigger_ref": "blocked-state:no-account-auth",
+            "safe_summary": (
+                "Source readiness needs an explicit account-auth boundary before "
+                "any future connector sign-in posture can be designed; no account "
+                "connection flow is enabled."
+            ),
+            "next_safe_action": (
+                "Draft the account-auth boundary as proposal text with safe refs "
+                "and blocked runtime authority."
+            ),
+        },
+    ]
+    proposals: list[dict[str, Any]] = []
+    for spec in candidate_specs:
+        trigger_ref = str(spec["trigger_ref"])
+        if trigger_ref not in missing_contract_refs and trigger_ref not in blocked_ref_set:
+            continue
+        source_item = items_by_kind.get(str(spec["source_kind"])) or (
+            source_readiness_items[0] if source_readiness_items else {}
+        )
+        slug = str(spec["slug"])
+        proposal_ref = f"source-readiness-proposal:{slug}"
+        action_item_ref = f"action:source-readiness:{slug}"
+        proposal_evidence_refs = _unique_sorted_refs(
+            [
+                f"evidence-ref:source-readiness-proposal:{slug}",
+                "evidence-ref:founder-loop:source-readiness",
+                *list(source_item.get("evidence_refs") or []),
+                *evidence_refs,
+            ]
+        )
+        proposal = {
+            "schema_version": "founder_loop_source_readiness_proposal.v1",
+            "source": "python_core_source_readiness_read_model",
+            "backend_owned": True,
+            "proposal_ref": proposal_ref,
+            "action_item_ref": action_item_ref,
+            "title": str(spec["title"]),
+            "safe_summary": str(spec["safe_summary"]),
+            "surface": "Sources",
+            "source_kind": str(spec["source_kind"]),
+            "source_readiness_ref": str(
+                source_item.get("source_ref") or "source-readiness:missing"
+            ),
+            "source_readiness_route_ref": "/control-center/sources/readiness",
+            "missing_contract_ref": str(spec["missing_contract_ref"]),
+            "proposal_kind": str(spec["proposal_kind"]),
+            "proposal_classification": "proposal_only_no_execution_path",
+            "action_kind": SOURCE_READINESS_PROPOSAL_ACTION_KIND,
+            "status": "proposal_only",
+            "side_effect_class": "local_dev_workspace_only",
+            "risk_class": "low",
+            "approval_required": False,
+            "local_task_commit_eligible": False,
+            "connector_runtime_enabled": False,
+            "account_auth_enabled": False,
+            "source_refresh_enabled": False,
+            "raw_source_ingestion_enabled": False,
+            "write_authority_enabled": False,
+            "blocked_authority_refs": _unique_sorted_refs(
+                [
+                    *blocked_authority_refs,
+                    *list(source_item.get("blocked_state_refs") or []),
+                    "blocked-state:no-account-auth",
+                    "blocked-state:no-background-polling",
+                    "blocked-state:no-connector-runtime",
+                    "blocked-state:no-connector-write",
+                    "blocked-state:no-raw-source-ingestion",
+                    "blocked-state:no-source-refresh",
+                ]
+            ),
+            "evidence_refs": proposal_evidence_refs,
+            "next_safe_action": str(spec["next_safe_action"]),
+            "authority_boundary": (
+                "Source readiness proposal candidates are read-only review "
+                "metadata. They do not grant connector runtime, account auth, "
+                "source ingestion, polling, writes, execution, or production authority."
+            ),
+        }
+        _validate_safe_payload(proposal, "source_readiness_proposal_candidate")
+        proposals.append(proposal)
+    return proposals
+
+
+def _source_readiness_action_items(
+    proposal_candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    for proposal in proposal_candidates:
+        slug = _safe_suffix(str(proposal["proposal_ref"]))
+        blocked_refs = list(proposal.get("blocked_authority_refs") or [])
+        evidence_refs = list(proposal.get("evidence_refs") or [])
+        action_record = FounderLoopActionRecord(
+            item_ref=str(proposal["action_item_ref"]),
+            title=str(proposal["title"]),
+            safe_summary=str(proposal["safe_summary"]),
+            surface="Sources",
+            priority="medium",
+            risk_class=str(proposal["risk_class"]),
+            action_kind=SOURCE_READINESS_PROPOSAL_ACTION_KIND,
+            status="proposed",
+            side_effect_class="local_dev_workspace_only",
+            authority_boundary=str(proposal["authority_boundary"]),
+            approval_required=False,
+            approval_envelope_ref=f"approval-envelope:source-readiness:{slug}",
+            approval_envelope_status="not_required_proposal_only",
+            state_change_contract_ref=SOURCE_READINESS_PROPOSAL_BINDING_CONTRACT_REF,
+            state_change_readiness="draft_only_proposal_no_execution_path",
+            blocked_state=(
+                "Connector runtime, account auth, source ingestion, polling, "
+                "writes, and execution remain blocked."
+            ),
+            evidence_refs=evidence_refs,
+            receipt_refs=[],
+            audit_refs=[],
+            idempotency_key_ref=None,
+            expires_at=None,
+            stale_state="recheck_source_readiness_before_contract_work",
+            rollback_ref=None,
+            safe_disable_ref=None,
+            next_safe_action=str(proposal["next_safe_action"]),
+        ).model_dump(mode="json")
+        action_record.update(
+            {
+                "source_readiness_proposal_ref": proposal["proposal_ref"],
+                "source_readiness_proposal_kind": proposal["proposal_kind"],
+                "source_readiness_missing_contract_ref": proposal[
+                    "missing_contract_ref"
+                ],
+                "source_readiness_ref": proposal["source_readiness_ref"],
+                "source_readiness_route_ref": proposal[
+                    "source_readiness_route_ref"
+                ],
+                "source_readiness_blocked_authority_refs": blocked_refs,
+                "source_readiness_backend_owned": proposal["backend_owned"],
+                "source_readiness_proposal_classification": proposal[
+                    "proposal_classification"
+                ],
+            }
+        )
+        _validate_safe_payload(action_record, "source_readiness_action_item")
+        actions.append(action_record)
+    return actions
 
 
 def _action_inbox_review_filter_facets(
@@ -5638,9 +5847,11 @@ class FounderLoopRepository:
         user_intent_understanding_contract = (
             _user_intent_understanding_contract_payload()
         )
-        source_readiness_items = _source_readiness_items(
-            briefing_items=briefing_items,
-        )
+        source_readiness = self.source_readiness(briefing_items=briefing_items)
+        source_readiness_items = source_readiness["source_readiness_items"]
+        source_readiness_proposal_candidates = source_readiness[
+            "source_readiness_proposal_candidates"
+        ]
         crm_lite_followups = _crm_lite_followups(
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
             memory_items=memory_items,
@@ -5671,6 +5882,7 @@ class FounderLoopRepository:
             "read_only_route_refs": [
                 "GET /control-center/actions/inbox",
                 "GET /control-center/actions/{action_id}/receipt",
+                "GET /control-center/sources/readiness",
                 "GET /control-center/storage/status",
                 "GET /control-center/routes",
                 "GET /control-center/runtime-readiness/summary",
@@ -5722,6 +5934,11 @@ class FounderLoopRepository:
             **private_beta_readiness_gate_contract,
             **user_intent_understanding_contract,
             "source_readiness_items": source_readiness_items,
+            "source_readiness_route_ref": source_readiness["route_ref"],
+            "source_readiness_proposal_candidates": source_readiness_proposal_candidates,
+            "source_readiness_proposal_binding_contract_ref": (
+                SOURCE_READINESS_PROPOSAL_BINDING_CONTRACT_REF
+            ),
             "crm_lite_followups": crm_lite_followups,
             "memory_why_shown_items": memory_why_shown_items,
             "review_queue_groups": review_queue_groups,
@@ -5975,6 +6192,11 @@ class FounderLoopRepository:
             (self._bounded_limit(limit),),
         )
         actions = [_row_to_payload(row) for row in rows]
+        source_readiness = self.source_readiness()
+        source_readiness_actions = _source_readiness_action_items(
+            list(source_readiness.get("source_readiness_proposal_candidates") or [])
+        )
+        actions.extend(source_readiness_actions)
         projected_actions: list[dict[str, Any]] = []
         for action in actions:
             action_envelope_payload = _action_envelope_contract_payload(action)
@@ -6003,7 +6225,7 @@ class FounderLoopRepository:
                     **_action_inbox_group_projection(projected),
                 }
             )
-        return projected_actions
+        return projected_actions[: self._bounded_limit(limit)]
 
     def record_chat_turn_receipt(
         self,

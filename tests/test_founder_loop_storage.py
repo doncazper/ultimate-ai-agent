@@ -719,6 +719,53 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert "blocked-state:no-connector-write" in source_readiness[
         "blocked_authority_refs"
     ]
+    proposals = source_readiness["source_readiness_proposal_candidates"]
+    assert {proposal["title"] for proposal in proposals} == {
+        "Define email read-only metadata contract",
+        "Define calendar read-only metadata contract",
+        "Resolve missing account-auth boundary",
+    }
+    for proposal in proposals:
+        assert proposal["source"] == "python_core_source_readiness_read_model"
+        assert proposal["backend_owned"] is True
+        assert proposal["proposal_classification"] == "proposal_only_no_execution_path"
+        assert proposal["action_kind"] == "source_readiness_contract_proposal"
+        assert proposal["approval_required"] is False
+        assert proposal["local_task_commit_eligible"] is False
+        assert proposal["connector_runtime_enabled"] is False
+        assert proposal["account_auth_enabled"] is False
+        assert proposal["source_refresh_enabled"] is False
+        assert proposal["raw_source_ingestion_enabled"] is False
+        assert proposal["write_authority_enabled"] is False
+        assert "blocked-state:no-connector-write" in proposal[
+            "blocked_authority_refs"
+        ]
+
+    actions_inbox = repo.actions_inbox()
+    source_actions = [
+        item
+        for item in actions_inbox["items"]
+        if item.get("action_kind") == "source_readiness_contract_proposal"
+    ]
+    assert len(source_actions) == 3
+    assert actions_inbox["source_readiness_proposal_candidates"] == proposals
+    assert (
+        actions_inbox["source_readiness_proposal_binding_contract_ref"]
+        == "contract-ref:founder-loop-source-readiness-draft-proposals:v1"
+    )
+    for item in source_actions:
+        assert item["action_group_id"] == "proposal_only_no_execution_path"
+        assert item["approval_required"] is False
+        assert item["local_task_commit_eligible"] is False
+        assert item["receipt_visibility"]["local_task_ref"] == "not_applicable"
+        assert item["source_readiness_backend_owned"] is True
+        assert item["source_readiness_proposal_classification"] == (
+            "proposal_only_no_execution_path"
+        )
+        assert "blocked-state:no-connector-write" in item[
+            "source_readiness_blocked_authority_refs"
+        ]
+    assert len(repo.list_action_inbox(limit=2)) == 2
 
     assert today["memory_review_route_ref"] == "/memory"
     assert (

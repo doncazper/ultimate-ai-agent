@@ -342,7 +342,7 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
     ]
     assert groups["ready_for_decision"]["count"] == 1
     assert groups["blocked_by_authority"]["count"] == 1
-    assert groups["proposal_only_no_execution_path"]["count"] == 1
+    assert groups["proposal_only_no_execution_path"]["count"] == 4
     by_ref = {item["item_ref"]: item for item in inbox["items"]}
     for item in inbox["items"]:
         envelope = item["approval_envelope"]

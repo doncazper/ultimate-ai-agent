@@ -5,6 +5,7 @@ import type {
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessItem,
   FounderLoopSourceReadinessPosture,
+  FounderLoopSourceReadinessProposalCandidate,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
@@ -1252,6 +1253,47 @@ const sourceReadinessPosture: FounderLoopSourceReadinessPosture = {
     "Reconnect the local backend before treating source readiness as Python-core read-model truth.",
 };
 
+const sourceReadinessProposalCandidates: FounderLoopSourceReadinessProposalCandidate[] = [
+  {
+    schema_version: "founder_loop_source_readiness_proposal.v1",
+    source: "mock_fallback_non_authoritative",
+    backend_owned: false,
+    proposal_ref: "source-readiness-proposal:mock-email-read-only-metadata-contract",
+    action_item_ref: "action:source-readiness:mock-email-read-only-metadata-contract",
+    title: "Define email read-only metadata contract",
+    safe_summary:
+      "Mock UI-shape proposal only; backend source readiness read model is unavailable.",
+    surface: "Sources",
+    source_kind: "email",
+    source_readiness_ref: "source-ref:inbox-email",
+    source_readiness_route_ref: "/control-center/sources/readiness",
+    missing_contract_ref: "contract-ref:email-read-only-missing",
+    proposal_kind: "proposal-kind:read-only-email-metadata-contract",
+    proposal_classification: "proposal_only_no_execution_path",
+    action_kind: "source_readiness_contract_proposal",
+    status: "mock_only_backend_read_model_unavailable",
+    side_effect_class: "local_dev_workspace_only",
+    risk_class: "low",
+    approval_required: false,
+    local_task_commit_eligible: false,
+    connector_runtime_enabled: false,
+    account_auth_enabled: false,
+    source_refresh_enabled: false,
+    raw_source_ingestion_enabled: false,
+    write_authority_enabled: false,
+    blocked_authority_refs: [
+      "blocked-state:mock-source-readiness-non-authoritative",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-account-auth",
+    ],
+    evidence_refs: ["evidence-ref:source-readiness:mock-ui-shape"],
+    next_safe_action:
+      "Reconnect the local backend before treating this as a backend-owned proposal.",
+    authority_boundary:
+      "Mock proposal shape only; no connector, account, ingestion, write, or execution authority.",
+  },
+];
+
 const sourceReadiness: FounderLoopSourceReadiness = {
   schema_version: "founder_loop_source_readiness.v1",
   source: "mock_fallback_non_authoritative",
@@ -1267,6 +1309,7 @@ const sourceReadiness: FounderLoopSourceReadiness = {
   ],
   source_readiness_items: sourceReadinessItems,
   source_readiness_posture: sourceReadinessPosture,
+  source_readiness_proposal_candidates: sourceReadinessProposalCandidates,
   supported_statuses: sourceReadinessPosture.supported_statuses,
   missing_contract_refs: sourceReadinessPosture.missing_contract_refs,
   blocked_state_refs: sourceReadinessPosture.blocked_state_refs,

@@ -717,16 +717,15 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("heading", { name: /Source readiness states/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Dedicated source readiness route")).toHaveTextContent(
-      "backend-owned",
-    );
-    expect(screen.getByText("Account auth").nextElementSibling).toHaveTextContent(
+    const routePosture = screen.getByLabelText("Dedicated source readiness route");
+    expect(routePosture).toHaveTextContent("backend-owned");
+    expect(within(routePosture).getByText("Account auth").nextElementSibling).toHaveTextContent(
       "blocked",
     );
     expect(
-      screen.getByText("Raw source ingestion").nextElementSibling,
+      within(routePosture).getByText("Raw source ingestion").nextElementSibling,
     ).toHaveTextContent("blocked");
-    expect(screen.getByText("Write authority").nextElementSibling).toHaveTextContent(
+    expect(within(routePosture).getByText("Write authority").nextElementSibling).toHaveTextContent(
       "blocked",
     );
     expect(
@@ -735,6 +734,15 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("contract-ref:email-read-only-missing").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", {
+        name: /Define email read-only metadata contract/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("proposal-kind:read-only-email-metadata-contract")).toBeInTheDocument();
+    expect(screen.getByText("source-readiness-proposal:email-read-only-metadata-contract")).toBeInTheDocument();
+    expect(screen.getByText("proposal_only_no_execution_path")).toBeInTheDocument();
+    expect(screen.getAllByText("blocked-state:no-account-auth").length).toBeGreaterThan(0);
     expect(
       screen.getByText(/docs\/control_center\/OPERATOR_SHELL_GAP_MAP.md/i),
     ).toBeInTheDocument();
@@ -1860,6 +1868,7 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByText(/Backend read-model refresh failed safely/i),
     ).toBeInTheDocument();
+    expect(screen.getByText("refresh_failed")).toBeInTheDocument();
     expect(
       screen.queryByText(
         "Backend read model refreshed; receipt visibility now comes from the Action Inbox API.",
@@ -1871,6 +1880,188 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByRole("button", { name: /^execute$/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows replay posture from the refreshed Action Inbox read model", async () => {
+    const replayReceipt = {
+      contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
+      action_id: "mock-local-task-create",
+      item_ref: "founder-action:mock-local-task-create",
+      action_kind: "local_task_create",
+      local_task_ref: "local-task:founder-action:mock-local-task-create",
+      receipt_ref: "receipt:founder-loop-local-task:mock-local-task-create-replay",
+      audit_ref: "audit:founder-loop-local-task:mock-local-task-create-replay",
+      evidence_timeline_event_ref:
+        "evidence-timeline-event:local-task:mock-local-task-create-replay",
+      idempotency_key_ref: "idempotency-ref:control-center-local-task:replay",
+      payload_fingerprint_ref: "payload-fingerprint-ref:local-task:replay",
+      approval_ref: "approval-ref:mock-local-task-action-approve",
+      approval_status: "approved",
+      status: "local_task_created",
+      safe_summary: "Prior local task commit receipt replayed with safe refs only.",
+      local_task_created: true,
+      connector_write_performed: false,
+      shell_subprocess_execution_performed: false,
+      model_provider_authority_used: false,
+      memory_write_performed: false,
+      context_injection_performed: false,
+      external_side_effect_performed: false,
+      raw_content_stored: false,
+      replayed: true,
+      evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
+      blocked_state_refs: ["blocked-state:no-production-authority"],
+      created_at: "2026-06-22T00:00:00Z",
+    };
+    const initialInbox = JSON.parse(
+      JSON.stringify({
+        ...mockControlCenterData.founderActionsInbox,
+        ...mockApiData.founderActionsInbox,
+        items: mockApiData.founderActionsInbox.items,
+      }),
+    );
+    const replayedInbox = JSON.parse(JSON.stringify(initialInbox));
+    const replayedItem = replayedInbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    Object.assign(replayedItem, {
+      status: "receipt_recorded",
+      action_group_id: "receipt_recorded",
+      action_group_label: "Receipt recorded",
+      action_group_reason:
+        "Backend local task commit receipt is recorded and replay posture is visible.",
+      action_group_available_action: "Inspect receipt and evidence refs.",
+      local_task_commit_eligible: false,
+      local_task_ref: replayReceipt.local_task_ref,
+      local_task_commit_receipt_ref: replayReceipt.receipt_ref,
+      receipt_refs: [...replayedItem.receipt_refs, replayReceipt.receipt_ref],
+      audit_refs: [...replayedItem.audit_refs, replayReceipt.audit_ref],
+      evidence_refs: [
+        ...replayedItem.evidence_refs,
+        replayReceipt.evidence_timeline_event_ref,
+      ],
+      receipt_visibility: {
+        ...replayedItem.receipt_visibility,
+        local_task_ref: replayReceipt.local_task_ref,
+        local_task_commit_receipt_ref: replayReceipt.receipt_ref,
+        evidence_timeline_event_ref: replayReceipt.evidence_timeline_event_ref,
+        replay_posture: "idempotency_replay_available",
+        conflict_posture: "conflicting_idempotency_payload_rejected",
+        missing_field_states: ["none"],
+      },
+      updated_at: "2026-06-22T00:01:00Z",
+    });
+    const endpoint = actionLocalTaskCommitEndpoint(
+      "founder-action:mock-local-task-create",
+    );
+    let commitRecorded = false;
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: commitRecorded ? replayedInbox : initialInbox,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (options?.method === "POST" && urlText.endsWith(endpoint)) {
+        commitRecorded = true;
+        return new Response(JSON.stringify({ ok: true, result: replayReceipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: /^Actions$/i });
+    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+
+    expect(
+      (await screen.findAllByText(replayReceipt.receipt_ref)).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(replayReceipt.local_task_ref).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(replayReceipt.evidence_timeline_event_ref).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("idempotency_replay_available")).toBeInTheDocument();
+    expect(
+      screen.getByText("conflicting_idempotency_payload_rejected"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps conflicting local task commits out of committed UI state", async () => {
+    const endpoint = actionLocalTaskCommitEndpoint(
+      "founder-action:mock-local-task-create",
+    );
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              ...mockControlCenterData.founderActionsInbox,
+              ...mockApiData.founderActionsInbox,
+              items: mockApiData.founderActionsInbox.items,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (options?.method === "POST" && urlText.endsWith(endpoint)) {
+        return new Response(
+          JSON.stringify({
+            detail: {
+              code: "FOUNDER_LOOP_LOCAL_TASK_IDEMPOTENCY_CONFLICT",
+              safe_message: "Conflicting idempotency payload rejected safely.",
+            },
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: /^Actions$/i });
+    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+
+    expect(
+      await screen.findByText("Conflicting idempotency payload rejected safely."),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("receipt:founder-loop-local-task:conflicting-commit"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("evidence-timeline-event:local-task:conflicting-commit"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
   });
 
   it("renders Memory context-pack proposals as proposal-only inspection", async () => {
@@ -4658,6 +4849,17 @@ function envelopeForReadEndpoint(url: string) {
       source: "python_core_source_readiness_read_model",
       backend_owned: true,
       generated_at: "2026-01-01T00:00:00Z",
+      source_readiness_proposal_candidates:
+        mockControlCenterData.founderSourceReadiness.source_readiness_proposal_candidates.map(
+          (proposal) => ({
+            ...proposal,
+            source: "python_core_source_readiness_read_model",
+            backend_owned: true,
+            proposal_ref: proposal.proposal_ref.replace("mock-", ""),
+            action_item_ref: proposal.action_item_ref.replace("mock-", ""),
+            status: "proposal_only",
+          }),
+        ),
       source_readiness_posture: {
         ...mockControlCenterData.founderSourceReadiness.source_readiness_posture,
         source: "python_core_source_readiness_read_model",

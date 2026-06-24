@@ -260,6 +260,27 @@ def test_control_center_source_readiness_route_is_backend_owned_read_only() -> N
         "blocked-state:no-background-polling",
     ]:
         assert ref in data["blocked_authority_refs"]
+    proposals = data["source_readiness_proposal_candidates"]
+    assert {proposal["title"] for proposal in proposals} == {
+        "Define email read-only metadata contract",
+        "Define calendar read-only metadata contract",
+        "Resolve missing account-auth boundary",
+    }
+    for proposal in proposals:
+        assert proposal["source"] == "python_core_source_readiness_read_model"
+        assert proposal["backend_owned"] is True
+        assert proposal["proposal_classification"] == "proposal_only_no_execution_path"
+        assert proposal["action_kind"] == "source_readiness_contract_proposal"
+        assert proposal["approval_required"] is False
+        assert proposal["local_task_commit_eligible"] is False
+        assert proposal["connector_runtime_enabled"] is False
+        assert proposal["account_auth_enabled"] is False
+        assert proposal["source_refresh_enabled"] is False
+        assert proposal["raw_source_ingestion_enabled"] is False
+        assert proposal["write_authority_enabled"] is False
+        assert "blocked-state:no-connector-write" in proposal[
+            "blocked_authority_refs"
+        ]
 
     serialized = response.text.lower()
     for forbidden in [
@@ -335,6 +356,36 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     }
     assert actions["dogfood_capture"]["action_execution_enabled"] is False
     assert actions["crm_lite_followups"][0]["crm_write_enabled"] is False
+    assert actions["source_readiness_route_ref"] == "/control-center/sources/readiness"
+    assert (
+        actions["source_readiness_proposal_binding_contract_ref"]
+        == "contract-ref:founder-loop-source-readiness-draft-proposals:v1"
+    )
+    assert actions["source_readiness_proposal_candidates"] == source_readiness[
+        "source_readiness_proposal_candidates"
+    ]
+    source_readiness_actions = [
+        item
+        for item in actions["items"]
+        if item.get("action_kind") == "source_readiness_contract_proposal"
+    ]
+    assert len(source_readiness_actions) == 3
+    assert {item["title"] for item in source_readiness_actions} == {
+        "Define email read-only metadata contract",
+        "Define calendar read-only metadata contract",
+        "Resolve missing account-auth boundary",
+    }
+    for item in source_readiness_actions:
+        assert item["action_group_id"] == "proposal_only_no_execution_path"
+        assert item["approval_required"] is False
+        assert item["local_task_commit_eligible"] is False
+        assert item["source_readiness_backend_owned"] is True
+        assert item["source_readiness_proposal_classification"] == (
+            "proposal_only_no_execution_path"
+        )
+        assert "blocked-state:no-connector-write" in item[
+            "source_readiness_blocked_authority_refs"
+        ]
     for item in actions["items"]:
         envelope = item["approval_envelope"]
         assert envelope["schema_version"] == "founder_loop_action_approval_envelope.v1"

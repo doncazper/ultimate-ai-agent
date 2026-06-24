@@ -28,6 +28,7 @@ import type {
   FounderLoopMorningBriefing,
   FounderLoopPlanSummary,
   FounderLoopSourceReadiness,
+  FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
   ControlCenterSettingsStatus,
@@ -1030,6 +1031,9 @@ function SourceReadinessCards({
             emptyLabel="Blocked source authorities: none"
             refs={sourceReadiness.blocked_authority_refs}
           />
+          <SourceReadinessProposalCards
+            proposals={sourceReadiness.source_readiness_proposal_candidates ?? []}
+          />
         </>
       ) : null}
       <ul className="ref-list">
@@ -1048,6 +1052,83 @@ function SourceReadinessCards({
         refs={items.flatMap((item) => item.blocked_state_refs)}
       />
     </article>
+  );
+}
+
+function SourceReadinessProposalCards({
+  proposals,
+}: {
+  proposals: FounderLoopSourceReadinessProposalCandidate[];
+}) {
+  if (proposals.length === 0) {
+    return (
+      <p className="muted">
+        Source readiness proposal candidates are unavailable until the backend
+        read model supplies proposal-only refs.
+      </p>
+    );
+  }
+  return (
+    <div className="review-grid" aria-label="Source readiness proposal candidates">
+      {proposals.map((proposal) => (
+        <article className="review-card" key={proposal.proposal_ref}>
+          <div className="review-card-heading">
+            <h3>{proposal.title}</h3>
+            <span>{proposal.proposal_classification}</span>
+          </div>
+          <p>{proposal.safe_summary}</p>
+          <dl className="detail-list">
+            <DetailTerm label="Proposal ref" value={proposal.proposal_ref} />
+            <DetailTerm label="Action item ref" value={proposal.action_item_ref} />
+            <DetailTerm label="Source kind" value={proposal.source_kind} />
+            <DetailTerm
+              label="Source readiness ref"
+              value={proposal.source_readiness_ref}
+            />
+            <DetailTerm
+              label="Missing contract"
+              value={proposal.missing_contract_ref}
+            />
+            <DetailTerm label="Proposal kind" value={proposal.proposal_kind} />
+            <DetailTerm
+              label="Backend owned"
+              value={proposal.backend_owned ? "yes" : "unavailable"}
+            />
+            <DetailTerm
+              label="Local task eligibility"
+              value={proposal.local_task_commit_eligible ? "eligible" : "blocked"}
+            />
+            <DetailTerm
+              label="Connector runtime"
+              value={proposal.connector_runtime_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Account auth"
+              value={proposal.account_auth_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Raw source ingestion"
+              value={
+                proposal.raw_source_ingestion_enabled ? "enabled" : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Write authority"
+              value={proposal.write_authority_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm label="Next safe action" value={proposal.next_safe_action} />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Blocked proposal authorities: none"
+            refs={proposal.blocked_authority_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Proposal evidence refs: missing"
+            refs={proposal.evidence_refs}
+          />
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -1589,12 +1670,36 @@ export function ActionInboxSurfacePanel({
         />
       </article>
       {inbox.source_readiness_items?.length ||
+      inbox.source_readiness_proposal_candidates?.length ||
       inbox.crm_lite_followups?.length ||
       inbox.memory_why_shown_items?.length ||
       inbox.review_queue_groups?.length ||
       inbox.dogfood_capture ? (
         <div className="panel-grid">
           <SourceReadinessCards items={inbox.source_readiness_items ?? []} />
+          <article className="status-card">
+            <div className="status-card-header">
+              <h3>Source readiness proposals</h3>
+              <span>{inbox.source_readiness_proposal_candidates?.length ?? 0}</span>
+            </div>
+            <p>
+              Backend-owned proposal candidates from the dedicated source
+              readiness read model. They are proposal-only and expose no
+              connector, auth, ingestion, write, or execution authority.
+            </p>
+            <dl className="detail-list">
+              <DetailTerm
+                label="Binding contract"
+                value={
+                  inbox.source_readiness_proposal_binding_contract_ref ?? "missing"
+                }
+              />
+              <DetailTerm
+                label="Source readiness route"
+                value={inbox.source_readiness_route_ref ?? "missing"}
+              />
+            </dl>
+          </article>
           <ReviewQueueGroupCards groups={inbox.review_queue_groups ?? []} />
           <CrmLiteFollowUpCards items={inbox.crm_lite_followups ?? []} />
           <MemoryWhyShownCards items={inbox.memory_why_shown_items ?? []} />
@@ -1602,6 +1707,9 @@ export function ActionInboxSurfacePanel({
         </div>
       ) : null}
       <div className="review-grid">
+        <SourceReadinessProposalCards
+          proposals={inbox.source_readiness_proposal_candidates ?? []}
+        />
         {(inbox.memory_derived_action_proposals ?? []).map((proposal) => (
           <MemoryDerivedActionProposalCard
             key={proposal.proposal_ref}
@@ -3447,6 +3555,7 @@ function ActionItemCard({
       </p>
       <ApprovalEnvelopeCard envelope={approvalEnvelope} />
       <ReceiptVisibilityCard visibility={receiptVisibility} />
+      <SourceReadinessProposalItemDetails item={displayedItem} />
       <LocalTaskCommitPostureCard item={displayedItem} />
       <dl className="detail-list">
         <DetailTerm label="Item ref" value={displayedItem.item_ref} />
@@ -3594,6 +3703,65 @@ function ActionItemCard({
       />
       <RefList refs={displayedItem.evidence_refs ?? []} />
     </article>
+  );
+}
+
+function SourceReadinessProposalItemDetails({
+  item,
+}: {
+  item: FounderLoopActionItem;
+}) {
+  if (!item.source_readiness_proposal_ref) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Source readiness proposal detail"
+      className="local-task-posture-card"
+    >
+      <div className="review-card-heading compact">
+        <h4>Source readiness proposal</h4>
+        <span>
+          {item.source_readiness_proposal_classification ??
+            "proposal_only_no_execution_path"}
+        </span>
+      </div>
+      <p className="muted">
+        Backend-owned source-readiness proposal metadata. React renders these
+        refs but does not mint proposal truth, authority, blocked refs, or
+        eligibility.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Proposal ref"
+          value={item.source_readiness_proposal_ref}
+        />
+        <DetailTerm
+          label="Proposal kind"
+          value={item.source_readiness_proposal_kind ?? "missing"}
+        />
+        <DetailTerm
+          label="Missing contract"
+          value={item.source_readiness_missing_contract_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Source readiness ref"
+          value={item.source_readiness_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Source readiness route"
+          value={item.source_readiness_route_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Backend owned"
+          value={item.source_readiness_backend_owned ? "yes" : "unavailable"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Source readiness proposal blockers: none"
+        refs={item.source_readiness_blocked_authority_refs ?? []}
+      />
+    </section>
   );
 }
 
@@ -4165,6 +4333,10 @@ function LocalTaskCommitControls({
           <DetailTerm
             label="Evidence Timeline event"
             value={state.receipt.evidence_timeline_event_ref}
+          />
+          <DetailTerm
+            label="Read-model refresh"
+            value={state.refreshStatus}
           />
           <DetailTerm
             label="Replay"

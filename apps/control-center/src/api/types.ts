@@ -208,6 +208,14 @@ export interface FounderLoopActionItem {
   action_group_available_action?: string;
   approval_envelope?: FounderLoopActionApprovalEnvelope;
   receipt_visibility?: FounderLoopActionReceiptVisibility;
+  source_readiness_proposal_ref?: string;
+  source_readiness_proposal_kind?: string;
+  source_readiness_missing_contract_ref?: string;
+  source_readiness_ref?: string;
+  source_readiness_route_ref?: string;
+  source_readiness_blocked_authority_refs?: string[];
+  source_readiness_backend_owned?: boolean;
+  source_readiness_proposal_classification?: "proposal_only_no_execution_path";
   created_at?: string;
   updated_at?: string;
 }
@@ -1383,6 +1391,38 @@ export interface FounderLoopSourceReadinessPosture {
   next_safe_action: string;
 }
 
+export interface FounderLoopSourceReadinessProposalCandidate {
+  schema_version: "founder_loop_source_readiness_proposal.v1";
+  source: string;
+  backend_owned: boolean;
+  proposal_ref: string;
+  action_item_ref: string;
+  title: string;
+  safe_summary: string;
+  surface: string;
+  source_kind: string;
+  source_readiness_ref: string;
+  source_readiness_route_ref: string;
+  missing_contract_ref: string;
+  proposal_kind: string;
+  proposal_classification: "proposal_only_no_execution_path";
+  action_kind: string;
+  status: string;
+  side_effect_class: string;
+  risk_class: string;
+  approval_required: boolean;
+  local_task_commit_eligible: boolean;
+  connector_runtime_enabled: boolean;
+  account_auth_enabled: boolean;
+  source_refresh_enabled: boolean;
+  raw_source_ingestion_enabled: boolean;
+  write_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+}
+
 export interface FounderLoopSourceReadiness {
   schema_version: "founder_loop_source_readiness.v1";
   source: string;
@@ -1394,6 +1434,7 @@ export interface FounderLoopSourceReadiness {
   route_refs: string[];
   source_readiness_items: FounderLoopSourceReadinessItem[];
   source_readiness_posture: FounderLoopSourceReadinessPosture;
+  source_readiness_proposal_candidates: FounderLoopSourceReadinessProposalCandidate[];
   supported_statuses: FounderLoopSourceReadinessStatus[];
   missing_contract_refs: string[];
   blocked_state_refs: string[];
@@ -1984,6 +2025,9 @@ export interface FounderLoopActionsInbox {
   user_intent_authority_posture?: FounderLoopUserIntentAuthorityPosture;
   user_intent_blocked_state_refs?: string[];
   source_readiness_items?: FounderLoopSourceReadinessItem[];
+  source_readiness_route_ref?: string;
+  source_readiness_proposal_candidates?: FounderLoopSourceReadinessProposalCandidate[];
+  source_readiness_proposal_binding_contract_ref?: string;
   crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];
