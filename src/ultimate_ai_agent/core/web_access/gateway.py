@@ -120,9 +120,10 @@ class WebAccessGateway:
 def create_default_web_access_gateway() -> WebAccessGateway:
     """Create the first-slice gateway.
 
-    Read-only fetch and browser observe are policy-disabled by default.
-    Governed web evidence routes through its wrapper when available and remains
-    constrained by the existing governed evidence policy/transport.
+    Read-only fetch, browser observe, and browser action dry-run are
+    policy-disabled by default. Governed web evidence routes through its wrapper
+    when available and remains constrained by the existing governed evidence
+    policy/transport.
     """
 
     return WebAccessGateway(

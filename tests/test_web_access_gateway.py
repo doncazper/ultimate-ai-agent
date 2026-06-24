@@ -110,6 +110,32 @@ class DummyBrowserObserveAdapter:
         }
 
 
+class DummyBrowserActionDryRunAdapter:
+    adapter_kind = WebAccessAdapterKind.LOCAL_BROWSER_ACTION_DRY_RUN
+
+    def __init__(self) -> None:
+        self.calls: list[WebAccessRequest] = []
+
+    def execute(
+        self,
+        request: WebAccessRequest,
+        decision: WebAccessPolicyDecision,
+    ) -> Mapping[str, Any]:
+        self.calls.append(request)
+        return {
+            "summary": "reviewable browser action dry-run plan",
+            "source_refs": [
+                {
+                    "source_observation_ref": request.metadata.get("source_observation_ref"),
+                    "safe_url_ref": request.metadata.get("safe_url_ref"),
+                    "content_untrusted": True,
+                }
+            ],
+            "source_observation_content_untrusted": True,
+            "web_content_instruction_use_allowed": False,
+        }
+
+
 def _gateway(adapter: DummyReadOnlyAdapter | None = None) -> WebAccessGateway:
     adapter = adapter or DummyReadOnlyAdapter()
     return WebAccessGateway(
@@ -177,6 +203,26 @@ def test_read_only_fetch_cannot_claim_browser_observe_lane() -> None:
     assert not adapter.calls
     assert result.decision.reasons == (
         "network_lane_not_valid_for_kind:read_only_fetch:browser_observe_only",
+    )
+
+
+def test_read_only_fetch_cannot_claim_browser_action_dry_run_lane() -> None:
+    adapter = DummyReadOnlyAdapter()
+    gateway = _gateway(adapter)
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.READ_ONLY_FETCH,
+            url="https://example.com/page",
+            allowed_domains=("example.com",),
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.DENIED
+    assert not adapter.calls
+    assert result.decision.reasons == (
+        "network_lane_not_valid_for_kind:read_only_fetch:browser_action_dry_run",
     )
 
 
@@ -258,6 +304,134 @@ def test_browser_observe_raw_url_or_control_metadata_is_denied_before_adapter() 
     )
     assert control_result.status == WebAccessPolicyStatus.DENIED
     assert "browser_observe_click_denied" in control_result.decision.reasons
+    assert not adapter.calls
+
+
+def _browser_action_metadata(**overrides: Any) -> dict[str, Any]:
+    metadata = {
+        "plan_ref": "browser-action-plan:example",
+        "source_observation_ref": "browser-observe-output:example",
+        "safe_url_ref": "browser-url:example/page",
+        "source_observation_content_untrusted": True,
+        "web_content_instruction_use_allowed": False,
+    }
+    metadata.update(overrides)
+    return metadata
+
+
+def test_browser_action_dry_run_is_denied_by_default_before_adapter_call() -> None:
+    adapter = DummyBrowserActionDryRunAdapter()
+    gateway = WebAccessGateway(
+        adapters={WebAccessRequestKind.BROWSER_ACTION_DRY_RUN: adapter},
+    )
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+            authority_mode=WebAccessAuthorityMode.BROWSER_ACTION_DRY_RUN,
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+            metadata=_browser_action_metadata(),
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.DENIED
+    assert not adapter.calls
+    assert result.decision.reasons == ("browser_action_dry_run_not_enabled",)
+
+
+def test_browser_action_dry_run_policy_allows_plan_only_metadata_and_audit() -> None:
+    adapter = DummyBrowserActionDryRunAdapter()
+    gateway = WebAccessGateway(
+        policy=WebAccessPolicy(allow_browser_action_dry_run=True),
+        adapters={WebAccessRequestKind.BROWSER_ACTION_DRY_RUN: adapter},
+    )
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+            authority_mode=WebAccessAuthorityMode.BROWSER_ACTION_DRY_RUN,
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+            metadata=_browser_action_metadata(),
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.ALLOWED
+    assert adapter.calls
+    assert result.audit.adapter_kind == WebAccessAdapterKind.LOCAL_BROWSER_ACTION_DRY_RUN
+    assert result.audit.network_lane == WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN
+    assert result.audit.url is None
+    assert result.content_untrusted is True
+    assert result.evidence_bundle is not None
+    assert result.evidence_bundle.payload["source_observation_content_untrusted"] is True
+    assert result.evidence_bundle.payload["web_content_instruction_use_allowed"] is False
+
+
+def test_browser_action_dry_run_raw_url_or_execution_metadata_is_denied_before_adapter() -> None:
+    adapter = DummyBrowserActionDryRunAdapter()
+    gateway = WebAccessGateway(
+        policy=WebAccessPolicy(allow_browser_action_dry_run=True),
+        adapters={WebAccessRequestKind.BROWSER_ACTION_DRY_RUN: adapter},
+    )
+
+    raw_url_result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+            url="https://example.com/page",
+            authority_mode=WebAccessAuthorityMode.BROWSER_ACTION_DRY_RUN,
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+            metadata=_browser_action_metadata(),
+        )
+    )
+    assert raw_url_result.status == WebAccessPolicyStatus.DENIED
+    assert "browser_action_dry_run_raw_url_denied" in raw_url_result.decision.reasons
+
+    execution_result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+            authority_mode=WebAccessAuthorityMode.BROWSER_ACTION_DRY_RUN,
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+            metadata=_browser_action_metadata(click_execution=True),
+        )
+    )
+    assert execution_result.status == WebAccessPolicyStatus.DENIED
+    assert "browser_action_dry_run_click_execution_denied" in execution_result.decision.reasons
+    assert not adapter.calls
+
+
+def test_browser_action_dry_run_requires_untrusted_non_instruction_inputs() -> None:
+    adapter = DummyBrowserActionDryRunAdapter()
+    gateway = WebAccessGateway(
+        policy=WebAccessPolicy(allow_browser_action_dry_run=True),
+        adapters={WebAccessRequestKind.BROWSER_ACTION_DRY_RUN: adapter},
+    )
+
+    trusted_result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+            authority_mode=WebAccessAuthorityMode.BROWSER_ACTION_DRY_RUN,
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+            metadata=_browser_action_metadata(source_observation_content_untrusted=False),
+        )
+    )
+    assert trusted_result.status == WebAccessPolicyStatus.DENIED
+    assert (
+        "browser_action_dry_run_untrusted_observation_required"
+        in trusted_result.decision.reasons
+    )
+
+    instruction_result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+            authority_mode=WebAccessAuthorityMode.BROWSER_ACTION_DRY_RUN,
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+            metadata=_browser_action_metadata(web_content_instruction_use_allowed=True),
+        )
+    )
+    assert instruction_result.status == WebAccessPolicyStatus.DENIED
+    assert (
+        "browser_action_dry_run_web_content_instruction_use_denied"
+        in instruction_result.decision.reasons
+    )
     assert not adapter.calls
 
 

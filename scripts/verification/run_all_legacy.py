@@ -12441,7 +12441,7 @@ def verify_m75_browser_action_dry_run_planner() -> None:
             BrowserActionDryRunPlannerRequest,
             BrowserActionDryRunPlannerStatus,
             BrowserActionDryRunStep,
-            build_browser_action_dry_run_plan,
+            build_browser_action_dry_run_plan_via_web_access_gateway,
         )
         from ultimate_ai_agent.core.gate.evaluators import m75_openapi_route_failures
     except Exception as exc:
@@ -12468,7 +12468,7 @@ def verify_m75_browser_action_dry_run_planner() -> None:
             )
         ],
     )
-    plan = build_browser_action_dry_run_plan(request)
+    plan = build_browser_action_dry_run_plan_via_web_access_gateway(request)
     if (
         plan.status != BrowserActionDryRunPlannerStatus.plan_ready
         or not plan.plan_valid_for_review
@@ -12508,7 +12508,7 @@ def verify_m75_browser_action_dry_run_planner() -> None:
         ({"approval_ref": "approval_test_m75"}, "APPROVAL_TEST_REF_DENIED"),
         ({"authority_refs": ["context-pack:m75"]}, "AUTHORITY_REF_NOT_BROWSER_ACTION_AUTHORITY"),
     ]:
-        denied = build_browser_action_dry_run_plan(request.model_copy(update=update))
+        denied = build_browser_action_dry_run_plan_via_web_access_gateway(request.model_copy(update=update))
         if denied.plan_valid_for_review or reason not in denied.reason_codes:
             print(f"FAIL: M75 unsafe browser action plan request was not denied with {reason}")
             sys.exit(1)

@@ -1,11 +1,24 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.autonomy.modes import _validate_m61_ref, _validate_safe_payload
+from ultimate_ai_agent.core.web_access.contracts import (
+    WebAccessAdapterKind,
+    WebAccessAuthorityMode,
+    WebAccessNetworkLane,
+    WebAccessPolicyDecision,
+    WebAccessPolicyStatus,
+    WebAccessRequest,
+    WebAccessRequestKind,
+)
+from ultimate_ai_agent.core.web_access.gateway import WebAccessGateway
+from ultimate_ai_agent.core.web_access.policy import WebAccessPolicy
 
 
 BROWSER_ACTION_DRY_RUN_PLANNER_REF = "browser-action-planner:m75-dry-run"
@@ -173,6 +186,8 @@ class BrowserActionDryRunPlan(_BrowserActionDryRunModel):
     status: BrowserActionDryRunPlannerStatus
     plan_valid_for_review: bool
     dry_run_only: bool = True
+    source_observation_content_untrusted: bool = True
+    web_content_instruction_use_allowed: bool = False
     planned_steps: list[BrowserActionDryRunStep] = Field(default_factory=list)
     receipt_plan: BrowserActionDryRunReceiptPlan
     browser_action_execution_allowed: bool = False
@@ -214,6 +229,10 @@ class BrowserActionDryRunPlan(_BrowserActionDryRunModel):
         if not self.reason_codes:
             raise ValueError("BROWSER_ACTION_REASON_CODE_REQUIRED")
         _validate_safe_payload(self.safe_message)
+        if not self.source_observation_content_untrusted:
+            raise ValueError("BROWSER_ACTION_SOURCE_OBSERVATION_MUST_BE_UNTRUSTED")
+        if self.web_content_instruction_use_allowed:
+            raise ValueError("BROWSER_ACTION_WEB_CONTENT_INSTRUCTION_USE_DENIED")
         return self
 
 
@@ -232,7 +251,7 @@ def validate_browser_action_dry_run_policy(
     return validated
 
 
-def build_browser_action_dry_run_plan(
+def _build_browser_action_dry_run_plan(
     request: BrowserActionDryRunPlannerRequest,
     policy: BrowserActionDryRunPlannerPolicy | None = None,
 ) -> BrowserActionDryRunPlan:
@@ -274,6 +293,276 @@ def build_browser_action_dry_run_plan(
         ],
         safe_message="BROWSER_ACTION_DRY_RUN_PLAN_READY_FOR_REVIEW",
     )
+
+
+@dataclass(frozen=True)
+class _BrowserActionDryRunWebAccessAdapter:
+    planner_request: BrowserActionDryRunPlannerRequest
+    policy: BrowserActionDryRunPlannerPolicy
+    adapter_kind: WebAccessAdapterKind = WebAccessAdapterKind.LOCAL_BROWSER_ACTION_DRY_RUN
+
+    def execute(
+        self,
+        request: WebAccessRequest,
+        decision: WebAccessPolicyDecision,
+    ) -> Mapping[str, Any]:
+        if request.kind != WebAccessRequestKind.BROWSER_ACTION_DRY_RUN:
+            plan = _denied_plan_from_request(
+                self.planner_request,
+                ["BROWSER_ACTION_DRY_RUN_GATEWAY_KIND_MISMATCH"],
+            )
+            return _blocked_browser_action_dry_run_adapter_result(plan)
+        if not _web_access_request_matches_planner(request, self.planner_request):
+            plan = _denied_plan_from_request(
+                self.planner_request,
+                ["BROWSER_ACTION_DRY_RUN_GATEWAY_METADATA_MISMATCH"],
+            )
+            return _blocked_browser_action_dry_run_adapter_result(plan)
+
+        plan = _build_browser_action_dry_run_plan(self.planner_request, self.policy)
+        if plan.status != BrowserActionDryRunPlannerStatus.plan_ready or not plan.plan_valid_for_review:
+            return _blocked_browser_action_dry_run_adapter_result(plan)
+
+        return {
+            "adapter_ref": "web-access-adapter:browser-action-dry-run.v1",
+            "allowed": True,
+            "status": plan.status.value,
+            "plan_ref": plan.plan_ref,
+            "target_ref": plan.target_ref,
+            "safe_url_ref": plan.safe_url_ref,
+            "source_observation_ref": plan.source_observation_ref,
+            "source_observation_content_untrusted": True,
+            "web_content_instruction_use_allowed": False,
+            "output": plan.model_dump(mode="python"),
+            "summary": plan.safe_message,
+            "source_refs": [
+                {
+                    "source_observation_ref": plan.source_observation_ref,
+                    "target_ref": plan.target_ref,
+                    "safe_url_ref": plan.safe_url_ref,
+                    "content_untrusted": True,
+                }
+            ],
+        }
+
+
+def build_browser_action_dry_run_plan_via_web_access_gateway(
+    request: BrowserActionDryRunPlannerRequest,
+    policy: BrowserActionDryRunPlannerPolicy | None = None,
+) -> BrowserActionDryRunPlan:
+    """Route M75 browser dry-run planning through WebAccessGateway."""
+
+    active_policy = policy or BrowserActionDryRunPlannerPolicy()
+    adapter = _BrowserActionDryRunWebAccessAdapter(
+        planner_request=request,
+        policy=active_policy,
+    )
+    result = WebAccessGateway(
+        policy=WebAccessPolicy(allow_browser_action_dry_run=True),
+        adapters={WebAccessRequestKind.BROWSER_ACTION_DRY_RUN: adapter},
+    ).execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
+            method="GET",
+            authority_mode=WebAccessAuthorityMode.BROWSER_ACTION_DRY_RUN,
+            network_lane=WebAccessNetworkLane.BROWSER_ACTION_DRY_RUN,
+            actor=request.actor_ref,
+            session_id=request.plan_ref,
+            metadata=_web_access_metadata_from_request(request),
+        )
+    )
+    plan = _plan_from_web_access_payload(result.evidence_bundle.payload if result.evidence_bundle else None)
+    if plan is not None:
+        return plan
+    if result.status != WebAccessPolicyStatus.ALLOWED:
+        reasons = _browser_action_dry_run_reasons_from_web_access_result(result.decision.reasons)
+        reasons.extend(_browser_action_dry_run_preflight_reason_codes(request))
+        return _denied_plan_from_request(
+            request,
+            list(dict.fromkeys(reasons)),
+        )
+    return _denied_plan_from_request(request, ["BROWSER_ACTION_DRY_RUN_GATEWAY_OUTPUT_MISSING"])
+
+
+def _web_access_metadata_from_request(request: BrowserActionDryRunPlannerRequest) -> Mapping[str, Any]:
+    return {
+        "adapter_ref": "web-access-adapter:browser-action-dry-run.v1",
+        "browser_action_planner_ref": BROWSER_ACTION_DRY_RUN_PLANNER_REF,
+        "plan_ref": request.plan_ref,
+        "target_ref": request.target_ref,
+        "source_observation_ref": request.source_observation_ref,
+        "safe_url_ref": request.safe_url_ref,
+        "source_observation_content_untrusted": True,
+        "web_content_instruction_use_allowed": False,
+        "browser_action_execution": request.browser_action_execution_requested,
+        "browser_session_start": request.browser_session_start_requested,
+        "navigation_execution": request.navigation_execution_requested,
+        "click_execution": request.click_execution_requested,
+        "form_fill_execution": request.form_fill_execution_requested,
+        "screenshot": request.screenshot_requested,
+        "raw_dom": request.raw_dom_requested,
+        "uses_auth": request.authenticated_profile_requested,
+        "cookies": request.cookies_or_credentials_requested,
+        "download": request.download_or_upload_requested,
+        "upload": request.download_or_upload_requested,
+        "remote_browser": request.remote_browser_requested,
+        "network_interception": request.network_interception_requested,
+        "network_call": request.network_call_requested,
+        "model_call": request.model_call_requested,
+        "tool_execution": request.tool_execution_requested,
+        "memory_write": request.memory_write_requested,
+        "context_injection": request.context_injection_requested,
+        "backend_route": request.backend_route_requested,
+        "control_center_control": request.control_center_control_requested,
+        "production_authority": request.production_authority_requested,
+        "step_action_execution_performed": any(step.action_execution_performed for step in request.steps),
+        "step_browser_session_started": any(step.browser_session_started for step in request.steps),
+        "step_navigation_performed": any(step.navigation_performed for step in request.steps),
+        "step_click_performed": any(step.click_performed for step in request.steps),
+        "step_form_fill_performed": any(step.form_fill_performed for step in request.steps),
+        "step_screenshot_returned": any(step.screenshot_returned for step in request.steps),
+        "step_raw_dom_returned": any(step.raw_dom_returned for step in request.steps),
+    }
+
+
+def _blocked_browser_action_dry_run_adapter_result(plan: BrowserActionDryRunPlan) -> Mapping[str, Any]:
+    return {
+        "adapter_ref": "web-access-adapter:browser-action-dry-run.v1",
+        "allowed": False,
+        "status": "denied",
+        "reason_codes": plan.reason_codes,
+        "plan_ref": plan.plan_ref,
+        "target_ref": plan.target_ref,
+        "safe_url_ref": plan.safe_url_ref,
+        "source_observation_ref": plan.source_observation_ref,
+        "source_observation_content_untrusted": True,
+        "web_content_instruction_use_allowed": False,
+        "output": plan.model_dump(mode="python"),
+        "source_refs": [
+            {
+                "source_observation_ref": plan.source_observation_ref,
+                "target_ref": plan.target_ref,
+                "safe_url_ref": plan.safe_url_ref,
+                "content_untrusted": True,
+            }
+        ],
+    }
+
+
+def _web_access_request_matches_planner(
+    request: WebAccessRequest,
+    planner_request: BrowserActionDryRunPlannerRequest,
+) -> bool:
+    expected = {
+        "plan_ref": planner_request.plan_ref,
+        "target_ref": planner_request.target_ref,
+        "source_observation_ref": planner_request.source_observation_ref,
+        "safe_url_ref": planner_request.safe_url_ref,
+    }
+    return all(request.metadata.get(key) == value for key, value in expected.items())
+
+
+def _plan_from_web_access_payload(payload: Mapping[str, Any] | None) -> BrowserActionDryRunPlan | None:
+    if not payload:
+        return None
+    output_payload = payload.get("output")
+    if not isinstance(output_payload, Mapping):
+        return None
+    return BrowserActionDryRunPlan.model_validate(output_payload)
+
+
+def _browser_action_dry_run_preflight_reason_codes(
+    request: BrowserActionDryRunPlannerRequest,
+) -> list[str]:
+    reasons = browser_action_dry_run_request_reason_codes(request)
+    for step in request.steps:
+        reasons.extend(browser_action_dry_run_step_reason_codes(step))
+    return list(dict.fromkeys(reasons))
+
+
+def _browser_action_dry_run_reasons_from_web_access_result(reasons: tuple[str, ...]) -> list[str]:
+    mapped: list[str] = []
+    for reason in reasons:
+        if reason.startswith("adapter_reason:"):
+            mapped.append(_safe_reason(reason.split(":", 1)[1], "BROWSER_ACTION_DRY_RUN_GATEWAY_DENIED"))
+        elif reason == "browser_action_dry_run_not_enabled":
+            mapped.append("BROWSER_ACTION_DRY_RUN_GATEWAY_NOT_ENABLED")
+        elif reason == "browser_action_dry_run_authority_mode_required":
+            mapped.append("BROWSER_ACTION_DRY_RUN_AUTHORITY_MODE_REQUIRED")
+        elif reason == "browser_action_dry_run_lane_required":
+            mapped.append("BROWSER_ACTION_DRY_RUN_GATEWAY_LANE_REQUIRED")
+        elif reason == "browser_action_dry_run_raw_url_denied":
+            mapped.append("RAW_ABSOLUTE_URL_DENIED")
+        elif reason == "browser_action_dry_run_safe_url_ref_required":
+            mapped.append("BROWSER_ACTION_SAFE_REF_ONLY_REQUIRED")
+        elif reason == "browser_action_dry_run_observation_ref_required":
+            mapped.append("BROWSER_ACTION_OBSERVATION_REF_REQUIRED")
+        elif reason == "browser_action_dry_run_plan_ref_required":
+            mapped.append("BROWSER_ACTION_PLAN_REF_REQUIRED")
+        elif reason in {
+            "browser_action_dry_run_execution_denied",
+            "browser_action_dry_run_step_execution_denied",
+        }:
+            mapped.append("BROWSER_ACTION_EXECUTION_DENIED")
+        elif reason in {
+            "browser_action_dry_run_session_start_denied",
+            "browser_action_dry_run_step_session_start_denied",
+        }:
+            mapped.append("BROWSER_SESSION_START_DENIED")
+        elif reason in {
+            "browser_action_dry_run_navigation_execution_denied",
+            "browser_action_dry_run_step_navigation_denied",
+        }:
+            mapped.append("BROWSER_NAVIGATION_EXECUTION_DENIED")
+        elif reason in {
+            "browser_action_dry_run_click_execution_denied",
+            "browser_action_dry_run_step_click_denied",
+        }:
+            mapped.append("BROWSER_CLICK_EXECUTION_DENIED")
+        elif reason in {
+            "browser_action_dry_run_form_fill_execution_denied",
+            "browser_action_dry_run_step_form_fill_denied",
+        }:
+            mapped.append("FORM_FILL_EXECUTION_DENIED")
+        elif reason in {
+            "browser_action_dry_run_screenshot_denied",
+            "browser_action_dry_run_step_screenshot_denied",
+        }:
+            mapped.append("SCREENSHOT_DENIED")
+        elif reason in {
+            "browser_action_dry_run_raw_dom_denied",
+            "browser_action_dry_run_step_raw_dom_denied",
+        }:
+            mapped.append("RAW_DOM_DENIED")
+        elif reason == "browser_action_dry_run_authenticated_profile_denied":
+            mapped.append("AUTHENTICATED_PROFILE_DENIED")
+        elif reason == "browser_action_dry_run_cookies_or_credentials_denied":
+            mapped.append("COOKIES_OR_CREDENTIALS_DENIED")
+        elif reason == "browser_action_dry_run_download_or_upload_denied":
+            mapped.append("DOWNLOAD_OR_UPLOAD_DENIED")
+        elif reason == "browser_action_dry_run_remote_browser_denied":
+            mapped.append("REMOTE_BROWSER_DENIED")
+        elif reason == "browser_action_dry_run_network_interception_denied":
+            mapped.append("NETWORK_INTERCEPTION_DENIED")
+        elif reason == "browser_action_dry_run_network_call_denied":
+            mapped.append("NETWORK_CALL_DENIED")
+        elif reason == "browser_action_dry_run_model_call_denied":
+            mapped.append("MODEL_CALL_DENIED")
+        elif reason == "browser_action_dry_run_tool_execution_denied":
+            mapped.append("TOOL_EXECUTION_DENIED")
+        elif reason == "browser_action_dry_run_memory_write_denied":
+            mapped.append("MEMORY_WRITE_DENIED")
+        elif reason == "browser_action_dry_run_context_injection_denied":
+            mapped.append("CONTEXT_INJECTION_DENIED")
+        elif reason == "browser_action_dry_run_backend_route_denied":
+            mapped.append("BACKEND_ROUTE_DENIED")
+        elif reason == "browser_action_dry_run_control_center_control_denied":
+            mapped.append("CONTROL_CENTER_CONTROL_DENIED")
+        elif reason == "browser_action_dry_run_production_authority_denied":
+            mapped.append("PRODUCTION_AUTHORITY_DENIED")
+        elif reason.startswith("method_not_allowed:"):
+            mapped.append("BROWSER_ACTION_DRY_RUN_NON_GET_METHOD_DENIED")
+    return list(dict.fromkeys(mapped or ["BROWSER_ACTION_DRY_RUN_GATEWAY_DENIED"]))
 
 
 def browser_action_dry_run_request_reason_codes(
