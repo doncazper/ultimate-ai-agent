@@ -73,6 +73,29 @@ accept/correct/reject backend decisions, Evidence Timeline productization, and
 proofed route-surface promotion. Detailed goals, routes, model fields, storage
 semantics, UI outcomes, proof commands, and authority boundaries live in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`.
+UAA-P1-088 is complete as an Agent Module Maturity Review V2
+review/scoring/read-model lane with a ranked improvement queue, verifier, and
+tests. It adds no runtime model calls, provider calls, shell/subprocess
+execution, network/browser authority, connector writes, memory writes, context
+injection, action execution, workflow execution, autonomous routing authority,
+public beta, or production authority.
+UAA-P1-089 is complete as a Top-Level Decision Router Contract
+contract/read-model lane. It models answer-direct, reviewed-memory, Action
+Inbox proposal, ask-human, escalate, defer, blocked-unsafe, and
+insufficient-evidence route outcome proposals with deterministic no-effect
+traces, blocked authority refs, verifier coverage, and no backend route,
+runtime model calls, provider calls, tool execution, action execution,
+workflow execution, memory writes, context injection, shell/subprocess
+execution, browser/network access, connector writes, autonomous routing
+authority, public beta, or production authority.
+UAA-P1-090 is complete as a Task Decomposition Proposal Engine
+proposal/read-model lane. It turns bounded safe request refs into review-only
+decomposition proposals for Plans, Action Inbox, and CLI inspection while
+remaining separate from execution-capable task runtime paths. It adds no
+backend route, model/provider calls, tool execution, action execution, workflow
+execution, memory writes, context injection, shell/subprocess execution,
+browser/network access, connector writes, autonomous planning authority, public
+beta, or production authority.
 Governed Cognitive Memory Spine Phase 2 is implemented as a read-only L1 hot
 local memory index over reviewed recall-only `LocalMemoryStore` records at
 `GET /control-center/memory/l1-index`. Phase 3 L2 factual/graph/temporal
@@ -116,26 +139,72 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-FCC-LOOP-001 First Product Loop Readability is implemented as a Control Center
-shell/readability lane. The primary Founder Loop surfaces now share a compact
-daily-loop spine that exposes Today, Inbox, Plans, Actions, Memory, Evidence,
-and Settings status from existing backend-backed summaries, keeps blocked
-states visible, and names the only current mutating FCC authority as the
-backend-approved local task lane. UAA-P1-067 through UAA-P1-087.2c and
-FCC-V1-000 through FCC-V1-007 remain complete. Full UAA-P1-087.2 manual UI
-testing is deferred until more Founder Loop implementation exists and accepted
-or revised findings can be recorded later.
+No current P0 implementation lane is open in this board slice. UAA-P1-067
+through UAA-P1-090, FCC-V1-000 through FCC-V1-007, FCC-LOOP-001,
+FCC-LOOP-002, FCC-MEM-001, and FCC-MEM-022 are represented as completed or
+truth-accounted lanes below. Full UAA-P1-087.2 manual UI testing is deferred
+until more Founder Loop implementation exists and accepted or revised findings
+can be recorded later.
+```
+
+## Done
+
+```text
+UAA-P1-088 Agent Module Maturity Review V2
+Goal: review and score each core AI-agent module against repo evidence, then
+produce a ranked improvement queue.
+Scope: implemented as a review/scoring/read-model lane only; no runtime model
+calls, provider calls, shell/subprocess execution, connector writes, memory
+writes, context injection, action execution, workflow execution, autonomous
+routing authority, public beta, or production authority.
+
+UAA-P1-089 Top-Level Decision Router Contract
+Goal: define a unified top-level route-decision contract across direct answer,
+reviewed memory, Action Inbox proposal, ask-human, escalation, defer, blocked,
+and insufficient-evidence outcomes.
+Scope: implemented as deterministic no-effect contracts/tests/docs only; no
+backend route, model/provider calls, tool execution, workflow execution, memory
+writes, context injection, shell/subprocess execution, connector writes,
+autonomous routing authority, public beta, or production authority.
+
+UAA-P1-090 Task Decomposition Proposal Engine
+Goal: turn bounded safe requests into review-only decomposition proposals for
+Plans, Action Inbox, and CLI inspection.
+Scope: implemented as proposal/read-model contracts and display parity only; no
+model/provider calls, shell/subprocess execution, connector writes, workflow
+execution, action execution, memory writes, context injection, autonomous
+planning authority, public beta, or production authority.
+
+FCC-LOOP-002 Founder Loop Ergonomics Pass
+Goal: organize Today, Briefing, Action Inbox, Memory, Evidence, and related
+surfaces around the daily founder/operator loop.
+Scope: implemented as a Control Center ergonomics/readability pass over
+existing backend read models; no backend authority, action execution, context
+injection, provider/model calls, connector writes, shell/subprocess execution,
+hidden memory writes, automatic maintenance, public beta, or production
+authority.
+
+FCC-MEM-022 Ranked Retrieval / Recall Tuning
+Goal: use retrieval diagnostics to improve memory ranking with deterministic
+lexical, tag, and ref scoring only.
+Scope: implemented as a Memory Workbench/Search read-model and Control Center
+display lane only; no embeddings, vector database, context injection,
+model/provider calls, connector writes, hidden memory writes, automatic
+maintenance, action execution, or production claim.
 ```
 
 ## Ready Next
 
 ```text
-Final review, verifier repair, commit, tag, and push
-Goal: run the full review/verification pass for the completed prompt sequence,
-repair any regressions, then create the requested commit/tag/push if the
-repository is clean enough to do so safely.
-Scope: verification, scoped repairs, git hygiene, and release metadata only.
-Do not rewrite old tags or historical release records.
+Post-FCC-MEM-022 Memory Follow-up Selection
+Goal: choose the next exact-scoped memory lane from merge/supersede UX,
+relationship/CRM-lite schema, recall tuning evidence, or future context-use
+approval gating.
+Scope: selection/read-model planning only; actual context use remains blocked
+until a separate milestone grants explicit approval, receipt, rollback,
+safe-disable, redaction, citation validation, and Evidence proof.
+Subagents: required. Use an independent repo-evidence reviewer and a
+safety/product-language reviewer before final hardening.
 ```
 
 ## Shaping

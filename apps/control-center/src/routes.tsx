@@ -213,7 +213,19 @@ export function renderRoute(path: string, data: ControlCenterData) {
         </>
       );
     case "/briefing":
-      return <MorningBriefingPanel briefing={data.founderMorningBriefing} />;
+      return (
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Briefing"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <MorningBriefingPanel briefing={data.founderMorningBriefing} />
+        </>
+      );
     case "/private-trial":
       return <PrivateOperatorTrialPanel />;
     case "/storage":

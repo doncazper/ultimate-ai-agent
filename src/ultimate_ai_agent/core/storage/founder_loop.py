@@ -265,6 +265,14 @@ from ultimate_ai_agent.core.planning.action_envelopes import (
     plans_action_envelope_review_posture_rows,
     plans_action_envelope_surface_bindings,
 )
+from ultimate_ai_agent.core.task_decomposition.proposals import (
+    TASK_DECOMPOSITION_ACTION_KIND,
+    TASK_DECOMPOSITION_PROPOSAL_CONTRACT_REF,
+    TASK_DECOMPOSITION_PROPOSAL_REQUIRED_BLOCKED_AUTHORITY_REFS,
+    build_task_decomposition_review_envelope,
+    task_decomposition_action_items,
+    task_decomposition_read_model_for_plan,
+)
 from ultimate_ai_agent.core.readiness import (
     PRIVATE_BETA_READINESS_CONTRACT_REF,
     PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS,
@@ -3175,6 +3183,77 @@ def _plan_action_envelope_contract_payload(plan: dict[str, Any]) -> dict[str, An
     }
 
 
+def _task_decomposition_contract_payload(plan: dict[str, Any]) -> dict[str, Any]:
+    payload = task_decomposition_read_model_for_plan(
+        str(plan.get("plan_ref", "plan-summary:missing")),
+        title=str(plan.get("title", "Plan summary")),
+        safe_summary=str(
+            plan.get(
+                "safe_summary",
+                "Plan summary needs a review-only decomposition proposal.",
+            )
+        ),
+        evidence_refs=list(plan.get("evidence_refs") or []),
+    )
+    _validate_safe_payload(payload, "task_decomposition_plan_payload")
+    return payload
+
+
+def _task_decomposition_action_items_for_plans(
+    plans: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    action_items: list[dict[str, Any]] = []
+    for plan in plans[:3]:
+        payload = _task_decomposition_contract_payload(plan)
+        request = {
+            "request_ref": payload["task_decomposition_request_ref"],
+            "original_request_ref": payload["task_decomposition_original_request_ref"],
+            "original_request_safe_summary": str(
+                plan.get(
+                    "safe_summary",
+                    "Plan summary needs a review-only decomposition proposal.",
+                )
+            ),
+            "source_refs": [str(plan.get("plan_ref", "plan-summary:missing"))],
+            "evidence_refs": list(plan.get("evidence_refs") or []),
+        }
+        envelope = build_task_decomposition_review_envelope(request)
+        action_items.extend(task_decomposition_action_items(envelope))
+    return action_items
+
+
+def _task_decomposition_action_proposal_summary(
+    proposals: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "contract_ref": TASK_DECOMPOSITION_PROPOSAL_CONTRACT_REF,
+        "source": "python_core_task_decomposition_proposal_engine",
+        "status": "proposal_only_review_required",
+        "proposal_count": len(proposals),
+        "action_kind": TASK_DECOMPOSITION_ACTION_KIND,
+        "proposal_refs": [
+            str(item["task_decomposition_proposal_ref"]) for item in proposals
+        ],
+        "action_item_refs": [str(item["item_ref"]) for item in proposals],
+        "blocked_authority_refs": list(
+            TASK_DECOMPOSITION_PROPOSAL_REQUIRED_BLOCKED_AUTHORITY_REFS
+        ),
+        "review_only": True,
+        "proposal_only": True,
+        "local_task_commit_eligible": False,
+        "action_execution_enabled": False,
+        "workflow_execution_enabled": False,
+        "tool_execution_enabled": False,
+        "memory_write_authorized": False,
+        "context_injection_authorized": False,
+        "connector_write_enabled": False,
+        "shell_subprocess_execution_enabled": False,
+        "browser_network_enabled": False,
+        "model_provider_authority_allowed": False,
+        "production_authority_enabled": False,
+    }
+
+
 def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
     action_ref = str(action.get("item_ref", "founder-action:missing"))
     source_plan_ref = _status_ref("plan-summary", str(action.get("surface", "Actions")))
@@ -4191,6 +4270,38 @@ class FounderLoopRepository:
             "plans_action_envelope_status": (
                 "implemented_today_to_action_envelope_vertical_slice_execution_blocked"
             ),
+            "task_decomposition_proposal_contract_ref": (
+                TASK_DECOMPOSITION_PROPOSAL_CONTRACT_REF
+            ),
+            "task_decomposition_proposal_status": (
+                "implemented_review_only_proposal_engine_execution_blocked"
+            ),
+            "task_decomposition_proposal_count": len(plans),
+            "task_decomposition_action_proposal_refs": [
+                str(plan["task_decomposition_action_inbox_bridge_ref"])
+                for plan in plans
+                if plan.get("task_decomposition_action_inbox_bridge_ref")
+            ],
+            "task_decomposition_required_blocked_refs": list(
+                TASK_DECOMPOSITION_PROPOSAL_REQUIRED_BLOCKED_AUTHORITY_REFS
+            ),
+            "task_decomposition_authority_posture": {
+                "review_only": True,
+                "proposal_only": True,
+                "safe_refs_only": True,
+                "raw_content_included": False,
+                "local_task_commit_eligible": False,
+                "action_execution_enabled": False,
+                "workflow_execution_enabled": False,
+                "tool_execution_enabled": False,
+                "memory_write_authorized": False,
+                "context_injection_authorized": False,
+                "connector_write_enabled": False,
+                "shell_subprocess_execution_enabled": False,
+                "browser_network_enabled": False,
+                "model_provider_authority_allowed": False,
+                "production_authority_enabled": False,
+            },
             "priority_refs": _priority_refs(actions, briefing_items),
             "blocker_refs": _blocked_state_refs(actions, memory_items, briefing_items),
             "follow_up_refs": [
@@ -6153,6 +6264,11 @@ class FounderLoopRepository:
             private_beta_readiness_gate_contract=private_beta_readiness_gate_contract,
         )
         review_filter_facets = _action_inbox_review_filter_facets(items)
+        task_decomposition_proposal_items = [
+            item
+            for item in items
+            if item.get("action_kind") == TASK_DECOMPOSITION_ACTION_KIND
+        ]
         dogfood_capture = _dogfood_capture_summary(
             actions=items,
             memory_items=memory_items,
@@ -6216,6 +6332,12 @@ class FounderLoopRepository:
             ),
             "action_envelope_authority_posture": (
                 plans_action_envelope_authority_posture()
+            ),
+            "task_decomposition_action_proposals": task_decomposition_proposal_items,
+            "task_decomposition_proposal_summary": (
+                _task_decomposition_action_proposal_summary(
+                    task_decomposition_proposal_items
+                )
             ),
             **memory_to_loop_binding_contract,
             **private_beta_readiness_gate_contract,
@@ -6488,6 +6610,10 @@ class FounderLoopRepository:
             build_fcc_health_recommendations(source_readiness=source_readiness)
         )
         actions.extend(health_recommendation_actions)
+        task_decomposition_actions = _task_decomposition_action_items_for_plans(
+            self.list_plan_summaries(limit=3)
+        )
+        actions.extend(task_decomposition_actions)
         projected_actions: list[dict[str, Any]] = []
         for action in actions:
             action_envelope_payload = _action_envelope_contract_payload(action)
@@ -9009,7 +9135,12 @@ class FounderLoopRepository:
         )
         plans = [_row_to_payload(row) for row in rows]
         return [
-            {**plan, **_plan_action_envelope_contract_payload(plan)} for plan in plans
+            {
+                **plan,
+                **_plan_action_envelope_contract_payload(plan),
+                **_task_decomposition_contract_payload(plan),
+            }
+            for plan in plans
         ]
 
     def list_memory_review_queue(self, *, limit: int = 20) -> list[dict[str, Any]]:
@@ -9138,6 +9269,7 @@ class FounderLoopRepository:
             l3_index=l3_index,
             context_packs=context_packs,
             loop_refs=self._memory_workbench_loop_refs(limit=bounded_limit),
+            query_ref=query_ref,
         )
 
     def memory_search(

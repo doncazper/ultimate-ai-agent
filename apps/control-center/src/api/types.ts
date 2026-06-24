@@ -115,6 +115,78 @@ export interface FounderLoopActionReceiptVisibility {
   missing_field_states: string[];
 }
 
+export interface FounderLoopTaskDecompositionStep {
+  step_ref: string;
+  title: string;
+  safe_summary: string;
+  depends_on: string[];
+  dependency_refs: string[];
+  evidence_refs: string[];
+  ambiguity_refs: string[];
+  missing_evidence_refs: string[];
+  suggested_action_inbox_proposal_ref?: string | null;
+  required_approval_refs: string[];
+  blocked_authority_refs: string[];
+  risk_class: string;
+  why_proposed: string;
+  what_this_affects: string[];
+  review_only: boolean;
+  proposal_only: boolean;
+  execution_performed: boolean;
+  safe_refs_only: boolean;
+}
+
+export interface FounderLoopTaskDecompositionRisk {
+  risk_ref: string;
+  risk_class: string;
+  safe_summary: string;
+  mitigation_ref: string;
+  blocked_authority_ref: string;
+  evidence_refs: string[];
+}
+
+export interface FounderLoopTaskDecompositionAuthorityPosture {
+  review_only: boolean;
+  proposal_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  local_task_commit_eligible: boolean;
+  action_execution_enabled: boolean;
+  workflow_execution_enabled: boolean;
+  tool_execution_enabled: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_network_enabled: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopTaskDecompositionProposalSummary {
+  contract_ref: string;
+  source: string;
+  status: string;
+  proposal_count: number;
+  action_kind: string;
+  proposal_refs: string[];
+  action_item_refs: string[];
+  blocked_authority_refs: string[];
+  review_only: boolean;
+  proposal_only: boolean;
+  local_task_commit_eligible: boolean;
+  action_execution_enabled: boolean;
+  workflow_execution_enabled: boolean;
+  tool_execution_enabled: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_network_enabled: boolean;
+  model_provider_authority_allowed: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopLocalTaskSafeDisablePosture {
   schema_version: "founder_loop_local_task_safe_disable_posture.v1";
   source: string;
@@ -232,6 +304,34 @@ export interface FounderLoopActionItem {
   health_recommendation_connector_write_authorized?: boolean;
   health_recommendation_action_execution_authorized?: boolean;
   health_recommendation_production_authority_enabled?: boolean;
+  task_decomposition_proposal_ref?: string;
+  task_decomposition_review_envelope_ref?: string;
+  task_decomposition_plans_bridge_ref?: string;
+  task_decomposition_action_inbox_bridge_ref?: string;
+  task_decomposition_step_refs?: string[];
+  task_decomposition_dependency_refs?: string[];
+  task_decomposition_ambiguity_refs?: string[];
+  task_decomposition_missing_evidence_refs?: string[];
+  task_decomposition_required_approvals?: string[];
+  task_decomposition_blocked_authority_refs?: string[];
+  task_decomposition_why_proposed?: string;
+  task_decomposition_what_this_affects?: string[];
+  task_decomposition_review_only?: boolean;
+  task_decomposition_proposal_only?: boolean;
+  task_decomposition_execution_performed?: boolean;
+  task_decomposition_runtime_authority_granted?: boolean;
+  task_decomposition_execution_authorized?: boolean;
+  task_decomposition_action_execution_enabled?: boolean;
+  task_decomposition_tool_execution_enabled?: boolean;
+  task_decomposition_workflow_execution_enabled?: boolean;
+  task_decomposition_memory_write_authorized?: boolean;
+  task_decomposition_context_injection_authorized?: boolean;
+  task_decomposition_connector_write_enabled?: boolean;
+  task_decomposition_shell_subprocess_execution_enabled?: boolean;
+  task_decomposition_browser_network_enabled?: boolean;
+  task_decomposition_model_provider_authority_allowed?: boolean;
+  task_decomposition_public_beta_claim_enabled?: boolean;
+  task_decomposition_production_authority_enabled?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -575,6 +675,53 @@ export interface FounderLoopMemoryWorkbenchGroup {
   count: number;
 }
 
+export interface FounderLoopMemoryRankingSourceMix {
+  source_ref: string;
+  count: number;
+}
+
+export interface FounderLoopMemoryRankingExcludedRef {
+  memory_ref: string;
+  reason_refs: string[];
+}
+
+export interface FounderLoopMemoryRankingPressureCounts {
+  stale: number;
+  conflict: number;
+  duplicate: number;
+  missing_evidence: number;
+}
+
+export interface FounderLoopMemoryRankingSummary {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  query_ref: string;
+  candidate_count: number;
+  ranked_candidate_refs: string[];
+  included_ranked_refs: string[];
+  excluded_refs: FounderLoopMemoryRankingExcludedRef[];
+  excluded_ref_count: number;
+  score_component_bounds: Record<string, number>;
+  source_mix: FounderLoopMemoryRankingSourceMix[];
+  pressure_counts: FounderLoopMemoryRankingPressureCounts;
+  cache_key: string;
+  cache_hit: boolean;
+  token_estimate: number;
+  rank_signal_refs: string[];
+  blocked_authority_refs: string[];
+  safe_refs_only: boolean;
+  lexical_tag_ref_only: boolean;
+  embedding_search_enabled: boolean;
+  vector_db_enabled: boolean;
+  semantic_provider_enabled: boolean;
+  context_injection_authorized: boolean;
+  memory_write_performed: boolean;
+  auto_maintenance_performed: boolean;
+  action_execution_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopMemoryWorkbenchItem {
   memory_ref: string;
   review_ref: string;
@@ -606,6 +753,18 @@ export interface FounderLoopMemoryWorkbenchItem {
   conflict_with_refs?: string[];
   group_ids: FounderLoopMemoryWorkbenchGroup["group_id"][];
   rank_score: number;
+  rank_components: Record<string, number>;
+  included_reason_refs: string[];
+  excluded_reason_refs: string[];
+  stale_pressure: number;
+  conflict_pressure: number;
+  duplicate_pressure: number;
+  missing_evidence_pressure: number;
+  source_mix: FounderLoopMemoryRankingSourceMix[];
+  cache_key: string;
+  token_estimate: number;
+  ranking_blocked_authority_refs: string[];
+  why_ranked_refs: string[];
   next_safe_action: string;
   created_at?: string;
 }
@@ -635,6 +794,7 @@ export interface FounderLoopMemoryWorkbench {
   l2_projection_refs: string[];
   l3_projection_refs: string[];
   context_pack_refs: string[];
+  ranking: FounderLoopMemoryRankingSummary;
   blocked_state_refs: string[];
   safe_refs_only: boolean;
   semantic_search_enabled: boolean;
@@ -715,6 +875,43 @@ export interface FounderLoopPlanSummary {
   plan_action_expected_receipt_refs?: string[];
   plan_action_blocked_state_refs?: string[];
   plan_action_authority_boundary?: string;
+  task_decomposition_contract_ref?: string;
+  task_decomposition_request_ref?: string;
+  task_decomposition_original_request_ref?: string;
+  task_decomposition_review_envelope_ref?: string;
+  task_decomposition_proposal_ref?: string;
+  task_decomposition_status?: string;
+  task_decomposition_steps?: FounderLoopTaskDecompositionStep[];
+  task_decomposition_step_refs?: string[];
+  task_decomposition_dependency_refs?: string[];
+  task_decomposition_ambiguity_refs?: string[];
+  task_decomposition_missing_evidence_refs?: string[];
+  task_decomposition_risks?: FounderLoopTaskDecompositionRisk[];
+  task_decomposition_risk_class?: string;
+  task_decomposition_suggested_action_inbox_proposal_refs?: string[];
+  task_decomposition_required_approvals?: string[];
+  task_decomposition_blocked_authority_refs?: string[];
+  task_decomposition_why_proposed?: string;
+  task_decomposition_what_this_affects?: string[];
+  task_decomposition_plans_bridge_ref?: string;
+  task_decomposition_action_inbox_bridge_ref?: string;
+  task_decomposition_review_only?: boolean;
+  task_decomposition_proposal_only?: boolean;
+  task_decomposition_execution_performed?: boolean;
+  task_decomposition_runtime_authority_granted?: boolean;
+  task_decomposition_execution_authorized?: boolean;
+  task_decomposition_action_execution_enabled?: boolean;
+  task_decomposition_tool_execution_enabled?: boolean;
+  task_decomposition_workflow_execution_enabled?: boolean;
+  task_decomposition_memory_write_authorized?: boolean;
+  task_decomposition_context_injection_authorized?: boolean;
+  task_decomposition_connector_write_enabled?: boolean;
+  task_decomposition_shell_subprocess_execution_enabled?: boolean;
+  task_decomposition_browser_network_enabled?: boolean;
+  task_decomposition_model_provider_authority_allowed?: boolean;
+  task_decomposition_public_beta_claim_enabled?: boolean;
+  task_decomposition_production_authority_enabled?: boolean;
+  task_decomposition_action_envelope_ref?: string;
   updated_at?: string;
 }
 
@@ -2135,6 +2332,12 @@ export interface FounderLoopTodaySummary {
   plans_action_envelope_surface_bindings: FounderLoopActionEnvelopeSurfaceBinding[];
   plans_action_envelope_authority_posture: FounderLoopActionEnvelopeAuthorityPosture;
   plans_action_envelope_status: string;
+  task_decomposition_proposal_contract_ref: string;
+  task_decomposition_proposal_status: string;
+  task_decomposition_proposal_count: number;
+  task_decomposition_action_proposal_refs: string[];
+  task_decomposition_required_blocked_refs: string[];
+  task_decomposition_authority_posture: FounderLoopTaskDecompositionAuthorityPosture;
   priority_refs: string[];
   blocker_refs: string[];
   follow_up_refs: string[];
@@ -2224,6 +2427,8 @@ export interface FounderLoopActionsInbox {
   source_readiness_route_ref?: string;
   source_readiness_proposal_candidates?: FounderLoopSourceReadinessProposalCandidate[];
   source_readiness_proposal_binding_contract_ref?: string;
+  task_decomposition_action_proposals?: FounderLoopActionItem[];
+  task_decomposition_proposal_summary?: FounderLoopTaskDecompositionProposalSummary;
   crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];

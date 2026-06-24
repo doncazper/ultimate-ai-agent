@@ -151,6 +151,10 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         in manifest.capabilities_declared
     )
     assert (
+        "control_center_memory_ranked_retrieval_read_model"
+        in manifest.capabilities_declared
+    )
+    assert (
         "control_center_memory_search_filters"
         in manifest.capabilities_declared
     )
@@ -170,3 +174,17 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "control_center_source_readiness_status"
         in manifest.capabilities_declared
     )
+    for blocked_capability in [
+        "control_center_memory_ranked_retrieval_embeddings",
+        "control_center_memory_ranked_retrieval_vector_db",
+        "control_center_memory_ranked_retrieval_provider_calls",
+        "control_center_memory_ranked_retrieval_context_injection",
+        "control_center_memory_ranked_retrieval_memory_writes",
+        "control_center_memory_ranked_retrieval_auto_maintenance",
+        "control_center_memory_ranked_retrieval_action_execution",
+        "control_center_memory_ranked_retrieval_connector_writes",
+        "control_center_memory_ranked_retrieval_background_indexing",
+        "control_center_memory_ranked_retrieval_truth_authority",
+        "control_center_memory_ranked_retrieval_production_authority",
+    ]:
+        assert blocked_capability in manifest.capabilities_blocked

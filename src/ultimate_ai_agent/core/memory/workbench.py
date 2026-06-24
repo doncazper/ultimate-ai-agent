@@ -14,6 +14,9 @@ from ultimate_ai_agent.core.execution.validation import (
 
 
 MEMORY_WORKBENCH_CONTRACT_REF = "contract-ref:fcc-mem-001-memory-workbench:v1"
+MEMORY_RANKING_CONTRACT_REF = (
+    "contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1"
+)
 MEMORY_WORKBENCH_ROUTE_REF = "GET /control-center/memory/workbench"
 MEMORY_SEARCH_ROUTE_REF = "GET /control-center/memory/search"
 MEMORY_MANUAL_INTAKE_ROUTE_REF = (
@@ -40,6 +43,40 @@ MEMORY_WORKBENCH_BLOCKED_STATE_REFS = [
     "blocked-state:memory-workbench-no-model-provider-call",
     "blocked-state:memory-workbench-no-production-authority",
 ]
+MEMORY_RANKING_BLOCKED_STATE_REFS = [
+    "blocked-state:memory-ranking-no-embeddings",
+    "blocked-state:memory-ranking-no-vector-db",
+    "blocked-state:memory-ranking-no-semantic-provider",
+    "blocked-state:memory-ranking-no-model-provider-call",
+    "blocked-state:memory-ranking-no-context-injection",
+    "blocked-state:memory-ranking-no-prompt-stuffing",
+    "blocked-state:memory-ranking-no-memory-write",
+    "blocked-state:memory-ranking-no-auto-merge",
+    "blocked-state:memory-ranking-no-auto-forget",
+    "blocked-state:memory-ranking-no-auto-maintenance",
+    "blocked-state:memory-ranking-no-action-execution",
+    "blocked-state:memory-ranking-no-connector-write",
+    "blocked-state:memory-ranking-no-background-indexing",
+    "blocked-state:memory-ranking-no-truth-authority",
+    "blocked-state:memory-ranking-no-production-authority",
+]
+MEMORY_RANKING_COMPONENT_BOUNDS = {
+    "lexical_safe_summary_title_match": 20,
+    "tag_ref_match": 15,
+    "entity_ref_match": 15,
+    "relationship_ref_match": 10,
+    "recency": 20,
+    "reviewed_status": 20,
+    "evidence_quality": 20,
+    "citation_integrity": 15,
+    "duplicate_pressure": 15,
+    "conflict_pressure": 15,
+    "stale_pressure": 15,
+    "missing_evidence_pressure": 15,
+    "loop_impact": 20,
+    "source_diversity": 10,
+    "operator_feedback_quality_issue": 15,
+}
 MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS = [
     "blocked-state:manual-memory-intake-no-recall-record",
     "blocked-state:manual-memory-intake-no-context-injection",
@@ -278,10 +315,12 @@ def build_memory_workbench(
     l3_index: dict[str, Any],
     context_packs: dict[str, Any],
     loop_refs: list[str] | None = None,
+    query_ref: str | None = None,
 ) -> dict[str, Any]:
     """Build the FCC-MEM-001 safe-ref-only Memory Workbench read model."""
 
     loop_ref_set = set(_safe_refs(loop_refs or [], "loop_refs"))
+    safe_query_ref = _safe_ref(query_ref, "query_ref", allow_empty=True)
     receipt_by_candidate: dict[str, list[dict[str, Any]]] = {}
     for receipt in decision_receipts:
         for key in ["candidate_ref", "review_ref"]:
@@ -340,7 +379,13 @@ def build_memory_workbench(
         item["quality_state_refs"] = sorted(set(item["quality_state_refs"]))
         item["quality_reason_refs"] = sorted(set(item["quality_reason_refs"]))
         item["group_ids"] = _groups_for_item(item)
-        item["rank_score"] = _rank_score(item)
+        item.update(
+            _ranked_memory_payload(
+                item,
+                query_ref=safe_query_ref,
+                loop_refs=loop_ref_set,
+            )
+        )
 
     ranked_items = sorted(
         workbench_items,
@@ -395,6 +440,10 @@ def build_memory_workbench(
             str(item.get("context_pack_ref"))
             for item in context_packs.get("proposals", []) or []
         ],
+        "ranking": _ranking_read_model(
+            ranked_items,
+            query_ref=safe_query_ref,
+        ),
         "blocked_state_refs": list(MEMORY_WORKBENCH_BLOCKED_STATE_REFS),
         "safe_refs_only": True,
         "semantic_search_enabled": False,
@@ -472,6 +521,11 @@ def filter_memory_workbench(
         "items": filtered,
         "count": len(filtered),
         "total_workbench_count": len(items),
+        "ranking": _ranking_read_model(
+            filtered,
+            query_ref=filters["query_ref"],
+            status="implemented_filtered_ranked_read_model_safe_refs_only",
+        ),
         "safe_refs_only": True,
         "semantic_search_enabled": False,
         "vector_db_enabled": False,
@@ -791,29 +845,353 @@ def _groups_for_item(item: dict[str, Any]) -> list[MemoryWorkbenchGroup]:
     return list(dict.fromkeys(groups))
 
 
-def _rank_score(item: dict[str, Any]) -> int:
-    score = 0
+def _ranked_memory_payload(
+    item: dict[str, Any],
+    *,
+    query_ref: str | None,
+    loop_refs: set[str],
+) -> dict[str, Any]:
+    components = _rank_components(item, query_ref=query_ref, loop_refs=loop_refs)
+    rank_score = min(sum(components.values()), sum(MEMORY_RANKING_COMPONENT_BOUNDS.values()))
+    excluded_reason_refs = _excluded_reason_refs(item)
+    return {
+        "rank_score": rank_score,
+        "rank_components": components,
+        "included_reason_refs": _included_reason_refs(
+            item,
+            components,
+            excluded_reason_refs=excluded_reason_refs,
+        ),
+        "excluded_reason_refs": excluded_reason_refs,
+        "stale_pressure": _pressure_flag(item, "stale"),
+        "conflict_pressure": _pressure_flag(item, "conflict"),
+        "duplicate_pressure": _pressure_flag(item, "duplicate"),
+        "missing_evidence_pressure": _pressure_flag(item, "missing_evidence"),
+        "source_mix": _source_mix(item),
+        "cache_key": _item_cache_key(item, components),
+        "token_estimate": _token_estimate(item),
+        "ranking_blocked_authority_refs": list(MEMORY_RANKING_BLOCKED_STATE_REFS),
+        "why_ranked_refs": _why_ranked_refs(item, components, excluded_reason_refs),
+    }
+
+
+def _rank_components(
+    item: dict[str, Any],
+    *,
+    query_ref: str | None,
+    loop_refs: set[str],
+) -> dict[str, int]:
+    query_tokens = _ranking_query_tokens(query_ref=query_ref, loop_refs=loop_refs)
+    title_summary_tokens = set(
+        _tokenize_ranking_text(
+            " ".join(
+                [
+                    str(item.get("title") or ""),
+                    str(item.get("safe_summary") or ""),
+                    str(item.get("candidate_kind") or ""),
+                ]
+            )
+        )
+    )
+    ref_tokens = set(
+        _tokenize_ranking_text(
+            " ".join(
+                [
+                    str(item.get("memory_ref") or ""),
+                    str(item.get("review_ref") or ""),
+                    *list(item.get("source_refs") or []),
+                    *list(item.get("evidence_refs") or []),
+                    *list(item.get("related_entity_refs") or []),
+                    *list(item.get("tag_refs") or []),
+                    *list(item.get("receipt_refs") or []),
+                ]
+            )
+        )
+    )
+    tag_tokens = set(_tokenize_ranking_text(" ".join(item.get("tag_refs") or [])))
+    entity_tokens = set(
+        _tokenize_ranking_text(" ".join(item.get("related_entity_refs") or []))
+    )
     groups = set(item.get("group_ids") or [])
+    quality_refs = list(item.get("quality_state_refs") or [])
+    evidence_refs = list(item.get("evidence_refs") or [])
+    source_refs = list(item.get("source_refs") or [])
+    receipt_refs = list(item.get("receipt_refs") or [])
+    review_state = str(item.get("review_state") or "")
+    exact_loop_refs = {
+        str(value)
+        for value in [
+            item.get("memory_ref"),
+            item.get("review_ref"),
+            *source_refs,
+            *evidence_refs,
+            *list(item.get("related_entity_refs") or []),
+            *list(item.get("tag_refs") or []),
+            *receipt_refs,
+        ]
+        if value
+    }.intersection(loop_refs)
+    component_values = {
+        "lexical_safe_summary_title_match": len(query_tokens & title_summary_tokens) * 5,
+        "tag_ref_match": len(query_tokens & tag_tokens) * 5,
+        "entity_ref_match": len(query_tokens & entity_tokens) * 5,
+        "relationship_ref_match": len(item.get("related_entity_refs") or []) * 2,
+        "recency": _iso_recency(item.get("created_at")),
+        "reviewed_status": 20 if review_state in _REVIEWED_STATES else 0,
+        "evidence_quality": 20
+        if evidence_refs and "missing_evidence" not in groups
+        else 8
+        if evidence_refs
+        else 0,
+        "citation_integrity": 15
+        if evidence_refs and source_refs and (receipt_refs or review_state in _REVIEWED_STATES)
+        else 8
+        if evidence_refs and source_refs
+        else 0,
+        "duplicate_pressure": 15 if "duplicate" in groups else 0,
+        "conflict_pressure": 15 if "conflict" in groups else 0,
+        "stale_pressure": 15 if "stale" in groups else 0,
+        "missing_evidence_pressure": 15 if "missing_evidence" in groups else 0,
+        "loop_impact": 20
+        if exact_loop_refs
+        else 10
+        if query_tokens & ref_tokens
+        or "why-shown-ref:current-loop-relevance" in item.get("why_shown_refs", [])
+        else 0,
+        "source_diversity": len(_source_mix(item)) * 2,
+        "operator_feedback_quality_issue": min(len(quality_refs) * 4, 15),
+    }
+    return {
+        key: max(0, min(int(component_values.get(key, 0)), bound))
+        for key, bound in MEMORY_RANKING_COMPONENT_BOUNDS.items()
+    }
+
+
+def _ranking_read_model(
+    ranked_items: list[dict[str, Any]],
+    *,
+    query_ref: str | None,
+    status: str = "implemented_ranked_read_model_safe_refs_only",
+) -> dict[str, Any]:
+    ranked_candidate_refs = [str(item["memory_ref"]) for item in ranked_items]
+    included_ranked_refs = [
+        str(item["memory_ref"])
+        for item in ranked_items
+        if not item.get("excluded_reason_refs")
+    ]
+    excluded_refs = [
+        {
+            "memory_ref": str(item["memory_ref"]),
+            "reason_refs": list(item.get("excluded_reason_refs") or []),
+        }
+        for item in ranked_items
+        if item.get("excluded_reason_refs")
+    ]
+    payload_for_cache = {
+        "query_ref": query_ref or "query-ref:memory-ranking:default",
+        "ranked_refs": ranked_candidate_refs,
+        "included_refs": included_ranked_refs,
+        "scores": [
+            [str(item["memory_ref"]), int(item.get("rank_score", 0))]
+            for item in ranked_items
+        ],
+    }
+    return {
+        "schema_version": "fcc_mem_022_ranked_retrieval_recall_tuning.v1",
+        "contract_ref": MEMORY_RANKING_CONTRACT_REF,
+        "status": status,
+        "query_ref": query_ref or "query-ref:memory-ranking:default",
+        "candidate_count": len(ranked_items),
+        "ranked_candidate_refs": ranked_candidate_refs,
+        "included_ranked_refs": included_ranked_refs,
+        "excluded_refs": excluded_refs,
+        "excluded_ref_count": len(excluded_refs),
+        "score_component_bounds": dict(MEMORY_RANKING_COMPONENT_BOUNDS),
+        "source_mix": _aggregate_source_mix(ranked_items),
+        "pressure_counts": {
+            "stale": sum(1 for item in ranked_items if item.get("stale_pressure")),
+            "conflict": sum(1 for item in ranked_items if item.get("conflict_pressure")),
+            "duplicate": sum(1 for item in ranked_items if item.get("duplicate_pressure")),
+            "missing_evidence": sum(
+                1 for item in ranked_items if item.get("missing_evidence_pressure")
+            ),
+        },
+        "cache_key": _payload_fingerprint(
+            payload_for_cache,
+            prefix="cache-key:fcc-mem-022-ranking",
+        ),
+        "cache_hit": False,
+        "token_estimate": sum(int(item.get("token_estimate", 0)) for item in ranked_items),
+        "rank_signal_refs": _rank_signal_refs(ranked_items),
+        "blocked_authority_refs": list(MEMORY_RANKING_BLOCKED_STATE_REFS),
+        "safe_refs_only": True,
+        "lexical_tag_ref_only": True,
+        "embedding_search_enabled": False,
+        "vector_db_enabled": False,
+        "semantic_provider_enabled": False,
+        "context_injection_authorized": False,
+        "memory_write_performed": False,
+        "auto_maintenance_performed": False,
+        "action_execution_authorized": False,
+        "production_authority_enabled": False,
+    }
+
+
+def _excluded_reason_refs(item: dict[str, Any]) -> list[str]:
+    reason_refs: list[str] = []
+    groups = set(item.get("group_ids") or [])
+    review_state = str(item.get("review_state") or "")
+    if review_state not in _REVIEWED_STATES:
+        reason_refs.append("rank-exclusion-ref:not-reviewed-recall")
     if "conflict" in groups:
-        score += 90
+        reason_refs.append("rank-exclusion-ref:conflict-pressure")
     if "duplicate" in groups:
-        score += 80
+        reason_refs.append("rank-exclusion-ref:duplicate-pressure")
     if "missing_evidence" in groups:
-        score += 70
+        reason_refs.append("rank-exclusion-ref:missing-evidence-pressure")
     if "stale" in groups:
-        score += 60
-    if "needs_review" in groups:
-        score += 50
-    if item.get("receipt_refs"):
-        score += 20
-    if item.get("evidence_refs"):
-        score += 15
-    if "why-shown-ref:current-loop-relevance" in item.get("why_shown_refs", []):
-        score += 30
-    if "why-shown-ref:high-priority-review" in item.get("why_shown_refs", []):
-        score += 25
-    score += _iso_recency(item.get("created_at"))
-    return score
+        reason_refs.append("rank-exclusion-ref:stale-pressure")
+    if not item.get("evidence_refs"):
+        reason_refs.append("rank-exclusion-ref:evidence-missing")
+    return list(dict.fromkeys(reason_refs))
+
+
+def _included_reason_refs(
+    item: dict[str, Any],
+    components: dict[str, int],
+    *,
+    excluded_reason_refs: list[str],
+) -> list[str]:
+    reason_refs = ["rank-include-ref:operator-review-read-model"]
+    component_reason_refs = {
+        "lexical_safe_summary_title_match": "rank-include-ref:lexical-safe-summary-title-match",
+        "tag_ref_match": "rank-include-ref:tag-ref-match",
+        "entity_ref_match": "rank-include-ref:entity-ref-match",
+        "relationship_ref_match": "rank-include-ref:relationship-ref-match",
+        "recency": "rank-include-ref:recency",
+        "reviewed_status": "rank-include-ref:reviewed-status",
+        "evidence_quality": "rank-include-ref:evidence-quality",
+        "citation_integrity": "rank-include-ref:citation-integrity",
+        "duplicate_pressure": "rank-include-ref:duplicate-pressure-visible",
+        "conflict_pressure": "rank-include-ref:conflict-pressure-visible",
+        "stale_pressure": "rank-include-ref:stale-pressure-visible",
+        "missing_evidence_pressure": "rank-include-ref:missing-evidence-pressure-visible",
+        "loop_impact": "rank-include-ref:loop-impact",
+        "source_diversity": "rank-include-ref:source-diversity",
+        "operator_feedback_quality_issue": "rank-include-ref:operator-feedback-quality-issue",
+    }
+    for key, reason_ref in component_reason_refs.items():
+        if components.get(key, 0) > 0:
+            reason_refs.append(reason_ref)
+    if excluded_reason_refs:
+        reason_refs.append("rank-include-ref:visible-but-recall-use-blocked")
+    return list(dict.fromkeys(reason_refs))
+
+
+def _why_ranked_refs(
+    item: dict[str, Any],
+    components: dict[str, int],
+    excluded_reason_refs: list[str],
+) -> list[str]:
+    why = list(item.get("why_shown_refs") or [])
+    why.append("why-ranked-ref:fcc-mem-022-lexical-tag-ref-only")
+    top_components = [
+        key for key, value in sorted(components.items(), key=lambda pair: (-pair[1], pair[0]))
+        if value > 0
+    ][:5]
+    why.extend(f"why-ranked-ref:{key.replace('_', '-')}" for key in top_components)
+    if excluded_reason_refs:
+        why.append("why-ranked-ref:recall-use-blocked-by-reason-refs")
+    return list(dict.fromkeys(why))
+
+
+def _pressure_flag(item: dict[str, Any], group_id: str) -> int:
+    return 1 if group_id in set(item.get("group_ids") or []) else 0
+
+
+def _source_mix(item: dict[str, Any]) -> list[dict[str, Any]]:
+    counts: dict[str, int] = {}
+    source = _safe_text(item.get("source") or "unknown", "source")
+    counts[f"source:{source}"] = counts.get(f"source:{source}", 0) + 1
+    for ref in item.get("source_refs") or []:
+        source_kind = str(ref).split(":", 2)[:2]
+        key = ":".join(source_kind) if source_kind else "source-ref:unknown"
+        counts[key] = counts.get(key, 0) + 1
+    return [
+        {"source_ref": key, "count": count}
+        for key, count in sorted(counts.items())
+    ]
+
+
+def _aggregate_source_mix(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    counts: dict[str, int] = {}
+    for item in items:
+        for entry in item.get("source_mix") or []:
+            source_ref = str(entry.get("source_ref") or "")
+            if not source_ref:
+                continue
+            counts[source_ref] = counts.get(source_ref, 0) + int(entry.get("count", 0))
+    return [
+        {"source_ref": source_ref, "count": count}
+        for source_ref, count in sorted(counts.items())
+    ]
+
+
+def _token_estimate(item: dict[str, Any]) -> int:
+    text = " ".join(
+        [
+            str(item.get("title") or ""),
+            str(item.get("safe_summary") or ""),
+            " ".join(item.get("why_shown_refs") or []),
+            " ".join(item.get("quality_reason_refs") or []),
+        ]
+    )
+    return max(1, min(2048, (len(text) + 3) // 4))
+
+
+def _item_cache_key(item: dict[str, Any], components: dict[str, int]) -> str:
+    return _payload_fingerprint(
+        {
+            "memory_ref": item.get("memory_ref"),
+            "review_ref": item.get("review_ref"),
+            "components": components,
+            "quality_state_refs": item.get("quality_state_refs") or [],
+            "why_shown_refs": item.get("why_shown_refs") or [],
+        },
+        prefix="cache-key:fcc-mem-022-ranking-item",
+    )
+
+
+def _rank_signal_refs(items: list[dict[str, Any]]) -> list[str]:
+    refs: list[str] = []
+    for item in items:
+        refs.extend(item.get("included_reason_refs") or [])
+        refs.extend(item.get("excluded_reason_refs") or [])
+    return sorted(set(refs))
+
+
+def _ranking_query_tokens(
+    *,
+    query_ref: str | None,
+    loop_refs: set[str],
+) -> set[str]:
+    query_text = " ".join([query_ref or "", *sorted(loop_refs)])
+    return set(_tokenize_ranking_text(query_text))
+
+
+def _tokenize_ranking_text(value: str) -> list[str]:
+    token = []
+    tokens: list[str] = []
+    for char in value.lower():
+        if char.isalnum():
+            token.append(char)
+            continue
+        if token:
+            tokens.append("".join(token))
+            token = []
+    if token:
+        tokens.append("".join(token))
+    return [part for part in tokens if len(part) > 1]
 
 
 def _projection_refs(index: dict[str, Any]) -> list[str]:
@@ -894,6 +1272,9 @@ __all__ = [
     "MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS",
     "MEMORY_MANUAL_INTAKE_CONTRACT_REF",
     "MEMORY_MANUAL_INTAKE_ROUTE_REF",
+    "MEMORY_RANKING_BLOCKED_STATE_REFS",
+    "MEMORY_RANKING_COMPONENT_BOUNDS",
+    "MEMORY_RANKING_CONTRACT_REF",
     "MEMORY_SEARCH_ROUTE_REF",
     "MEMORY_WORKBENCH_BLOCKED_STATE_REFS",
     "MEMORY_WORKBENCH_CONTRACT_REF",

@@ -103,7 +103,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     action_groups = {group["group_id"]: group for group in inbox["action_groups"]}
     assert action_groups["ready_for_decision"]["count"] == 1
     assert action_groups["blocked_by_authority"]["count"] == 1
-    assert action_groups["proposal_only_no_execution_path"]["count"] == 7
+    assert action_groups["proposal_only_no_execution_path"]["count"] == 8
     assert "GET /control-center/actions/{action_id}/receipt" in inbox[
         "read_only_route_refs"
     ]
@@ -148,6 +148,28 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     )
     assert all(
         item["local_task_commit_eligible"] is False for item in source_readiness_items
+    )
+    task_decomposition_items = [
+        item
+        for item in inbox["items"]
+        if item["action_kind"] == "task_decomposition_proposal"
+    ]
+    assert len(task_decomposition_items) == 1
+    assert inbox["task_decomposition_action_proposals"] == task_decomposition_items
+    assert inbox["task_decomposition_proposal_summary"]["proposal_count"] == 1
+    task_decomposition_item = task_decomposition_items[0]
+    assert (
+        task_decomposition_item["action_group_id"]
+        == "proposal_only_no_execution_path"
+    )
+    assert task_decomposition_item["approval_required"] is False
+    assert task_decomposition_item["local_task_commit_eligible"] is False
+    assert task_decomposition_item["task_decomposition_review_only"] is True
+    assert task_decomposition_item["task_decomposition_proposal_only"] is True
+    assert task_decomposition_item["task_decomposition_execution_authorized"] is False
+    assert (
+        task_decomposition_item["task_decomposition_memory_write_authorized"]
+        is False
     )
 
     setup_item = next(

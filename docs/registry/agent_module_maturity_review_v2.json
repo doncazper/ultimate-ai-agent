@@ -1,0 +1,1170 @@
+{
+  "schema_version": "uaa_agent_module_maturity_review.v2",
+  "task_ref": "UAA-P1-088",
+  "status": "implemented_review_only",
+  "baseline": "v0.104.0",
+  "assessed_on": "2026-06-24",
+  "source_maturity_map_ref": "docs/registry/agent_module_maturity_map.json",
+  "review_scope": "Repository-evidence maturity review and ranked planning read-model only, refreshed after the requested FCC-MEM-015 through FCC-MEM-021 memory hardening sequence. Scores measure tracked source, docs, tests, UI/CLI visibility, evidence quality, operator ergonomics, implementation maturity, and safety clarity; they do not grant runtime authority.",
+  "review_snapshot_timing": "The module scores are the UAA-P1-088 snapshot captured before applying the ranked follow-up lanes in this same work batch. UAA-P1-089, UAA-P1-090, FCC-LOOP-002, and FCC-MEM-022 may be marked implemented in the queue without changing this snapshot scorecard; a post-follow-up rescore is separate future work.",
+  "authority_boundary": {
+    "runtime_model_calls_added": false,
+    "provider_sdk_calls_added": false,
+    "web_fetching_added": false,
+    "browser_automation_added": false,
+    "shell_or_subprocess_execution_added": false,
+    "connector_writes_added": false,
+    "memory_writes_added": false,
+    "context_injection_added": false,
+    "action_execution_added": false,
+    "workflow_execution_added": false,
+    "autonomous_routing_authority_added": false,
+    "production_or_public_beta_claim_added": false
+  },
+  "dimension_definitions": [
+    {
+      "id": "product_usefulness",
+      "max_score": 5,
+      "definition": "The module materially helps the founder/operator loop or core agent capability in current tracked repo behavior."
+    },
+    {
+      "id": "safety_boundary_clarity",
+      "max_score": 5,
+      "definition": "Blocked authority, non-goals, and safety boundaries are explicit in source, tests, docs, or verifier evidence."
+    },
+    {
+      "id": "test_depth",
+      "max_score": 5,
+      "definition": "Focused tests cover normal behavior, denial behavior, edge cases, and regression-prone safety boundaries."
+    },
+    {
+      "id": "ui_visibility",
+      "max_score": 5,
+      "definition": "The module is visible in Control Center or operator-facing docs/read models rather than hidden implementation only."
+    },
+    {
+      "id": "cli_parity",
+      "max_score": 5,
+      "definition": "The module has CLI or repo-local script inspection parity for operator-relevant behavior."
+    },
+    {
+      "id": "evidence_quality",
+      "max_score": 5,
+      "definition": "Repo-owned evidence refs, verifiers, manifests, docs, and tests prove current truth without raw/private payloads."
+    },
+    {
+      "id": "operator_ergonomics",
+      "max_score": 5,
+      "definition": "The module is understandable and usable by an operator through clear state, receipts, reasons, next actions, or blocked states."
+    },
+    {
+      "id": "implementation_maturity",
+      "max_score": 5,
+      "definition": "Tracked implementation goes beyond declarations and contracts into bounded, tested local behavior when allowed."
+    }
+  ],
+  "composite_score_formula": "floor(sum(dimension_scores) * 100 / 40)",
+  "summary_metrics": {
+    "module_count": 13,
+    "v1_average_maturity_score": 3.31,
+    "v1_benchmark_module_score": 55,
+    "v2_average_composite_score": 68,
+    "weakest_module_ids": [
+      "decision_router",
+      "task_decomposition_module"
+    ],
+    "post_fcc_mem_015_021_tracked_artifacts_present": false
+  },
+  "queued_prompt_execution_policy": {
+    "subagents_required": true,
+    "default_subagent_roles": [
+      "repo_evidence_reviewer",
+      "safety_product_language_reviewer"
+    ],
+    "policy": "Every queued follow-up task from this review must use at least one independent subagent before final hardening. Implementation subagents must own disjoint write scopes; read-only subagents must report evidence, safety, and product-language findings. The main agent remains responsible for integration, verification, and final truth."
+  },
+  "modules": [
+    {
+      "module_id": "agent_runtime_skeleton",
+      "module_name": "Agent runtime skeleton",
+      "current_maturity": "constrained_local_runtime",
+      "current_maturity_score": 4,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/kernel/runner.py",
+        "src/ultimate_ai_agent/core/kernel/requests.py",
+        "src/ultimate_ai_agent/core/contracts/execution_contract.py",
+        "src/ultimate_ai_agent/core/contracts/context_pack.py"
+      ],
+      "implemented_capabilities": [
+        "MinimumKernelRunner coordinates task requests, execution/context contracts, consent, approval checks, tool broker evaluation, bounded local file mutation, recall-only memory write, ledger events, and receipts.",
+        "Kernel results expose receipt refs, world-state refs, rollback posture, and event traces for the narrow local/dev happy path."
+      ],
+      "missing_capabilities": [
+        "No general agent thought loop.",
+        "No arbitrary tool dispatch.",
+        "No production authority or external action loop."
+      ],
+      "blocked_authorities": [
+        "runtime_model_calls",
+        "arbitrary_tool_dispatch",
+        "external_action_execution",
+        "production_authority"
+      ],
+      "test_coverage_refs": [
+        "tests/test_kernel_minimum_lovable_happy_path.py",
+        "tests/test_kernel_request.py",
+        "tests/test_kernel_event_trace.py",
+        "tests/test_kernel_secret_blocking.py"
+      ],
+      "doc_refs": [
+        "docs/canonical/43_minimum_lovable_kernel.md",
+        "docs/canonical/35_execution_contract.md",
+        "docs/canonical/36_context_pack.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md",
+        "docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md"
+      ],
+      "risk_notes": [
+        "The kernel is useful but narrow; treating it as a full runtime would overstate authority."
+      ],
+      "next_checkpoint": "Separate the minimum kernel from a future general agent runtime contract before any broader runtime claim.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 4,
+        "safety_boundary_clarity": 5,
+        "test_depth": 4,
+        "ui_visibility": 3,
+        "cli_parity": 3,
+        "evidence_quality": 4,
+        "operator_ergonomics": 3,
+        "implementation_maturity": 4
+      },
+      "composite_score": 75,
+      "prior_score": 4,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No general agent thought loop.",
+        "No arbitrary tool dispatch.",
+        "No production authority or external action loop."
+      ],
+      "ranked_next_checkpoint": "rank:1 UAA-P1-089 top-level decision router contract/read-model",
+      "current_score": 75
+    },
+    {
+      "module_id": "orchestration_layer",
+      "module_name": "Orchestration layer",
+      "current_maturity": "validated_contract",
+      "current_maturity_score": 3,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/kernel/runner.py",
+        "src/ultimate_ai_agent/core/orchestration_efficiency/planner.py",
+        "src/ultimate_ai_agent/core/orchestration_efficiency/contracts.py"
+      ],
+      "implemented_capabilities": [
+        "The kernel coordinates a narrow local/dev flow across approvals, tools, memory, ledger, and receipts.",
+        "The orchestration efficiency planner previews deterministic route choices, fallback planning, cacheability posture, and approval requirements."
+      ],
+      "missing_capabilities": [
+        "No single Commander or full-flow orchestrator spans direct answer, memory, tools, workflow, human review, and escalation.",
+        "No durable prompt-tool-memory-workflow coordinator.",
+        "No sub-agent dispatch runtime."
+      ],
+      "blocked_authorities": [
+        "autonomous_routing",
+        "subagent_runtime_dispatch",
+        "workflow_execution",
+        "runtime_model_calls"
+      ],
+      "test_coverage_refs": [
+        "tests/test_orchestration_efficiency.py",
+        "tests/test_kernel_minimum_lovable_happy_path.py"
+      ],
+      "doc_refs": [
+        "docs/canonical/31_layered_brain_architecture.md",
+        "docs/schemas/orchestration_efficiency_policy.schema.json",
+        "docs/schemas/orchestration_preview_decision.schema.json"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md",
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+      ],
+      "risk_notes": [
+        "Fragmented orchestration makes the product loop harder to reason about and weakens traceability across module boundaries."
+      ],
+      "next_checkpoint": "Create a top-level decision and orchestration contract that composes existing routers without granting execution authority.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 3,
+        "safety_boundary_clarity": 4,
+        "test_depth": 3,
+        "ui_visibility": 2,
+        "cli_parity": 2,
+        "evidence_quality": 3,
+        "operator_ergonomics": 2,
+        "implementation_maturity": 2
+      },
+      "composite_score": 52,
+      "prior_score": 3,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No single Commander or full-flow orchestrator spans direct answer, memory, tools, workflow, human review, and escalation.",
+        "No durable prompt-tool-memory-workflow coordinator.",
+        "No sub-agent dispatch runtime."
+      ],
+      "ranked_next_checkpoint": "rank:1 UAA-P1-089 top-level decision router contract/read-model",
+      "current_score": 52
+    },
+    {
+      "module_id": "decision_router",
+      "module_name": "Decision router",
+      "current_maturity": "contract_only",
+      "current_maturity_score": 2,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/model_router/router.py",
+        "src/ultimate_ai_agent/core/recall/router.py",
+        "src/ultimate_ai_agent/core/truth/router.py",
+        "src/ultimate_ai_agent/core/tools/broker.py",
+        "src/ultimate_ai_agent/core/approvals/authority.py"
+      ],
+      "implemented_capabilities": [
+        "Specialized routers and brokers make deterministic local decisions inside model routing, recall, truth routing, tool authorization, and approvals.",
+        "Decision envelopes exist in multiple domains and are covered by focused tests."
+      ],
+      "missing_capabilities": [
+        "No unified top-level route taxonomy chooses direct answer, memory, tool, human, workflow, defer, or escalation.",
+        "No single decision trace spans all route choices.",
+        "No review-only top-level route read model for the Founder Loop."
+      ],
+      "blocked_authorities": [
+        "autonomous_routing_authority",
+        "workflow_trigger_execution",
+        "tool_execution_authority",
+        "runtime_model_calls"
+      ],
+      "test_coverage_refs": [
+        "tests/test_model_router_decisions.py",
+        "tests/test_grounded_recall_router.py",
+        "tests/test_truth_source_router.py",
+        "tests/test_tool_broker_authorization.py",
+        "tests/test_approval_validation.py"
+      ],
+      "doc_refs": [
+        "docs/canonical/26_model_routing_strategy.md",
+        "docs/recall/GROUNDED_RECALL_ROUTER.md",
+        "docs/truth/TRUTH_SOURCE_ROUTER.md",
+        "docs/tools/TOOL_BROKER_V2.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md",
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md"
+      ],
+      "risk_notes": [
+        "This is one of the two weakest modules because routing power is scattered across specialized components without one governed top-level decision contract."
+      ],
+      "next_checkpoint": "Snapshot follow-up was UAA-P1-089 as a contract/read-model only router that unifies route decisions without invoking tools, models, workflows, or memory writes; the queue records that follow-up as implemented in this same work batch.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 4,
+        "safety_boundary_clarity": 4,
+        "test_depth": 3,
+        "ui_visibility": 1,
+        "cli_parity": 1,
+        "evidence_quality": 3,
+        "operator_ergonomics": 2,
+        "implementation_maturity": 1
+      },
+      "composite_score": 47,
+      "prior_score": 2,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No unified top-level route taxonomy chooses direct answer, memory, tool, human, workflow, defer, or escalation.",
+        "No single decision trace spans all route choices.",
+        "No review-only top-level route read model for the Founder Loop."
+      ],
+      "ranked_next_checkpoint": "rank:1 UAA-P1-089 top-level decision router contract/read-model",
+      "current_score": 47
+    },
+    {
+      "module_id": "planning_module",
+      "module_name": "Planning module",
+      "current_maturity": "validated_contract",
+      "current_maturity_score": 3,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/planning/contracts.py",
+        "src/ultimate_ai_agent/core/planning/planner.py",
+        "src/ultimate_ai_agent/core/planning/goals.py",
+        "src/ultimate_ai_agent/core/planning/steps.py",
+        "src/ultimate_ai_agent/core/planning/dependencies.py"
+      ],
+      "implemented_capabilities": [
+        "Task goal, step, dependency, plan, receipt, validation, and review-only decision contracts exist.",
+        "Plan evaluators detect dependency cycles, hidden side effects, unsafe inputs, and non-authoritative receipts."
+      ],
+      "missing_capabilities": [
+        "No plan generation from vague goals.",
+        "No adaptive replanning loop.",
+        "No execution-progress-driven plan updates."
+      ],
+      "blocked_authorities": [
+        "auto_plan_generation",
+        "auto_execution",
+        "workflow_execution",
+        "runtime_model_calls"
+      ],
+      "test_coverage_refs": [
+        "tests/test_task_planning_contracts.py",
+        "tests/test_task_plan_dependencies.py",
+        "tests/test_task_plan_no_execution.py",
+        "tests/test_task_plan_validation.py"
+      ],
+      "doc_refs": [
+        "docs/planning/TASK_PLANNING_ENGINE.md",
+        "docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md",
+        "docs/planning/TASK_DEPENDENCY_GRAPH.md",
+        "docs/planning/TASK_PLANNING_NON_GOALS.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md",
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md"
+      ],
+      "risk_notes": [
+        "Planning contracts are strong, but useful founder workflows still need bounded proposal generation and review surfaces."
+      ],
+      "next_checkpoint": "Bind planning to UAA-P1-090 review-only decomposition proposals before any automatic planner is considered.",
+      "recommended_next_task_ref": "UAA-P1-090",
+      "dimension_scores": {
+        "product_usefulness": 4,
+        "safety_boundary_clarity": 5,
+        "test_depth": 4,
+        "ui_visibility": 2,
+        "cli_parity": 3,
+        "evidence_quality": 4,
+        "operator_ergonomics": 3,
+        "implementation_maturity": 2
+      },
+      "composite_score": 67,
+      "prior_score": 3,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No plan generation from vague goals.",
+        "No adaptive replanning loop.",
+        "No execution-progress-driven plan updates."
+      ],
+      "ranked_next_checkpoint": "rank:2 UAA-P1-090 task decomposition proposal engine",
+      "current_score": 67
+    },
+    {
+      "module_id": "task_decomposition_module",
+      "module_name": "Task decomposition module",
+      "current_maturity": "contract_only",
+      "current_maturity_score": 2,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/planning/contracts.py",
+        "src/ultimate_ai_agent/core/planning/steps.py",
+        "src/ultimate_ai_agent/core/planning/goals.py",
+        "src/ultimate_ai_agent/core/task_decomposition/kernel_adapter.py"
+      ],
+      "implemented_capabilities": [
+        "TaskPlan and TaskStep contracts can represent decomposed work.",
+        "The task-decomposition adapter substrate exists, but it remains narrow and non-generative."
+      ],
+      "missing_capabilities": [
+        "No vague-request parser.",
+        "No review-only subtask proposal engine.",
+        "No decomposition quality scoring or Action Inbox proposal bridge."
+      ],
+      "blocked_authorities": [
+        "auto_decomposition_execution",
+        "action_execution",
+        "workflow_execution",
+        "runtime_model_calls"
+      ],
+      "test_coverage_refs": [
+        "tests/test_task_planning_contracts.py",
+        "tests/test_task_plan_validation.py",
+        "tests/test_task_plan_no_execution.py"
+      ],
+      "doc_refs": [
+        "docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md",
+        "docs/planning/TASK_INPUT_BOUNDARY.md",
+        "docs/canonical/39_verified_task_completion_framework.md"
+      ],
+      "operator_surface_refs": [
+        "docs/planning/HYBRID_TASK_DECOMPOSER_CAPABILITY_REGISTRY.md",
+        "docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md"
+      ],
+      "risk_notes": [
+        "This is one of the two weakest modules because the repo can store plans but cannot yet propose decompositions from bounded inputs."
+      ],
+      "next_checkpoint": "Snapshot follow-up was UAA-P1-090 as a proposal-only decomposition engine that feeds Plans and Action Inbox without executing anything; the queue records that follow-up as implemented in this same work batch.",
+      "recommended_next_task_ref": "UAA-P1-090",
+      "dimension_scores": {
+        "product_usefulness": 4,
+        "safety_boundary_clarity": 5,
+        "test_depth": 2,
+        "ui_visibility": 1,
+        "cli_parity": 1,
+        "evidence_quality": 3,
+        "operator_ergonomics": 2,
+        "implementation_maturity": 1
+      },
+      "composite_score": 47,
+      "prior_score": 2,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No vague-request parser.",
+        "No review-only subtask proposal engine.",
+        "No decomposition quality scoring or Action Inbox proposal bridge."
+      ],
+      "ranked_next_checkpoint": "rank:2 UAA-P1-090 task decomposition proposal engine",
+      "current_score": 47
+    },
+    {
+      "module_id": "workflow_engine",
+      "module_name": "Workflow engine",
+      "current_maturity": "validated_contract",
+      "current_maturity_score": 3,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/execution/runs.py",
+        "src/ultimate_ai_agent/core/execution/steps.py",
+        "src/ultimate_ai_agent/core/execution/transitions.py",
+        "src/ultimate_ai_agent/core/execution/state_machine.py",
+        "src/ultimate_ai_agent/core/file_review/workflow.py"
+      ],
+      "implemented_capabilities": [
+        "The execution framework models runs, steps, dependencies, transitions, replay keys, and no-effect completion.",
+        "The file-review workflow provides a governed review contract without arbitrary workflow execution."
+      ],
+      "missing_capabilities": [
+        "No actual repeatable workflow step execution.",
+        "No durable general workflow runner.",
+        "No research-summarize-draft-review-send pipeline runtime."
+      ],
+      "blocked_authorities": [
+        "workflow_execution",
+        "tool_execution_from_workflow",
+        "connector_writes",
+        "runtime_model_calls"
+      ],
+      "test_coverage_refs": [
+        "tests/test_execution_state_machine_safety.py",
+        "tests/test_execution_dependency_progression.py",
+        "tests/test_execution_framework_contracts.py",
+        "tests/test_file_review_workflow_contracts.py"
+      ],
+      "doc_refs": [
+        "docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md",
+        "docs/execution/EXECUTION_STATE_MACHINE.md",
+        "docs/execution/EXECUTION_NON_GOALS.md",
+        "docs/files/SAFE_FILE_REVIEW_WORKFLOW.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md",
+        "docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md"
+      ],
+      "risk_notes": [
+        "The state machine is strong as proof substrate, but workflow execution remains intentionally blocked."
+      ],
+      "next_checkpoint": "Keep workflow maturity bounded until decision routing and decomposition proposals can show safe proposed work without execution.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 3,
+        "safety_boundary_clarity": 5,
+        "test_depth": 4,
+        "ui_visibility": 2,
+        "cli_parity": 2,
+        "evidence_quality": 4,
+        "operator_ergonomics": 2,
+        "implementation_maturity": 2
+      },
+      "composite_score": 60,
+      "prior_score": 3,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No actual repeatable workflow step execution.",
+        "No durable general workflow runner.",
+        "No research-summarize-draft-review-send pipeline runtime."
+      ],
+      "ranked_next_checkpoint": "rank:2 UAA-P1-090 task decomposition proposal engine",
+      "current_score": 60
+    },
+    {
+      "module_id": "state_manager",
+      "module_name": "State manager",
+      "current_maturity": "validated_contract",
+      "current_maturity_score": 3,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/world_state/models.py",
+        "src/ultimate_ai_agent/core/world_state/snapshots.py",
+        "src/ultimate_ai_agent/core/execution/state_machine.py",
+        "src/ultimate_ai_agent/core/ledger/run_state.py",
+        "src/ultimate_ai_agent/core/ledger/ledger.py"
+      ],
+      "implemented_capabilities": [
+        "World state, execution run state, event ledger records, kernel result refs, and snapshot contracts exist.",
+        "Kernel and execution tests prove bounded state artifacts and event traces."
+      ],
+      "missing_capabilities": [
+        "No unified live agent attempt ledger.",
+        "No general state manager coordinating all modules.",
+        "No runtime resumption policy across arbitrary work."
+      ],
+      "blocked_authorities": [
+        "general_runtime_resumption",
+        "hidden_retry_loops",
+        "workflow_execution",
+        "autonomous_repair"
+      ],
+      "test_coverage_refs": [
+        "tests/test_world_state.py",
+        "tests/test_run_state.py",
+        "tests/test_event_ledger_events.py",
+        "tests/test_execution_state_machine_safety.py"
+      ],
+      "doc_refs": [
+        "docs/canonical/53_structured_world_state.md",
+        "docs/execution/EXECUTION_STATE_MACHINE.md",
+        "docs/canonical/22_observability_and_event_ledger.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md",
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md"
+      ],
+      "risk_notes": [
+        "State is durable in several bounded domains, but cross-module live state remains fragmented."
+      ],
+      "next_checkpoint": "Unify state refs through the next decision-router and proposal-engine read models before runtime resumption work.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 4,
+        "safety_boundary_clarity": 5,
+        "test_depth": 4,
+        "ui_visibility": 2,
+        "cli_parity": 2,
+        "evidence_quality": 3,
+        "operator_ergonomics": 3,
+        "implementation_maturity": 2
+      },
+      "composite_score": 62,
+      "prior_score": 3,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No unified live agent attempt ledger.",
+        "No general state manager coordinating all modules.",
+        "No runtime resumption policy across arbitrary work."
+      ],
+      "ranked_next_checkpoint": "rank:3 FCC-LOOP-002 founder loop ergonomics pass",
+      "current_score": 62
+    },
+    {
+      "module_id": "context_manager",
+      "module_name": "Context manager",
+      "current_maturity": "validated_contract",
+      "current_maturity_score": 3,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/contracts/context_pack.py",
+        "src/ultimate_ai_agent/core/recall/router.py",
+        "src/ultimate_ai_agent/core/recall/context_pack.py",
+        "src/ultimate_ai_agent/core/context_budget/trimming.py",
+        "src/ultimate_ai_agent/core/context_handoff/workflow.py"
+      ],
+      "implemented_capabilities": [
+        "Context packs, grounded recall selection, context-pack building, budget accounting, trimming, safe context proposals, and handoff approval contracts exist.",
+        "Context proposal surfaces document inspection-only behavior and no hidden injection."
+      ],
+      "missing_capabilities": [
+        "No live context injection.",
+        "No runtime context-window manager for active model sessions.",
+        "No automatic memory-to-context expansion."
+      ],
+      "blocked_authorities": [
+        "context_injection",
+        "hidden_context_pack_use",
+        "runtime_model_calls",
+        "automatic_memory_expansion"
+      ],
+      "test_coverage_refs": [
+        "tests/test_context_pack.py",
+        "tests/test_context_pack_builder.py",
+        "tests/test_context_budget.py",
+        "tests/test_context_handoff_no_injection.py",
+        "tests/test_grounded_recall_router.py"
+      ],
+      "doc_refs": [
+        "docs/canonical/36_context_pack.md",
+        "docs/recall/CONTEXT_PACK_BUILDER.md",
+        "docs/context/CONTEXT_HANDOFF_NO_INJECTION_POLICY.md",
+        "docs/canonical/54_context_budget_and_session_survival.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/CONTEXT_PROPOSAL_SURFACE.md",
+        "docs/control_center/CONTEXT_PROPOSAL_REVIEW_ONLY_POLICY.md"
+      ],
+      "risk_notes": [
+        "Context artifacts are inspectable, but any hidden transition from preview to use would be a major authority escalation."
+      ],
+      "next_checkpoint": "Use FCC-MEM-022 ranking improvements while keeping actual context use behind a separate explicit milestone.",
+      "recommended_next_task_ref": "FCC-MEM-022",
+      "dimension_scores": {
+        "product_usefulness": 4,
+        "safety_boundary_clarity": 5,
+        "test_depth": 4,
+        "ui_visibility": 3,
+        "cli_parity": 2,
+        "evidence_quality": 4,
+        "operator_ergonomics": 3,
+        "implementation_maturity": 2
+      },
+      "composite_score": 67,
+      "prior_score": 3,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No live context injection.",
+        "No runtime context-window manager for active model sessions.",
+        "No automatic memory-to-context expansion."
+      ],
+      "ranked_next_checkpoint": "rank:4 FCC-MEM-022 ranked retrieval / recall tuning",
+      "current_score": 67
+    },
+    {
+      "module_id": "memory_module",
+      "module_name": "Memory module",
+      "current_maturity": "constrained_local_runtime",
+      "current_maturity_score": 4,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/memory/provider.py",
+        "src/ultimate_ai_agent/core/memory/local_store.py",
+        "src/ultimate_ai_agent/core/memory/workbench.py",
+        "src/ultimate_ai_agent/core/memory/loop_binding.py",
+        "src/ultimate_ai_agent/core/storage/founder_loop.py",
+        "src/ultimate_ai_agent/api/founder_loop.py",
+        "src/ultimate_ai_agent/api/manifest.py"
+      ],
+      "implemented_capabilities": [
+        "Governed records, write policy, local stores, source provenance, recall metadata, redaction, retention/delete/export contracts, supersession, relationship/follow-up schema, workbench grouping, review decisions, and loop binding exist.",
+        "Memory Review is operator-visible through backend-owned workbench/read-model behavior and CLI parity."
+      ],
+      "missing_capabilities": [
+        "No semantic/vector search.",
+        "No connector or CRM account sync.",
+        "No context injection or hidden recall authority.",
+        "Correction, merge, supersede, and delete/export execution remain intentionally bounded.",
+        "No tracked FCC-MEM-015 through FCC-MEM-021 artifacts are present in this branch; later diagnostics, citation integrity, quality issue queue, maintenance runs, context manifest UI bridge, and proposal bridge claims cannot be scored as implemented evidence here.",
+        "Ranked retrieval and recall tuning remain next work from current tracked evidence."
+      ],
+      "blocked_authorities": [
+        "semantic_vector_search",
+        "connector_writes",
+        "context_injection",
+        "memory_truth_authority",
+        "delete_export_execution"
+      ],
+      "test_coverage_refs": [
+        "tests/test_m24_memory_provider_contracts.py",
+        "tests/test_m24_local_memory_store.py",
+        "tests/test_m24_memory_write_validation.py",
+        "tests/test_memory_store.py",
+        "tests/test_memory_supersession.py",
+        "tests/test_memory_redaction.py",
+        "tests/test_founder_loop_storage.py",
+        "tests/test_fcc_mem_001_memory_workbench.py",
+        "tests/test_memory_api_routes.py"
+      ],
+      "doc_refs": [
+        "docs/memory/MEMORY_PROVIDER_ABSTRACTION.md",
+        "docs/memory/LOCAL_MEMORY_STORE.md",
+        "docs/memory/MEMORY_REVIEW_AND_PROVENANCE.md",
+        "docs/memory/MEMORY_CONFLICT_AND_STALENESS.md",
+        "docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md",
+        "docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md",
+        "apps/control-center/src/components/FounderLoopPanels.tsx",
+        "scripts/dev/uaa_founder_loop.py",
+        "docs/control_center/release_surface_manifest.json"
+      ],
+      "risk_notes": [
+        "Memory is the strongest founder-loop differentiator, but it must remain recall and review evidence, not truth or prompt authority."
+      ],
+      "next_checkpoint": "Run FCC-MEM-022 for ranked retrieval and recall tuning using lexical/tag/ref scoring only.",
+      "recommended_next_task_ref": "FCC-MEM-022",
+      "dimension_scores": {
+        "product_usefulness": 5,
+        "safety_boundary_clarity": 5,
+        "test_depth": 5,
+        "ui_visibility": 5,
+        "cli_parity": 4,
+        "evidence_quality": 5,
+        "operator_ergonomics": 4,
+        "implementation_maturity": 4
+      },
+      "composite_score": 92,
+      "prior_score": 4,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No semantic/vector search.",
+        "No connector or CRM account sync.",
+        "No context injection or hidden recall authority.",
+        "Correction, merge, supersede, and delete/export execution remain intentionally bounded.",
+        "No tracked FCC-MEM-015 through FCC-MEM-021 artifacts are present in this branch; later diagnostics, citation integrity, quality issue queue, maintenance runs, context manifest UI bridge, and proposal bridge claims cannot be scored as implemented evidence here.",
+        "Ranked retrieval and recall tuning remain next work from current tracked evidence."
+      ],
+      "ranked_next_checkpoint": "rank:4 FCC-MEM-022 ranked retrieval / recall tuning",
+      "current_score": 92
+    },
+    {
+      "module_id": "tool_registry",
+      "module_name": "Tool registry",
+      "current_maturity": "constrained_local_runtime",
+      "current_maturity_score": 4,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/tools/manifests.py",
+        "src/ultimate_ai_agent/core/tools/registry.py",
+        "src/ultimate_ai_agent/core/tools/broker.py",
+        "src/ultimate_ai_agent/core/tools/capability_firewall.py",
+        "src/ultimate_ai_agent/core/tools/runtime/invocation.py"
+      ],
+      "implemented_capabilities": [
+        "ToolManifest, ToolRegistry, ToolBroker, capability firewall checks, consent, approval enforcement, and allowlisted runtime adapter behavior exist.",
+        "Dynamic dispatch and unsafe tool runtime paths are denied by tests."
+      ],
+      "missing_capabilities": [
+        "No arbitrary plugin/tool execution registry.",
+        "No arbitrary callable loading.",
+        "No marketplace or external tool authority."
+      ],
+      "blocked_authorities": [
+        "arbitrary_tool_dispatch",
+        "plugin_runtime_import",
+        "unrestricted_shell",
+        "connector_writes"
+      ],
+      "test_coverage_refs": [
+        "tests/test_tool_manifests.py",
+        "tests/test_tool_broker_authorization.py",
+        "tests/test_tool_broker_risk_policy.py",
+        "tests/test_tool_runtime_contracts.py",
+        "tests/test_tool_runtime_no_dynamic_dispatch.py"
+      ],
+      "doc_refs": [
+        "docs/tools/TOOL_BROKER_V2.md",
+        "docs/tools/TOOL_RUNTIME_ADAPTER.md",
+        "docs/tools/TOOL_AUTHORITY_BOUNDARY.md",
+        "docs/tools/FILE_TOOL_CAPABILITY_MATRIX.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md",
+        "docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md"
+      ],
+      "risk_notes": [
+        "Tool authority is appropriately conservative; the main risk is future bypass by a top-level router or workflow runner."
+      ],
+      "next_checkpoint": "Bind tool selection into UAA-P1-089 as a proposed route outcome, not as execution.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 4,
+        "safety_boundary_clarity": 5,
+        "test_depth": 5,
+        "ui_visibility": 3,
+        "cli_parity": 3,
+        "evidence_quality": 5,
+        "operator_ergonomics": 3,
+        "implementation_maturity": 4
+      },
+      "composite_score": 80,
+      "prior_score": 4,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No arbitrary plugin/tool execution registry.",
+        "No arbitrary callable loading.",
+        "No marketplace or external tool authority."
+      ],
+      "ranked_next_checkpoint": "rank:1 UAA-P1-089 top-level decision router contract/read-model",
+      "current_score": 80
+    },
+    {
+      "module_id": "capability_registry",
+      "module_name": "Capability registry",
+      "current_maturity": "constrained_local_runtime",
+      "current_maturity_score": 4,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/capabilities/registry.py",
+        "src/ultimate_ai_agent/core/capabilities/models.py",
+        "src/ultimate_ai_agent/core/capabilities/policy.py",
+        "src/ultimate_ai_agent/core/capabilities/coordinator.py"
+      ],
+      "implemented_capabilities": [
+        "Typed capability manifests, compact catalog disclosure, manifest loading after selection, policy checks, approval validation, durable local state, telemetry, locks, adapter health checks, and schema validation exist.",
+        "Coordinator tests prove exact approvals, retries, idempotency denial, partial read failure artifacts, and output-schema checks."
+      ],
+      "missing_capabilities": [
+        "No arbitrary callable loading.",
+        "No external runtime authority from the registry itself.",
+        "Not all legacy modules consult the newer registry yet."
+      ],
+      "blocked_authorities": [
+        "external_provider_authority",
+        "browser_automation",
+        "remote_runtime_execution",
+        "plugin_runtime_import"
+      ],
+      "test_coverage_refs": [
+        "tests/test_capability_registry.py",
+        "tests/test_capability_registry_coordinator.py"
+      ],
+      "doc_refs": [
+        "docs/capability_registry.md",
+        "docs/canonical/32_capability_registry_and_dependency_graph.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md",
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+      ],
+      "risk_notes": [
+        "The registry is strong, but maturity depends on future modules respecting it instead of adding side doors."
+      ],
+      "next_checkpoint": "Use UAA-P1-089 to expose capability choices as reviewable route candidates with blocked authority refs.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 4,
+        "safety_boundary_clarity": 5,
+        "test_depth": 5,
+        "ui_visibility": 3,
+        "cli_parity": 3,
+        "evidence_quality": 5,
+        "operator_ergonomics": 3,
+        "implementation_maturity": 4
+      },
+      "composite_score": 80,
+      "prior_score": 4,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No arbitrary callable loading.",
+        "No external runtime authority from the registry itself.",
+        "Not all legacy modules consult the newer registry yet."
+      ],
+      "ranked_next_checkpoint": "rank:1 UAA-P1-089 top-level decision router contract/read-model",
+      "current_score": 80
+    },
+    {
+      "module_id": "multi_agent_coordinator",
+      "module_name": "Multi-agent coordinator",
+      "current_maturity": "constrained_local_runtime",
+      "current_maturity_score": 4,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/capabilities/coordinator.py",
+        "src/ultimate_ai_agent/core/capabilities/policy.py",
+        "src/ultimate_ai_agent/core/capabilities/adapters/base.py",
+        "src/ultimate_ai_agent/core/capabilities/state.py"
+      ],
+      "implemented_capabilities": [
+        "The bounded local coordinator plans centrally, routes registered specialists as tools, supports handoff mode by policy, permits read-only fan-out, serializes mutating work, records local state, validates approvals, and returns artifacts.",
+        "Remote/A2A lanes remain inert metadata or dry-run boundaries."
+      ],
+      "missing_capabilities": [
+        "No live remote sub-agent runtime.",
+        "No networked inter-agent message bus.",
+        "No remote agent execution authority."
+      ],
+      "blocked_authorities": [
+        "remote_agent_dispatch",
+        "network_coordination",
+        "parallel_mutating_work",
+        "remote_execution"
+      ],
+      "test_coverage_refs": [
+        "tests/test_capability_registry_coordinator.py",
+        "tests/test_a2a_adapter_boundaries.py",
+        "tests/test_m117_remote_agent_coordination_contract.py",
+        "tests/test_remote_worker_no_network.py"
+      ],
+      "doc_refs": [
+        "docs/capability_registry.md",
+        "docs/canonical/58_agent_sdk_and_a2a_adapter_strategy.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md",
+        "docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+      ],
+      "risk_notes": [
+        "Multi-agent maturity is bounded and useful locally, but remote agent claims must remain blocked."
+      ],
+      "next_checkpoint": "Keep multi-agent routing subordinate to UAA-P1-089 decision proposals until exact remote authority is separately accepted.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 3,
+        "safety_boundary_clarity": 5,
+        "test_depth": 4,
+        "ui_visibility": 2,
+        "cli_parity": 2,
+        "evidence_quality": 5,
+        "operator_ergonomics": 2,
+        "implementation_maturity": 4
+      },
+      "composite_score": 67,
+      "prior_score": 4,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No live remote sub-agent runtime.",
+        "No networked inter-agent message bus.",
+        "No remote agent execution authority."
+      ],
+      "ranked_next_checkpoint": "rank:1 UAA-P1-089 top-level decision router contract/read-model",
+      "current_score": 67
+    },
+    {
+      "module_id": "human_in_the_loop",
+      "module_name": "Human-in-the-loop module",
+      "current_maturity": "constrained_local_runtime",
+      "current_maturity_score": 4,
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/approvals/authority.py",
+        "src/ultimate_ai_agent/core/approvals/requests.py",
+        "src/ultimate_ai_agent/core/approvals/grants.py",
+        "src/ultimate_ai_agent/core/file_review/approval_capture.py",
+        "src/ultimate_ai_agent/core/autonomy/human_checkpoint_scheduling.py"
+      ],
+      "implemented_capabilities": [
+        "Local approval request, grant, revoke, validation, approval-bound tool/model route checks, review-only file approval contracts, and checkpoint scheduling contracts exist.",
+        "Action Inbox backend decisions and Memory Review receipts make operator decisions visible without executing proposed actions."
+      ],
+      "missing_capabilities": [
+        "No general clarification loop.",
+        "No product-wide approval queue runtime as authority.",
+        "Human checkpoint scheduling does not schedule prompts or notifications."
+      ],
+      "blocked_authorities": [
+        "implicit_approval",
+        "general_clarification_runtime",
+        "notification_execution",
+        "action_execution"
+      ],
+      "test_coverage_refs": [
+        "tests/test_approval_authority.py",
+        "tests/test_approval_validation.py",
+        "tests/test_approval_integration_tool_broker.py",
+        "tests/test_file_review_approval_capture_contracts.py",
+        "tests/test_m134_human_checkpoint_scheduling.py"
+      ],
+      "doc_refs": [
+        "docs/approvals/APPROVAL_AUTHORITY_V2.md",
+        "docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md",
+        "docs/files/FILE_REVIEW_APPROVAL_CAPTURE.md",
+        "docs/autonomy/HUMAN_CHECKPOINT_SCHEDULING.md"
+      ],
+      "operator_surface_refs": [
+        "docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md",
+        "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md"
+      ],
+      "risk_notes": [
+        "HITL is strong, but approvals must remain exact scope checks rather than symbolic permission strings."
+      ],
+      "next_checkpoint": "Use UAA-P1-089 to make ask-human, defer, and escalation route choices explicit before adding broader clarification behavior.",
+      "recommended_next_task_ref": "UAA-P1-089",
+      "dimension_scores": {
+        "product_usefulness": 5,
+        "safety_boundary_clarity": 5,
+        "test_depth": 5,
+        "ui_visibility": 4,
+        "cli_parity": 3,
+        "evidence_quality": 5,
+        "operator_ergonomics": 4,
+        "implementation_maturity": 4
+      },
+      "composite_score": 87,
+      "prior_score": 4,
+      "prior_score_ref": "docs/registry/agent_module_maturity_map.json",
+      "gaps": [
+        "No general clarification loop.",
+        "No product-wide approval queue runtime as authority.",
+        "Human checkpoint scheduling does not schedule prompts or notifications."
+      ],
+      "ranked_next_checkpoint": "rank:1 UAA-P1-089 top-level decision router contract/read-model",
+      "current_score": 87
+    }
+  ],
+  "ranked_improvement_queue": [
+    {
+      "rank": 1,
+      "task_ref": "UAA-P1-089",
+      "title": "Top-Level Decision Router Contract",
+      "priority": "P0",
+      "target_module_ids": [
+        "decision_router",
+        "orchestration_layer",
+        "human_in_the_loop",
+        "tool_registry",
+        "capability_registry"
+      ],
+      "scope": "contract_read_model_only",
+      "status": "implemented_contract_read_model",
+      "completion_refs": [
+        "src/ultimate_ai_agent/core/decision_router/contracts.py",
+        "docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md",
+        "scripts/verify_uaa_p1_089_top_level_decision_router_contract.py",
+        "tests/test_uaa_p1_089_top_level_decision_router_contract.py"
+      ],
+      "rationale": "The repo has specialized routers but no governed top-level decision contract for direct answer, memory, tool, human, workflow, defer, or escalation.",
+      "acceptance_checkpoint": "A deterministic route-decision contract and read model exists with route taxonomy, reasons, evidence refs, blocked authority refs, and tests; it performs no execution.",
+      "blocked_authorities": [
+        "no_model_calls",
+        "no_tool_execution",
+        "no_workflow_execution",
+        "no_memory_writes",
+        "no_autonomous_routing_authority"
+      ],
+      "subagent_review_plan": [
+        "Spawn one repo-evidence subagent to compare the new router contract against existing model, recall, truth, tool, and approval routers.",
+        "Spawn one safety/product-language subagent to confirm the router remains a read model and does not imply autonomous routing authority."
+      ],
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/model_router/router.py",
+        "src/ultimate_ai_agent/core/recall/router.py",
+        "src/ultimate_ai_agent/core/truth/router.py",
+        "src/ultimate_ai_agent/core/tools/broker.py",
+        "src/ultimate_ai_agent/core/approvals/authority.py",
+        "src/ultimate_ai_agent/core/decision_router/contracts.py",
+        "docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md"
+      ]
+    },
+    {
+      "rank": 2,
+      "task_ref": "UAA-P1-090",
+      "title": "Task Decomposition Proposal Engine",
+      "priority": "P0",
+      "target_module_ids": [
+        "task_decomposition_module",
+        "planning_module",
+        "workflow_engine"
+      ],
+      "scope": "proposal_only_contract_and_read_model",
+      "status": "implemented_proposal_read_model",
+      "completion_refs": [
+        "src/ultimate_ai_agent/core/task_decomposition/proposals.py",
+        "docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md",
+        "scripts/verify_uaa_p1_090_task_decomposition_proposal_engine.py",
+        "tests/test_uaa_p1_090_task_decomposition_proposal_engine.py",
+        "apps/control-center/src/components/FounderLoopPanels.tsx",
+        "scripts/dev/uaa_founder_loop.py"
+      ],
+      "rationale": "The repo now turns bounded safe inputs into review-only decomposition proposals while keeping execution-capable task runtime paths separate.",
+      "acceptance_checkpoint": "Bounded safe inputs produce ranked decomposition proposals for Plans and Action Inbox with evidence refs, uncertainty, blocked authority refs, and no auto-execution.",
+      "blocked_authorities": [
+        "no_auto_execution",
+        "no_workflow_execution",
+        "no_shell_or_subprocess",
+        "no_connector_writes",
+        "no_model_calls"
+      ],
+      "subagent_review_plan": [
+        "Spawn one repo-evidence subagent to compare proposed decomposition records against existing TaskPlan and Action envelope contracts.",
+        "Spawn one safety/product-language subagent to verify all decomposition outputs remain proposal-only and cannot execute work."
+      ],
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/task_decomposition/proposals.py",
+        "src/ultimate_ai_agent/core/storage/founder_loop.py",
+        "apps/control-center/src/components/FounderLoopPanels.tsx",
+        "apps/control-center/src/api/types.ts",
+        "scripts/dev/uaa_founder_loop.py",
+        "docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md",
+        "src/ultimate_ai_agent/core/planning/contracts.py",
+        "src/ultimate_ai_agent/core/planning/planner.py",
+        "src/ultimate_ai_agent/core/task_decomposition/kernel_adapter.py",
+        "docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md"
+      ]
+    },
+    {
+      "rank": 3,
+      "task_ref": "FCC-LOOP-002",
+      "title": "Founder Loop Ergonomics Pass",
+      "priority": "P1",
+      "target_module_ids": [
+        "orchestration_layer",
+        "state_manager",
+        "human_in_the_loop",
+        "memory_module"
+      ],
+      "scope": "operator_surface_usability_only",
+      "rationale": "Today, Inbox, Plans, Actions, Memory, and Evidence are becoming real loop surfaces; the next pass should make status, blocked states, and proposal posture easier to operate.",
+      "acceptance_checkpoint": "The loop surfaces expose readable status, reason, receipts, affected refs, and next safe actions using existing backend truth; no new backend authority is added unless separately scoped.",
+      "blocked_authorities": [
+        "no_new_backend_authority",
+        "no_action_execution",
+        "no_context_injection",
+        "no_connector_writes",
+        "no_production_claims"
+      ],
+      "subagent_review_plan": [
+        "Spawn one repo-evidence subagent to inspect Today, Inbox, Plans, Actions, Memory, and Evidence for operator friction against existing backend truth.",
+        "Spawn one safety/product-language subagent to verify UI copy distinguishes implemented, partial, planned, blocked, and proposal-only states."
+      ],
+      "evidence_refs": [
+        "docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md",
+        "docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md",
+        "docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md",
+        "docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md"
+      ]
+    },
+    {
+      "rank": 4,
+      "task_ref": "FCC-MEM-022",
+      "title": "Ranked Retrieval / Recall Tuning",
+      "priority": "P1",
+      "target_module_ids": [
+        "memory_module",
+        "context_manager"
+      ],
+      "scope": "lexical_tag_ref_scoring_only",
+      "rationale": "Memory is a strong differentiator, and ranked retrieval can improve usefulness while staying inside reviewed recall-only evidence.",
+      "acceptance_checkpoint": "Retrieval ranking uses lexical, tag, source, review, recency, and ref signals with diagnostics and tests; it adds no embeddings, vector DB, provider calls, or context injection.",
+      "blocked_authorities": [
+        "no_embeddings",
+        "no_vector_db",
+        "no_context_injection",
+        "no_provider_calls",
+        "no_memory_truth_authority"
+      ],
+      "subagent_review_plan": [
+        "Spawn one repo-evidence subagent to inspect memory retrieval, recall, and context-pack refs before ranking changes.",
+        "Spawn one safety/product-language subagent to confirm lexical/tag/ref scoring does not introduce embeddings, vector DBs, provider calls, or hidden context use."
+      ],
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/memory/retrieval.py",
+        "src/ultimate_ai_agent/core/memory/recall.py",
+        "src/ultimate_ai_agent/core/recall/context_pack.py",
+        "docs/memory/MEMORY_RECALL_PLANNING.md"
+      ]
+    }
+  ],
+  "post_fcc_mem_015_021_context": {
+    "requested_refresh_range": [
+      "FCC-MEM-015",
+      "FCC-MEM-016",
+      "FCC-MEM-017",
+      "FCC-MEM-018",
+      "FCC-MEM-019",
+      "FCC-MEM-020",
+      "FCC-MEM-021"
+    ],
+    "tracked_artifact_status": "No tracked FCC-MEM-015 through FCC-MEM-021 task artifacts are present in this branch. This V2 review therefore scores current tracked repo evidence only and treats MEM-015..021 as planning/queued memory follow-up context, not implemented evidence.",
+    "current_tracked_memory_refs": [
+      "docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md",
+      "docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md",
+      "docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md",
+      "src/ultimate_ai_agent/core/memory/workbench.py",
+      "src/ultimate_ai_agent/core/memory/retrieval.py",
+      "tests/test_fcc_mem_001_memory_workbench.py"
+    ],
+    "absent_tracked_refs": [
+      "docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_FOLLOWUP_QUEUE.md",
+      "docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS.md",
+      "docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md",
+      "scripts/verify_fcc_mem_016_020_memory_diagnostics.py",
+      "tests/test_fcc_mem_015_memory_impact_graph_followup_queue.py",
+      "tests/test_fcc_mem_016_020_memory_diagnostics.py",
+      "tests/test_fcc_mem_021_memory_ui_action_inbox_bridge.py"
+    ]
+  }
+}

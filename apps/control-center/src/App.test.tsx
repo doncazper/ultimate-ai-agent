@@ -157,10 +157,11 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/backend-bound loop/i)).not.toBeInTheDocument();
     const loopSpine = screen.getByLabelText("Founder daily loop modules");
     const loopLinks = within(loopSpine).getAllByRole("link");
-    expect(loopLinks).toHaveLength(7);
+    expect(loopLinks).toHaveLength(8);
     expect(loopLinks[0]).toHaveAttribute("aria-current", "page");
     for (const surface of [
       "Today",
+      "Briefing",
       "Source Inbox",
       "Plans",
       "Action Inbox",
@@ -180,7 +181,28 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(screen.getByText(/Connector writes blocked/i)).toBeInTheDocument();
     expect(screen.getByText(/Production authority blocked/i)).toBeInTheDocument();
-    expect(screen.getByText("contract-ref:today-product-spine:v1")).toBeInTheDocument();
+    expect(screen.getAllByText("contract-ref:today-product-spine:v1").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Scan: Today, Review, Waiting, Influence, Blocked/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("Daily loop command deck")).toBeInTheDocument();
+    for (const question of [
+      "What matters today",
+      "What needs approval/review",
+      "What plans/actions are waiting",
+      "What memory/evidence is influencing the loop",
+      "What is blocked or unsafe",
+    ]) {
+      expect(screen.getByRole("heading", { name: question })).toBeInTheDocument();
+    }
+    expect(screen.getAllByText("Why shown").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("What this affects").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Proposal-only refs stay review-only/i)).toBeInTheDocument();
+    expect(screen.getByText(/No apply\/use\/execute control for proposals/i)).toBeInTheDocument();
+    expect(screen.getByText(/Memory recall is influence, not truth authority/i)).toBeInTheDocument();
+    expect(document.querySelector("pre")).toBeNull();
+    for (const unsafeControl of [/^apply$/i, /^use$/i, /^execute$/i]) {
+      expect(screen.queryByRole("button", { name: unsafeControl })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText("Mutation controls")).not.toBeInTheDocument();
     expect(screen.getByText("Loop visibility sufficient").nextElementSibling).toHaveTextContent("no");
     expect(screen.getByText("Standalone completion").nextElementSibling).toHaveTextContent("blocked");
     expect(screen.getByRole("heading", { name: /Today required signals/i })).toBeInTheDocument();
@@ -210,12 +232,17 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /CRM-lite follow-ups/i })).toBeInTheDocument();
     expect(screen.getByText(/memory-to-loop binding marked a follow-up commitment/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Memory why shown/i })).toBeInTheDocument();
-    expect(screen.getByText(/Today shows this memory because it is a reviewed recall candidate/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Today shows this memory because it is a reviewed recall candidate/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Dogfood capture/i })).toBeInTheDocument();
     expect(screen.getByText("Public beta claim").nextElementSibling).toHaveTextContent("blocked");
     expect(screen.getByRole("heading", { name: /Weekly Review narrative/i })).toBeInTheDocument();
     expect(screen.getByText(/Weekly Review reads the daily loop as history/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Plan\/action state/i })).toBeInTheDocument();
+    expect(screen.getByText("Receipt/local-task controls").nextElementSibling).toHaveTextContent(
+      "receipt and exact local-task controls only",
+    );
     expect(
       screen.getAllByText("implemented_today_to_action_envelope_vertical_slice_execution_blocked").length,
     ).toBeGreaterThan(0);
@@ -253,7 +280,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked-state:no-action-execution").length).toBeGreaterThan(0);
     expect(
-      screen.getAllByRole("button", { name: /Create Action envelope/i }).length,
+      screen.getAllByRole("button", { name: /Record Action-envelope receipt/i }).length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Module feed contract/i })).toBeInTheDocument();
     expect(screen.getByText(/Chat: implemented_local_operator_surface_contract/i)).toBeInTheDocument();
@@ -265,6 +292,7 @@ describe("Web Control Center shell", () => {
   it("renders the daily loop spine across primary Founder Loop surfaces", async () => {
     const primarySurfaces = [
       ["/today", "Today"],
+      ["/briefing", "Briefing"],
       ["/inbox", "Source Inbox"],
       ["/plans", "Plans"],
       ["/actions", "Action Inbox"],
@@ -362,7 +390,7 @@ describe("Web Control Center shell", () => {
 
     expect(await screen.findByRole("heading", { name: /^Today$/i })).toBeInTheDocument();
     const actionEnvelopeButtons = screen.getAllByRole("button", {
-      name: /Create Action envelope/i,
+      name: /Record Action-envelope receipt/i,
     });
     fireEvent.click(
       actionEnvelopeButtons[1],
@@ -961,7 +989,7 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByRole("button", { name: /Record edit/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Record rejection/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Record defer/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record local-task commit receipt/i })).not.toBeInTheDocument();
     expect(
       screen.getByText(/Decision controls unavailable until the local backend supplies/i),
     ).toBeInTheDocument();
@@ -971,7 +999,7 @@ describe("Web Control Center shell", () => {
     expect(blockedLane).not.toBeNull();
     expect(
       within(blockedLane as HTMLElement).queryByRole("button", {
-        name: /Record approval|Commit local task/i,
+        name: /Record approval|Record local-task commit receipt/i,
       }),
     ).not.toBeInTheDocument();
     const proposalLane = screen
@@ -980,7 +1008,7 @@ describe("Web Control Center shell", () => {
     expect(proposalLane).not.toBeNull();
     expect(
       within(proposalLane as HTMLElement).queryByRole("button", {
-        name: /Record approval|Commit local task/i,
+        name: /Record approval|Record local-task commit receipt/i,
       }),
     ).not.toBeInTheDocument();
     expect(
@@ -1237,7 +1265,7 @@ describe("Web Control Center shell", () => {
         "blocked-state:no-production-authority",
       );
       expect(
-        screen.queryByRole("button", { name: /Commit local task/i }),
+        screen.queryByRole("button", { name: /Record local-task commit receipt/i }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
@@ -1315,7 +1343,7 @@ describe("Web Control Center shell", () => {
         screen.getAllByText("receipt_visibility:missing").length,
       ).toBeGreaterThan(0);
       expect(
-        screen.queryByRole("button", { name: /Commit local task/i }),
+        screen.queryByRole("button", { name: /Record local-task commit receipt/i }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
@@ -1408,7 +1436,7 @@ describe("Web Control Center shell", () => {
       action_group_reason:
         "Backend approval receipt made the exact local task lane eligible.",
       action_group_available_action:
-        "Commit local task through the backend exact route.",
+        "Record local-task commit receipt through the backend exact route.",
       approval_envelope_status: "approved",
       local_task_commit_approval_ref: approvalReceipt.approval_ref,
       local_task_commit_approval_status: "backend_owned_approval_ready",
@@ -1540,19 +1568,19 @@ describe("Web Control Center shell", () => {
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
     expect(screen.getByRole("button", { name: /Record approval/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record local-task commit receipt/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Record approval/i }));
     expect(
       (await screen.findAllByText(approvalReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
-    expect(await screen.findByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Record local-task commit receipt/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Record local-task commit receipt/i }));
     expect(
       (await screen.findAllByText(commitReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record local-task commit receipt/i })).not.toBeInTheDocument();
 
     const [, approvalOptions] =
       fetchMock.mock.calls.find(
@@ -1719,7 +1747,7 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(0);
     expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Record local-task commit receipt/i }));
 
     expect((await screen.findAllByText(receipt.receipt_ref)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(receipt.local_task_ref).length).toBeGreaterThan(0);
@@ -1731,7 +1759,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("conflicting_idempotency_payload_rejected"),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record local-task commit receipt/i })).not.toBeInTheDocument();
     expect(actionInboxReadUrls.length).toBeGreaterThanOrEqual(2);
     const receiptLane = screen
       .getByRole("heading", { name: /^Receipt recorded$/i })
@@ -1862,7 +1890,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Record local-task commit receipt/i }));
 
     await screen.findByText(receipt.receipt_ref);
     expect(
@@ -1874,7 +1902,7 @@ describe("Web Control Center shell", () => {
         "Backend read model refreshed; receipt visibility now comes from the Action Inbox API.",
       ),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record local-task commit receipt/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(0);
     expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
     expect(
@@ -1987,7 +2015,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Record local-task commit receipt/i }));
 
     expect(
       (await screen.findAllByText(replayReceipt.receipt_ref)).length,
@@ -2000,7 +2028,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("conflicting_idempotency_payload_rejected"),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record local-task commit receipt/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
   });
 
@@ -2048,7 +2076,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Record local-task commit receipt/i }));
 
     expect(
       await screen.findByText("Conflicting idempotency payload rejected safely."),
@@ -2060,7 +2088,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByText("evidence-timeline-event:local-task:conflicting-commit"),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Record local-task commit receipt/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
   });
 
@@ -2225,7 +2253,7 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /^Memory Review$/i }),
     ).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: /Create Action Inbox proposal/i }),
+      screen.getByRole("button", { name: /Record Action Inbox proposal receipt/i }),
     );
 
     expect(
@@ -2308,8 +2336,8 @@ describe("Web Control Center shell", () => {
       screen.getByText(/No email, calendar, or notification source evidence is bound/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Use route and storage refs only; define source contracts before refresh/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Use route and storage refs only; define source contracts before refresh/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("no_background_refresh").length).toBeGreaterThan(0);
     expect(screen.getAllByText("no_notification_delivery").length).toBeGreaterThan(0);
 
@@ -3946,8 +3974,10 @@ describe("Web Control Center shell", () => {
       screen.getByText("founder-loop-storage:mock-local-sqlite-jsonl"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Memory writes").nextElementSibling,
-    ).toHaveTextContent("disabled");
+      screen.getAllByText("Memory writes").some((node) =>
+        node.nextElementSibling?.textContent?.match(/disabled/i),
+      ),
+    ).toBe(true);
     expect(
       screen.getByText("Memory deletes").nextElementSibling,
     ).toHaveTextContent("disabled");
@@ -3975,6 +4005,35 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("contract-ref:fcc-mem-001-memory-workbench:v1"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Ranked recall diagnostics/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Recall rank").nextElementSibling).toHaveTextContent("124");
+    expect(
+      screen.getByText("Lexical/tag/ref only").nextElementSibling,
+    ).toHaveTextContent("yes");
+    expect(
+      screen.getByText("Embeddings/vector/provider").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      screen.getAllByText("Memory writes").some((node) =>
+        node.nextElementSibling?.textContent?.match(/disabled/i),
+      ),
+    ).toBe(true);
+    expect(
+      screen.getAllByText("rank-include-ref:lexical-safe-summary-title-match")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("rank-exclusion-ref:stale-pressure").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:memory-ranking-no-context-injection")
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Search \/ Filter/i })).toBeInTheDocument();
     expect(screen.getByText("GET /control-center/memory/search")).toBeInTheDocument();
     expect(

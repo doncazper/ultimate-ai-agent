@@ -66,6 +66,11 @@ Category weights:
 
 Numeric scores are deterministic and evidence-based only. Narrative summaries
 may explain a score, but they do not change the score.
+The module maturity category still derives its numeric score from
+`docs/registry/agent_module_maturity_map.json`. `UAA-P1-088` adds
+`docs/registry/agent_module_maturity_review_v2.json` and
+`docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` as richer evidence and
+ranked next-work context without changing the benchmark score model.
 
 ## Weekly Model
 
