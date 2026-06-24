@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from ultimate_ai_agent.core.web_access import (
+    DisabledProviderAdapterShell,
+    DisabledProviderShellContract,
+    disabled_provider_adapter_shell_catalog,
     SourceMetadata,
     WebAccessAdapterKind,
     WebAccessAuthorityMode,
@@ -14,7 +17,19 @@ from ultimate_ai_agent.core.web_access import (
     WebAccessPolicyStatus,
     WebAccessRequest,
     WebAccessRequestKind,
+    WebAccessRiskClass,
 )
+
+
+class AllowProviderShellInspectionPolicy:
+    def evaluate(self, request: WebAccessRequest) -> WebAccessPolicyDecision:
+        return WebAccessPolicyDecision(
+            status=WebAccessPolicyStatus.ALLOWED,
+            risk_class=WebAccessRiskClass.MEDIUM,
+            reasons=("test_only_provider_shell_inspection",),
+            allowed_methods=("GET",),
+            requires_approval=False,
+        )
 
 
 class DummyReadOnlyAdapter:
@@ -134,6 +149,17 @@ class DummyBrowserActionDryRunAdapter:
             "source_observation_content_untrusted": True,
             "web_content_instruction_use_allowed": False,
         }
+
+
+class ProviderShellMustNotExecuteAdapter:
+    adapter_kind = WebAccessAdapterKind.SEARCH_API
+
+    def execute(
+        self,
+        request: WebAccessRequest,
+        decision: WebAccessPolicyDecision,
+    ) -> Mapping[str, Any]:
+        raise AssertionError("provider shell adapter must not execute after policy denial")
 
 
 def _gateway(adapter: DummyReadOnlyAdapter | None = None) -> WebAccessGateway:
@@ -445,6 +471,97 @@ def test_browser_action_dry_run_requires_untrusted_non_instruction_inputs() -> N
         in instruction_result.decision.reasons
     )
     assert not adapter.calls
+
+
+def test_disabled_provider_shell_catalog_is_metadata_only() -> None:
+    contracts = disabled_provider_adapter_shell_catalog()
+    by_ref = {contract.provider_ref: contract for contract in contracts}
+
+    assert set(by_ref) == {
+        "web-provider-shell:search-neutral",
+        "web-provider-shell:firecrawl",
+        "web-provider-shell:browserbase-observe",
+    }
+    for contract in contracts:
+        assert isinstance(contract, DisabledProviderShellContract)
+        assert contract.configured is False
+        assert contract.credentials_configured is False
+        assert contract.provider_sdk_import_allowed is False
+        assert contract.callable_runtime_authority is False
+        assert contract.network_calls_allowed is False
+        assert contract.browser_sessions_allowed is False
+        assert contract.scrape_jobs_allowed is False
+        assert contract.remote_execution_allowed is False
+        assert contract.diagnostic_only is True
+        assert contract.content_untrusted is True
+
+    assert by_ref["web-provider-shell:search-neutral"].adapter_kind == WebAccessAdapterKind.SEARCH_API
+    assert by_ref["web-provider-shell:firecrawl"].adapter_kind == WebAccessAdapterKind.FIRECRAWL
+    assert by_ref["web-provider-shell:browserbase-observe"].adapter_kind == (
+        WebAccessAdapterKind.BROWSERBASE_OBSERVE
+    )
+
+
+def test_future_provider_requests_are_denied_before_shell_execution() -> None:
+    adapter = ProviderShellMustNotExecuteAdapter()
+    gateway = WebAccessGateway(
+        adapters={WebAccessRequestKind.SEARCH: adapter},
+    )
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.SEARCH,
+            query="provider shell metadata only",
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.DENIED
+    assert result.audit.adapter_kind == WebAccessAdapterKind.SEARCH_API
+    assert result.audit.policy_reasons == ("request_kind_not_enabled:search",)
+    assert result.evidence_bundle is None
+
+
+def test_disabled_provider_shell_returns_blocked_diagnostic_payload_with_audit() -> None:
+    contract = next(
+        item
+        for item in disabled_provider_adapter_shell_catalog()
+        if item.provider_ref == "web-provider-shell:firecrawl"
+    )
+    shell = DisabledProviderAdapterShell(contract=contract)
+    gateway = WebAccessGateway(
+        policy=AllowProviderShellInspectionPolicy(),  # type: ignore[arg-type]
+        adapters={WebAccessRequestKind.EXTRACT_SCHEMA: shell},
+    )
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.EXTRACT_SCHEMA,
+            query="schema extraction remains disabled",
+            metadata={"provider_diagnostic_only": True},
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.DENIED
+    assert result.audit.adapter_kind == WebAccessAdapterKind.FIRECRAWL
+    assert result.audit.policy_status == WebAccessPolicyStatus.DENIED
+    assert result.evidence_bundle is not None
+    payload = result.evidence_bundle.payload
+    assert payload["allowed"] is False
+    assert payload["status"] == "disabled"
+    assert payload["provider_ref"] == "web-provider-shell:firecrawl"
+    assert payload["configured"] is False
+    assert payload["credentials_configured"] is False
+    assert payload["provider_sdk_imported"] is False
+    assert payload["provider_sdk_call_performed"] is False
+    assert payload["network_call_performed"] is False
+    assert payload["browser_session_started"] is False
+    assert payload["scrape_job_started"] is False
+    assert payload["search_call_performed"] is False
+    assert payload["remote_execution_performed"] is False
+    assert payload["diagnostic_only"] is True
+    assert payload["callable_runtime_authority"] is False
+    assert payload["content_untrusted"] is True
+    assert "WEB_PROVIDER_ADAPTER_SHELL_DISABLED" in payload["reason_codes"]
 
 
 def test_post_is_denied_before_adapter_call() -> None:

@@ -76,9 +76,9 @@ The project should allow provider shells and disabled/read-only adapters earlier
 | PR 2 | API/manifest boundary posture wording only | Providers and browser behavior |
 | Web Runtime Authority hardening | Canonical web runtime nouns, durable audit prerequisite, side-effect ledger blockers, approval linkage, blocked/degraded/partial labels, provider diagnostics, and metadata-only catalog/manifest visibility | Live providers, browser execution, POST/click/form/download/upload, and callable runtime authority |
 | PR 3 | Existing read-only HTTP fetch migrated behind gateway | Browser execution, forms, auth, cookies, downloads/uploads, non-GET |
-| M72.x-M74 | Firecrawl read-only adapter shell, disabled by default; then read-only search/scrape/extract through gateway | Firecrawl Interact, sessions, clicks/forms |
-| PR 4 / M74 | Browser observe adapter; Browserbase observe can fit here | Clicks, forms, auth, cookies, downloads, raw DOM retention |
-| PR 5 / M75 | Browser action dry-run planner; provider interaction as plan-only | Real execution |
+| M72.x-M74 | Browser observe adapter and browser action dry-run planner behind WebAccessGateway | Clicks, forms, auth, cookies, downloads, raw DOM retention, real execution |
+| Phase 4 | Disabled provider adapter shells for Firecrawl, Browserbase, and search diagnostics | Provider SDK imports/calls, credentials, live search, scrape jobs, Browserbase sessions |
+| Later provider read-only | Read-only provider adapters after explicit promotion | Firecrawl Interact, sessions, clicks/forms |
 | M94 | First real low-risk browser clicks | Forms, purchases, downloads, auth, destructive actions |
 | M95 | More authless network tools | Cookies, credentials, accounts, POST mutations |
 | M111-M120 | Identity, secrets boundary, credential vault, production threat model | Broad credentialed execution |
@@ -139,24 +139,39 @@ Shrink legacy tool-runtime fetch exceptions into a named read-only gateway lane 
 No Firecrawl yet unless the boundary and static guards are stable.
 ```
 
-### PR 4 — Provider shell / read-only Firecrawl
+### Phase 4 — Disabled provider shells
 
 ```text
-Add Firecrawl adapter contract behind WebAccessGateway.
-Start disabled by default.
-Support only read-only search/scrape/extract outputs.
-Normalize into WebAccessResult and WebAccessAuditRecord.
+Add provider-neutral adapter shell contracts behind WebAccessGateway.
+Cover Firecrawl, Browserbase, and search provider diagnostics only.
+Keep shells disabled by default.
+Return disabled/blocked diagnostics through WebAccessResult and WebAccessAuditRecord.
 Mark content_untrusted=true.
+Do not import provider SDKs.
+Do not configure credentials.
+Do not perform network calls.
+Do not start scrape jobs.
+Do not start Browserbase sessions.
 Do not expose Interact.
 Do not expose provider sessions.
 Do not add clicks/forms.
 ```
 
-### PR 5 — Browser observe / Browserbase observe
+### Later provider read-only — Firecrawl/search
 
 ```text
-Add observe-only browser adapter behind WebAccessGateway.
-Browserbase may be introduced as a disabled/observe-only provider.
+Promote a specific provider adapter only after an accepted scoped milestone.
+Support only read-only search/scrape/extract outputs.
+Normalize into WebAccessResult and WebAccessAuditRecord.
+Mark content_untrusted=true.
+Keep Interact, sessions, clicks/forms, credentials, and writes blocked.
+```
+
+### Browser observe / Browserbase observe
+
+```text
+Browser observe is already routed behind WebAccessGateway.
+Browserbase may be introduced later only as a disabled/observe-only provider.
 Return safe title/final_url/text/accessibility summary.
 No cookies.
 No auth.
@@ -165,9 +180,10 @@ No raw DOM retention.
 No screenshot by default.
 ```
 
-### PR 6 — Browser action dry-run
+### Browser action dry-run
 
 ```text
+Browser action dry-run is already routed behind WebAccessGateway.
 Convert an observation bundle into a reviewable action plan.
 No browser control from the planner.
 No clicks.
