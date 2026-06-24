@@ -1,0 +1,22 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "fcc-planned-sequence-001",
+  "version": "1.0.0",
+  "purpose": "Stored prompts for UAA-P1-066 and the next Founder Command Center planned product lanes, with review, verification, repair, commit, annotated tag, and push gates.",
+  "developer_prompt_refs": [
+    "docs/prompts/fcc_planned_sequence/00_execute_all_review_verify_finalize.prompt.md",
+    "docs/prompts/fcc_planned_sequence/01_uaa_p1_066_local_model_manager_read_only_status.prompt.md",
+    "docs/prompts/fcc_planned_sequence/02_fcc_inbox_001_deeper_approval_envelope_ux.prompt.md",
+    "docs/prompts/fcc_planned_sequence/03_fcc_briefing_001_morning_briefing_today_plan.prompt.md",
+    "docs/prompts/fcc_planned_sequence/04_fcc_sources_001_source_readiness_draft_only_inputs.prompt.md",
+    "docs/prompts/fcc_planned_sequence/05_fcc_memory_crm_001_professional_memory_crm_binding.prompt.md",
+    "docs/prompts/fcc_planned_sequence/06_fcc_review_001_evidence_weekly_review.prompt.md",
+    "docs/prompts/fcc_planned_sequence/07_fcc_health_001_self_healing_recommendations.prompt.md",
+    "docs/prompts/fcc_planned_sequence/08_fcc_dogfood_001_fourteen_day_private_harness.prompt.md",
+    "docs/prompts/fcc_planned_sequence/09_fcc_action_001_approval_bound_local_micro_lanes.prompt.md",
+    "docs/prompts/fcc_planned_sequence/10_fcc_polish_001_native_apple_grade_ux.prompt.md"
+  ],
+  "bundle_hash": "sha256:4772af25e07a87a20fdbd659dd16155d015d9060927f13e8511d9d468ee3bb12",
+  "stable_within_run": true,
+  "created_at": "2026-06-24"
+}

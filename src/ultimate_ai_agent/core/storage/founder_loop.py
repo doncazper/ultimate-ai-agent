@@ -90,6 +90,11 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     local_task_commit_receipt_ref,
     local_task_ref_for_action,
 )
+from ultimate_ai_agent.core.control_center.health_recommendations import (
+    FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
+    FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
+    build_fcc_health_recommendations,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -2088,6 +2093,92 @@ def _source_readiness_action_items(
     return actions
 
 
+def _health_recommendation_action_items(
+    recommendation_candidates: list[Any],
+) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    for recommendation_candidate in recommendation_candidates:
+        recommendation = (
+            recommendation_candidate.model_dump(mode="json")
+            if hasattr(recommendation_candidate, "model_dump")
+            else dict(recommendation_candidate)
+        )
+        slug = _safe_suffix(str(recommendation["recommendation_ref"]))
+        blocked_refs = list(recommendation.get("blocked_authority_refs") or [])
+        evidence_refs = list(recommendation.get("evidence_refs") or [])
+        severity = str(recommendation.get("severity") or "medium")
+        priority = "high" if severity == "high" else "medium"
+        if severity in {"info", "low"}:
+            priority = "low"
+        risk_class = "low" if severity == "info" else severity
+        action_record = FounderLoopActionRecord(
+            item_ref=f"action-item:fcc-health-001:{slug}",
+            title=str(recommendation["safe_title"]),
+            safe_summary=str(recommendation["safe_summary"]),
+            surface="Actions",
+            priority=priority,
+            risk_class=risk_class,
+            action_kind=FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
+            status="proposed",
+            side_effect_class="local_dev_workspace_only",
+            authority_boundary=(
+                "Recommendation review material only; no execution, auto-apply, "
+                "model/provider call, shell use, connector write, or production authority."
+            ),
+            approval_required=False,
+            approval_envelope_ref=f"approval-envelope:fcc-health-001:{slug}",
+            approval_envelope_status="not_required_recommendation_review_only",
+            state_change_contract_ref=FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
+            state_change_readiness="recommendation_review_only_no_execution_path",
+            blocked_state=(
+                "Auto-code, auto-apply, background self-repair, scheduler, "
+                "model/provider, shell, connector, and action execution remain blocked."
+            ),
+            evidence_refs=evidence_refs,
+            receipt_refs=[],
+            audit_refs=[],
+            idempotency_key_ref=None,
+            expires_at=None,
+            stale_state="recheck_recommendation_refs_before_conversion",
+            rollback_ref=None,
+            safe_disable_ref=None,
+            next_safe_action=str(recommendation["next_safe_action"]),
+        ).model_dump(mode="json")
+        action_record.update(
+            {
+                "health_recommendation_ref": recommendation["recommendation_ref"],
+                "health_recommendation_kind": recommendation["kind"],
+                "health_recommendation_severity": recommendation["severity"],
+                "health_recommendation_lifecycle_state": recommendation[
+                    "lifecycle_state"
+                ],
+                "health_recommendation_missing_proof_refs": recommendation[
+                    "missing_proof_refs"
+                ],
+                "health_recommendation_validation_plan_refs": recommendation[
+                    "validation_plan_refs"
+                ],
+                "health_recommendation_expected_receipt_refs": recommendation[
+                    "expected_receipt_refs"
+                ],
+                "health_recommendation_conversion_option_refs": recommendation[
+                    "conversion_option_refs"
+                ],
+                "health_recommendation_blocked_authority_refs": blocked_refs,
+                "health_recommendation_auto_apply_authorized": False,
+                "health_recommendation_auto_code_authorized": False,
+                "health_recommendation_provider_model_call_authorized": False,
+                "health_recommendation_shell_execution_authorized": False,
+                "health_recommendation_connector_write_authorized": False,
+                "health_recommendation_action_execution_authorized": False,
+                "health_recommendation_production_authority_enabled": False,
+            }
+        )
+        _validate_safe_payload(action_record, "health_recommendation_action_item")
+        actions.append(action_record)
+    return actions
+
+
 def _action_inbox_review_filter_facets(
     actions: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -2526,6 +2617,57 @@ def _weekly_review_narrative(
     dogfood_capture: dict[str, Any],
 ) -> dict[str, Any]:
     weekly_summary = memory_to_loop_binding_contract["weekly_ceo_review_summary"]
+    action_status_refs = [
+        f"action-status-ref:{str(action['item_ref']).replace(':', '-')}:{str(action.get('status', 'unknown'))}"
+        for action in actions
+    ]
+    completed_refs = [
+        ref
+        for action, ref in zip(actions, action_status_refs, strict=False)
+        if str(action.get("status")) in {"approved", "completed", "receipt_recorded"}
+        or list(action.get("receipt_refs") or [])
+    ][:5]
+    deferred_refs = [
+        ref
+        for action, ref in zip(actions, action_status_refs, strict=False)
+        if str(action.get("status")) in {"deferred", "snoozed"}
+    ][:5]
+    rejected_refs = [
+        *list(weekly_summary["rejected_item_refs"]),
+        *[
+            ref
+            for action, ref in zip(actions, action_status_refs, strict=False)
+            if str(action.get("status")) in {"rejected", "blocked"}
+        ],
+    ][:5]
+    planned_refs = [
+        *[str(action["item_ref"]) for action in actions[:5]],
+        *[follow_up["follow_up_ref"] for follow_up in crm_lite_followups[:3]],
+    ]
+    memory_change_refs = [
+        *list(weekly_summary["memory_correction_refs"]),
+        *list(weekly_summary["decision_refs"]),
+    ][:6]
+    crm_movement_refs = [
+        *[follow_up["relationship_ref"] for follow_up in crm_lite_followups[:3]],
+        *[follow_up["opportunity_ref"] for follow_up in crm_lite_followups[:3]],
+    ][:6]
+    draft_refs = [
+        follow_up["review_envelope_ref"]
+        for follow_up in crm_lite_followups
+        if follow_up.get("draft_available") or follow_up.get("review_envelope_ref")
+    ][:6]
+    next_week_priority_refs = _unique_sorted_refs(
+        [
+            *list(weekly_summary["carry_forward_task_refs"]),
+            *list(weekly_summary["unresolved_blocker_refs"]),
+            *[
+                source["source_ref"]
+                for source in source_readiness_items
+                if source["status"] in {"missing", "blocked", "not_configured"}
+            ],
+        ]
+    )[:8]
     return {
         "weekly_review_ref": "weekly-review-narrative-ref:founder-loop:v1",
         "status": "safe_ref_history_ready",
@@ -2534,16 +2676,21 @@ def _weekly_review_narrative(
             "recorded decisions, changed refs, carry-forward items, blocked "
             "states, stale memory, missing sources, and private dogfood signals."
         ),
-        "proposed_refs": [
-            *[str(action["item_ref"]) for action in actions[:5]],
-            *[follow_up["follow_up_ref"] for follow_up in crm_lite_followups[:3]],
-        ],
+        "proposed_refs": planned_refs,
         "decided_refs": list(weekly_summary["decision_refs"]),
         "changed_refs": [
             str(item["timeline_item_ref"])
             for item in evidence_timeline
             if str(item.get("item_kind", "")).endswith("receipt_ref")
         ][:5],
+        "completed_refs": completed_refs,
+        "deferred_refs": deferred_refs,
+        "rejected_refs": rejected_refs,
+        "planned_refs": planned_refs,
+        "memory_change_refs": memory_change_refs,
+        "crm_movement_refs": crm_movement_refs,
+        "draft_refs": draft_refs,
+        "next_week_priority_refs": next_week_priority_refs,
         "carry_forward_refs": list(weekly_summary["carry_forward_task_refs"]),
         "blocked_refs": [
             *list(weekly_summary["unresolved_blocker_refs"]),
@@ -4147,6 +4294,58 @@ class FounderLoopRepository:
             "group_count": len(groups),
             "groups": groups,
             "events": events,
+            "narrative_items": timeline,
+            "review_answer_refs": {
+                "proposed": _unique_sorted_refs(
+                    ref
+                    for item in timeline
+                    for ref in item["history_answers"]["proposed"]["refs"]
+                ),
+                "decided": _unique_sorted_refs(
+                    ref
+                    for item in timeline
+                    for key in ("approved", "happened")
+                    for ref in item["history_answers"][key]["refs"]
+                ),
+                "changed": _unique_sorted_refs(
+                    ref
+                    for item in timeline
+                    for ref in item["history_answers"]["changed"]["refs"]
+                ),
+                "denied": _unique_sorted_refs(
+                    ref
+                    for item in timeline
+                    if item["history_answers"]["approved"]["status"] == "blocked"
+                    for ref in item["history_answers"]["approved"]["refs"]
+                ),
+                "skipped": _unique_sorted_refs(
+                    ref
+                    for item in timeline
+                    if "skip" in str(item.get("stale_state", "")).lower()
+                    for ref in item["history_answers"]["stale"]["refs"]
+                ),
+                "corrected": _unique_sorted_refs(
+                    ref
+                    for item in timeline
+                    if "correction" in str(item.get("item_kind", "")).lower()
+                    or "correct" in str(item.get("title", "")).lower()
+                    for ref in item["history_answers"]["changed"]["refs"]
+                ),
+                "blocked": _unique_sorted_refs(
+                    ref
+                    for item in timeline
+                    for ref in item["history_answers"]["blocked"]["refs"]
+                ),
+                "reversible_safe_disabled": _unique_sorted_refs(
+                    ref
+                    for item in timeline
+                    for ref in [
+                        *item["history_answers"]["undoable"]["refs"],
+                        *item.get("rollback_refs", []),
+                        *item.get("rollback_blockers", []),
+                    ]
+                ),
+            },
             "receipt_refs": _unique_sorted_refs(
                 ref for event in events for ref in event.get("receipt_refs", [])
             ),
@@ -6197,6 +6396,10 @@ class FounderLoopRepository:
             list(source_readiness.get("source_readiness_proposal_candidates") or [])
         )
         actions.extend(source_readiness_actions)
+        health_recommendation_actions = _health_recommendation_action_items(
+            build_fcc_health_recommendations(source_readiness=source_readiness)
+        )
+        actions.extend(health_recommendation_actions)
         projected_actions: list[dict[str, Any]] = []
         for action in actions:
             action_envelope_payload = _action_envelope_contract_payload(action)

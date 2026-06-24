@@ -216,6 +216,22 @@ export interface FounderLoopActionItem {
   source_readiness_blocked_authority_refs?: string[];
   source_readiness_backend_owned?: boolean;
   source_readiness_proposal_classification?: "proposal_only_no_execution_path";
+  health_recommendation_ref?: string;
+  health_recommendation_kind?: string;
+  health_recommendation_severity?: string;
+  health_recommendation_lifecycle_state?: string;
+  health_recommendation_missing_proof_refs?: string[];
+  health_recommendation_validation_plan_refs?: string[];
+  health_recommendation_expected_receipt_refs?: string[];
+  health_recommendation_conversion_option_refs?: string[];
+  health_recommendation_blocked_authority_refs?: string[];
+  health_recommendation_auto_apply_authorized?: boolean;
+  health_recommendation_auto_code_authorized?: boolean;
+  health_recommendation_provider_model_call_authorized?: boolean;
+  health_recommendation_shell_execution_authorized?: boolean;
+  health_recommendation_connector_write_authorized?: boolean;
+  health_recommendation_action_execution_authorized?: boolean;
+  health_recommendation_production_authority_enabled?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -703,6 +719,7 @@ export interface FounderLoopEvidenceTimelineItem {
 export type FounderLoopEvidenceEventType =
   | "action_envelope_created"
   | "action_decision_recorded"
+  | "local_task_created"
   | "chat_turn_receipt_recorded"
   | "chat_handoff_created"
   | "memory_review_decision_recorded";
@@ -789,6 +806,18 @@ export interface FounderLoopEvidenceTimelineIndex {
   group_count: number;
   groups: FounderLoopEvidenceTimelineGroup[];
   events: FounderLoopEvidenceTimelineEvent[];
+  narrative_items?: FounderLoopEvidenceTimelineItem[];
+  review_answer_refs?: Record<
+    | "proposed"
+    | "decided"
+    | "changed"
+    | "denied"
+    | "skipped"
+    | "corrected"
+    | "blocked"
+    | "reversible_safe_disabled",
+    string[]
+  >;
   receipt_refs: string[];
   approval_refs: string[];
   idempotency_refs: string[];
@@ -1528,6 +1557,14 @@ export interface FounderLoopWeeklyReviewNarrative {
   proposed_refs: string[];
   decided_refs: string[];
   changed_refs: string[];
+  completed_refs?: string[];
+  deferred_refs?: string[];
+  rejected_refs?: string[];
+  planned_refs?: string[];
+  memory_change_refs?: string[];
+  crm_movement_refs?: string[];
+  draft_refs?: string[];
+  next_week_priority_refs?: string[];
   carry_forward_refs: string[];
   blocked_refs: string[];
   stale_refs: string[];

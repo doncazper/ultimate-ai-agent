@@ -16,6 +16,7 @@ Event types:
 
 - `action_envelope_created`
 - `action_decision_recorded`
+- `local_task_created`
 - `chat_turn_receipt_recorded`
 - `chat_handoff_created`
 - `memory_review_decision_recorded`

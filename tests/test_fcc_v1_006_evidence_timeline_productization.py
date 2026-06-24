@@ -250,6 +250,7 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
     assert data["action_execution_enabled"] is False
     assert data["production_authority_enabled"] is False
     assert set(data["event_types"]) == set(EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES)
+    assert "local_task_created" in data["event_types"]
     for event_type in EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES:
         assert data["event_type_counts"][event_type] >= 1
     assert {"today_item", "action", "chat_turn", "memory_candidate"}.issubset(

@@ -13,6 +13,9 @@ from ultimate_ai_agent.core.execution.validation import (
 PRIVATE_OPERATOR_TRIAL_CONTRACT_REF = (
     "contract-ref:private-operator-ui-functional-tuning:v1"
 )
+PRIVATE_OPERATOR_DOGFOOD_HARNESS_CONTRACT_REF = (
+    "contract-ref:fcc-dogfood-001:fourteen-day-private-harness:v1"
+)
 
 PrivateOperatorTrialSurface = Literal[
     "Local Boot",
@@ -51,6 +54,25 @@ PrivateOperatorTrialReviewState = Literal[
 
 PrivateOperatorTrialManualAnswerState = Literal[
     "unanswered_pending_manual_review",
+]
+
+PrivateDogfoodDayState = Literal[
+    "not_run",
+    "skipped",
+    "blocked",
+    "missing_source",
+    "captured_pending_review",
+    "accepted",
+    "revised",
+]
+
+PrivateDogfoodManualReviewStatus = Literal[
+    "pending_operator_review",
+    "accepted",
+    "revised",
+    "blocked",
+    "skipped",
+    "not_run",
 ]
 
 PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES: list[PrivateOperatorTrialSurface] = [
@@ -597,6 +619,184 @@ class PrivateOperatorTrialManualReviewScaffold(BaseModel):
         return self
 
 
+class PrivateDogfoodDailyEntry(BaseModel):
+    day_ref: str = Field(..., min_length=1)
+    day_index: int = Field(..., ge=1, le=14)
+    capture_state: PrivateDogfoodDayState = "not_run"
+    manual_review_status: PrivateDogfoodManualReviewStatus = "pending_operator_review"
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    metric_bucket_refs: list[str] = Field(default_factory=list, min_length=1)
+    useful_briefing_signal_refs: list[str] = Field(default_factory=list)
+    irrelevant_briefing_signal_refs: list[str] = Field(default_factory=list)
+    action_decision_refs: list[str] = Field(default_factory=list)
+    memory_decision_refs: list[str] = Field(default_factory=list)
+    friction_refs: list[str] = Field(default_factory=list)
+    recommendation_refs: list[str] = Field(default_factory=list)
+    skipped_state_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS)
+    )
+    missing_source_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    next_safe_action: str = Field(..., min_length=1, max_length=240)
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_daily_entry(self) -> "PrivateDogfoodDailyEntry":
+        _safe_ref(self.day_ref, "day_ref")
+        for field_name in [
+            "metric_bucket_refs",
+            "useful_briefing_signal_refs",
+            "irrelevant_briefing_signal_refs",
+            "action_decision_refs",
+            "memory_decision_refs",
+            "friction_refs",
+            "recommendation_refs",
+            "skipped_state_refs",
+            "blocked_state_refs",
+            "missing_source_refs",
+            "evidence_refs",
+        ]:
+            _safe_refs(getattr(self, field_name), field_name)
+        for field_name in [
+            "capture_state",
+            "manual_review_status",
+            "safe_summary",
+            "next_safe_action",
+        ]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        missing_blocked = set(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blocked:
+            raise ValueError("private dogfood daily entry missing blocked refs")
+        if not self.local_private_only:
+            raise ValueError("private dogfood daily entry must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("private dogfood daily entry must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("private dogfood daily entry requires manual review")
+        for flag in _DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by private dogfood daily entry")
+        return self
+
+
+class PrivateDogfoodHarness(BaseModel):
+    harness_ref: str = "harness-ref:fcc-dogfood-001:fourteen-day-private"
+    contract_ref: str = PRIVATE_OPERATOR_DOGFOOD_HARNESS_CONTRACT_REF
+    milestone_ref: str = "milestone:fcc-dogfood-001"
+    status: str = "implemented_private_14_day_dogfood_harness_safe_refs_only"
+    duration_days: Literal[14] = 14
+    source_trial_refs: list[str] = Field(default_factory=list, min_length=1)
+    daily_entries: list[PrivateDogfoodDailyEntry] = Field(
+        default_factory=list, min_length=14, max_length=14
+    )
+    metric_bucket_refs: list[str] = Field(default_factory=list, min_length=1)
+    pending_finding_refs: list[str] = Field(default_factory=list, min_length=1)
+    accepted_finding_refs: list[str] = Field(default_factory=list)
+    revised_finding_refs: list[str] = Field(default_factory=list)
+    skipped_state_refs: list[str] = Field(default_factory=list, min_length=1)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS)
+    )
+    missing_source_refs: list[str] = Field(default_factory=list, min_length=1)
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    next_safe_action: str = (
+        "Run the local/private 14-day harness manually, record only safe refs, "
+        "then accept or revise findings before any beta-readiness or execution claim changes."
+    )
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    telemetry_upload_enabled: bool = False
+    background_monitoring_enabled: bool = False
+    raw_private_content_allowed: bool = False
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_harness(self) -> "PrivateDogfoodHarness":
+        if self.contract_ref != PRIVATE_OPERATOR_DOGFOOD_HARNESS_CONTRACT_REF:
+            raise ValueError("private dogfood harness contract ref drifted")
+        for field_name in ["harness_ref", "contract_ref", "milestone_ref"]:
+            _safe_ref(getattr(self, field_name), field_name)
+        for field_name in ["status", "next_safe_action"]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        for field_name in [
+            "source_trial_refs",
+            "metric_bucket_refs",
+            "pending_finding_refs",
+            "accepted_finding_refs",
+            "revised_finding_refs",
+            "skipped_state_refs",
+            "blocked_state_refs",
+            "missing_source_refs",
+            "evidence_refs",
+        ]:
+            _safe_refs(getattr(self, field_name), field_name)
+        day_indexes = [entry.day_index for entry in self.daily_entries]
+        if day_indexes != list(range(1, 15)):
+            raise ValueError("private dogfood harness must define days 1 through 14")
+        missing_blocked = set(PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blocked:
+            raise ValueError("private dogfood harness missing blocked refs")
+        if not self.local_private_only:
+            raise ValueError("private dogfood harness must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("private dogfood harness must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("private dogfood harness requires manual review")
+        if self.telemetry_upload_enabled:
+            raise ValueError("private dogfood harness must not upload telemetry")
+        if self.background_monitoring_enabled:
+            raise ValueError("private dogfood harness must not monitor in background")
+        if self.raw_private_content_allowed:
+            raise ValueError("private dogfood harness must not allow raw private content")
+        for flag in _DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by private dogfood harness")
+        return self
+
+
 def build_private_operator_trial_packet() -> PrivateOperatorTrialPacket:
     return PrivateOperatorTrialPacket(
         checklist_items=_checklist_items(),
@@ -688,6 +888,105 @@ def build_private_operator_trial_manual_review_scaffold() -> PrivateOperatorTria
             "evidence-ref:private-trial:deferred-manual-review",
         ],
     )
+
+
+def build_private_dogfood_harness() -> PrivateDogfoodHarness:
+    return PrivateDogfoodHarness(
+        source_trial_refs=[
+            "packet-ref:private-operator-trial:v1",
+            "ledger-ref:private-operator-trial-acceptance:v1",
+            "scaffold-ref:private-operator-trial-manual-review:v1",
+        ],
+        daily_entries=_dogfood_daily_entries(),
+        metric_bucket_refs=[
+            "dogfood-metric-ref:morning-briefing-open",
+            "dogfood-metric-ref:useful-briefing-signal",
+            "dogfood-metric-ref:irrelevant-briefing-signal",
+            "dogfood-metric-ref:action-inbox-decision",
+            "dogfood-metric-ref:memory-decision",
+            "dogfood-metric-ref:follow-up-caught",
+            "dogfood-metric-ref:draft-created",
+            "dogfood-metric-ref:recommendation-created",
+            "dogfood-metric-ref:terminal-needed",
+            "dogfood-metric-ref:ui-friction",
+        ],
+        pending_finding_refs=[
+            "dogfood-finding-ref:fcc-dogfood-001:pending-usefulness",
+            "dogfood-finding-ref:fcc-dogfood-001:pending-friction",
+            "dogfood-finding-ref:fcc-dogfood-001:pending-memory-quality",
+            "dogfood-finding-ref:fcc-dogfood-001:pending-action-clarity",
+        ],
+        skipped_state_refs=[
+            "dogfood-state-ref:fcc-dogfood-001:skipped-explicit",
+            "dogfood-state-ref:fcc-dogfood-001:not-run-explicit",
+            "dogfood-state-ref:fcc-dogfood-001:blocked-explicit",
+        ],
+        missing_source_refs=[
+            "missing-source-ref:fcc-dogfood-001:no-raw-private-content",
+            "missing-source-ref:fcc-dogfood-001:no-telemetry-upload",
+        ],
+        evidence_refs=[
+            "evidence-ref:fcc-dogfood-001:harness-contract",
+            "evidence-ref:fcc-dogfood-001:manual-review-required",
+            "evidence-ref:fcc-dogfood-001:blocked-authority",
+        ],
+    )
+
+
+def _dogfood_daily_entries() -> list[PrivateDogfoodDailyEntry]:
+    entries: list[PrivateDogfoodDailyEntry] = []
+    for day_index in range(1, 15):
+        day_slug = f"day-{day_index:02d}"
+        entries.append(
+            PrivateDogfoodDailyEntry(
+                day_ref=f"dogfood-day:fcc-dogfood-001:{day_slug}",
+                day_index=day_index,
+                safe_summary=(
+                    "Manual local/private dogfood slot. Record only redacted "
+                    "summaries, safe refs, metric buckets, skipped states, "
+                    "blocked states, and missing-source refs."
+                ),
+                metric_bucket_refs=[
+                    f"dogfood-metric-ref:fcc-dogfood-001:{day_slug}:useful-briefing",
+                    f"dogfood-metric-ref:fcc-dogfood-001:{day_slug}:irrelevant-briefing",
+                    f"dogfood-metric-ref:fcc-dogfood-001:{day_slug}:action-decision",
+                    f"dogfood-metric-ref:fcc-dogfood-001:{day_slug}:memory-decision",
+                    f"dogfood-metric-ref:fcc-dogfood-001:{day_slug}:ui-friction",
+                ],
+                useful_briefing_signal_refs=[
+                    f"useful-signal-ref:fcc-dogfood-001:{day_slug}:pending-review"
+                ],
+                irrelevant_briefing_signal_refs=[
+                    f"irrelevant-signal-ref:fcc-dogfood-001:{day_slug}:pending-review"
+                ],
+                action_decision_refs=[
+                    f"action-decision-ref:fcc-dogfood-001:{day_slug}:pending-review"
+                ],
+                memory_decision_refs=[
+                    f"memory-decision-ref:fcc-dogfood-001:{day_slug}:pending-review"
+                ],
+                friction_refs=[
+                    f"friction-ref:fcc-dogfood-001:{day_slug}:pending-review"
+                ],
+                recommendation_refs=[
+                    f"recommendation-ref:fcc-dogfood-001:{day_slug}:pending-review"
+                ],
+                skipped_state_refs=[
+                    f"dogfood-state-ref:fcc-dogfood-001:{day_slug}:not-run"
+                ],
+                missing_source_refs=[
+                    f"missing-source-ref:fcc-dogfood-001:{day_slug}:manual-entry"
+                ],
+                evidence_refs=[
+                    f"evidence-ref:fcc-dogfood-001:{day_slug}:safe-ref-slot"
+                ],
+                next_safe_action=(
+                    "Use this day slot only after manual local/private review; "
+                    "keep raw private content out of the artifact."
+                ),
+            )
+        )
+    return entries
 
 
 def _checklist_items() -> list[PrivateOperatorTrialChecklistItem]:

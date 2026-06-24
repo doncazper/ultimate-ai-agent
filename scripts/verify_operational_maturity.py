@@ -79,6 +79,28 @@ LOCAL_TASK_RECEIPT_REF = "receipt:founder-loop-local-task:*"
 LOCAL_TASK_EVENT_REF = "evidence-event-type:local_task_created"
 LOCAL_TASK_ROLLBACK_REF = FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
 LOCAL_TASK_SAFE_DISABLE_REF = FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
+LOCAL_TASK_REPEATABILITY_GATE_REF = "FCC-ACTION-002"
+LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS = {
+    "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
+    "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_denies_when_safe_disabled",
+    "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_rejects_unsupported_action_kind",
+    "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_rejects_expired_backend_approval",
+    "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_requires_exact_approval_and_receipts",
+    "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_denies_safe_disabled_lane",
+    "tests/test_fcc_v1_003_founder_loop_vertical_slice.py::test_founder_loop_cli_commits_local_task_with_safe_refs",
+}
+LOCAL_TASK_REPEATABILITY_REQUIRED_FRONTEND_TEST_REFS = {
+    "apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local task lane through the typed route",
+    "apps/control-center/src/App.test.tsx::keeps local task commit receipt local and explicit when backend read-model refresh fails",
+    "apps/control-center/src/App.test.tsx::shows replay posture from the refreshed Action Inbox read model",
+    "apps/control-center/src/App.test.tsx::keeps conflicting local task commits out of committed UI state",
+}
+LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS = {
+    "scripts/verify_operational_maturity.py::_append_mock_fallback_fixture_failures",
+    "scripts/verify_operational_maturity.py::_append_behavior_probe_failures",
+    "scripts/verify_operational_maturity.py::_append_cli_probe_failures",
+    "scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures",
+}
 MEMORY_CONTEXT_PACK_ROUTE = "GET /control-center/memory/context-packs"
 MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE = (
     "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal"
@@ -216,7 +238,7 @@ def verify(
     )
     _append_ladder_doc_failures(failures, ladder_text)
     _append_module_failures(failures, manifest, routes_by_ref, root)
-    _append_first_lane_failures(failures, manifest, routes_by_ref)
+    _append_first_lane_failures(failures, manifest, routes_by_ref, root)
     _append_public_request_schema_failures(failures)
     _append_ref_resolution_failures(failures, manifest, root)
     _append_mock_fallback_fixture_failures(failures, root)
@@ -885,6 +907,7 @@ def _append_first_lane_failures(
     failures: list[str],
     manifest: dict[str, Any],
     routes_by_ref: dict[str, dict[str, Any]],
+    root: Path,
 ) -> None:
     modules = {
         str(module.get("module_id")): module for module in manifest.get("modules", [])
@@ -920,6 +943,7 @@ def _append_first_lane_failures(
         failures.append("local_task_create lane must require rollback or safe-disable")
     if "rollback_execution" not in set(lane.get("blocked_authorities", [])):
         failures.append("local_task_create lane must keep rollback_execution blocked")
+    _append_local_task_repeatability_gate_failures(failures, lane, root)
     route = routes_by_ref.get(LOCAL_TASK_ROUTE)
     if route is None:
         failures.append("local_task_create route missing from API manifest")
@@ -942,6 +966,67 @@ def _append_first_lane_failures(
     ]:
         if capability not in declared:
             failures.append(f"API manifest missing declared capability {capability}")
+
+
+def _append_local_task_repeatability_gate_failures(
+    failures: list[str],
+    lane: dict[str, Any],
+    root: Path,
+) -> None:
+    if lane.get("repeatability_gate_ref") != LOCAL_TASK_REPEATABILITY_GATE_REF:
+        failures.append(
+            f"local_task_create lane must declare {LOCAL_TASK_REPEATABILITY_GATE_REF}"
+        )
+
+    focused_test_refs = set(lane.get("focused_test_refs", []))
+    for ref in sorted(LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS):
+        if ref not in focused_test_refs:
+            failures.append(f"local_task_create repeatability gate missing {ref}")
+        _append_repo_ref_failure(
+            failures,
+            root,
+            ref,
+            "local_task_create.repeatability.focused_test_refs",
+        )
+
+    frontend_refs = set(lane.get("frontend_repeatability_test_refs", []))
+    for ref in sorted(LOCAL_TASK_REPEATABILITY_REQUIRED_FRONTEND_TEST_REFS):
+        if ref not in frontend_refs:
+            failures.append(
+                f"local_task_create repeatability gate missing frontend test {ref}"
+            )
+        _append_source_ref_failure(
+            failures,
+            root,
+            ref,
+            "local_task_create.repeatability.frontend_repeatability_test_refs",
+        )
+
+    verifier_refs = set(lane.get("verifier_repeatability_refs", []))
+    for ref in sorted(LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS):
+        if ref not in verifier_refs:
+            failures.append(
+                f"local_task_create repeatability gate missing verifier ref {ref}"
+            )
+        _append_source_ref_failure(
+            failures,
+            root,
+            ref,
+            "local_task_create.repeatability.verifier_repeatability_refs",
+        )
+
+    frontend = root / "apps/control-center/src/components/FounderLoopPanels.tsx"
+    if frontend.exists():
+        frontend_text = frontend.read_text(encoding="utf-8")
+        for marker in [
+            "refresh_pending_backend_read_model",
+            "refresh_failed",
+            "Backend read model refreshed; receipt visibility now comes from the Action Inbox API.",
+        ]:
+            if marker not in frontend_text:
+                failures.append(
+                    f"local_task_create repeatability UI missing marker {marker}"
+                )
 
 
 def _append_public_request_schema_failures(failures: list[str]) -> None:
@@ -1271,6 +1356,47 @@ def _append_mock_fallback_fixture_failures(failures: list[str], root: Path) -> N
         failures.append(
             "Control Center mock fallback must not claim local_task_commit_eligible true"
         )
+    committed_mock_markers = {
+        'local_task_commit_receipt_ref: "receipt:': (
+            "Control Center mock fallback must not claim committed local task receipt refs"
+        ),
+        "local_task_commit_receipt_ref: 'receipt:": (
+            "Control Center mock fallback must not claim committed local task receipt refs"
+        ),
+        'status: "receipt_recorded"': (
+            "Control Center mock fallback must not claim receipt_recorded local task state"
+        ),
+        "status: 'receipt_recorded'": (
+            "Control Center mock fallback must not claim receipt_recorded local task state"
+        ),
+        'action_group_id: "receipt_recorded"': (
+            "Control Center mock fallback must not claim receipt_recorded local task lanes"
+        ),
+        "action_group_id: 'receipt_recorded'": (
+            "Control Center mock fallback must not claim receipt_recorded local task lanes"
+        ),
+        'replay_posture: "idempotency_replay_available"': (
+            "Control Center mock fallback must not claim backend local task replay posture"
+        ),
+        "replay_posture: 'idempotency_replay_available'": (
+            "Control Center mock fallback must not claim backend local task replay posture"
+        ),
+        'conflict_posture: "conflicting_idempotency_payload_rejected"': (
+            "Control Center mock fallback must not claim backend local task conflict posture"
+        ),
+        "conflict_posture: 'conflicting_idempotency_payload_rejected'": (
+            "Control Center mock fallback must not claim backend local task conflict posture"
+        ),
+        'evidence_timeline_event_ref: "evidence-timeline-event:local-task:': (
+            "Control Center mock fallback must not claim local task Evidence Timeline events"
+        ),
+        "evidence_timeline_event_ref: 'evidence-timeline-event:local-task:": (
+            "Control Center mock fallback must not claim local task Evidence Timeline events"
+        ),
+    }
+    for marker, message in committed_mock_markers.items():
+        if marker in fixture:
+            failures.append(message)
     source_readiness_fixture = ""
     source_start = fixture.find("const sourceReadinessPosture")
     if source_start >= 0:

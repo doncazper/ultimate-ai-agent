@@ -4358,7 +4358,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "uaa-p1-087.2a private trial packet and ui tuning surface is complete" not in readme_flat
         or "uaa-p1-087.2b private trial findings capture and acceptance ledger is complete" not in readme_flat
         or "uaa-p1-087.2c private trial manual review scaffold is complete" not in readme_flat
-        or "uaa-p1-066 remains queued" not in readme_flat
+        or "uaa-p1-066 is implemented as read-only local model control center inventory/status support" not in readme_flat
     ):
         failures.append(
             "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070/"
@@ -4367,7 +4367,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
             "UAA-P1-081/UAA-P1-082/UAA-P1-083/UAA-P1-084/UAA-P1-085/"
             "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a/UAA-P1-087.2b/"
             "UAA-P1-087.2c complete, "
-            "and UAA-P1-066 queued support"
+            "and UAA-P1-066 implemented read-only support"
         )
 
     docs_readme = read_lower("docs/README.md")
@@ -4398,7 +4398,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
         or "completed uaa-p1-087.2a" not in docs_readme_flat
         or "completed uaa-p1-087.2b" not in docs_readme_flat
         or "completed uaa-p1-087.2c" not in docs_readme_flat
-        or "uaa-p1-066 remains queued" not in docs_readme_flat
+        or "uaa-p1-066 is implemented as a strictly read-only local model control center inventory/status support lane" not in docs_readme_flat
     ):
         failures.append(
             "docs/README.md must identify UAA-P1-065 done, "
@@ -4408,7 +4408,7 @@ def _verify_mcp_a2a_compatibility_watchlist(root: Path) -> list[str]:
             "UAA-P1-082/UAA-P1-083/UAA-P1-084/UAA-P1-085/"
             "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a/UAA-P1-087.2b/"
             "UAA-P1-087.2c complete, and UAA-P1-066 "
-            "queued support"
+            "implemented read-only support"
         )
 
     return failures
@@ -4925,7 +4925,7 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
         or "uaa-p1-087.2a private trial packet and ui tuning surface is complete" not in readme_flat
         or "uaa-p1-087.2b private trial findings capture and acceptance ledger is complete" not in readme_flat
         or "uaa-p1-087.2c private trial manual review scaffold is complete" not in readme_flat
-        or "uaa-p1-066 remains queued" not in readme_flat
+        or "uaa-p1-066 is implemented as read-only local model control center inventory/status support" not in readme_flat
     ):
         failures.append(
             "README must identify UAA-P1-067/UAA-P1-068/UAA-P1-069/UAA-P1-070/"
@@ -4934,7 +4934,7 @@ def _verify_local_model_operational_runbook(root: Path) -> list[str]:
             "UAA-P1-081/UAA-P1-082/UAA-P1-083/UAA-P1-084/UAA-P1-085/"
             "UAA-P1-086/UAA-P1-087.1/UAA-P1-087.2a/UAA-P1-087.2b/"
             "UAA-P1-087.2c complete, "
-            "and UAA-P1-066 queued support"
+            "and UAA-P1-066 implemented read-only support"
         )
     if "p0-017 adds safe local model operational recovery guidance" not in readme:
         failures.append("README must mention P0-017 operational recovery")

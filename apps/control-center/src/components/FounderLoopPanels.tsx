@@ -1332,8 +1332,48 @@ function WeeklyReviewNarrativeCard({
         refs={narrative.proposed_refs}
       />
       <RefListWithFallback
+        emptyLabel="Completed refs: none"
+        refs={narrative.completed_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Deferred refs: none"
+        refs={narrative.deferred_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Rejected refs: none"
+        refs={narrative.rejected_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Planned refs: none"
+        refs={narrative.planned_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Memory change refs: none"
+        refs={narrative.memory_change_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="CRM movement refs: none"
+        refs={narrative.crm_movement_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Draft refs: none"
+        refs={narrative.draft_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Next-week priority refs: none"
+        refs={narrative.next_week_priority_refs ?? []}
+      />
+      <RefListWithFallback
         emptyLabel="Carry-forward refs: none"
         refs={narrative.carry_forward_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked refs: none"
+        refs={narrative.blocked_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Stale refs: none"
+        refs={narrative.stale_refs}
       />
       <RefListWithFallback
         emptyLabel="Missing source refs: none"
@@ -2950,6 +2990,23 @@ export function EvidenceTimelineSurfacePanel({
             items={evidence?.blocked_states ?? today.evidence_timeline_blocked_states ?? []}
           />
         </article>
+        {evidence?.review_answer_refs ? (
+          <article className="status-card">
+            <div className="status-card-header">
+              <h3>Review answers</h3>
+              <span>safe refs</span>
+            </div>
+            {Object.entries(evidence.review_answer_refs).map(([answer, refs]) => (
+              <div key={answer}>
+                <p className="muted">{answer}</p>
+                <RefListWithFallback
+                  emptyLabel={`${answer}: no refs recorded`}
+                  refs={refs}
+                />
+              </div>
+            ))}
+          </article>
+        ) : null}
         <article className="status-card">
           <div className="status-card-header">
             <h3>Surface bindings</h3>

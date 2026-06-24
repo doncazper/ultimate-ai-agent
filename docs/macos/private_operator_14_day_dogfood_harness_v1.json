@@ -1,0 +1,1180 @@
+{
+  "harness_ref": "harness-ref:fcc-dogfood-001:fourteen-day-private",
+  "contract_ref": "contract-ref:fcc-dogfood-001:fourteen-day-private-harness:v1",
+  "milestone_ref": "milestone:fcc-dogfood-001",
+  "status": "implemented_private_14_day_dogfood_harness_safe_refs_only",
+  "duration_days": 14,
+  "source_trial_refs": [
+    "packet-ref:private-operator-trial:v1",
+    "ledger-ref:private-operator-trial-acceptance:v1",
+    "scaffold-ref:private-operator-trial-manual-review:v1"
+  ],
+  "daily_entries": [
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-01",
+      "day_index": 1,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-01:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-01:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-01:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-01:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-01:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-01:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-01:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-01:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-01:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-01:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-01:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-01:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-01:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-01:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-02",
+      "day_index": 2,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-02:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-02:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-02:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-02:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-02:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-02:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-02:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-02:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-02:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-02:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-02:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-02:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-02:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-02:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-03",
+      "day_index": 3,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-03:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-03:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-03:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-03:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-03:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-03:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-03:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-03:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-03:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-03:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-03:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-03:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-03:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-03:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-04",
+      "day_index": 4,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-04:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-04:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-04:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-04:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-04:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-04:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-04:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-04:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-04:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-04:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-04:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-04:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-04:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-04:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-05",
+      "day_index": 5,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-05:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-05:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-05:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-05:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-05:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-05:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-05:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-05:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-05:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-05:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-05:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-05:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-05:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-05:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-06",
+      "day_index": 6,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-06:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-06:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-06:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-06:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-06:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-06:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-06:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-06:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-06:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-06:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-06:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-06:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-06:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-06:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-07",
+      "day_index": 7,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-07:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-07:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-07:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-07:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-07:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-07:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-07:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-07:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-07:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-07:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-07:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-07:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-07:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-07:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-08",
+      "day_index": 8,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-08:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-08:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-08:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-08:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-08:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-08:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-08:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-08:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-08:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-08:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-08:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-08:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-08:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-08:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-09",
+      "day_index": 9,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-09:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-09:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-09:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-09:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-09:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-09:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-09:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-09:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-09:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-09:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-09:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-09:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-09:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-09:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-10",
+      "day_index": 10,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-10:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-10:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-10:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-10:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-10:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-10:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-10:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-10:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-10:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-10:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-10:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-10:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-10:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-10:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-11",
+      "day_index": 11,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-11:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-11:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-11:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-11:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-11:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-11:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-11:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-11:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-11:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-11:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-11:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-11:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-11:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-11:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-12",
+      "day_index": 12,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-12:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-12:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-12:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-12:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-12:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-12:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-12:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-12:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-12:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-12:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-12:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-12:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-12:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-12:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-13",
+      "day_index": 13,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-13:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-13:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-13:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-13:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-13:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-13:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-13:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-13:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-13:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-13:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-13:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-13:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-13:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-13:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    },
+    {
+      "day_ref": "dogfood-day:fcc-dogfood-001:day-14",
+      "day_index": 14,
+      "capture_state": "not_run",
+      "manual_review_status": "pending_operator_review",
+      "safe_summary": "Manual local/private dogfood slot. Record only redacted summaries, safe refs, metric buckets, skipped states, blocked states, and missing-source refs.",
+      "metric_bucket_refs": [
+        "dogfood-metric-ref:fcc-dogfood-001:day-14:useful-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-14:irrelevant-briefing",
+        "dogfood-metric-ref:fcc-dogfood-001:day-14:action-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-14:memory-decision",
+        "dogfood-metric-ref:fcc-dogfood-001:day-14:ui-friction"
+      ],
+      "useful_briefing_signal_refs": [
+        "useful-signal-ref:fcc-dogfood-001:day-14:pending-review"
+      ],
+      "irrelevant_briefing_signal_refs": [
+        "irrelevant-signal-ref:fcc-dogfood-001:day-14:pending-review"
+      ],
+      "action_decision_refs": [
+        "action-decision-ref:fcc-dogfood-001:day-14:pending-review"
+      ],
+      "memory_decision_refs": [
+        "memory-decision-ref:fcc-dogfood-001:day-14:pending-review"
+      ],
+      "friction_refs": [
+        "friction-ref:fcc-dogfood-001:day-14:pending-review"
+      ],
+      "recommendation_refs": [
+        "recommendation-ref:fcc-dogfood-001:day-14:pending-review"
+      ],
+      "skipped_state_refs": [
+        "dogfood-state-ref:fcc-dogfood-001:day-14:not-run"
+      ],
+      "blocked_state_refs": [
+        "blocked-state:no-public-beta",
+        "blocked-state:no-public-distribution",
+        "blocked-state:no-production-readiness-claim",
+        "blocked-state:no-production-authority",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-unrestricted-shell",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-remote-execution",
+        "blocked-state:no-account-sync",
+        "blocked-state:no-crm-write",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-action-execution",
+        "blocked-state:no-code-apply-execution",
+        "blocked-state:openwebui-secondary-only"
+      ],
+      "missing_source_refs": [
+        "missing-source-ref:fcc-dogfood-001:day-14:manual-entry"
+      ],
+      "evidence_refs": [
+        "evidence-ref:fcc-dogfood-001:day-14:safe-ref-slot"
+      ],
+      "next_safe_action": "Use this day slot only after manual local/private review; keep raw private content out of the artifact.",
+      "local_private_only": true,
+      "safe_refs_only": true,
+      "manual_operator_review_required": true,
+      "public_beta_claim_enabled": false,
+      "public_distribution_claim_enabled": false,
+      "production_readiness_claim_enabled": false,
+      "production_authority_enabled": false,
+      "connector_write_enabled": false,
+      "provider_model_authority_allowed": false,
+      "unrestricted_shell_enabled": false,
+      "shell_subprocess_execution_enabled": false,
+      "remote_execution_enabled": false,
+      "account_sync_enabled": false,
+      "crm_write_enabled": false,
+      "memory_write_authorized": false,
+      "action_execution_enabled": false,
+      "code_apply_execution_enabled": false,
+      "runtime_authority_added": false,
+      "backend_route_added": false
+    }
+  ],
+  "metric_bucket_refs": [
+    "dogfood-metric-ref:morning-briefing-open",
+    "dogfood-metric-ref:useful-briefing-signal",
+    "dogfood-metric-ref:irrelevant-briefing-signal",
+    "dogfood-metric-ref:action-inbox-decision",
+    "dogfood-metric-ref:memory-decision",
+    "dogfood-metric-ref:follow-up-caught",
+    "dogfood-metric-ref:draft-created",
+    "dogfood-metric-ref:recommendation-created",
+    "dogfood-metric-ref:terminal-needed",
+    "dogfood-metric-ref:ui-friction"
+  ],
+  "pending_finding_refs": [
+    "dogfood-finding-ref:fcc-dogfood-001:pending-usefulness",
+    "dogfood-finding-ref:fcc-dogfood-001:pending-friction",
+    "dogfood-finding-ref:fcc-dogfood-001:pending-memory-quality",
+    "dogfood-finding-ref:fcc-dogfood-001:pending-action-clarity"
+  ],
+  "accepted_finding_refs": [],
+  "revised_finding_refs": [],
+  "skipped_state_refs": [
+    "dogfood-state-ref:fcc-dogfood-001:skipped-explicit",
+    "dogfood-state-ref:fcc-dogfood-001:not-run-explicit",
+    "dogfood-state-ref:fcc-dogfood-001:blocked-explicit"
+  ],
+  "blocked_state_refs": [
+    "blocked-state:no-public-beta",
+    "blocked-state:no-public-distribution",
+    "blocked-state:no-production-readiness-claim",
+    "blocked-state:no-production-authority",
+    "blocked-state:no-connector-write",
+    "blocked-state:no-provider-model-authority",
+    "blocked-state:no-unrestricted-shell",
+    "blocked-state:no-shell-subprocess-execution",
+    "blocked-state:no-remote-execution",
+    "blocked-state:no-account-sync",
+    "blocked-state:no-crm-write",
+    "blocked-state:no-memory-write",
+    "blocked-state:no-action-execution",
+    "blocked-state:no-code-apply-execution",
+    "blocked-state:openwebui-secondary-only"
+  ],
+  "missing_source_refs": [
+    "missing-source-ref:fcc-dogfood-001:no-raw-private-content",
+    "missing-source-ref:fcc-dogfood-001:no-telemetry-upload"
+  ],
+  "evidence_refs": [
+    "evidence-ref:fcc-dogfood-001:harness-contract",
+    "evidence-ref:fcc-dogfood-001:manual-review-required",
+    "evidence-ref:fcc-dogfood-001:blocked-authority"
+  ],
+  "next_safe_action": "Run the local/private 14-day harness manually, record only safe refs, then accept or revise findings before any beta-readiness or execution claim changes.",
+  "local_private_only": true,
+  "safe_refs_only": true,
+  "manual_operator_review_required": true,
+  "telemetry_upload_enabled": false,
+  "background_monitoring_enabled": false,
+  "raw_private_content_allowed": false,
+  "public_beta_claim_enabled": false,
+  "public_distribution_claim_enabled": false,
+  "production_readiness_claim_enabled": false,
+  "production_authority_enabled": false,
+  "connector_write_enabled": false,
+  "provider_model_authority_allowed": false,
+  "unrestricted_shell_enabled": false,
+  "shell_subprocess_execution_enabled": false,
+  "remote_execution_enabled": false,
+  "account_sync_enabled": false,
+  "crm_write_enabled": false,
+  "memory_write_authorized": false,
+  "action_execution_enabled": false,
+  "code_apply_execution_enabled": false,
+  "runtime_authority_added": false,
+  "backend_route_added": false
+}

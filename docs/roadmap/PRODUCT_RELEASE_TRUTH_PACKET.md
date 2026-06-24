@@ -31,7 +31,7 @@ Allowed current claims:
 | The active product/package baseline is v0.104.0 / 0.104.0. | `VERSION.md`, `README.md`, `docs/release_notes/v0_104_0.md` |
 | The Founder Command Center screenshots in `docs/portfolio/PRODUCT_NORTH_STAR.md` are the current product north-star visual target only. The current UI is not yet close to those images. They are not implementation evidence by themselves, and any mismatch with shipped UI/API behavior remains partial, planned, blocked, mock-only, or intentionally out of scope until implemented and verified. | `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md` |
 | The latest accepted repository checkpoint tag is checkpoint-m169; checkpoint-m166 and checkpoint-m167 remain the latest accepted local model lane checkpoint tags. | `README.md`, `VERSION.md`, `docs/release_notes/checkpoint_m169.md`, `docs/release_notes/checkpoint_m166.md`, `docs/release_notes/checkpoint_m167.md` |
-| The current API boundary is a FastAPI route contract with 135 OpenAPI paths, including read-only Control Center Settings and Local Models status routes. | `README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `tests/test_api_manifest.py`, `tests/test_api_security_headers.py` |
+| The current API boundary is a FastAPI route contract with 136 OpenAPI paths, including read-only Control Center Settings and Local Models status routes. | `README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `tests/test_api_manifest.py`, `tests/test_api_security_headers.py` |
 | OpenWebUI is a shell; Python Agent Core remains authority. | `docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md`, `docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md` |
 | The local model lane is scoped to M160-M167 and requires safe-ref, redacted, reviewed evidence. | `docs/model_management/M160_M165_LIVE_LANE_BOUNDARY.md`, `docs/production/LOCAL_MODEL_PRODUCTION_READINESS_GATE.md`, `docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md` |
 | Local `llama-server` packaging/provenance review is documented as a checklist only; unverified binaries remain blocked or not production-ready. | `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING_RUNBOOK.md` |
@@ -49,6 +49,130 @@ Allowed current claims:
 | Governed Cognitive Memory Spine Phase 6 remains future blocked. `MemoryExecutionHookContract`, `MemoryExecutionHookProposal`, and `MemoryExecutionHookBlockedState` add a contract/proof lane only for future exact-approved memory-derived execution requirements; they add no route, runtime execution, connector write, CRM/account sync, shell/browser behavior, provider/model call, hidden context injection, public beta, or production authority. | `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md`, `src/ultimate_ai_agent/core/memory/execution_hooks.py`, `tests/test_governed_memory_phase6_execution_hooks.py`, `scripts/verify_governed_cognitive_memory_spine_v1.py` |
 | Governed Cognitive Memory Spine Phase 6.1 implements the first narrow internal proposal slice: reviewed context-pack proposals may create backend-owned internal Action proposal/envelope receipts after exact approval scope and idempotency validation. It remains internal Action proposal creation only and grants no action execution, connector write, CRM/account sync, shell/browser behavior, provider/model call, hidden context injection, public beta, or production authority. | `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `src/ultimate_ai_agent/core/memory/execution_hooks.py`, `src/ultimate_ai_agent/core/storage/founder_loop.py`, `src/ultimate_ai_agent/api/founder_loop.py`, `tests/test_governed_memory_phase6_execution_hooks.py`, `scripts/verify_governed_cognitive_memory_spine_v1.py` |
 | Product gaps remain for reviewed live evidence attachment and completed Control Center product surfaces. | `docs/kanban/current_board.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md` |
+
+FCC-INBOX-001 current truth: Action Inbox approval-envelope UX is implemented
+as backend-owned Approval Envelope and Receipt Visibility cards/read models for
+`/actions`, recorded in
+`docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md` and verified by
+`scripts/verify_fcc_inbox_001_approval_envelope_ux.py`. This is readability
+and review grammar only; it adds no generic action execution, connector write,
+shell/subprocess behavior, provider/model authority, memory write, context
+injection, public beta, public distribution, production authority, or maturity
+rank promotion.
+
+FCC-BRIEFING-001 current truth: Morning Briefing is implemented as a read-only
+daily-loop surface over `/briefing`, `/today`, and
+`GET /control-center/morning-briefing/summary`, recorded in
+`docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md` and
+verified by
+`scripts/verify_fcc_briefing_001_morning_briefing_today_plan.py`. It shows
+safe daily-loop summaries, source-readiness posture, review queues, CRM-lite
+follow-ups, memory why-shown refs, weekly review refs, dogfood refs, and next
+safe actions without email/calendar fetch, account auth, background refresh,
+notification delivery, connector runtime/write, raw source ingestion,
+provider/model calls, memory writes, context injection, public beta, public
+distribution, production authority, or action execution.
+
+FCC-SOURCES-001 current truth: Source Readiness is implemented as a
+backend-owned read-only route over `GET /control-center/sources/readiness` and
+embedded in `/inbox`, `/today`, `/briefing`, and `/actions`, recorded in
+`docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`
+and verified by
+`scripts/verify_fcc_sources_001_source_readiness_draft_only_inputs.py`. It
+shows source states, missing contracts, blocked authorities, and draft-only
+proposal candidates without account auth, background polling, raw body
+ingestion, attachment download, send/write/archive/delete/label/move, calendar
+write, connector runtime/write, provider/model calls, memory writes, hidden
+context injection, public beta, public distribution, production readiness, or
+production authority.
+
+FCC-MEMORY-CRM-001 current truth: Professional memory and CRM-lite binding is
+implemented as backend-owned read-only/proposal-only daily-loop data over
+`/today`, `/briefing`, `/actions`, and `/memory`, recorded in
+`docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`
+and verified by
+`scripts/verify_fcc_memory_crm_001_professional_memory_crm_lite_binding.py`.
+It shows `crm_lite_followups` and `memory_why_shown_items` with provenance,
+"why shown" reasons, stale/conflict posture, and blocked CRM/account/write
+authority without automatic memory truth, hidden context injection, external
+CRM writes, account sync, connector writes, background sync, memory
+delete/export execution, action execution, public beta, public distribution,
+production readiness, or production authority.
+
+FCC-REVIEW-001 current truth: Evidence Narrative and Weekly Review are
+implemented as read-only safe-ref projections over `GET
+/control-center/evidence/timeline`, `/today`, `/briefing`, and `/actions`,
+recorded in
+`docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md` and
+verified by
+`scripts/verify_fcc_review_001_evidence_narrative_weekly_review.py`. Weekly
+Review exposes completed, deferred, rejected, blocked, stale, planned, and
+missing-source buckets, while Evidence Timeline keeps proposed/approved/
+happened/changed/undoable/stale/blocked history answers. This adds no
+automatic weekly generation by model/provider, connector writes, external
+sends, memory writes beyond existing reviewed-memory routes, context
+injection, background jobs, rollback execution, action execution, public beta,
+public distribution, production readiness, or production authority.
+
+FCC-HEALTH-001 current truth: Self-Healing Recommendations To Inbox is
+implemented only as a backend-owned safe-ref recommendation read-model and
+Action Inbox projection, recorded in
+`docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`
+and verified by
+`scripts/verify_fcc_health_001_self_healing_recommendations_to_inbox.py`.
+`RecommendationCandidate` can surface bounded source-readiness,
+documentation-currentness, operational-maturity, and optional private-friction
+refs as `self_heal_recommendation` items with missing-proof refs,
+validation-plan refs, expected-receipt refs, conversion-option refs, and
+blocked-authority refs. This adds no auto-code, no auto-apply, no background
+self-repair, no scheduler authority, no model/provider calls, no connector
+writes, no shell execution, no browser automation, no hidden context
+injection, no action execution, no review decision route for dynamic
+recommendations, no public beta, no public distribution, no production
+readiness, and no production authority.
+
+FCC-DOGFOOD-001 current truth: Fourteen-Day Private Operator Harness is
+implemented as a local/private safe-ref-only contract and repo-local artifact,
+recorded in `docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md` and
+`docs/macos/private_operator_14_day_dogfood_harness_v1.json`, and verified by
+`scripts/verify_fcc_dogfood_001_fourteen_day_private_harness.py`. The harness
+defines 14 explicit `not_run` day slots with `pending_operator_review` status,
+metric bucket refs, skipped/blocked/missing-source refs, and empty accepted or
+revised finding refs until real manual review occurs. This adds no telemetry
+upload, no background monitoring, no raw private content capture, no account
+capture, no provider/model calls, no connector writes, no memory writes, no
+action execution, no backend routes, no public beta, no public distribution,
+no production readiness, and no production authority.
+
+FCC-ACTION-001 current truth: Approval-Bound Local Micro-Lanes is implemented
+only for the existing `local_task_create` lane, recorded in
+`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md` and
+verified by
+`scripts/verify_fcc_action_001_approval_bound_local_micro_lanes.py`. Action
+Inbox remains rank 3 overall, while `local_task_create` is the only rank 5
+local execution lane. It requires exact approval, idempotency, durable local
+task receipts, `local_task_created` Evidence Timeline events, safe-disable
+posture, CLI/API/core parity, and `FCC-ACTION-002` repeatability proof. This
+adds no generic action execution, no connector writes, no shell/subprocess
+execution, no browser automation, no provider/model authority, no memory
+writes, no context injection, no external side effects, no rollback execution,
+no public beta, no public distribution, no production readiness, and no
+production authority.
+
+FCC-POLISH-001 current truth: Native And Apple-Grade UX Layer is implemented as
+a verified Control Center polish baseline over existing backend-owned state,
+recorded in
+`docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md` and
+verified by `scripts/verify_fcc_polish_001_native_apple_grade_ux_layer.py`.
+`docs/control_center/visual_regression_manifest.json` and the Playwright
+visual spec cover redacted desktop/mobile baselines for Overview, Today,
+Actions, Plans, Memory, Evidence, Settings, and Setup. `/setup` remains a
+dry-run macOS-first setup preview only. This adds no installer mutation, no
+LaunchAgent install/load/start, no notification delivery, no background
+polling, no native OS authority, no shell/subprocess execution, no
+provider/model authority, no connector writes, no hidden authority, no public
+beta, no public distribution, no production readiness, and no production
+authority.
 
 Do not claim production readiness, public release, public beta distribution,
 broad autonomy, unrestricted runtime authority, or peer-product parity until the
@@ -76,7 +200,7 @@ Status values:
 | Backup/offline restore verification | UAA-P1-045 verifies the UAA-P1-028 minimum set for runs, receipts, approvals, settings, registry, audit summaries, and local model cache refs using a deterministic synthetic fixture, safe refs, SHA-256 integrity checks, offline restore validation, and corruption detection. The verifier does not inspect real local state and does not claim live restore safety. | Release candidates can cite backup/restore verification evidence for the minimum set while keeping live restore blocked until separately scoped and proven. | P1 | Shipped for synthetic backup/restore verifier, tests, durability lane command ref, and `verify_all` guard; blocked for live restore claims. | Evidence: `docs/production/BACKUP_RESTORE_VERIFICATION.md`, `scripts/verify_backup_restore.py`, `tests/test_backup_restore_verification.py`, `scripts/verify_release_lanes.py`, `scripts/verify_all.py`, `docs/production/RELEASE_EVIDENCE_PACKET.md`. Missing: populated release-candidate backup packets over real local state and live restore proof. | UAA-P1-045 met for verification scaffolding; live restore requires a later scoped milestone. |
 | Local state rollback guidance | UAA-P1-046 documents backup-before-rollback, safe-disable, backup restore, unsupported recovery, and redacted evidence guidance for local model cache, settings, registry, approvals, audit state, and run/receipt state. It is operator guidance only and does not perform rollback or claim live restore safety. | Release candidates can cite rollback plans, safe-disable refs, category state refs, blocker refs, reviewer refs, and redacted operator summaries without implying unverified rollback success. | P1 | Shipped for rollback runbook and documentation-integrity coverage; blocked for rollback execution and live restore claims. | Evidence: `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`, `docs/production/BACKUP_RESTORE_VERIFICATION.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `scripts/verify_documentation_integrity.py`. Missing: populated release-candidate rollback packets over real local state and exact-scope rollback execution gates. | UAA-P1-046 met for guidance; rollback execution and live restore require later scoped milestones. |
 | Performance baseline, latency gate, regression reports, hot-path profiling, safe manifest cache, and Foundation Gate latency integration | UAA-P0-006 measures p50/p95 for Foundation Gate plus release-critical local paths and writes redacted reports under `reports/performance`; UAA-P1-039 enforces complete required-path coverage and p95 budgets for API manifest, model route preview, task decomposition, bounded file preview, local model list, and local chat; UAA-P1-040 emits JSON and Markdown regression reports with budget comparison, safe environment summary, skipped/blocked status, and retention guidance; UAA-P1-041 profiles task decomposition and OpenAPI build hot paths with timing summaries only; UAA-P1-042 caches only safe static API manifest metadata and explicitly excludes authority decisions, approvals, policy outcomes, runtime authority, user data, mutable state, and secrets; UAA-P1-043 adds a typed Foundation Gate `latency_gate` report summary with p50/p95 status, path state, accepted failures, report refs, optional prerequisite visibility, and environment-safe summary. Control Center render timing is safely skipped until a scoped frontend timing runner exists. | Required local paths stay release-blocking, reviewed release packets retain safe regression/profile summaries, static manifest reads remain faster without changing risk posture, Foundation Gate evidence includes latency status, and frontend render timing becomes measured once scoped. | P0/P1 | Shipped for backend/local baseline harness, P1-039 latency budget gate, P1-040 safe regression reports, P1-041 safe hot-path profiling, P1-042 safe static manifest caching, and P1-043 Foundation Gate latency integration; planned for frontend render timing. | Evidence: `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md`, `docs/api/SAFE_STATIC_MANIFEST_CACHING.md`, `src/ultimate_ai_agent/api/manifest.py`, `src/ultimate_ai_agent/core/gate/reports.py`, `scripts/benchmark_foundation_gate.py`, `scripts/check_foundation_gate_latency.py`, `scripts/run_foundation_gate.py`, `scripts/profile_hot_paths.py`, `tests/test_api_manifest.py`, `tests/test_api_security_headers.py`, `tests/test_foundation_gate_latency_scripts.py`, `tests/test_foundation_gate_report.py`, `tests/test_run_foundation_gate_script.py`, `reports/performance/latest_release_latency_baseline.json`, `reports/performance/latest_performance_regression_report.json`, `reports/performance/latest_hot_path_profile.json`. Missing: scoped frontend render timing runner. | UAA-P0-006, UAA-P1-039, UAA-P1-040, UAA-P1-041, UAA-P1-042, and UAA-P1-043 met for required backend/local paths and Foundation Gate report output. |
-| Local model product loop | M151-M167 define a scoped local OpenWebUI, GGUF, llama.cpp, local `/v1`, tuning, and production-readiness evidence lane; OpenWebUI is the compatibility shell for this lane, while Control Center is the product UI for model status and future first-party Chat. The UAA-P0-004 matrix scaffold records required hardware rows with safe refs only, UAA-P0-005 adds a local/dev E2E smoke harness, UAA-P0-006 measures local `/v1` list/chat latency, UAA-P0-015 documents `llama-server` packaging/provenance review, UAA-P0-016 hardens tuning advice for lag, out-of-memory, crash loop, reload loop, slow token rate, and one-change rollback cases, and UAA-P0-017 documents local operational recovery. UAA-P1-062 documents the Local Model Manager / Memory-Aware Runtime Control lane shape, UAA-P1-064 implements read-only Python Agent Core inventory and CLI inspection only, and UAA-P1-066 is queued for strictly read-only Control Center inventory/status support only. | A reviewer can run local model E2E smoke, inspect safe evidence, inspect safe local model candidate refs through `uaa local-model status/list/inspect`, and confirm no tools/functions, streaming authority, product-state ownership by OpenWebUI, or model lifecycle completion claim without backend receipts. | P0/P1 | Shipped for local/dev smoke, latency scaffolding, packaging checklist, tuning-advisor hardening tests, operational runbook, UAA-P1-062 docs-only lane shape, and UAA-P1-064 read-only inventory plus CLI inspection; queued for UAA-P1-066 read-only Control Center inventory/status support; planned/blocked for lifecycle, switching, identity receipts, Control Center activation controls, runtime adapters, first-party Chat, and downloads; blocked for production-readiness claims. | Evidence: `docs/model_management/M153_M165_LOCAL_MODEL_MANAGEMENT_PROGRESSION.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md`, `docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md`, `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`, `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md`, `src/ultimate_ai_agent/core/local_model_management/inventory.py`, `src/ultimate_ai_agent/core/local_model_management/tuning.py`, `scripts/dev/uaa_local_model.py`, `tests/test_uaa_p1_064_local_model_inventory.py`, `tests/test_m151_openwebui_local_gateway_api.py`, `tests/test_m167_live_model_hardening.py`. Missing: reviewed live evidence attachment across the required M167 hardware rows, lifecycle receipts, redacted logs/status, identity-update receipts, one-big-model enforcement, switch rollback proof, Control Center activation controls, runtime adapters, first-party Chat evidence, and later approved acquisition/download proof. | Reviewed M167 evidence refs plus later scoped backend status/planner/lifecycle/switch evidence before any loaded, running, switched, identity-updated, or first-party Chat product claim. |
+| Local model product loop | M151-M167 define a scoped local OpenWebUI, GGUF, llama.cpp, local `/v1`, tuning, and production-readiness evidence lane; OpenWebUI is the compatibility shell for this lane, while Control Center is the product UI for model status and future first-party Chat. The UAA-P0-004 matrix scaffold records required hardware rows with safe refs only, UAA-P0-005 adds a local/dev E2E smoke harness, UAA-P0-006 measures local `/v1` list/chat latency, UAA-P0-015 documents `llama-server` packaging/provenance review, UAA-P0-016 hardens tuning advice for lag, out-of-memory, crash loop, reload loop, slow token rate, and one-change rollback cases, and UAA-P0-017 documents local operational recovery. UAA-P1-062 documents the Local Model Manager / Memory-Aware Runtime Control lane shape, UAA-P1-064 implements read-only Python Agent Core inventory and CLI inspection only, and UAA-P1-066 implements strictly read-only Control Center inventory/status support only at `GET /control-center/local-models/status`. | A reviewer can run local model E2E smoke, inspect safe evidence, inspect safe local model candidate refs through `uaa local-model status/list/inspect`, inspect the Control Center read-only local model status route, and confirm no tools/functions, streaming authority, product-state ownership by OpenWebUI, or model lifecycle completion claim without backend receipts. | P0/P1 | Shipped for local/dev smoke, latency scaffolding, packaging checklist, tuning-advisor hardening tests, operational runbook, UAA-P1-062 docs-only lane shape, UAA-P1-064 read-only inventory plus CLI inspection, and UAA-P1-066 read-only Control Center inventory/status support; planned/blocked for lifecycle, switching, identity receipts, Control Center activation controls, runtime adapters, first-party Chat, and downloads; blocked for production-readiness claims. | Evidence: `docs/model_management/M153_M165_LOCAL_MODEL_MANAGEMENT_PROGRESSION.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md`, `docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md`, `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`, `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md`, `src/ultimate_ai_agent/core/local_model_management/inventory.py`, `src/ultimate_ai_agent/core/control_center/operational_status.py`, `src/ultimate_ai_agent/api/app.py`, `apps/control-center/src/components/OperatorFlowPanels.tsx`, `scripts/dev/uaa_local_model.py`, `scripts/verify_uaa_p1_066_local_model_control_center_status.py`, `tests/test_uaa_p1_064_local_model_inventory.py`, `tests/test_control_center_api_routes.py`, `tests/test_uaa_p1_066_local_model_control_center_status.py`, `tests/test_m151_openwebui_local_gateway_api.py`, `tests/test_m167_live_model_hardening.py`. Missing: reviewed live evidence attachment across the required M167 hardware rows, lifecycle receipts, redacted logs/status, identity-update receipts, one-big-model enforcement, switch rollback proof, Control Center activation controls, runtime adapters, first-party Chat evidence, and later approved acquisition/download proof. | Reviewed M167 evidence refs plus later scoped backend status/planner/lifecycle/switch evidence before any loaded, running, switched, identity-updated, or first-party Chat product claim. |
 | Public trust and security posture | Root `SECURITY.md` and maintainer triage runbook explain reporting, supported lines, severity, response targets, redaction, and no-secret-output invariants. | Security posture remains public, repeatable, verifier-backed, and free of external audit, signed-release, or public distribution claims. | P0 | Shipped for UAA-P0-003 security docs; future-scoped for rate-limit posture. | Evidence: `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md`, `docs/public_readiness/PUBLIC_GITHUB_READINESS.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`. Missing: later UAA-P0-014 rate-limit posture. | UAA-P0-003 met; UAA-P0-014 remains future. |
 | Durable work spine | UAA-P1-010, UAA-P1-025, UAA-P1-026, and UAA-P1-027 define durable local run records, append-first local run/receipt storage, lifecycle transitions, restart/replay visibility, task decomposition binding, idempotency keys, audit refs, receipt refs, replay refs, dead-letter states, and redacted safe-ref evidence. This is local durable-state scaffolding, not broad autonomy or unscoped execution. | The Control Center product loop uses one durable truth for planning, approval, execution status, receipts, replay validation, rollback status, and offline backup/restore evidence. | P1 | Shipped for local durable contracts, storage, lifecycle, task-decomposition binding, and the UAA-P1-011 readable operator-loop baseline; blocked for broader Founder Command Center product-loop completion and live restore claims. | Evidence: `docs/execution/DURABLE_RUN_SPINE.md`, `docs/execution/APPEND_FIRST_RUN_STORAGE.md`, `docs/execution/DURABLE_RUN_BACKUP_RESTORE.md`, `src/ultimate_ai_agent/core/execution/durable_runs.py`, `src/ultimate_ai_agent/core/execution/run_storage.py`, `tests/test_execution_state_machine_safety.py`, `tests/test_event_ledger_append_only.py`, `tests/test_file_atomic_writes.py`, `tests/test_task_decomposition_production_api.py`, `tests/test_operator_loop_p1_011.py`, `apps/control-center/src/App.test.tsx`. Missing: full Founder Command Center daily loop proof and live restore proof. | UAA-P1-010, UAA-P1-025, UAA-P1-026, UAA-P1-027, and UAA-P1-011 met for local durable/readable-loop scaffolding; live restore and broader product-loop completion require later scoped milestones. |
 | Workspace workbench | Safe local filesystem metadata, bounded redacted preview, safe file tree refs, review approval contracts, approval-bound patch proposals, atomic patch apply receipts, rollback receipts, secret-like diff blocking, and approval-only workspace mutation enforcement exist; shell execution remains denied. | File tree refs, bounded previews, patch proposals, atomic apply, rollback receipts, and secret-like diff blocking exist before any shell lane. | P1 | Shipped for local safe-preview and approval-bound patch receipt contracts; blocked for broader mutating-workbench product claims. | Evidence: `docs/tools/FILESYSTEM_METADATA_TOOL.md`, `docs/tools/REDACTED_FILE_PREVIEW_TOOL.md`, `docs/files/FILE_REVIEW_APPROVAL_CAPTURE.md`, `tests/test_file_tree_preview.py`, `tests/test_file_write_proposals.py`, `tests/test_file_atomic_writes.py`, `tests/test_file_rollback.py`, `tests/test_file_secret_blocking.py`. Missing: M173 product-surface proof. | M173 product-surface proof and any later scoped mutation UI gate. |

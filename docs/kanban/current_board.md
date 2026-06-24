@@ -83,8 +83,11 @@ commitment modeling is implemented as read-only representation proposals at
 implemented as read-only, proposal-only inspection envelopes at
 `GET /control-center/memory/context-packs`; Phase 6 narrow execution hooks
 remain future blocked.
-UAA-P1-066 is kept queued as a strictly read-only Local Model Control Center
-inventory/status support lane.
+UAA-P1-066 is implemented as a strictly read-only Local Model Control Center
+inventory/status support lane. It exposes backend-owned local model inventory
+and gateway posture through `GET /control-center/local-models/status` while
+leaving lifecycle, switching, activation, downloads, runtime adapters, and
+production-readiness claims blocked.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -127,14 +130,12 @@ or revised findings can be recorded later.
 ## Ready Next
 
 ```text
-UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
-Goal: queued support lane for a strictly read-only Control Center model
-inventory/status surface over the UAA-P1-064 Python-core inventory and CLI
-inspection contract.
-Scope: read-only status/inventory display only, backed by Python Agent Core and
-CLI parity. No lifecycle, switching, activate/unload/start/stop,
-Desktop/Hermes activation, downloads, runtime adapters, React-owned model
-truth, raw local path evidence, or production-readiness claim.
+Final review, verifier repair, commit, tag, and push
+Goal: run the full review/verification pass for the completed prompt sequence,
+repair any regressions, then create the requested commit/tag/push if the
+repository is clean enough to do so safely.
+Scope: verification, scoped repairs, git hygiene, and release metadata only.
+Do not rewrite old tags or historical release records.
 ```
 
 ## Shaping
@@ -154,8 +155,7 @@ UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076 completed
 Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding,
 UAA-P1-078 completed the Private Beta-Readiness Gate, and UAA-P1-079 completed
 the User Intent Understanding V1 lane.
-UAA-P1-066 remains queued behind or alongside that path as read-only local model
-status support. Later Local Model Manager lifecycle,
+UAA-P1-066 is implemented as read-only local model status support. Later Local Model Manager lifecycle,
 switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
 downloads still require separate exact scoped milestones.
 ```
@@ -527,8 +527,8 @@ FCC-P0-002 Follow-Up Collapse/Organize Control Center Around Core Surfaces.
 bind the pass. This milestone adds no backend route, OpenAPI operation,
 Control Center implementation, frontend mutation control, setup mutation,
 connector runtime, model/provider call, web fetch, shell/subprocess behavior,
-public release claim, or runtime authority. UAA-P1-066 remains queued as a
-read-only local model status support lane, while UAA-P1-067 completed the
+public release claim, or runtime authority. UAA-P1-066 is now implemented as a
+read-only local model status support lane through `GET /control-center/local-models/status`, while UAA-P1-067 completed the
 Today-spine, memory-first planning/currentness path, UAA-P1-068 completed the
 Today product-spine contract, UAA-P1-069 completed the evidence history
 grammar, UAA-P1-070 completed the memory source/provenance model,
@@ -539,6 +539,162 @@ UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076 completed
 Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding,
 UAA-P1-078 completed the private beta-readiness gate, and UAA-P1-079 is complete for user intent understanding; UAA-P1-080 is complete for API route classification; UAA-P1-081 is complete for centralized FastAPI security headers; UAA-P1-082 is complete for explicit loopback CORS; UAA-P1-083 is complete for local protected-route bearer gating; UAA-P1-084 is complete for mutating-route idempotency gating; UAA-P1-085 is complete for targeted local rate-limit hardening; UAA-P1-086 is complete for API boundary enforcement tests.
 
+UAA-P1-066 Local Model Manager Read-Only Control Center Inventory/Status
+Gate met: `GET /control-center/local-models/status` exposes backend-owned
+read-only local model inventory and gateway posture from the Python Agent Core
+status builder, and the Control Center Models surface renders that status as
+proposal-review-only operator information. The route is classified as
+`local_readonly` with validation-only side-effect posture, is covered by
+OpenAPI/API manifest tests, has CLI inspection parity through
+`uaa local-model status/list/inspect`, and is bound by
+`scripts/verify_uaa_p1_066_local_model_control_center_status.py`. No
+lifecycle, switching, activate/unload/start/stop, Desktop/Hermes activation,
+downloads, runtime adapters, React-owned model truth, raw local path evidence,
+provider/model authority, or production-readiness claim is added.
+
+FCC-INBOX-001 Deeper Action Inbox / Approval Envelope UX
+Gate met: `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md` records
+the historical alias `FCC-INBOX-001 Action Inbox And Approval Envelope UX` and
+the implemented Action Inbox approval-envelope readability lane. Backend-owned
+`approval_envelope` and `receipt_visibility` read models/cards now expose a
+consistent grammar for action kind, exact scope, risk, side-effect class,
+approval requirement, expiry/staleness, idempotency, expected receipts,
+rollback/safe-disable posture, blocked authority refs, evidence refs, decision
+receipt refs, local task refs, local task commit receipt refs, Evidence
+Timeline event refs, replay posture, conflict posture, and missing-field
+states. `/actions` is the implemented Action Inbox path; `/inbox` remains the
+source-readiness/communication triage posture surface. This lane adds no
+generic action execution, connector writes, shell/subprocess work,
+provider/model authority, memory writes, context injection, browser automation,
+plugin runtime import, remote execution, public beta, public distribution,
+production authority, or operational maturity rank promotion.
+
+FCC-BRIEFING-001 Morning Briefing And Today Plan V1
+Gate met:
+`docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md` records
+the implemented read-only Morning Briefing and Today Plan daily-loop slice.
+`GET /control-center/morning-briefing/summary` and `/briefing` expose
+backend-owned daily-loop summary, source-readiness posture, source-readiness
+items, review queue groups, CRM-lite follow-ups, memory why-shown items, weekly
+review narrative refs, dogfood capture refs, briefing items, and next safe
+actions. Every briefing item carries source/evidence/memory refs where
+available or explicit missing-source/blocked posture. This lane adds no email
+or calendar fetch, account auth, background refresh, notification delivery,
+connector runtime/write, raw source ingestion, provider/model calls, memory
+writes, context injection, shell/subprocess execution, browser automation,
+public beta, public distribution, production authority, or action execution.
+
+FCC-SOURCES-001 Source Readiness And Draft-only Inputs
+Gate met:
+`docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`
+records the implemented read-only Source Readiness lane. `GET
+/control-center/sources/readiness`, `/inbox`, `/today`, `/briefing`, and
+`/actions` expose backend-owned source readiness for inbox/email, calendar,
+tasks, CRM-lite/manual notes, repo context, and local-file context with
+supported states for `ready`, `blocked`, `missing`, `metadata_only`,
+`unavailable`, and `not_configured`. The lane also exposes draft-only proposal
+candidates for email metadata contract, calendar metadata contract, and
+account-auth boundary work as `proposal_only_no_execution_path`. This adds no
+account auth, background polling, raw body ingestion, attachment download,
+send/write/archive/delete/label/move, calendar write, connector runtime/write,
+provider/model calls, memory writes, hidden context injection,
+shell/subprocess execution, browser automation, public beta, public
+distribution, production readiness, or production authority.
+
+FCC-MEMORY-CRM-001 Professional Memory And CRM-lite Binding
+Gate met:
+`docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`
+records the implemented professional-memory and CRM-lite readability lane.
+`/today`, `/briefing`, `/actions`, and `/memory` expose backend-owned
+`crm_lite_followups` and `memory_why_shown_items` with relationship refs,
+opportunity refs, follow-up refs, review envelope refs, memory/source/evidence
+refs, stale state, conflict state, missing-evidence refs, and explicit "why
+shown" explanations. CRM-lite remains local/read-only/proposal-only and memory
+remains reviewed recall only. This adds no automatic memory truth, hidden
+context injection, model-output authority, external CRM writes, account sync,
+connector writes, background sync, memory delete/export execution, action
+execution, public beta, public distribution, production readiness, or
+production authority.
+
+FCC-REVIEW-001 Evidence Narrative And Weekly CEO Review
+Gate met:
+`docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`
+records the implemented read-only Evidence Narrative and Weekly Review lane.
+`GET /control-center/evidence/timeline`, `/today`, `/briefing`, and `/actions`
+expose safe-ref history plus `weekly_review_narrative` buckets for
+`completed_refs`, `deferred_refs`, `rejected_refs`, `blocked_refs`,
+`stale_refs`, `planned_refs`, and `missing_source_refs`. Evidence Timeline
+continues to answer proposed, approved, happened, changed, undoable, stale,
+and blocked questions with redacted summaries and safe refs only. This adds no
+automatic weekly generation by model/provider, connector writes, external
+sends, memory writes beyond existing reviewed-memory routes, context
+injection, background jobs, rollback execution, action execution, public beta,
+public distribution, production readiness, or production authority.
+
+FCC-HEALTH-001 Self-Healing Recommendations To Inbox
+Gate met:
+`docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`
+records the first implemented backend-owned recommendation read-model and
+Action Inbox projection slice. `RecommendationCandidate` converts bounded
+source-readiness, documentation-currentness, operational-maturity, and optional
+private-friction safe refs into `self_heal_recommendation` Action Inbox items
+with `recommendation_review_only_no_execution_path` and
+`proposal_only_no_execution_path` posture. This adds no review decision
+routes, Evidence recommendation lifecycle events, auto-code, auto-apply,
+background self-repair, scheduler authority, model/provider calls, connector
+reads/writes, shell execution, browser automation, hidden context injection,
+action execution, public beta, public distribution, production readiness, or
+production authority.
+
+FCC-DOGFOOD-001 Fourteen-Day Private Operator Harness
+Gate met:
+`docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md` records the
+implemented local/private safe-ref-only 14-day dogfood harness contract and
+`docs/macos/private_operator_14_day_dogfood_harness_v1.json` artifact. The
+harness defines explicit `not_run`, skipped, blocked, missing-source, and
+`pending_operator_review` states for usefulness, friction, briefing signal,
+Action Inbox decision, memory decision, recommendation, terminal-needed, and
+UI-friction buckets. Accepted and revised finding refs are intentionally empty
+until a real local/private manual review records them. This adds no telemetry
+upload, background monitoring, raw private content capture, account capture,
+provider/model calls, connector writes, memory writes, action execution,
+backend routes, public beta, public distribution, production readiness, or
+production authority.
+
+FCC-ACTION-001 Approval-Bound Local Micro-Lanes
+Gate met:
+`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`
+records the current approval-bound local micro-lane truth. Action Inbox remains
+rank 3 overall, and `local_task_create` is the only current rank 5 local
+execution lane. The lane commits one exact-approved Action Inbox item into
+local task state through `POST
+/control-center/actions/{action_id}/local-task/commit` and
+`scripts/dev/uaa_founder_loop.py commit-local-task`, with idempotency,
+durable receipt refs, `local_task_created` Evidence Timeline events,
+safe-disable posture, CLI/API/core parity, and `FCC-ACTION-002` repeatability
+refs. This adds no generic action execution, connector writes,
+shell/subprocess execution, browser automation, provider/model authority,
+memory writes, context injection, external side effects, rollback execution,
+public beta, public distribution, production readiness, or production
+authority.
+
+FCC-POLISH-001 Native And Apple-Grade UX Layer
+Gate met:
+`docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md` records the
+verified Control Center polish baseline over existing backend-owned state.
+`docs/control_center/visual_regression_manifest.json` and
+`apps/control-center/tests/visual/control-center.visual.spec.ts` cover
+redacted desktop/mobile baselines for Overview, Today, Actions, Plans, Memory,
+Evidence, Settings, and Setup. `/setup` remains a dry-run macOS-first setup
+preview with blocked setup authority, recommendation-only model choices,
+dry-run approval envelopes, receipt plans, and rollback refs. No signed
+distribution, installer mutation, LaunchAgent install/load/start,
+notification delivery, background polling, native OS authority,
+shell/subprocess execution, provider/model authority, connector writes, hidden
+authority, public beta, public distribution, production readiness,
+no production-readiness claim, or
+production authority is added.
+
 UAA-P1-067 Today-Spine Founder Command Center Beta-Readiness Path
 Gate met: Active docs, roadmap, current board, Founder Command Center board,
 product truth, strategy/task docs, and the Codex prompt library identify Today
@@ -546,8 +702,7 @@ as the product spine, memory as the reviewed differentiator, UAA-P1-068 as
 completed Today Product Spine Contract work, and the conveyor that now has
 UAA-P1-073, UAA-P1-074, UAA-P1-075, UAA-P1-076, UAA-P1-077, and UAA-P1-078
 complete through UAA-P1-085 with UAA-P1-086 complete.
-UAA-P1-066
-remains queued as read-only local model support.
+UAA-P1-066 is implemented as read-only local model support.
 `docs/codex/CODEX_EXECUTION_PROMPTS.md` records the product-loop
 milestone conveyor from UAA-P1-067 through UAA-P1-079 with review/fix,
 hardening, commit/push, and next-prompt mechanics; the API hardening lane from

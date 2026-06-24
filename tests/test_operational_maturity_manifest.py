@@ -10,6 +10,10 @@ from scripts.verify_operational_maturity import (
     EXPECTED_AUTHORITY_FOUNDATIONS,
     LADDER_LABELS,
     LOCAL_MODEL_CLI_REF,
+    LOCAL_TASK_REPEATABILITY_GATE_REF,
+    LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS,
+    LOCAL_TASK_REPEATABILITY_REQUIRED_FRONTEND_TEST_REFS,
+    LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS,
     LOCAL_TASK_ROLLBACK_REF,
     LOCAL_TASK_SAFE_DISABLE_REF,
     MANIFEST_PATH,
@@ -68,6 +72,16 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
         LOCAL_TASK_SAFE_DISABLE_REF,
     }
     assert "rollback_execution" in local_task_lane["blocked_authorities"]
+    assert local_task_lane["repeatability_gate_ref"] == LOCAL_TASK_REPEATABILITY_GATE_REF
+    assert LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS.issubset(
+        set(local_task_lane["focused_test_refs"])
+    )
+    assert LOCAL_TASK_REPEATABILITY_REQUIRED_FRONTEND_TEST_REFS.issubset(
+        set(local_task_lane["frontend_repeatability_test_refs"])
+    )
+    assert LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS.issubset(
+        set(local_task_lane["verifier_repeatability_refs"])
+    )
     assert MEMORY_CONTEXT_PACK_ROUTE in modules["memory"]["backend_routes"]
     assert MEMORY_CONTEXT_PACK_TEST_REFS.issubset(set(modules["memory"]["test_refs"]))
     assert MEMORY_CONTEXT_PACK_VERIFIER_REFS.issubset(
@@ -99,6 +113,38 @@ def test_operational_maturity_verifier_requires_local_task_posture_refs() -> Non
     )
     assert any(
         f"local_task_create lane missing {LOCAL_TASK_SAFE_DISABLE_REF}" in failure
+        for failure in failures
+    )
+
+
+def test_operational_maturity_verifier_requires_local_task_repeatability_gate() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    lane = modules["action_inbox"]["graduated_lanes"][0]
+    lane["repeatability_gate_ref"] = None
+    lane["focused_test_refs"] = []
+    lane["frontend_repeatability_test_refs"] = []
+    lane["verifier_repeatability_refs"] = []
+
+    failures = verify(manifest_override=manifest)
+
+    assert any(
+        "local_task_create lane must declare FCC-ACTION-002" in failure
+        for failure in failures
+    )
+    assert any(
+        "local_task_create repeatability gate missing tests/test_fcc_v1_003_founder_loop_vertical_slice.py::test_founder_loop_cli_commits_local_task_with_safe_refs"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "local_task_create repeatability gate missing frontend test apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local task lane through the typed route"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "local_task_create repeatability gate missing verifier ref scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures"
+        in failure
         for failure in failures
     )
 
@@ -551,10 +597,22 @@ def test_operational_maturity_verifier_rejects_authoritative_action_mock_fixture
 export const mockControlCenterData = {
   founderActionsInbox: {
     items: [{
+      status: "receipt_recorded",
+      action_group_id: "receipt_recorded",
       local_task_commit_eligible: true,
+      local_task_commit_receipt_ref: "receipt:founder-loop-local-task:mock",
       approval_envelope: {
         source: "python_core_action_inbox_read_model" as const,
         backend_owned: true,
+      },
+      receipt_visibility: {
+        source: "mock_fallback_non_authoritative" as const,
+        backend_owned: false,
+        local_task_commit_receipt_ref: "receipt:founder-loop-local-task:mock",
+        replay_posture: "idempotency_replay_available",
+        conflict_posture: "conflicting_idempotency_payload_rejected",
+        evidence_timeline_event_ref:
+          "evidence-timeline-event:local-task:mock",
       },
     }],
   },
@@ -573,6 +631,22 @@ export const mockControlCenterData = {
         )
         assert any(
             "mock fallback must not claim local_task_commit_eligible true" in failure
+            for failure in failures
+        )
+        assert any(
+            "mock fallback must not claim committed local task receipt refs" in failure
+            for failure in failures
+        )
+        assert any(
+            "mock fallback must not claim receipt_recorded local task state" in failure
+            for failure in failures
+        )
+        assert any(
+            "mock fallback must not claim backend local task replay posture" in failure
+            for failure in failures
+        )
+        assert any(
+            "mock fallback must not claim backend local task conflict posture" in failure
             for failure in failures
         )
 

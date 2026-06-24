@@ -80,7 +80,16 @@
           "items": { "type": "string" }
         },
         "cli_parity_ref": { "type": ["string", "null"] },
-        "focused_test_refs": { "type": "array", "items": { "type": "string" } }
+        "focused_test_refs": { "type": "array", "items": { "type": "string" } },
+        "repeatability_gate_ref": { "type": ["string", "null"] },
+        "frontend_repeatability_test_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "verifier_repeatability_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       }
     },
     "ui_status_binding": {

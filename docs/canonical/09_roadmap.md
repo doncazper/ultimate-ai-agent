@@ -68,9 +68,9 @@ and handoff, Memory Review accept/correct/reject backend decisions, Evidence
 Timeline productization, and promotion/proof lane. Broader P2/provider,
 packaging, public distribution, and commercialization expansion remain outside
 this route-surface proof lane.
-UAA-P1-066
-remains queued as a strictly read-only Local Model Control Center
-inventory/status support lane. The product path now runs through UAA-P1-080
+UAA-P1-066 is implemented as a strictly read-only Local Model Control Center
+inventory/status support lane at `GET /control-center/local-models/status`.
+The product path now runs through UAA-P1-080
 API route classification after UAA-P1-079 added reviewable
 user-intent-understanding and UAA-P1-078 added local/private beta-readiness
 evidence. Rate limits and API boundary enforcement tests are complete for the

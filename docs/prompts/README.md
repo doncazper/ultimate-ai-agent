@@ -58,3 +58,13 @@ system prompts, and they do not grant authority by themselves. Use
 `docs/prompts/fcc_authority_ramp/00_execute_all_review_verify_harden.prompt.md`
 to run the sequence from charter through read-only/proposal foundation,
 authority candidate ranking, and the first exact micro-lane gate.
+
+## Founder Command Center planned sequence prompts
+
+Stored execution prompts for UAA-P1-066 and the next planned Founder Command
+Center product lanes live in `docs/prompts/fcc_planned_sequence/`. They are
+operator-run prompts, not runtime system prompts, and they do not grant
+authority by themselves. Use
+`docs/prompts/fcc_planned_sequence/00_execute_all_review_verify_finalize.prompt.md`
+to run the sequence with review, verification, repair, commit, annotated-tag,
+and push gates.

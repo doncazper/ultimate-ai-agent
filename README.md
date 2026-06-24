@@ -147,7 +147,7 @@ Morning Briefing
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
 | Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal lanes; Phase 6.1 is internal Action proposal receipts only |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |
-| Queued support | `UAA-P1-066` Local Model Control Center inventory/status support |
+| Implemented support | `UAA-P1-066` read-only Local Model Control Center inventory/status support |
 | Release posture | Local-first, review-gated, disabled by default, non-production by default |
 
 ## Tech Stack
@@ -313,7 +313,7 @@ These lines keep the active docs and verifiers aligned.
 - UAA-P1-087.2a Private Trial Packet And UI Tuning Surface is complete.
 - UAA-P1-087.2b Private Trial Findings Capture And Acceptance Ledger is complete.
 - UAA-P1-087.2c Private Trial Manual Review Scaffold is complete.
-- UAA-P1-066 remains queued as read-only Local Model Control Center inventory/status support.
+- UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support via `GET /control-center/local-models/status`. No lifecycle, switching, activation, downloads, runtime adapters, or production-readiness claim is added.
 - P0-016 hardens tuning advice without granting runtime authority.
 - P0-017 adds safe local model operational recovery guidance.
 

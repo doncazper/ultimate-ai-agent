@@ -81,7 +81,7 @@ They do not mark the capability shipped and do not grant new authority.
 | Add product-grade Control Center screens for UAA differentiators | `UAA-P1-054` Done: Control Center differentiator screens | P1 | route authority, approval state, receipts/evidence, safe workspace previews, local model status, and observability timeline are readable surfaces, not raw JSON |
 | Preserve UAA's stricter authority model | `UAA-P1-020` PolicyEngine consolidation map | P0/P1 | No copied peer runtime feature ships without exact policy, approval, audit, rollback, and redaction gates |
 | Add automated security scanning and artifact redaction checks | `UAA-P1-055` Done: security automation and artifact redaction lane | P1 | Security scans and artifact checks are safe, local/CI bounded, and do not claim external audit or public distribution |
-| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape; `UAA-P1-064` Done: read-only local model inventory backend + CLI; `UAA-P1-066` queued: read-only Control Center inventory/status only | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. UAA-P1-066 supports the memory-first product path but does not displace it. |
+| Add governed local model switching only after cleanup and status truth | `UAA-P1-062` Done: Local Model Manager / Memory-Aware Runtime Control lane shape; `UAA-P1-064` Done: read-only local model inventory backend + CLI; `UAA-P1-066` Done: read-only Control Center inventory/status only | P1 | Python Agent Core owns discovery, memory-fit planning, llama.cpp lifecycle, switch receipts, and rollback; Control Center and OpenWebUI remain shells over approved backend state. Runtime stages remain blocked until later exact scoped milestones. UAA-P1-066 supports the memory-first product path but does not displace it. |
 | Productize extension boundary carefully | `UAA-P2-048` Static package review, `UAA-P2-056` Extension trust product surface | P2 | Trust/provenance inspection improves before plugin execution exists; runtime import remains disabled |
 | Treat installer/release workflows as catch-up after local loop usability | `UAA-P2-047` Signed installer and public distribution lane shaping | P2 | No signed/public distribution claim until local loop, security, durability, and artifact proof gates are green |
 | Preserve blocked/scoped/planned truthfulness | `UAA-P1-031` Done, `UAA-P1-057` Done, `UAA-P1-060` Done, `UAA-P1-061` Done | P0/P1 | Planned, blocked, skipped, mock, and not-scoped work cannot be described as complete or production-ready; readiness language maps through a shared taxonomy and reconciliation artifacts |
@@ -205,9 +205,9 @@ Tasks:
   switching is solid.
 - The exact-scoped Local Model Manager sequence now has UAA-P1-064 completed
   for read-only inventory over consolidated local roots and CLI-first
-  `uaa local-model status/list/inspect`. UAA-P1-066 remains queued for
-  read-only Control Center status only and supports, but does not supersede,
-  the memory-first product beta-readiness path. Later stages still require separate
+  `uaa local-model status/list/inspect`. UAA-P1-066 is implemented for
+  read-only Control Center status only at `GET /control-center/local-models/status`
+  and supports, but does not supersede, the memory-first product beta-readiness path. Later stages still require separate
   exact scoped milestones: GGUF-only
   `llama-server --models-dir <approved-gguf-cache-ref> --models-max 1`
   planning, dry-run switch planning, approval-bound switch, Desktop/Hermes UI
@@ -216,12 +216,12 @@ Tasks:
   and CLI inspection slice from that sequence. This milestone excludes
   lifecycle control, switching, downloads, route/OpenAPI authority, Control
   Center activation controls, model/provider calls, and runtime adapters.
-- `UAA-P1-066` Queued support lane: promote a strictly read-only Control
+- `UAA-P1-066` Done support lane: implements a strictly read-only Control
   Center model inventory/status surface over UAA-P1-064 Python-core inventory
-  and CLI inspection. This milestone must not add lifecycle control, switching,
-  start/stop/activate/unload behavior, Desktop/Hermes activation, downloads,
-  runtime adapter execution, React-owned model truth, raw local path evidence,
-  or production-readiness claims.
+  and CLI inspection at `GET /control-center/local-models/status`. No
+  lifecycle control, switching, start/stop/activate/unload behavior,
+  Desktop/Hermes activation, downloads, runtime adapter execution, React-owned
+  model truth, raw local path evidence, or production-readiness claims.
 
 Acceptance:
 

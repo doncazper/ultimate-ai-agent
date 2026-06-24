@@ -1552,6 +1552,23 @@ const weeklyReviewNarrative = {
   ],
   decided_refs: acceptedRecallRefs,
   changed_refs: [],
+  completed_refs: [],
+  deferred_refs: [],
+  rejected_refs: rejectedItemRefs,
+  planned_refs: [
+    "founder-action:mock-setup-hardening",
+    ...crmLiteFollowups.map((item) => item.follow_up_ref),
+  ],
+  memory_change_refs: correctionRefs,
+  crm_movement_refs: crmLiteFollowups.flatMap((item) => [
+    item.relationship_ref,
+    item.opportunity_ref,
+  ]),
+  draft_refs: crmLiteFollowups.map((item) => item.review_envelope_ref),
+  next_week_priority_refs: [
+    ...memoryDerivedActionProposals.map((proposal) => proposal.proposal_ref),
+    "source-readiness-ref:email",
+  ],
   carry_forward_refs: memoryDerivedActionProposals.map(
     (proposal) => proposal.proposal_ref,
   ),
@@ -5326,6 +5343,7 @@ export const mockControlCenterData: ControlCenterData = {
 	    event_type_refs: [
 	      "evidence-event-type:action_envelope_created",
 	      "evidence-event-type:action_decision_recorded",
+	      "evidence-event-type:local_task_created",
 	      "evidence-event-type:chat_turn_receipt_recorded",
 	      "evidence-event-type:chat_handoff_created",
 	      "evidence-event-type:memory_review_decision_recorded",
@@ -5333,6 +5351,7 @@ export const mockControlCenterData: ControlCenterData = {
 	    event_types: [
 	      "action_envelope_created",
 	      "action_decision_recorded",
+	      "local_task_created",
 	      "chat_turn_receipt_recorded",
 	      "chat_handoff_created",
 	      "memory_review_decision_recorded",
@@ -5341,6 +5360,7 @@ export const mockControlCenterData: ControlCenterData = {
 	    event_type_counts: {
 	      action_envelope_created: 1,
 	      action_decision_recorded: 0,
+	      local_task_created: 0,
 	      chat_turn_receipt_recorded: 0,
 	      chat_handoff_created: 0,
 	      memory_review_decision_recorded: 0,

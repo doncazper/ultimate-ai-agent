@@ -27,9 +27,10 @@ completed Governed Code Workbench V1. UAA-P1-076 completed Cross-Surface
 Memory Intake. UAA-P1-077 completed Memory-To-Loop Binding. UAA-P1-078
 completed the Private Beta-Readiness Gate. UAA-P1-079 completed User Intent
 Understanding V1.
-UAA-P1-066 remains queued as a strictly read-only Local Model Manager support
-lane and does not add lifecycle, switching, activation, download, runtime
-adapter, or production authority.
+UAA-P1-066 is implemented as a strictly read-only Local Model Manager support
+lane through `GET /control-center/local-models/status` and does not add
+lifecycle, switching, activation, download, runtime adapter, or production
+authority.
 
 FCC-V1-000 Control Center Release Surface Manifest is complete. FCC-V1-001 API
 Perimeter For Real Mutations is complete as contract/verifier coverage with
@@ -255,13 +256,17 @@ expected receipts, rollback/safe-disable posture, blockers, evidence refs,
 decision receipt refs, local task refs, local task commit receipt refs,
 Evidence Timeline refs, replay posture, and conflict posture. It does not
 change operational maturity rank or add authority. Mock/degraded `/actions`
+fallback data stays non-authoritative. Milestone truth is recorded in
+`docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`.
 fallback data is explicitly non-authoritative: it may render unavailable
 envelope/receipt cards for shape, but it cannot claim Python-core read-model
 ownership, backend eligibility, or local task commit readiness.
-The active `/actions` surface now also keeps lane filters/drilldowns as
+FCC-ACTION-002 keeps the active `/actions` lane filters/drilldowns as
 presentation-only state and reconciles from `GET /control-center/actions/inbox`
 after a local task commit before moving the item into the receipt-recorded
-lane.
+lane. The maturity verifier now requires backend receipt reconciliation,
+frontend refresh tests, CLI parity, and mock/degraded committed-state guards for
+the existing exact local-task lane.
 
 **Done Gate:** A user can compare action proposals, memory candidates, drafts,
 CRM updates, recommendations, and patch proposals through one review language,
@@ -292,7 +297,8 @@ card over existing backend fields: route refs, missing email/calendar/
 notification contracts, refresh/notification blockers, blocked source states,
 and explicit `ready`, `blocked`, `missing`, `metadata_only`, `unavailable`, and
 `not_configured` source-readiness labels. No connector runtime or source
-refresh authority is added.
+refresh authority is added. Milestone truth is recorded in
+`docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md`.
 
 **Authority Boundary:** Do not fake live email, calendar, or task access. No
 send/write/delete authority, account auth, background polling, raw source
@@ -323,7 +329,9 @@ proposal candidates for email metadata contract, calendar metadata contract,
 and account-auth boundary work, and Action Inbox classifies those candidates as
 `proposal_only_no_execution_path`. This moves the unit to rank-2 proposal
 review in the operational maturity manifest without granting connector
-runtime, account auth, source ingestion, or writes.
+runtime, account auth, source ingestion, or writes. Milestone truth is
+recorded in
+`docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`.
 
 **Authority Boundary:** No account auth, background polling, raw body
 ingestion, email send, calendar write, external task write, archive, delete,
@@ -348,6 +356,13 @@ review items, and evidence-linked correction posture.
 as reviewed recall only, and every visible memory use has provenance plus a
 display reason.
 
+**Current Slice:** Today, Morning Briefing, Action Inbox, and Memory now expose
+backend-owned `crm_lite_followups` and `memory_why_shown_items` with
+relationship refs, opportunity refs, follow-up refs, review envelope refs,
+memory/source/evidence refs, stale/conflict posture, missing evidence refs,
+and explicit "why shown" explanations. Milestone truth is recorded in
+`docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`.
+
 **Authority Boundary:** No automatic memory truth, hidden context injection,
 model-output authority, CRM/account sync, connector writes, external CRM
 updates, or action execution.
@@ -370,6 +385,13 @@ corrections, or next-week priorities.
 blocked, stale, planned, and missing-source states and links claims to
 source/evidence refs.
 
+**Current Slice:** Evidence Timeline remains a backend-owned safe-ref history
+surface, and Weekly Review now exposes explicit `completed_refs`,
+`deferred_refs`, `rejected_refs`, `blocked_refs`, `stale_refs`, `planned_refs`,
+and `missing_source_refs` on Today, Morning Briefing, and Action Inbox.
+Milestone truth is recorded in
+`docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`.
+
 **Authority Boundary:** No invented truth, no hidden summarization authority,
 no context injection, no connector reads/writes, and no production-readiness
 claim.
@@ -389,6 +411,19 @@ Action Inbox envelope kind, Evidence Timeline events, validation-plan refs,
 rollback/safe-disable refs, and conversion paths to product tasks or patch
 proposals after review.
 
+**Current Slice:** Implemented for the first backend-owned recommendation
+read-model and Action Inbox projection. Source-readiness gaps, documentation
+currentness drift, operational maturity proof gaps, and optional private
+friction refs can become review-only `self_heal_recommendation` items with
+blocked-authority refs and no execution path. Recommendation review receipts,
+Evidence lifecycle events, CLI queue inspection, and conversion paths remain
+planned or blocked until separately scoped.
+
+**Implementation Task Spec:** Detailed prerequisites, contract fields, signal
+adapters, queue/storage tasks, Action Inbox binding, Evidence events, UI work,
+CLI parity, tests, verifiers, and done gates are tracked in
+`docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`.
+
 **Done Gate:** Recommendations can be created from verifier/doc/UI/friction
 signals, reviewed in Action Inbox, and recorded in Evidence without changing
 code automatically.
@@ -396,7 +431,7 @@ code automatically.
 **Authority Boundary:** No autonomous coding, auto-apply patches, broad shell
 execution, connector writes, action execution, or hidden repair authority.
 
-#### Phase 9 - `FCC-DOGFOOD-001` Fourteen-Day Private Dogfood Harness
+#### Phase 9 - `FCC-DOGFOOD-001` Fourteen-Day Private Operator Harness
 
 **Intent:** Test whether UAA is useful as a daily professional assistant, not
 whether roadmap surfaces merely exist.
@@ -409,6 +444,15 @@ moments, and UI friction.
 **Deliverables:** Safe-ref-only dogfood artifacts, Product Friction Inbox,
 daily-use metrics, review decision stats, stale follow-up stats, draft
 usefulness stats, and accepted/revised private findings after the trial.
+
+**Current Slice:** Implemented as a local/private safe-ref-only 14-day harness
+contract and repo-local artifact in
+`docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md` and
+`docs/macos/private_operator_14_day_dogfood_harness_v1.json`. The harness
+defines explicit `not_run`, skipped, blocked, missing-source, and
+`pending_operator_review` states. Accepted/revised findings remain empty until
+manual review; no telemetry upload, raw private content, connector write,
+provider/model call, route, beta claim, or production authority is added.
 
 **Done Gate:** The trial produces accepted or revised findings with measurable
 usefulness signals and concrete friction recommendations.
@@ -427,9 +471,18 @@ creation and local follow-up completion or opportunity update. Every lane needs
 exact scope, source refs, approval, receipt, evidence, idempotency, and
 rollback/safe-disable posture.
 
-**Deliverables:** At least two exact-scope local action lanes, decision receipts,
-Evidence Timeline events, safe retry behavior, and visible blocked external
-authority.
+**Deliverables:** `local_task_create` as the first exact-scope local action
+lane, plus decision receipts, Evidence Timeline events, safe retry behavior,
+and visible blocked external authority. Additional lanes require separate
+gates.
+
+**Current Slice:** Implemented for the existing `local_task_create` lane and
+recorded in
+`docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`.
+Action Inbox remains rank 3 overall; `local_task_create` is the only current
+rank 5 local execution lane. The lane has exact approval, receipt, evidence,
+idempotency, safe-disable posture, CLI/API/core parity, and `FCC-ACTION-002`
+repeatability refs. No additional micro-lane is implemented by this pass.
 
 **Done Gate:** Each implemented micro-lane can be approved, recorded, inspected,
 and safely reasoned about without granting broader authority.
@@ -455,6 +508,14 @@ UAA trustworthy.
 **Deliverables:** Calmer boot/setup flow, no-terminal normal daily loop,
 helpful blocked states, local morning notification posture, refined product
 copy, and inspectable technical detail for route/authority status.
+
+**Current Slice:** Implemented as a verified Control Center polish baseline in
+`docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md`, backed by
+`docs/control_center/visual_regression_manifest.json` and the Playwright visual
+spec. The current slice verifies redacted desktop/mobile baselines and
+dry-run setup/blocked-state truth over existing backend-owned state. It does
+not implement native runtime authority, notifications, packaging, signing,
+installer mutation, or production readiness.
 
 **Done Gate:** A user can start and use the daily loop without Terminal while
 still being able to inspect what UAA can and cannot do.
@@ -559,7 +620,11 @@ Milestone order:
   `GET /control-center/memory/l1-index`; Phase 3 L2 factual/graph/temporal
   indexing is implemented as read-only deterministic ref projection at
   `GET /control-center/memory/l2-index`; Phase 4 L3 identity/session/preference
-  modeling remains planned and unimplemented.
+  modeling is implemented as read-only representation proposals at
+  `GET /control-center/memory/l3-index`; Phase 5 context-pack proposals are
+  implemented as read-only proposal-only inspection envelopes at
+  `GET /control-center/memory/context-packs`; Phase 6 narrow execution hooks
+  remain future blocked.
 - `FCC-V1-006` Evidence Timeline Productization: implemented for a
   backend-owned Evidence Timeline index with productized events grouped by
   Today item, Action, Chat turn, and Memory candidate; safe refs, receipts,

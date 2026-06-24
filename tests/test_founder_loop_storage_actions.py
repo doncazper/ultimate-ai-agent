@@ -342,7 +342,15 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
     ]
     assert groups["ready_for_decision"]["count"] == 1
     assert groups["blocked_by_authority"]["count"] == 1
-    assert groups["proposal_only_no_execution_path"]["count"] == 4
+    health_recommendation_count = sum(
+        1
+        for item in inbox["items"]
+        if item.get("action_kind") == "self_heal_recommendation"
+    )
+    assert health_recommendation_count == 3
+    assert groups["proposal_only_no_execution_path"]["count"] == (
+        4 + health_recommendation_count
+    )
     by_ref = {item["item_ref"]: item for item in inbox["items"]}
     for item in inbox["items"]:
         envelope = item["approval_envelope"]
