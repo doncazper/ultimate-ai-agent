@@ -104,6 +104,12 @@ not claim connector writes, public release, production authority, generic
 execution, unrestricted shell/browser/network authority, model/provider
 authority, hidden context injection, or completed end-to-end autonomy.
 
+The current visual target is recorded in
+[PRODUCT_NORTH_STAR.md](PRODUCT_NORTH_STAR.md). Those screenshots show the
+Founder Command Center direction for Today, Action Inbox, Memory, Evidence,
+Plans, Chat, Settings, and Setup Assistant, but they are not implementation
+evidence by themselves.
+
 ## Evidence And Verification
 
 The project treats evidence as part of the product surface:
@@ -153,6 +159,7 @@ Start with:
 
 - `README.md`
 - `docs/portfolio/CURRENT_STATUS.md`
+- `docs/portfolio/PRODUCT_NORTH_STAR.md`
 - `docs/portfolio/SCREENSHOTS.md`
 - `docs/portfolio/GOLDEN_PATH_DEMO.md`
 - `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`

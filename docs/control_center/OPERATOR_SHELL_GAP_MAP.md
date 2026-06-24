@@ -22,6 +22,11 @@ Settings, Models, and future first-party Chat. OpenWebUI remains a supported
 local/dev conversational shell and compatibility surface for governed `/v1`
 smoke, llama.cpp shell testing, and developer chat. OpenWebUI must not become
 the source of product state or the destination for wiring every UAA workflow.
+The current visual north star for the Founder Command Center is recorded in
+`docs/portfolio/PRODUCT_NORTH_STAR.md`. Those screenshots are product direction
+only, and the current UI is not yet close to them. They do not promote any
+route, UI surface, workflow, or authority class beyond the current
+route/API/test evidence in this map.
 `/private-trial` is the UAA-P1-087.2a/087.2b/087.2c read-only packet,
 acceptance ledger, and unanswered manual-review scaffold surface only; it
 records safe manual smoke checklist refs, manual smoke step refs, pending
@@ -103,6 +108,7 @@ Evidence sources for this map:
 - `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`
 - `docs/control_center/authority_candidate_scorecard.json`
 - `docs/control_center/PRODUCT_LANGUAGE_RULES.md`
+- `docs/portfolio/PRODUCT_NORTH_STAR.md`
 - `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`
 - `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`
 - `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`

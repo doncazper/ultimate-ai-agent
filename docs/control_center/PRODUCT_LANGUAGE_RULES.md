@@ -25,6 +25,10 @@ state or is where every UAA workflow will be wired.
 Today, Inbox, Plans, Actions, Memory, Evidence, and Settings remain the core
 operator loop surfaces for product-language enforcement.
 
+North-star visuals are allowed only as design direction. They must be labeled
+as north-star visual targets and must not be described as shipped
+implementation evidence unless matching route/API/UI behavior is verified.
+
 CLI is a first-class operator surface. Product behavior must not live only in
 React state; UI-only state is limited to presentation concerns such as filters,
 expanded panels, selected tabs, and layout preferences. If the UI can trigger or
@@ -48,6 +52,7 @@ with tests and redacted evidence.
 | No memory-derived execution claims | Memory review, L1/L2/L3 indexes, context packs, and Phase 6 execution-hook contracts must be described as recall, inspection, proposal, or blocked proof surfaces only. | Any copy implying memory/context packs execute actions or that Phase 6 hooks are shipped/available is blocked. |
 | No model lifecycle completion words without backend receipts | Words such as loaded, running, switched, and updated identity require backend receipt/evidence refs from Python Agent Core. Without those refs, use planned, blocked, unknown, or status-only language. | Any Control Center or OpenWebUI copy that treats React state, `/v1/models`, logs, or model output as proof of local model lifecycle completion is blocked. |
 | No completed-state language for blocked/skipped/pending work | Blocked, skipped, pending, mock-only, local-state-only, and partial states must keep that state visible. | Any blocked, skipped, pending, mock-only, or partial item labeled done, finished, succeeded, or completed is blocked. |
+| No visual target as shipped evidence | Product north-star screenshots must say they are visual targets only. | Any north-star screenshot used as proof of implementation, public beta readiness, production readiness, connector authority, or workflow completion is blocked. |
 
 ## Approved State Language
 
@@ -72,6 +77,7 @@ when they match the implementation and evidence:
 - unknown
 - needs review
 - accepted failure
+- north-star visual target
 
 Completion words are allowed only when the implementation produced accepted
 durable evidence for the exact work described. A route returning a preview,

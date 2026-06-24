@@ -29,6 +29,7 @@ Allowed current claims:
 | Claim | Evidence source |
 |---|---|
 | The active product/package baseline is v0.104.0 / 0.104.0. | `VERSION.md`, `README.md`, `docs/release_notes/v0_104_0.md` |
+| The Founder Command Center screenshots in `docs/portfolio/PRODUCT_NORTH_STAR.md` are the current product north-star visual target only. The current UI is not yet close to those images. They are not implementation evidence by themselves, and any mismatch with shipped UI/API behavior remains partial, planned, blocked, mock-only, or intentionally out of scope until implemented and verified. | `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md` |
 | The latest accepted repository checkpoint tag is checkpoint-m169; checkpoint-m166 and checkpoint-m167 remain the latest accepted local model lane checkpoint tags. | `README.md`, `VERSION.md`, `docs/release_notes/checkpoint_m169.md`, `docs/release_notes/checkpoint_m166.md`, `docs/release_notes/checkpoint_m167.md` |
 | The current API boundary is a FastAPI route contract with 135 OpenAPI paths, including read-only Control Center Settings and Local Models status routes. | `README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `tests/test_api_manifest.py`, `tests/test_api_security_headers.py` |
 | OpenWebUI is a shell; Python Agent Core remains authority. | `docs/openwebui/M151_LOCAL_OPENWEBUI_TEST_SHELL.md`, `docs/openwebui/OPENWEBUI_BRIDGE_CONTRACT.md` |
@@ -98,6 +99,8 @@ This packet does not add:
 - plugin runtime import or arbitrary plugin execution
 - mobile control or mobile sensor runtime
 - model/provider output as production authority
+- hidden context injection
+- UI-only product truth
 - raw prompt, raw response, raw provider payload, raw path, raw log, username,
   hostname, serial, environment dump, or credential material in evidence
 

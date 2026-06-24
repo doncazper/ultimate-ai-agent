@@ -312,7 +312,11 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
           onClick={() => void handleProbeRequest()}
           type="button"
         >
-          {probePending ? "Probing local turn" : "Probe redacted local turn"}
+          {probePending
+            ? "Probing local turn"
+            : models.state === "checking"
+              ? "Checking local model readiness"
+              : "Probe redacted local turn"}
         </button>
       </div>
 

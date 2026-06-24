@@ -15,8 +15,8 @@ blocked, planned, and future-scoped states distinct.
 | Area | Canonical entry |
 |---|---|
 | GitHub landing page | `README.md` |
-| Portfolio demo path | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/SCREENSHOTS.md`, `docs/portfolio/GOLDEN_PATH_DEMO.md`, `docs/portfolio/CASE_STUDY.md` |
-| Portfolio review | `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/CASE_STUDY.md` |
+| Portfolio demo path | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/SCREENSHOTS.md`, `docs/portfolio/GOLDEN_PATH_DEMO.md`, `docs/portfolio/CASE_STUDY.md` |
+| Portfolio review | `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/CASE_STUDY.md` |
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and release convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
@@ -207,6 +207,7 @@ README.md
 VERSION.md
 SECURITY.md
 docs/portfolio/CURRENT_STATUS.md
+docs/portfolio/PRODUCT_NORTH_STAR.md
 docs/portfolio/SCREENSHOTS.md
 docs/portfolio/GOLDEN_PATH_DEMO.md
 docs/portfolio/CASE_STUDY.md

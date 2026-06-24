@@ -1436,12 +1436,17 @@ html {
 body {
   background: var(--fcc-bg);
   color: var(--fcc-text);
+  padding: 10px;
 }
 
 .app-shell {
   grid-template-columns: 304px minmax(0, 1fr);
-  min-height: 100vh;
+  min-height: calc(100vh - 20px);
+  overflow: hidden;
+  border: 1px solid var(--fcc-line-strong);
+  border-radius: 14px;
   background: var(--fcc-bg);
+  box-shadow: var(--fcc-shadow);
 }
 
 .sidebar {
@@ -1449,7 +1454,7 @@ body {
   top: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - 20px);
   padding: 24px 16px;
   border-right: 1px solid var(--fcc-line);
   background:
@@ -1570,8 +1575,22 @@ body {
   height: 24px;
   border-radius: 7px;
   color: #111827;
-  font-size: 0.68rem;
-  font-weight: 700;
+}
+
+.north-star-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.85;
+}
+
+.nav-icon .north-star-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .sidebar a.active .nav-icon,
@@ -1613,10 +1632,8 @@ body {
 }
 
 .posture-icon {
-  width: 18px;
-  height: 18px;
-  border: 2px solid currentColor;
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
 }
 
 .posture-icon.green {
@@ -1632,6 +1649,8 @@ body {
 }
 
 .posture-chevron {
+  width: 15px;
+  height: 15px;
   color: var(--fcc-subtle);
 }
 
@@ -1666,9 +1685,9 @@ body {
 }
 
 .chrome-arrow {
+  width: 20px;
+  height: 20px;
   color: #6b7280;
-  font-size: 1.35rem;
-  line-height: 1;
 }
 
 .topbar-actions {
@@ -1742,10 +1761,8 @@ body {
 }
 
 .chip-icon {
-  width: 15px;
-  height: 15px;
-  border: 2px solid currentColor;
-  border-radius: 6px;
+  width: 16px;
+  height: 16px;
 }
 
 .top-status-chip.green {

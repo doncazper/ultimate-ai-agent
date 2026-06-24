@@ -23,6 +23,18 @@ distribution, or broad-authority runtime.
 | What is usable now? | Proofed route surfaces for `/actions`, `/chat`, `/memory`, and `/evidence`; partial/status surfaces for Today, Plans, Settings, Runtime, and local model readiness. |
 | What is intentionally not claimed? | Production readiness, public release, broad autonomy, connector writes, unrestricted shell/browser/network authority, provider/model authority, hidden context injection, and generic action execution. |
 
+## Product North Star
+
+The current product north star is a calm Founder Command Center cockpit for
+Today, Action Inbox, Plans, Chat, Memory, Evidence, Settings, and Setup
+Assistant. The current UI is not yet close to these images. They are product
+vision targets, not current implementation screenshots or implementation
+evidence; current truth still comes from route/API contracts, tests, verifiers,
+and redacted evidence.
+
+See [docs/portfolio/PRODUCT_NORTH_STAR.md](docs/portfolio/PRODUCT_NORTH_STAR.md)
+for the full visual target, per-surface truth labels, and current UI gap.
+
 ## What This Demonstrates
 
 For AI engineering and applied AI roles, this repo demonstrates:
@@ -86,8 +98,8 @@ authority or own product truth.
 
 | Time | Best path |
 |---|---|
-| 3 minutes | Read this README, then [docs/portfolio/CURRENT_STATUS.md](docs/portfolio/CURRENT_STATUS.md), [docs/portfolio/SCREENSHOTS.md](docs/portfolio/SCREENSHOTS.md), and [docs/portfolio/GOLDEN_PATH_DEMO.md](docs/portfolio/GOLDEN_PATH_DEMO.md). |
-| 10 minutes | Add [docs/portfolio/CASE_STUDY.md](docs/portfolio/CASE_STUDY.md), [docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md), and [docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md](docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md). |
+| 3 minutes | Read this README, then [docs/portfolio/CURRENT_STATUS.md](docs/portfolio/CURRENT_STATUS.md), [docs/portfolio/PRODUCT_NORTH_STAR.md](docs/portfolio/PRODUCT_NORTH_STAR.md), and [docs/portfolio/GOLDEN_PATH_DEMO.md](docs/portfolio/GOLDEN_PATH_DEMO.md). |
+| 10 minutes | Add [docs/portfolio/SCREENSHOTS.md](docs/portfolio/SCREENSHOTS.md), [docs/portfolio/CASE_STUDY.md](docs/portfolio/CASE_STUDY.md), [docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md), and [docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md](docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md). |
 | 30 minutes | Inspect [docs/api/README.md](docs/api/README.md), [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md), [docs/control_center/PRODUCT_LANGUAGE_RULES.md](docs/control_center/PRODUCT_LANGUAGE_RULES.md), and the focused verifier/test refs linked from those docs. |
 
 ## Product Shape
@@ -313,6 +325,7 @@ Start with the active product truth and indexes.
 |---|---|
 | [docs/portfolio/CASE_STUDY.md](docs/portfolio/CASE_STUDY.md) | Portfolio case study and engineering narrative |
 | [docs/portfolio/CURRENT_STATUS.md](docs/portfolio/CURRENT_STATUS.md) | Portfolio-oriented current status summary |
+| [docs/portfolio/PRODUCT_NORTH_STAR.md](docs/portfolio/PRODUCT_NORTH_STAR.md) | Current Founder Command Center visual north star |
 | [docs/portfolio/SCREENSHOTS.md](docs/portfolio/SCREENSHOTS.md) | Curated static Control Center visual-test snapshot gallery |
 | [docs/portfolio/GOLDEN_PATH_DEMO.md](docs/portfolio/GOLDEN_PATH_DEMO.md) | Three-minute demo path through setup, API contracts, approvals, evidence, and CLI parity |
 | [docs/releases/TAG_CATALOG.md](docs/releases/TAG_CATALOG.md) | Tag history and future tag convention |

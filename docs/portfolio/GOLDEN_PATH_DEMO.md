@@ -8,6 +8,12 @@ runtime authority. It ties the Control Center shell back to the Python Agent
 Core, OpenAPI/API manifest discipline, approval envelopes, redacted evidence,
 and CLI parity.
 
+The visual guide for this path is
+[PRODUCT_NORTH_STAR.md](PRODUCT_NORTH_STAR.md). Those screenshots are product
+north-star targets, not implementation evidence by themselves. The current UI
+is not yet close to those images, so this demo should be evaluated through the
+actual local UI plus the route/API/CLI evidence below.
+
 ## 1. Launch Or Inspect The Local Control Center
 
 ```bash
@@ -20,12 +26,13 @@ This starts or reuses the local backend and Control Center shell. The shell is
 an operator view over core/API truth; it does not mint authority.
 
 Static visual-test snapshots are available in
-[SCREENSHOTS.md](SCREENSHOTS.md).
+[SCREENSHOTS.md](SCREENSHOTS.md). North-star visual targets are available in
+[PRODUCT_NORTH_STAR.md](PRODUCT_NORTH_STAR.md).
 
 ## 2. Setup Assistant Preview
 
 Open the Setup surface in the Control Center or review the static
-[Setup Assistant snapshot](assets/control-center-setup.png).
+[Setup Assistant north-star target](assets/north_star/setup-assistant.png).
 
 What to look for:
 
@@ -62,7 +69,7 @@ What to look for:
 ## 4. Action Inbox Approval Envelope
 
 Open `/actions` in the Control Center or review the
-[Action Inbox snapshot](assets/control-center-actions.png).
+[Action Inbox north-star target](assets/north_star/action-inbox.png).
 
 What to look for:
 
@@ -81,7 +88,7 @@ authority, and production authority remain blocked.
 ## 5. Evidence And Redaction
 
 Open `/evidence` in the Control Center or review the
-[Evidence snapshot](assets/control-center-evidence.png).
+[Evidence north-star target](assets/north_star/evidence.png).
 
 What to look for:
 
@@ -120,4 +127,3 @@ paths.
 
 Use [CURRENT_STATUS.md](CURRENT_STATUS.md) for the current implemented,
 partial, planned, mock-only, blocked, and intentionally out-of-scope map.
-

@@ -15,6 +15,20 @@ Canonical sources remain:
 - `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`
 - `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`
 - `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md`
+- `docs/portfolio/PRODUCT_NORTH_STAR.md`
+
+## North-Star Visual Target
+
+The screenshots in [PRODUCT_NORTH_STAR.md](PRODUCT_NORTH_STAR.md) define the
+current intended Founder Command Center cockpit direction. They are
+north-star visual targets, not implementation evidence by themselves. The
+current UI is not yet close to those images.
+
+Existing implementation remains governed by current route/API contracts, test
+evidence, verifiers, release-truth docs, and redacted evidence refs. Any gap
+between the north-star visuals and implemented UI/API behavior must remain
+labeled as partial, planned, blocked, mock-only, or intentionally out of scope
+until it is implemented and verified.
 
 ## Implemented
 
@@ -113,8 +127,8 @@ safe-disable posture.
 For product state, read `README.md`, this file, and
 `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`.
 
-For the portfolio demo path, read `docs/portfolio/SCREENSHOTS.md` and
-`docs/portfolio/GOLDEN_PATH_DEMO.md`.
+For the portfolio demo path, read `docs/portfolio/PRODUCT_NORTH_STAR.md`,
+`docs/portfolio/SCREENSHOTS.md`, and `docs/portfolio/GOLDEN_PATH_DEMO.md`.
 
 For architecture, read `docs/api/README.md` and
 `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`.

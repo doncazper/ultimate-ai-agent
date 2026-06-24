@@ -83,16 +83,17 @@ and older roadmap snapshots stay under `docs/archive/` as audit artifacts, not
 current implementation claims.
 
 Portfolio reviewers should start with `README.md`,
-`docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/SCREENSHOTS.md`,
-`docs/portfolio/GOLDEN_PATH_DEMO.md`, and `docs/portfolio/CASE_STUDY.md`
-before opening the deeper roadmap and product-truth ledgers.
+`docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`,
+`docs/portfolio/SCREENSHOTS.md`, `docs/portfolio/GOLDEN_PATH_DEMO.md`, and
+`docs/portfolio/CASE_STUDY.md` before opening the deeper roadmap and
+product-truth ledgers.
 
 ## Start Here
 
 | Need | Start with |
 |---|---|
-| Portfolio demo path | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/SCREENSHOTS.md`, `docs/portfolio/GOLDEN_PATH_DEMO.md`, `docs/portfolio/CASE_STUDY.md` |
-| Portfolio overview and case study | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/CASE_STUDY.md` |
+| Portfolio demo path | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/SCREENSHOTS.md`, `docs/portfolio/GOLDEN_PATH_DEMO.md`, `docs/portfolio/CASE_STUDY.md` |
+| Portfolio overview and case study | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/CASE_STUDY.md` |
 | Product story and current repository truth | `README.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |

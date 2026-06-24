@@ -13,6 +13,11 @@ evidence, or claims that every displayed workflow is complete. Several views
 intentionally show mock/degraded fallback, read-only posture, blocked
 authority, and safe-ref-only states.
 
+For the current product direction, see
+[PRODUCT_NORTH_STAR.md](PRODUCT_NORTH_STAR.md). North-star screenshots are
+visual targets only; they are not implementation evidence by themselves, and
+the current UI is not yet close to them.
+
 ## Gallery
 
 ### Setup Assistant
@@ -59,4 +64,3 @@ above memory recall.
 - Memory is recall, not truth or authority.
 - Approval refs are identifiers until exact backend scope is validated.
 - Evidence uses safe refs and redacted summaries only.
-
