@@ -103,7 +103,7 @@ AGENT_PUBLIC_WEB       agent-facing public web access; must use gateway
 GOVERNED_WEB_EVIDENCE existing governed evidence path; wrapped first
 LOCAL_MODEL_LOOPBACK  local model runtime calls; temporary exception
 MODEL_ACQUISITION     Hugging Face/model acquisition; temporary exception
-TOOL_RUNTIME_LEGACY   existing runtime fetch; migrate behind gateway later
+TOOL_RUNTIME_READ_ONLY_FETCH allowlisted tool-runtime HTTPS GET fetch through gateway
 ```
 
 Temporary exceptions are not permission to add more direct access. They should shrink over time.

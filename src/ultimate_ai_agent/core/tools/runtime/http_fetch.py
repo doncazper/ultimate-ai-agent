@@ -14,6 +14,17 @@ from ultimate_ai_agent.core.tools.runtime.validation import (
     validate_safe_tool_runtime_text,
     validate_tool_runtime_ref,
 )
+from ultimate_ai_agent.core.web_access.contracts import (
+    WebAccessAdapterKind,
+    WebAccessAuthorityMode,
+    WebAccessNetworkLane,
+    WebAccessPolicyDecision,
+    WebAccessPolicyStatus,
+    WebAccessRequest,
+    WebAccessRequestKind,
+)
+from ultimate_ai_agent.core.web_access.gateway import WebAccessGateway
+from ultimate_ai_agent.core.web_access.policy import WebAccessPolicy
 
 
 READ_ONLY_HTTP_FETCH_TOOL_REF = "tool:http_fetch.read_only_allowlisted.v1"
@@ -396,7 +407,7 @@ def normalize_http_fetch_target(
     )
 
 
-def build_read_only_http_fetch_output(
+def _build_read_only_http_fetch_output(
     *,
     invocation_id: str,
     request: ReadOnlyHttpFetchRequest,
@@ -445,6 +456,137 @@ def build_read_only_http_fetch_output(
         response_limit_bytes=policy.max_response_bytes,
         response_bytes_read=len(body),
     )
+
+
+@dataclass(frozen=True)
+class _ToolRuntimeReadOnlyHttpFetchWebAccessAdapter:
+    invocation_id: str
+    fetch_request: ReadOnlyHttpFetchRequest
+    policy: ReadOnlyHttpFetchPolicy
+    transport: HttpFetchTransport | None
+
+    adapter_kind: WebAccessAdapterKind = WebAccessAdapterKind.LOCAL_FETCH
+
+    def execute(
+        self,
+        request: WebAccessRequest,
+        decision: WebAccessPolicyDecision,
+    ) -> Mapping[str, Any]:
+        if self.transport is None:
+            return _blocked_http_fetch_adapter_result("HTTP_FETCH_TRANSPORT_REQUIRED")
+        if request.kind != WebAccessRequestKind.READ_ONLY_FETCH:
+            return _blocked_http_fetch_adapter_result("HTTP_FETCH_GATEWAY_KIND_MISMATCH")
+        if request.method != "GET":
+            return _blocked_http_fetch_adapter_result("NON_GET_METHOD_DENIED")
+        try:
+            output = _build_read_only_http_fetch_output(
+                invocation_id=self.invocation_id,
+                request=self.fetch_request,
+                policy=self.policy,
+                transport=self.transport,
+            )
+        except ValueError as exc:
+            return _blocked_http_fetch_adapter_result(_safe_reason(str(exc), "HTTP_FETCH_REQUEST_INVALID"))
+
+        return {
+            "adapter_ref": "web-access-adapter:tool-runtime-read-only-http-fetch.v1",
+            "allowed": True,
+            "status": output.status.value,
+            "safe_url_ref": output.safe_url_ref,
+            "host_ref": output.host_ref,
+            "output": output.model_dump(mode="python"),
+            "preview": output.redacted_preview,
+            "source_refs": [
+                {
+                    "safe_url_ref": output.safe_url_ref,
+                    "host_ref": output.host_ref,
+                    "content_untrusted": True,
+                }
+            ],
+        }
+
+
+def build_read_only_http_fetch_output_via_web_access_gateway(
+    *,
+    invocation_id: str,
+    request: ReadOnlyHttpFetchRequest,
+    policy: ReadOnlyHttpFetchPolicy,
+    transport: HttpFetchTransport | None,
+) -> ReadOnlyHttpFetchOutput:
+    """Route the M72 read-only fetch primitive through WebAccessGateway."""
+
+    adapter = _ToolRuntimeReadOnlyHttpFetchWebAccessAdapter(
+        invocation_id=invocation_id,
+        fetch_request=request,
+        policy=policy,
+        transport=transport,
+    )
+    gateway = WebAccessGateway(
+        policy=WebAccessPolicy(allow_read_only_fetch=True),
+        adapters={WebAccessRequestKind.READ_ONLY_FETCH: adapter},
+    )
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.READ_ONLY_FETCH,
+            url=request.url,
+            method=request.method,
+            authority_mode=WebAccessAuthorityMode.READ_ONLY,
+            network_lane=WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH,
+            allowed_domains=policy.allowed_hosts,
+            actor="tool_runtime",
+            session_id=invocation_id,
+            metadata={
+                "adapter_ref": "web-access-adapter:tool-runtime-read-only-http-fetch.v1",
+                "tool_ref": READ_ONLY_HTTP_FETCH_TOOL_REF,
+                "request_ref": request.request_ref,
+                "policy_ref": policy.policy_ref,
+                "uses_auth": False,
+                "cookies": False,
+                "request_body": False,
+                "download": False,
+                "upload": False,
+            },
+        )
+    )
+    if result.status != WebAccessPolicyStatus.ALLOWED:
+        raise ValueError(_http_fetch_reason_from_web_access_result(result.decision.reasons))
+
+    payload = result.evidence_bundle.payload if result.evidence_bundle else {}
+    output_payload = payload.get("output")
+    if not isinstance(output_payload, Mapping):
+        raise ValueError("HTTP_FETCH_GATEWAY_OUTPUT_MISSING")
+    return ReadOnlyHttpFetchOutput.model_validate(output_payload)
+
+
+def _blocked_http_fetch_adapter_result(reason: str) -> Mapping[str, Any]:
+    return {
+        "adapter_ref": "web-access-adapter:tool-runtime-read-only-http-fetch.v1",
+        "allowed": False,
+        "status": "denied",
+        "reason_codes": [reason],
+    }
+
+
+def _http_fetch_reason_from_web_access_result(reasons: tuple[str, ...]) -> str:
+    for reason in reasons:
+        if reason.startswith("adapter_reason:"):
+            return _safe_reason(reason.split(":", 1)[1], "HTTP_FETCH_GATEWAY_DENIED")
+    for reason in reasons:
+        if reason == "adapter_policy_blocked":
+            continue
+        if reason.startswith("method_not_allowed:"):
+            return "NON_GET_METHOD_DENIED"
+        if reason == "only_https_urls_allowed":
+            return "HTTPS_ONLY_REQUIRED"
+        if reason == "missing_url_host":
+            return "HTTP_FETCH_HOST_REQUIRED"
+        if reason in {"private_or_local_network_denied", "host_not_in_allowed_domains"}:
+            return "HOST_NOT_ALLOWLISTED_DENIED"
+        if reason.startswith("network_lane_not_gateway_phase_1:"):
+            return "HTTP_FETCH_GATEWAY_LANE_DENIED"
+        if reason == "read_only_fetch_not_enabled":
+            return "HTTP_FETCH_GATEWAY_DISABLED"
+    return "HTTP_FETCH_GATEWAY_DENIED"
 
 
 def _safe_reason(value: str, fallback: str) -> str:

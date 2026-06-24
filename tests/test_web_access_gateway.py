@@ -117,6 +117,25 @@ def test_read_only_https_get_allowed_and_audited() -> None:
     assert result.source_metadata[0].content_untrusted is True
 
 
+def test_tool_runtime_read_only_fetch_lane_is_narrowly_allowed() -> None:
+    adapter = DummyReadOnlyAdapter()
+    gateway = _gateway(adapter)
+
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.READ_ONLY_FETCH,
+            url="https://example.com/page",
+            allowed_domains=("example.com",),
+            network_lane=WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH,
+        )
+    )
+
+    assert result.status == WebAccessPolicyStatus.ALLOWED
+    assert adapter.calls
+    assert result.audit.network_lane == WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH
+    assert not hasattr(WebAccessNetworkLane, "TOOL_RUNTIME_LEGACY")
+
+
 def test_post_is_denied_before_adapter_call() -> None:
     adapter = DummyReadOnlyAdapter()
     gateway = _gateway(adapter)
