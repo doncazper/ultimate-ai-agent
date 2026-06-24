@@ -16,7 +16,7 @@ Agent / Tool / API Route
   -> Adapters
 ```
 
-The system remains API-first and browser-fallback, but browser capability is not a default execution path. Injected browser observe-only summaries may sit behind the gateway when explicitly policy-enabled; browser dry-run and real browser actions remain later scoped-authority work.
+The system remains API-first and browser-fallback, but browser capability is not a default execution path. Injected browser observe-only summaries and dry-run action plans may sit behind the gateway when explicitly policy-enabled; real browser actions remain later scoped-authority work.
 
 ## Why this exists
 
@@ -72,6 +72,7 @@ Allowed:
 - governed web evidence path behind WebAccessGateway
 - optional injected read-only HTTPS GET adapter in tests
 - injected browser observe-only summaries when explicitly policy-enabled
+- injected browser action dry-run plans when explicitly policy-enabled
 - normalized WebAccessAuditRecord for allowed and denied paths
 - SourceMetadata with content_untrusted=true
 - quarantined WebAccessEvidenceBundle for adapter payloads
@@ -84,6 +85,7 @@ Denied:
 - POST / PUT / PATCH / DELETE
 - browser observe by default
 - live browser observe execution
+- browser action dry-run by default
 - browser action dry-run execution
 - browser clicks
 - form filling
@@ -107,6 +109,7 @@ LOCAL_MODEL_LOOPBACK  local model runtime calls; temporary exception
 MODEL_ACQUISITION     Hugging Face/model acquisition; temporary exception
 TOOL_RUNTIME_READ_ONLY_FETCH allowlisted tool-runtime HTTPS GET fetch through gateway
 BROWSER_OBSERVE_ONLY injected observe-only summaries; default denied unless policy-enabled
+BROWSER_ACTION_DRY_RUN injected reviewable action plans; default denied unless policy-enabled
 ```
 
 Temporary exceptions are not permission to add more direct access. They should shrink over time.

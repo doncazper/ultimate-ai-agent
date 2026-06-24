@@ -40,7 +40,7 @@ from ultimate_ai_agent.core.browser.action_dry_run import (
     BrowserActionDryRunStep,
     browser_action_dry_run_request_reason_codes,
     browser_action_dry_run_step_reason_codes,
-    build_browser_action_dry_run_plan,
+    build_browser_action_dry_run_plan_via_web_access_gateway,
     validate_browser_action_dry_run_policy,
 )
 from ultimate_ai_agent.core.browser.low_risk_click import (
@@ -97,7 +97,7 @@ __all__ = [
     "LowRiskBrowserClickStatus",
     "LowRiskBrowserClickTransportResponse",
     "build_browser_automation_contract_review_decision",
-    "build_browser_action_dry_run_plan",
+    "build_browser_action_dry_run_plan_via_web_access_gateway",
     "build_browser_observe_only_output_via_web_access_gateway",
     "build_low_risk_browser_click_decision",
     "browser_action_dry_run_request_reason_codes",
