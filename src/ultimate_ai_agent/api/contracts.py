@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -66,6 +66,24 @@ class ApiRouteInventoryItem(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
+class ApiWebAccessPosture(BaseModel):
+    web_access_gateway_boundary: Literal["implemented"]
+    boundary_module: Literal["ultimate_ai_agent.core.web_access"]
+    governed_web_access: Literal["boundary_only"]
+    unrestricted_web_fetching: Literal["not_available"]
+    browser_execution: Literal["not_available"]
+    browser_observe_runtime: Literal["not_available"]
+    browser_action_dry_run_runtime: Literal["not_available"]
+    providers: Literal["not_configured"]
+    content_untrusted: bool
+    grants_runtime_browsing_authority: bool
+    allows_clicks_forms_auth_cookies_downloads_uploads: bool
+    allowed_methods: List[str] = Field(default_factory=list)
+    mutation_methods: Literal["not_available"]
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class ApiManifest(BaseModel):
     title: str = Field(..., min_length=1)
     api_version: str = Field(..., min_length=1)
@@ -86,6 +104,7 @@ class ApiManifest(BaseModel):
     foundation_gate_status: Optional[str] = None
     capabilities_declared: List[str] = Field(default_factory=list)
     capabilities_blocked: List[str] = Field(default_factory=list)
+    web_access_posture: ApiWebAccessPosture
     no_runtime_integrations: bool = True
 
     model_config = ConfigDict(extra="forbid")

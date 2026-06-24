@@ -73,7 +73,7 @@ The project should allow provider shells and disabled/read-only adapters earlier
 | Phase | Add | Keep blocked |
 |---|---|---|
 | Current / PR #39 | WebAccessGateway boundary, policy, audit, static guards | Providers, browser execution, forms, auth, cookies, downloads/uploads, non-GET |
-| PR 2 | API/manifest wording and gateway status only | Providers and browser behavior |
+| PR 2 | API/manifest boundary posture wording only | Providers and browser behavior |
 | PR 3 | Existing read-only HTTP fetch migrated behind gateway | Browser execution, forms, auth, cookies, downloads/uploads, non-GET |
 | M72.x-M74 | Firecrawl read-only adapter shell, disabled by default; then read-only search/scrape/extract through gateway | Firecrawl Interact, sessions, clicks/forms |
 | PR 4 / M74 | Browser observe adapter; Browserbase observe can fit here | Clicks, forms, auth, cookies, downloads, raw DOM retention |
@@ -104,10 +104,13 @@ No browser execution
 ### PR 2 — API and manifest wording
 
 ```text
-Expose gateway status/preview only if useful.
-Clarify manifest wording:
-- unrestricted web fetching: blocked
-- governed web access: available only through WebAccessGateway
+Expose API/manifest wording only; do not add a status or preview endpoint.
+Clarify /api/manifest posture:
+- web_access_gateway_boundary: implemented
+- unrestricted_web_fetching: not_available
+- browser_execution: not_available
+- providers: not_configured
+- content_untrusted: true
 No providers.
 No browser behavior.
 ```
