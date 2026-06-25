@@ -137,6 +137,14 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
+        founderActionsInbox: stripFollowUpTrackerIfMissing(
+          mockControlCenterData.founderActionsInbox,
+          undefined,
+        ).value,
+        founderMorningBriefing: stripFollowUpTrackerIfMissing(
+          mockControlCenterData.founderMorningBriefing,
+          undefined,
+        ).value,
       },
       {
         state: "mock_fallback",
@@ -212,7 +220,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderEvidenceTimeline,
     founderEvidenceTimeline,
   );
-  const normalizedFounderActionsInbox = mergeMissingFields(
+  const normalizedFounderActionsInbox = stripFollowUpTrackerIfMissing(
     mockControlCenterData.founderActionsInbox,
     founderActionsInbox,
   );
@@ -227,7 +235,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderMemoryContextPacks,
     founderMemoryContextPacks,
   );
-  const normalizedFounderMorningBriefing = mergeMissingFields(
+  const normalizedFounderMorningBriefing = stripFollowUpTrackerIfMissing(
     mockControlCenterData.founderMorningBriefing,
     founderMorningBriefing,
   );
@@ -253,6 +261,14 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
+        founderActionsInbox: stripFollowUpTrackerIfMissing(
+          mockControlCenterData.founderActionsInbox,
+          undefined,
+        ).value,
+        founderMorningBriefing: stripFollowUpTrackerIfMissing(
+          mockControlCenterData.founderMorningBriefing,
+          undefined,
+        ).value,
       },
       {
       state: "mock_fallback",
@@ -1075,45 +1091,66 @@ function normalizeFounderToday(
     };
     delete fallbackWithoutDigest.today_loop_read_model;
     delete fallbackWithoutDigest.today_loop_tightening_contract_ref;
+    delete fallbackWithoutDigest.follow_up_tracker;
+    delete fallbackWithoutDigest.follow_up_tracker_contract_ref;
     return {
       value: fallbackWithoutDigest as unknown as FounderLoopTodaySummary,
       usedFallback: true,
     };
   }
   const merged = mergeMissingFields(mockControlCenterData.founderToday, value);
-  if (
-    value !== undefined &&
-    isPlainRecord(value) &&
-    !Object.prototype.hasOwnProperty.call(value, "today_loop_read_model")
-  ) {
-    const todayWithoutMockDigest = {
-      ...(merged.value as unknown as Record<string, unknown>),
-    };
-    delete todayWithoutMockDigest.today_loop_read_model;
-    delete todayWithoutMockDigest.today_loop_tightening_contract_ref;
-    return {
-      value: todayWithoutMockDigest as unknown as FounderLoopTodaySummary,
-      usedFallback: merged.usedFallback,
-    };
+  const valueRecord = value as unknown as Record<string, unknown>;
+  const normalized = {
+    ...(merged.value as unknown as Record<string, unknown>),
+  };
+  if (Object.prototype.hasOwnProperty.call(valueRecord, "today_loop_read_model")) {
+    normalized.today_loop_read_model = valueRecord.today_loop_read_model;
+    normalized.today_loop_tightening_contract_ref =
+      valueRecord.today_loop_tightening_contract_ref;
+  } else {
+    delete normalized.today_loop_read_model;
+    delete normalized.today_loop_tightening_contract_ref;
   }
-  if (
-    value !== undefined &&
-    isPlainRecord(value) &&
-    Object.prototype.hasOwnProperty.call(value, "today_loop_read_model")
-  ) {
-    const todayWithExactDigest = {
-      ...(merged.value as unknown as Record<string, unknown>),
-      today_loop_read_model: (value as unknown as Record<string, unknown>)
-        .today_loop_read_model,
-      today_loop_tightening_contract_ref: (value as unknown as Record<string, unknown>)
-        .today_loop_tightening_contract_ref,
-    };
-    return {
-      value: todayWithExactDigest as unknown as FounderLoopTodaySummary,
-      usedFallback: merged.usedFallback,
-    };
+  if (Object.prototype.hasOwnProperty.call(valueRecord, "follow_up_tracker")) {
+    normalized.follow_up_tracker = valueRecord.follow_up_tracker;
+    normalized.follow_up_tracker_contract_ref =
+      valueRecord.follow_up_tracker_contract_ref;
+  } else {
+    delete normalized.follow_up_tracker;
+    delete normalized.follow_up_tracker_contract_ref;
   }
-  return merged;
+  return {
+    value: normalized as unknown as FounderLoopTodaySummary,
+    usedFallback: merged.usedFallback,
+  };
+}
+
+function stripFollowUpTrackerIfMissing<T>(
+  fallback: T,
+  value: T | undefined,
+): { value: T; usedFallback: boolean } {
+  const merged = mergeMissingFields(fallback, value);
+  if (
+    value === undefined ||
+    !Object.prototype.hasOwnProperty.call(
+      value as Record<string, unknown>,
+      "follow_up_tracker",
+    )
+  ) {
+    const withoutMockTracker = { ...(merged.value as Record<string, unknown>) };
+    delete withoutMockTracker.follow_up_tracker;
+    delete withoutMockTracker.follow_up_tracker_contract_ref;
+    return { value: withoutMockTracker as T, usedFallback: merged.usedFallback };
+  }
+  return {
+    value: {
+      ...(merged.value as Record<string, unknown>),
+      follow_up_tracker: (value as Record<string, unknown>).follow_up_tracker,
+      follow_up_tracker_contract_ref: (value as Record<string, unknown>)
+        .follow_up_tracker_contract_ref,
+    } as T,
+    usedFallback: merged.usedFallback,
+  };
 }
 
 function normalizeFounderMemoryWorkbench(

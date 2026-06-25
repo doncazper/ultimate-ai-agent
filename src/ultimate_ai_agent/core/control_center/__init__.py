@@ -34,6 +34,15 @@ from ultimate_ai_agent.core.control_center.today_loop import (
     TodayLoopReadModel,
     build_today_loop_read_model,
 )
+from ultimate_ai_agent.core.control_center.follow_up_tracker import (
+    FOLLOW_UP_TRACKER_CATEGORY_ORDER,
+    FOLLOW_UP_TRACKER_CONTRACT_REF,
+    FOLLOW_UP_TRACKER_READ_MODEL_SOURCE,
+    FOLLOW_UP_TRACKER_REQUIRED_BLOCKED_REFS,
+    FollowUpTrackerItem,
+    FollowUpTrackerReadModel,
+    build_follow_up_tracker_read_model,
+)
 from ultimate_ai_agent.core.control_center.actions import (
     ControlCenterActionPreviewDecision,
     ControlCenterActionPreviewRequest,
@@ -120,6 +129,10 @@ __all__ = [
     "FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF",
     "FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF",
     "FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND",
+    "FOLLOW_UP_TRACKER_CATEGORY_ORDER",
+    "FOLLOW_UP_TRACKER_CONTRACT_REF",
+    "FOLLOW_UP_TRACKER_READ_MODEL_SOURCE",
+    "FOLLOW_UP_TRACKER_REQUIRED_BLOCKED_REFS",
     "TODAY_LOOP_LANE_ORDER",
     "TODAY_LOOP_READ_MODEL_SOURCE",
     "TODAY_LOOP_REQUIRED_BLOCKED_REFS",
@@ -132,6 +145,8 @@ __all__ = [
     "FounderLoopActionEnvelopePromotionRequest",
     "FounderLoopLocalTaskCommitReceipt",
     "FounderLoopLocalTaskCommitRequest",
+    "FollowUpTrackerItem",
+    "FollowUpTrackerReadModel",
     "TodayLoopDigestItem",
     "TodayLoopLane",
     "TodayLoopReadModel",
@@ -154,6 +169,7 @@ __all__ = [
     "build_operator_loop_summary",
     "build_provider_credential_readiness_summary",
     "build_control_center_manifest",
+    "build_follow_up_tracker_read_model",
     "build_today_loop_read_model",
     "preview_control_center_action",
 ]

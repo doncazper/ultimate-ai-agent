@@ -21,6 +21,7 @@ import type {
   FounderLoopEvidenceTimelineEvent,
   FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
+  FounderLoopFollowUpTrackerReadModel,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopMemoryContextPackProposal,
   FounderLoopMemoryContextPackActionProposalReceipt,
@@ -2104,6 +2105,182 @@ function TodayLoopReadModelPanel({ today }: { today: FounderLoopTodaySummary }) 
   );
 }
 
+function FollowUpTrackerPanel({
+  tracker,
+}: {
+  tracker?: FounderLoopFollowUpTrackerReadModel;
+}) {
+  if (!tracker) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Follow-up tracker</h3>
+          <span>backend tracker missing</span>
+        </div>
+        <p className="muted">
+          The backend did not return the Product Loop 004 follow-up tracker.
+          Control Center will not infer promises, pending replies, deferred
+          decisions, or relationship follow-ups from fallback-only state.
+        </p>
+      </article>
+    );
+  }
+
+  const items = tracker.items.slice(0, 8);
+  const categoryCounts = {
+    relationship_follow_up: tracker.relationship_follow_up_refs.length,
+    promise: tracker.promise_refs.length,
+    open_loop: tracker.open_loop_refs.length,
+    pending_reply: tracker.pending_reply_refs.length,
+    deferred_decision: tracker.deferred_decision_refs.length,
+  };
+  const categoryLabels = {
+    relationship_follow_up: "Relationship follow-ups",
+    promise: "Promises",
+    open_loop: "Open loops",
+    pending_reply: "Pending replies",
+    deferred_decision: "Deferred decisions",
+  };
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Follow-up tracker</h3>
+        <span>{tracker.status}</span>
+      </div>
+      <p>
+        Review-only local follow-up refs from backend-owned memory and Founder
+        Loop records. No reminders, messages, source fetches, connector runtime,
+        task creation, provider calls, memory writes, context injection, action
+        execution, or production authority are authorized.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={tracker.contract_ref} />
+        <DetailTerm label="Source" value={tracker.source} />
+        <DetailTerm
+          label="Safe refs only"
+          value={tracker.safe_refs_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Raw content"
+          value={tracker.raw_content_included ? "included" : "omitted"}
+        />
+        <DetailTerm
+          label="Reminder scheduler"
+          value={tracker.reminder_scheduler_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Message send"
+          value={tracker.message_send_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector reads"
+          value={tracker.connector_read_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector writes"
+          value={tracker.connector_write_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Email/calendar fetch"
+          value={tracker.email_calendar_fetch_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Task creation"
+          value={
+            tracker.automatic_task_creation_enabled ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Action execution"
+          value={tracker.action_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Runtime model calls"
+          value={tracker.runtime_model_calls_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Hidden memory write"
+          value={
+            tracker.hidden_memory_write_authorized ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={tracker.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Production authority"
+          value={tracker.production_authority_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm label="Boundary" value={tracker.authority_boundary} />
+      </dl>
+      <ul className="ref-list">
+        {tracker.category_order.map((category) => (
+          <li key={category}>
+            {categoryLabels[category]}: {categoryCounts[category]}
+          </li>
+        ))}
+      </ul>
+      <ul className="ref-list">
+        {items.map((item) => (
+          <li key={item.item_ref}>
+            <strong>{item.title}</strong>: {item.status}; {item.why_shown} Next:{" "}
+            {item.next_safe_action}
+            <dl className="detail-list compact">
+              <DetailTerm label="Category" value={item.category} />
+              <DetailTerm label="Source state" value={item.source_state} />
+              <DetailTerm
+                label="Stale state"
+                value={item.stale_state ?? "not marked stale"}
+              />
+              <DetailTerm
+                label="No-source state"
+                value={item.no_source_state ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Review required"
+                value={item.review_required ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Local review only"
+                value={item.local_review_only ? "yes" : "no"}
+              />
+              <DetailTerm label="Item boundary" value={item.authority_boundary} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Follow-up refs: none"
+              refs={[
+                item.item_ref,
+                item.relationship_ref,
+                item.promise_ref,
+                item.opportunity_ref,
+                item.action_ref,
+                ...item.memory_refs,
+                ...item.source_refs,
+                ...item.evidence_refs,
+                ...item.receipt_refs,
+                ...item.blocked_state_refs,
+              ].filter(isPresent)}
+            />
+          </li>
+        ))}
+      </ul>
+      <RefListWithFallback
+        emptyLabel="No-source follow-ups: none"
+        refs={tracker.no_source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Stale follow-ups: none"
+        refs={tracker.stale_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Follow-up blocked refs: none"
+        refs={tracker.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
 function DailyLoopProductBehaviorPanel({
   today,
 }: {
@@ -2111,6 +2288,7 @@ function DailyLoopProductBehaviorPanel({
 }) {
   const hasDailyLoop =
     today.daily_loop_summary ||
+    today.follow_up_tracker ||
     today.source_readiness_items?.length ||
     today.crm_lite_followups?.length ||
     today.memory_why_shown_items?.length ||
@@ -2130,6 +2308,7 @@ function DailyLoopProductBehaviorPanel({
           items={today.source_readiness_items ?? []}
           posture={today.source_readiness_posture}
         />
+        <FollowUpTrackerPanel tracker={today.follow_up_tracker} />
         <ReviewQueueGroupCards groups={today.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={today.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={today.memory_why_shown_items ?? []} />
@@ -3056,6 +3235,7 @@ export function ActionInboxSurfacePanel({
       </article>
       {inbox.source_readiness_items?.length ||
       inbox.source_readiness_proposal_candidates?.length ||
+      inbox.follow_up_tracker ||
       inbox.crm_lite_followups?.length ||
       inbox.memory_why_shown_items?.length ||
       inbox.review_queue_groups?.length ||
@@ -3085,6 +3265,7 @@ export function ActionInboxSurfacePanel({
               />
             </dl>
           </article>
+          <FollowUpTrackerPanel tracker={inbox.follow_up_tracker} />
           <ReviewQueueGroupCards groups={inbox.review_queue_groups ?? []} />
           <CrmLiteFollowUpCards items={inbox.crm_lite_followups ?? []} />
           <MemoryWhyShownCards items={inbox.memory_why_shown_items ?? []} />
@@ -3508,6 +3689,7 @@ function BriefingDailyLoopPanel({
   const hasDailyLoop =
     briefing.daily_loop_summary ||
     briefing.daily_loop_sections?.length ||
+    briefing.follow_up_tracker ||
     briefing.source_readiness_items?.length ||
     briefing.crm_lite_followups?.length ||
     briefing.memory_why_shown_items?.length ||
@@ -3528,6 +3710,7 @@ function BriefingDailyLoopPanel({
           items={briefing.source_readiness_items ?? []}
           posture={briefing.source_readiness_posture}
         />
+        <FollowUpTrackerPanel tracker={briefing.follow_up_tracker} />
         <ReviewQueueGroupCards groups={briefing.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={briefing.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={briefing.memory_why_shown_items ?? []} />

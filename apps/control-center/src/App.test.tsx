@@ -421,6 +421,9 @@ describe("Web Control Center shell", () => {
       .today_loop_read_model;
     delete (partialToday as { today_loop_tightening_contract_ref?: unknown })
       .today_loop_tightening_contract_ref;
+    delete (partialToday as { follow_up_tracker?: unknown }).follow_up_tracker;
+    delete (partialToday as { follow_up_tracker_contract_ref?: unknown })
+      .follow_up_tracker_contract_ref;
     const fetchMock = vi.fn(async (url: string) => {
       const urlText = String(url);
       if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
@@ -449,6 +452,13 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByText("python_core_today_loop_read_model"),
     ).not.toBeInTheDocument();
+    expect(screen.getAllByText("backend tracker missing").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("contract-ref:product-loop-004-follow-up-tracker:v1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_follow_up_tracker_read_model"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/backend review refs/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^\d+ changed refs$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/backend blocker refs/i)).not.toBeInTheDocument();
@@ -465,10 +475,54 @@ describe("Web Control Center shell", () => {
       expect(data.connection.warnings).toContain("EXTERNAL_API_BASE_URL_BLOCKED");
       expect(data.founderToday.today_loop_read_model).toBeUndefined();
       expect(data.founderToday.today_loop_tightening_contract_ref).toBeUndefined();
+      expect(data.founderToday.follow_up_tracker).toBeUndefined();
+      expect(data.founderToday.follow_up_tracker_contract_ref).toBeUndefined();
+      expect(data.founderActionsInbox.follow_up_tracker).toBeUndefined();
+      expect(data.founderActionsInbox.follow_up_tracker_contract_ref).toBeUndefined();
+      expect(data.founderMorningBriefing.follow_up_tracker).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.follow_up_tracker_contract_ref,
+      ).toBeUndefined();
     } finally {
       vi.unstubAllEnvs();
       vi.resetModules();
     }
+  });
+
+  it("renders backend follow-up tracker even when the Today loop digest is absent", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (partialToday as { today_loop_read_model?: unknown })
+      .today_loop_read_model;
+    delete (partialToday as { today_loop_tightening_contract_ref?: unknown })
+      .today_loop_tightening_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: partialToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^Today$/i })).toBeInTheDocument();
+    expect(screen.getAllByText("backend digest missing").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("contract-ref:product-loop-004-follow-up-tracker:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python_core_follow_up_tracker_read_model"),
+    ).toBeInTheDocument();
   });
 
   it("renders the Today loop digest only from the backend Today endpoint", async () => {
@@ -521,6 +575,39 @@ describe("Web Control Center shell", () => {
     expect(
       within(todayDigest).getByText("Runtime model calls").nextElementSibling,
     ).toHaveTextContent("blocked");
+    expect(
+      screen.getByText("contract-ref:product-loop-004-follow-up-tracker:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python_core_follow_up_tracker_read_model"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Message send/i)[0].nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    for (const label of [
+      "Reminder scheduler",
+      "Connector reads",
+      "Connector writes",
+      "Email/calendar fetch",
+      "Task creation",
+      "Runtime model calls",
+      "Hidden memory write",
+      "Context injection",
+      "Production authority",
+    ]) {
+      expect(screen.getAllByText(label)[0].nextElementSibling).toHaveTextContent(
+        "blocked",
+      );
+    }
+    expect(screen.getByText("Relationship follow-ups: 1")).toBeInTheDocument();
+    expect(screen.getByText("Promises: 1")).toBeInTheDocument();
+    expect(screen.getByText("Pending replies: 1")).toBeInTheDocument();
+    expect(screen.getAllByText("No-source state")[0].nextElementSibling).toHaveTextContent(
+      "no",
+    );
+    expect(screen.getAllByText("Local review only")[0].nextElementSibling).toHaveTextContent(
+      "yes",
+    );
   });
 
   it("opens Morning Briefing as the daily local home without new authority", async () => {

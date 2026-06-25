@@ -477,6 +477,16 @@ decision-first rendering and `scripts/inspect_today_loop.py` CLI parity. The
 lane is local read-model readability only; connector reads, source refresh,
 model/provider calls, automatic memory writes, context injection, action
 execution, public beta, and production authority remain blocked.
+
+Product Loop 004 Follow-Up Tracker
+Goal met: Today, Action Inbox, and Morning Briefing now expose a backend-owned
+`follow_up_tracker` for reviewed relationship follow-ups, promises, open loops,
+pending replies, and deferred decisions with Control Center rendering and
+`scripts/inspect_follow_up_tracker.py` CLI parity. The lane is local
+review-only posture over safe refs; reminders, messages, email/calendar fetch,
+connector runtime, automatic task creation, action execution, model/provider
+calls, hidden memory writes, context injection, public beta, and production
+authority remain blocked.
 ```
 
 ## QA / Verification
