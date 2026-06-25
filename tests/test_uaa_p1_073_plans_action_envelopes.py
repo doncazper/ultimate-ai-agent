@@ -39,6 +39,10 @@ def test_reviewable_plan_action_envelope_requires_exact_scope_and_safe_refs() ->
     assert payload["approval_ref_authority"] is False
     assert payload["approval_grant_capture_enabled"] is False
     assert payload["action_execution_enabled"] is False
+    assert payload["tool_execution_enabled"] is False
+    assert payload["workflow_execution_enabled"] is False
+    assert payload["browser_execution_enabled"] is False
+    assert payload["connector_runtime_enabled"] is False
     assert payload["connector_write_enabled"] is False
     assert payload["shell_subprocess_execution_enabled"] is False
     assert payload["model_provider_authority_allowed"] is False
@@ -52,6 +56,10 @@ def test_reviewable_plan_action_envelope_requires_exact_scope_and_safe_refs() ->
         ("approval_ref_authority", True),
         ("approval_grant_capture_enabled", True),
         ("action_execution_enabled", True),
+        ("tool_execution_enabled", True),
+        ("workflow_execution_enabled", True),
+        ("browser_execution_enabled", True),
+        ("connector_runtime_enabled", True),
         ("connector_write_enabled", True),
         ("shell_subprocess_execution_enabled", True),
         ("model_provider_authority_allowed", True),
@@ -138,6 +146,10 @@ def test_review_posture_rows_and_authority_posture_are_review_only() -> None:
     assert posture["approval_grant_capture_enabled"] is False
     assert posture["action_execution_enabled"] is False
     assert posture["state_change_enabled"] is False
+    assert posture["tool_execution_enabled"] is False
+    assert posture["workflow_execution_enabled"] is False
+    assert posture["browser_execution_enabled"] is False
+    assert posture["connector_runtime_enabled"] is False
     assert posture["connector_write_enabled"] is False
     assert posture["shell_subprocess_execution_enabled"] is False
     assert posture["model_provider_authority_allowed"] is False

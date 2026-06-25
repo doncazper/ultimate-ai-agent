@@ -114,6 +114,10 @@ from ultimate_ai_agent.core.control_center.action_inbox_decision_lanes import (
     ACTION_INBOX_DECISION_LANE_CONTRACT_REF,
     build_action_inbox_decision_lane_read_model,
 )
+from ultimate_ai_agent.core.control_center.plans_to_actions import (
+    PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF,
+    build_plans_to_actions_bridge_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -3661,6 +3665,10 @@ def _plan_action_envelope_contract_payload(plan: dict[str, Any]) -> dict[str, An
         "approval_ref_authority": payload["approval_ref_authority"],
         "approval_grant_capture_enabled": payload["approval_grant_capture_enabled"],
         "action_execution_enabled": payload["action_execution_enabled"],
+        "tool_execution_enabled": payload["tool_execution_enabled"],
+        "workflow_execution_enabled": payload["workflow_execution_enabled"],
+        "browser_execution_enabled": payload["browser_execution_enabled"],
+        "connector_runtime_enabled": payload["connector_runtime_enabled"],
         "connector_write_enabled": payload["connector_write_enabled"],
         "shell_subprocess_execution_enabled": payload[
             "shell_subprocess_execution_enabled"
@@ -4025,6 +4033,16 @@ def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
             "approval_grant_capture_enabled"
         ],
         "action_envelope_execution_enabled": payload["action_execution_enabled"],
+        "action_envelope_tool_execution_enabled": payload["tool_execution_enabled"],
+        "action_envelope_workflow_execution_enabled": payload[
+            "workflow_execution_enabled"
+        ],
+        "action_envelope_browser_execution_enabled": payload[
+            "browser_execution_enabled"
+        ],
+        "action_envelope_connector_runtime_enabled": payload[
+            "connector_runtime_enabled"
+        ],
         "action_envelope_connector_write_enabled": payload["connector_write_enabled"],
         "action_envelope_shell_execution_enabled": payload[
             "shell_subprocess_execution_enabled"
@@ -4874,6 +4892,7 @@ class FounderLoopRepository:
 
     def today_summary(self, *, limit: int = 6) -> dict[str, Any]:
         actions = self.list_action_inbox(limit=limit)
+        bridge_action_items = self.list_action_inbox(limit=50)
         plans = self.list_plan_summaries(limit=3)
         memory_items = self.list_memory_review_queue(limit=3)
         briefing_items = self.list_briefing_items(limit=3)
@@ -4976,6 +4995,12 @@ class FounderLoopRepository:
             source_readiness_items=source_readiness_items,
             evidence_timeline=evidence_timeline,
         )
+        plans_to_actions_bridge_read_model = (
+            build_plans_to_actions_bridge_read_model(
+                plans=plans,
+                action_items=bridge_action_items,
+            )
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -5072,6 +5097,12 @@ class FounderLoopRepository:
             "today_loop_read_model": today_loop_read_model,
             "follow_up_tracker_contract_ref": FOLLOW_UP_TRACKER_CONTRACT_REF,
             "follow_up_tracker": follow_up_tracker,
+            "plans_to_actions_bridge_contract_ref": (
+                PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF
+            ),
+            "plans_to_actions_bridge_read_model": (
+                plans_to_actions_bridge_read_model
+            ),
             "daily_loop_summary": daily_loop_summary,
             "source_readiness_route_ref": source_readiness["route_ref"],
             "source_readiness_items": source_readiness_items,
@@ -7398,6 +7429,12 @@ class FounderLoopRepository:
         action_inbox_decision_lane_read_model = (
             build_action_inbox_decision_lane_read_model(actions=items)
         )
+        plans_to_actions_bridge_read_model = (
+            build_plans_to_actions_bridge_read_model(
+                plans=self.list_plan_summaries(limit=3),
+                action_items=items,
+            )
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_review_queue",
@@ -7430,6 +7467,12 @@ class FounderLoopRepository:
             ),
             "action_inbox_decision_lane_read_model": (
                 action_inbox_decision_lane_read_model
+            ),
+            "plans_to_actions_bridge_contract_ref": (
+                PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF
+            ),
+            "plans_to_actions_bridge_read_model": (
+                plans_to_actions_bridge_read_model
             ),
             "items": items,
             "approval_required_before_mutation": True,
