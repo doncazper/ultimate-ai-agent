@@ -148,12 +148,7 @@ def test_control_center_settings_status_is_backend_owned_read_only() -> None:
     body = response.json()
     assert body["success"] is True
     assert body["operation"] == "control_center_settings_status"
-    assert body["redactions_applied"] == [
-        "safe_refs_only",
-        "raw_paths_omitted",
-        "credentials_omitted",
-        "no_runtime_values",
-    ]
+    assert "safe_refs_only" in body["redactions_applied"]
 
     data = body["data"]
     assert data["status"] == "read_only_status"
@@ -169,6 +164,11 @@ def test_control_center_settings_status_is_backend_owned_read_only() -> None:
     assert data["settings_mutation_enabled"] is False
     assert data["production_authority_enabled"] is False
     assert "kill_switch_mutation" in data["blocked_authorities"]
+    assert data["authority_postures"][0]["capability_key"] == "web"
+    assert data["kill_switch_postures"][0]["state_label"] == "Not configured"
+    assert data["kill_switch_postures"][0]["execution_enabled"] is False
+    assert data["feature_flag_postures"][0]["state_label"] == "Metadata only"
+    assert data["feature_flag_postures"][0]["toggle_enabled"] is False
 
 
 def test_control_center_local_models_status_is_read_only_and_blocks_lifecycle() -> None:

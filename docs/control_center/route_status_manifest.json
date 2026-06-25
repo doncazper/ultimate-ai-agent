@@ -730,8 +730,8 @@
       "side_effect_class": "validation_only",
       "risk_class": "high",
       "release_status": "status_available_not_completion",
-      "approval_requirement": "No approval is required for read-only Settings status. Exact approval is required before any setting can enable runtime authority, persistence, lifecycle behavior, or mutation.",
-      "evidence_audit_output": "Backend-owned settings maturity gate, feature-flag posture, kill-switch posture, route safety, and blocked authority refs only.",
+      "approval_requirement": "No approval is required for read-only Settings status. Exact approval is required before any setting can enable runtime authority, persistence, lifecycle behavior, provider configuration, kill-switch execution, revocation execution, installer behavior, or mutation.",
+      "evidence_audit_output": "Backend-owned settings maturity gate, feature-flag posture, kill-switch posture, blocked/degraded/partial authority posture labels, route safety, and blocked authority refs only.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -743,7 +743,11 @@
       ],
       "missing_backend_routes": [
         "loopback-auth-status",
-        "reviewed-local-runtime-settings"
+        "reviewed-local-runtime-settings",
+        "provider-configuration",
+        "kill-switch-execution",
+        "revocation-execution",
+        "runtime-lifecycle-mutation"
       ]
     }
   ],

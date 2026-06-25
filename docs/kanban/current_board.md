@@ -26,8 +26,9 @@ Morning Briefing source-readiness posture, Memory Review candidate-review
 posture, read-only email/calendar metadata contracts, the Human-Readable
 Evidence Timeline, the draft-only email response proposal contract, and the
 relationship/follow-up memory schema have scoped implementation slices ready
-for review. The FCC-P1-011 Settings kill-switch and feature-flag spec is now a
-docs-only spec slice ready for review. FCC-P1-012 now aligns Founder Command
+for review. The FCC-P1-011 Settings kill-switch and feature-flag spec now has
+Product Loop 011 read-only Settings posture labels without mutation authority.
+FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
 accepted guardrails for route extraction and CI lane evidence. UAA-P1-054 adds
@@ -577,6 +578,21 @@ model/provider calls, no prompt/response/provider exchange storage, no memory
 truth authority, no context injection, no live web, no shell/browser execution,
 no public beta, and no production authority.
 No-authority phrases: no approval authority; no rollback execution; no action execution; no connector writes; no provider SDK calls; no runtime model/provider calls; no prompt/response/provider exchange storage; no memory truth authority; no context injection; no live web; no shell/browser execution; no public beta; no production authority.
+
+Product Loop 011 Settings and kill-switch clarity
+Goal met: Settings now exposes backend-owned `authority_postures`,
+`kill_switch_postures`, and `feature_flag_postures` from
+`GET /control-center/settings/status` with blocked/degraded/partial labels for
+web, providers, connectors, memory context use, model runtime, local model
+lifecycle, and platform capabilities. `scripts/inspect_settings_authority_posture.py`
+provides CLI parity over the same safe schema. The UI renders these labels
+without enabling controls. This lane adds no toggles that grant authority, no
+provider configuration, no installer behavior, no runtime activation, no
+feature-flag writes, no kill-switch execution, no revocation execution, no
+connector runtime, no connector writes, no model calls, no provider SDK calls,
+no live web, no shell/browser execution, no public beta, no production
+readiness claims, and no production authority.
+No-authority phrases: no toggles that grant authority; no provider configuration; no installer behavior; no runtime activation; no feature-flag writes; no kill-switch execution; no revocation execution; no connector runtime; no connector writes; no model calls; no provider SDK calls; no live web; no shell/browser execution; no public beta; no production readiness claims; no production authority.
 ```
 
 ## QA / Verification

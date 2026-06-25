@@ -4031,8 +4031,14 @@ export interface ControlCenterSettingsStatus {
   maturity_manifest_ref: string;
   ladder_doc_ref: string;
   verifier_ref: string;
+  settings_authority_contract_ref: string;
+  settings_authority_verifier_ref: string;
   route_status_manifest_ref: string;
   api_manifest_route_ref: string;
+  runtime_readiness_route_ref: string;
+  runtime_capability_matrix_ref: string;
+  platform_capability_snapshot_ref: string;
+  platform_capability_inspection_ref: string;
   review_proposals: string[];
   proposal_review_only: boolean;
   feature_flag_posture: string;
@@ -4041,10 +4047,77 @@ export interface ControlCenterSettingsStatus {
   feature_flag_mutation_enabled: boolean;
   kill_switch_mutation_enabled: boolean;
   settings_mutation_enabled: boolean;
+  callable_runtime_authority_enabled: boolean;
+  provider_configuration_enabled: boolean;
+  installer_behavior_enabled: boolean;
+  settings_toggle_grants_authority: boolean;
+  catalog_visibility_grants_authority: boolean;
   production_authority_enabled: boolean;
+  authority_postures: ControlCenterSettingsAuthorityPosture[];
+  kill_switch_postures: ControlCenterSettingsKillSwitchPosture[];
+  feature_flag_postures: ControlCenterSettingsFeatureFlagPosture[];
   blocked_authorities: string[];
   missing_contracts: string[];
   redactions_applied: string[];
+}
+
+export interface ControlCenterSettingsAuthorityPosture {
+  capability_key:
+    | "web"
+    | "providers"
+    | "connectors"
+    | "memory_context_use"
+    | "model_runtime"
+    | "local_model_lifecycle"
+    | "platform_capabilities";
+  label: string;
+  state_label: "Blocked" | "Degraded" | "Partial" | "Metadata only";
+  posture_ref: string;
+  source_refs: string[];
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  callable_runtime_authority: boolean;
+  setting_toggle_grants_authority: boolean;
+  provider_configuration_enabled: boolean;
+  connector_write_enabled: boolean;
+  context_injection_enabled: boolean;
+  model_call_enabled: boolean;
+  local_lifecycle_enabled: boolean;
+  installer_behavior_enabled: boolean;
+  production_authority_enabled: boolean;
+  authority_from_visibility: boolean;
+}
+
+export interface ControlCenterSettingsKillSwitchPosture {
+  posture_ref: string;
+  label: string;
+  state_label: "Not configured" | "Blocked" | "Metadata only";
+  safe_summary: string;
+  revocation_ref: string;
+  safe_disable_ref: string;
+  evidence_refs: string[];
+  next_safe_action: string;
+  execution_enabled: boolean;
+  revocation_execution_enabled: boolean;
+  approval_revocation_enabled: boolean;
+  authority_granted: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface ControlCenterSettingsFeatureFlagPosture {
+  posture_ref: string;
+  label: string;
+  state_label: "Metadata only" | "Blocked" | "Partial";
+  safe_summary: string;
+  owner_ref: string;
+  evidence_refs: string[];
+  next_safe_action: string;
+  writable: boolean;
+  toggle_enabled: boolean;
+  runtime_activation_enabled: boolean;
+  authority_granted: boolean;
+  production_authority_enabled: boolean;
 }
 
 export interface ControlCenterLocalModelsStatus {

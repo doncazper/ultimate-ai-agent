@@ -530,17 +530,34 @@
       "blocked_capabilities": [
         "missing_backend:loopback-auth-status",
         "missing_backend:reviewed-local-runtime-settings",
+        "missing_backend:provider-configuration",
+        "missing_backend:kill-switch-execution",
+        "missing_backend:revocation-execution",
+        "missing_backend:runtime-lifecycle-mutation",
         "mutating_settings_controls",
+        "feature_flag_writes",
+        "provider_configuration",
+        "installer_behavior",
+        "runtime_activation",
+        "connector_runtime",
+        "public_beta_claim",
         "public_distribution_claim",
         "production_readiness_claim",
         "production_authority",
+        "model_calls",
+        "provider_sdk_calls",
+        "live_web",
+        "shell_browser_execution",
         "broad_runtime_execution",
         "connector_write"
       ],
       "evidence_refs": [
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
-        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "docs/control_center/PRODUCT_LOOP_011_SETTINGS_KILL_SWITCH_CLARITY.md",
+        "scripts/inspect_settings_authority_posture.py",
+        "scripts/verify_product_loop_011_settings_kill_switch_clarity.py"
       ],
       "owner": "operator-settings"
     },
