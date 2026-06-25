@@ -4186,11 +4186,11 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("founder-loop-storage:mock-local-sqlite-jsonl"),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByText("Memory writes").some((node) =>
-        node.nextElementSibling?.textContent?.match(/disabled/i),
-      ),
-    ).toBe(true);
+	    expect(
+	      screen.getAllByText("Memory writes").some((node) =>
+	        node.nextElementSibling?.textContent?.match(/blocked|receipt-bound/i),
+	      ),
+	    ).toBe(true);
     expect(
       screen.getByText("Memory deletes").nextElementSibling,
     ).toHaveTextContent("disabled");
@@ -4213,14 +4213,48 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("memory-review:founder-loop-preferences").length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("preference").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Memory Workbench V1/i })).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/memory/workbench")).toBeInTheDocument();
-    expect(
-      screen.getByText("contract-ref:fcc-mem-001-memory-workbench:v1"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /Ranked recall diagnostics/i }),
-    ).toBeInTheDocument();
+	    expect(screen.getByRole("heading", { name: /Memory Workbench V1/i })).toBeInTheDocument();
+	    expect(
+	      screen.getByRole("heading", { name: /Memory lifecycle posture/i }),
+	    ).toBeInTheDocument();
+	    expect(screen.getByText("GET /control-center/memory/workbench")).toBeInTheDocument();
+	    expect(
+	      screen.getByText("contract-ref:fcc-mem-001-memory-workbench:v1"),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText("contract-ref:memory-merge-supersede-posture:v1"),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText(/Duplicate review: 1 entry; merge receipt present/i),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText(/Stale review: 1 entry; defer receipt present/i),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText(/Conflict review: 1 entry; supersede receipt present/i),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText(/Corrected: 1 entry; correction receipt present/i),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText(/Merged: 1 entry; merge receipt present/i),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText(/Superseded: 1 entry; supersede receipt present/i),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText(/Forget request: 1 entry; forget-request receipt present/i),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getAllByText("receipt:memory-review:merge:mock-peer").length,
+	    ).toBeGreaterThan(0);
+	    expect(
+	      screen.getAllByText("blocked-state:memory-lifecycle-no-hard-delete")
+	        .length,
+	    ).toBeGreaterThan(0);
+	    expect(
+	      screen.getByRole("heading", { name: /Ranked recall diagnostics/i }),
+	    ).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1"),
     ).toBeInTheDocument();
@@ -4231,11 +4265,11 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("Embeddings/vector/provider").nextElementSibling,
     ).toHaveTextContent("blocked");
-    expect(
-      screen.getAllByText("Memory writes").some((node) =>
-        node.nextElementSibling?.textContent?.match(/disabled/i),
-      ),
-    ).toBe(true);
+	    expect(
+	      screen.getAllByText("Memory writes").some((node) =>
+	        node.nextElementSibling?.textContent?.match(/blocked|receipt-bound/i),
+	      ),
+	    ).toBe(true);
     expect(
       screen.getAllByText("rank-include-ref:lexical-safe-summary-title-match")
         .length,
@@ -4412,7 +4446,7 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/authoritative truth/i)).not.toBeInTheDocument();
   });
 
-  it("records a Memory Review decision receipt with safe refs only", async () => {
+	  it("records a Memory Review decision receipt with safe refs only", async () => {
     const candidateRef =
       "business-memory-candidate:preference:memory-review-founder-loop-preferences";
     const receipt = {
@@ -4529,10 +4563,108 @@ describe("Web Control Center shell", () => {
     expect(bodyText).not.toContain("raw");
     expect(bodyText).not.toContain("prompt");
     expect(bodyText).not.toContain("response");
-    expect(bodyText).not.toContain("provider_payload");
-  });
+	    expect(bodyText).not.toContain("provider_payload");
+	  });
 
-  it("attaches a non-persistent local bearer to memory read and write helpers", async () => {
+	  it("does not backfill lifecycle posture or decisions from mocks for partial backend workbench responses", async () => {
+	    const partialWorkbench = {
+	      ...mockControlCenterData.founderMemoryWorkbench,
+	      items: mockControlCenterData.founderMemoryWorkbench.items.map((item) => {
+	        const { available_lifecycle_decisions: _available, ...rest } = item;
+	        return rest;
+	      }),
+	    };
+	    delete (partialWorkbench as { lifecycle_posture?: unknown }).lifecycle_posture;
+	    const fetchMock = vi.fn(async (url: string) => {
+	      const urlText = String(url);
+	      if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
+	        return new Response(
+	          JSON.stringify({ ok: true, result: partialWorkbench }),
+	          {
+	            status: 200,
+	            headers: { "Content-Type": "application/json" },
+	          },
+	        );
+	      }
+	      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+	        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+	          status: 200,
+	          headers: { "Content-Type": "application/json" },
+	        });
+	      }
+	      throw new Error(`unexpected request ${urlText}`);
+	    });
+	    vi.stubGlobal("fetch", fetchMock);
+	    window.history.pushState({}, "", "/memory");
+	    render(<App />);
+
+	    expect(
+	      await screen.findByRole("heading", { name: /^Memory Review$/i }),
+	    ).toBeInTheDocument();
+	    expect(screen.getByText("backend posture missing")).toBeInTheDocument();
+	    expect(
+	      screen.queryByText("contract-ref:memory-merge-supersede-posture:v1"),
+	    ).not.toBeInTheDocument();
+	    expect(
+	      screen.queryByText("receipt:memory-review:merge:mock-peer"),
+	    ).not.toBeInTheDocument();
+	    expect(
+	      screen.queryByRole("button", { name: /Record accept receipt/i }),
+	    ).not.toBeInTheDocument();
+	    expect(
+	      screen.queryByRole("button", { name: /Record merge receipt/i }),
+	    ).not.toBeInTheDocument();
+	  });
+
+	  it("does not backfill nested lifecycle posture fields from mocks", async () => {
+	    cleanup();
+	    const partialWorkbench = {
+	      ...mockControlCenterData.founderMemoryWorkbench,
+	      lifecycle_posture: {
+	        schema_version: "product-loop-002-memory-merge-supersede-posture.v1",
+	        contract_ref: "contract-ref:memory-merge-supersede-posture:v1",
+	        status: "partial_backend_contract_missing_lanes",
+	      },
+	    };
+	    const fetchMock = vi.fn(async (url: string) => {
+	      const urlText = String(url);
+	      if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
+	        return new Response(
+	          JSON.stringify({ ok: true, result: partialWorkbench }),
+	          {
+	            status: 200,
+	            headers: { "Content-Type": "application/json" },
+	          },
+	        );
+	      }
+	      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+	        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+	          status: 200,
+	          headers: { "Content-Type": "application/json" },
+	        });
+	      }
+	      throw new Error(`unexpected request ${urlText}`);
+	    });
+	    vi.stubGlobal("fetch", fetchMock);
+	    window.history.pushState({}, "", "/memory");
+	    render(<App />);
+
+	    expect(
+	      await screen.findByRole("heading", { name: /^Memory Review$/i }),
+	    ).toBeInTheDocument();
+	    expect(
+	      screen.getByText("partial_backend_contract_missing_lanes"),
+	    ).toBeInTheDocument();
+	    expect(screen.getByText("Lifecycle lanes: none")).toBeInTheDocument();
+	    expect(
+	      screen.queryByText(/Duplicate review: 1 entry; merge receipt present/i),
+	    ).not.toBeInTheDocument();
+	    expect(
+	      screen.queryByText("receipt:memory-review:merge:mock-peer"),
+	    ).not.toBeInTheDocument();
+	  });
+
+	  it("attaches a non-persistent local bearer to memory read and write helpers", async () => {
     const candidateRef = "memory-candidate:auth-header-test";
     const localBearer = "control-center-local-bearer-test";
     const receipt = {

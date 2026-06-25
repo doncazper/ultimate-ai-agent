@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
+    MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF,
     MEMORY_WORKBENCH_CONTRACT_REF,
     ManualMemoryCandidateRequest,
     MemoryReviewDecisionRequest,
@@ -65,6 +66,32 @@ def test_memory_workbench_read_model_groups_and_blocks_authority(tmp_path: Path)
     assert workbench["context_injection_authorized"] is False
     assert workbench["memory_truth_authority"] is False
     assert workbench["production_authority_enabled"] is False
+    lifecycle_posture = workbench["lifecycle_posture"]
+    assert lifecycle_posture["contract_ref"] == MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF
+    assert lifecycle_posture["review_only"] is True
+    assert lifecycle_posture["safe_refs_only"] is True
+    assert lifecycle_posture["hard_delete_authorized"] is False
+    assert lifecycle_posture["memory_export_authorized"] is False
+    assert lifecycle_posture["automatic_merge_authorized"] is False
+    assert lifecycle_posture["automatic_supersede_authorized"] is False
+    assert lifecycle_posture["automatic_forget_authorized"] is False
+    assert lifecycle_posture["hidden_memory_write_authorized"] is False
+    assert lifecycle_posture["context_injection_authorized"] is False
+    assert lifecycle_posture["connector_write_authorized"] is False
+    assert lifecycle_posture["model_provider_call_authorized"] is False
+    assert lifecycle_posture["production_authority_enabled"] is False
+    assert lifecycle_posture["receipt_truncation_posture"] == (
+        "bounded_by_workbench_limit_safe_refs_only"
+    )
+    assert {lane["lane_id"] for lane in lifecycle_posture["lanes"]} == {
+        "duplicate_review",
+        "stale_review",
+        "conflict_review",
+        "corrected",
+        "merged",
+        "superseded",
+        "forget_requested",
+    }
     assert {group["group_id"] for group in workbench["groups"]} == {
         "needs_review",
         "conflict",
@@ -77,6 +104,16 @@ def test_memory_workbench_read_model_groups_and_blocks_authority(tmp_path: Path)
     assert workbench["health"]["pending_review_count"] >= 1
     assert workbench["health"]["needs_attention_refs"]
     first_item = workbench["items"][0]
+    assert first_item["lifecycle_state_refs"]
+    assert first_item["available_lifecycle_decisions"]
+    assert first_item["reversible_review_posture"] == (
+        "later_receipt_can_update_review_posture_no_rollback_execution"
+    )
+    assert first_item["hard_delete_authorized"] is False
+    assert first_item["automatic_merge_authorized"] is False
+    assert first_item["automatic_supersede_authorized"] is False
+    assert first_item["automatic_forget_authorized"] is False
+    assert first_item["hidden_memory_write_authorized"] is False
     assert first_item["why_shown_refs"]
     assert first_item["quality_reason_refs"]
     serialized = json.dumps(workbench).lower()
@@ -287,6 +324,35 @@ def test_merge_and_supersede_mark_local_peer_posture_without_deletion(
     assert supersede_receipt["receipt_ref"] in superseded["evidence_refs"]
     assert repo.list_memory_review_recall_records() == []
 
+    workbench = repo.memory_workbench(limit=20)
+    lifecycle_posture = workbench["lifecycle_posture"]
+    receipt_refs_by_kind = lifecycle_posture["decision_receipt_refs_by_kind"]
+    assert merge_receipt["receipt_ref"] in receipt_refs_by_kind["merge"]
+    assert supersede_receipt["receipt_ref"] in receipt_refs_by_kind["supersede"]
+    assert "merge" in lifecycle_posture["receipt_backed_decision_kinds"]
+    assert "supersede" in lifecycle_posture["receipt_backed_decision_kinds"]
+    lanes = {lane["lane_id"]: lane for lane in lifecycle_posture["lanes"]}
+    assert lanes["merged"]["receipt_backed"] is True
+    items_by_ref = {item["review_ref"]: item for item in workbench["items"]}
+    assert items_by_ref[second["review_ref"]]["memory_ref"] in lanes["merged"][
+        "item_refs"
+    ]
+    assert lanes["superseded"]["receipt_backed"] is True
+    assert items_by_ref[third["review_ref"]]["memory_ref"] in lanes["superseded"][
+        "item_refs"
+    ]
+    for lane in lanes.values():
+        assert lane["review_only"] is True
+        assert "blocked-state:memory-lifecycle-no-hard-delete" in lane[
+            "blocked_state_refs"
+        ]
+    assert merge_receipt["receipt_ref"] in items_by_ref[second["review_ref"]][
+        "lifecycle_receipt_refs"
+    ]
+    assert supersede_receipt["receipt_ref"] in items_by_ref[third["review_ref"]][
+        "lifecycle_receipt_refs"
+    ]
+
 
 def test_merge_suppresses_primary_and_peer_recall_projections(tmp_path: Path) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop")
@@ -338,6 +404,134 @@ def test_manual_memory_candidate_rejects_raw_content_markers() -> None:
             provenance_refs=["provenance-ref:manual-note:test"],
             missing_evidence_refs=["missing-evidence-ref:manual-note:test"],
         )
+
+
+def test_memory_merge_supersede_cli_inspection_is_read_only_and_redacted(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder_loop"
+    repo = FounderLoopRepository(state_dir)
+    first = _manual_memory_candidate(repo, "cli-merge-primary")
+    second = _manual_memory_candidate(repo, "cli-merge-peer")
+    receipt = repo.record_memory_review_decision(
+        candidate_ref=str(first["review_ref"]),
+        decision="merge",
+        request=_decision_request(merge_refs=[str(second["review_ref"])]),
+        idempotency_key_ref="idempotency-ref:test-memory-merge-cli-inspection",
+    )
+    state_files_before = sorted(
+        path.relative_to(state_dir).as_posix()
+        for path in state_dir.rglob("*")
+        if path.is_file()
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(Path("scripts/inspect_memory_merge_supersede_posture.py")),
+            "--state-dir",
+            str(state_dir),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(completed.stdout)
+    assert payload["storage_state"] == "existing_state_read_only"
+    assert payload["contract_ref"] == MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF
+    assert payload["raw_content_omitted"] is True
+    assert payload["raw_paths_omitted"] is True
+    assert payload["hard_delete_authorized"] is False
+    assert payload["automatic_merge_authorized"] is False
+    assert payload["hidden_memory_write_authorized"] is False
+    lifecycle_posture = payload["lifecycle_posture"]
+    assert receipt["receipt_ref"] in lifecycle_posture[
+        "decision_receipt_refs_by_kind"
+    ]["merge"]
+    assert "merge" in lifecycle_posture["receipt_backed_decision_kinds"]
+    serialized = json.dumps(payload).lower()
+    assert "raw_prompt" not in serialized
+    assert "raw_response" not in serialized
+    assert "provider_payload" not in serialized
+    assert str(tmp_path).lower() not in serialized
+    state_files_after = sorted(
+        path.relative_to(state_dir).as_posix()
+        for path in state_dir.rglob("*")
+        if path.is_file()
+    )
+    assert state_files_after == state_files_before
+
+    no_recall_state_dir = tmp_path / "no_recall_state"
+    repo_without_recall = FounderLoopRepository(no_recall_state_dir)
+    _manual_memory_candidate(repo_without_recall, "cli-no-recall-store")
+    assert not (no_recall_state_dir / "memory_review_recall.sqlite3").exists()
+    no_recall_files_before = sorted(
+        path.relative_to(no_recall_state_dir).as_posix()
+        for path in no_recall_state_dir.rglob("*")
+        if path.is_file()
+    )
+    no_recall = subprocess.run(
+        [
+            sys.executable,
+            str(Path("scripts/inspect_memory_merge_supersede_posture.py")),
+            "--state-dir",
+            str(no_recall_state_dir),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert json.loads(no_recall.stdout)["storage_state"] == "existing_state_read_only"
+    assert not (no_recall_state_dir / "memory_review_recall.sqlite3").exists()
+    no_recall_files_after = sorted(
+        path.relative_to(no_recall_state_dir).as_posix()
+        for path in no_recall_state_dir.rglob("*")
+        if path.is_file()
+    )
+    assert no_recall_files_after == no_recall_files_before
+
+    missing_state_dir = tmp_path / "missing_state"
+    missing = subprocess.run(
+        [
+            sys.executable,
+            str(Path("scripts/inspect_memory_merge_supersede_posture.py")),
+            "--state-dir",
+            str(missing_state_dir),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert not missing_state_dir.exists()
+    missing_payload = json.loads(missing.stdout)
+    assert missing_payload["storage_state"] == "state_not_found_no_write"
+    assert missing_payload["lifecycle_posture"]["safe_refs_only"] is True
+
+    broken_state_dir = tmp_path / "broken_state"
+    broken_state_dir.mkdir()
+    (broken_state_dir / "founder_loop.sqlite3").write_text(
+        "not a sqlite database",
+        encoding="utf-8",
+    )
+    broken = subprocess.run(
+        [
+            sys.executable,
+            str(Path("scripts/inspect_memory_merge_supersede_posture.py")),
+            "--state-dir",
+            str(broken_state_dir),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    broken_payload = json.loads(broken.stdout)
+    assert broken_payload["storage_state"] == "existing_state_unreadable_redacted"
+    assert broken_payload["inspection_error_ref"] == (
+        "error-ref:memory-merge-supersede-posture:read-failed-redacted"
+    )
+    assert broken.stderr == ""
+    assert "Traceback" not in broken.stdout
+    assert str(broken_state_dir) not in broken.stdout
 
 
 def test_memory_search_filters_safe_refs_without_semantic_search(tmp_path: Path) -> None:

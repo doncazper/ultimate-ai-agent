@@ -3373,6 +3373,7 @@ export function MemoryReviewSurfacePanel({
         memoryReview={memoryReview}
         workbench={workbench}
       />
+      <MemoryLifecyclePosturePanel workbench={workbench} />
       <MemoryRankingDiagnosticsPanel workbench={workbench} />
       <MemoryOperatorSummary
         contextPacks={contextPacks}
@@ -3409,7 +3410,11 @@ export function MemoryReviewSurfacePanel({
             <DetailTerm label="Storage ref" value={today.storage_ref} />
             <DetailTerm
               label="Memory writes"
-              value={today.memory_write_enabled ? "scoped" : "disabled"}
+              value={
+                today.memory_write_enabled
+                  ? "scoped"
+                  : "general writes blocked; accept/correct may create receipt-bound recall-only records"
+              }
             />
             <DetailTerm
               label="Memory deletes"
@@ -3497,19 +3502,19 @@ export function MemoryReviewSurfacePanel({
               }
             />
             <DetailTerm
-              label="Write authority"
+              label="General write authority"
               value={
                 today.memory_review_decision_authority_posture.memory_write_authorized
                   ? "enabled"
-                  : "disabled"
+                  : "blocked; receipt-bound recall-only records only"
               }
             />
             <DetailTerm
-              label="Recall authority"
+              label="Reviewed recall posture"
               value={
                 today.memory_review_decision_authority_posture.accepted_as_recall
-                  ? "enabled"
-                  : "disabled"
+                  ? "local recall record after scoped receipt"
+                  : "not authority"
               }
             />
           </dl>
@@ -3877,6 +3882,139 @@ function MemoryWorkbenchHealthPanel({
   );
 }
 
+function MemoryLifecyclePosturePanel({
+  workbench,
+}: {
+  workbench: FounderLoopMemoryWorkbench;
+}) {
+  const posture = workbench.lifecycle_posture;
+  if (!posture) {
+    return (
+      <article aria-label="Memory lifecycle receipt posture" className="status-card">
+        <div className="status-card-header">
+          <h3>Memory lifecycle posture</h3>
+          <span>backend posture missing</span>
+        </div>
+        <p>
+          Merge, supersede, and forget-request posture must come from the backend
+          workbench before lifecycle receipts are reviewed.
+        </p>
+      </article>
+    );
+  }
+
+  const postureLanes = posture.lanes ?? [];
+  const receiptRefs = Object.values(posture.decision_receipt_refs_by_kind ?? {})
+    .flatMap((refs) => refs ?? [])
+    .filter((ref, index, refs) => refs.indexOf(ref) === index);
+  const laneSummaries = postureLanes.map((lane) => {
+    const entryLabel = lane.count === 1 ? "entry" : "entries";
+    const decisionLabel = lane.decision_kind
+      ? memoryDecisionReceiptLabel(lane.decision_kind)
+      : "decision receipt";
+    return `${lane.label}: ${lane.count} ${entryLabel}; ${decisionLabel} ${
+      lane.receipt_backed ? "present" : "awaiting"
+    }`;
+  });
+  const laneRefs = postureLanes.flatMap((lane) => [
+    lane.posture_ref,
+    ...(lane.item_refs ?? []),
+    ...(lane.receipt_refs ?? []),
+  ]);
+
+  return (
+    <article aria-label="Memory lifecycle receipt posture" className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Memory lifecycle posture</h3>
+          <p className="muted">
+            Duplicate, stale/recheck, conflict, corrected, merge, supersede, and
+            forget-request entries are review posture signals. They become
+            receipt-backed only when scoped receipt refs are present; they are
+            not delete/export, context-injection, or truth authority.
+          </p>
+        </div>
+        <span>{posture.status}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Contract ref"
+          value={posture.contract_ref ?? "missing"}
+        />
+        <DetailTerm label="Schema" value={posture.schema_version ?? "missing"} />
+        <DetailTerm
+          label="Review-only"
+          value={posture.review_only === true ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Safe refs only"
+          value={posture.safe_refs_only === true ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Receipt bounds"
+          value={posture.receipt_truncation_posture ?? "missing"}
+        />
+        <DetailTerm
+          label="Lifecycle posture"
+          value={posture.reversible_review_posture ?? "missing"}
+        />
+        <DetailTerm
+          label="Hard delete"
+          value={posture.hard_delete_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Export"
+          value={posture.memory_export_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic merge"
+          value={posture.automatic_merge_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic supersede"
+          value={posture.automatic_supersede_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic forget"
+          value={posture.automatic_forget_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Hidden memory write"
+          value={posture.hidden_memory_write_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={posture.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector write"
+          value={posture.connector_write_authorized ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Lifecycle lanes: none"
+        items={laneSummaries}
+      />
+      <InlineListWithFallback
+        emptyLabel="Receipt-backed lifecycle decisions: none"
+        items={posture.receipt_backed_decision_kinds ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Lifecycle lane refs: none"
+        refs={laneRefs}
+      />
+      <RefListWithFallback
+        emptyLabel="Lifecycle receipt refs: none recorded"
+        refs={receiptRefs}
+      />
+      <RefListWithFallback
+        emptyLabel="Lifecycle blockers: none"
+        refs={posture.blocked_state_refs ?? []}
+      />
+    </article>
+  );
+}
+
 function MemoryRankingDiagnosticsPanel({
   workbench,
 }: {
@@ -4140,8 +4278,8 @@ function ManualMemoryCandidatePanel() {
           <DetailTerm label="Review ref" value={state.receipt.review_ref} />
           <DetailTerm label="Receipt ref" value={state.receipt.receipt_ref} />
           <DetailTerm
-            label="Approval ref"
-            value={state.receipt.approval_ref ?? "local review approval recorded"}
+            label="Approval scope ref"
+            value={state.receipt.approval_ref ?? "not returned"}
           />
           <DetailTerm
             label="Recall record"
@@ -4186,6 +4324,33 @@ function MemoryWorkbenchItemCard({
         <DetailTerm label="Token estimate" value={String(item.token_estimate)} />
         <DetailTerm label="Stale posture" value={item.stale_state} />
         <DetailTerm label="Conflict posture" value={item.conflict_state} />
+        <DetailTerm
+          label="Lifecycle posture"
+          value={
+            item.reversible_review_posture ??
+            "later_receipt_can_update_review_posture_no_rollback_execution"
+          }
+        />
+        <DetailTerm
+          label="Hard delete"
+          value={item.hard_delete_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic merge"
+          value={item.automatic_merge_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic supersede"
+          value={item.automatic_supersede_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic forget"
+          value={item.automatic_forget_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Hidden memory write"
+          value={item.hidden_memory_write_authorized ? "enabled" : "blocked"}
+        />
         <DetailTerm label="Side effect" value={item.side_effect_class} />
         <DetailTerm label="Boundary" value={item.authority_boundary} />
         <DetailTerm label="Next safe action" value={item.next_safe_action} />
@@ -4193,6 +4358,30 @@ function MemoryWorkbenchItemCard({
       <InlineListWithFallback
         emptyLabel="Workbench groups: none"
         items={item.group_ids}
+      />
+      <InlineListWithFallback
+        emptyLabel="Lifecycle state refs: none"
+        items={item.lifecycle_state_refs}
+      />
+      <InlineListWithFallback
+        emptyLabel="Available lifecycle decisions: none"
+        items={item.available_lifecycle_decisions}
+      />
+      <RefListWithFallback
+        emptyLabel="Duplicate posture refs: none"
+        refs={item.duplicate_of_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Conflict posture refs: none"
+        refs={item.conflict_with_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Lifecycle receipt refs: none"
+        refs={item.lifecycle_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Item authority blockers: none"
+        refs={item.blocked_state_refs}
       />
       <InlineListWithFallback
         emptyLabel="Rank components: none"
@@ -6741,6 +6930,10 @@ const memoryDecisionLabels: Record<MemoryReviewDecisionKind, string> = {
   forget_request: "Record forget-request receipt",
 };
 
+function memoryDecisionReceiptLabel(decision: MemoryReviewDecisionKind): string {
+  return memoryDecisionLabels[decision].replace(/^Record /, "");
+}
+
 const memoryDecisionOrder: MemoryReviewDecisionKind[] = [
   "accept",
   "correct",
@@ -6823,7 +7016,7 @@ function memoryDecisionSubjectFromWorkbenchItem(
     evidenceRefs: item.evidence_refs ?? [],
     duplicateRefs: item.duplicate_of_refs ?? [],
     conflictRefs: item.conflict_with_refs ?? [],
-    availableDecisionStates: memoryDecisionOrder,
+    availableDecisionStates: item.available_lifecycle_decisions ?? [],
   };
 }
 
@@ -6958,7 +7151,10 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
           label="Provenance ref status"
           value={item.provenance_refs_status}
         />
-        <DetailTerm label="Accepted as truth" value={item.accepted_as_truth ? "yes" : "no"} />
+        <DetailTerm
+          label="Truth authority"
+          value={item.accepted_as_truth ? "enabled" : "blocked"}
+        />
         <DetailTerm
           label="Memory write authority"
           value={item.memory_write_authorized ? "yes" : "no"}
@@ -7191,8 +7387,8 @@ function MemoryReviewDecisionControls({
             value={state.receipt.evidence_timeline_event_ref}
           />
           <DetailTerm
-            label="Approval ref"
-            value={state.receipt.approval_ref ?? "local review approval recorded"}
+            label="Approval scope ref"
+            value={state.receipt.approval_ref ?? "not returned"}
           />
           <DetailTerm
             label="Suppressed recall refs"
