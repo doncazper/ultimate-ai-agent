@@ -137,10 +137,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
-        founderActionsInbox: stripFollowUpTrackerIfMissing(
-          mockControlCenterData.founderActionsInbox,
-          undefined,
-        ).value,
+        founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
         founderMorningBriefing: stripFollowUpTrackerIfMissing(
           mockControlCenterData.founderMorningBriefing,
           undefined,
@@ -220,10 +217,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderEvidenceTimeline,
     founderEvidenceTimeline,
   );
-  const normalizedFounderActionsInbox = stripFollowUpTrackerIfMissing(
-    mockControlCenterData.founderActionsInbox,
-    founderActionsInbox,
-  );
+  const normalizedFounderActionsInbox =
+    normalizeFounderActionsInbox(founderActionsInbox);
   const normalizedFounderMemoryReview = mergeMissingFields(
     mockControlCenterData.founderMemoryReview,
     founderMemoryReview,
@@ -261,10 +256,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
-        founderActionsInbox: stripFollowUpTrackerIfMissing(
-          mockControlCenterData.founderActionsInbox,
-          undefined,
-        ).value,
+        founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
         founderMorningBriefing: stripFollowUpTrackerIfMissing(
           mockControlCenterData.founderMorningBriefing,
           undefined,
@@ -1149,6 +1141,44 @@ function stripFollowUpTrackerIfMissing<T>(
       follow_up_tracker_contract_ref: (value as Record<string, unknown>)
         .follow_up_tracker_contract_ref,
     } as T,
+    usedFallback: merged.usedFallback,
+  };
+}
+
+function normalizeFounderActionsInbox(
+  value: FounderLoopActionsInbox | undefined,
+): { value: FounderLoopActionsInbox; usedFallback: boolean } {
+  const merged = stripFollowUpTrackerIfMissing(
+    mockControlCenterData.founderActionsInbox,
+    value,
+  );
+  if (
+    value === undefined ||
+    !Object.prototype.hasOwnProperty.call(
+      value as unknown as Record<string, unknown>,
+      "action_inbox_decision_lane_read_model",
+    )
+  ) {
+    const withoutMockLanes = {
+      ...(merged.value as unknown as Record<string, unknown>),
+    };
+    delete withoutMockLanes.action_inbox_decision_lane_read_model;
+    delete withoutMockLanes.action_inbox_decision_lane_contract_ref;
+    return {
+      value: withoutMockLanes as unknown as FounderLoopActionsInbox,
+      usedFallback: merged.usedFallback,
+    };
+  }
+  return {
+    value: {
+      ...(merged.value as unknown as Record<string, unknown>),
+      action_inbox_decision_lane_read_model: (
+        value as unknown as Record<string, unknown>
+      ).action_inbox_decision_lane_read_model,
+      action_inbox_decision_lane_contract_ref: (
+        value as unknown as Record<string, unknown>
+      ).action_inbox_decision_lane_contract_ref,
+    } as FounderLoopActionsInbox,
     usedFallback: merged.usedFallback,
   };
 }

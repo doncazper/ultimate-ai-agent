@@ -487,6 +487,18 @@ review-only posture over safe refs; reminders, messages, email/calendar fetch,
 connector runtime, automatic task creation, action execution, model/provider
 calls, hidden memory writes, context injection, public beta, and production
 authority remain blocked.
+
+Product Loop 005 Action Inbox Decision-Lane Polish
+Goal met: Action Inbox now exposes a backend-owned
+`action_inbox_decision_lane_read_model` for needs-approval, blocked,
+draft-only, cost-blocked, no-authority, approved/no-execution, rejected,
+deferred, and receipt-recorded operator lanes with Control Center rendering and
+`scripts/inspect_action_inbox_decision_lanes.py` CLI parity. The rule
+"approval alone does not execute" remains explicit; missing envelope fields fail
+closed; cost/provider posture is
+visible before approval. The lane is review metadata only and adds no action
+execution, connector writes, provider/model calls, shell/browser execution,
+memory writes, context injection, public beta, or production authority.
 ```
 
 ## QA / Verification

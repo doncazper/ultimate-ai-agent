@@ -401,6 +401,121 @@ export interface FounderLoopActionGroupSummary {
   count: number;
 }
 
+export type FounderLoopActionInboxDecisionLaneId =
+  | "needs_approval"
+  | "blocked"
+  | "draft_only"
+  | "cost_blocked"
+  | "no_authority"
+  | "approved_no_execution"
+  | "rejected"
+  | "deferred"
+  | "receipt_recorded";
+
+export interface FounderLoopActionInboxDecisionLaneItem {
+  item_ref: string;
+  lane_id: FounderLoopActionInboxDecisionLaneId;
+  lane_label: string;
+  title: string;
+  status: string;
+  priority: string;
+  action_kind: string;
+  side_effect_class: string;
+  safe_summary: string;
+  why_shown: string;
+  next_safe_action: string;
+  authority_boundary: string;
+  approval_required: boolean;
+  approval_envelope_ref?: string | null;
+  approval_envelope_status: string;
+  approval_scope_ref?: string | null;
+  approval_requirement_ref?: string | null;
+  expected_receipt_refs: string[];
+  expected_receipt_state: string;
+  evidence_refs: string[];
+  receipt_refs: string[];
+  expected_receipt_refs_visible: boolean;
+  rollback_ref?: string | null;
+  safe_disable_ref?: string | null;
+  blocked_authority_refs: string[];
+  missing_envelope_field_states: string[];
+  cost_state_label: string;
+  provider_authority_state_label: string;
+  estimated_cost_usd: number;
+  max_approved_cost_usd: number;
+  provider_ref?: string | null;
+  model_profile_ref?: string | null;
+  input_metered_units: number;
+  output_metered_units: number;
+  total_metered_units: number;
+  cost_estimate_ref?: string | null;
+  captured_usage_ref?: string | null;
+  budget_decision_ref?: string | null;
+  cost_receipt_refs: string[];
+  cost_blocked_state_refs: string[];
+  unknown_paid_cost_requires_explicit_approval: boolean;
+  frontier_usage_claimed: boolean;
+  cost_telemetry_complete: boolean;
+  provider_model_refs_present: boolean;
+  backend_owned: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  approval_alone_executes: boolean;
+  approval_ref_authority: boolean;
+  approval_grants_runtime_authority: boolean;
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  memory_write_enabled: boolean;
+  context_injection_authorized: boolean;
+  hidden_memory_write_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopActionInboxDecisionLane {
+  lane_id: FounderLoopActionInboxDecisionLaneId;
+  label: string;
+  status: string;
+  safe_summary: string;
+  count: number;
+  item_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+  approval_alone_executes: boolean;
+  action_execution_enabled: boolean;
+}
+
+export interface FounderLoopActionInboxDecisionLaneReadModel {
+  contract_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  lane_order: FounderLoopActionInboxDecisionLaneId[];
+  lanes: FounderLoopActionInboxDecisionLane[];
+  items: FounderLoopActionInboxDecisionLaneItem[];
+  blocked_state_refs: string[];
+  missing_envelope_fields_fail_safe: boolean;
+  cost_posture_visible_before_approval: boolean;
+  provider_authority_visible_before_approval: boolean;
+  approval_scope_visible_before_approval: boolean;
+  expected_receipts_visible_before_approval: boolean;
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  memory_write_enabled: boolean;
+  context_injection_authorized: boolean;
+  hidden_memory_write_authorized: boolean;
+  production_authority_enabled: boolean;
+  approval_alone_executes: boolean;
+}
+
 export type FounderLoopActionDecisionKind =
   | "approve"
   | "edit"
@@ -3047,6 +3162,8 @@ export interface FounderLoopActionsInbox {
   local_prerequisite_refs: string[];
   action_group_order?: FounderLoopActionGroupId[];
   action_groups?: FounderLoopActionGroupSummary[];
+  action_inbox_decision_lane_contract_ref?: string;
+  action_inbox_decision_lane_read_model?: FounderLoopActionInboxDecisionLaneReadModel;
   items: FounderLoopActionItem[];
   approval_required_before_mutation: boolean;
   mutating_controls_enabled: boolean;

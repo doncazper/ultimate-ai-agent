@@ -15,6 +15,8 @@ import type {
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionGroupId,
   FounderLoopActionGroupSummary,
+  FounderLoopActionInboxDecisionLaneItem,
+  FounderLoopActionInboxDecisionLaneReadModel,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
@@ -3041,6 +3043,10 @@ export function ActionInboxSurfacePanel({
         actionGroups={actionGroups}
         inbox={displayedInbox}
       />
+      <ActionInboxDecisionLanePanel
+        contractRef={displayedInbox.action_inbox_decision_lane_contract_ref}
+        readModel={displayedInbox.action_inbox_decision_lane_read_model}
+      />
       <article className="status-card">
         <div className="status-card-header">
           <h3>State posture</h3>
@@ -3369,6 +3375,243 @@ type ActionLaneGroup = {
   summary: FounderLoopActionGroupSummary;
   items: FounderLoopActionItem[];
 };
+
+function ActionInboxDecisionLanePanel({
+  contractRef,
+  readModel,
+}: {
+  contractRef?: string;
+  readModel?: FounderLoopActionInboxDecisionLaneReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Decision lanes</h3>
+          <span>backend decision lanes missing</span>
+        </div>
+        <p>
+          Backend-owned decision-lane posture is unavailable. The UI will not
+          backfill cost, authority, approval, or receipt lanes from mock data.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Approval alone"
+            value="does not execute without exact backend scope"
+          />
+          <DetailTerm label="Action execution" value="blocked" />
+          <DetailTerm label="Provider/model calls" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+  const laneById = new Map(readModel.lanes.map((lane) => [lane.lane_id, lane]));
+  return (
+    <>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Decision lanes</h3>
+          <span>{readModel.status}</span>
+        </div>
+        <p>
+          Backend-owned lanes show approval, cost, provider/model, evidence,
+          and expected receipt posture before any operator decision. Approval
+          alone does not execute work.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract"
+            value={contractRef ?? readModel.contract_ref}
+          />
+          <DetailTerm label="Source" value={readModel.source} />
+          <DetailTerm
+            label="Missing envelope fields"
+            value={
+              readModel.missing_envelope_fields_fail_safe
+                ? "fail safe"
+                : "unchecked"
+            }
+          />
+          <DetailTerm
+            label="Cost before approval"
+            value={
+              readModel.cost_posture_visible_before_approval
+                ? "visible"
+                : "missing"
+            }
+          />
+          <DetailTerm
+            label="Provider authority"
+            value={
+              readModel.provider_authority_visible_before_approval
+                ? "visible"
+                : "missing"
+            }
+          />
+          <DetailTerm
+            label="Cost labels"
+            value="accounting readiness only; no provider calls"
+          />
+          <DetailTerm
+            label="Approval alone"
+            value={readModel.approval_alone_executes ? "unsafe" : "does not execute"}
+          />
+          <DetailTerm
+            label="Action execution"
+            value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+          />
+        </dl>
+        <InlineListWithFallback
+          emptyLabel="Decision states: missing"
+          items={[
+            "Cost blocked",
+            "Cost approved",
+            "Unknown paid cost",
+            "No provider authority",
+            "Approved / no execution",
+          ]}
+        />
+        <RefListWithFallback
+          emptyLabel="Decision-lane blockers: missing"
+          refs={readModel.blocked_state_refs}
+        />
+      </article>
+      <div
+        aria-label="Action Inbox decision lanes"
+        className="review-grid action-decision-lane-grid"
+      >
+        {readModel.lane_order.map((laneId) => {
+          const lane = laneById.get(laneId);
+          if (!lane) {
+            return null;
+          }
+          return (
+            <article className="review-card" key={lane.lane_id}>
+              <div className="review-card-heading">
+                <h3>{lane.label}</h3>
+                <span>{lane.count}</span>
+              </div>
+              <p>{lane.safe_summary}</p>
+              <dl className="detail-list">
+                <DetailTerm label="Status" value={lane.status} />
+                <DetailTerm
+                  label="Approval alone"
+                  value={lane.approval_alone_executes ? "unsafe" : "does not execute"}
+                />
+                <DetailTerm
+                  label="Action execution"
+                  value={lane.action_execution_enabled ? "unsafe" : "blocked"}
+                />
+                <DetailTerm label="Next safe action" value={lane.next_safe_action} />
+              </dl>
+              <RefListWithFallback
+                emptyLabel="Lane item refs: none"
+                refs={lane.item_refs}
+              />
+              <RefListWithFallback
+                emptyLabel="Lane blockers: missing"
+                refs={lane.blocked_state_refs}
+              />
+            </article>
+          );
+        })}
+      </div>
+      <div
+        aria-label="Action Inbox decision lane item details"
+        className="review-grid action-decision-lane-items"
+      >
+        {readModel.items.map((item) => (
+          <ActionInboxDecisionLaneItemCard item={item} key={item.item_ref} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ActionInboxDecisionLaneItemCard({
+  item,
+}: {
+  item: FounderLoopActionInboxDecisionLaneItem;
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h4>{item.title}</h4>
+        <span>{item.lane_label}</span>
+      </div>
+      <p>{item.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Status" value={item.status} />
+        <DetailTerm label="Approval envelope" value={item.approval_envelope_ref ?? "missing"} />
+        <DetailTerm label="Approval status" value={item.approval_envelope_status} />
+        <DetailTerm label="Approval scope" value={item.approval_scope_ref ?? "missing"} />
+        <DetailTerm label="Cost posture" value={item.cost_state_label} />
+        <DetailTerm
+          label="Unknown paid cost"
+          value={
+            item.unknown_paid_cost_requires_explicit_approval
+              ? "requires explicit approval"
+              : "not flagged"
+          }
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={item.provider_authority_state_label}
+        />
+        <DetailTerm
+          label="Provider/model refs"
+          value={`${item.provider_ref ?? "missing"} / ${item.model_profile_ref ?? "missing"}`}
+        />
+        <DetailTerm
+          label="Estimated USD"
+          value={item.estimated_cost_usd.toFixed(4)}
+        />
+        <DetailTerm
+          label="Max approved USD"
+          value={item.max_approved_cost_usd.toFixed(4)}
+        />
+        <DetailTerm
+          label="Metered units"
+          value={String(item.total_metered_units)}
+        />
+        <DetailTerm
+          label="Approval alone"
+          value={item.approval_alone_executes ? "unsafe" : "does not execute"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={item.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm label="Next safe action" value={item.next_safe_action} />
+      </dl>
+      <h5>Expected receipts</h5>
+      <RefListWithFallback
+        emptyLabel="Expected receipts: missing"
+        refs={item.expected_receipt_refs}
+      />
+      <h5>Missing envelope fields</h5>
+      <RefListWithFallback
+        emptyLabel="Missing envelope fields: none"
+        refs={item.missing_envelope_field_states}
+      />
+      <h5>Cost receipt refs</h5>
+      <RefListWithFallback
+        emptyLabel="Cost receipt refs: missing"
+        refs={item.cost_receipt_refs}
+      />
+      <h5>Evidence refs</h5>
+      <RefListWithFallback
+        emptyLabel="Evidence refs: missing"
+        refs={item.evidence_refs}
+      />
+      <h5>Blocked authority</h5>
+      <RefListWithFallback
+        emptyLabel="Blocked authority refs: none"
+        refs={item.blocked_authority_refs}
+      />
+    </article>
+  );
+}
 
 function buildActionLaneGroups(inbox: FounderLoopActionsInbox): ActionLaneGroup[] {
   const summaryById = new Map<FounderLoopActionGroupId, FounderLoopActionGroupSummary>();
