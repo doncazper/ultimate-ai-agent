@@ -28,6 +28,10 @@ Evidence Timeline, the draft-only email response proposal contract, and the
 relationship/follow-up memory schema have scoped implementation slices ready
 for review. The FCC-P1-011 Settings kill-switch and feature-flag spec now has
 Product Loop 011 read-only Settings posture labels without mutation authority.
+Product Loop 012 now adds the Private product loop trial script as a
+local/private, safe-ref-only manual operator review artifact with
+`scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
+promotion.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
@@ -593,6 +597,22 @@ connector runtime, no connector writes, no model calls, no provider SDK calls,
 no live web, no shell/browser execution, no public beta, no production
 readiness claims, and no production authority.
 No-authority phrases: no toggles that grant authority; no provider configuration; no installer behavior; no runtime activation; no feature-flag writes; no kill-switch execution; no revocation execution; no connector runtime; no connector writes; no model calls; no provider SDK calls; no live web; no shell/browser execution; no public beta; no production readiness claims; no production authority.
+
+Product Loop 012 Private product loop trial script
+Goal met: the Product Loop 012 Private product loop trial script now provides a
+repeatable local/private, safe-ref-only manual operator review checklist and
+acceptance ledger for Boot, Today, Morning Briefing, Follow-Ups, Memory,
+Actions, Plans, Chat Handoff, Evidence, Weekly Review, and Settings.
+`scripts/inspect_product_loop_trial_script.py` provides CLI parity over the same
+contract and `docs/control_center/private_product_loop_trial_script_v1.json`
+records the checked-in artifact. Findings remain pending manual operator
+review and the future Product Loop Completion Report template remains a
+local/private, evidence-backed gap report. This lane adds no public beta, no public
+distribution, no telemetry export, no connector runtime, no connector writes,
+no provider/model calls, no provider SDK calls, no live web, no shell/browser
+execution, no action execution, no memory writes, no backend route, no runtime
+authority, no production readiness claims, and no production authority.
+No-authority phrases: no public beta; no public distribution; no telemetry export; no connector runtime; no connector reads/writes; no provider/model calls; no provider SDK calls; no live web; no shell/browser execution; no action execution; no memory writes; no backend route; no runtime authority; no production readiness claims; no production authority.
 ```
 
 ## QA / Verification
