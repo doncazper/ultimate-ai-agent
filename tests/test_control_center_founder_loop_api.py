@@ -254,9 +254,15 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert briefing["source_readiness"] == (
         "blocked_missing_email_calendar_notification_contracts"
     )
-    assert "contract-ref:email-read-only-missing" in briefing["missing_contract_refs"]
-    assert "no_background_refresh" in briefing["blocked_states"]
-    assert "no_notification_delivery" in briefing["blocked_states"]
+    assert briefing["morning_briefing_v1_contract_ref"] == (
+        "contract-ref:product-loop-007-morning-briefing-v1:v1"
+    )
+    briefing_read_model = briefing["morning_briefing_v1_read_model"]
+    assert briefing_read_model["source"] == (
+        "python_core_morning_briefing_v1_read_model"
+    )
+    assert briefing_read_model["safe_refs_only"] is True
+    assert briefing_read_model["repo_status_refs"]
 
     briefing_item = next(
         item

@@ -33,6 +33,7 @@ import type {
   FounderLoopMemoryWorkbench,
   FounderLoopMemoryWorkbenchItem,
   FounderLoopMorningBriefing,
+  FounderLoopMorningBriefingV1ReadModel,
   FounderLoopOperatorRunTimeline,
   FounderLoopPlanSummary,
   FounderLoopPlansToActionsBridgeReadModel,
@@ -3981,6 +3982,10 @@ export function MorningBriefingPanel({
         <span className="status-pill compact">{briefing.status}</span>
       </div>
       <BriefingOperatorSummary briefing={briefing} />
+      <MorningBriefingV1Panel
+        contractRef={briefing.morning_briefing_v1_contract_ref}
+        readModel={briefing.morning_briefing_v1_read_model}
+      />
       <div className="panel-grid">
         <article className="status-card">
           <div className="status-card-header">
@@ -4082,6 +4087,152 @@ export function MorningBriefingPanel({
       </div>
       <BlockedStateList states={briefing.blocked_states ?? []} />
     </section>
+  );
+}
+
+function MorningBriefingV1Panel({
+  contractRef,
+  readModel,
+}: {
+  contractRef?: string;
+  readModel?: FounderLoopMorningBriefingV1ReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Briefing V1 read model</h3>
+          <span>backend read model missing</span>
+        </div>
+        <p className="muted">
+          Backend-owned Morning Briefing V1 posture is unavailable. Control
+          Center will not infer source readiness, repo/workbench status, or
+          evidence posture from fallback-only data.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm label="Connector runtime" value="blocked" />
+          <DetailTerm label="Email/calendar fetch" value="blocked" />
+          <DetailTerm label="Provider/model calls" value="blocked" />
+          <DetailTerm label="Action execution" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+  return (
+    <article
+      aria-label="Backend-owned Morning Briefing V1 read model"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <h3>Briefing V1 read model</h3>
+        <span>{readModel.status}</span>
+      </div>
+      <p className="eyebrow">Morning Briefing V1</p>
+      <p className="muted">Backend-owned local briefing</p>
+      <p className="section-copy">{readModel.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={contractRef ?? readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm label="Briefing items" value={String(readModel.item_count)} />
+        <DetailTerm label="Daily sections" value={String(readModel.section_count)} />
+        <DetailTerm
+          label="Open Action refs"
+          value={String(readModel.open_action_count)}
+        />
+        <DetailTerm label="Follow-ups" value={String(readModel.follow_up_count)} />
+        <DetailTerm
+          label="Memory review"
+          value={String(readModel.memory_review_count)}
+        />
+        <DetailTerm
+          label="Source blockers"
+          value={String(readModel.source_blocker_count)}
+        />
+        <DetailTerm
+          label="Connector runtime"
+          value={readModel.connector_runtime_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Email/calendar fetch"
+          value={readModel.email_calendar_fetch_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Provider/model calls"
+          value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic recommendations"
+          value={
+            readModel.automatic_recommendations_enabled ? "unsafe" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Hidden memory write"
+          value={readModel.hidden_memory_write_authorized ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Repo write"
+          value={readModel.repo_write_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Workbench apply"
+          value={readModel.workbench_apply_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Shell execution"
+          value={
+            readModel.shell_subprocess_execution_enabled ? "unsafe" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Browser execution"
+          value={readModel.browser_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm label="Authority boundary" value={readModel.authority_boundary} />
+        <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Open Action refs: none"
+        refs={readModel.open_action_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Follow-up refs: none"
+        refs={readModel.follow_up_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Memory review refs: none"
+        refs={readModel.memory_review_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={readModel.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Source readiness refs: missing"
+        refs={readModel.source_readiness_refs}
+      />
+      <p className="muted">Repo/workbench status</p>
+      <RefListWithFallback
+        emptyLabel="Repo status refs: missing"
+        refs={readModel.repo_status_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Workbench status refs: missing"
+        refs={readModel.workbench_status_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing sources: none"
+        refs={readModel.missing_source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence timeline refs: none"
+        refs={readModel.evidence_timeline_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Morning Briefing V1 blockers: missing"
+        refs={readModel.blocked_state_refs}
+      />
+    </article>
   );
 }
 

@@ -511,6 +511,23 @@ decision receipts only. This lane adds no action execution, no tool execution,
 no workflow execution, no provider/model calls, no connector runtime, no shell/browser execution,
 no context injection, no connector writes, no memory writes, no public beta,
 and no production authority.
+
+Product Loop 007 Morning Briefing V1
+Goal met: Morning Briefing now exposes a backend-owned
+`morning_briefing_v1_read_model` for local Today summary refs, open Action
+refs, follow-up refs, memory review refs, evidence timeline refs, repo and
+workbench status refs, source-readiness blockers, and missing-source refs.
+`scripts/inspect_morning_briefing_v1.py` provides CLI parity. The briefing is
+safe-ref-only, bounded, backend-owned local read-model posture. Missing
+integrations remain blocked/readiness states; recommendation refs and
+next-safe-action labels are review candidates only. This lane adds no
+connector reads, no connector runtime, no connector writes, no
+email/calendar/account fetch, no live web, no runtime model/provider calls, no
+automatic recommendations, no hidden memory writes, no memory writes, no
+context injection, no repo writes, no workbench apply, no notification
+delivery, no source refresh, no action execution, no shell/browser execution,
+no public beta, and no production authority.
+No-authority phrases: no connector reads; no connector runtime; no connector writes; no email/calendar/account fetch; no live web; no runtime model/provider calls; no automatic recommendations; no hidden memory writes; no repo writes; no workbench apply; no shell/browser execution; no action execution; no public beta; no production authority.
 ```
 
 ## QA / Verification

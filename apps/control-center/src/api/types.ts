@@ -3376,9 +3376,66 @@ export interface FounderLoopMorningBriefing {
   review_queue_groups?: FounderLoopReviewQueueGroup[];
   weekly_review_narrative?: FounderLoopWeeklyReviewNarrative;
   dogfood_capture?: FounderLoopDogfoodCaptureSummary;
+  morning_briefing_v1_contract_ref?: string;
+  morning_briefing_v1_read_model?: FounderLoopMorningBriefingV1ReadModel;
   items: FounderLoopBriefingItem[];
   evidence_refs: string[];
   blocked_states: string[];
+}
+
+export interface FounderLoopMorningBriefingV1ReadModel {
+  schema_version: "product-loop-007-morning-briefing.v1";
+  contract_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  bounded_preview_only: boolean;
+  source_readiness_required: boolean;
+  missing_sources_visible: boolean;
+  item_count: number;
+  section_count: number;
+  open_action_count: number;
+  follow_up_count: number;
+  memory_review_count: number;
+  source_blocker_count: number;
+  safe_summary: string;
+  today_summary_ref: string;
+  source_readiness_posture_ref: string;
+  repo_status_refs: string[];
+  workbench_status_refs: string[];
+  source_readiness_refs: string[];
+  missing_source_refs: string[];
+  open_action_refs: string[];
+  follow_up_refs: string[];
+  memory_review_refs: string[];
+  evidence_timeline_refs: string[];
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+  connector_read_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  connector_write_enabled: boolean;
+  email_calendar_fetch_enabled: boolean;
+  account_auth_enabled: boolean;
+  live_web_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  automatic_recommendations_enabled: boolean;
+  hidden_memory_write_authorized: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  action_execution_enabled: boolean;
+  repo_write_enabled: boolean;
+  workbench_apply_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  notification_delivery_enabled: boolean;
+  source_refresh_enabled: boolean;
+  production_authority_enabled: boolean;
 }
 
 export interface FounderLoopStorageStatus {

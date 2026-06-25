@@ -138,10 +138,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
         founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
-        founderMorningBriefing: stripFollowUpTrackerIfMissing(
-          mockControlCenterData.founderMorningBriefing,
-          undefined,
-        ).value,
+        founderMorningBriefing: normalizeFounderMorningBriefing(undefined).value,
       },
       {
         state: "mock_fallback",
@@ -230,10 +227,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderMemoryContextPacks,
     founderMemoryContextPacks,
   );
-  const normalizedFounderMorningBriefing = stripFollowUpTrackerIfMissing(
-    mockControlCenterData.founderMorningBriefing,
-    founderMorningBriefing,
-  );
+  const normalizedFounderMorningBriefing =
+    normalizeFounderMorningBriefing(founderMorningBriefing);
   const normalizedFounderSourceReadiness = mergeMissingFields(
     mockControlCenterData.founderSourceReadiness,
     founderSourceReadiness,
@@ -257,10 +252,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
         founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
-        founderMorningBriefing: stripFollowUpTrackerIfMissing(
-          mockControlCenterData.founderMorningBriefing,
-          undefined,
-        ).value,
+        founderMorningBriefing: normalizeFounderMorningBriefing(undefined).value,
       },
       {
       state: "mock_fallback",
@@ -1322,6 +1314,103 @@ function stripFollowUpTrackerIfMissing<T>(
     } as T,
     usedFallback: merged.usedFallback,
   };
+}
+
+const MORNING_BRIEFING_V1_DENIED_FLAGS = [
+  "connector_read_enabled",
+  "connector_runtime_enabled",
+  "connector_write_enabled",
+  "email_calendar_fetch_enabled",
+  "account_auth_enabled",
+  "live_web_enabled",
+  "provider_model_call_enabled",
+  "runtime_model_call_enabled",
+  "automatic_recommendations_enabled",
+  "hidden_memory_write_authorized",
+  "memory_write_authorized",
+  "context_injection_authorized",
+  "action_execution_enabled",
+  "repo_write_enabled",
+  "workbench_apply_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "notification_delivery_enabled",
+  "source_refresh_enabled",
+  "production_authority_enabled",
+] as const;
+
+const MORNING_BRIEFING_V1_REQUIRED_ARRAYS = [
+  "repo_status_refs",
+  "workbench_status_refs",
+  "source_readiness_refs",
+  "missing_source_refs",
+  "open_action_refs",
+  "follow_up_refs",
+  "memory_review_refs",
+  "evidence_timeline_refs",
+  "evidence_refs",
+  "blocked_state_refs",
+] as const;
+
+function normalizeFounderMorningBriefing(
+  value: FounderLoopMorningBriefing | undefined,
+): { value: FounderLoopMorningBriefing; usedFallback: boolean } {
+  const merged = stripFollowUpTrackerIfMissing(
+    mockControlCenterData.founderMorningBriefing,
+    value,
+  );
+  const valueRecord = (value ?? {}) as unknown as Record<string, unknown>;
+  const normalized: Record<string, unknown> = {
+    ...(merged.value as unknown as Record<string, unknown>),
+  };
+  if (isSafeMorningBriefingV1ReadModel(valueRecord.morning_briefing_v1_read_model)) {
+    normalized.morning_briefing_v1_read_model =
+      valueRecord.morning_briefing_v1_read_model;
+    normalized.morning_briefing_v1_contract_ref =
+      valueRecord.morning_briefing_v1_contract_ref;
+  } else {
+    delete normalized.morning_briefing_v1_read_model;
+    delete normalized.morning_briefing_v1_contract_ref;
+  }
+  return {
+    value: normalized as unknown as FounderLoopMorningBriefing,
+    usedFallback: merged.usedFallback,
+  };
+}
+
+function isSafeMorningBriefingV1ReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "product-loop-007-morning-briefing.v1" ||
+    value.contract_ref !== "contract-ref:product-loop-007-morning-briefing-v1:v1" ||
+    value.source !== "python_core_morning_briefing_v1_read_model"
+  ) {
+    return false;
+  }
+  return (
+    value.backend_owned === true &&
+    value.local_read_model_only === true &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    value.bounded_preview_only === true &&
+    value.source_readiness_required === true &&
+    value.missing_sources_visible === true &&
+    typeof value.item_count === "number" &&
+    typeof value.section_count === "number" &&
+    typeof value.open_action_count === "number" &&
+    typeof value.follow_up_count === "number" &&
+    typeof value.memory_review_count === "number" &&
+    typeof value.source_blocker_count === "number" &&
+    typeof value.safe_summary === "string" &&
+    typeof value.today_summary_ref === "string" &&
+    typeof value.source_readiness_posture_ref === "string" &&
+    typeof value.next_safe_action === "string" &&
+    typeof value.authority_boundary === "string" &&
+    hasDeniedFlagsFalse(value, MORNING_BRIEFING_V1_DENIED_FLAGS) &&
+    hasStringArrays(value, MORNING_BRIEFING_V1_REQUIRED_ARRAYS)
+  );
 }
 
 function normalizeFounderActionsInbox(
