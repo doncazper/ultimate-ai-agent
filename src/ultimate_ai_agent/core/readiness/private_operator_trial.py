@@ -16,6 +16,9 @@ PRIVATE_OPERATOR_TRIAL_CONTRACT_REF = (
 PRIVATE_OPERATOR_DOGFOOD_HARNESS_CONTRACT_REF = (
     "contract-ref:fcc-dogfood-001:fourteen-day-private-harness:v1"
 )
+PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF = (
+    "contract-ref:product-loop-012-private-product-loop-trial-script:v1"
+)
 
 PrivateOperatorTrialSurface = Literal[
     "Local Boot",
@@ -75,6 +78,30 @@ PrivateDogfoodManualReviewStatus = Literal[
     "not_run",
 ]
 
+PrivateProductLoopTrialSurface = Literal[
+    "Boot",
+    "Today",
+    "Morning Briefing",
+    "Follow-Ups",
+    "Memory",
+    "Actions",
+    "Plans",
+    "Chat Handoff",
+    "Evidence",
+    "Weekly Review",
+    "Settings",
+]
+
+PrivateProductLoopTrialStepState = Literal[
+    "ready_for_manual_review",
+    "blocked",
+    "not_run",
+]
+
+PrivateProductLoopTrialReviewState = Literal[
+    "pending_operator_review",
+]
+
 PRIVATE_OPERATOR_TRIAL_REQUIRED_SURFACES: list[PrivateOperatorTrialSurface] = [
     "Local Boot",
     "Today",
@@ -104,6 +131,32 @@ PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS = [
     "blocked-state:openwebui-secondary-only",
 ]
 
+PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_SURFACES: list[PrivateProductLoopTrialSurface] = [
+    "Boot",
+    "Today",
+    "Morning Briefing",
+    "Follow-Ups",
+    "Memory",
+    "Actions",
+    "Plans",
+    "Chat Handoff",
+    "Evidence",
+    "Weekly Review",
+    "Settings",
+]
+
+PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_BLOCKED_REFS = [
+    *PRIVATE_OPERATOR_TRIAL_REQUIRED_BLOCKED_REFS,
+    "blocked-state:product-loop-012:no-public-beta",
+    "blocked-state:product-loop-012:no-public-distribution",
+    "blocked-state:product-loop-012:no-telemetry-export",
+    "blocked-state:product-loop-012:no-connector-runtime",
+    "blocked-state:product-loop-012:no-provider-model-calls",
+    "blocked-state:product-loop-012:no-live-web",
+    "blocked-state:product-loop-012:no-shell-browser-execution",
+    "blocked-state:product-loop-012:no-production-authority",
+]
+
 _DENIED_FLAGS = [
     "public_beta_claim_enabled",
     "public_distribution_claim_enabled",
@@ -121,6 +174,17 @@ _DENIED_FLAGS = [
     "code_apply_execution_enabled",
     "runtime_authority_added",
     "backend_route_added",
+]
+
+_PRODUCT_LOOP_TRIAL_DENIED_FLAGS = [
+    *_DENIED_FLAGS,
+    "telemetry_export_enabled",
+    "connector_runtime_enabled",
+    "provider_model_call_enabled",
+    "runtime_model_call_enabled",
+    "provider_sdk_call_enabled",
+    "live_web_enabled",
+    "shell_browser_execution_enabled",
 ]
 
 _UNSAFE_TEXT_FRAGMENTS = (
@@ -153,6 +217,241 @@ _UNSAFE_TEXT_FRAGMENTS = (
     "/var/",
     "/etc/",
 )
+
+
+class PrivateProductLoopTrialStep(BaseModel):
+    step_ref: str = Field(..., min_length=1)
+    surface: PrivateProductLoopTrialSurface
+    step_state: PrivateProductLoopTrialStepState = "ready_for_manual_review"
+    safe_checklist_summary: str = Field(..., min_length=1, max_length=420)
+    required_source_refs: list[str] = Field(default_factory=list, min_length=1)
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    acceptance_ledger_refs: list[str] = Field(default_factory=list, min_length=1)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_BLOCKED_REFS)
+    )
+    next_safe_action: str = Field(..., min_length=1, max_length=240)
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+    telemetry_export_enabled: bool = False
+    connector_runtime_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    runtime_model_call_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    live_web_enabled: bool = False
+    shell_browser_execution_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_step(self) -> "PrivateProductLoopTrialStep":
+        _safe_ref(self.step_ref, "step_ref")
+        for field_name in [
+            "required_source_refs",
+            "evidence_refs",
+            "acceptance_ledger_refs",
+            "blocked_state_refs",
+        ]:
+            _safe_refs(getattr(self, field_name), field_name)
+        for field_name in [
+            "surface",
+            "step_state",
+            "safe_checklist_summary",
+            "next_safe_action",
+        ]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        if not self.local_private_only:
+            raise ValueError("product loop trial step must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("product loop trial step must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("product loop trial step requires manual review")
+        missing_blocked = set(PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blocked:
+            raise ValueError("product loop trial step missing blocked refs")
+        for flag in _PRODUCT_LOOP_TRIAL_DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by product loop trial script")
+        return self
+
+
+class PrivateProductLoopTrialAcceptanceLedgerItem(BaseModel):
+    ledger_item_ref: str = Field(..., min_length=1)
+    surface: PrivateProductLoopTrialSurface
+    review_state: PrivateProductLoopTrialReviewState = "pending_operator_review"
+    acceptance_question_ref: str = Field(..., min_length=1)
+    expected_gap_report_ref: str = Field(..., min_length=1)
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_BLOCKED_REFS)
+    )
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+    telemetry_export_enabled: bool = False
+    connector_runtime_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    runtime_model_call_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    live_web_enabled: bool = False
+    shell_browser_execution_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_ledger_item(self) -> "PrivateProductLoopTrialAcceptanceLedgerItem":
+        for field_name in [
+            "ledger_item_ref",
+            "acceptance_question_ref",
+            "expected_gap_report_ref",
+        ]:
+            _safe_ref(getattr(self, field_name), field_name)
+        for field_name in ["evidence_refs", "blocked_state_refs"]:
+            _safe_refs(getattr(self, field_name), field_name)
+        for field_name in ["surface", "review_state"]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        if self.review_state != "pending_operator_review":
+            raise ValueError("product loop trial findings must stay pending")
+        if not self.local_private_only:
+            raise ValueError("product loop trial ledger item must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("product loop trial ledger item must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("product loop trial ledger item requires manual review")
+        missing_blocked = set(PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blocked:
+            raise ValueError("product loop trial ledger item missing blocked refs")
+        for flag in _PRODUCT_LOOP_TRIAL_DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by product loop trial ledger")
+        return self
+
+
+class PrivateProductLoopTrialScript(BaseModel):
+    script_ref: str = "script-ref:product-loop-012-private-product-loop-trial:v1"
+    contract_ref: str = PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF
+    milestone_ref: str = "milestone:product-loop-012"
+    status: str = "implemented_private_product_loop_trial_script_authority_blocked"
+    source_trial_refs: list[str] = Field(default_factory=list, min_length=1)
+    manual_steps: list[PrivateProductLoopTrialStep] = Field(
+        default_factory=list, min_length=1
+    )
+    acceptance_ledger: list[PrivateProductLoopTrialAcceptanceLedgerItem] = Field(
+        default_factory=list, min_length=1
+    )
+    final_report_template_refs: list[str] = Field(default_factory=list, min_length=1)
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_BLOCKED_REFS)
+    )
+    next_safe_action: str = (
+        "Run the product loop manually, record safe gap refs, then choose the next "
+        "roadmap lane without changing runtime authority."
+    )
+    local_private_only: bool = True
+    safe_refs_only: bool = True
+    manual_operator_review_required: bool = True
+    public_beta_claim_enabled: bool = False
+    public_distribution_claim_enabled: bool = False
+    production_readiness_claim_enabled: bool = False
+    production_authority_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_authority_allowed: bool = False
+    unrestricted_shell_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    remote_execution_enabled: bool = False
+    account_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_enabled: bool = False
+    code_apply_execution_enabled: bool = False
+    runtime_authority_added: bool = False
+    backend_route_added: bool = False
+    telemetry_export_enabled: bool = False
+    connector_runtime_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    runtime_model_call_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    live_web_enabled: bool = False
+    shell_browser_execution_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_script(self) -> "PrivateProductLoopTrialScript":
+        if self.contract_ref != PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF:
+            raise ValueError("product loop trial script contract ref drifted")
+        for field_name in ["script_ref", "contract_ref", "milestone_ref"]:
+            _safe_ref(getattr(self, field_name), field_name)
+        for field_name in ["status", "next_safe_action"]:
+            _safe_text(str(getattr(self, field_name)), field_name)
+        for field_name in [
+            "source_trial_refs",
+            "final_report_template_refs",
+            "evidence_refs",
+            "blocked_state_refs",
+        ]:
+            _safe_refs(getattr(self, field_name), field_name)
+        if [step.surface for step in self.manual_steps] != (
+            PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_SURFACES
+        ):
+            raise ValueError("product loop trial script manual surface order drifted")
+        if [item.surface for item in self.acceptance_ledger] != (
+            PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_SURFACES
+        ):
+            raise ValueError("product loop trial script ledger surface order drifted")
+        missing_blocked = set(PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_BLOCKED_REFS) - set(
+            self.blocked_state_refs
+        )
+        if missing_blocked:
+            raise ValueError("product loop trial script missing blocked refs")
+        if not self.local_private_only:
+            raise ValueError("product loop trial script must stay local/private")
+        if not self.safe_refs_only:
+            raise ValueError("product loop trial script must stay safe-ref-only")
+        if not self.manual_operator_review_required:
+            raise ValueError("product loop trial script requires manual review")
+        for flag in _PRODUCT_LOOP_TRIAL_DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by product loop trial script")
+        return self
 
 
 class PrivateOperatorTrialChecklistItem(BaseModel):
@@ -890,6 +1189,34 @@ def build_private_operator_trial_manual_review_scaffold() -> PrivateOperatorTria
     )
 
 
+def build_private_product_loop_trial_script() -> PrivateProductLoopTrialScript:
+    return PrivateProductLoopTrialScript(
+        source_trial_refs=[
+            "packet-ref:private-operator-trial:v1",
+            "ledger-ref:private-operator-trial-acceptance:v1",
+            "scaffold-ref:private-operator-trial-manual-review:v1",
+            "harness-ref:fcc-dogfood-001:fourteen-day-private",
+        ],
+        manual_steps=_product_loop_trial_steps(),
+        acceptance_ledger=_product_loop_trial_ledger_items(),
+        final_report_template_refs=[
+            "report-template-ref:product-loop-012:completed-tasks",
+            "report-template-ref:product-loop-012:product-gaps",
+            "report-template-ref:product-loop-012:ux-gaps",
+            "report-template-ref:product-loop-012:safety-gaps",
+            "report-template-ref:product-loop-012:platform-gaps",
+            "report-template-ref:product-loop-012:runtime-gaps",
+            "report-template-ref:product-loop-012:next-roadmap-lanes",
+        ],
+        evidence_refs=[
+            "evidence-ref:product-loop-012:private-trial-script-contract",
+            "evidence-ref:product-loop-012:manual-checklist",
+            "evidence-ref:product-loop-012:acceptance-ledger",
+            "evidence-ref:product-loop-012:gap-report-template",
+        ],
+    )
+
+
 def build_private_dogfood_harness() -> PrivateDogfoodHarness:
     return PrivateDogfoodHarness(
         source_trial_refs=[
@@ -931,6 +1258,116 @@ def build_private_dogfood_harness() -> PrivateDogfoodHarness:
             "evidence-ref:fcc-dogfood-001:blocked-authority",
         ],
     )
+
+
+def _product_loop_trial_steps() -> list[PrivateProductLoopTrialStep]:
+    rows: list[tuple[PrivateProductLoopTrialSurface, PrivateProductLoopTrialStepState, str, str]] = [
+        (
+            "Boot",
+            "ready_for_manual_review",
+            "Confirm local launch posture, first-party Control Center orientation, and blocked secondary surfaces.",
+            "Record only safe boot refs, missing-source refs, and blocked-state observations.",
+        ),
+        (
+            "Today",
+            "ready_for_manual_review",
+            "Review what matters now, what changed, what is blocked, and what needs operator review.",
+            "Capture friction and useful signal refs without creating tasks automatically.",
+        ),
+        (
+            "Morning Briefing",
+            "ready_for_manual_review",
+            "Review the local daily briefing over Today, actions, follow-ups, memory, evidence, and readiness blockers.",
+            "Record source-readiness gaps and briefing usefulness refs only.",
+        ),
+        (
+            "Follow-Ups",
+            "ready_for_manual_review",
+            "Review promises, open loops, deferred decisions, and relationship follow-up refs from local reviewed state.",
+            "Mark stale, blocked, and no-source refs without creating reminders.",
+        ),
+        (
+            "Memory",
+            "ready_for_manual_review",
+            "Review recall, provenance, merge, supersede, conflict, and forget-request posture.",
+            "Record trust and correction gaps while keeping memory writes approval-bound.",
+        ),
+        (
+            "Actions",
+            "ready_for_manual_review",
+            "Review decision lanes for blocked, cost-blocked, draft-only, no-authority, approved/no-execution, and receipts.",
+            "Capture missing envelope and receipt refs without executing actions.",
+        ),
+        (
+            "Plans",
+            "ready_for_manual_review",
+            "Review plan-to-action envelopes for risks, reasons, expected receipts, rollback, and safe-disable posture.",
+            "Record plan clarity gaps while keeping proposals review-only.",
+        ),
+        (
+            "Chat Handoff",
+            "ready_for_manual_review",
+            "Review remember-this, create-action, add-to-plan, defer, ask-human, and blocked handoff proposals.",
+            "Capture ambiguous handoff refs without treating output as authority.",
+        ),
+        (
+            "Evidence",
+            "ready_for_manual_review",
+            "Review timeline narrative for what happened, why, approval posture, changes, blockers, and inspection refs.",
+            "Record readability gaps without storing private content.",
+        ),
+        (
+            "Weekly Review",
+            "ready_for_manual_review",
+            "Review completed, deferred, rejected, blocked, stale, unresolved, and missing-source rollups.",
+            "Capture executive-review gaps using safe summary refs only.",
+        ),
+        (
+            "Settings",
+            "ready_for_manual_review",
+            "Review blocked, degraded, partial, metadata-only, and no-authority posture labels.",
+            "Record confusing authority labels without enabling settings toggles.",
+        ),
+    ]
+    steps: list[PrivateProductLoopTrialStep] = []
+    for surface, state, summary, next_safe_action in rows:
+        slug = _surface_slug(surface)
+        steps.append(
+            PrivateProductLoopTrialStep(
+                step_ref=f"product-loop-trial-step:product-loop-012:{slug}",
+                surface=surface,
+                step_state=state,
+                safe_checklist_summary=summary,
+                required_source_refs=[
+                    f"surface-ref:product-loop-012:{slug}",
+                    f"read-model-ref:product-loop-012:{slug}",
+                ],
+                evidence_refs=[f"evidence-ref:product-loop-012:{slug}"],
+                acceptance_ledger_refs=[
+                    f"acceptance-ledger-ref:product-loop-012:{slug}"
+                ],
+                next_safe_action=next_safe_action,
+            )
+        )
+    return steps
+
+
+def _product_loop_trial_ledger_items() -> list[PrivateProductLoopTrialAcceptanceLedgerItem]:
+    items: list[PrivateProductLoopTrialAcceptanceLedgerItem] = []
+    for surface in PRIVATE_PRODUCT_LOOP_TRIAL_REQUIRED_SURFACES:
+        slug = _surface_slug(surface)
+        items.append(
+            PrivateProductLoopTrialAcceptanceLedgerItem(
+                ledger_item_ref=f"acceptance-ledger-ref:product-loop-012:{slug}",
+                surface=surface,
+                acceptance_question_ref=f"acceptance-question:product-loop-012:{slug}",
+                expected_gap_report_ref=f"gap-report-ref:product-loop-012:{slug}",
+                evidence_refs=[
+                    f"evidence-ref:product-loop-012:{slug}:manual-review"
+                ],
+            )
+        )
+    return items
 
 
 def _dogfood_daily_entries() -> list[PrivateDogfoodDailyEntry]:
@@ -1160,6 +1597,10 @@ def _surface_slug(surface: str) -> str:
 
 def _safe_ref(value: str, field_name: str) -> None:
     validate_execution_ref(value, field_name)
+    lowered = value.lower()
+    for fragment in _UNSAFE_TEXT_FRAGMENTS:
+        if fragment in lowered:
+            raise ValueError(f"{field_name} contains unsafe private-trial ref")
 
 
 def _safe_refs(values: list[str], field_name: str) -> None:
