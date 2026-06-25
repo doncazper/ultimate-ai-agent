@@ -4157,7 +4157,49 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("feature_flag_mutation")).toBeInTheDocument();
     expect(screen.getByText("kill_switch_mutation")).toBeInTheDocument();
     expect(
+      screen.getByLabelText("Settings authority posture labels"),
+    ).toBeInTheDocument();
+    for (const label of [
+      "Web",
+      "Providers",
+      "Connectors",
+      "Memory context use",
+      "Model runtime",
+      "Local model lifecycle",
+      "Platform capabilities",
+    ]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
+    expect(screen.getByText("Degraded")).toBeInTheDocument();
+    expect(screen.getByText("Partial")).toBeInTheDocument();
+    expect(screen.getAllByText("Metadata only").length).toBeGreaterThan(0);
+    expect(
+      screen.getByLabelText("Settings kill-switch and feature-flag posture"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", {
+        name: /Kill switch: Global runtime authority/i,
+      }),
+    ).toHaveTextContent("Not configured");
+    expect(
+      screen.getByRole("status", { name: /Feature flag: Authority visibility/i }),
+    ).toHaveTextContent("Metadata only");
+    expect(
+      screen.getByText(
+        "contract-ref:product-loop-011-settings-kill-switch-clarity:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("scripts/inspect_platform_capabilities.py").length,
+    ).toBeGreaterThan(0);
+    expect(
       screen.queryByRole("button", { name: /enable|toggle|save|execute/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /enable web|configure provider|connect connector|inject context|install|start|stop|connect|provider call|model call|browser action|shell action/i,
+      }),
     ).not.toBeInTheDocument();
 
     settingsView.unmount();
@@ -4182,6 +4224,54 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("runtime_adapter_execution")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /download|switch|start|stop|execute/i }),
+    ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for stale Settings authority posture payloads", async () => {
+    const staleSettingsStatus = JSON.parse(
+      JSON.stringify(mockControlCenterData.settingsStatus),
+    ) as Record<string, unknown>;
+    staleSettingsStatus.authority_postures = "stale";
+    delete staleSettingsStatus.kill_switch_postures;
+    staleSettingsStatus.feature_flag_postures = [
+      {
+        label: "Unsafe",
+        state_label: "Enabled",
+        toggle_enabled: true,
+      },
+    ];
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.controlCenterSettingsStatus)) {
+        return new Response(JSON.stringify({ ok: true, data: staleSettingsStatus }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("status", {
+        name: /Settings authority posture blocked/i,
+      }),
+    ).toHaveTextContent("Settings authority posture unavailable");
+    expect(screen.queryByText("Unsafe")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /enable|toggle|save|execute|install|start|stop|connect/i,
+      }),
     ).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();

@@ -2869,9 +2869,18 @@ export const mockControlCenterData: ControlCenterData = {
       "docs/control_center/operational_maturity_manifest.json",
     ladder_doc_ref: "docs/control_center/OPERATIONALIZATION_LADDER.md",
     verifier_ref: "scripts/verify_operational_maturity.py",
+    settings_authority_contract_ref:
+      "contract-ref:product-loop-011-settings-kill-switch-clarity:v1",
+    settings_authority_verifier_ref:
+      "scripts/verify_product_loop_011_settings_kill_switch_clarity.py",
     route_status_manifest_ref:
       "docs/control_center/route_status_manifest.json",
     api_manifest_route_ref: "GET /api/manifest",
+    runtime_readiness_route_ref: "GET /control-center/runtime-readiness/summary",
+    runtime_capability_matrix_ref: "runtime_capability_matrix_m11",
+    platform_capability_snapshot_ref:
+      "platform-capability-snapshot:metadata-readiness",
+    platform_capability_inspection_ref: "scripts/inspect_platform_capabilities.py",
     review_proposals: [
       "settings-proposal:feature-flag-status-route",
       "settings-proposal:kill-switch-status-route",
@@ -2884,7 +2893,252 @@ export const mockControlCenterData: ControlCenterData = {
     feature_flag_mutation_enabled: false,
     kill_switch_mutation_enabled: false,
     settings_mutation_enabled: false,
+    callable_runtime_authority_enabled: false,
+    provider_configuration_enabled: false,
+    installer_behavior_enabled: false,
+    settings_toggle_grants_authority: false,
+    catalog_visibility_grants_authority: false,
     production_authority_enabled: false,
+    authority_postures: [
+      {
+        capability_key: "web",
+        label: "Web",
+        state_label: "Blocked",
+        posture_ref: "settings-authority:web",
+        source_refs: [
+          "GET /api/manifest",
+          "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
+        ],
+        safe_summary:
+          "Public web visibility is metadata only; unrestricted fetching and browser execution remain blocked.",
+        blocked_authority_refs: [
+          "blocked-state:settings-no-live-web",
+          "blocked-state:settings-no-browser-execution",
+        ],
+        next_safe_action:
+          "Inspect WebAccessGateway posture before scoping any web runtime.",
+        callable_runtime_authority: false,
+        setting_toggle_grants_authority: false,
+        provider_configuration_enabled: false,
+        connector_write_enabled: false,
+        context_injection_enabled: false,
+        model_call_enabled: false,
+        local_lifecycle_enabled: false,
+        installer_behavior_enabled: false,
+        production_authority_enabled: false,
+        authority_from_visibility: false,
+      },
+      {
+        capability_key: "providers",
+        label: "Providers",
+        state_label: "Blocked",
+        posture_ref: "settings-authority:providers",
+        source_refs: ["GET /api/manifest", "provider-readiness:reference-only"],
+        safe_summary:
+          "Provider diagnostics and provider safe refs are visible only as readiness metadata.",
+        blocked_authority_refs: [
+          "blocked-state:settings-no-provider-sdk-call",
+          "blocked-state:settings-no-provider-configuration",
+        ],
+        next_safe_action:
+          "Review provider refs without collecting credentials or invoking providers.",
+        callable_runtime_authority: false,
+        setting_toggle_grants_authority: false,
+        provider_configuration_enabled: false,
+        connector_write_enabled: false,
+        context_injection_enabled: false,
+        model_call_enabled: false,
+        local_lifecycle_enabled: false,
+        installer_behavior_enabled: false,
+        production_authority_enabled: false,
+        authority_from_visibility: false,
+      },
+      {
+        capability_key: "connectors",
+        label: "Connectors",
+        state_label: "Blocked",
+        posture_ref: "settings-authority:connectors",
+        source_refs: [
+          "GET /control-center/sources/readiness",
+          "docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md",
+        ],
+        safe_summary:
+          "Connector runtime and connector writes are not enabled from Settings.",
+        blocked_authority_refs: [
+          "blocked-state:settings-no-connector-runtime",
+          "blocked-state:settings-no-connector-write",
+        ],
+        next_safe_action:
+          "Use source readiness refs before any connector milestone is scoped.",
+        callable_runtime_authority: false,
+        setting_toggle_grants_authority: false,
+        provider_configuration_enabled: false,
+        connector_write_enabled: false,
+        context_injection_enabled: false,
+        model_call_enabled: false,
+        local_lifecycle_enabled: false,
+        installer_behavior_enabled: false,
+        production_authority_enabled: false,
+        authority_from_visibility: false,
+      },
+      {
+        capability_key: "memory_context_use",
+        label: "Memory context use",
+        state_label: "Partial",
+        posture_ref: "settings-authority:memory-context-use",
+        source_refs: [
+          "GET /control-center/memory/context-packs",
+          "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+        ],
+        safe_summary:
+          "Memory context packs are reviewable proposals only; hidden injection and truth authority remain blocked.",
+        blocked_authority_refs: [
+          "blocked-state:settings-no-hidden-context-injection",
+          "blocked-state:settings-memory-recall-not-truth",
+        ],
+        next_safe_action:
+          "Review memory proposals as recall only before any context-use milestone.",
+        callable_runtime_authority: false,
+        setting_toggle_grants_authority: false,
+        provider_configuration_enabled: false,
+        connector_write_enabled: false,
+        context_injection_enabled: false,
+        model_call_enabled: false,
+        local_lifecycle_enabled: false,
+        installer_behavior_enabled: false,
+        production_authority_enabled: false,
+        authority_from_visibility: false,
+      },
+      {
+        capability_key: "model_runtime",
+        label: "Model runtime",
+        state_label: "Degraded",
+        posture_ref: "settings-authority:model-runtime",
+        source_refs: [
+          "GET /control-center/runtime-readiness/summary",
+          "runtime-capability-matrix:m11",
+        ],
+        safe_summary:
+          "Model runtime posture is readiness-only; runtime model calls and provider calls are blocked here.",
+        blocked_authority_refs: [
+          "blocked-state:settings-no-runtime-model-call",
+          "blocked-state:settings-no-provider-model-call",
+        ],
+        next_safe_action:
+          "Inspect runtime readiness and local model status before lifecycle work.",
+        callable_runtime_authority: false,
+        setting_toggle_grants_authority: false,
+        provider_configuration_enabled: false,
+        connector_write_enabled: false,
+        context_injection_enabled: false,
+        model_call_enabled: false,
+        local_lifecycle_enabled: false,
+        installer_behavior_enabled: false,
+        production_authority_enabled: false,
+        authority_from_visibility: false,
+      },
+      {
+        capability_key: "local_model_lifecycle",
+        label: "Local model lifecycle",
+        state_label: "Blocked",
+        posture_ref: "settings-authority:local-model-lifecycle",
+        source_refs: [
+          "GET /control-center/local-models/status",
+          "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
+        ],
+        safe_summary:
+          "Local model inventory is readable, but download switch start stop and calls remain blocked.",
+        blocked_authority_refs: [
+          "blocked-state:settings-no-model-download",
+          "blocked-state:settings-no-model-start-stop",
+        ],
+        next_safe_action:
+          "Inspect local model status without starting or switching models.",
+        callable_runtime_authority: false,
+        setting_toggle_grants_authority: false,
+        provider_configuration_enabled: false,
+        connector_write_enabled: false,
+        context_injection_enabled: false,
+        model_call_enabled: false,
+        local_lifecycle_enabled: false,
+        installer_behavior_enabled: false,
+        production_authority_enabled: false,
+        authority_from_visibility: false,
+      },
+      {
+        capability_key: "platform_capabilities",
+        label: "Platform capabilities",
+        state_label: "Metadata only",
+        posture_ref: "settings-authority:platform-capabilities",
+        source_refs: [
+          "platform-capability-snapshot:metadata-readiness",
+          "scripts/inspect_platform_capabilities.py",
+        ],
+        safe_summary:
+          "Platform capabilities are safe bucketed metadata and do not grant install service credential or OS data authority.",
+        blocked_authority_refs: [
+          "blocked-state:settings-no-installer-behavior",
+          "blocked-state:settings-no-platform-permission-grant",
+        ],
+        next_safe_action:
+          "Inspect platform capability metadata before any OS adapter milestone.",
+        callable_runtime_authority: false,
+        setting_toggle_grants_authority: false,
+        provider_configuration_enabled: false,
+        connector_write_enabled: false,
+        context_injection_enabled: false,
+        model_call_enabled: false,
+        local_lifecycle_enabled: false,
+        installer_behavior_enabled: false,
+        production_authority_enabled: false,
+        authority_from_visibility: false,
+      },
+    ],
+    kill_switch_postures: [
+      {
+        posture_ref: "settings-kill-switch:global-runtime-authority",
+        label: "Global runtime authority",
+        state_label: "Not configured",
+        safe_summary:
+          "Settings can show kill-switch posture only; no kill switch or revocation execution is available.",
+        revocation_ref:
+          "revocation-ref:settings:global-runtime-authority-review-only",
+        safe_disable_ref:
+          "safe-disable-ref:settings:global-runtime-authority-review-only",
+        evidence_refs: [
+          "docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md",
+          "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+        ],
+        next_safe_action:
+          "Define an exact scoped kill-switch milestone before execution exists.",
+        execution_enabled: false,
+        revocation_execution_enabled: false,
+        approval_revocation_enabled: false,
+        authority_granted: false,
+        production_authority_enabled: false,
+      },
+    ],
+    feature_flag_postures: [
+      {
+        posture_ref: "settings-feature-flag:authority-visibility",
+        label: "Authority visibility",
+        state_label: "Metadata only",
+        safe_summary:
+          "Settings feature-flag labels are readable posture only and cannot enable runtime behavior.",
+        owner_ref: "owner-ref:python-agent-core-settings-status",
+        evidence_refs: [
+          "GET /control-center/settings/status",
+          "docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md",
+        ],
+        next_safe_action:
+          "Keep flags read-only until a scoped mutation contract exists.",
+        writable: false,
+        toggle_enabled: false,
+        runtime_activation_enabled: false,
+        authority_granted: false,
+        production_authority_enabled: false,
+      },
+    ],
     blocked_authorities: [
       "feature_flag_mutation",
       "kill_switch_mutation",
