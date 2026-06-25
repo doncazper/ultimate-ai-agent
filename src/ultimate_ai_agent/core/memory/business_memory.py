@@ -19,6 +19,9 @@ from ultimate_ai_agent.core.memory.source_provenance import (
 BUSINESS_MEMORY_QUALITY_CONTRACT_REF = (
     "contract-ref:business-memory-quality-controls:v1"
 )
+CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF = (
+    "contract-ref:relationship-crm-lite-memory:v1"
+)
 
 BusinessMemoryCandidateKind = Literal[
     "profile",
@@ -97,6 +100,19 @@ BUSINESS_MEMORY_REQUIRED_BLOCKED_STATE_REFS = [
     "blocked-state:no-public-beta-or-distribution",
     "blocked-state:no-production-authority",
 ]
+CRM_LITE_RELATIONSHIP_BLOCKED_STATE_REFS = [
+    "blocked-state:crm-lite-no-external-crm-sync",
+    "blocked-state:crm-lite-no-external-crm-write",
+    "blocked-state:crm-lite-no-account-sync",
+    "blocked-state:crm-lite-no-connector-read",
+    "blocked-state:crm-lite-no-connector-write",
+    "blocked-state:crm-lite-no-email-calendar-fetch",
+    "blocked-state:crm-lite-no-hidden-context-injection",
+    "blocked-state:crm-lite-no-hidden-memory-write",
+    "blocked-state:crm-lite-no-action-execution",
+    "blocked-state:crm-lite-no-model-provider-call",
+    "blocked-state:crm-lite-no-production-authority",
+]
 
 BUSINESS_MEMORY_SURFACES = [
     "Today",
@@ -120,6 +136,20 @@ _DENIED_FLAGS = [
     "accepted_as_recall",
     "public_beta_claim_enabled",
     "public_distribution_claim_enabled",
+    "production_authority_enabled",
+]
+_CRM_LITE_DENIED_FLAGS = [
+    "crm_sync_enabled",
+    "crm_write_enabled",
+    "external_write_enabled",
+    "connector_read_authorized",
+    "connector_write_authorized",
+    "account_sync_authorized",
+    "email_calendar_fetch_authorized",
+    "context_injection_authorized",
+    "hidden_memory_write_authorized",
+    "action_execution_authorized",
+    "model_provider_call_authorized",
     "production_authority_enabled",
 ]
 
@@ -403,6 +433,105 @@ class BusinessMemoryQualityEnvelope(BaseModel):
         return self
 
 
+class CrmLiteRelationshipFollowUp(BaseModel):
+    contract_ref: str = Field(default=CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF)
+    follow_up_ref: str = Field(..., min_length=1, max_length=220)
+    relationship_ref: str = Field(..., min_length=1, max_length=220)
+    person_ref: str = Field(..., min_length=1, max_length=220)
+    org_ref: str = Field(..., min_length=1, max_length=220)
+    project_ref: str = Field(..., min_length=1, max_length=220)
+    opportunity_ref: str = Field(..., min_length=1, max_length=220)
+    promise_ref: str = Field(..., min_length=1, max_length=220)
+    status: Literal["review_only_stale_check_required"] = (
+        "review_only_stale_check_required"
+    )
+    relationship_memory_posture: Literal["reviewed_recall_only"] = (
+        "reviewed_recall_only"
+    )
+    redaction_status: Literal["redacted_summary_only"] = "redacted_summary_only"
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    why_now: str = Field(..., min_length=1, max_length=500)
+    draft_available: bool
+    review_envelope_ref: str = Field(..., min_length=1, max_length=220)
+    memory_refs: list[str] = Field(default_factory=list)
+    source_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=300)
+    blocked_state_refs: list[str] = Field(
+        default_factory=lambda: list(CRM_LITE_RELATIONSHIP_BLOCKED_STATE_REFS)
+    )
+    authority_boundary: str = Field(..., min_length=1, max_length=500)
+    review_required_before_action: bool = True
+    safe_refs_only: bool = True
+    crm_sync_enabled: bool = False
+    crm_write_enabled: bool = False
+    external_write_enabled: bool = False
+    connector_read_authorized: bool = False
+    connector_write_authorized: bool = False
+    account_sync_authorized: bool = False
+    email_calendar_fetch_authorized: bool = False
+    context_injection_authorized: bool = False
+    hidden_memory_write_authorized: bool = False
+    action_execution_authorized: bool = False
+    model_provider_call_authorized: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_crm_lite_follow_up(self) -> "CrmLiteRelationshipFollowUp":
+        if self.contract_ref != CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF:
+            raise ValueError("CRM-lite relationship contract ref drifted")
+        _safe_ref(self.follow_up_ref, "follow_up_ref")
+        _safe_ref(self.relationship_ref, "relationship_ref")
+        _safe_ref(self.person_ref, "person_ref")
+        _safe_ref(self.org_ref, "org_ref")
+        _safe_ref(self.project_ref, "project_ref")
+        _safe_ref(self.opportunity_ref, "opportunity_ref")
+        _safe_ref(self.promise_ref, "promise_ref")
+        _safe_ref(self.review_envelope_ref, "review_envelope_ref")
+        if not self.follow_up_ref.startswith("follow-up-commitment-ref:"):
+            raise ValueError("follow_up_ref must be a follow-up commitment ref")
+        if not self.review_envelope_ref.startswith("review-envelope-ref:"):
+            raise ValueError("review_envelope_ref must be a review envelope ref")
+        required_prefixes = {
+            "relationship_ref": (self.relationship_ref, "crm-lite-relationship-ref:"),
+            "person_ref": (self.person_ref, "crm-lite-person-ref:"),
+            "org_ref": (self.org_ref, "crm-lite-org-ref:"),
+            "project_ref": (self.project_ref, "crm-lite-project-ref:"),
+            "opportunity_ref": (self.opportunity_ref, "crm-lite-opportunity-ref:"),
+            "promise_ref": (self.promise_ref, "crm-lite-promise-ref:"),
+        }
+        for field_name, (value, prefix) in required_prefixes.items():
+            if not value.startswith(prefix):
+                raise ValueError(f"{field_name} must use {prefix}")
+        _safe_text(self.safe_summary, "safe_summary")
+        _safe_text(self.why_now, "why_now")
+        _safe_text(self.next_safe_action, "next_safe_action")
+        _safe_text(self.authority_boundary, "authority_boundary")
+        _safe_refs(self.memory_refs, "memory_refs", require=True)
+        _safe_refs(self.source_refs, "source_refs")
+        _safe_refs(self.evidence_refs, "evidence_refs", require=True)
+        _safe_refs(self.blocked_state_refs, "blocked_state_refs", require=True)
+        missing_blockers = [
+            blocked_ref
+            for blocked_ref in CRM_LITE_RELATIONSHIP_BLOCKED_STATE_REFS
+            if blocked_ref not in self.blocked_state_refs
+        ]
+        if missing_blockers:
+            raise ValueError("CRM-lite relationship follow-up missing blockers")
+        for flag in _CRM_LITE_DENIED_FLAGS:
+            if getattr(self, flag) is not False:
+                raise ValueError(f"{flag} is denied by CRM-lite relationship memory")
+        for required_true in [
+            "review_required_before_action",
+            "safe_refs_only",
+        ]:
+            if getattr(self, required_true) is not True:
+                raise ValueError(f"{required_true} must stay true")
+        return self
+
+
 def build_business_memory_quality_envelope(
     *,
     review_ref: str,
@@ -430,11 +559,47 @@ def build_business_memory_quality_envelope(
     )
 
 
+def build_crm_lite_relationship_followup(
+    **kwargs: object,
+) -> CrmLiteRelationshipFollowUp:
+    return CrmLiteRelationshipFollowUp(**kwargs)
+
+
 def validate_business_memory_quality_envelope(
     envelope: BusinessMemoryQualityEnvelope,
 ) -> bool:
     BusinessMemoryQualityEnvelope(**envelope.model_dump())
     return True
+
+
+def validate_crm_lite_relationship_followup(
+    followup: CrmLiteRelationshipFollowUp,
+) -> bool:
+    CrmLiteRelationshipFollowUp(**followup.model_dump())
+    return True
+
+
+def crm_lite_relationship_authority_posture() -> dict[str, object]:
+    return {
+        "contract_ref": CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF,
+        "safe_refs_only": True,
+        "review_required_before_action": True,
+        "relationship_memory_posture": "reviewed_recall_only",
+        "redaction_status": "redacted_summary_only",
+        "crm_sync_enabled": False,
+        "crm_write_enabled": False,
+        "external_write_enabled": False,
+        "connector_read_authorized": False,
+        "connector_write_authorized": False,
+        "account_sync_authorized": False,
+        "email_calendar_fetch_authorized": False,
+        "context_injection_authorized": False,
+        "hidden_memory_write_authorized": False,
+        "action_execution_authorized": False,
+        "model_provider_call_authorized": False,
+        "production_authority_enabled": False,
+        "blocked_state_refs": list(CRM_LITE_RELATIONSHIP_BLOCKED_STATE_REFS),
+    }
 
 
 def business_memory_candidate_kind_rows() -> list[dict[str, object]]:
@@ -560,18 +725,24 @@ __all__ = [
     "BUSINESS_MEMORY_CANDIDATE_KINDS",
     "BUSINESS_MEMORY_QUALITY_CONTRACT_REF",
     "BUSINESS_MEMORY_QUALITY_STATES",
+    "CRM_LITE_RELATIONSHIP_BLOCKED_STATE_REFS",
+    "CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF",
     "BUSINESS_MEMORY_REQUIRED_BLOCKED_STATE_REFS",
     "BUSINESS_MEMORY_REQUIRED_REF_FIELDS",
     "BUSINESS_MEMORY_SURFACES",
     "BusinessMemoryCandidateKind",
     "BusinessMemoryQualityEnvelope",
     "BusinessMemoryQualityState",
+    "CrmLiteRelationshipFollowUp",
     "build_business_memory_quality_envelope",
+    "build_crm_lite_relationship_followup",
     "business_memory_authority_posture",
     "business_memory_candidate_kind_rows",
     "business_memory_candidate_ref",
     "business_memory_quality_ref",
     "business_memory_quality_state_rows",
     "business_memory_surface_bindings",
+    "crm_lite_relationship_authority_posture",
     "validate_business_memory_quality_envelope",
+    "validate_crm_lite_relationship_followup",
 ]

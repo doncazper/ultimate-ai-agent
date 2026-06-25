@@ -163,12 +163,15 @@ from ultimate_ai_agent.core.memory.business_memory import (
     BUSINESS_MEMORY_CANDIDATE_KINDS,
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     BUSINESS_MEMORY_REQUIRED_REF_FIELDS,
+    CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF,
+    build_crm_lite_relationship_followup,
     business_memory_authority_posture,
     business_memory_candidate_kind_rows,
     business_memory_candidate_ref,
     business_memory_quality_ref,
     business_memory_quality_state_rows,
     business_memory_surface_bindings,
+    crm_lite_relationship_authority_posture,
 )
 from ultimate_ai_agent.core.memory.enums import (
     MemoryDataClassification,
@@ -2820,48 +2823,55 @@ def _crm_lite_followups(
     ]
     items: list[dict[str, Any]] = []
     for index, follow_up_ref in enumerate(follow_up_refs[:3], start=1):
-        items.append(
-            {
-                "follow_up_ref": follow_up_ref,
-                "relationship_ref": f"crm-lite-relationship-ref:{index}",
-                "opportunity_ref": f"crm-lite-opportunity-ref:{index}",
-                "status": "review_only_stale_check_required",
-                "safe_summary": (
-                    "A local relationship follow-up is visible because reviewed "
-                    "memory produced a follow-up commitment ref."
-                ),
-                "why_now": (
-                    "This appears because memory-to-loop binding marked a "
-                    "follow-up commitment that can be reviewed in the daily loop."
-                ),
-                "draft_available": bool(proposal_refs),
-                "review_envelope_ref": (
-                    proposal_refs[index - 1]
-                    if index - 1 < len(proposal_refs)
-                    else "review-envelope-ref:crm-lite-follow-up:draft-missing"
-                ),
-                "memory_refs": memory_refs[:5],
-                "source_refs": source_refs[:5],
-                "evidence_refs": evidence_refs[:5],
-                "next_safe_action": (
-                    "Review the memory, source, and evidence refs before drafting "
-                    "a local follow-up proposal."
-                ),
-                "blocked_state_refs": [
-                    "blocked-state:no-external-crm-write",
-                    "blocked-state:no-account-sync",
-                    "blocked-state:no-connector-write",
-                    "blocked-state:no-action-execution",
-                ],
-                "authority_boundary": (
-                    "CRM-lite follow-ups are reviewed local recall only; no CRM "
-                    "sync, connector write, email send, or action execution."
-                ),
-                "crm_sync_enabled": False,
-                "crm_write_enabled": False,
-                "external_write_enabled": False,
-            }
+        followup = build_crm_lite_relationship_followup(
+            follow_up_ref=follow_up_ref,
+            relationship_ref=f"crm-lite-relationship-ref:{index}",
+            person_ref=f"crm-lite-person-ref:{index}",
+            org_ref=f"crm-lite-org-ref:{index}",
+            project_ref=f"crm-lite-project-ref:{index}",
+            opportunity_ref=f"crm-lite-opportunity-ref:{index}",
+            promise_ref=f"crm-lite-promise-ref:{index}",
+            safe_summary=(
+                "A local relationship follow-up is visible because reviewed "
+                "memory produced a follow-up commitment ref."
+            ),
+            why_now=(
+                "This appears because memory-to-loop binding marked a "
+                "follow-up commitment that can be reviewed in the daily loop."
+            ),
+            draft_available=bool(proposal_refs),
+            review_envelope_ref=f"review-envelope-ref:crm-lite-follow-up:{index}",
+            memory_refs=memory_refs[:5],
+            source_refs=source_refs[:5],
+            evidence_refs=evidence_refs[:5],
+            next_safe_action=(
+                "Review the memory, source, and evidence refs before drafting "
+                "a local follow-up proposal."
+            ),
+            blocked_state_refs=[
+                "blocked-state:crm-lite-no-external-crm-sync",
+                "blocked-state:crm-lite-no-external-crm-write",
+                "blocked-state:crm-lite-no-account-sync",
+                "blocked-state:crm-lite-no-connector-read",
+                "blocked-state:crm-lite-no-connector-write",
+                "blocked-state:crm-lite-no-email-calendar-fetch",
+                "blocked-state:crm-lite-no-hidden-context-injection",
+                "blocked-state:crm-lite-no-hidden-memory-write",
+                "blocked-state:crm-lite-no-action-execution",
+                "blocked-state:crm-lite-no-model-provider-call",
+                "blocked-state:crm-lite-no-production-authority",
+                "blocked-state:no-external-crm-write",
+                "blocked-state:no-account-sync",
+                "blocked-state:no-connector-write",
+                "blocked-state:no-action-execution",
+            ],
+            authority_boundary=(
+                "CRM-lite follow-ups are reviewed local recall only; no CRM "
+                "sync, connector read/write, email or calendar fetch, hidden "
+                "context injection, hidden memory write, or action execution."
+            ),
         )
+        items.append(followup.model_dump())
     return items
 
 
@@ -4766,7 +4776,14 @@ def _user_intent_understanding_contract_payload() -> dict[str, Any]:
 class FounderLoopRepository:
     """Stdlib SQLite plus JSONL repository for the first Founder Loop state."""
 
-    def __init__(self, state_dir: Path, *, seed_defaults: bool = True) -> None:
+    def __init__(
+        self,
+        state_dir: Path,
+        *,
+        seed_defaults: bool = True,
+        ensure_storage: bool = True,
+        read_only: bool = False,
+    ) -> None:
         self.state_dir = state_dir
         self.db_path = self.state_dir / "founder_loop.sqlite3"
         self.memory_review_recall_db_path = (
@@ -4774,13 +4791,26 @@ class FounderLoopRepository:
         )
         self.logs_dir = self.state_dir / "logs"
         self.seed_defaults = seed_defaults
-        self._ensure_storage()
+        self.read_only = read_only
+        if ensure_storage:
+            self._ensure_storage()
 
     @classmethod
-    def from_env(cls, *, seed_defaults: bool = True) -> "FounderLoopRepository":
+    def from_env(
+        cls,
+        *,
+        seed_defaults: bool = True,
+        ensure_storage: bool = True,
+        read_only: bool = False,
+    ) -> "FounderLoopRepository":
         configured = os.environ.get(FOUNDER_LOOP_STATE_DIR_ENV)
         state_dir = Path(configured) if configured else DEFAULT_FOUNDER_LOOP_STATE_DIR
-        return cls(state_dir=state_dir, seed_defaults=seed_defaults)
+        return cls(
+            state_dir=state_dir,
+            seed_defaults=seed_defaults,
+            ensure_storage=ensure_storage,
+            read_only=read_only,
+        )
 
     def storage_status(self) -> dict[str, Any]:
         counts = {
@@ -4993,6 +5023,12 @@ class FounderLoopRepository:
             "business_memory_authority_posture": business_memory_authority_posture(),
             "business_memory_status": (
                 "implemented_review_queue_safe_ref_quality_metadata_contract"
+            ),
+            "crm_lite_relationship_memory_contract_ref": (
+                CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF
+            ),
+            "crm_lite_relationship_authority_posture": (
+                crm_lite_relationship_authority_posture()
             ),
             **cross_surface_memory_intake_contract,
             **memory_to_loop_binding_contract,
@@ -7387,6 +7423,12 @@ class FounderLoopRepository:
             "source_readiness_proposal_binding_contract_ref": (
                 SOURCE_READINESS_PROPOSAL_BINDING_CONTRACT_REF
             ),
+            "crm_lite_relationship_memory_contract_ref": (
+                CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF
+            ),
+            "crm_lite_relationship_authority_posture": (
+                crm_lite_relationship_authority_posture()
+            ),
             "crm_lite_followups": crm_lite_followups,
             "memory_why_shown_items": memory_why_shown_items,
             "review_queue_groups": review_queue_groups,
@@ -7590,6 +7632,12 @@ class FounderLoopRepository:
                 },
             ],
             "source_readiness_items": source_readiness_items,
+            "crm_lite_relationship_memory_contract_ref": (
+                CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF
+            ),
+            "crm_lite_relationship_authority_posture": (
+                crm_lite_relationship_authority_posture()
+            ),
             "crm_lite_followups": crm_lite_followups,
             "memory_why_shown_items": memory_why_shown_items,
             "review_queue_groups": review_queue_groups,
@@ -13759,7 +13807,10 @@ class FounderLoopRepository:
         return int(rows[0]["count"])
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        if self.read_only:
+            conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
+        else:
+            conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
 

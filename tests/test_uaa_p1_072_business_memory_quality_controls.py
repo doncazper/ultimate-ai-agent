@@ -6,15 +6,20 @@ from ultimate_ai_agent.core.memory import (
     BUSINESS_MEMORY_CANDIDATE_KINDS,
     BUSINESS_MEMORY_QUALITY_CONTRACT_REF,
     BUSINESS_MEMORY_QUALITY_STATES,
+    CRM_LITE_RELATIONSHIP_BLOCKED_STATE_REFS,
+    CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF,
     BUSINESS_MEMORY_REQUIRED_BLOCKED_STATE_REFS,
     BUSINESS_MEMORY_REQUIRED_REF_FIELDS,
     BusinessMemoryQualityEnvelope,
+    CrmLiteRelationshipFollowUp,
     business_memory_authority_posture,
     business_memory_candidate_kind_rows,
     business_memory_quality_ref,
     business_memory_quality_state_rows,
     business_memory_surface_bindings,
+    crm_lite_relationship_authority_posture,
     validate_business_memory_quality_envelope,
+    validate_crm_lite_relationship_followup,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
@@ -51,6 +56,31 @@ def _quality(**overrides: object) -> BusinessMemoryQualityEnvelope:
     }
     data.update(overrides)
     return BusinessMemoryQualityEnvelope(**data)
+
+
+def _crm_followup(**overrides: object) -> CrmLiteRelationshipFollowUp:
+    data: dict[str, object] = {
+        "follow_up_ref": "follow-up-commitment-ref:test",
+        "relationship_ref": "crm-lite-relationship-ref:test",
+        "person_ref": "crm-lite-person-ref:test",
+        "org_ref": "crm-lite-org-ref:test",
+        "project_ref": "crm-lite-project-ref:test",
+        "opportunity_ref": "crm-lite-opportunity-ref:test",
+        "promise_ref": "crm-lite-promise-ref:test",
+        "safe_summary": "A reviewed local relationship follow-up is visible.",
+        "why_now": "Reviewed memory produced a follow-up commitment ref.",
+        "draft_available": False,
+        "review_envelope_ref": "review-envelope-ref:crm-lite-follow-up:test",
+        "memory_refs": ["memory-review:test"],
+        "source_refs": ["source-ref:manual-note:test"],
+        "evidence_refs": ["evidence-ref:crm-lite:test"],
+        "next_safe_action": "Review refs before drafting a local follow-up.",
+        "authority_boundary": (
+            "CRM-lite relationship memory is reviewed recall only."
+        ),
+    }
+    data.update(overrides)
+    return CrmLiteRelationshipFollowUp(**data)
 
 
 def test_business_memory_contract_covers_candidate_kinds_and_quality_states() -> None:
@@ -133,6 +163,69 @@ def test_business_memory_quality_envelope_is_safe_refs_only() -> None:
         assert blocked_ref in envelope.blocker_refs
     for flag in DENIED_FLAGS:
         assert getattr(envelope, flag) is False
+
+
+def test_crm_lite_relationship_followup_is_typed_and_non_authorizing() -> None:
+    followup = _crm_followup()
+
+    assert followup.contract_ref == CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF
+    assert validate_crm_lite_relationship_followup(followup) is True
+    assert followup.relationship_memory_posture == "reviewed_recall_only"
+    assert followup.redaction_status == "redacted_summary_only"
+    assert followup.review_envelope_ref.startswith("review-envelope-ref:")
+    assert followup.review_required_before_action is True
+    assert followup.safe_refs_only is True
+    for blocked_ref in CRM_LITE_RELATIONSHIP_BLOCKED_STATE_REFS:
+        assert blocked_ref in followup.blocked_state_refs
+    posture = crm_lite_relationship_authority_posture()
+    assert posture["contract_ref"] == CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF
+    for flag in [
+        "crm_sync_enabled",
+        "crm_write_enabled",
+        "external_write_enabled",
+        "connector_read_authorized",
+        "connector_write_authorized",
+        "account_sync_authorized",
+        "email_calendar_fetch_authorized",
+        "context_injection_authorized",
+        "hidden_memory_write_authorized",
+        "action_execution_authorized",
+        "model_provider_call_authorized",
+        "production_authority_enabled",
+    ]:
+        assert getattr(followup, flag) is False
+        assert posture[flag] is False
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("crm_write_enabled", True),
+        ("connector_read_authorized", True),
+        ("context_injection_authorized", True),
+        ("hidden_memory_write_authorized", True),
+        ("model_provider_call_authorized", True),
+        ("production_authority_enabled", True),
+    ],
+)
+def test_crm_lite_relationship_followup_rejects_authority_creep(
+    field: str,
+    value: object,
+) -> None:
+    with pytest.raises(ValueError):
+        _crm_followup(**{field: value})
+
+
+def test_crm_lite_relationship_followup_rejects_raw_private_content() -> None:
+    with pytest.raises(ValueError):
+        _crm_followup(safe_summary="raw prompt from a private meeting")
+
+
+def test_crm_lite_relationship_followup_rejects_proposal_ref_as_envelope() -> None:
+    with pytest.raises(ValueError):
+        _crm_followup(
+            review_envelope_ref="memory-derived-action-proposal:crm-lite-test"
+        )
 
 
 @pytest.mark.parametrize("flag", DENIED_FLAGS)

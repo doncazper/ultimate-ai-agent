@@ -43,6 +43,10 @@ production authority.
 
 Professional memory and CRM-lite bindings expose:
 
+- `CrmLiteRelationshipFollowUp` typed contract rows with
+  `contract-ref:relationship-crm-lite-memory:v1`, relationship/person/org/
+  project/opportunity/promise refs, reviewed-recall-only posture, redacted
+  summary status, and explicit blocked authority flags.
 - `crm_lite_followups` with relationship refs, opportunity refs,
   follow-up refs, review envelope refs, memory/source/evidence refs, stale
   review posture, and blocked CRM/account/write authority.
@@ -70,10 +74,27 @@ CRM-lite bindings are local/read-only/proposal-only until a later accepted
 milestone grants a specific mutation lane with exact scope, tests, receipts,
 and rollback/safe-disable posture.
 
+## CLI Inspection
+
+Repo-local CRM-lite inspection is available without React:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/inspect_relationship_crm_lite_memory.py
+```
+
+The command opens existing Founder Loop state in read-only inspection mode,
+reports `state_not_found_no_write` when no state exists, and reports
+`existing_state_unreadable_redacted` with a safe error ref when local state
+cannot be read. It must not seed memory, create storage, write logs, print
+tracebacks, or emit raw relationship content, usernames, hostnames, local
+paths, raw logs, prompts, responses, provider payloads, credentials, connector
+payloads, account IDs, or external CRM records.
+
 ## Verification Commands
 
 ```bash
 .venv/bin/python scripts/verify_fcc_memory_crm_001_professional_memory_crm_lite_binding.py
+PYTHONPATH=src .venv/bin/python scripts/inspect_relationship_crm_lite_memory.py >/tmp/uaa_crm_lite_memory.json
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_fcc_memory_crm_001_professional_memory_crm_lite_binding.py tests/test_control_center_api_routes.py tests/test_founder_loop_storage_safety.py -q
 .venv/bin/python scripts/verify_operational_maturity.py
 .venv/bin/python scripts/verify_documentation_integrity.py

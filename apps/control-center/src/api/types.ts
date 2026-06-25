@@ -2258,10 +2258,17 @@ export interface FounderLoopSourceReadiness {
 }
 
 export interface FounderLoopCrmLiteFollowUp {
+  contract_ref: string;
   follow_up_ref: string;
   relationship_ref: string;
+  person_ref: string;
+  org_ref: string;
+  project_ref: string;
   opportunity_ref: string;
+  promise_ref: string;
   status: string;
+  relationship_memory_posture: string;
+  redaction_status: string;
   safe_summary: string;
   why_now: string;
   draft_available: boolean;
@@ -2272,9 +2279,20 @@ export interface FounderLoopCrmLiteFollowUp {
   next_safe_action: string;
   blocked_state_refs: string[];
   authority_boundary: string;
+  review_required_before_action: boolean;
+  safe_refs_only: boolean;
   crm_sync_enabled: boolean;
   crm_write_enabled: boolean;
   external_write_enabled: boolean;
+  connector_read_authorized: boolean;
+  connector_write_authorized: boolean;
+  account_sync_authorized: boolean;
+  email_calendar_fetch_authorized: boolean;
+  context_injection_authorized: boolean;
+  hidden_memory_write_authorized: boolean;
+  action_execution_authorized: boolean;
+  model_provider_call_authorized: boolean;
+  production_authority_enabled: boolean;
 }
 
 export interface FounderLoopMemoryWhyShownItem {
@@ -2742,6 +2760,8 @@ export interface FounderLoopTodaySummary {
   daily_loop_summary?: FounderLoopDailyLoopSummary;
   source_readiness_items?: FounderLoopSourceReadinessItem[];
   source_readiness_posture?: FounderLoopSourceReadinessPosture;
+  crm_lite_relationship_memory_contract_ref?: string;
+  crm_lite_relationship_authority_posture?: Record<string, unknown>;
   crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];
@@ -2851,6 +2871,8 @@ export interface FounderLoopActionsInbox {
   source_readiness_proposal_binding_contract_ref?: string;
   task_decomposition_action_proposals?: FounderLoopActionItem[];
   task_decomposition_proposal_summary?: FounderLoopTaskDecompositionProposalSummary;
+  crm_lite_relationship_memory_contract_ref?: string;
+  crm_lite_relationship_authority_posture?: Record<string, unknown>;
   crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];
@@ -2879,6 +2901,8 @@ export interface FounderLoopMorningBriefing {
   daily_loop_summary?: FounderLoopDailyLoopSummary;
   daily_loop_sections?: FounderLoopBriefingSection[];
   source_readiness_items?: FounderLoopSourceReadinessItem[];
+  crm_lite_relationship_memory_contract_ref?: string;
+  crm_lite_relationship_authority_posture?: Record<string, unknown>;
   crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];
