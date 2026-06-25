@@ -217,8 +217,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderMemoryReview,
     founderMemoryReview,
   );
-  const normalizedFounderMemoryWorkbench = mergeMissingFields(
-    mockControlCenterData.founderMemoryWorkbench,
+  const normalizedFounderMemoryWorkbench = normalizeFounderMemoryWorkbench(
     founderMemoryWorkbench,
   );
   const normalizedFounderMemoryContextPacks = mergeMissingFields(
@@ -1056,6 +1055,36 @@ function mergeMissingFields<T>(
   }
 
   return { value: merged as T, usedFallback };
+}
+
+function normalizeFounderMemoryWorkbench(
+  value: FounderLoopMemoryWorkbench | undefined,
+): { value: FounderLoopMemoryWorkbench; usedFallback: boolean } {
+  const merged = mergeMissingFields(
+    mockControlCenterData.founderMemoryWorkbench,
+    value,
+  );
+  if (
+    value !== undefined &&
+    isPlainRecord(value) &&
+    isPlainRecord(merged.value)
+  ) {
+    const workbenchWithoutMockPosture = {
+      ...(merged.value as Record<string, unknown>),
+    };
+    if (Object.prototype.hasOwnProperty.call(value, "lifecycle_posture")) {
+      workbenchWithoutMockPosture.lifecycle_posture = (
+        value as Record<string, unknown>
+      ).lifecycle_posture;
+    } else {
+      delete workbenchWithoutMockPosture.lifecycle_posture;
+    }
+    return {
+      value: workbenchWithoutMockPosture as unknown as FounderLoopMemoryWorkbench,
+      usedFallback: merged.usedFallback,
+    };
+  }
+  return merged;
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {

@@ -19,6 +19,9 @@ from ultimate_ai_agent.core.memory.feature_mine import (
 
 
 MEMORY_WORKBENCH_CONTRACT_REF = "contract-ref:fcc-mem-001-memory-workbench:v1"
+MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF = (
+    "contract-ref:memory-merge-supersede-posture:v1"
+)
 MEMORY_RANKING_CONTRACT_REF = (
     "contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1"
 )
@@ -47,6 +50,18 @@ MEMORY_WORKBENCH_BLOCKED_STATE_REFS = [
     "blocked-state:memory-workbench-no-embeddings",
     "blocked-state:memory-workbench-no-model-provider-call",
     "blocked-state:memory-workbench-no-production-authority",
+]
+MEMORY_LIFECYCLE_POSTURE_BLOCKED_STATE_REFS = [
+    "blocked-state:memory-lifecycle-no-hard-delete",
+    "blocked-state:memory-lifecycle-no-export-execution",
+    "blocked-state:memory-lifecycle-no-auto-merge",
+    "blocked-state:memory-lifecycle-no-auto-supersede",
+    "blocked-state:memory-lifecycle-no-auto-forget",
+    "blocked-state:memory-lifecycle-no-hidden-memory-write",
+    "blocked-state:memory-lifecycle-no-context-injection",
+    "blocked-state:memory-lifecycle-no-connector-write",
+    "blocked-state:memory-lifecycle-no-model-provider-call",
+    "blocked-state:memory-lifecycle-no-production-authority",
 ]
 MEMORY_RANKING_BLOCKED_STATE_REFS = [
     "blocked-state:memory-ranking-no-embeddings",
@@ -390,6 +405,7 @@ def build_memory_workbench(
         item["quality_state_refs"] = sorted(set(item["quality_state_refs"]))
         item["quality_reason_refs"] = sorted(set(item["quality_reason_refs"]))
         item["group_ids"] = _groups_for_item(item)
+        item.update(_lifecycle_item_posture(item))
         item.update(
             _ranked_memory_payload(
                 item,
@@ -431,6 +447,10 @@ def build_memory_workbench(
             )
         ],
     }
+    lifecycle_posture = _memory_lifecycle_posture(
+        ranked_items,
+        decision_receipts=decision_receipts,
+    )
     read_model = {
         "schema_version": "fcc_mem_001_memory_workbench.v1",
         "contract_ref": MEMORY_WORKBENCH_CONTRACT_REF,
@@ -442,6 +462,7 @@ def build_memory_workbench(
         ],
         "items": ranked_items,
         "health": health,
+        "lifecycle_posture": lifecycle_posture,
         "decision_receipts": decision_receipts,
         "l1_preview_refs": [
             str(item.get("memory_record_ref")) for item in l1_index.get("previews", [])
@@ -476,6 +497,263 @@ def build_memory_workbench(
         "production_authority_enabled": False,
     }
     return read_model
+
+
+def _lifecycle_item_posture(item: dict[str, Any]) -> dict[str, Any]:
+    review_state = str(item.get("review_state") or "review_needed")
+    group_ids = [str(group_id) for group_id in item.get("group_ids", []) or []]
+    state_refs = [
+        _state_ref("memory-lifecycle-state", review_state),
+        *[
+            _state_ref("memory-lifecycle-state", group_id)
+            for group_id in group_ids
+            if group_id in {"conflict", "duplicate", "stale", "missing_evidence"}
+        ],
+    ]
+    available_decisions = ["accept", "correct", "reject", "defer", "forget_request"]
+    if item.get("duplicate_of_refs"):
+        available_decisions.append("merge")
+    if item.get("conflict_with_refs"):
+        available_decisions.append("supersede")
+    return {
+        "lifecycle_state_refs": sorted(set(state_refs)),
+        "available_lifecycle_decisions": available_decisions,
+        "lifecycle_receipt_refs": _safe_refs(
+            item.get("receipt_refs"),
+            "lifecycle_receipt_refs",
+        ),
+        "reversible_review_posture": (
+            "later_receipt_can_update_review_posture_no_rollback_execution"
+        ),
+        "hard_delete_authorized": False,
+        "automatic_merge_authorized": False,
+        "automatic_supersede_authorized": False,
+        "automatic_forget_authorized": False,
+        "hidden_memory_write_authorized": False,
+    }
+
+
+def _memory_lifecycle_posture(
+    items: list[dict[str, Any]],
+    *,
+    decision_receipts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    receipt_refs_by_decision = {
+        decision: _safe_refs(
+            [
+                receipt.get("receipt_ref")
+                for receipt in decision_receipts
+                if receipt.get("decision") == decision
+            ],
+            f"{decision}_receipt_refs",
+        )
+        for decision in [
+            "correct",
+            "defer",
+            "merge",
+            "supersede",
+            "forget_request",
+        ]
+    }
+    duplicate_items = [
+        item for item in items if "duplicate" in item.get("group_ids", [])
+    ]
+    stale_items = [item for item in items if "stale" in item.get("group_ids", [])]
+    conflict_items = [
+        item for item in items if "conflict" in item.get("group_ids", [])
+    ]
+    corrected_items = [
+        item for item in items if item.get("review_state") == "corrected"
+    ]
+    merged_items = [
+        item for item in items if item.get("review_state") == "merged"
+    ]
+    superseded_items = [
+        item for item in items if item.get("review_state") == "superseded"
+    ]
+    forget_requested_items = [
+        item for item in items if item.get("review_state") == "forget_requested"
+    ]
+    lanes = [
+        _memory_lifecycle_lane(
+            lane_id="duplicate_review",
+            label="Duplicate review",
+            decision_kind="merge",
+            item_refs=_memory_lifecycle_item_refs(duplicate_items),
+            receipt_refs=_memory_lifecycle_receipt_refs_for_items(
+                decision_receipts,
+                decision="merge",
+                items=duplicate_items,
+            ),
+        ),
+        _memory_lifecycle_lane(
+            lane_id="stale_review",
+            label="Stale review",
+            decision_kind="defer",
+            item_refs=_memory_lifecycle_item_refs(stale_items),
+            receipt_refs=_memory_lifecycle_receipt_refs_for_items(
+                decision_receipts,
+                decision="defer",
+                items=stale_items,
+            ),
+        ),
+        _memory_lifecycle_lane(
+            lane_id="conflict_review",
+            label="Conflict review",
+            decision_kind="supersede",
+            item_refs=_memory_lifecycle_item_refs(conflict_items),
+            receipt_refs=_memory_lifecycle_receipt_refs_for_items(
+                decision_receipts,
+                decision="supersede",
+                items=conflict_items,
+            ),
+        ),
+        _memory_lifecycle_lane(
+            lane_id="corrected",
+            label="Corrected",
+            decision_kind="correct",
+            item_refs=_memory_lifecycle_item_refs(corrected_items),
+            receipt_refs=_memory_lifecycle_receipt_refs_for_items(
+                decision_receipts,
+                decision="correct",
+                items=corrected_items,
+            ),
+        ),
+        _memory_lifecycle_lane(
+            lane_id="merged",
+            label="Merged",
+            decision_kind="merge",
+            item_refs=_memory_lifecycle_item_refs(merged_items),
+            receipt_refs=_memory_lifecycle_receipt_refs_for_items(
+                decision_receipts,
+                decision="merge",
+                items=merged_items,
+            ),
+        ),
+        _memory_lifecycle_lane(
+            lane_id="superseded",
+            label="Superseded",
+            decision_kind="supersede",
+            item_refs=_memory_lifecycle_item_refs(superseded_items),
+            receipt_refs=_memory_lifecycle_receipt_refs_for_items(
+                decision_receipts,
+                decision="supersede",
+                items=superseded_items,
+            ),
+        ),
+        _memory_lifecycle_lane(
+            lane_id="forget_requested",
+            label="Forget request",
+            decision_kind="forget_request",
+            item_refs=_memory_lifecycle_item_refs(forget_requested_items),
+            receipt_refs=_memory_lifecycle_receipt_refs_for_items(
+                decision_receipts,
+                decision="forget_request",
+                items=forget_requested_items,
+            ),
+        ),
+    ]
+    return {
+        "schema_version": "product-loop-002-memory-merge-supersede-posture.v1",
+        "contract_ref": MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF,
+        "status": "implemented_review_only_receipt_backed_posture",
+        "lanes": lanes,
+        "decision_receipt_refs_by_kind": receipt_refs_by_decision,
+        "receipt_truncation_posture": "bounded_by_workbench_limit_safe_refs_only",
+        "receipt_backed_decision_kinds": [
+            decision
+            for decision, refs in receipt_refs_by_decision.items()
+            if refs
+        ],
+        "review_only": True,
+        "safe_refs_only": True,
+        "reversible_review_posture": (
+            "merge_supersede_forget_are_review_posture_no_destructive_execution"
+        ),
+        "hard_delete_authorized": False,
+        "memory_export_authorized": False,
+        "automatic_merge_authorized": False,
+        "automatic_supersede_authorized": False,
+        "automatic_forget_authorized": False,
+        "hidden_memory_write_authorized": False,
+        "context_injection_authorized": False,
+        "connector_write_authorized": False,
+        "model_provider_call_authorized": False,
+        "production_authority_enabled": False,
+        "blocked_state_refs": list(MEMORY_LIFECYCLE_POSTURE_BLOCKED_STATE_REFS),
+    }
+
+
+def _memory_lifecycle_item_refs(items: list[dict[str, Any]]) -> list[str]:
+    return _safe_refs([item.get("memory_ref") for item in items], "lane_item_refs")
+
+
+def _memory_lifecycle_receipt_refs_for_items(
+    decision_receipts: list[dict[str, Any]],
+    *,
+    decision: str,
+    items: list[dict[str, Any]],
+) -> list[str]:
+    item_refs = _memory_lifecycle_item_ref_set(items)
+    if not item_refs:
+        return []
+    return _safe_refs(
+        [
+            receipt.get("receipt_ref")
+            for receipt in decision_receipts
+            if receipt.get("decision") == decision
+            and item_refs.intersection(_memory_lifecycle_receipt_ref_set(receipt))
+        ],
+        f"{decision}_lane_receipt_refs",
+    )
+
+
+def _memory_lifecycle_item_ref_set(items: list[dict[str, Any]]) -> set[str]:
+    refs: list[str] = []
+    for item in items:
+        refs.extend(
+            [
+                str(item.get("memory_ref") or ""),
+                str(item.get("review_ref") or ""),
+                *[str(ref) for ref in item.get("duplicate_of_refs") or []],
+                *[str(ref) for ref in item.get("conflict_with_refs") or []],
+            ]
+        )
+    return set(_safe_refs(refs, "lifecycle_item_ref_set"))
+
+
+def _memory_lifecycle_receipt_ref_set(receipt: dict[str, Any]) -> set[str]:
+    refs = [
+        str(receipt.get("candidate_ref") or ""),
+        str(receipt.get("review_ref") or ""),
+        *[str(ref) for ref in receipt.get("merge_refs") or []],
+        *[str(ref) for ref in receipt.get("supersedes_refs") or []],
+    ]
+    return set(_safe_refs(refs, "lifecycle_receipt_ref_set"))
+
+
+def _memory_lifecycle_lane(
+    *,
+    lane_id: str,
+    label: str,
+    decision_kind: str,
+    item_refs: list[str],
+    receipt_refs: list[str],
+) -> dict[str, Any]:
+    safe_item_refs = _safe_refs(item_refs, f"{lane_id}_item_refs")
+    safe_receipt_refs = _safe_refs(receipt_refs, f"{lane_id}_receipt_refs")
+    return {
+        "lane_id": lane_id,
+        "label": label,
+        "posture_ref": _state_ref("memory-lifecycle-posture", lane_id),
+        "decision_kind": decision_kind,
+        "count": len(safe_item_refs),
+        "item_refs": safe_item_refs,
+        "receipt_refs": safe_receipt_refs,
+        "receipt_backed": bool(safe_receipt_refs),
+        "review_only": True,
+        "blocked_state_refs": list(MEMORY_LIFECYCLE_POSTURE_BLOCKED_STATE_REFS),
+    }
 
 
 def filter_memory_workbench(
@@ -601,7 +879,16 @@ def _candidate_workbench_item(
         *receipt_by_candidate.get(review_ref, []),
     ]
     receipt_refs = _safe_refs(
-        [receipt.get("receipt_ref") for receipt in receipts],
+        [
+            receipt.get("receipt_ref")
+            for receipt in receipts
+            if receipt.get("receipt_ref")
+        ]
+        + [
+            ref
+            for ref in evidence_refs
+            if str(ref).startswith("receipt:memory-review:")
+        ],
         "receipt_refs",
     )
     quality_state_refs = _quality_seed(candidate)
@@ -1414,6 +1701,8 @@ def _search_index_status(status: dict[str, Any] | None) -> dict[str, Any]:
 
 
 __all__ = [
+    "MEMORY_LIFECYCLE_POSTURE_BLOCKED_STATE_REFS",
+    "MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF",
     "MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS",
     "MEMORY_MANUAL_INTAKE_CONTRACT_REF",
     "MEMORY_MANUAL_INTAKE_ROUTE_REF",

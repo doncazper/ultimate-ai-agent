@@ -27,21 +27,27 @@ authority, or hidden prompt context.
 - Correction receipts record both `corrected_summary_ref` and bounded
   `corrected_safe_summary`; terminal reject/merge/supersede/forget-request
   receipts suppress prior recall projections without deleting/exporting memory.
+- `lifecycle_posture` adds the Product Loop 002 merge/supersede/forget posture
+  lane with duplicate, stale/recheck, conflict, corrected, merged, superseded,
+  and forget-request labels backed by safe item refs and receipt refs only.
 - Deterministic quality detection flags duplicate, conflict, stale, and
   missing-evidence posture with explainable `quality_reason_refs`.
 - Ranking includes `why_shown_refs` based on review state, source/evidence
   presence, recency, loop relevance, unresolved action posture, and tags.
-- `/memory` surfaces workbench health, grouped items, why-shown refs, quality
-  refs, and backend lifecycle controls for review-queue items.
+- `/memory` surfaces workbench health, lifecycle posture, grouped items,
+  why-shown refs, quality refs, and backend lifecycle receipt controls for
+  review-queue items.
 - `scripts/dev/uaa_founder_loop.py` can inspect workbench/search/receipts and
   record manual candidates or lifecycle decisions from CLI.
+- `scripts/inspect_memory_merge_supersede_posture.py` provides a read-only
+  repo-local inspection path for the same lifecycle posture outside React.
 
 ## Partial / Planned UI Follow-Up
 
 - Merge and supersede UX can submit backend-owned peer refs; an explicit
   multi-select picker over two or more local candidates remains planned. The
-  backend already records merge/supersede receipts and marks referenced local
-  queue records as merged/superseded posture without deletion.
+  backend records merge/supersede receipts and marks referenced local queue
+  records as merged/superseded posture without deletion.
 
 ## Explicitly Blocked
 
@@ -63,6 +69,7 @@ Primary proof lanes:
 - `scripts/verify_fcc_mem_001_memory_workbench.py`
 - `tests/test_fcc_v1_005_memory_review_decisions.py`
 - `scripts/verify_fcc_v1_005_memory_review_decisions.py`
+- `scripts/inspect_memory_merge_supersede_posture.py`
 - `scripts/dev/uaa_founder_loop.py memory-workbench`
 - `apps/control-center/src/components/FounderLoopPanels.tsx`
 - `docs/control_center/route_status_manifest.json`
@@ -76,5 +83,7 @@ Primary proof lanes:
    evidence or missing-evidence posture is explicit.
 4. Record a lifecycle receipt with `record-memory-decision`.
 5. Inspect receipts with `memory-receipts`.
-6. Use `/memory`, Today, Actions, Briefing, and Evidence as readable surfaces
+6. Inspect merge/supersede/forget posture with
+   `scripts/inspect_memory_merge_supersede_posture.py`.
+7. Use `/memory`, Today, Actions, Briefing, and Evidence as readable surfaces
    over the same backend-owned refs.

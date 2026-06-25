@@ -20,6 +20,9 @@ from scripts.verification.repo import (  # noqa: E402
     print_failures_or_success,
     read_text,
 )
+from ultimate_ai_agent.core.memory import (  # noqa: E402
+    MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF,
+)
 from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
 
@@ -37,7 +40,9 @@ ROUTE_STATUS_PATH = "docs/control_center/route_status_manifest.json"
 RELEASE_SURFACE_PATH = "docs/control_center/release_surface_manifest.json"
 FRONTEND_PANEL_PATH = "apps/control-center/src/components/FounderLoopPanels.tsx"
 FRONTEND_CLIENT_PATH = "apps/control-center/src/api/client.ts"
+FRONTEND_TEST_PATH = "apps/control-center/src/App.test.tsx"
 CLI_PATH = "scripts/dev/uaa_founder_loop.py"
+LIFECYCLE_CLI_PATH = "scripts/inspect_memory_merge_supersede_posture.py"
 TEST_PATH = "tests/test_fcc_mem_001_memory_workbench.py"
 
 ROUTE_EXPECTATIONS: dict[tuple[str, str], dict[str, Any]] = {
@@ -81,6 +86,8 @@ REQUIRED_DOC_SNIPPETS = {
         "GET /control-center/memory/search",
         "POST /control-center/memory/review/manual-candidate",
         "accept`, `correct`, `reject`, `defer`, `merge`, `supersede`, and `forget_request",
+        "`lifecycle_posture` adds the Product Loop 002 merge/supersede/forget posture",
+        "scripts/inspect_memory_merge_supersede_posture.py",
         "No memory delete execution",
         "No semantic search, vector DB, embeddings, or provider/model extraction",
         "scripts/verify_fcc_mem_001_memory_workbench.py",
@@ -160,7 +167,9 @@ def _append_required_file_failures(failures: list[str], root: Path) -> None:
         RELEASE_SURFACE_PATH,
         FRONTEND_PANEL_PATH,
         FRONTEND_CLIENT_PATH,
+        FRONTEND_TEST_PATH,
         CLI_PATH,
+        LIFECYCLE_CLI_PATH,
         TEST_PATH,
         "docs/prompts/fcc_memory_module_sequence/README.md",
         "docs/prompts/fcc_memory_module_sequence/14_memory_tests_verifiers_docs.prompt.md",
@@ -246,22 +255,76 @@ def _append_behavior_failures(
     ]:
         if group_id not in group_ids:
             failures.append(f"memory workbench missing group {group_id}")
+    lifecycle_posture = workbench.get("lifecycle_posture") or {}
+    if lifecycle_posture.get("contract_ref") != MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF:
+        failures.append("memory lifecycle posture contract_ref drifted")
+    for flag in [
+        "hard_delete_authorized",
+        "memory_export_authorized",
+        "automatic_merge_authorized",
+        "automatic_supersede_authorized",
+        "automatic_forget_authorized",
+        "hidden_memory_write_authorized",
+        "context_injection_authorized",
+        "connector_write_authorized",
+        "model_provider_call_authorized",
+        "production_authority_enabled",
+    ]:
+        if lifecycle_posture.get(flag) is not False:
+            failures.append(f"memory lifecycle posture unsafe flag enabled: {flag}")
+    lane_ids = {lane.get("lane_id") for lane in lifecycle_posture.get("lanes", [])}
+    for lane_id in [
+        "duplicate_review",
+        "stale_review",
+        "conflict_review",
+        "corrected",
+        "merged",
+        "superseded",
+        "forget_requested",
+    ]:
+        if lane_id not in lane_ids:
+            failures.append(f"memory lifecycle posture missing lane {lane_id}")
+    for item in workbench.get("items", []):
+        if "available_lifecycle_decisions" not in item:
+            failures.append("memory workbench item missing lifecycle decisions")
+            break
+        for flag in [
+            "hard_delete_authorized",
+            "automatic_merge_authorized",
+            "automatic_supersede_authorized",
+            "automatic_forget_authorized",
+            "hidden_memory_write_authorized",
+        ]:
+            if item.get(flag) is not False:
+                failures.append(f"memory workbench item unsafe flag enabled: {flag}")
+                break
 
 
 def _append_static_fragment_failures(failures: list[str]) -> None:
     frontend_panel = read_text(FRONTEND_PANEL_PATH)
     frontend_client = read_text(FRONTEND_CLIENT_PATH)
+    frontend_tests = read_text(FRONTEND_TEST_PATH)
     cli_text = read_text(CLI_PATH)
+    lifecycle_cli_text = read_text(LIFECYCLE_CLI_PATH)
     tests = read_text(TEST_PATH)
     for fragment in [
         "MemoryWorkbenchHealthPanel",
+        "MemoryLifecyclePosturePanel",
         "MemoryWorkbenchItemCard",
         "reviewLifecycleAvailable = item.source === \"memory_review_queue\"",
+        "available_lifecycle_decisions ?? []",
+        "memoryDecisionReceiptLabel",
+        "Approval scope ref",
     ]:
         if fragment not in frontend_panel:
             failures.append(f"Control Center memory workbench missing {fragment}")
-    if "safeHashSuffix(`${request.title}|${request.safe_summary}`)" not in frontend_client:
-        failures.append("manual memory idempotency key must hash bounded text")
+    for fragment in [
+        "safeHashSuffix(`${request.title}|${request.safe_summary}`)",
+        "normalizeFounderMemoryWorkbench",
+        "delete workbenchWithoutMockPosture.lifecycle_posture",
+    ]:
+        if fragment not in frontend_client:
+            failures.append(f"Control Center memory client missing {fragment}")
     for command in [
         "memory-workbench",
         "memory-search",
@@ -271,13 +334,24 @@ def _append_static_fragment_failures(failures: list[str]) -> None:
     ]:
         if command not in cli_text:
             failures.append(f"Founder Loop CLI missing {command}")
+    for fragment in [
+        "repo-local-command:inspect-memory-merge-supersede-posture",
+        "state_not_found_no_write",
+        "existing_state_unreadable_redacted",
+        "raw_paths_omitted",
+    ]:
+        if fragment not in lifecycle_cli_text:
+            failures.append(f"lifecycle CLI inspection missing {fragment}")
     for test_fragment in [
         "test_memory_workbench_read_model_groups_and_blocks_authority",
         "test_merge_and_supersede_mark_local_peer_posture_without_deletion",
+        "test_memory_merge_supersede_cli_inspection_is_read_only_and_redacted",
         "test_memory_cli_rejects_unsafe_inputs_without_traceback",
     ]:
         if test_fragment not in tests:
             failures.append(f"FCC-MEM-001 tests missing {test_fragment}")
+    if "does not backfill lifecycle posture or decisions from mocks" not in frontend_tests:
+        failures.append("Control Center tests missing lifecycle fallback regression")
 
 
 def main() -> int:

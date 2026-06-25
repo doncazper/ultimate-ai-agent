@@ -750,6 +750,52 @@ export interface FounderLoopMemoryWorkbenchGroup {
   count: number;
 }
 
+export type FounderLoopMemoryLifecycleLaneId =
+  | "duplicate_review"
+  | "stale_review"
+  | "conflict_review"
+  | "corrected"
+  | "merged"
+  | "superseded"
+  | "forget_requested";
+
+export interface FounderLoopMemoryLifecycleLane {
+  lane_id: FounderLoopMemoryLifecycleLaneId;
+  label: string;
+  posture_ref: string;
+  decision_kind: MemoryReviewDecisionKind;
+  count: number;
+  item_refs: string[];
+  receipt_refs: string[];
+  receipt_backed: boolean;
+  review_only: boolean;
+  blocked_state_refs: string[];
+}
+
+export interface FounderLoopMemoryLifecyclePosture {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  lanes: FounderLoopMemoryLifecycleLane[];
+  decision_receipt_refs_by_kind: Partial<Record<MemoryReviewDecisionKind, string[]>>;
+  receipt_truncation_posture: string;
+  receipt_backed_decision_kinds: MemoryReviewDecisionKind[];
+  review_only: boolean;
+  safe_refs_only: boolean;
+  reversible_review_posture: string;
+  hard_delete_authorized: boolean;
+  memory_export_authorized: boolean;
+  automatic_merge_authorized: boolean;
+  automatic_supersede_authorized: boolean;
+  automatic_forget_authorized: boolean;
+  hidden_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  connector_write_authorized: boolean;
+  model_provider_call_authorized: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+}
+
 export interface FounderLoopMemoryRankingSourceMix {
   source_ref: string;
   count: number;
@@ -863,6 +909,15 @@ export interface FounderLoopMemoryWorkbenchItem {
   conflict_key_ref: string;
   duplicate_of_refs?: string[];
   conflict_with_refs?: string[];
+  lifecycle_state_refs?: string[];
+  available_lifecycle_decisions?: MemoryReviewDecisionKind[];
+  lifecycle_receipt_refs?: string[];
+  reversible_review_posture?: string;
+  hard_delete_authorized?: boolean;
+  automatic_merge_authorized?: boolean;
+  automatic_supersede_authorized?: boolean;
+  automatic_forget_authorized?: boolean;
+  hidden_memory_write_authorized?: boolean;
   group_ids: FounderLoopMemoryWorkbenchGroup["group_id"][];
   rank_score: number;
   rank_components: Record<string, number>;
@@ -903,6 +958,7 @@ export interface FounderLoopMemoryWorkbench {
   groups: FounderLoopMemoryWorkbenchGroup[];
   items: FounderLoopMemoryWorkbenchItem[];
   health: FounderLoopMemoryWorkbenchHealth;
+  lifecycle_posture?: FounderLoopMemoryLifecyclePosture;
   decision_receipts: MemoryReviewDecisionReceipt[];
   l1_preview_refs: string[];
   l2_projection_refs: string[];

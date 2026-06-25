@@ -458,6 +458,16 @@ reviewed recall-only record writers; defer, merge, supersede, and
 forget-request are posture/receipt states only. Delete/export execution,
 semantic/vector search, provider/model calls, connector writes, context
 injection, public beta, and production authority remain blocked.
+
+Product Loop 002 Memory Merge/Supersede UX
+Goal met: Memory Workbench now exposes backend-owned lifecycle posture for
+duplicate, stale/recheck, conflict, corrected, merged, superseded, and
+forget-request states with safe item refs, receipt refs, Control Center labels,
+and `scripts/inspect_memory_merge_supersede_posture.py` CLI parity. The lane
+displays review receipt posture only; the scoped Memory Review routes record
+receipts. Hard delete, export, automatic merge, automatic supersede, automatic
+forget, hidden memory writes, context injection, connector writes,
+provider/model calls, public beta, and production authority remain blocked.
 ```
 
 ## QA / Verification
