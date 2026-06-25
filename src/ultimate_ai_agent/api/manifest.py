@@ -15,6 +15,7 @@ from ultimate_ai_agent.api.contracts import (
     ApiRouteInventoryItem,
     ApiRouteRateLimitPosture,
     ApiRouteSideEffectClass,
+    ApiWebAccessPosture,
 )
 from ultimate_ai_agent.api.idempotency import (
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
@@ -263,6 +264,22 @@ CAPABILITIES_BLOCKED = [
     "mattermost_room_operations_without_user_request",
 ]
 
+WEB_ACCESS_POSTURE = {
+    "web_access_gateway_boundary": "implemented",
+    "boundary_module": "ultimate_ai_agent.core.web_access",
+    "governed_web_access": "boundary_only",
+    "unrestricted_web_fetching": "not_available",
+    "browser_execution": "not_available",
+    "browser_observe_runtime": "not_available",
+    "browser_action_dry_run_runtime": "not_available",
+    "providers": "not_configured",
+    "content_untrusted": True,
+    "grants_runtime_browsing_authority": False,
+    "allows_clicks_forms_auth_cookies_downloads_uploads": False,
+    "allowed_methods": (),
+    "mutation_methods": "not_available",
+}
+
 ROUTE_GROUPS_BY_PREFIX = {
     "/api": "api-boundary",
     "/health": "system",
@@ -413,6 +430,7 @@ API_MANIFEST_CACHEABLE_FIELDS = (
     "route_rate_limit_posture_summary",
     "capabilities_declared",
     "capabilities_blocked",
+    "web_access_posture",
     "no_runtime_integrations",
 )
 API_MANIFEST_CACHE_EXCLUDED_FIELDS = (
@@ -439,6 +457,7 @@ API_MANIFEST_CACHE_INVALIDATION_RULES = (
     "route_rate_limit_posture_logic_change",
     "capabilities_declared_change",
     "capabilities_blocked_change",
+    "web_access_posture_change",
     "manual_cache_clear",
 )
 
@@ -455,6 +474,7 @@ class _ApiManifestStaticCacheEntry:
     routes: tuple[ApiRouteInventoryItem, ...]
     capabilities_declared: tuple[str, ...]
     capabilities_blocked: tuple[str, ...]
+    web_access_posture: ApiWebAccessPosture
     no_runtime_integrations: bool
 
 
@@ -720,6 +740,7 @@ def _api_manifest_static_fingerprint(app: FastAPI) -> tuple[Any, ...]:
         active_baseline_label(),
         tuple(CAPABILITIES_DECLARED),
         tuple(CAPABILITIES_BLOCKED),
+        tuple(sorted(WEB_ACCESS_POSTURE.items())),
         tuple(sorted(route_fingerprints)),
     )
 
@@ -741,6 +762,7 @@ def _build_api_manifest_static_cache_entry(
         routes=routes,
         capabilities_declared=tuple(CAPABILITIES_DECLARED),
         capabilities_blocked=tuple(CAPABILITIES_BLOCKED),
+        web_access_posture=ApiWebAccessPosture(**WEB_ACCESS_POSTURE),
         no_runtime_integrations=True,
     )
 
@@ -796,5 +818,6 @@ def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) 
         foundation_gate_status=foundation_gate_status,
         capabilities_declared=list(static.capabilities_declared),
         capabilities_blocked=list(static.capabilities_blocked),
+        web_access_posture=static.web_access_posture.model_copy(deep=True),
         no_runtime_integrations=static.no_runtime_integrations,
     )
