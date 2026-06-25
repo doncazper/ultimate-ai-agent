@@ -126,6 +126,10 @@ from ultimate_ai_agent.core.control_center.weekly_ceo_review import (
     WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
     build_weekly_ceo_review_v1_read_model,
 )
+from ultimate_ai_agent.core.control_center.chat_to_loop_handoff import (
+    CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
+    build_chat_to_loop_handoff_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -4937,6 +4941,10 @@ class FounderLoopRepository:
         briefing_items = self.list_briefing_items(limit=3)
         chat_turn_receipts = self.list_chat_turn_receipts(limit=5)
         chat_handoff_receipts = self.list_chat_handoff_receipts(limit=5)
+        chat_to_loop_handoff_read_model = build_chat_to_loop_handoff_read_model(
+            chat_turn_receipts=chat_turn_receipts,
+            chat_handoff_receipts=chat_handoff_receipts,
+        )
         memory_review_decisions = self.list_memory_review_decisions(limit=5)
         cross_surface_memory_intake_contract = (
             _cross_surface_memory_intake_contract_payload()
@@ -5173,6 +5181,8 @@ class FounderLoopRepository:
                 if chat_turn_receipts or chat_handoff_receipts
                 else "implemented_receipt_routes_ready_no_turn_recorded"
             ),
+            "chat_to_loop_handoff_contract_ref": CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
+            "chat_to_loop_handoff_read_model": chat_to_loop_handoff_read_model,
             "chat_turn_receipt_refs": [
                 str(receipt["receipt_ref"]) for receipt in chat_turn_receipts
             ],
@@ -5520,6 +5530,33 @@ class FounderLoopRepository:
             "blocked_authority_refs": read_model["blocked_authority_refs"],
             "next_safe_action": read_model["next_safe_action"],
             "authority_boundary": read_model["authority_boundary"],
+        }
+
+    def chat_to_loop_handoff(self, *, limit: int = 20) -> dict[str, Any]:
+        bounded_limit = max(1, min(int(limit), 50))
+        read_model = build_chat_to_loop_handoff_read_model(
+            chat_turn_receipts=self.list_chat_turn_receipts(limit=bounded_limit),
+            chat_handoff_receipts=self.list_chat_handoff_receipts(limit=bounded_limit),
+        )
+        return {
+            "schema_version": "product-loop-009-chat-to-loop-handoff.index.v1",
+            "contract_ref": CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
+            "status": read_model["status"],
+            "surface": "Chat To Loop Handoff",
+            "source_today_route_ref": "GET /control-center/today/summary",
+            "source_chat_route_refs": list(CHAT_DURABLE_RECEIPT_ROUTE_REFS),
+            "storage_ref": "founder-loop-storage:local-sqlite-jsonl",
+            "side_effect_class": "local_dev_workspace_only",
+            "read_only": True,
+            "proposal_only": True,
+            "safe_refs_only": True,
+            "safe_summary_only": True,
+            "raw_content_included": False,
+            "chat_to_loop_handoff_contract_ref": CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
+            "chat_to_loop_handoff_read_model": read_model,
+            "evidence_refs": read_model["evidence_refs"],
+            "blocked_state_refs": read_model["blocked_state_refs"],
+            "next_safe_action": read_model["next_safe_action"],
         }
 
     def _productized_evidence_events(
@@ -7466,6 +7503,12 @@ class FounderLoopRepository:
 
     def actions_inbox(self, *, limit: int = 50) -> dict[str, Any]:
         items = self.list_action_inbox(limit=limit)
+        chat_turn_receipts = self.list_chat_turn_receipts(limit=5)
+        chat_handoff_receipts = self.list_chat_handoff_receipts(limit=5)
+        chat_to_loop_handoff_read_model = build_chat_to_loop_handoff_read_model(
+            chat_turn_receipts=chat_turn_receipts,
+            chat_handoff_receipts=chat_handoff_receipts,
+        )
         memory_items = self.list_memory_review_queue(limit=3)
         briefing_items = self.list_briefing_items(limit=3)
         memory_review_decisions = self.list_memory_review_decisions(limit=5)
@@ -7567,6 +7610,8 @@ class FounderLoopRepository:
             "plans_to_actions_bridge_read_model": (
                 plans_to_actions_bridge_read_model
             ),
+            "chat_to_loop_handoff_contract_ref": CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
+            "chat_to_loop_handoff_read_model": chat_to_loop_handoff_read_model,
             "items": items,
             "approval_required_before_mutation": True,
             "mutating_controls_enabled": True,
@@ -7646,6 +7691,12 @@ class FounderLoopRepository:
         plans = self.list_plan_summaries(limit=3)
         memory_items = self.list_memory_review_queue(limit=3)
         memory_review_decisions = self.list_memory_review_decisions(limit=5)
+        chat_turn_receipts = self.list_chat_turn_receipts(limit=5)
+        chat_handoff_receipts = self.list_chat_handoff_receipts(limit=5)
+        chat_to_loop_handoff_read_model = build_chat_to_loop_handoff_read_model(
+            chat_turn_receipts=chat_turn_receipts,
+            chat_handoff_receipts=chat_handoff_receipts,
+        )
         cross_surface_memory_intake_contract = (
             _cross_surface_memory_intake_contract_payload()
         )
@@ -7690,8 +7741,8 @@ class FounderLoopRepository:
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
             private_beta_readiness_gate_contract=private_beta_readiness_gate_contract,
             user_intent_understanding_contract=user_intent_understanding_contract,
-            chat_turn_receipts=[],
-            chat_handoff_receipts=[],
+            chat_turn_receipts=chat_turn_receipts,
+            chat_handoff_receipts=chat_handoff_receipts,
             memory_review_decisions=memory_review_decisions,
         )
         weekly_review_narrative = _weekly_review_narrative(
@@ -7878,6 +7929,8 @@ class FounderLoopRepository:
             "weekly_review_narrative": weekly_review_narrative,
             "weekly_ceo_review_v1_contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
             "weekly_ceo_review_v1_read_model": weekly_ceo_review_v1_read_model,
+            "chat_to_loop_handoff_contract_ref": CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
+            "chat_to_loop_handoff_read_model": chat_to_loop_handoff_read_model,
             "dogfood_capture": dogfood_capture,
             "items": items,
             "evidence_refs": ["evidence-ref:founder-loop:morning-briefing"],

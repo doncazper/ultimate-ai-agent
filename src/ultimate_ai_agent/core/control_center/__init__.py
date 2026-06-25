@@ -75,6 +75,15 @@ from ultimate_ai_agent.core.control_center.weekly_ceo_review import (
     WeeklyCeoReviewV1ReadModel,
     build_weekly_ceo_review_v1_read_model,
 )
+from ultimate_ai_agent.core.control_center.chat_to_loop_handoff import (
+    CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
+    CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS,
+    CHAT_TO_LOOP_HANDOFF_READ_MODEL_SOURCE,
+    CHAT_TO_LOOP_HANDOFF_REQUIRED_BLOCKED_REFS,
+    ChatToLoopHandoffOutcome,
+    ChatToLoopHandoffReadModel,
+    build_chat_to_loop_handoff_read_model,
+)
 from ultimate_ai_agent.core.control_center.actions import (
     ControlCenterActionPreviewDecision,
     ControlCenterActionPreviewRequest,
@@ -182,6 +191,10 @@ __all__ = [
     "WEEKLY_CEO_REVIEW_V1_CONTRACT_REF",
     "WEEKLY_CEO_REVIEW_V1_READ_MODEL_SOURCE",
     "WEEKLY_CEO_REVIEW_V1_REQUIRED_BLOCKED_REFS",
+    "CHAT_TO_LOOP_HANDOFF_CONTRACT_REF",
+    "CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS",
+    "CHAT_TO_LOOP_HANDOFF_READ_MODEL_SOURCE",
+    "CHAT_TO_LOOP_HANDOFF_REQUIRED_BLOCKED_REFS",
     "FounderLoopControlCenterService",
     "FounderLoopActionDecisionReceipt",
     "FounderLoopActionDecisionRequest",
@@ -202,6 +215,8 @@ __all__ = [
     "TodayLoopLane",
     "TodayLoopReadModel",
     "WeeklyCeoReviewV1ReadModel",
+    "ChatToLoopHandoffOutcome",
+    "ChatToLoopHandoffReadModel",
     "GateSummary",
     "GovernedProviderInvocationReadiness",
     "MobilePlanningSummary",
@@ -227,5 +242,6 @@ __all__ = [
     "build_plans_to_actions_bridge_read_model",
     "build_today_loop_read_model",
     "build_weekly_ceo_review_v1_read_model",
+    "build_chat_to_loop_handoff_read_model",
     "preview_control_center_action",
 ]

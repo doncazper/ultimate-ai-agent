@@ -902,6 +902,261 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders backend-owned Chat to Loop handoff outcomes", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const handoffPanel = await screen.findByLabelText(
+      "Backend-owned Chat to Loop handoff read model",
+    );
+    expect(
+      within(handoffPanel).getByRole("heading", {
+        name: /Chat to Loop Handoff/i,
+      }),
+    ).toBeInTheDocument();
+    const handoffOutcomes = within(handoffPanel).getByLabelText(
+      "Chat to Loop handoff outcomes",
+    );
+    for (const label of [
+      "remember this",
+      "create action",
+      "add to plan",
+      "defer",
+      "ask human",
+    ]) {
+      expect(within(handoffOutcomes).getByText(new RegExp(label, "i")))
+        .toBeInTheDocument();
+    }
+    expect(
+      within(handoffOutcomes).getByText(
+        /^blocked: blocked_authority; Authority; blocked-state:chat-to-loop-no-action-execution$/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(handoffPanel).getByText(
+        "blocked-state:chat-to-loop-no-production-authority",
+      ),
+    ).toBeInTheDocument();
+    expect(within(handoffPanel).getByText("Memory write").nextElementSibling)
+      .toHaveTextContent("blocked");
+    expect(within(handoffPanel).getByText("Action execution").nextElementSibling)
+      .toHaveTextContent("blocked");
+  });
+
+  it("fails closed for unsafe Chat to Loop handoff payloads", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      chat_to_loop_handoff_read_model: {
+        ...(mockControlCenterData.founderToday.chat_to_loop_handoff_read_model ?? {}),
+        direct_memory_write_authorized: true,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Chat to Loop handoff refs", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      chat_to_loop_handoff_read_model: {
+        ...(mockControlCenterData.founderToday.chat_to_loop_handoff_read_model ?? {}),
+        evidence_refs: ["evidence-ref:alice@example.com"],
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("evidence-ref:alice@example.com"))
+      .not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Chat to Loop handoff rendered text", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      chat_to_loop_handoff_read_model: {
+        ...(mockControlCenterData.founderToday.chat_to_loop_handoff_read_model ?? {}),
+        safe_summary: "Contains raw prompt material.",
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Contains raw prompt material."))
+      .not.toBeInTheDocument();
+  });
+
+  it("fails closed for malformed Chat to Loop handoff outcomes", async () => {
+    const baseReadModel =
+      mockControlCenterData.founderToday.chat_to_loop_handoff_read_model;
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      chat_to_loop_handoff_read_model: {
+        ...(baseReadModel ?? {}),
+        outcome_kinds: [
+          ...((baseReadModel?.outcome_kinds ?? []) as string[]),
+          "execute_action",
+        ],
+        outcomes: (baseReadModel?.outcomes ?? []).map((outcome, index) =>
+          index === 0
+            ? {
+                ...outcome,
+                target_surface: "Execution",
+                proposal_ref: "proposal-ref:relative/path/project",
+              }
+            : outcome,
+        ),
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("proposal-ref:relative/path/project"))
+      .not.toBeInTheDocument();
+  });
+
+  it("does not backfill Chat to Loop handoff from mocks", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (partialToday as {
+      chat_to_loop_handoff_read_model?: unknown;
+    }).chat_to_loop_handoff_read_model;
+    delete (partialToday as {
+      chat_to_loop_handoff_contract_ref?: unknown;
+    }).chat_to_loop_handoff_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: partialToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:product-loop-009-chat-to-loop-handoff:v1"),
+    ).not.toBeInTheDocument();
+  });
+
   it("does not backfill Action Inbox decision lanes from mocks", async () => {
     const partialInbox = { ...mockControlCenterData.founderActionsInbox };
     delete (partialInbox as {

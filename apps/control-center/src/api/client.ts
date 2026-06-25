@@ -1159,6 +1159,48 @@ function hasStringArrays(
   });
 }
 
+const CHAT_TO_LOOP_SAFE_REF_RE = /^[A-Za-z0-9][A-Za-z0-9:_#=-]{0,239}$/;
+const CHAT_TO_LOOP_UNSAFE_TEXT_FRAGMENTS = [
+  "raw prompt",
+  "raw_prompt",
+  "raw response",
+  "raw_response",
+  "provider payload",
+  "provider_payload",
+  "provider exchange",
+  "full transcript",
+  "unredacted transcript",
+  "credential",
+  "authorization",
+  "api key",
+  "secret",
+  "password",
+] as const;
+
+function isSafeChatToLoopRef(value: unknown): value is string {
+  return typeof value === "string" && CHAT_TO_LOOP_SAFE_REF_RE.test(value);
+}
+
+function isSafeChatToLoopText(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  return !CHAT_TO_LOOP_UNSAFE_TEXT_FRAGMENTS.some((fragment) =>
+    lowered.includes(fragment),
+  );
+}
+
+function hasSafeChatToLoopRefArrays(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) => {
+    const value = record[field];
+    return Array.isArray(value) && value.every(isSafeChatToLoopRef);
+  });
+}
+
 function hasStringArrayPrefix(
   record: Record<string, unknown>,
   field: string,
@@ -1256,6 +1298,8 @@ function normalizeFounderToday(
     delete fallbackWithoutDigest.follow_up_tracker_contract_ref;
     delete fallbackWithoutDigest.weekly_ceo_review_v1_read_model;
     delete fallbackWithoutDigest.weekly_ceo_review_v1_contract_ref;
+    delete fallbackWithoutDigest.chat_to_loop_handoff_read_model;
+    delete fallbackWithoutDigest.chat_to_loop_handoff_contract_ref;
     delete fallbackWithoutDigest.plans_to_actions_bridge_read_model;
     delete fallbackWithoutDigest.plans_to_actions_bridge_contract_ref;
     return {
@@ -1304,6 +1348,16 @@ function normalizeFounderToday(
     delete normalized.plans_to_actions_bridge_read_model;
     delete normalized.plans_to_actions_bridge_contract_ref;
     normalized = stripPlansActionEnvelopePosture(normalized);
+  }
+  const chatToLoopHandoff = valueRecord.chat_to_loop_handoff_read_model;
+  if (isSafeChatToLoopHandoffReadModel(chatToLoopHandoff)) {
+    normalized.chat_to_loop_handoff_read_model = chatToLoopHandoff;
+    normalized.chat_to_loop_handoff_contract_ref = (
+      chatToLoopHandoff as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.chat_to_loop_handoff_read_model;
+    delete normalized.chat_to_loop_handoff_contract_ref;
   }
   return {
     value: normalized as unknown as FounderLoopTodaySummary,
@@ -1417,6 +1471,117 @@ const WEEKLY_CEO_REVIEW_V1_COUNT_ARRAY_PAIRS = [
   ["evidence_event_count", "evidence_event_refs"],
 ] as const;
 
+const CHAT_TO_LOOP_HANDOFF_DENIED_FLAGS = [
+  "model_output_authority",
+  "direct_memory_write_authorized",
+  "automatic_memory_write_authorized",
+  "context_injection_authorized",
+  "tool_execution_enabled",
+  "connector_write_enabled",
+  "action_execution_enabled",
+  "plan_execution_enabled",
+  "provider_model_call_enabled",
+  "runtime_model_call_enabled",
+  "live_web_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "production_authority_enabled",
+] as const;
+
+const CHAT_TO_LOOP_HANDOFF_REQUIRED_ARRAYS = [
+  "outcome_kinds",
+  "outcome_refs",
+  "turn_receipt_refs",
+  "handoff_receipt_refs",
+  "action_created_refs",
+  "plan_created_refs",
+  "memory_proposal_refs",
+  "defer_refs",
+  "ask_human_refs",
+  "evidence_refs",
+  "idempotency_refs",
+  "blocked_state_refs",
+] as const;
+
+const CHAT_TO_LOOP_HANDOFF_REQUIRED_REF_ARRAYS = [
+  "outcome_refs",
+  "turn_receipt_refs",
+  "handoff_receipt_refs",
+  "action_created_refs",
+  "plan_created_refs",
+  "memory_proposal_refs",
+  "defer_refs",
+  "ask_human_refs",
+  "evidence_refs",
+  "idempotency_refs",
+  "blocked_state_refs",
+] as const;
+
+const CHAT_TO_LOOP_HANDOFF_COUNT_ARRAY_PAIRS = [
+  ["outcome_count", "outcomes"],
+  ["turn_receipt_count", "turn_receipt_refs"],
+  ["handoff_receipt_count", "handoff_receipt_refs"],
+  ["remember_this_count", "memory_proposal_refs"],
+  ["create_action_count", "action_created_refs"],
+  ["add_to_plan_count", "plan_created_refs"],
+  ["defer_count", "defer_refs"],
+  ["ask_human_count", "ask_human_refs"],
+  ["blocked_count", "blocked_state_refs"],
+] as const;
+
+const CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS = [
+  "remember_this",
+  "create_action",
+  "add_to_plan",
+  "defer",
+  "ask_human",
+  "blocked",
+] as const;
+
+const CHAT_TO_LOOP_HANDOFF_TARGET_SURFACES = [
+  "Memory",
+  "Actions",
+  "Plans",
+  "Chat",
+  "Authority",
+] as const;
+
+const CHAT_TO_LOOP_HANDOFF_STATES = [
+  "recorded_reviewable_proposal",
+  "blocked_review_required",
+  "blocked_authority",
+] as const;
+
+function hasExactStringList(
+  value: unknown,
+  expected: readonly string[],
+): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === expected.length &&
+    expected.every((item, index) => value[index] === item)
+  );
+}
+
+function expectedChatToLoopLabel(kind: unknown): string | null {
+  switch (kind) {
+    case "remember_this":
+      return "remember this";
+    case "create_action":
+      return "create action";
+    case "add_to_plan":
+      return "add to plan";
+    case "defer":
+      return "defer";
+    case "ask_human":
+      return "ask human";
+    case "blocked":
+      return "blocked";
+    default:
+      return null;
+  }
+}
+
 const MORNING_BRIEFING_V1_REQUIRED_ARRAYS = [
   "repo_status_refs",
   "workbench_status_refs",
@@ -1458,6 +1623,16 @@ function normalizeFounderMorningBriefing(
   } else {
     delete normalized.weekly_ceo_review_v1_read_model;
     delete normalized.weekly_ceo_review_v1_contract_ref;
+  }
+  const chatToLoopHandoff = valueRecord.chat_to_loop_handoff_read_model;
+  if (isSafeChatToLoopHandoffReadModel(chatToLoopHandoff)) {
+    normalized.chat_to_loop_handoff_read_model = chatToLoopHandoff;
+    normalized.chat_to_loop_handoff_contract_ref = (
+      chatToLoopHandoff as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.chat_to_loop_handoff_read_model;
+    delete normalized.chat_to_loop_handoff_contract_ref;
   }
   return {
     value: normalized as unknown as FounderLoopMorningBriefing,
@@ -1517,6 +1692,107 @@ function hasMatchingWeeklyCeoReviewV1Counts(value: Record<string, unknown>): boo
   });
 }
 
+function isSafeChatToLoopHandoffReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "product-loop-009-chat-to-loop-handoff.v1" ||
+    value.contract_ref !== "contract-ref:product-loop-009-chat-to-loop-handoff:v1" ||
+    value.source !== "python_core_chat_to_loop_handoff_read_model"
+  ) {
+    return false;
+  }
+  if (
+    value.backend_owned !== true ||
+    value.local_read_model_only !== true ||
+    value.proposal_only !== true ||
+    value.safe_refs_only !== true ||
+    value.safe_summary_only !== true ||
+    value.raw_content_included !== false ||
+    value.idempotency_bound !== true ||
+    !isSafeChatToLoopText(value.status) ||
+    !isSafeChatToLoopText(value.safe_summary) ||
+    !isSafeChatToLoopText(value.next_safe_action) ||
+    !hasDeniedFlagsFalse(value, CHAT_TO_LOOP_HANDOFF_DENIED_FLAGS) ||
+    !hasStringArrays(value, CHAT_TO_LOOP_HANDOFF_REQUIRED_ARRAYS) ||
+    !hasSafeChatToLoopRefArrays(value, CHAT_TO_LOOP_HANDOFF_REQUIRED_REF_ARRAYS) ||
+    !hasMatchingChatToLoopHandoffCounts(value) ||
+    !Array.isArray(value.outcomes) ||
+    !value.outcomes.every(isSafeChatToLoopHandoffOutcome) ||
+    !hasExactStringList(
+      (value.outcomes as Record<string, unknown>[]).map(
+        (outcome) => String(outcome.outcome_kind),
+      ),
+      CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS,
+    ) ||
+    !hasExactStringList(value.outcome_kinds, CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS) ||
+    !Array.isArray(value.blocked_state_refs) ||
+    !value.blocked_state_refs.includes(
+      "blocked-state:chat-to-loop-no-production-authority",
+    )
+  ) {
+    return false;
+  }
+  return (
+    Array.isArray(value.outcome_refs) &&
+    value.outcome_refs.join("\u0000") ===
+      (value.outcomes as Record<string, unknown>[])
+        .map((outcome) => String(outcome.outcome_ref))
+        .join("\u0000")
+  );
+}
+
+function isSafeChatToLoopHandoffOutcome(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const expectedLabel = expectedChatToLoopLabel(value.outcome_kind);
+  return (
+    typeof value.outcome_ref === "string" &&
+    isSafeChatToLoopRef(value.outcome_ref) &&
+    typeof value.outcome_kind === "string" &&
+    CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS.includes(
+      value.outcome_kind as (typeof CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS)[number],
+    ) &&
+    CHAT_TO_LOOP_HANDOFF_STATES.includes(
+      value.state as (typeof CHAT_TO_LOOP_HANDOFF_STATES)[number],
+    ) &&
+    typeof value.target_surface === "string" &&
+    CHAT_TO_LOOP_HANDOFF_TARGET_SURFACES.includes(
+      value.target_surface as (typeof CHAT_TO_LOOP_HANDOFF_TARGET_SURFACES)[number],
+    ) &&
+    expectedLabel !== null &&
+    value.safe_label === expectedLabel &&
+    isSafeChatToLoopText(value.state) &&
+    isSafeChatToLoopText(value.safe_label) &&
+    isSafeChatToLoopText(value.target_surface) &&
+    typeof value.source_ref === "string" &&
+    isSafeChatToLoopRef(value.source_ref) &&
+    typeof value.proposal_ref === "string" &&
+    isSafeChatToLoopRef(value.proposal_ref) &&
+    isSafeChatToLoopText(value.next_safe_action) &&
+    hasStringArrays(value, [
+      "receipt_refs",
+      "evidence_refs",
+      "blocked_state_refs",
+    ]) &&
+    hasSafeChatToLoopRefArrays(value, [
+      "receipt_refs",
+      "evidence_refs",
+      "blocked_state_refs",
+    ])
+  );
+}
+
+function hasMatchingChatToLoopHandoffCounts(value: Record<string, unknown>): boolean {
+  return CHAT_TO_LOOP_HANDOFF_COUNT_ARRAY_PAIRS.every(([countKey, refsKey]) => {
+    const count = value[countKey];
+    const refs = value[refsKey];
+    return typeof count === "number" && Array.isArray(refs) && count === refs.length;
+  });
+}
+
 function isSafeMorningBriefingV1ReadModel(value: unknown): boolean {
   if (!isPlainRecord(value)) {
     return false;
@@ -1563,6 +1839,9 @@ function normalizeFounderActionsInbox(
   const safePlansToActionsBridge = isSafePlansToActionsBridgeReadModel(
     valueRecord.plans_to_actions_bridge_read_model,
   );
+  const safeChatToLoopHandoff = isSafeChatToLoopHandoffReadModel(
+    valueRecord.chat_to_loop_handoff_read_model,
+  );
   if (
     value === undefined ||
     !isSafeActionInboxDecisionLaneReadModel(
@@ -1582,6 +1861,16 @@ function normalizeFounderActionsInbox(
     } else {
       delete withoutMockLanes.plans_to_actions_bridge_read_model;
       delete withoutMockLanes.plans_to_actions_bridge_contract_ref;
+    }
+    if (safeChatToLoopHandoff) {
+      withoutMockLanes.chat_to_loop_handoff_read_model =
+        valueRecord.chat_to_loop_handoff_read_model;
+      withoutMockLanes.chat_to_loop_handoff_contract_ref = (
+        valueRecord.chat_to_loop_handoff_read_model as Record<string, unknown>
+      ).contract_ref;
+    } else {
+      delete withoutMockLanes.chat_to_loop_handoff_read_model;
+      delete withoutMockLanes.chat_to_loop_handoff_contract_ref;
     }
     return {
       value: withoutMockLanes as unknown as FounderLoopActionsInbox,
@@ -1603,6 +1892,16 @@ function normalizeFounderActionsInbox(
   } else {
     delete normalized.plans_to_actions_bridge_read_model;
     delete normalized.plans_to_actions_bridge_contract_ref;
+  }
+  if (safeChatToLoopHandoff) {
+    normalized.chat_to_loop_handoff_read_model =
+      valueRecord.chat_to_loop_handoff_read_model;
+    normalized.chat_to_loop_handoff_contract_ref = (
+      valueRecord.chat_to_loop_handoff_read_model as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.chat_to_loop_handoff_read_model;
+    delete normalized.chat_to_loop_handoff_contract_ref;
   }
   return {
     value: normalized as unknown as FounderLoopActionsInbox,

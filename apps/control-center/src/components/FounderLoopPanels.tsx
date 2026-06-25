@@ -20,6 +20,7 @@ import type {
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
+  FounderLoopChatToLoopHandoffReadModel,
   FounderLoopEvidenceTimelineEvent,
   FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
@@ -1923,6 +1924,10 @@ export function TodaySurfacePanel({
           ))}
         </LoopPanel>
         <LoopPanel title="Plans" route="/plans">
+          <ChatToLoopHandoffPanel
+            compact
+            readModel={today.chat_to_loop_handoff_read_model}
+          />
           <PlansToActionsBridgePanel
             contractRef={today.plans_to_actions_bridge_contract_ref}
             readModel={today.plans_to_actions_bridge_read_model}
@@ -1941,6 +1946,10 @@ export function TodaySurfacePanel({
           ))}
         </LoopPanel>
         <LoopPanel title="Memory review" route="/memory">
+          <ChatToLoopHandoffPanel
+            compact
+            readModel={today.chat_to_loop_handoff_read_model}
+          />
           {today.memory_review_queue.map((item) => (
             <MemoryReviewCard item={item} key={item.review_ref} />
           ))}
@@ -3189,6 +3198,87 @@ function WeeklyCeoReviewV1Panel({
   );
 }
 
+export function ChatToLoopHandoffPanel({
+  compact = false,
+  readModel,
+}: {
+  compact?: boolean;
+  readModel?: FounderLoopChatToLoopHandoffReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  const visibleOutcomes = compact
+    ? readModel.outcomes.slice(0, 3)
+    : readModel.outcomes;
+  return (
+    <article
+      aria-label="Backend-owned Chat to Loop handoff read model"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <h3>Chat to Loop Handoff</h3>
+        <span>{readModel.status}</span>
+      </div>
+      <p className="eyebrow">Proposal-only</p>
+      <p className="section-copy">{readModel.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm label="Outcomes" value={String(readModel.outcome_count)} />
+        <DetailTerm
+          label="Turn receipts"
+          value={String(readModel.turn_receipt_count)}
+        />
+        <DetailTerm
+          label="Handoff receipts"
+          value={String(readModel.handoff_receipt_count)}
+        />
+        <DetailTerm
+          label="Memory write"
+          value={readModel.direct_memory_write_authorized ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Model output authority"
+          value={readModel.model_output_authority ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Next safe action"
+          value={readModel.next_safe_action}
+        />
+      </dl>
+      <div className="note-list" aria-label="Chat to Loop handoff outcomes">
+        {visibleOutcomes.map((outcome) => (
+          <span key={outcome.outcome_ref}>
+            {outcome.safe_label}: {outcome.state}; {outcome.target_surface};{" "}
+            {outcome.proposal_ref}
+          </span>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Outcome refs: none"
+        refs={readModel.outcome_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Handoff receipt refs: none"
+        refs={readModel.handoff_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Memory proposal refs: none"
+        refs={readModel.memory_proposal_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Chat-to-loop blockers: missing"
+        refs={readModel.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
 export function InboxSurfacePanel({
   sourceReadiness,
 }: {
@@ -3334,6 +3424,10 @@ export function ActionInboxSurfacePanel({
       <PlansToActionsBridgePanel
         contractRef={displayedInbox.plans_to_actions_bridge_contract_ref}
         readModel={displayedInbox.plans_to_actions_bridge_read_model}
+      />
+      <ChatToLoopHandoffPanel
+        compact
+        readModel={displayedInbox.chat_to_loop_handoff_read_model}
       />
       <article className="status-card">
         <div className="status-card-header">
@@ -4376,6 +4470,7 @@ function BriefingDailyLoopPanel({
     briefing.memory_why_shown_items?.length ||
     briefing.review_queue_groups?.length ||
     briefing.weekly_ceo_review_v1_read_model ||
+    briefing.chat_to_loop_handoff_read_model ||
     briefing.weekly_review_narrative ||
     briefing.dogfood_capture;
 
@@ -4396,6 +4491,10 @@ function BriefingDailyLoopPanel({
         <ReviewQueueGroupCards groups={briefing.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={briefing.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={briefing.memory_why_shown_items ?? []} />
+        <ChatToLoopHandoffPanel
+          compact
+          readModel={briefing.chat_to_loop_handoff_read_model}
+        />
         <DogfoodCaptureCard capture={briefing.dogfood_capture} />
       </div>
       <WeeklyCeoReviewV1Panel

@@ -2809,6 +2809,80 @@ export interface FounderLoopWeeklyCeoReviewV1ReadModel {
   production_authority_enabled: boolean;
 }
 
+export type FounderLoopChatToLoopOutcomeKind =
+  | "remember_this"
+  | "create_action"
+  | "add_to_plan"
+  | "defer"
+  | "ask_human"
+  | "blocked";
+
+export interface FounderLoopChatToLoopHandoffOutcome {
+  outcome_ref: string;
+  outcome_kind: FounderLoopChatToLoopOutcomeKind;
+  state: string;
+  target_surface: "Memory" | "Actions" | "Plans" | "Chat" | "Authority";
+  safe_label: string;
+  source_ref: string;
+  proposal_ref: string;
+  receipt_refs: string[];
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+}
+
+export interface FounderLoopChatToLoopHandoffReadModel {
+  schema_version: "product-loop-009-chat-to-loop-handoff.v1";
+  contract_ref: string;
+  source: string;
+  status: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  proposal_only: boolean;
+  safe_refs_only: boolean;
+  safe_summary_only: boolean;
+  raw_content_included: boolean;
+  idempotency_bound: boolean;
+  outcome_kinds: FounderLoopChatToLoopOutcomeKind[];
+  safe_summary: string;
+  outcome_count: number;
+  turn_receipt_count: number;
+  handoff_receipt_count: number;
+  remember_this_count: number;
+  create_action_count: number;
+  add_to_plan_count: number;
+  defer_count: number;
+  ask_human_count: number;
+  blocked_count: number;
+  outcomes: FounderLoopChatToLoopHandoffOutcome[];
+  outcome_refs: string[];
+  turn_receipt_refs: string[];
+  handoff_receipt_refs: string[];
+  action_created_refs: string[];
+  plan_created_refs: string[];
+  memory_proposal_refs: string[];
+  defer_refs: string[];
+  ask_human_refs: string[];
+  evidence_refs: string[];
+  idempotency_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+  model_output_authority: boolean;
+  direct_memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  tool_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  action_execution_enabled: boolean;
+  plan_execution_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  live_web_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopDailyLoopSummary {
   loop_ref: string;
   status: string;
@@ -3252,6 +3326,8 @@ export interface FounderLoopTodaySummary {
   chat_durable_receipt_contract_ref: string;
   chat_durable_receipt_route_refs: string[];
   chat_durable_receipt_status: string;
+  chat_to_loop_handoff_contract_ref?: string;
+  chat_to_loop_handoff_read_model?: FounderLoopChatToLoopHandoffReadModel;
   chat_turn_receipt_refs: string[];
   chat_handoff_receipt_refs: string[];
   chat_handoff_created_refs: string[];
@@ -3359,6 +3435,8 @@ export interface FounderLoopActionsInbox {
   action_inbox_decision_lane_read_model?: FounderLoopActionInboxDecisionLaneReadModel;
   plans_to_actions_bridge_contract_ref?: string;
   plans_to_actions_bridge_read_model?: FounderLoopPlansToActionsBridgeReadModel;
+  chat_to_loop_handoff_contract_ref?: string;
+  chat_to_loop_handoff_read_model?: FounderLoopChatToLoopHandoffReadModel;
   items: FounderLoopActionItem[];
   approval_required_before_mutation: boolean;
   mutating_controls_enabled: boolean;
@@ -3442,6 +3520,8 @@ export interface FounderLoopMorningBriefing {
   weekly_review_narrative?: FounderLoopWeeklyReviewNarrative;
   weekly_ceo_review_v1_contract_ref?: string;
   weekly_ceo_review_v1_read_model?: FounderLoopWeeklyCeoReviewV1ReadModel;
+  chat_to_loop_handoff_contract_ref?: string;
+  chat_to_loop_handoff_read_model?: FounderLoopChatToLoopHandoffReadModel;
   dogfood_capture?: FounderLoopDogfoodCaptureSummary;
   morning_briefing_v1_contract_ref?: string;
   morning_briefing_v1_read_model?: FounderLoopMorningBriefingV1ReadModel;
