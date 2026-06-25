@@ -1586,6 +1586,105 @@ export interface FounderLoopOperatorRunTimeline {
   authority_boundary: string;
 }
 
+export interface FounderLoopEvidenceNarrativeEntry {
+  narrative_ref: string;
+  event_ref: string;
+  timeline_item_ref: string;
+  group_ref: string;
+  group_kind: string;
+  event_type: string;
+  title: string;
+  what_happened: string;
+  why_recorded: string;
+  approval_posture: string;
+  change_summary: string;
+  remaining_blocked: string;
+  inspection_summary: string;
+  source_refs: string[];
+  status_refs: string[];
+  receipt_refs: string[];
+  approval_refs: string[];
+  audit_refs: string[];
+  idempotency_refs: string[];
+  rollback_refs: string[];
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  raw_content_included: boolean;
+  approval_ref_authority: boolean;
+  rollback_execution_enabled: boolean;
+  action_execution_enabled: boolean;
+  tool_execution_enabled: boolean;
+  workflow_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  live_web_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  public_beta_enabled: boolean;
+  distribution_enabled: boolean;
+  prompt_content_stored: boolean;
+  response_content_stored: boolean;
+  provider_exchange_content_stored: boolean;
+  memory_truth_authority: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopEvidenceTimelineNarrativeReadModel {
+  schema_version: string;
+  contract_ref: string;
+  source: string;
+  status: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  redacted_summaries_only: boolean;
+  narrative_from_existing_refs_only: boolean;
+  raw_content_included: boolean;
+  entry_count: number;
+  event_count: number;
+  group_count: number;
+  narrative_item_count: number;
+  entries: FounderLoopEvidenceNarrativeEntry[];
+  narrative_refs: string[];
+  event_refs: string[];
+  timeline_item_refs: string[];
+  group_refs: string[];
+  receipt_refs: string[];
+  approval_refs: string[];
+  audit_refs: string[];
+  idempotency_refs: string[];
+  rollback_refs: string[];
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  authority_boundary: string;
+  next_safe_action: string;
+  approval_ref_authority: boolean;
+  rollback_execution_enabled: boolean;
+  action_execution_enabled: boolean;
+  tool_execution_enabled: boolean;
+  workflow_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  live_web_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  public_beta_enabled: boolean;
+  distribution_enabled: boolean;
+  prompt_content_stored: boolean;
+  response_content_stored: boolean;
+  provider_exchange_content_stored: boolean;
+  memory_truth_authority: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopEvidenceTimelineIndex {
   schema_version: string;
   contract_ref: string;
@@ -1616,6 +1715,8 @@ export interface FounderLoopEvidenceTimelineIndex {
   groups: FounderLoopEvidenceTimelineGroup[];
   events: FounderLoopEvidenceTimelineEvent[];
   operator_run_timeline?: FounderLoopOperatorRunTimeline;
+  narrative_contract_ref?: string;
+  narrative_read_model?: FounderLoopEvidenceTimelineNarrativeReadModel;
   narrative_items?: FounderLoopEvidenceTimelineItem[];
   review_answer_refs?: Record<
     | "proposed"
