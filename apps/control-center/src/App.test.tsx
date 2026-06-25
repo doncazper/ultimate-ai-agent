@@ -5044,6 +5044,10 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("provider-ref:not-invoked")).toBeInTheDocument();
     expect(screen.getByText("model-profile-ref:not-invoked")).toBeInTheDocument();
     expect(screen.getByText("Estimated cost USD")).toBeInTheDocument();
+    expect(screen.getAllByText(/Evidence narrative/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Narrative entries are unavailable from the backend response/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("Evidence history grammar")).toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:evidence-history-grammar:v1").length,
@@ -5065,8 +5069,8 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/Raw evidence included/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Private source artifacts/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Approval refs are identifiers only/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Approval refs are identifiers only/i).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText(/rollback refs do not perform rollback/i),
     ).toBeInTheDocument();
@@ -5118,6 +5122,128 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/raw path/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw log/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/environment dump/i)).not.toBeInTheDocument();
+  });
+
+  it("renders Evidence Timeline narrative entries", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) =>
+        new Response(JSON.stringify(envelopeForReadEndpoint(String(url))), {
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Evidence narrative/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("implemented_evidence_timeline_narrative_safe_refs_only")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("What happened")).toBeInTheDocument();
+    expect(screen.getByText("Why recorded")).toBeInTheDocument();
+    expect(screen.getByText("Approval posture")).toBeInTheDocument();
+    expect(screen.getByText("Still blocked")).toBeInTheDocument();
+    expect(screen.getByText("Inspect")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /A reviewable Today-to-Action evidence event was recorded as safe refs/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Narrative: Setup Assistant hardening review/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("evidence-narrative:mock-founder-loop").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Evidence Timeline narrative payloads", async () => {
+    const unsafeEvidence = JSON.parse(
+      JSON.stringify(mockControlCenterData.founderEvidenceTimeline),
+    );
+    unsafeEvidence.narrative_read_model.entries[0].what_happened =
+      "raw prompt should not render";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        const urlText = String(url);
+        if (urlText.endsWith(API_ENDPOINTS.founderEvidenceTimeline)) {
+          return new Response(
+            JSON.stringify({ ok: true, result: unsafeEvidence }),
+            { headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Narrative entries are unavailable from the backend response/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/raw prompt should not render/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:product-loop-010-evidence-timeline-narrative:v1"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not backfill Evidence Timeline narrative from mocks", async () => {
+    const evidenceWithoutNarrative = {
+      ...(mockControlCenterData.founderEvidenceTimeline as unknown as Record<
+        string,
+        unknown
+      >),
+    };
+    delete evidenceWithoutNarrative.narrative_read_model;
+    delete evidenceWithoutNarrative.narrative_contract_ref;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        const urlText = String(url);
+        if (urlText.endsWith(API_ENDPOINTS.founderEvidenceTimeline)) {
+          return new Response(
+            JSON.stringify({ ok: true, result: evidenceWithoutNarrative }),
+            { headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Narrative entries are unavailable from the backend response/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("evidence-narrative:mock-founder-loop")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:product-loop-010-evidence-timeline-narrative:v1"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders M17 file ref summaries without raw file contents or filesystem controls", async () => {

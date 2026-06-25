@@ -561,6 +561,22 @@ connector writes, no action execution, no plan execution, no provider/model
 calls, no live web, no shell/browser execution, no public beta, and no
 production authority.
 No-authority phrases: no model output authority; no direct memory writes; no automatic memory writes; no context injection; no tool execution; no connector writes; no action execution; no plan execution; no provider/model calls; no live web; no shell/browser execution; no public beta; no production authority.
+
+Product Loop 010 Evidence Timeline narrative
+Goal met: Evidence Timeline now exposes a backend-owned
+`narrative_read_model` over existing evidence events and timeline safe refs so
+operators can read what happened, why it was recorded, approval posture, what
+changed, what remains blocked, and what can be inspected.
+`scripts/inspect_evidence_timeline_narrative.py` provides CLI parity and
+returns `state_not_found_no_write` without creating storage when local Founder
+Loop state is absent. Control Center renders the narrative only when the
+backend-owned payload validates; unsafe backend payloads and mock-only fallback
+fail closed. This lane adds no approval authority, no rollback execution, no
+action execution, no connector writes, no provider SDK calls, no runtime
+model/provider calls, no prompt/response/provider exchange storage, no memory
+truth authority, no context injection, no live web, no shell/browser execution,
+no public beta, and no production authority.
+No-authority phrases: no approval authority; no rollback execution; no action execution; no connector writes; no provider SDK calls; no runtime model/provider calls; no prompt/response/provider exchange storage; no memory truth authority; no context injection; no live web; no shell/browser execution; no public beta; no production authority.
 ```
 
 ## QA / Verification

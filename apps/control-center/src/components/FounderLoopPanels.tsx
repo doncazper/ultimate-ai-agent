@@ -21,9 +21,11 @@ import type {
   FounderLoopActionItem,
   FounderLoopBriefingItem,
   FounderLoopChatToLoopHandoffReadModel,
+  FounderLoopEvidenceNarrativeEntry,
   FounderLoopEvidenceTimelineEvent,
   FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
+  FounderLoopEvidenceTimelineNarrativeReadModel,
   FounderLoopFollowUpTrackerReadModel,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopMemoryContextPackProposal,
@@ -1182,6 +1184,142 @@ function OperatorRunTimelinePanel({
         />
       </article>
     </div>
+  );
+}
+
+function EvidenceTimelineNarrativeSection({
+  readModel,
+}: {
+  readModel?: FounderLoopEvidenceTimelineNarrativeReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Evidence narrative</h3>
+          <span>pending</span>
+        </div>
+        <p>
+          Narrative entries are unavailable from the backend response. Evidence
+          remains inspectable through existing safe refs only.
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Evidence Timeline narrative"
+      className="compact-stack"
+    >
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Evidence narrative</h3>
+          <span>{readModel.status}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm label="Contract ref" value={readModel.contract_ref} />
+          <DetailTerm label="Source" value={readModel.source} />
+          <DetailTerm label="Entries" value={String(readModel.entry_count)} />
+          <DetailTerm
+            label="Narrative source"
+            value={
+              readModel.narrative_from_existing_refs_only
+                ? "existing refs only"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Raw content"
+            value={readModel.raw_content_included ? "included" : "omitted"}
+          />
+          <DetailTerm
+            label="Approval authority"
+            value={
+              readModel.approval_ref_authority
+                ? "enabled"
+                : "approval refs are identifiers only"
+            }
+          />
+          <DetailTerm
+            label="Rollback execution"
+            value={readModel.rollback_execution_enabled ? "enabled" : "blocked"}
+          />
+          <DetailTerm
+            label="Provider/model calls"
+            value={
+              readModel.provider_model_call_enabled ||
+              readModel.runtime_model_calls_enabled ||
+              readModel.provider_sdk_call_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+        </dl>
+        <p>{readModel.authority_boundary}</p>
+        <p>{readModel.next_safe_action}</p>
+        <RefListWithFallback
+          emptyLabel="No narrative refs recorded"
+          refs={readModel.narrative_refs}
+        />
+      </article>
+      <div className="review-grid">
+        {readModel.entries.slice(0, 6).map((entry) => (
+          <EvidenceNarrativeEntryCard entry={entry} key={entry.narrative_ref} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EvidenceNarrativeEntryCard({
+  entry,
+}: {
+  entry: FounderLoopEvidenceNarrativeEntry;
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>Narrative: {entry.title}</h3>
+        <span>{entry.event_type}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Narrative ref" value={entry.narrative_ref} />
+        <DetailTerm label="Event ref" value={entry.event_ref} />
+        <DetailTerm label="Timeline ref" value={entry.timeline_item_ref} />
+        <DetailTerm label="Group ref" value={entry.group_ref} />
+        <DetailTerm label="What happened" value={entry.what_happened} />
+        <DetailTerm label="Why recorded" value={entry.why_recorded} />
+        <DetailTerm label="Approval posture" value={entry.approval_posture} />
+        <DetailTerm label="Changed" value={entry.change_summary} />
+        <DetailTerm label="Still blocked" value={entry.remaining_blocked} />
+        <DetailTerm label="Inspect" value={entry.inspection_summary} />
+        <DetailTerm
+          label="Raw content"
+          value={entry.raw_content_included ? "included" : "omitted"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={entry.action_execution_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none recorded"
+        refs={entry.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: not recorded"
+        refs={entry.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Approval refs: identifiers only or not present"
+        refs={entry.approval_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked refs: none recorded"
+        refs={entry.blocked_state_refs}
+      />
+    </article>
   );
 }
 
@@ -5991,6 +6129,9 @@ export function EvidenceTimelineSurfacePanel({
       </div>
       <EvidenceOperatorSummary evidence={evidence} today={today} />
       <OperatorRunTimelinePanel timeline={evidence?.operator_run_timeline} />
+      <EvidenceTimelineNarrativeSection
+        readModel={evidence?.narrative_read_model}
+      />
       <div className="panel-grid">
         <article className="status-card">
           <div className="status-card-header">

@@ -137,6 +137,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
+        founderEvidenceTimeline: normalizeFounderEvidenceTimeline(undefined).value,
         founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
         founderMorningBriefing: normalizeFounderMorningBriefing(undefined).value,
       },
@@ -210,10 +211,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderSourceReadiness = fulfilledValue(results[16]);
   const founderStorageStatus = fulfilledValue(results[17]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
-  const normalizedFounderEvidenceTimeline = mergeMissingFields(
-    mockControlCenterData.founderEvidenceTimeline,
-    founderEvidenceTimeline,
-  );
+  const normalizedFounderEvidenceTimeline =
+    normalizeFounderEvidenceTimeline(founderEvidenceTimeline);
   const normalizedFounderActionsInbox =
     normalizeFounderActionsInbox(founderActionsInbox);
   const normalizedFounderMemoryReview = mergeMissingFields(
@@ -251,6 +250,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
+        founderEvidenceTimeline: normalizeFounderEvidenceTimeline(undefined).value,
         founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
         founderMorningBriefing: normalizeFounderMorningBriefing(undefined).value,
       },
@@ -1365,6 +1365,47 @@ function normalizeFounderToday(
   };
 }
 
+function normalizeFounderEvidenceTimeline(
+  value: FounderLoopEvidenceTimelineIndex | undefined,
+): { value: FounderLoopEvidenceTimelineIndex; usedFallback: boolean } {
+  if (value === undefined) {
+    const fallbackWithoutNarrative = {
+      ...(mockControlCenterData.founderEvidenceTimeline as unknown as Record<
+        string,
+        unknown
+      >),
+    };
+    delete fallbackWithoutNarrative.narrative_read_model;
+    delete fallbackWithoutNarrative.narrative_contract_ref;
+    return {
+      value: fallbackWithoutNarrative as unknown as FounderLoopEvidenceTimelineIndex,
+      usedFallback: true,
+    };
+  }
+  const merged = mergeMissingFields(
+    mockControlCenterData.founderEvidenceTimeline,
+    value,
+  );
+  const valueRecord = value as unknown as Record<string, unknown>;
+  const normalized: Record<string, unknown> = {
+    ...(merged.value as unknown as Record<string, unknown>),
+  };
+  const narrative = valueRecord.narrative_read_model;
+  if (isSafeEvidenceTimelineNarrativeReadModel(narrative)) {
+    normalized.narrative_read_model = narrative;
+    normalized.narrative_contract_ref = (
+      narrative as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.narrative_read_model;
+    delete normalized.narrative_contract_ref;
+  }
+  return {
+    value: normalized as unknown as FounderLoopEvidenceTimelineIndex,
+    usedFallback: merged.usedFallback,
+  };
+}
+
 function stripFollowUpTrackerIfMissing<T>(
   fallback: T,
   value: T | undefined,
@@ -1550,6 +1591,143 @@ const CHAT_TO_LOOP_HANDOFF_STATES = [
   "recorded_reviewable_proposal",
   "blocked_review_required",
   "blocked_authority",
+] as const;
+
+const EVIDENCE_NARRATIVE_TRUE_FLAGS = [
+  "backend_owned",
+  "local_read_model_only",
+  "safe_refs_only",
+  "redacted_summaries_only",
+  "narrative_from_existing_refs_only",
+] as const;
+
+const EVIDENCE_NARRATIVE_DENIED_FLAGS = [
+  "raw_content_included",
+  "approval_ref_authority",
+  "rollback_execution_enabled",
+  "action_execution_enabled",
+  "tool_execution_enabled",
+  "workflow_execution_enabled",
+  "connector_write_enabled",
+  "connector_runtime_enabled",
+  "provider_model_call_enabled",
+  "runtime_model_calls_enabled",
+  "provider_sdk_call_enabled",
+  "live_web_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "public_beta_enabled",
+  "distribution_enabled",
+  "prompt_content_stored",
+  "response_content_stored",
+  "provider_exchange_content_stored",
+  "memory_truth_authority",
+  "context_injection_authorized",
+  "production_authority_enabled",
+] as const;
+
+const EVIDENCE_NARRATIVE_REF_ARRAYS = [
+  "source_refs",
+  "status_refs",
+  "receipt_refs",
+  "approval_refs",
+  "audit_refs",
+  "idempotency_refs",
+  "rollback_refs",
+  "evidence_refs",
+  "blocked_state_refs",
+] as const;
+
+const EVIDENCE_NARRATIVE_AGGREGATE_REF_ARRAYS = [
+  "narrative_refs",
+  "event_refs",
+  "timeline_item_refs",
+  "group_refs",
+  "receipt_refs",
+  "approval_refs",
+  "audit_refs",
+  "idempotency_refs",
+  "rollback_refs",
+  "evidence_refs",
+  "blocked_state_refs",
+] as const;
+
+const EVIDENCE_NARRATIVE_UNSAFE_TEXT_FRAGMENTS = [
+  "raw prompt",
+  "raw-prompt",
+  "raw_prompt",
+  "raw response",
+  "raw-response",
+  "raw_response",
+  "provider payload",
+  "provider_payload",
+  "raw provider",
+  "raw-provider",
+  "raw_provider",
+  "raw path",
+  "raw-path",
+  "raw_path",
+  "raw log",
+  "raw-log",
+  "raw_log",
+  "prompt-content",
+  "prompt_content",
+  "response-content",
+  "response_content",
+  "provider-exchange-content",
+  "provider_exchange_content",
+  "raw private content",
+  "raw_private_content",
+  "/users/",
+  "username ",
+  "username:",
+  "hostname ",
+  "hostname:",
+  "serial ",
+  "serial:",
+  "actor-ref:username",
+  "host-ref:hostname",
+  "device-ref:serial",
+  "private_key",
+  "private-key",
+  "authorization",
+  "bearer token",
+  "api key",
+  "password",
+  "secret",
+] as const;
+
+const EVIDENCE_NARRATIVE_UNSAFE_REF_FRAGMENTS = [
+  "raw-prompt",
+  "raw_prompt",
+  "raw-response",
+  "raw_response",
+  "raw-provider",
+  "raw_provider",
+  "raw-path",
+  "raw_path",
+  "raw-log",
+  "raw_log",
+  "prompt-content",
+  "prompt_content",
+  "response-content",
+  "response_content",
+  "provider-exchange-content",
+  "provider_exchange_content",
+  "username",
+  "hostname",
+  "serial",
+  "private-key",
+  "private_key",
+  "provider-payload",
+  "provider_payload",
+  "raw-private-content",
+  "raw_private_content",
+  "credential",
+  "password",
+  "secret",
+  "bearer",
+  "token",
 ] as const;
 
 function hasExactStringList(
@@ -1791,6 +1969,172 @@ function hasMatchingChatToLoopHandoffCounts(value: Record<string, unknown>): boo
     const refs = value[refsKey];
     return typeof count === "number" && Array.isArray(refs) && count === refs.length;
   });
+}
+
+function isSafeEvidenceTimelineNarrativeReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "product-loop-010-evidence-timeline-narrative.v1" ||
+    value.contract_ref !==
+      "contract-ref:product-loop-010-evidence-timeline-narrative:v1" ||
+    value.source !== "python_core_evidence_timeline_narrative_read_model"
+  ) {
+    return false;
+  }
+  if (
+    !hasTrueFlags(value, EVIDENCE_NARRATIVE_TRUE_FLAGS) ||
+    !hasDeniedFlagsFalse(value, EVIDENCE_NARRATIVE_DENIED_FLAGS) ||
+    !isSafeEvidenceNarrativeText(value.status) ||
+    !isSafeEvidenceNarrativeText(value.authority_boundary) ||
+    !isSafeEvidenceNarrativeText(value.next_safe_action) ||
+    !hasStringArrays(value, EVIDENCE_NARRATIVE_AGGREGATE_REF_ARRAYS) ||
+    !hasSafeEvidenceNarrativeRefArrays(
+      value,
+      EVIDENCE_NARRATIVE_AGGREGATE_REF_ARRAYS,
+    ) ||
+    typeof value.entry_count !== "number" ||
+    typeof value.event_count !== "number" ||
+    typeof value.group_count !== "number" ||
+    typeof value.narrative_item_count !== "number" ||
+    !Array.isArray(value.entries) ||
+    value.entry_count !== value.entries.length ||
+    value.entries.length > 50 ||
+    !value.entries.every(isSafeEvidenceNarrativeEntry)
+  ) {
+    return false;
+  }
+  const entries = value.entries as Record<string, unknown>[];
+  return (
+    hasExactStringList(
+      value.narrative_refs,
+      entries.map((entry) => String(entry.narrative_ref)),
+    ) && hasMatchingEvidenceNarrativeAggregates(value, entries)
+  );
+}
+
+function isSafeEvidenceNarrativeEntry(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const requiredTextFields = [
+    "group_kind",
+    "event_type",
+    "title",
+    "what_happened",
+    "why_recorded",
+    "approval_posture",
+    "change_summary",
+    "remaining_blocked",
+    "inspection_summary",
+  ] as const;
+  const requiredRefFields = [
+    "narrative_ref",
+    "event_ref",
+    "timeline_item_ref",
+    "group_ref",
+  ] as const;
+  return (
+    requiredTextFields.every((field) => isSafeEvidenceNarrativeText(value[field])) &&
+    requiredRefFields.every((field) => isSafeEvidenceNarrativeRef(value[field])) &&
+    hasDeniedFlagsFalse(value, EVIDENCE_NARRATIVE_DENIED_FLAGS) &&
+    hasStringArrays(value, EVIDENCE_NARRATIVE_REF_ARRAYS) &&
+    hasSafeEvidenceNarrativeRefArrays(value, EVIDENCE_NARRATIVE_REF_ARRAYS)
+  );
+}
+
+function hasMatchingEvidenceNarrativeAggregates(
+  value: Record<string, unknown>,
+  entries: Record<string, unknown>[],
+): boolean {
+  const expected: Record<string, string[]> = {
+    event_refs: uniqueSortedStrings(entries.map((entry) => String(entry.event_ref))),
+    timeline_item_refs: uniqueSortedStrings(
+      entries.map((entry) => String(entry.timeline_item_ref)),
+    ),
+    group_refs: uniqueSortedStrings(entries.map((entry) => String(entry.group_ref))),
+    receipt_refs: uniqueSortedStrings(
+      entries.flatMap((entry) => entryStringArray(entry, "receipt_refs")),
+    ),
+    approval_refs: uniqueSortedStrings(
+      entries.flatMap((entry) => entryStringArray(entry, "approval_refs")),
+    ),
+    audit_refs: uniqueSortedStrings(
+      entries.flatMap((entry) => entryStringArray(entry, "audit_refs")),
+    ),
+    idempotency_refs: uniqueSortedStrings(
+      entries.flatMap((entry) => entryStringArray(entry, "idempotency_refs")),
+    ),
+    rollback_refs: uniqueSortedStrings(
+      entries.flatMap((entry) => entryStringArray(entry, "rollback_refs")),
+    ),
+    evidence_refs: uniqueSortedStrings(
+      entries.flatMap((entry) => entryStringArray(entry, "evidence_refs")),
+    ),
+    blocked_state_refs: uniqueSortedStrings(
+      entries.flatMap((entry) => entryStringArray(entry, "blocked_state_refs")),
+    ),
+  };
+  return Object.entries(expected).every(([field, refs]) =>
+    hasExactStringList(value[field], refs),
+  );
+}
+
+function entryStringArray(
+  entry: Record<string, unknown>,
+  field: string,
+): string[] {
+  const value = entry[field];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function uniqueSortedStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean))).sort();
+}
+
+function hasSafeEvidenceNarrativeRefArrays(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) => {
+    const value = record[field];
+    return Array.isArray(value) && value.every(isSafeEvidenceNarrativeRef);
+  });
+}
+
+function isSafeEvidenceNarrativeRef(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  if (
+    EVIDENCE_NARRATIVE_UNSAFE_REF_FRAGMENTS.some((fragment) =>
+      lowered.includes(fragment),
+    )
+  ) {
+    return false;
+  }
+  if (value.includes("@") || value.includes("\\") || value.includes(".")) {
+    return false;
+  }
+  if (value.includes("/") && !value.startsWith("evidence-timeline:")) {
+    return false;
+  }
+  return /^[A-Za-z0-9:_./-]+$/.test(value);
+}
+
+function isSafeEvidenceNarrativeText(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  return !EVIDENCE_NARRATIVE_UNSAFE_TEXT_FRAGMENTS.some((fragment) =>
+    lowered.includes(fragment),
+  );
 }
 
 function isSafeMorningBriefingV1ReadModel(value: unknown): boolean {

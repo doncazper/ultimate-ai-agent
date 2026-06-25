@@ -357,6 +357,12 @@ EVIDENCE_HISTORY_GRAMMAR_CONTRACT_REF = "contract-ref:evidence-history-grammar:v
 EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF = (
     "contract-ref:founder-loop-evidence-timeline-productization:v1"
 )
+EVIDENCE_TIMELINE_NARRATIVE_CONTRACT_REF = (
+    "contract-ref:product-loop-010-evidence-timeline-narrative:v1"
+)
+EVIDENCE_TIMELINE_NARRATIVE_READ_MODEL_SOURCE = (
+    "python_core_evidence_timeline_narrative_read_model"
+)
 EVIDENCE_TIMELINE_PRODUCTIZATION_ROUTE_REFS = ("GET /control-center/evidence/timeline",)
 EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES = (
     "action_envelope_created",
@@ -1368,6 +1374,287 @@ class FounderLoopEvidenceTimelineGroup(BaseModel):
         return self
 
 
+class FounderLoopEvidenceNarrativeEntry(BaseModel):
+    narrative_ref: str = Field(..., min_length=1)
+    event_ref: str = Field(..., min_length=1)
+    timeline_item_ref: str = Field(..., min_length=1)
+    group_ref: str = Field(..., min_length=1)
+    group_kind: str = Field(..., min_length=1, max_length=80)
+    event_type: str = Field(..., min_length=1, max_length=80)
+    title: str = Field(..., min_length=1, max_length=120)
+    what_happened: str = Field(..., min_length=1, max_length=320)
+    why_recorded: str = Field(..., min_length=1, max_length=320)
+    approval_posture: str = Field(..., min_length=1, max_length=320)
+    change_summary: str = Field(..., min_length=1, max_length=320)
+    remaining_blocked: str = Field(..., min_length=1, max_length=320)
+    inspection_summary: str = Field(..., min_length=1, max_length=320)
+    source_refs: list[str] = Field(default_factory=list)
+    status_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    approval_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    raw_content_included: bool = False
+    approval_ref_authority: bool = False
+    rollback_execution_enabled: bool = False
+    action_execution_enabled: bool = False
+    tool_execution_enabled: bool = False
+    workflow_execution_enabled: bool = False
+    connector_write_enabled: bool = False
+    connector_runtime_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    runtime_model_calls_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    live_web_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    browser_execution_enabled: bool = False
+    public_beta_enabled: bool = False
+    distribution_enabled: bool = False
+    prompt_content_stored: bool = False
+    response_content_stored: bool = False
+    provider_exchange_content_stored: bool = False
+    memory_truth_authority: bool = False
+    context_injection_authorized: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_record(self) -> "FounderLoopEvidenceNarrativeEntry":
+        for ref_value in [
+            self.narrative_ref,
+            self.event_ref,
+            self.timeline_item_ref,
+            self.group_ref,
+        ]:
+            _validate_evidence_narrative_ref(ref_value, "evidence_narrative_ref")
+        for field_name in [
+            "source_refs",
+            "status_refs",
+            "receipt_refs",
+            "approval_refs",
+            "audit_refs",
+            "idempotency_refs",
+            "rollback_refs",
+            "evidence_refs",
+            "blocked_state_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_evidence_narrative_ref(ref_value, field_name)
+        for field_name in [
+            "group_kind",
+            "event_type",
+            "title",
+            "what_happened",
+            "why_recorded",
+            "approval_posture",
+            "change_summary",
+            "remaining_blocked",
+            "inspection_summary",
+        ]:
+            _validate_evidence_narrative_text(str(getattr(self, field_name)), field_name)
+        denied_flags = {
+            "raw_content_included": self.raw_content_included,
+            "approval_ref_authority": self.approval_ref_authority,
+            "rollback_execution_enabled": self.rollback_execution_enabled,
+            "action_execution_enabled": self.action_execution_enabled,
+            "tool_execution_enabled": self.tool_execution_enabled,
+            "workflow_execution_enabled": self.workflow_execution_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "connector_runtime_enabled": self.connector_runtime_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "runtime_model_calls_enabled": self.runtime_model_calls_enabled,
+            "provider_sdk_call_enabled": self.provider_sdk_call_enabled,
+            "live_web_enabled": self.live_web_enabled,
+            "shell_subprocess_execution_enabled": self.shell_subprocess_execution_enabled,
+            "browser_execution_enabled": self.browser_execution_enabled,
+            "public_beta_enabled": self.public_beta_enabled,
+            "distribution_enabled": self.distribution_enabled,
+            "prompt_content_stored": self.prompt_content_stored,
+            "response_content_stored": self.response_content_stored,
+            "provider_exchange_content_stored": self.provider_exchange_content_stored,
+            "memory_truth_authority": self.memory_truth_authority,
+            "context_injection_authorized": self.context_injection_authorized,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(f"evidence narrative violated authority: {enabled[0]}")
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "evidence_timeline_narrative_entry",
+        )
+        return self
+
+
+class FounderLoopEvidenceTimelineNarrativeReadModel(BaseModel):
+    schema_version: str = "product-loop-010-evidence-timeline-narrative.v1"
+    contract_ref: str = EVIDENCE_TIMELINE_NARRATIVE_CONTRACT_REF
+    source: str = EVIDENCE_TIMELINE_NARRATIVE_READ_MODEL_SOURCE
+    status: str = "implemented_evidence_timeline_narrative_safe_refs_only"
+    backend_owned: bool = True
+    local_read_model_only: bool = True
+    safe_refs_only: bool = True
+    redacted_summaries_only: bool = True
+    narrative_from_existing_refs_only: bool = True
+    raw_content_included: bool = False
+    entry_count: int = Field(default=0, ge=0)
+    event_count: int = Field(default=0, ge=0)
+    group_count: int = Field(default=0, ge=0)
+    narrative_item_count: int = Field(default=0, ge=0)
+    entries: list[FounderLoopEvidenceNarrativeEntry] = Field(default_factory=list)
+    narrative_refs: list[str] = Field(default_factory=list)
+    event_refs: list[str] = Field(default_factory=list)
+    timeline_item_refs: list[str] = Field(default_factory=list)
+    group_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    approval_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    authority_boundary: str = (
+        "Evidence Timeline narrative is a read-only safe-ref history over "
+        "existing receipts, audit refs, approval posture refs, blocker refs, "
+        "and redacted summaries; it grants no approval, rollback, action, "
+        "connector, memory, context, provider, or production authority."
+    )
+    next_safe_action: str = (
+        "Inspect narrative entries and underlying refs; use owner routes for "
+        "any later exact-scoped decisions."
+    )
+    approval_ref_authority: bool = False
+    rollback_execution_enabled: bool = False
+    action_execution_enabled: bool = False
+    tool_execution_enabled: bool = False
+    workflow_execution_enabled: bool = False
+    connector_write_enabled: bool = False
+    connector_runtime_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    runtime_model_calls_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    live_web_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    browser_execution_enabled: bool = False
+    public_beta_enabled: bool = False
+    distribution_enabled: bool = False
+    prompt_content_stored: bool = False
+    response_content_stored: bool = False
+    provider_exchange_content_stored: bool = False
+    memory_truth_authority: bool = False
+    context_injection_authorized: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_read_model(self) -> "FounderLoopEvidenceTimelineNarrativeReadModel":
+        if self.schema_version != "product-loop-010-evidence-timeline-narrative.v1":
+            raise ValueError("unexpected evidence narrative schema version")
+        if self.contract_ref != EVIDENCE_TIMELINE_NARRATIVE_CONTRACT_REF:
+            raise ValueError("unexpected evidence narrative contract ref")
+        if self.source != EVIDENCE_TIMELINE_NARRATIVE_READ_MODEL_SOURCE:
+            raise ValueError("unexpected evidence narrative source")
+        for field_name in (
+            "backend_owned",
+            "local_read_model_only",
+            "safe_refs_only",
+            "redacted_summaries_only",
+            "narrative_from_existing_refs_only",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must remain true")
+        denied_flags = {
+            "raw_content_included": self.raw_content_included,
+            "approval_ref_authority": self.approval_ref_authority,
+            "rollback_execution_enabled": self.rollback_execution_enabled,
+            "action_execution_enabled": self.action_execution_enabled,
+            "tool_execution_enabled": self.tool_execution_enabled,
+            "workflow_execution_enabled": self.workflow_execution_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "connector_runtime_enabled": self.connector_runtime_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "runtime_model_calls_enabled": self.runtime_model_calls_enabled,
+            "provider_sdk_call_enabled": self.provider_sdk_call_enabled,
+            "live_web_enabled": self.live_web_enabled,
+            "shell_subprocess_execution_enabled": self.shell_subprocess_execution_enabled,
+            "browser_execution_enabled": self.browser_execution_enabled,
+            "public_beta_enabled": self.public_beta_enabled,
+            "distribution_enabled": self.distribution_enabled,
+            "prompt_content_stored": self.prompt_content_stored,
+            "response_content_stored": self.response_content_stored,
+            "provider_exchange_content_stored": self.provider_exchange_content_stored,
+            "memory_truth_authority": self.memory_truth_authority,
+            "context_injection_authorized": self.context_injection_authorized,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(f"evidence narrative violated authority: {enabled[0]}")
+        if self.entry_count != len(self.entries):
+            raise ValueError("evidence narrative entry count mismatch")
+        if self.narrative_refs != [entry.narrative_ref for entry in self.entries]:
+            raise ValueError("evidence narrative refs must match entries")
+        expected_ref_sets = {
+            "event_refs": _unique_sorted_refs(entry.event_ref for entry in self.entries),
+            "timeline_item_refs": _unique_sorted_refs(
+                entry.timeline_item_ref for entry in self.entries
+            ),
+            "group_refs": _unique_sorted_refs(entry.group_ref for entry in self.entries),
+            "receipt_refs": _unique_sorted_refs(
+                ref for entry in self.entries for ref in entry.receipt_refs
+            ),
+            "approval_refs": _unique_sorted_refs(
+                ref for entry in self.entries for ref in entry.approval_refs
+            ),
+            "audit_refs": _unique_sorted_refs(
+                ref for entry in self.entries for ref in entry.audit_refs
+            ),
+            "idempotency_refs": _unique_sorted_refs(
+                ref for entry in self.entries for ref in entry.idempotency_refs
+            ),
+            "rollback_refs": _unique_sorted_refs(
+                ref for entry in self.entries for ref in entry.rollback_refs
+            ),
+            "evidence_refs": _unique_sorted_refs(
+                ref for entry in self.entries for ref in entry.evidence_refs
+            ),
+            "blocked_state_refs": _unique_sorted_refs(
+                ref for entry in self.entries for ref in entry.blocked_state_refs
+            ),
+        }
+        for field_name, expected_refs in expected_ref_sets.items():
+            if getattr(self, field_name) != expected_refs:
+                raise ValueError(f"{field_name} must match narrative entries")
+        for field_name in [
+            "narrative_refs",
+            "event_refs",
+            "timeline_item_refs",
+            "group_refs",
+            "receipt_refs",
+            "approval_refs",
+            "audit_refs",
+            "idempotency_refs",
+            "rollback_refs",
+            "evidence_refs",
+            "blocked_state_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_evidence_narrative_ref(ref_value, field_name)
+        _validate_evidence_narrative_text(self.status, "status")
+        _validate_evidence_narrative_text(self.authority_boundary, "authority_boundary")
+        _validate_evidence_narrative_text(self.next_safe_action, "next_safe_action")
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "evidence_timeline_narrative_read_model",
+        )
+        return self
+
+
 class FounderLoopOperatorRunBorrowedPattern(BaseModel):
     pattern_id: str = Field(..., min_length=1, max_length=80)
     label: str = Field(..., min_length=1, max_length=120)
@@ -1710,6 +1997,84 @@ def _validate_safe_ref(value: str, field_name: str) -> None:
     validate_execution_ref(value, field_name)
 
 
+def _validate_evidence_narrative_ref(value: str, field_name: str) -> None:
+    _validate_safe_ref(value, field_name)
+    lowered = value.lower()
+    unsafe_fragments = (
+        "raw-prompt",
+        "raw_prompt",
+        "raw-response",
+        "raw_response",
+        "raw-provider",
+        "raw_provider",
+        "raw-path",
+        "raw_path",
+        "raw-log",
+        "raw_log",
+        "prompt-content",
+        "prompt_content",
+        "response-content",
+        "response_content",
+        "provider-exchange-content",
+        "provider_exchange_content",
+        "username",
+        "hostname",
+        "serial",
+        "private-key",
+        "private_key",
+        "provider-payload",
+        "provider_payload",
+        "raw-private-content",
+        "raw_private_content",
+        "credential",
+        "password",
+        "secret",
+        "bearer",
+        "token",
+    )
+    if any(fragment in lowered for fragment in unsafe_fragments):
+        raise ValueError(f"{field_name} contains unsafe private/provider ref")
+    if "@" in value or "\\" in value:
+        raise ValueError(f"{field_name} contains unsafe identity/path-shaped ref")
+    if "." in value:
+        raise ValueError(f"{field_name} contains unsafe host-shaped ref")
+    if "/" in value and not value.startswith("evidence-timeline:"):
+        raise ValueError(f"{field_name} contains unsafe path-shaped ref")
+
+
+def _validate_evidence_narrative_text(value: str, field_name: str) -> None:
+    _validate_safe_text(value, field_name)
+    lowered = value.lower()
+    unsafe_fragments = (
+        "raw-prompt",
+        "raw-response",
+        "raw-provider",
+        "raw-path",
+        "raw-log",
+        "prompt-content",
+        "response-content",
+        "provider-exchange-content",
+        "username ",
+        "username:",
+        "hostname ",
+        "hostname:",
+        "serial ",
+        "serial:",
+        "actor-ref:username",
+        "host-ref:hostname",
+        "device-ref:serial",
+        "private_key",
+        "private-key",
+        "authorization",
+        "bearer token",
+        "api key",
+        "password",
+        "secret",
+    )
+    if any(fragment in lowered for fragment in unsafe_fragments):
+        raise ValueError(f"{field_name} contains unsafe narrative text")
+
+
 def _validate_safe_text(value: str, field_name: str) -> None:
     validate_safe_execution_text(value, field_name)
     lowered = value.lower()
@@ -1772,8 +2137,23 @@ def _unique_sorted_refs(refs: Any) -> list[str]:
     return sorted({str(ref) for ref in refs if ref})
 
 
+def _safe_blocked_refs(values: Any) -> list[str]:
+    safe_refs: list[str] = []
+    for value in values:
+        ref = _evidence_narrative_status_ref("blocked-state", str(value))
+        safe_refs.append(ref)
+    return _unique_sorted_refs(safe_refs)
+
+
 def _status_ref(prefix: str, value: str) -> str:
     safe_value = SAFE_STATUS_REF_CHARS.sub("-", value.lower()).strip("-")
+    if not safe_value:
+        safe_value = "missing"
+    return f"{prefix}:{safe_value}"
+
+
+def _evidence_narrative_status_ref(prefix: str, value: str) -> str:
+    safe_value = re.sub(r"[^a-z0-9-]+", "-", value.lower()).strip("-")
     if not safe_value:
         safe_value = "missing"
     return f"{prefix}:{safe_value}"
@@ -1878,6 +2258,21 @@ def _history_answers(
         "stale": stale,
         "blocked": blocked,
     }
+
+
+def _history_answer_text(
+    record: dict[str, Any],
+    question_key: str,
+    fallback: str,
+) -> str:
+    answers = record.get("history_answers")
+    if not isinstance(answers, dict):
+        return fallback
+    answer = answers.get(question_key)
+    if not isinstance(answer, dict):
+        return fallback
+    value = str(answer.get("answer") or fallback)
+    return value[:320]
 
 
 def _utc_iso() -> str:
@@ -5370,6 +5765,11 @@ class FounderLoopRepository:
         timeline = list(today["evidence_timeline"])
         events = self._productized_evidence_events(timeline)
         groups = self._productized_evidence_groups(events)
+        narrative_read_model = self._evidence_timeline_narrative_read_model(
+            events=events,
+            groups=groups,
+            narrative_items=timeline,
+        )
         event_type_counts = {
             event_type: sum(1 for event in events if event["event_type"] == event_type)
             for event_type in EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES
@@ -5406,6 +5806,8 @@ class FounderLoopRepository:
             "group_count": len(groups),
             "groups": groups,
             "events": events,
+            "narrative_contract_ref": EVIDENCE_TIMELINE_NARRATIVE_CONTRACT_REF,
+            "narrative_read_model": narrative_read_model,
             "operator_run_timeline": self._operator_run_timeline(
                 events=events,
                 groups=groups,
@@ -5558,6 +5960,209 @@ class FounderLoopRepository:
             "blocked_state_refs": read_model["blocked_state_refs"],
             "next_safe_action": read_model["next_safe_action"],
         }
+
+    def _evidence_timeline_narrative_read_model(
+        self,
+        *,
+        events: list[dict[str, Any]],
+        groups: list[dict[str, Any]],
+        narrative_items: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        entries = (
+            [
+                self._evidence_narrative_entry_from_event(event)
+                for event in events[:50]
+            ]
+            if events
+            else [
+                self._evidence_narrative_entry_from_item(item)
+                for item in narrative_items[:50]
+            ]
+        )
+        model = FounderLoopEvidenceTimelineNarrativeReadModel(
+            entry_count=len(entries),
+            event_count=len(events),
+            group_count=len(groups),
+            narrative_item_count=len(narrative_items),
+            entries=entries,
+            narrative_refs=[entry.narrative_ref for entry in entries],
+            event_refs=_unique_sorted_refs(entry.event_ref for entry in entries),
+            timeline_item_refs=_unique_sorted_refs(
+                entry.timeline_item_ref for entry in entries
+            ),
+            group_refs=_unique_sorted_refs(entry.group_ref for entry in entries),
+            receipt_refs=_unique_sorted_refs(
+                ref for entry in entries for ref in entry.receipt_refs
+            ),
+            approval_refs=_unique_sorted_refs(
+                ref for entry in entries for ref in entry.approval_refs
+            ),
+            audit_refs=_unique_sorted_refs(
+                ref for entry in entries for ref in entry.audit_refs
+            ),
+            idempotency_refs=_unique_sorted_refs(
+                ref for entry in entries for ref in entry.idempotency_refs
+            ),
+            rollback_refs=_unique_sorted_refs(
+                ref for entry in entries for ref in entry.rollback_refs
+            ),
+            evidence_refs=_unique_sorted_refs(
+                ref for entry in entries for ref in entry.evidence_refs
+            ),
+            blocked_state_refs=_unique_sorted_refs(
+                ref for entry in entries for ref in entry.blocked_state_refs
+            ),
+        )
+        return model.model_dump(mode="json")
+
+    def _evidence_narrative_entry_from_event(
+        self,
+        event: dict[str, Any],
+    ) -> FounderLoopEvidenceNarrativeEntry:
+        event_ref = str(event["event_ref"])
+        timeline_item_ref = str(event["timeline_item_ref"])
+        source_refs = list(event.get("source_refs") or [])
+        status_refs = list(event.get("status_refs") or [])
+        receipt_refs = list(event.get("receipt_refs") or [])
+        approval_refs = list(event.get("approval_refs") or [])
+        audit_refs = list(event.get("audit_refs") or [])
+        idempotency_refs = list(event.get("idempotency_refs") or [])
+        rollback_refs = list(event.get("rollback_refs") or [])
+        blocked_state_refs = _safe_blocked_refs(event.get("blocked_states") or [])
+        evidence_refs = _unique_sorted_refs(
+            [
+                event_ref,
+                timeline_item_ref,
+                str(event["event_type_ref"]),
+                *source_refs,
+                *status_refs,
+                *receipt_refs,
+                *audit_refs,
+            ]
+        )
+        return FounderLoopEvidenceNarrativeEntry(
+            narrative_ref=f"evidence-narrative:{_short_ref_suffix(event_ref)}",
+            event_ref=event_ref,
+            timeline_item_ref=timeline_item_ref,
+            group_ref=str(event["group_ref"]),
+            group_kind=str(event["group_kind"]),
+            event_type=str(event["event_type"]),
+            title=str(event["title"]),
+            what_happened=_history_answer_text(
+                event, "happened", "A safe evidence event was recorded."
+            ),
+            why_recorded=_history_answer_text(
+                event, "proposed", "The event exists to make the proposal inspectable."
+            ),
+            approval_posture=_history_answer_text(
+                event,
+                "approved",
+                "Approval refs are identifiers only and grant no authority.",
+            ),
+            change_summary=_history_answer_text(
+                event, "changed", "Only review posture changed."
+            ),
+            remaining_blocked=_history_answer_text(
+                event, "blocked", "Execution and production authority remain blocked."
+            ),
+            inspection_summary=(
+                "Inspect event, timeline, receipt, audit, approval, idempotency, "
+                "rollback, and blocker refs only."
+            ),
+            source_refs=source_refs,
+            status_refs=status_refs,
+            receipt_refs=receipt_refs,
+            approval_refs=approval_refs,
+            audit_refs=audit_refs,
+            idempotency_refs=idempotency_refs,
+            rollback_refs=rollback_refs,
+            evidence_refs=evidence_refs,
+            blocked_state_refs=blocked_state_refs,
+            raw_content_included=bool(event.get("raw_evidence_included", False)),
+            approval_ref_authority=bool(event.get("approval_ref_authority", False)),
+            rollback_execution_enabled=bool(
+                event.get("rollback_execution_enabled", False)
+            ),
+            memory_truth_authority=bool(event.get("memory_truth_authority", False)),
+            context_injection_authorized=bool(
+                event.get("context_injection_authorized", False)
+            ),
+        )
+
+    def _evidence_narrative_entry_from_item(
+        self,
+        item: dict[str, Any],
+    ) -> FounderLoopEvidenceNarrativeEntry:
+        timeline_item_ref = str(item["timeline_item_ref"])
+        event_ref = f"evidence-event:narrative:{_short_ref_suffix(timeline_item_ref)}"
+        source_refs = list(item.get("source_refs") or [])
+        status_refs = list(item.get("status_refs") or [])
+        receipt_refs = list(item.get("receipt_refs") or [])
+        approval_refs = _unique_sorted_refs(
+            item.get("history_answers", {}).get("approved", {}).get("refs", [])
+        )
+        audit_refs = list(item.get("audit_refs") or [])
+        idempotency_refs = list(item.get("idempotency_refs") or [])
+        rollback_refs = list(item.get("rollback_refs") or [])
+        blocked_state_refs = _safe_blocked_refs(item.get("blocked_states") or [])
+        evidence_refs = _unique_sorted_refs(
+            [
+                event_ref,
+                timeline_item_ref,
+                *source_refs,
+                *status_refs,
+                *receipt_refs,
+                *audit_refs,
+            ]
+        )
+        return FounderLoopEvidenceNarrativeEntry(
+            narrative_ref=f"evidence-narrative:{_short_ref_suffix(timeline_item_ref)}",
+            event_ref=event_ref,
+            timeline_item_ref=timeline_item_ref,
+            group_ref=timeline_item_ref,
+            group_kind="timeline_item",
+            event_type=str(item["item_kind"]),
+            title=str(item["title"]),
+            what_happened=_history_answer_text(
+                item, "happened", "A safe timeline item was recorded."
+            ),
+            why_recorded=_history_answer_text(
+                item, "proposed", "The item exists to make the proposal inspectable."
+            ),
+            approval_posture=_history_answer_text(
+                item,
+                "approved",
+                "Approval refs are identifiers only and grant no authority.",
+            ),
+            change_summary=_history_answer_text(
+                item, "changed", "Only review posture changed."
+            ),
+            remaining_blocked=_history_answer_text(
+                item, "blocked", "Execution and production authority remain blocked."
+            ),
+            inspection_summary=(
+                "Inspect timeline, receipt, audit, approval, idempotency, rollback, "
+                "and blocker refs only."
+            ),
+            source_refs=source_refs,
+            status_refs=status_refs,
+            receipt_refs=receipt_refs,
+            approval_refs=approval_refs,
+            audit_refs=audit_refs,
+            idempotency_refs=idempotency_refs,
+            rollback_refs=rollback_refs,
+            evidence_refs=evidence_refs,
+            blocked_state_refs=blocked_state_refs,
+            raw_content_included=bool(item.get("raw_evidence_included", False)),
+            approval_ref_authority=bool(item.get("approval_ref_authority", False)),
+            rollback_execution_enabled=bool(
+                item.get("rollback_execution_enabled", False)
+            ),
+            memory_truth_authority=bool(item.get("memory_truth_authority", False)),
+            context_injection_authorized=bool(
+                item.get("context_injection_authorized", False)
+            ),
+        )
 
     def _productized_evidence_events(
         self,
