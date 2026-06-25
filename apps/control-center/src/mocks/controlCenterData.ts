@@ -1334,34 +1334,61 @@ const sourceReadiness: FounderLoopSourceReadiness = {
 };
 
 const crmLiteFollowups = followUpCommitmentRefs.map((followUpRef, index) => ({
+  contract_ref: "contract-ref:relationship-crm-lite-memory:v1",
   follow_up_ref: followUpRef,
   relationship_ref: `crm-lite-relationship-ref:${index + 1}`,
+  person_ref: `crm-lite-person-ref:${index + 1}`,
+  org_ref: `crm-lite-org-ref:${index + 1}`,
+  project_ref: `crm-lite-project-ref:${index + 1}`,
   opportunity_ref: `crm-lite-opportunity-ref:${index + 1}`,
+  promise_ref: `crm-lite-promise-ref:${index + 1}`,
   status: "review_only_stale_check_required",
+  relationship_memory_posture: "reviewed_recall_only",
+  redaction_status: "redacted_summary_only",
   safe_summary:
     "A local relationship follow-up is visible because reviewed memory produced a follow-up commitment ref.",
   why_now:
     "This appears because memory-to-loop binding marked a follow-up commitment that can be reviewed in the daily loop.",
   draft_available: memoryDerivedActionProposals.length > 0,
-  review_envelope_ref:
-    memoryDerivedActionProposals[index]?.proposal_ref ??
-    "review-envelope-ref:crm-lite-follow-up:draft-missing",
+  review_envelope_ref: `review-envelope-ref:crm-lite-follow-up:${index + 1}`,
   memory_refs: memoryCandidateRefs,
   source_refs: ["source-ref:manual-note:founder-loop-storage"],
   evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
   next_safe_action:
     "Review the memory, source, and evidence refs before drafting a local follow-up proposal.",
   blocked_state_refs: [
+    "blocked-state:crm-lite-no-external-crm-sync",
+    "blocked-state:crm-lite-no-external-crm-write",
+    "blocked-state:crm-lite-no-account-sync",
+    "blocked-state:crm-lite-no-connector-read",
+    "blocked-state:crm-lite-no-connector-write",
+    "blocked-state:crm-lite-no-email-calendar-fetch",
+    "blocked-state:crm-lite-no-hidden-context-injection",
+    "blocked-state:crm-lite-no-hidden-memory-write",
+    "blocked-state:crm-lite-no-action-execution",
+    "blocked-state:crm-lite-no-model-provider-call",
+    "blocked-state:crm-lite-no-production-authority",
     "blocked-state:no-external-crm-write",
     "blocked-state:no-account-sync",
     "blocked-state:no-connector-write",
     "blocked-state:no-action-execution",
   ],
   authority_boundary:
-    "CRM-lite follow-ups are reviewed local recall only; no CRM sync, connector write, email send, or action execution.",
+    "CRM-lite follow-ups are reviewed local recall only; no CRM sync, connector read/write, email or calendar fetch, hidden context injection, hidden memory write, or action execution.",
+  review_required_before_action: true,
+  safe_refs_only: true,
   crm_sync_enabled: false,
   crm_write_enabled: false,
   external_write_enabled: false,
+  connector_read_authorized: false,
+  connector_write_authorized: false,
+  account_sync_authorized: false,
+  email_calendar_fetch_authorized: false,
+  context_injection_authorized: false,
+  hidden_memory_write_authorized: false,
+  action_execution_authorized: false,
+  model_provider_call_authorized: false,
+  production_authority_enabled: false,
 }));
 
 const memoryWhyShownItems = memoryToLoopItems.map((item) => ({

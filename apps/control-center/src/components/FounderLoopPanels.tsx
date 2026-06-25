@@ -2205,6 +2205,18 @@ function CrmLiteFollowUpCards({
       </ul>
       <dl className="detail-list">
         <DetailTerm
+          label="Contract"
+          value={items[0]?.contract_ref ?? "contract-ref:missing"}
+        />
+        <DetailTerm
+          label="Relationship memory"
+          value={items[0]?.relationship_memory_posture ?? "reviewed recall only"}
+        />
+        <DetailTerm
+          label="Redaction"
+          value={items[0]?.redaction_status ?? "redacted summary only"}
+        />
+        <DetailTerm
           label="CRM sync"
           value={items.some((item) => item.crm_sync_enabled) ? "enabled" : "blocked"}
         />
@@ -2218,7 +2230,52 @@ function CrmLiteFollowUpCards({
             items.some((item) => item.external_write_enabled) ? "enabled" : "blocked"
           }
         />
+        <DetailTerm
+          label="Connector reads"
+          value={
+            items.some((item) => item.connector_read_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Account sync"
+          value={
+            items.some((item) => item.account_sync_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            items.some((item) => item.context_injection_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Hidden memory writes"
+          value={
+            items.some((item) => item.hidden_memory_write_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
       </dl>
+      <RefListWithFallback
+        emptyLabel="Relationship refs: none"
+        refs={items.flatMap((item) => [
+          item.relationship_ref,
+          item.person_ref,
+          item.org_ref,
+          item.project_ref,
+        ])}
+      />
+      <RefListWithFallback
+        emptyLabel="Opportunity and promise refs: none"
+        refs={items.flatMap((item) => [item.opportunity_ref, item.promise_ref])}
+      />
       <RefListWithFallback
         emptyLabel="Memory refs: none"
         refs={items.flatMap((item) => item.memory_refs)}
