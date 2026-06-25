@@ -5,12 +5,12 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
-
 from scripts.verification.api_routes import (
     EXPECTED_CONTROL_CENTER_ROUTE_COUNT,
     EXPECTED_ROUTE_COUNT,
 )
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def _roadmap_row_present(text: str, row: str) -> bool:
