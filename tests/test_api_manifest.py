@@ -110,6 +110,38 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert any(route["path"] == "/observability/session-events" and route["method"] == "GET" for route in manifest["routes"])
 
 
+def test_api_manifest_web_access_posture_is_boundary_only() -> None:
+    manifest = client.get("/api/manifest").json()
+    posture = manifest["web_access_posture"]
+
+    assert posture == {
+        "web_access_gateway_boundary": "implemented",
+        "boundary_module": "ultimate_ai_agent.core.web_access",
+        "governed_web_access": "boundary_only",
+        "unrestricted_web_fetching": "not_available",
+        "browser_execution": "not_available",
+        "browser_observe_runtime": "not_available",
+        "browser_action_dry_run_runtime": "not_available",
+        "providers": "not_configured",
+        "content_untrusted": True,
+        "grants_runtime_browsing_authority": False,
+        "allows_clicks_forms_auth_cookies_downloads_uploads": False,
+        "allowed_methods": [],
+        "mutation_methods": "not_available",
+    }
+    assert "web_fetching" in manifest["capabilities_blocked"]
+    assert "browser_automation" in manifest["capabilities_blocked"]
+    assert "governed_web_evidence_unrestricted_browsing" in manifest["capabilities_blocked"]
+    assert "governed_web_evidence_browser_automation" in manifest["capabilities_blocked"]
+    assert "governed_web_evidence_allowlisted_https_get" in manifest["capabilities_declared"]
+    assert "web_fetching" not in manifest["capabilities_declared"]
+    assert "unrestricted_web_fetching" not in manifest["capabilities_declared"]
+    assert "browser_execution" not in manifest["capabilities_declared"]
+    assert "browser_automation" not in manifest["capabilities_declared"]
+    assert "firecrawl" not in manifest["capabilities_declared"]
+    assert "browserbase" not in manifest["capabilities_declared"]
+
+
 def test_unknown_non_read_routes_fail_into_authority_classification() -> None:
     classification, reason = route_classification_for_path(
         "POST",
@@ -319,6 +351,7 @@ def test_api_manifest_static_cache_policy_excludes_authority_and_private_state()
     assert "routes" in API_MANIFEST_CACHEABLE_FIELDS
     assert "route_groups" in API_MANIFEST_CACHEABLE_FIELDS
     assert "capabilities_declared" in API_MANIFEST_CACHEABLE_FIELDS
+    assert "web_access_posture" in API_MANIFEST_CACHEABLE_FIELDS
     assert "foundation_gate_status" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
     assert "local_auth_policy" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
     assert "policy_decisions" in API_MANIFEST_CACHE_EXCLUDED_FIELDS
@@ -363,12 +396,14 @@ def test_api_manifest_static_cache_is_copy_isolated() -> None:
     clear_api_manifest_static_cache(local_app)
     manifest = build_api_manifest(local_app)
     manifest.routes.clear()
+    manifest.web_access_posture.allowed_methods.append("GET")
 
     rebuilt = build_api_manifest(local_app)
 
     assert rebuilt.route_count == 1
     assert len(rebuilt.routes) == 1
     assert rebuilt.routes[0].path == "/health"
+    assert rebuilt.web_access_posture.allowed_methods == []
 
 
 def test_api_manifest_static_cache_invalidates_when_route_risk_changes() -> None:

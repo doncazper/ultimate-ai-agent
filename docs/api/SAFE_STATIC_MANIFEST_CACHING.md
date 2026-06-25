@@ -21,10 +21,12 @@ The cache may store only:
 - `routes`
 - `capabilities_declared`
 - `capabilities_blocked`
+- `web_access_posture`
 - `no_runtime_integrations`
 
 These fields are generated from FastAPI route metadata, package version,
-baseline label, and static capability declarations.
+baseline label, static capability declarations, and static boundary-only
+WebAccessGateway posture wording.
 
 ## Explicit Exclusions
 
@@ -56,6 +58,7 @@ The static cache is invalidated by:
 - route path, method, operation id, tag, or summary change
 - declared capability list change
 - blocked capability list change
+- WebAccess posture wording change
 - manual cache clear
 
 Route side-effect classes are rebuilt when the route fingerprint changes, so a
