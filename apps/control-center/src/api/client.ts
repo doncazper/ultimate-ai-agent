@@ -1074,6 +1074,171 @@ function mergeMissingFields<T>(
   return { value: merged as T, usedFallback };
 }
 
+const PLANS_TO_ACTIONS_BRIDGE_TRUE_FLAGS = [
+  "backend_owned",
+  "local_read_model_only",
+  "safe_refs_only",
+] as const;
+
+const PLANS_TO_ACTIONS_BRIDGE_ITEM_TRUE_FLAGS = [
+  "backend_owned",
+  "review_only",
+  "proposal_only",
+  "exact_scope_required",
+  "expected_receipts_required",
+  "rollback_required",
+  "safe_disable_required",
+  "safe_refs_only",
+] as const;
+
+const PLANS_TO_ACTIONS_BRIDGE_DENIED_FLAGS = [
+  "approval_ref_authority",
+  "approval_grant_capture_enabled",
+  "approval_alone_executes",
+  "execution_authorized",
+  "execution_performed",
+  "action_execution_enabled",
+  "action_execution_performed",
+  "tool_execution_enabled",
+  "tool_execution_performed",
+  "workflow_execution_enabled",
+  "workflow_execution_performed",
+  "model_provider_call_enabled",
+  "model_provider_authority_allowed",
+  "provider_model_call_enabled",
+  "shell_subprocess_execution_enabled",
+  "shell_subprocess_execution_performed",
+  "browser_execution_enabled",
+  "browser_execution_performed",
+  "connector_runtime_enabled",
+  "connector_write_enabled",
+  "connector_write_performed",
+  "memory_write_authorized",
+  "memory_write_performed",
+  "context_injection_authorized",
+  "context_injection_performed",
+  "automatic_planning_authority_enabled",
+  "production_authority_enabled",
+] as const;
+
+const PLANS_TO_ACTIONS_BRIDGE_REQUIRED_ARRAYS = [
+  "plan_refs",
+  "action_inbox_item_refs",
+  "task_decomposition_proposal_refs",
+  "expected_receipt_refs",
+  "rollback_refs",
+  "safe_disable_refs",
+  "blocked_state_refs",
+] as const;
+
+const PLANS_TO_ACTIONS_BRIDGE_ITEM_REQUIRED_ARRAYS = [
+  "review_receipt_labels",
+  "expected_receipt_refs",
+  "receipt_refs",
+  "evidence_refs",
+  "step_refs",
+  "risk_refs",
+  "ambiguity_refs",
+  "missing_evidence_refs",
+  "blocked_authority_refs",
+] as const;
+
+function hasTrueFlags(
+  record: Record<string, unknown>,
+  flags: readonly string[],
+): boolean {
+  return flags.every((flag) => record[flag] === true);
+}
+
+function hasDeniedFlagsFalse(
+  record: Record<string, unknown>,
+  flags: readonly string[],
+): boolean {
+  return flags.every((flag) => record[flag] === false);
+}
+
+function hasStringArrays(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) => {
+    const value = record[field];
+    return Array.isArray(value) && value.every((item) => typeof item === "string");
+  });
+}
+
+function hasRequiredReviewReceiptLabels(value: unknown): boolean {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+  const labels = new Set(value.filter((item): item is string => typeof item === "string"));
+  return ["approve", "edit", "reject", "defer"].every((label) => labels.has(label));
+}
+
+const PLAN_ACTION_ENVELOPE_TOP_LEVEL_KEYS = [
+  "plans_action_envelope_contract_ref",
+  "plans_action_envelope_review_postures",
+  "plans_action_envelope_required_ref_fields",
+  "plans_action_envelope_required_blocked_refs",
+  "plans_action_envelope_surface_bindings",
+  "plans_action_envelope_authority_posture",
+  "plans_action_envelope_status",
+] as const;
+
+const PLAN_ACTION_ENVELOPE_PLAN_KEYS = [
+  "action_envelope_contract_ref",
+  "action_envelope_ref",
+  "action_envelope_status",
+  "scope_ref",
+  "approval_required",
+  "approval_requirement_ref",
+  "idempotency_key_ref",
+  "expires_at",
+  "rollback_ref",
+  "safe_disable_ref",
+  "action_execution_enabled",
+  "approval_grant_capture_enabled",
+  "action_envelope_cost_estimate_ref",
+  "action_envelope_budget_decision_ref",
+  "action_envelope_usage_receipt_ref",
+  "action_envelope_estimated_cost_usd",
+  "action_envelope_max_approved_cost_usd",
+  "action_envelope_metered_unit_estimate",
+  "action_envelope_cost_receipt_refs",
+  "action_envelope_cost_blocked_state_refs",
+  "action_envelope_cost_state_label",
+  "action_envelope_provider_ref",
+  "action_envelope_model_profile_ref",
+  "action_envelope_provider_authority_state_label",
+  "action_envelope_unknown_paid_cost_requires_explicit_approval",
+  "action_envelope_frontier_usage_claimed",
+  "review_actions",
+  "expected_receipt_refs",
+  "blocked_state_refs",
+] as const;
+
+function stripPlansActionEnvelopePosture(
+  value: Record<string, unknown>,
+): Record<string, unknown> {
+  const stripped = { ...value };
+  for (const key of PLAN_ACTION_ENVELOPE_TOP_LEVEL_KEYS) {
+    delete stripped[key];
+  }
+  if (Array.isArray(stripped.plans)) {
+    stripped.plans = stripped.plans.map((plan) => {
+      if (!isPlainRecord(plan)) {
+        return plan;
+      }
+      const planCopy = { ...plan };
+      for (const key of PLAN_ACTION_ENVELOPE_PLAN_KEYS) {
+        delete planCopy[key];
+      }
+      return planCopy;
+    });
+  }
+  return stripped;
+}
+
 function normalizeFounderToday(
   value: FounderLoopTodaySummary | undefined,
 ): { value: FounderLoopTodaySummary; usedFallback: boolean } {
@@ -1085,14 +1250,18 @@ function normalizeFounderToday(
     delete fallbackWithoutDigest.today_loop_tightening_contract_ref;
     delete fallbackWithoutDigest.follow_up_tracker;
     delete fallbackWithoutDigest.follow_up_tracker_contract_ref;
+    delete fallbackWithoutDigest.plans_to_actions_bridge_read_model;
+    delete fallbackWithoutDigest.plans_to_actions_bridge_contract_ref;
     return {
-      value: fallbackWithoutDigest as unknown as FounderLoopTodaySummary,
+      value: stripPlansActionEnvelopePosture(
+        fallbackWithoutDigest,
+      ) as unknown as FounderLoopTodaySummary,
       usedFallback: true,
     };
   }
   const merged = mergeMissingFields(mockControlCenterData.founderToday, value);
   const valueRecord = value as unknown as Record<string, unknown>;
-  const normalized = {
+  let normalized: Record<string, unknown> = {
     ...(merged.value as unknown as Record<string, unknown>),
   };
   if (Object.prototype.hasOwnProperty.call(valueRecord, "today_loop_read_model")) {
@@ -1110,6 +1279,16 @@ function normalizeFounderToday(
   } else {
     delete normalized.follow_up_tracker;
     delete normalized.follow_up_tracker_contract_ref;
+  }
+  if (isSafePlansToActionsBridgeReadModel(valueRecord.plans_to_actions_bridge_read_model)) {
+    normalized.plans_to_actions_bridge_read_model =
+      valueRecord.plans_to_actions_bridge_read_model;
+    normalized.plans_to_actions_bridge_contract_ref =
+      valueRecord.plans_to_actions_bridge_contract_ref;
+  } else {
+    delete normalized.plans_to_actions_bridge_read_model;
+    delete normalized.plans_to_actions_bridge_contract_ref;
+    normalized = stripPlansActionEnvelopePosture(normalized);
   }
   return {
     value: normalized as unknown as FounderLoopTodaySummary,
@@ -1152,11 +1331,14 @@ function normalizeFounderActionsInbox(
     mockControlCenterData.founderActionsInbox,
     value,
   );
+  const valueRecord = (value ?? {}) as unknown as Record<string, unknown>;
+  const safePlansToActionsBridge = isSafePlansToActionsBridgeReadModel(
+    valueRecord.plans_to_actions_bridge_read_model,
+  );
   if (
     value === undefined ||
-    !Object.prototype.hasOwnProperty.call(
-      value as unknown as Record<string, unknown>,
-      "action_inbox_decision_lane_read_model",
+    !isSafeActionInboxDecisionLaneReadModel(
+      valueRecord.action_inbox_decision_lane_read_model,
     )
   ) {
     const withoutMockLanes = {
@@ -1164,23 +1346,140 @@ function normalizeFounderActionsInbox(
     };
     delete withoutMockLanes.action_inbox_decision_lane_read_model;
     delete withoutMockLanes.action_inbox_decision_lane_contract_ref;
+    if (safePlansToActionsBridge) {
+      withoutMockLanes.plans_to_actions_bridge_read_model =
+        valueRecord.plans_to_actions_bridge_read_model;
+      withoutMockLanes.plans_to_actions_bridge_contract_ref =
+        valueRecord.plans_to_actions_bridge_contract_ref;
+    } else {
+      delete withoutMockLanes.plans_to_actions_bridge_read_model;
+      delete withoutMockLanes.plans_to_actions_bridge_contract_ref;
+    }
     return {
       value: withoutMockLanes as unknown as FounderLoopActionsInbox,
       usedFallback: merged.usedFallback,
     };
   }
+  const normalized: Record<string, unknown> = {
+    ...(merged.value as unknown as Record<string, unknown>),
+    action_inbox_decision_lane_read_model:
+      valueRecord.action_inbox_decision_lane_read_model,
+    action_inbox_decision_lane_contract_ref:
+      valueRecord.action_inbox_decision_lane_contract_ref,
+  };
+  if (safePlansToActionsBridge) {
+    normalized.plans_to_actions_bridge_read_model =
+      valueRecord.plans_to_actions_bridge_read_model;
+    normalized.plans_to_actions_bridge_contract_ref =
+      valueRecord.plans_to_actions_bridge_contract_ref;
+  } else {
+    delete normalized.plans_to_actions_bridge_read_model;
+    delete normalized.plans_to_actions_bridge_contract_ref;
+  }
   return {
-    value: {
-      ...(merged.value as unknown as Record<string, unknown>),
-      action_inbox_decision_lane_read_model: (
-        value as unknown as Record<string, unknown>
-      ).action_inbox_decision_lane_read_model,
-      action_inbox_decision_lane_contract_ref: (
-        value as unknown as Record<string, unknown>
-      ).action_inbox_decision_lane_contract_ref,
-    } as FounderLoopActionsInbox,
+    value: normalized as unknown as FounderLoopActionsInbox,
     usedFallback: merged.usedFallback,
   };
+}
+
+function isSafePlansToActionsBridgeReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "product-loop-006-plans-to-actions.v1" ||
+    value.source !== "python_core_plans_to_actions_bridge_read_model" ||
+    value.contract_ref !==
+      "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1"
+  ) {
+    return false;
+  }
+  if (
+    !hasTrueFlags(value, PLANS_TO_ACTIONS_BRIDGE_TRUE_FLAGS) ||
+    value.raw_content_included !== false ||
+    !hasDeniedFlagsFalse(value, PLANS_TO_ACTIONS_BRIDGE_DENIED_FLAGS) ||
+    !hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_REQUIRED_ARRAYS)
+  ) {
+    return false;
+  }
+  if (!Array.isArray(value.items) || typeof value.item_count !== "number") {
+    return false;
+  }
+  if (value.item_count !== value.items.length || value.items.length > 50) {
+    return false;
+  }
+  if (!value.items.every(isSafePlansToActionsBridgeItem)) {
+    return false;
+  }
+  return (
+    typeof value.next_safe_action === "string" &&
+    typeof value.authority_boundary === "string"
+  );
+}
+
+function isSafePlansToActionsBridgeItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const requiredTextFields = [
+    "item_ref",
+    "source_plan_ref",
+    "plan_title",
+    "plan_status",
+    "safe_summary",
+    "why_proposed",
+    "risk_class",
+    "action_envelope_ref",
+    "action_scope_ref",
+    "approval_requirement_ref",
+    "rollback_ref",
+    "safe_disable_ref",
+    "next_safe_action",
+  ];
+  if (!requiredTextFields.every((field) => typeof value[field] === "string")) {
+    return false;
+  }
+  for (const field of [
+    "linked_action_item_ref",
+    "task_decomposition_proposal_ref",
+    "task_decomposition_review_envelope_ref",
+    "task_decomposition_action_inbox_bridge_ref",
+  ]) {
+    if (value[field] !== null && value[field] !== undefined && typeof value[field] !== "string") {
+      return false;
+    }
+  }
+  return (
+    hasTrueFlags(value, PLANS_TO_ACTIONS_BRIDGE_ITEM_TRUE_FLAGS) &&
+    value.raw_content_included === false &&
+    hasDeniedFlagsFalse(value, PLANS_TO_ACTIONS_BRIDGE_DENIED_FLAGS) &&
+    hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_ITEM_REQUIRED_ARRAYS) &&
+    hasRequiredReviewReceiptLabels(value.review_receipt_labels) &&
+    (value.expected_receipt_refs as unknown[]).length > 0 &&
+    (value.evidence_refs as unknown[]).length > 0 &&
+    (value.blocked_authority_refs as unknown[]).length > 0
+  );
+}
+
+function isSafeActionInboxDecisionLaneReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.backend_owned === true &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    value.source === "python_core_action_inbox_decision_lane_read_model" &&
+    value.action_execution_enabled === false &&
+    value.connector_write_enabled === false &&
+    value.shell_subprocess_execution_enabled === false &&
+    value.browser_execution_enabled === false &&
+    value.provider_model_call_enabled === false &&
+    value.memory_write_enabled === false &&
+    value.context_injection_authorized === false &&
+    value.production_authority_enabled === false &&
+    value.approval_alone_executes === false
+  );
 }
 
 function normalizeFounderMemoryWorkbench(

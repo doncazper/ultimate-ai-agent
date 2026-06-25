@@ -44,9 +44,13 @@ PLANS_ACTION_ENVELOPE_REQUIRED_REF_FIELDS = [
 ]
 PLANS_ACTION_ENVELOPE_REQUIRED_BLOCKED_REFS = [
     "blocked-state:no-action-execution",
+    "blocked-state:no-tool-execution",
+    "blocked-state:no-workflow-execution",
     "blocked-state:no-approval-grant-capture",
     "blocked-state:approval-refs-identifiers-only",
+    "blocked-state:no-connector-runtime",
     "blocked-state:no-connector-write",
+    "blocked-state:no-browser-automation",
     "blocked-state:no-shell-subprocess-execution",
     "blocked-state:no-model-provider-authority",
     "blocked-state:no-public-beta-or-distribution",
@@ -108,11 +112,13 @@ class PlanActionEnvelope(BaseModel):
     blocked_state_refs: list[str] = Field(default_factory=list, min_length=1)
     authority_boundary: str = Field(
         default=(
-            "Reviewable Action envelope only; execution and approval grant capture "
-            "remain blocked until exact scoped LocalApprovalAuthority validation exists."
+            "Reviewable Action envelope only; approval refs are identifiers and "
+            "decision receipts only. They do not execute, authorize tools or "
+            "workflows, call models or providers, run shell or browser work, "
+            "or use connectors."
         ),
         min_length=1,
-        max_length=280,
+        max_length=420,
     )
     next_safe_action: str = Field(
         default=(
@@ -126,6 +132,10 @@ class PlanActionEnvelope(BaseModel):
     approval_ref_authority: bool = False
     approval_grant_capture_enabled: bool = False
     action_execution_enabled: bool = False
+    tool_execution_enabled: bool = False
+    workflow_execution_enabled: bool = False
+    browser_execution_enabled: bool = False
+    connector_runtime_enabled: bool = False
     connector_write_enabled: bool = False
     shell_subprocess_execution_enabled: bool = False
     model_provider_authority_allowed: bool = False
@@ -191,6 +201,10 @@ class PlanActionEnvelope(BaseModel):
             "approval_ref_authority": self.approval_ref_authority,
             "approval_grant_capture_enabled": self.approval_grant_capture_enabled,
             "action_execution_enabled": self.action_execution_enabled,
+            "tool_execution_enabled": self.tool_execution_enabled,
+            "workflow_execution_enabled": self.workflow_execution_enabled,
+            "browser_execution_enabled": self.browser_execution_enabled,
+            "connector_runtime_enabled": self.connector_runtime_enabled,
             "connector_write_enabled": self.connector_write_enabled,
             "shell_subprocess_execution_enabled": self.shell_subprocess_execution_enabled,
             "model_provider_authority_allowed": self.model_provider_authority_allowed,
@@ -304,6 +318,10 @@ def plans_action_envelope_authority_posture() -> dict[str, bool]:
         "approval_grant_capture_enabled": False,
         "action_execution_enabled": False,
         "state_change_enabled": False,
+        "tool_execution_enabled": False,
+        "workflow_execution_enabled": False,
+        "browser_execution_enabled": False,
+        "connector_runtime_enabled": False,
         "connector_write_enabled": False,
         "shell_subprocess_execution_enabled": False,
         "model_provider_authority_allowed": False,
@@ -362,8 +380,8 @@ def build_plan_action_envelope(
         blocked_state_refs=list(dict.fromkeys([*default_blockers, *extra_blockers])),
         next_safe_action=next_safe_action
         or (
-            "Review, edit, reject, or defer the envelope metadata; keep execution "
-            "blocked until exact scoped authority exists."
+            "Review, edit, reject, or defer the envelope metadata as a receipt "
+            "posture only; keep execution and runtime authority blocked."
         ),
     )
 

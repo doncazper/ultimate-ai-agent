@@ -109,6 +109,145 @@ function applyApprovedActionCost(item: {
   }
 }
 
+function plansToActionsBridgeFixture(overrides: Record<string, unknown> = {}) {
+  const item = {
+    item_ref: "plans-to-actions-bridge:plan-summary-test",
+    source_plan_ref: "plan-summary:test",
+    linked_action_item_ref: "action:task-decomposition:test",
+    plan_title: "Founder Loop test plan",
+    plan_status: "proposal_only_review_required",
+    safe_summary:
+      "Plan proposal maps to a reviewable Action envelope with refs only.",
+    why_proposed: "The plan needs review before scoped work exists.",
+    risk_class: "medium",
+    action_envelope_ref: "action-envelope:plans:plan-summary-test",
+    action_scope_ref: "scope-ref:plans-action-envelope:plan-summary-test",
+    approval_requirement_ref:
+      "approval-requirement:plans-action-envelope:plan-summary-test",
+    task_decomposition_proposal_ref: "task-decomposition-proposal:test",
+    task_decomposition_review_envelope_ref: "review-envelope:task-decomposition:test",
+    task_decomposition_action_inbox_bridge_ref:
+      "action-inbox-proposal:task-decomposition:test",
+    review_receipt_labels: ["approve", "edit", "reject", "defer"],
+    expected_receipt_refs: [
+      "receipt-plan:plans-action-envelope:plan-summary-test",
+    ],
+    receipt_refs: [],
+    rollback_ref: "rollback-plan:plans-action-envelope:plan-summary-test",
+    safe_disable_ref: "safe-disable:plans-action-envelope:plan-summary-test",
+    evidence_refs: ["evidence-ref:founder-loop:test-plan"],
+    step_refs: ["task-decomposition-step:test-1"],
+    risk_refs: ["risk-ref:task-decomposition:test"],
+    ambiguity_refs: [],
+    missing_evidence_refs: ["missing-evidence-ref:task-decomposition:test"],
+    blocked_authority_refs: [
+      "blocked-state:plans-to-actions-proposal-only",
+      "blocked-state:plans-to-actions-approval-refs-identifiers-only",
+      "blocked-state:plans-to-actions-no-action-execution",
+      "blocked-state:plans-to-actions-no-tool-execution",
+      "blocked-state:plans-to-actions-no-workflow-execution",
+      "blocked-state:plans-to-actions-no-model-provider-call",
+      "blocked-state:plans-to-actions-no-shell-subprocess",
+      "blocked-state:plans-to-actions-no-browser-execution",
+      "blocked-state:plans-to-actions-no-connector-runtime",
+      "blocked-state:plans-to-actions-no-connector-write",
+      "blocked-state:plans-to-actions-no-memory-write",
+      "blocked-state:plans-to-actions-no-context-injection",
+      "blocked-state:plans-to-actions-no-production-authority",
+    ],
+    next_safe_action: "Review refs only.",
+    backend_owned: true,
+    review_only: true,
+    proposal_only: true,
+    exact_scope_required: true,
+    expected_receipts_required: true,
+    rollback_required: true,
+    safe_disable_required: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    approval_ref_authority: false,
+    approval_grant_capture_enabled: false,
+    approval_alone_executes: false,
+    execution_authorized: false,
+    execution_performed: false,
+    action_execution_enabled: false,
+    action_execution_performed: false,
+    tool_execution_enabled: false,
+    tool_execution_performed: false,
+    workflow_execution_enabled: false,
+    workflow_execution_performed: false,
+    model_provider_call_enabled: false,
+    model_provider_authority_allowed: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    shell_subprocess_execution_performed: false,
+    browser_execution_enabled: false,
+    browser_execution_performed: false,
+    connector_runtime_enabled: false,
+    connector_write_enabled: false,
+    connector_write_performed: false,
+    memory_write_authorized: false,
+    memory_write_performed: false,
+    context_injection_authorized: false,
+    context_injection_performed: false,
+    automatic_planning_authority_enabled: false,
+    production_authority_enabled: false,
+  };
+  return {
+    schema_version: "product-loop-006-plans-to-actions.v1",
+    contract_ref:
+      "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+    status: "implemented_backend_owned_review_envelope_bridge",
+    source: "python_core_plans_to_actions_bridge_read_model",
+    backend_owned: true,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    item_count: 1,
+    items: [item],
+    plan_refs: ["plan-summary:test"],
+    action_inbox_item_refs: ["action:task-decomposition:test"],
+    task_decomposition_proposal_refs: ["task-decomposition-proposal:test"],
+    expected_receipt_refs: [
+      "receipt-plan:plans-action-envelope:plan-summary-test",
+    ],
+    rollback_refs: ["rollback-plan:plans-action-envelope:plan-summary-test"],
+    safe_disable_refs: ["safe-disable:plans-action-envelope:plan-summary-test"],
+    blocked_state_refs: item.blocked_authority_refs,
+    next_safe_action: "Review refs only.",
+    authority_boundary:
+      "Plans-to-Actions bridge is review metadata only; approval refs remain identifiers.",
+    approval_ref_authority: false,
+    approval_grant_capture_enabled: false,
+    approval_alone_executes: false,
+    execution_authorized: false,
+    execution_performed: false,
+    action_execution_enabled: false,
+    action_execution_performed: false,
+    tool_execution_enabled: false,
+    tool_execution_performed: false,
+    workflow_execution_enabled: false,
+    workflow_execution_performed: false,
+    model_provider_call_enabled: false,
+    model_provider_authority_allowed: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    shell_subprocess_execution_performed: false,
+    browser_execution_enabled: false,
+    browser_execution_performed: false,
+    connector_runtime_enabled: false,
+    connector_write_enabled: false,
+    connector_write_performed: false,
+    memory_write_authorized: false,
+    memory_write_performed: false,
+    context_injection_authorized: false,
+    context_injection_performed: false,
+    automatic_planning_authority_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 describe("Web Control Center shell", () => {
   it("renders mock dashboard summaries without production authority", async () => {
     mockFetchWithFallback();
@@ -329,7 +468,7 @@ describe("Web Control Center shell", () => {
       "receipt and exact local-task controls only",
     );
     expect(
-      screen.getAllByText("implemented_today_to_action_envelope_vertical_slice_execution_blocked").length,
+      screen.getAllByText("partial_backend_not_product_ready").length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Memory-to-loop binding/i })).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:memory-to-loop-binding:v1").length).toBeGreaterThan(0);
@@ -477,11 +616,30 @@ describe("Web Control Center shell", () => {
       expect(data.founderToday.today_loop_tightening_contract_ref).toBeUndefined();
       expect(data.founderToday.follow_up_tracker).toBeUndefined();
       expect(data.founderToday.follow_up_tracker_contract_ref).toBeUndefined();
+      expect(data.founderToday.plans_to_actions_bridge_read_model).toBeUndefined();
+      expect(
+        data.founderToday.plans_to_actions_bridge_contract_ref,
+      ).toBeUndefined();
+      expect(data.founderToday.plans_action_envelope_contract_ref).toBeUndefined();
+      expect(
+        (data.founderToday.plans[0] as unknown as Record<string, unknown>)
+          .action_envelope_contract_ref,
+      ).toBeUndefined();
+      expect(
+        (data.founderToday.plans[0] as unknown as Record<string, unknown>)
+          .action_envelope_ref,
+      ).toBeUndefined();
       expect(data.founderActionsInbox.follow_up_tracker).toBeUndefined();
       expect(data.founderActionsInbox.follow_up_tracker_contract_ref).toBeUndefined();
       expect(data.founderActionsInbox.action_inbox_decision_lane_read_model).toBeUndefined();
       expect(
         data.founderActionsInbox.action_inbox_decision_lane_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderActionsInbox.plans_to_actions_bridge_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderActionsInbox.plans_to_actions_bridge_contract_ref,
       ).toBeUndefined();
       expect(data.founderMorningBriefing.follow_up_tracker).toBeUndefined();
       expect(
@@ -527,6 +685,203 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText("python_core_action_inbox_decision_lane_read_model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the Plans to Actions bridge only from a safe backend read model", async () => {
+    const bridge = plansToActionsBridgeFixture();
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: bridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    const bridgePanel = await screen.findByLabelText(
+      "Plans to reviewable Action envelopes",
+    );
+    expect(
+      within(bridgePanel).getByText(
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).getByText("python_core_plans_to_actions_bridge_read_model"),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).getAllByText("decision receipt option: approve").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(bridgePanel).getByText(
+        "receipt-plan:plans-action-envelope:plan-summary-test",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).getByText(
+        "rollback-plan:plans-action-envelope:plan-summary-test",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).getByText(
+        "safe-disable:plans-action-envelope:plan-summary-test",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).queryByRole("button", {
+        name: /execute|run|apply|commit/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the Plans-to-Actions bridge is missing or unsafe", async () => {
+    const unsafeBridge = plansToActionsBridgeFixture({
+      action_execution_enabled: true,
+    });
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: unsafeBridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      (await screen.findAllByText("backend bridge missing")).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_plans_to_actions_bridge_read_model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed when a Plans-to-Actions bridge item carries unsafe fields", async () => {
+    const unsafeBridge = plansToActionsBridgeFixture();
+    unsafeBridge.items = [
+      {
+        ...unsafeBridge.items[0],
+        raw_content_included: true,
+        action_execution_enabled: true,
+      },
+    ];
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: unsafeBridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      (await screen.findAllByText("backend bridge missing")).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("python_core_plans_to_actions_bridge_read_model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("decision receipt option: approve"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not backfill mock plan Action envelope posture when the bridge is missing", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (partialToday as { plans_to_actions_bridge_read_model?: unknown })
+      .plans_to_actions_bridge_read_model;
+    delete (partialToday as { plans_to_actions_bridge_contract_ref?: unknown })
+      .plans_to_actions_bridge_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: partialToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      (await screen.findAllByText("backend bridge missing")).length,
+    ).toBeGreaterThan(0);
+    const planHeadings = await screen.findAllByRole("heading", { name: "Plans" });
+    const plansPanel = planHeadings[0].closest("article");
+    expect(plansPanel).toBeTruthy();
+    expect(
+      within(plansPanel as HTMLElement).queryByText(
+        "contract-ref:plans-action-envelope:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(plansPanel as HTMLElement).queryByText(
+        "action-envelope:plans:plan-summary-founder-loop-v1",
+      ),
     ).not.toBeInTheDocument();
   });
 
@@ -6651,9 +7006,13 @@ const mockApiData = {
     ],
     plans_action_envelope_required_blocked_refs: [
       "blocked-state:no-action-execution",
+      "blocked-state:no-tool-execution",
+      "blocked-state:no-workflow-execution",
       "blocked-state:no-approval-grant-capture",
       "blocked-state:approval-refs-identifiers-only",
+      "blocked-state:no-connector-runtime",
       "blocked-state:no-connector-write",
+      "blocked-state:no-browser-automation",
       "blocked-state:no-shell-subprocess-execution",
       "blocked-state:no-model-provider-authority",
       "blocked-state:no-public-beta-or-distribution",
@@ -6676,6 +7035,10 @@ const mockApiData = {
       approval_grant_capture_enabled: false,
       action_execution_enabled: false,
       state_change_enabled: false,
+      tool_execution_enabled: false,
+      workflow_execution_enabled: false,
+      browser_execution_enabled: false,
+      connector_runtime_enabled: false,
       connector_write_enabled: false,
       shell_subprocess_execution_enabled: false,
       model_provider_authority_allowed: false,
@@ -6868,6 +7231,10 @@ const mockApiData = {
         approval_ref_authority: false,
         approval_grant_capture_enabled: false,
         action_execution_enabled: false,
+        tool_execution_enabled: false,
+        workflow_execution_enabled: false,
+        browser_execution_enabled: false,
+        connector_runtime_enabled: false,
         connector_write_enabled: false,
         shell_subprocess_execution_enabled: false,
         model_provider_authority_allowed: false,

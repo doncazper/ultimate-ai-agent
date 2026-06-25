@@ -35,6 +35,7 @@ import type {
   FounderLoopMorningBriefing,
   FounderLoopOperatorRunTimeline,
   FounderLoopPlanSummary,
+  FounderLoopPlansToActionsBridgeReadModel,
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
@@ -1811,17 +1812,17 @@ export function TodaySurfacePanel({
         <article className="status-card">
           <div className="status-card-header">
             <h3>Action envelope contract</h3>
-            <span>{today.plans_action_envelope_status}</span>
+            <span>{today.plans_action_envelope_status ?? "backend bridge missing"}</span>
           </div>
           <dl className="detail-list">
             <DetailTerm
               label="Contract ref"
-              value={today.plans_action_envelope_contract_ref}
+              value={today.plans_action_envelope_contract_ref ?? "missing"}
             />
             <DetailTerm
               label="Exact scope"
               value={
-                today.plans_action_envelope_authority_posture.exact_scope_required
+                today.plans_action_envelope_authority_posture?.exact_scope_required
                   ? "required"
                   : "missing"
               }
@@ -1830,8 +1831,8 @@ export function TodaySurfacePanel({
               label="Grant capture"
               value={
                 today.plans_action_envelope_authority_posture
-                  .approval_grant_capture_enabled
-                  ? "enabled"
+                  ?.approval_grant_capture_enabled
+                  ? "unsafe"
                   : "disabled"
               }
             />
@@ -1839,19 +1840,19 @@ export function TodaySurfacePanel({
               label="Execution"
               value={
                 today.plans_action_envelope_authority_posture
-                  .action_execution_enabled
-                  ? "enabled"
+                  ?.action_execution_enabled
+                  ? "unsafe"
                   : "blocked"
               }
             />
           </dl>
           <InlineListWithFallback
-            emptyLabel="Review actions: missing"
-            items={today.plans_action_envelope_review_postures.map(
-              (posture) => posture.review_action,
+            emptyLabel="Decision receipt options: missing"
+            items={(today.plans_action_envelope_review_postures ?? []).map(
+              (posture) => `decision receipt option: ${posture.review_action}`,
             )}
           />
-          <RefList refs={today.plans_action_envelope_required_blocked_refs} />
+          <RefList refs={today.plans_action_envelope_required_blocked_refs ?? []} />
         </article>
         <article className="status-card">
           <div className="status-card-header">
@@ -1920,6 +1921,10 @@ export function TodaySurfacePanel({
           ))}
         </LoopPanel>
         <LoopPanel title="Plans" route="/plans">
+          <PlansToActionsBridgePanel
+            contractRef={today.plans_to_actions_bridge_contract_ref}
+            readModel={today.plans_to_actions_bridge_read_model}
+          />
           {today.plans.map((plan) => (
             <PlanCard plan={plan} key={plan.plan_ref} />
           ))}
@@ -1940,6 +1945,158 @@ export function TodaySurfacePanel({
         </LoopPanel>
       </div>
       <BlockedStateList states={today.blocked_states} />
+    </section>
+  );
+}
+
+function PlansToActionsBridgePanel({
+  contractRef,
+  readModel,
+}: {
+  contractRef?: string;
+  readModel?: FounderLoopPlansToActionsBridgeReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Plans to Actions</h3>
+          <span>backend bridge missing</span>
+        </div>
+        <p className="muted">
+          Backend-owned Plans-to-Actions bridge posture is unavailable. Control
+          Center will not infer plan envelopes, risks, receipts, rollback,
+          safe-disable, or authority state from fallback-only data.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm label="Review posture" value="proposal-only" />
+          <DetailTerm label="Action execution" value="blocked" />
+          <DetailTerm label="Tool/workflow execution" value="blocked" />
+          <DetailTerm label="Provider/browser/connector runtime" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Plans to reviewable Action envelopes"
+      className="page-section embedded"
+    >
+      <div className="section-heading compact">
+        <div>
+          <p className="eyebrow">Product Loop 006</p>
+          <h3>Plans to Actions</h3>
+        </div>
+        <span className="status-pill compact">{readModel.status}</span>
+      </div>
+      <p className="section-copy">
+        Backend-owned bridge from plan proposals to reviewable Action envelopes.
+        Risks, reasons, expected receipts, rollback, and safe-disable refs are
+        visible; approval refs remain identifiers and decision receipts only.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={contractRef ?? readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm label="Item count" value={String(readModel.item_count)} />
+        <DetailTerm
+          label="Approval alone"
+          value={readModel.approval_alone_executes ? "unsafe" : "does not execute"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Tool/workflow execution"
+          value={
+            readModel.tool_execution_enabled || readModel.workflow_execution_enabled
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Provider/browser/connector runtime"
+          value={
+            readModel.provider_model_call_enabled ||
+            readModel.browser_execution_enabled ||
+            readModel.connector_runtime_enabled
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Bridge blockers: missing"
+        refs={readModel.blocked_state_refs}
+      />
+      <div className="review-grid">
+        {readModel.items.map((item) => (
+          <article className="review-card" key={item.item_ref}>
+            <div className="review-card-heading">
+              <h4>{item.plan_title}</h4>
+              <span>{item.plan_status}</span>
+            </div>
+            <p>{item.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Risk" value={item.risk_class} />
+              <DetailTerm label="Why proposed" value={item.why_proposed} />
+              <DetailTerm label="Action envelope" value={item.action_envelope_ref} />
+              <DetailTerm label="Exact scope" value={item.action_scope_ref} />
+              <DetailTerm
+                label="Approval requirement"
+                value={item.approval_requirement_ref}
+              />
+              <DetailTerm label="Rollback" value={item.rollback_ref} />
+              <DetailTerm label="Safe disable" value={item.safe_disable_ref} />
+              <DetailTerm
+                label="Proposal posture"
+                value={item.proposal_only ? "proposal-only" : "unsafe"}
+              />
+              <DetailTerm
+                label="Execution authorized"
+                value={item.execution_authorized ? "unsafe" : "blocked"}
+              />
+              <DetailTerm
+                label="Provider calls"
+                value={item.provider_model_call_enabled ? "unsafe" : "blocked"}
+              />
+              <DetailTerm label="Next safe action" value={item.next_safe_action} />
+            </dl>
+            <InlineListWithFallback
+              emptyLabel="Decision receipt options: missing"
+              items={item.review_receipt_labels.map(
+                (label) => `decision receipt option: ${label}`,
+              )}
+            />
+            <RefListWithFallback
+              emptyLabel="Expected receipts: missing"
+              refs={item.expected_receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Linked Action Inbox item: none"
+              refs={item.linked_action_item_ref ? [item.linked_action_item_ref] : []}
+            />
+            <RefListWithFallback
+              emptyLabel="Task decomposition steps: none"
+              refs={item.step_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Risk refs: none"
+              refs={item.risk_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Missing evidence refs: none"
+              refs={item.missing_evidence_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked authority refs: missing"
+              refs={item.blocked_authority_refs}
+            />
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -3046,6 +3203,10 @@ export function ActionInboxSurfacePanel({
       <ActionInboxDecisionLanePanel
         contractRef={displayedInbox.action_inbox_decision_lane_contract_ref}
         readModel={displayedInbox.action_inbox_decision_lane_read_model}
+      />
+      <PlansToActionsBridgePanel
+        contractRef={displayedInbox.plans_to_actions_bridge_contract_ref}
+        readModel={displayedInbox.plans_to_actions_bridge_read_model}
       />
       <article className="status-card">
         <div className="status-card-header">
@@ -6515,14 +6676,14 @@ function TaskDecompositionActionProposalDetails({
         <DetailTerm
           label="Execution authorized"
           value={
-            item.task_decomposition_execution_authorized ? "enabled" : "blocked"
+            item.task_decomposition_execution_authorized ? "unsafe" : "blocked"
           }
         />
         <DetailTerm
           label="Action execution"
           value={
             item.task_decomposition_action_execution_enabled
-              ? "enabled"
+              ? "unsafe"
               : "blocked"
           }
         />
@@ -6530,21 +6691,21 @@ function TaskDecompositionActionProposalDetails({
           label="Workflow execution"
           value={
             item.task_decomposition_workflow_execution_enabled
-              ? "enabled"
+              ? "unsafe"
               : "blocked"
           }
         />
         <DetailTerm
           label="Tool execution"
           value={
-            item.task_decomposition_tool_execution_enabled ? "enabled" : "blocked"
+            item.task_decomposition_tool_execution_enabled ? "unsafe" : "blocked"
           }
         />
         <DetailTerm
           label="Memory write"
           value={
             item.task_decomposition_memory_write_authorized
-              ? "enabled"
+              ? "unsafe"
               : "blocked"
           }
         />
@@ -6552,7 +6713,7 @@ function TaskDecompositionActionProposalDetails({
           label="Context injection"
           value={
             item.task_decomposition_context_injection_authorized
-              ? "enabled"
+              ? "unsafe"
               : "blocked"
           }
         />
@@ -6560,7 +6721,7 @@ function TaskDecompositionActionProposalDetails({
           label="Provider authority"
           value={
             item.task_decomposition_model_provider_authority_allowed
-              ? "enabled"
+              ? "unsafe"
               : "blocked"
           }
         />
@@ -7258,6 +7419,11 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
       </div>
       <p>{plan.safe_summary}</p>
       <p className="muted">{plan.next_step_summary}</p>
+      <p className="muted">
+        Plan envelope refs are review metadata only. Provider/model/cost refs do
+        not invoke providers, tools, workflows, browser, shell, connectors, or
+        action execution.
+      </p>
       <dl className="detail-list">
         <DetailTerm
           label="Action envelope contract"
@@ -7290,12 +7456,12 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
           value={plan.safe_disable_ref ?? "missing"}
         />
         <DetailTerm
-          label="Execution"
-          value={plan.action_execution_enabled ? "enabled" : "blocked"}
+          label="Execution flag"
+          value={plan.action_execution_enabled ? "unsafe" : "blocked"}
         />
         <DetailTerm
-          label="Grant capture"
-          value={plan.approval_grant_capture_enabled ? "enabled" : "disabled"}
+          label="Grant capture flag"
+          value={plan.approval_grant_capture_enabled ? "unsafe" : "disabled"}
         />
         <DetailTerm
           label="Cost state"
@@ -7337,8 +7503,10 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
         />
       </dl>
       <InlineListWithFallback
-        emptyLabel="Review actions: missing"
-        items={plan.review_actions ?? []}
+        emptyLabel="Decision receipt options: missing"
+        items={(plan.review_actions ?? []).map(
+          (label) => `decision receipt option: ${label}`,
+        )}
       />
       <RefListWithFallback
         emptyLabel="Expected receipt refs: missing until scoped contract"
@@ -7424,28 +7592,28 @@ function TaskDecompositionPlanDetails({
         <DetailTerm
           label="Execution authorized"
           value={
-            plan.task_decomposition_execution_authorized ? "enabled" : "blocked"
+            plan.task_decomposition_execution_authorized ? "unsafe" : "blocked"
           }
         />
         <DetailTerm
           label="Action execution"
           value={
             plan.task_decomposition_action_execution_enabled
-              ? "enabled"
+              ? "unsafe"
               : "blocked"
           }
         />
         <DetailTerm
           label="Tool execution"
           value={
-            plan.task_decomposition_tool_execution_enabled ? "enabled" : "blocked"
+            plan.task_decomposition_tool_execution_enabled ? "unsafe" : "blocked"
           }
         />
         <DetailTerm
           label="Memory write"
           value={
             plan.task_decomposition_memory_write_authorized
-              ? "enabled"
+              ? "unsafe"
               : "blocked"
           }
         />
@@ -7453,7 +7621,7 @@ function TaskDecompositionPlanDetails({
           label="Context injection"
           value={
             plan.task_decomposition_context_injection_authorized
-              ? "enabled"
+              ? "unsafe"
               : "blocked"
           }
         />

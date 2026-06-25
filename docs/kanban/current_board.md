@@ -499,6 +499,18 @@ closed; cost/provider posture is
 visible before approval. The lane is review metadata only and adds no action
 execution, connector writes, provider/model calls, shell/browser execution,
 memory writes, context injection, public beta, or production authority.
+
+Product Loop 006 Plans To Reviewable Action Envelopes Upgrade
+Goal met: Today and Action Inbox now expose a backend-owned
+`plans_to_actions_bridge_read_model` that maps plan proposals and
+task-decomposition proposal refs into reviewable Action envelope posture with
+risk, reason, expected receipt, rollback, safe-disable, linked Action Inbox, and
+blocked authority refs. `scripts/inspect_plans_to_actions_bridge.py` provides
+CLI parity. Plans remain proposal-only; approval refs are identifiers and
+decision receipts only. This lane adds no action execution, no tool execution,
+no workflow execution, no provider/model calls, no connector runtime, no shell/browser execution,
+no context injection, no connector writes, no memory writes, no public beta,
+and no production authority.
 ```
 
 ## QA / Verification
