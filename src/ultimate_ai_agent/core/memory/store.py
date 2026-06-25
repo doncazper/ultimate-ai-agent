@@ -145,6 +145,11 @@ class MemoryStore:
             if request.query or request.tags:
                 if score <= 0:
                     continue
+                if not any(
+                    reason.startswith(("keyword:", "tag:", "requested_tag:"))
+                    for reason in reasons
+                ):
+                    continue
             else:
                 score = 1.0
                 reasons = ["recent"]

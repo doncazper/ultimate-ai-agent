@@ -347,9 +347,15 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
         for item in inbox["items"]
         if item.get("action_kind") == "self_heal_recommendation"
     )
+    task_decomposition_proposal_count = sum(
+        1
+        for item in inbox["items"]
+        if item.get("action_kind") == "task_decomposition_proposal"
+    )
     assert health_recommendation_count == 3
+    assert task_decomposition_proposal_count == 1
     assert groups["proposal_only_no_execution_path"]["count"] == (
-        4 + health_recommendation_count
+        4 + health_recommendation_count + task_decomposition_proposal_count
     )
     by_ref = {item["item_ref"]: item for item in inbox["items"]}
     for item in inbox["items"]:

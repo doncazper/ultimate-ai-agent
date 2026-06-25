@@ -1,0 +1,31 @@
+from ultimate_ai_agent.core.platform_capabilities.contracts import (
+    PlatformArchitectureBucket,
+    PlatformCapabilityAuthority,
+    PlatformCapabilityAuthorityState,
+    PlatformCapabilityFamily,
+    PlatformCapabilityRecord,
+    PlatformCapabilitySnapshot,
+    PlatformCapabilityState,
+    PlatformIdentity,
+    PlatformInstallerPosture,
+    PlatformIntegrationPosture,
+    PlatformOSBucket,
+    build_platform_capability_snapshot,
+    detect_platform_identity,
+)
+
+__all__ = [
+    "PlatformArchitectureBucket",
+    "PlatformCapabilityAuthority",
+    "PlatformCapabilityAuthorityState",
+    "PlatformCapabilityFamily",
+    "PlatformCapabilityRecord",
+    "PlatformCapabilitySnapshot",
+    "PlatformCapabilityState",
+    "PlatformIdentity",
+    "PlatformInstallerPosture",
+    "PlatformIntegrationPosture",
+    "PlatformOSBucket",
+    "build_platform_capability_snapshot",
+    "detect_platform_identity",
+]

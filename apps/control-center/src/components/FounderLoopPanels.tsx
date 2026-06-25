@@ -6290,6 +6290,7 @@ function LocalTaskCommitControls({
         <div className="decision-button-row">
           <button
             className="secondary-button"
+            data-contract-label="Commit local task"
             disabled={pending || !costGate.approved}
             onClick={() => void recordLocalTaskCommit()}
             title={!costGate.approved ? costGate.summary : undefined}

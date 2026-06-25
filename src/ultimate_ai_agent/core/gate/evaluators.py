@@ -49957,7 +49957,6 @@ class FoundationGateEvaluator:
             old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
             bearer = "foundation-gate-v0292-local-bearer"
             os.environ[LOCAL_API_BEARER_ENV] = bearer
-            auth_headers = {"Authorization": f"Bearer {bearer}"}
             def kernel_payload(workspace_root: Path, approval_ref: str) -> dict[str, Any]:
                 return {
                     "request_id": "ktr_gate_v0292",

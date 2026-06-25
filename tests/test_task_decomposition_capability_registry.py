@@ -1,6 +1,5 @@
 from typing import Any
 import asyncio
-import time
 
 from ultimate_ai_agent.core.task_decomposition import (
     CapabilityCallContext,
@@ -281,10 +280,19 @@ def test_executor_runs_dag_in_dependency_order() -> None:
 
 def test_executor_runs_independent_nodes_in_parallel() -> None:
     registry = CapabilityRegistry()
+    running: set[str] = set()
+    max_concurrent = 0
 
     async def sleeper(args: Any, context: Any) -> dict[str, Any]:
-        await asyncio.sleep(0.05)
-        return {"success": True, "status": "succeeded", "summary": args["request"]}
+        nonlocal max_concurrent
+        request = str(args["request"])
+        running.add(request)
+        max_concurrent = max(max_concurrent, len(running))
+        try:
+            await asyncio.sleep(0.05)
+            return {"success": True, "status": "succeeded", "summary": request}
+        finally:
+            running.remove(request)
 
     registry.register(_contract("capability:sleep-a", concurrency_limit=2), sleeper)
     registry.register(_contract("capability:sleep-b", concurrency_limit=2), sleeper)
@@ -311,12 +319,10 @@ def test_executor_runs_independent_nodes_in_parallel() -> None:
         ]
     )
 
-    started = time.perf_counter()
     result = asyncio.run(DAGExecutor(registry, parallel=True).execute(plan))
-    elapsed = time.perf_counter() - started
 
     assert result.status == DAGExecutionStatus.succeeded
-    assert elapsed < 0.09
+    assert max_concurrent == 2
 
 
 def test_executor_retries_failed_node_until_success() -> None:
