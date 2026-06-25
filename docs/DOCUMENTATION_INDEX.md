@@ -69,7 +69,7 @@ verifier, and focused tests. UAA-P1-079 User Intent Understanding V1 completes
 reviewable intent proposals with confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing. UAA-P1-080 API Route
 Classification And Public/Protected Inventory completes typed route
-classification in `/api/manifest`, the current 143-route inventory fixture,
+classification in `/api/manifest`, the current 147-route inventory fixture,
 route-status manifest alignment, and Control Center API Routes visibility.
 UAA-P1-081 Centralized FastAPI Security Headers completes centralized response
 headers, HTTPS-only HSTS, manifest capability posture, and focused verifier

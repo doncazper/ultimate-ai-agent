@@ -468,6 +468,15 @@ displays review receipt posture only; the scoped Memory Review routes record
 receipts. Hard delete, export, automatic merge, automatic supersede, automatic
 forget, hidden memory writes, context injection, connector writes,
 provider/model calls, public beta, and production authority remain blocked.
+
+Product Loop 003 Today Loop Tightening
+Goal met: Today now exposes a backend-owned
+`today_loop_read_model` for what matters now, what changed, what is blocked,
+what needs review, follow-ups, and stale/deferred refs, with Control Center
+decision-first rendering and `scripts/inspect_today_loop.py` CLI parity. The
+lane is local read-model readability only; connector reads, source refresh,
+model/provider calls, automatic memory writes, context injection, action
+execution, public beta, and production authority remain blocked.
 ```
 
 ## QA / Verification

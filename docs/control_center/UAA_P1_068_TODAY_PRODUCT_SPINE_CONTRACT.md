@@ -49,6 +49,43 @@ store raw private content, account identifiers, usernames, hostnames, local
 paths, raw logs, raw prompts, raw responses, provider payloads, credentials, or
 secret-like values.
 
+## Product Loop 003 Tightening
+
+Product Loop 003 adds `today_loop_read_model` to the existing
+`GET /control-center/today/summary` payload under:
+
+```text
+contract-ref:product-loop-003-today-loop-tightening:v1
+```
+
+The read model is backend-owned and answers the operator questions directly:
+
+- what matters now
+- what changed
+- what is blocked
+- what needs review
+- which follow-ups are stale, deferred, or ready for review
+
+The canonical lanes are:
+
+```text
+needs_review
+blocked_now
+changed
+follow_up
+stale_or_deferred
+```
+
+The companion CLI inspection path is:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/inspect_today_loop.py
+```
+
+This inspection path is read-only, safe-ref-only, and redacted. It must not
+create storage, fetch connectors, refresh sources, call models/providers,
+execute actions, write memory, inject context, or claim production authority.
+
 ## Module Feed Rows
 
 Each module feed row records:
@@ -74,6 +111,8 @@ release, public beta, production readiness, or production authority.
 ## Evidence
 
 - Backend payload: `src/ultimate_ai_agent/core/storage/founder_loop.py`
+- Today read-model contract: `src/ultimate_ai_agent/core/control_center/today_loop.py`
+- CLI inspection: `scripts/inspect_today_loop.py`
 - Frontend type/render path: `apps/control-center/src/api/types.ts` and
   `apps/control-center/src/components/FounderLoopPanels.tsx`
 - Schema: `docs/schemas/today_product_spine_contract.schema.json`

@@ -6,6 +6,7 @@ import type {
   FounderLoopSourceReadinessItem,
   FounderLoopSourceReadinessPosture,
   FounderLoopSourceReadinessProposalCandidate,
+  FounderLoopTodayLoopReadModel,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
@@ -1594,7 +1595,10 @@ const weeklyReviewNarrative = {
     ...crmLiteFollowups.map((item) => item.follow_up_ref),
   ],
   decided_refs: acceptedRecallRefs,
-  changed_refs: [],
+  changed_refs: [
+    "evidence-ref:weekly-review:narrative",
+    "receipt:memory-review:defer:mock-stale",
+  ],
   completed_refs: [],
   deferred_refs: [],
   rejected_refs: rejectedItemRefs,
@@ -1660,6 +1664,254 @@ const dailyLoopSummary = {
   connector_runtime_enabled: false,
   external_write_enabled: false,
   runtime_model_calls_enabled: false,
+};
+
+const todayLoopBlockedRefs = [
+  "blocked-state:today-loop-no-action-execution",
+  "blocked-state:today-loop-no-connector-runtime",
+  "blocked-state:today-loop-no-runtime-model-call",
+  "blocked-state:today-loop-no-automatic-memory-write",
+  "blocked-state:today-loop-no-context-injection",
+  "blocked-state:today-loop-safe-refs-only",
+];
+
+const todayLoopReadModel: FounderLoopTodayLoopReadModel = {
+  schema_version: "product-loop-003-today-loop-tightening.v1",
+  contract_ref: "contract-ref:product-loop-003-today-loop-tightening:v1",
+  status: "mock_backend_owned_review_digest",
+  source: "python_core_today_loop_read_model",
+  backend_owned: true,
+  local_read_model_only: true,
+  safe_refs_only: true,
+  raw_content_included: false,
+  lane_order: [
+    "needs_review",
+    "blocked_now",
+    "changed",
+    "follow_up",
+    "stale_or_deferred",
+  ],
+  lanes: [
+    {
+      lane_id: "needs_review",
+      label: "Needs review",
+      status: "ready_for_review",
+      count: 2,
+      item_refs: [
+        "founder-action:mock-setup-hardening",
+        "memory-review:founder-loop-preferences",
+      ],
+      evidence_refs: [
+        "evidence-ref:founder-loop:action-inbox",
+        "evidence-ref:founder-loop:memory",
+      ],
+      receipt_refs: [],
+      blocked_state_refs: todayLoopBlockedRefs,
+      next_safe_action:
+        "Review exact scope, evidence, and receipt posture before recording any supported decision.",
+      review_only: true,
+    },
+    {
+      lane_id: "blocked_now",
+      label: "Blocked now",
+      status: "ready_for_review",
+      count: 2,
+      item_refs: [
+        "source-ref:inbox:readiness-blocked",
+        "source-ref:calendar:not-configured",
+      ],
+      evidence_refs: ["evidence-ref:source-readiness:inbox"],
+      receipt_refs: [],
+      blocked_state_refs: [
+        ...todayLoopBlockedRefs,
+        "blocked-state:no-email-read-authority",
+        "blocked-state:no-account-auth",
+      ],
+      next_safe_action:
+        "Inspect blockers and keep unavailable authority disabled.",
+      review_only: true,
+    },
+    {
+      lane_id: "changed",
+      label: "Changed",
+      status: "ready_for_review",
+      count: 2,
+      item_refs: [
+        "evidence-ref:weekly-review:narrative",
+        "receipt:memory-review:defer:mock-stale",
+      ],
+      evidence_refs: ["evidence-ref:weekly-review:narrative"],
+      receipt_refs: ["receipt:memory-review:defer:mock-stale"],
+      blocked_state_refs: todayLoopBlockedRefs,
+      next_safe_action:
+        "Inspect receipts and evidence refs before carrying changes forward.",
+      review_only: true,
+    },
+    {
+      lane_id: "follow_up",
+      label: "Follow-ups",
+      status: "ready_for_review",
+      count: crmLiteFollowups.length,
+      item_refs: crmLiteFollowups.map((item) => item.follow_up_ref),
+      evidence_refs: crmLiteFollowups.flatMap((item) => item.evidence_refs),
+      receipt_refs: [],
+      blocked_state_refs: [
+        ...todayLoopBlockedRefs,
+        "blocked-state:no-external-crm-write",
+      ],
+      next_safe_action:
+        "Review relationship and memory refs before drafting any follow-up action.",
+      review_only: true,
+    },
+    {
+      lane_id: "stale_or_deferred",
+      label: "Stale or deferred",
+      status: "ready_for_review",
+      count: staleMemoryRefs.length,
+      item_refs: staleMemoryRefs,
+      evidence_refs: ["evidence-ref:founder-loop:memory"],
+      receipt_refs: [],
+      blocked_state_refs: todayLoopBlockedRefs,
+      next_safe_action: "Recheck source freshness before relying on these refs.",
+      review_only: true,
+    },
+  ],
+  digest_items: [
+    {
+      item_ref: "founder-action:mock-setup-hardening",
+      lane_id: "needs_review",
+      surface: "Actions",
+      title: "Setup Assistant hardening review",
+      state_label: "Needs review",
+      status: "review_ready",
+      priority: "high",
+      safe_summary:
+        "Action Inbox item needs scoped review before any supported receipt.",
+      reason: "Action Inbox item is reviewable and approval-bound.",
+      source_refs: [
+        "founder-action:mock-setup-hardening",
+        "approval-envelope:mock-setup-hardening",
+      ],
+      evidence_refs: ["evidence-ref:founder-loop:action-inbox"],
+      receipt_refs: [],
+      blocked_state_refs: todayLoopBlockedRefs,
+      stale_state: "recheck_required_before_mutation",
+      review_required: true,
+      next_safe_action:
+        "Review exact scope and receipt posture before any later action.",
+      authority_boundary:
+        "Today digest row is review-only safe-ref posture; it does not authorize action execution, connector runtime, provider calls, memory writes, context injection, or production authority.",
+      safe_refs_only: true,
+      content_untrusted: false,
+      action_execution_enabled: false,
+      connector_runtime_enabled: false,
+      runtime_model_calls_enabled: false,
+      automatic_memory_write_authorized: false,
+      context_injection_authorized: false,
+      production_authority_enabled: false,
+    },
+    {
+      item_ref: "source-ref:inbox:readiness-blocked",
+      lane_id: "blocked_now",
+      surface: "Sources",
+      title: "Inbox source",
+      state_label: "No source authority",
+      status: "blocked",
+      priority: "high",
+      safe_summary:
+        "Inbox source readiness is blocked until read-only email metadata contracts exist.",
+      reason: "Missing source authority affects Today inputs.",
+      source_refs: ["contract-ref:email-read-only-missing"],
+      evidence_refs: ["evidence-ref:source-readiness:inbox"],
+      receipt_refs: [],
+      blocked_state_refs: [
+        ...todayLoopBlockedRefs,
+        "blocked-state:no-email-read-authority",
+      ],
+      stale_state: null,
+      review_required: true,
+      next_safe_action:
+        "Define a read-only email metadata contract before source-derived items enter Today.",
+      authority_boundary:
+        "Today digest row is review-only safe-ref posture; it does not authorize action execution, connector runtime, provider calls, memory writes, context injection, or production authority.",
+      safe_refs_only: true,
+      content_untrusted: false,
+      action_execution_enabled: false,
+      connector_runtime_enabled: false,
+      runtime_model_calls_enabled: false,
+      automatic_memory_write_authorized: false,
+      context_injection_authorized: false,
+      production_authority_enabled: false,
+    },
+    {
+      item_ref: "receipt:memory-review:defer:mock-stale",
+      lane_id: "changed",
+      surface: "Memory",
+      title: "Memory review receipt",
+      state_label: "Memory receipt",
+      status: "defer",
+      priority: "medium",
+      safe_summary:
+        "Memory Review decision receipt changed local review posture.",
+      reason: "A memory review decision receipt is available for inspection.",
+      source_refs: ["memory-review:founder-loop-preferences"],
+      evidence_refs: ["evidence-ref:founder-loop:memory"],
+      receipt_refs: ["receipt:memory-review:defer:mock-stale"],
+      blocked_state_refs: [
+        ...todayLoopBlockedRefs,
+        "blocked-state:today-loop-memory-recall-not-truth",
+      ],
+      stale_state: null,
+      review_required: true,
+      next_safe_action:
+        "Inspect receipt refs before relying on memory posture.",
+      authority_boundary:
+        "Today digest row is review-only safe-ref posture; it does not authorize action execution, connector runtime, provider calls, memory writes, context injection, or production authority.",
+      safe_refs_only: true,
+      content_untrusted: false,
+      action_execution_enabled: false,
+      connector_runtime_enabled: false,
+      runtime_model_calls_enabled: false,
+      automatic_memory_write_authorized: false,
+      context_injection_authorized: false,
+      production_authority_enabled: false,
+    },
+  ],
+  what_matters_now_refs: [
+    "founder-action:mock-setup-hardening",
+    "source-ref:inbox:readiness-blocked",
+    ...crmLiteFollowups.map((item) => item.follow_up_ref),
+  ],
+  what_changed_refs: [
+    "evidence-ref:weekly-review:narrative",
+    "receipt:memory-review:defer:mock-stale",
+  ],
+  blocked_now_refs: [
+    "source-ref:inbox:readiness-blocked",
+    "source-ref:calendar:not-configured",
+  ],
+  needs_review_refs: [
+    "founder-action:mock-setup-hardening",
+    "memory-review:founder-loop-preferences",
+  ],
+  follow_up_refs: crmLiteFollowups.map((item) => item.follow_up_ref),
+  stale_or_deferred_refs: staleMemoryRefs,
+  evidence_refs: [
+    "evidence-ref:founder-loop:today-summary",
+    "evidence-ref:weekly-review:narrative",
+  ],
+  next_safe_action:
+    "Review needs-review, blocked, changed, follow-up, and stale refs before opening deeper surfaces.",
+  authority_boundary:
+    "Today Loop digest is a backend-owned read model over local safe refs. It does not execute actions, call providers, fetch connectors, write memory, inject context, or grant production authority.",
+  action_execution_enabled: false,
+  connector_runtime_enabled: false,
+  source_refresh_enabled: false,
+  runtime_model_calls_enabled: false,
+  automatic_memory_write_authorized: false,
+  context_injection_authorized: false,
+  production_authority_enabled: false,
+  blocked_state_refs: todayLoopBlockedRefs,
 };
 
 const plansActionEnvelopeReviewPostures =
@@ -4295,6 +4547,9 @@ export const mockControlCenterData: ControlCenterData = {
     memory_to_loop_weekly_review_refs: memoryToLoopWeeklyReviewRefs,
     weekly_ceo_review_summary: weeklyCeoReviewSummary,
     memory_to_loop_blocked_state_refs: memoryToLoopBlockedRefs,
+    today_loop_tightening_contract_ref:
+      "contract-ref:product-loop-003-today-loop-tightening:v1",
+    today_loop_read_model: todayLoopReadModel,
     daily_loop_summary: dailyLoopSummary,
     source_readiness_items: sourceReadinessItems,
     source_readiness_posture: sourceReadinessPosture,

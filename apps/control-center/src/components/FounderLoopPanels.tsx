@@ -428,7 +428,7 @@ function summarizeLocalTaskLane(items: FounderLoopActionItem[]): string {
   return "Local task lane blocked unless exact approval exists";
 }
 
-function isPresent(value: string | null | undefined): value is string {
+function isPresent<T>(value: T | null | undefined): value is T {
   return Boolean(value);
 }
 
@@ -449,19 +449,92 @@ type DailyLoopCommandItem = {
 function buildDailyLoopCommandItems(
   today: FounderLoopTodaySummary,
 ): DailyLoopCommandItem[] {
-  const readyReviewCount = today.actions.filter(
-    (item) => item.action_group_id === "ready_for_decision",
-  ).length;
-  const proposalOnlyCount = today.actions.filter(
-    (item) => item.action_group_id === "proposal_only_no_execution_path",
-  ).length;
-  const blockedActionCount = today.actions.filter(
-    (item) => item.action_group_id === "blocked_by_authority",
-  ).length;
+  const loopReadModel = today.today_loop_read_model;
+  if (!loopReadModel) {
+    const missingSummary =
+      "Today loop digest is missing; Control Center will not infer decision lanes from fallback state.";
+    const missingNextAction =
+      "Wait for the backend-owned Today loop read model before treating refs as decision lanes.";
+    return [
+      {
+        commandRef: "daily-loop-command:what-matters-today",
+        question: "What matters today",
+        surface: "Today",
+        href: "/today",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "The Product Loop 003 digest is required before Today can order priority refs.",
+        whatThisAffects: "Today, Briefing, Plans, Action Inbox",
+        nextSafeAction: missingNextAction,
+        refs: [today.product_spine_contract_ref].filter(isPresent),
+        posture: "today",
+      },
+      {
+        commandRef: "daily-loop-command:needs-review",
+        question: "What needs review",
+        surface: "Action Inbox",
+        href: "/actions",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "Control Center needs backend-owned review refs before showing a decision lane.",
+        whatThisAffects: "Actions, Plans, Evidence, Memory-derived follow-ups",
+        nextSafeAction: missingNextAction,
+        refs: [],
+        posture: "review",
+      },
+      {
+        commandRef: "daily-loop-command:changed",
+        question: "What changed",
+        surface: "Evidence",
+        href: "/evidence",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "Changed refs must come from the backend-owned Today loop read model.",
+        whatThisAffects: "Evidence, Today, Weekly Review, Action Inbox",
+        nextSafeAction: missingNextAction,
+        refs: [],
+        posture: "waiting",
+      },
+      {
+        commandRef: "daily-loop-command:memory-evidence-influence",
+        question: "What memory/evidence is influencing the loop",
+        surface: "Memory and Evidence",
+        href: "/memory",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "Influence refs remain review-only and need backend grouping before display as loop posture.",
+        whatThisAffects: "Memory, Evidence, Today, Actions, Briefing",
+        nextSafeAction: missingNextAction,
+        refs: [],
+        posture: "influence",
+      },
+      {
+        commandRef: "daily-loop-command:blocked-unsafe",
+        question: "What is blocked or unsafe",
+        surface: "Blocked states",
+        href: "/evidence",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "Blocked posture must be backend-owned so fallback refs cannot imply authority.",
+        whatThisAffects: "All Founder Loop surfaces",
+        nextSafeAction: missingNextAction,
+        refs: [],
+        posture: "blocked",
+      },
+    ];
+  }
+  const needsReviewRefs = loopReadModel.needs_review_refs;
+  const changedRefs = loopReadModel.what_changed_refs;
+  const blockedNowRefs = loopReadModel.blocked_now_refs;
+  const whatMattersNowRefs = loopReadModel.what_matters_now_refs;
   const evidenceCount =
     today.sections.evidence_timeline_count ?? today.evidence_timeline.length;
   const memoryInfluence = today.memory_why_shown_items?.[0];
-  const firstPlan = today.plans[0];
   const firstBriefing = today.briefing_items[0];
   const fallbackNextAction =
     today.next_safe_actions[0]?.safe_summary ??
@@ -485,51 +558,46 @@ function buildDailyLoopCommandItems(
       refs: [
         today.daily_loop_summary?.loop_ref,
         today.product_spine_contract_ref,
-        ...today.priority_refs.slice(0, 3),
+        ...whatMattersNowRefs.slice(0, 3),
       ].filter(isPresent),
       posture: "today",
     },
     {
       commandRef: "daily-loop-command:needs-review",
-      question: "What needs approval/review",
+      question: "What needs review",
       surface: "Action Inbox",
       href: "/actions",
-      status: `${readyReviewCount} ready, ${proposalOnlyCount} proposal-only`,
+      status: `${needsReviewRefs.length} backend review refs`,
       summary:
-        readyReviewCount > 0
-          ? "Backend-owned Action Inbox items can record decision receipts where exact scope exists."
+        needsReviewRefs.length > 0
+          ? "Backend-owned Today loop refs need review before any supported receipt."
           : "Review work is currently proposal-only, blocked, or already receipt-backed.",
       whyShown:
         "Action Inbox is shown when items require a recorded decision receipt, review posture, or explicit blocked-state inspection.",
       whatThisAffects: "Actions, Plans, Evidence, Memory-derived follow-ups",
       nextSafeAction:
+        loopReadModel.next_safe_action ??
         "Record only supported receipts; proposal-only artifacts stay review-only.",
-      refs: [
-        ...today.actions.slice(0, 2).map((item) => item.item_ref),
-        ...today.memory_derived_action_proposal_refs.slice(0, 2),
-      ],
+      refs: needsReviewRefs.slice(0, 4),
       posture: "review",
     },
     {
-      commandRef: "daily-loop-command:waiting-work",
-      question: "What plans/actions are waiting",
-      surface: "Plans",
-      href: "/plans",
-      status: `${today.sections.plan_count} plans, ${today.sections.action_inbox_count} actions`,
+      commandRef: "daily-loop-command:changed",
+      question: "What changed",
+      surface: "Evidence",
+      href: "/evidence",
+      status: `${changedRefs.length} changed refs`,
       summary:
-        firstPlan?.safe_summary ??
-        "Plans expose reviewable envelopes, task-decomposition proposals, and Action Inbox bridge refs.",
+        changedRefs.length > 0
+          ? "Backend-owned changed refs are visible for review before carry-forward."
+          : "Evidence, receipts, and local review refs show what changed in the loop.",
       whyShown:
-        "Plans are shown when proposed work needs dependency, risk, approval, or evidence review before scoped action.",
-      whatThisAffects: "Plans, Action Inbox, Today, Evidence",
+        "Changed refs come from backend-owned receipts, evidence history, and safe review posture.",
+      whatThisAffects: "Evidence, Today, Weekly Review, Action Inbox",
       nextSafeAction:
-        firstPlan?.next_step_summary ??
-        "Inspect plan/action refs before creating any separate approved work.",
-      refs: [
-        firstPlan?.plan_ref,
-        firstPlan?.task_decomposition_proposal_ref,
-        today.plans_action_envelope_contract_ref,
-      ].filter(isPresent),
+        today.weekly_review_narrative?.next_safe_action ??
+        "Inspect receipt and evidence refs before carrying changes forward.",
+      refs: changedRefs.slice(0, 4),
       posture: "waiting",
     },
     {
@@ -559,7 +627,7 @@ function buildDailyLoopCommandItems(
       question: "What is blocked or unsafe",
       surface: "Blocked states",
       href: "/evidence",
-      status: `${blockedActionCount} blocked action refs`,
+      status: `${blockedNowRefs.length} backend blocker refs`,
       summary:
         today.blocker_refs[0] ??
         today.blocked_states[0] ??
@@ -569,10 +637,7 @@ function buildDailyLoopCommandItems(
       whatThisAffects: "All Founder Loop surfaces",
       nextSafeAction:
         "Keep unsafe or insufficiently scoped work blocked until an exact milestone grants authority.",
-      refs: [
-        ...today.blocker_refs.slice(0, 3),
-        ...today.blocked_states.slice(0, 3),
-      ],
+      refs: blockedNowRefs.slice(0, 6),
       posture: "blocked",
     },
   ];
@@ -594,7 +659,7 @@ function DailyLoopCommandDeck({
       <div className="daily-loop-command-header">
         <div>
           <p className="eyebrow">Daily loop order</p>
-          <h3>Scan: Today, Review, Waiting, Influence, Blocked</h3>
+          <h3>Scan: Today, Review, Changed, Influence, Blocked</h3>
           <p>
             This deck is presentation-only. It summarizes backend read-model
             refs and keeps proposal-only, memory, evidence, and approval
@@ -720,11 +785,12 @@ function BriefingOperatorSummary({
     >
       <div className="operator-loop-summary-main">
         <p className="eyebrow">Morning context</p>
-        <h3>Start from safe summaries, then open Today or Actions</h3>
+        <h3>Start with decisions, changes, blockers, and review groups</h3>
         <p>
-          Briefing items are bounded previews over local safe refs. Source
-          refresh, notifications, connector runtime, model/provider authority,
-          memory writes, and context injection remain blocked.
+          Briefing items are bounded previews over local safe refs. Open Today
+          or Action Inbox to record supported receipts; source refresh,
+          notifications, connector runtime, model/provider authority, memory
+          writes, and context injection remain blocked.
         </p>
       </div>
       <div className="operator-loop-summary-grid">
@@ -1328,7 +1394,7 @@ function northStarLoopCaption(index: number): string {
   return [
     "Start here",
     "Triage and prioritize",
-    "Execute and track",
+    "Review and track",
     "Learn and improve",
     "Resolve and unlock",
   ][index] ?? "Inspect safely";
@@ -1459,6 +1525,7 @@ export function TodaySurfacePanel({
         actionReadModelAuthoritative={actionReadModelAuthoritative}
         today={today}
       />
+      <TodayLoopReadModelPanel today={today} />
       <DailyLoopCommandDeck
         actionReadModelAuthoritative={actionReadModelAuthoritative}
         today={today}
@@ -1870,6 +1937,169 @@ export function TodaySurfacePanel({
         </LoopPanel>
       </div>
       <BlockedStateList states={today.blocked_states} />
+    </section>
+  );
+}
+
+function TodayLoopReadModelPanel({ today }: { today: FounderLoopTodaySummary }) {
+  const readModel = today.today_loop_read_model;
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Today decisions first</h3>
+          <span>backend digest missing</span>
+        </div>
+        <p className="muted">
+          The backend did not return the Product Loop 003 Today read model.
+          Control Center will not infer decisions, changed refs, blocked
+          posture, or review lanes from fallback-only state.
+        </p>
+      </article>
+    );
+  }
+
+  const lanes = readModel.lane_order
+    .map((laneId) => readModel.lanes.find((lane) => lane.lane_id === laneId))
+    .filter(isPresent);
+  const digestItems = readModel.digest_items.slice(0, 8);
+
+  return (
+    <section
+      aria-label="Backend-owned Today loop digest"
+      className="page-section embedded"
+    >
+      <div className="section-heading compact">
+        <div>
+          <p className="eyebrow">Product Loop 003</p>
+          <h3>Today decisions first</h3>
+        </div>
+        <span className="status-pill compact">{readModel.status}</span>
+      </div>
+      <p className="section-copy">
+        Backend-owned local read models show what matters now, what changed,
+        what is blocked, and what needs review. Receipts only; no execution,
+        connector runtime, source refresh, provider/model call, memory write, or
+        hidden context authority.
+      </p>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Loop posture</h3>
+            <span>{readModel.backend_owned ? "backend-owned" : "fallback"}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Contract ref" value={readModel.contract_ref} />
+            <DetailTerm label="Source" value={readModel.source} />
+            <DetailTerm
+              label="Safe refs only"
+              value={readModel.safe_refs_only ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Raw content"
+              value={readModel.raw_content_included ? "included" : "omitted"}
+            />
+            <DetailTerm
+              label="Action execution"
+              value={readModel.action_execution_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Connector runtime"
+              value={readModel.connector_runtime_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Runtime model calls"
+              value={
+                readModel.runtime_model_calls_enabled ? "enabled" : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Memory/context authority"
+              value={
+                readModel.automatic_memory_write_authorized ||
+                readModel.context_injection_authorized
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p>{readModel.next_safe_action}</p>
+          <RefList refs={readModel.blocked_state_refs} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Now refs</h3>
+            <span>{readModel.what_matters_now_refs.length}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="What matters now"
+              value={readModel.what_matters_now_refs.join(", ")}
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="What matters now: none"
+            refs={readModel.what_matters_now_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="What changed: none"
+            refs={readModel.what_changed_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Blocked now: none"
+            refs={readModel.blocked_now_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Review lanes</h3>
+            <span>{lanes.length}</span>
+          </div>
+          <ul className="ref-list">
+            {lanes.map((lane) => (
+              <li key={lane.lane_id}>
+                {lane.label}: {lane.count}; {lane.status}; {lane.next_safe_action}
+              </li>
+            ))}
+          </ul>
+          <RefListWithFallback
+            emptyLabel="Needs review: none"
+            refs={readModel.needs_review_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Follow-ups: none"
+            refs={readModel.follow_up_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Stale or deferred: none"
+            refs={readModel.stale_or_deferred_refs}
+          />
+        </article>
+      </div>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Decision digest</h3>
+          <span>{digestItems.length}</span>
+        </div>
+        <ul className="ref-list">
+          {digestItems.map((item) => (
+            <li key={`${item.lane_id}:${item.item_ref}`}>
+              <strong>{item.surface}</strong>: {item.title}; {item.state_label};{" "}
+              {item.reason} Next: {item.next_safe_action}
+              <RefListWithFallback
+                emptyLabel="Digest refs: none"
+                refs={[
+                  item.item_ref,
+                  ...item.source_refs,
+                  ...item.evidence_refs,
+                  ...item.receipt_refs,
+                  ...item.blocked_state_refs,
+                ]}
+              />
+            </li>
+          ))}
+        </ul>
+      </article>
     </section>
   );
 }

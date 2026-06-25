@@ -2657,6 +2657,85 @@ export interface FounderLoopStaleSourcePosture {
   stale_state_refs: string[];
 }
 
+export type FounderLoopTodayLoopLaneId =
+  | "needs_review"
+  | "blocked_now"
+  | "changed"
+  | "follow_up"
+  | "stale_or_deferred";
+
+export interface FounderLoopTodayLoopDigestItem {
+  item_ref: string;
+  lane_id: FounderLoopTodayLoopLaneId;
+  surface: string;
+  title: string;
+  state_label: string;
+  status: string;
+  priority: string;
+  safe_summary: string;
+  reason: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  blocked_state_refs: string[];
+  stale_state?: string | null;
+  review_required: boolean;
+  next_safe_action: string;
+  authority_boundary: string;
+  safe_refs_only: boolean;
+  content_untrusted: boolean;
+  action_execution_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopTodayLoopLane {
+  lane_id: FounderLoopTodayLoopLaneId;
+  label: string;
+  status: string;
+  count: number;
+  item_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+  review_only: boolean;
+}
+
+export interface FounderLoopTodayLoopReadModel {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  lane_order: FounderLoopTodayLoopLaneId[];
+  lanes: FounderLoopTodayLoopLane[];
+  digest_items: FounderLoopTodayLoopDigestItem[];
+  what_matters_now_refs: string[];
+  what_changed_refs: string[];
+  blocked_now_refs: string[];
+  needs_review_refs: string[];
+  follow_up_refs: string[];
+  stale_or_deferred_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+  action_execution_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  source_refresh_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+}
+
 export interface FounderLoopTodaySummary {
   schema_version: string;
   status: string;
@@ -2813,6 +2892,8 @@ export interface FounderLoopTodaySummary {
   governed_code_workbench_surface_bindings: FounderLoopGovernedCodeWorkbenchSurfaceBinding[];
   governed_code_workbench_authority_posture: FounderLoopGovernedCodeWorkbenchAuthorityPosture;
   governed_code_workbench_blocked_state_refs: string[];
+  today_loop_tightening_contract_ref?: string;
+  today_loop_read_model?: FounderLoopTodayLoopReadModel;
   daily_loop_summary?: FounderLoopDailyLoopSummary;
   source_readiness_items?: FounderLoopSourceReadinessItem[];
   source_readiness_posture?: FounderLoopSourceReadinessPosture;

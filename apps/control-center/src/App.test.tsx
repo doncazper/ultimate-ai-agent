@@ -252,12 +252,21 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Connector writes blocked/i)).toBeInTheDocument();
     expect(screen.getByText(/Production authority blocked/i)).toBeInTheDocument();
     expect(screen.getAllByText("contract-ref:today-product-spine:v1").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Scan: Today, Review, Waiting, Influence, Blocked/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Today decisions first/i })).toBeInTheDocument();
+    expect(screen.getAllByText("backend digest missing").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("contract-ref:product-loop-003-today-loop-tightening:v1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_today_loop_read_model"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Execute and track/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Scan: Today, Review, Changed, Influence, Blocked/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Daily loop command deck")).toBeInTheDocument();
     for (const question of [
       "What matters today",
-      "What needs approval/review",
-      "What plans/actions are waiting",
+      "What needs review",
+      "What changed",
       "What memory/evidence is influencing the loop",
       "What is blocked or unsafe",
     ]) {
@@ -265,6 +274,9 @@ describe("Web Control Center shell", () => {
     }
     expect(screen.getAllByText("Why shown").length).toBeGreaterThan(0);
     expect(screen.getAllByText("What this affects").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/backend review refs/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ changed refs$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/backend blocker refs/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Proposal-only refs stay review-only/i)).toBeInTheDocument();
     expect(screen.getByText(/No apply\/use\/execute control for proposals/i)).toBeInTheDocument();
     expect(screen.getByText(/Memory recall is influence, not truth authority/i)).toBeInTheDocument();
@@ -308,7 +320,10 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Dogfood capture/i })).toBeInTheDocument();
     expect(screen.getByText("Public beta claim").nextElementSibling).toHaveTextContent("blocked");
     expect(screen.getByRole("heading", { name: /Weekly Review narrative/i })).toBeInTheDocument();
-    expect(screen.getByText(/Weekly Review reads the daily loop as history/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Weekly Review reads the daily loop as history/i)
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Plan\/action state/i })).toBeInTheDocument();
     expect(screen.getByText("Receipt/local-task controls").nextElementSibling).toHaveTextContent(
       "receipt and exact local-task controls only",
@@ -398,6 +413,114 @@ describe("Web Control Center shell", () => {
       cleanup();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("does not backfill the Today loop digest from mocks for partial backend responses", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (partialToday as { today_loop_read_model?: unknown })
+      .today_loop_read_model;
+    delete (partialToday as { today_loop_tightening_contract_ref?: unknown })
+      .today_loop_tightening_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: partialToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^Today$/i })).toBeInTheDocument();
+    expect(screen.getAllByText("backend digest missing").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("contract-ref:product-loop-003-today-loop-tightening:v1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_today_loop_read_model"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/backend review refs/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ changed refs$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/backend blocker refs/i)).not.toBeInTheDocument();
+  });
+
+  it("does not backfill the Today loop digest when the API base is blocked", async () => {
+    vi.stubEnv("VITE_UAA_API_BASE_URL", "https://example.invalid");
+    vi.resetModules();
+    try {
+      const { loadControlCenterData } = await import("./api/client");
+      const data = await loadControlCenterData();
+
+      expect(data.connection.state).toBe("mock_fallback");
+      expect(data.connection.warnings).toContain("EXTERNAL_API_BASE_URL_BLOCKED");
+      expect(data.founderToday.today_loop_read_model).toBeUndefined();
+      expect(data.founderToday.today_loop_tightening_contract_ref).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
+
+  it("renders the Today loop digest only from the backend Today endpoint", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: mockControlCenterData.founderToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^Today$/i })).toBeInTheDocument();
+    const todayDigest = await screen.findByLabelText(
+      "Backend-owned Today loop digest",
+    );
+    expect(
+      within(todayDigest).getByText("contract-ref:product-loop-003-today-loop-tightening:v1"),
+    ).toBeInTheDocument();
+    expect(
+      within(todayDigest).getByText("python_core_today_loop_read_model"),
+    ).toBeInTheDocument();
+    expect(
+      within(todayDigest).getByText("What matters now").nextElementSibling,
+    ).toHaveTextContent("founder-action:mock-setup-hardening");
+    expect(screen.getByText(/Needs review: 2; ready_for_review/i)).toBeInTheDocument();
+    expect(screen.getByText(/Blocked now: 2; ready_for_review/i)).toBeInTheDocument();
+    expect(screen.getByText(/Changed: 2; ready_for_review/i)).toBeInTheDocument();
+    expect(screen.getByText(/Follow-ups: 1; ready_for_review/i)).toBeInTheDocument();
+    expect(
+      within(todayDigest).getByText("Action execution").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(todayDigest).getByText("Connector runtime").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(todayDigest).getByText("Runtime model calls").nextElementSibling,
+    ).toHaveTextContent("blocked");
   });
 
   it("opens Morning Briefing as the daily local home without new authority", async () => {

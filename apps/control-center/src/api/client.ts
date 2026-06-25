@@ -133,12 +133,18 @@ async function readEnvelope<T>(endpoint: string): Promise<T> {
 
 export async function loadControlCenterData(): Promise<ControlCenterData> {
   if (!API_BASE_POLICY.allowed) {
-    return withConnection(mockControlCenterData, {
-      state: "mock_fallback",
-      safeMessage: API_BASE_POLICY.safeMessage,
-      usingMockData: true,
-      warnings: API_BASE_POLICY.warnings,
-    });
+    return withConnection(
+      {
+        ...mockControlCenterData,
+        founderToday: normalizeFounderToday(undefined).value,
+      },
+      {
+        state: "mock_fallback",
+        safeMessage: API_BASE_POLICY.safeMessage,
+        usingMockData: true,
+        warnings: API_BASE_POLICY.warnings,
+      },
+    );
   }
 
   const results = await Promise.allSettled([
@@ -201,10 +207,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderMorningBriefing = fulfilledValue(results[15]);
   const founderSourceReadiness = fulfilledValue(results[16]);
   const founderStorageStatus = fulfilledValue(results[17]);
-  const normalizedFounderToday = mergeMissingFields(
-    mockControlCenterData.founderToday,
-    founderToday,
-  );
+  const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderEvidenceTimeline = mergeMissingFields(
     mockControlCenterData.founderEvidenceTimeline,
     founderEvidenceTimeline,
@@ -246,13 +249,19 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   ).length;
 
   if (fulfilledCount === 0) {
-    return withConnection(mockControlCenterData, {
+    return withConnection(
+      {
+        ...mockControlCenterData,
+        founderToday: normalizeFounderToday(undefined).value,
+      },
+      {
       state: "mock_fallback",
       safeMessage:
         "Backend unavailable; showing non-authoritative mock fallback data.",
       usingMockData: true,
       warnings: ["LOCAL_BACKEND_UNAVAILABLE", "MOCK_DATA_ONLY"],
-    });
+      },
+    );
   }
 
   const data: ControlCenterData = {
@@ -1055,6 +1064,56 @@ function mergeMissingFields<T>(
   }
 
   return { value: merged as T, usedFallback };
+}
+
+function normalizeFounderToday(
+  value: FounderLoopTodaySummary | undefined,
+): { value: FounderLoopTodaySummary; usedFallback: boolean } {
+  if (value === undefined) {
+    const fallbackWithoutDigest = {
+      ...(mockControlCenterData.founderToday as unknown as Record<string, unknown>),
+    };
+    delete fallbackWithoutDigest.today_loop_read_model;
+    delete fallbackWithoutDigest.today_loop_tightening_contract_ref;
+    return {
+      value: fallbackWithoutDigest as unknown as FounderLoopTodaySummary,
+      usedFallback: true,
+    };
+  }
+  const merged = mergeMissingFields(mockControlCenterData.founderToday, value);
+  if (
+    value !== undefined &&
+    isPlainRecord(value) &&
+    !Object.prototype.hasOwnProperty.call(value, "today_loop_read_model")
+  ) {
+    const todayWithoutMockDigest = {
+      ...(merged.value as unknown as Record<string, unknown>),
+    };
+    delete todayWithoutMockDigest.today_loop_read_model;
+    delete todayWithoutMockDigest.today_loop_tightening_contract_ref;
+    return {
+      value: todayWithoutMockDigest as unknown as FounderLoopTodaySummary,
+      usedFallback: merged.usedFallback,
+    };
+  }
+  if (
+    value !== undefined &&
+    isPlainRecord(value) &&
+    Object.prototype.hasOwnProperty.call(value, "today_loop_read_model")
+  ) {
+    const todayWithExactDigest = {
+      ...(merged.value as unknown as Record<string, unknown>),
+      today_loop_read_model: (value as unknown as Record<string, unknown>)
+        .today_loop_read_model,
+      today_loop_tightening_contract_ref: (value as unknown as Record<string, unknown>)
+        .today_loop_tightening_contract_ref,
+    };
+    return {
+      value: todayWithExactDigest as unknown as FounderLoopTodaySummary,
+      usedFallback: merged.usedFallback,
+    };
+  }
+  return merged;
 }
 
 function normalizeFounderMemoryWorkbench(
