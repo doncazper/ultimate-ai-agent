@@ -1159,6 +1159,18 @@ function hasStringArrays(
   });
 }
 
+function hasStringArrayPrefix(
+  record: Record<string, unknown>,
+  field: string,
+  prefix: string,
+): boolean {
+  const value = record[field];
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string" && item.startsWith(prefix))
+  );
+}
+
 function hasRequiredReviewReceiptLabels(value: unknown): boolean {
   if (!Array.isArray(value)) {
     return false;
@@ -1242,6 +1254,8 @@ function normalizeFounderToday(
     delete fallbackWithoutDigest.today_loop_tightening_contract_ref;
     delete fallbackWithoutDigest.follow_up_tracker;
     delete fallbackWithoutDigest.follow_up_tracker_contract_ref;
+    delete fallbackWithoutDigest.weekly_ceo_review_v1_read_model;
+    delete fallbackWithoutDigest.weekly_ceo_review_v1_contract_ref;
     delete fallbackWithoutDigest.plans_to_actions_bridge_read_model;
     delete fallbackWithoutDigest.plans_to_actions_bridge_contract_ref;
     return {
@@ -1271,6 +1285,15 @@ function normalizeFounderToday(
   } else {
     delete normalized.follow_up_tracker;
     delete normalized.follow_up_tracker_contract_ref;
+  }
+  const weeklyCeoReview = valueRecord.weekly_ceo_review_v1_read_model;
+  if (isSafeWeeklyCeoReviewV1ReadModel(weeklyCeoReview)) {
+    normalized.weekly_ceo_review_v1_read_model = weeklyCeoReview;
+    normalized.weekly_ceo_review_v1_contract_ref =
+      (weeklyCeoReview as Record<string, unknown>).contract_ref;
+  } else {
+    delete normalized.weekly_ceo_review_v1_read_model;
+    delete normalized.weekly_ceo_review_v1_contract_ref;
   }
   if (isSafePlansToActionsBridgeReadModel(valueRecord.plans_to_actions_bridge_read_model)) {
     normalized.plans_to_actions_bridge_read_model =
@@ -1339,6 +1362,61 @@ const MORNING_BRIEFING_V1_DENIED_FLAGS = [
   "production_authority_enabled",
 ] as const;
 
+const WEEKLY_CEO_REVIEW_V1_DENIED_FLAGS = [
+  "raw_logs_included",
+  "prompt_content_included",
+  "response_content_included",
+  "provider_exchange_content_included",
+  "connector_read_enabled",
+  "connector_runtime_enabled",
+  "connector_write_enabled",
+  "email_calendar_fetch_enabled",
+  "live_web_enabled",
+  "model_summary_enabled",
+  "provider_model_call_enabled",
+  "runtime_model_call_enabled",
+  "automatic_memory_write_authorized",
+  "context_injection_authorized",
+  "action_execution_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "public_beta_claim_enabled",
+  "production_claim_enabled",
+  "production_authority_enabled",
+] as const;
+
+const WEEKLY_CEO_REVIEW_V1_REQUIRED_ARRAYS = [
+  "completed_refs",
+  "deferred_refs",
+  "rejected_refs",
+  "blocked_refs",
+  "stale_refs",
+  "unresolved_refs",
+  "carry_forward_refs",
+  "next_week_priority_refs",
+  "action_decision_refs",
+  "memory_decision_refs",
+  "follow_up_refs",
+  "evidence_event_refs",
+  "evidence_refs",
+  "receipt_refs",
+  "missing_source_refs",
+  "blocked_authority_refs",
+] as const;
+
+const WEEKLY_CEO_REVIEW_V1_COUNT_ARRAY_PAIRS = [
+  ["completed_count", "completed_refs"],
+  ["deferred_count", "deferred_refs"],
+  ["rejected_count", "rejected_refs"],
+  ["blocked_count", "blocked_refs"],
+  ["stale_count", "stale_refs"],
+  ["unresolved_count", "unresolved_refs"],
+  ["action_decision_count", "action_decision_refs"],
+  ["memory_decision_count", "memory_decision_refs"],
+  ["follow_up_count", "follow_up_refs"],
+  ["evidence_event_count", "evidence_event_refs"],
+] as const;
+
 const MORNING_BRIEFING_V1_REQUIRED_ARRAYS = [
   "repo_status_refs",
   "workbench_status_refs",
@@ -1372,10 +1450,71 @@ function normalizeFounderMorningBriefing(
     delete normalized.morning_briefing_v1_read_model;
     delete normalized.morning_briefing_v1_contract_ref;
   }
+  const weeklyCeoReview = valueRecord.weekly_ceo_review_v1_read_model;
+  if (isSafeWeeklyCeoReviewV1ReadModel(weeklyCeoReview)) {
+    normalized.weekly_ceo_review_v1_read_model = weeklyCeoReview;
+    normalized.weekly_ceo_review_v1_contract_ref =
+      (weeklyCeoReview as Record<string, unknown>).contract_ref;
+  } else {
+    delete normalized.weekly_ceo_review_v1_read_model;
+    delete normalized.weekly_ceo_review_v1_contract_ref;
+  }
   return {
     value: normalized as unknown as FounderLoopMorningBriefing,
     usedFallback: merged.usedFallback,
   };
+}
+
+function isSafeWeeklyCeoReviewV1ReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "product-loop-008-weekly-ceo-review.v1" ||
+    value.contract_ref !== "contract-ref:product-loop-008-weekly-ceo-review-v1:v1" ||
+    value.source !== "python_core_weekly_ceo_review_v1_read_model"
+  ) {
+    return false;
+  }
+  return (
+    value.backend_owned === true &&
+    value.local_review_artifact_only === true &&
+    value.safe_refs_only === true &&
+    value.safe_summary_only === true &&
+    value.raw_content_included === false &&
+    value.evidence_backed === true &&
+    typeof value.status === "string" &&
+    typeof value.review_period_ref === "string" &&
+    typeof value.safe_summary === "string" &&
+    typeof value.completed_count === "number" &&
+    typeof value.deferred_count === "number" &&
+    typeof value.rejected_count === "number" &&
+    typeof value.blocked_count === "number" &&
+    typeof value.stale_count === "number" &&
+    typeof value.unresolved_count === "number" &&
+    typeof value.action_decision_count === "number" &&
+    typeof value.memory_decision_count === "number" &&
+    typeof value.follow_up_count === "number" &&
+    typeof value.evidence_event_count === "number" &&
+    typeof value.next_safe_action === "string" &&
+    typeof value.authority_boundary === "string" &&
+    hasDeniedFlagsFalse(value, WEEKLY_CEO_REVIEW_V1_DENIED_FLAGS) &&
+    hasStringArrays(value, WEEKLY_CEO_REVIEW_V1_REQUIRED_ARRAYS) &&
+    hasStringArrayPrefix(value, "evidence_event_refs", "evidence-event:") &&
+    hasMatchingWeeklyCeoReviewV1Counts(value) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:weekly-ceo-review-no-production-authority",
+    )
+  );
+}
+
+function hasMatchingWeeklyCeoReviewV1Counts(value: Record<string, unknown>): boolean {
+  return WEEKLY_CEO_REVIEW_V1_COUNT_ARRAY_PAIRS.every(([countKey, refsKey]) => {
+    const count = value[countKey];
+    const refs = value[refsKey];
+    return typeof count === "number" && Array.isArray(refs) && count === refs.length;
+  });
 }
 
 function isSafeMorningBriefingV1ReadModel(value: unknown): boolean {

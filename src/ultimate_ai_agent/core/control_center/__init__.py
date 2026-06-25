@@ -68,6 +68,13 @@ from ultimate_ai_agent.core.control_center.morning_briefing import (
     MorningBriefingV1ReadModel,
     build_morning_briefing_v1_read_model,
 )
+from ultimate_ai_agent.core.control_center.weekly_ceo_review import (
+    WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
+    WEEKLY_CEO_REVIEW_V1_READ_MODEL_SOURCE,
+    WEEKLY_CEO_REVIEW_V1_REQUIRED_BLOCKED_REFS,
+    WeeklyCeoReviewV1ReadModel,
+    build_weekly_ceo_review_v1_read_model,
+)
 from ultimate_ai_agent.core.control_center.actions import (
     ControlCenterActionPreviewDecision,
     ControlCenterActionPreviewRequest,
@@ -172,6 +179,9 @@ __all__ = [
     "TODAY_LOOP_READ_MODEL_SOURCE",
     "TODAY_LOOP_REQUIRED_BLOCKED_REFS",
     "TODAY_LOOP_TIGHTENING_CONTRACT_REF",
+    "WEEKLY_CEO_REVIEW_V1_CONTRACT_REF",
+    "WEEKLY_CEO_REVIEW_V1_READ_MODEL_SOURCE",
+    "WEEKLY_CEO_REVIEW_V1_REQUIRED_BLOCKED_REFS",
     "FounderLoopControlCenterService",
     "FounderLoopActionDecisionReceipt",
     "FounderLoopActionDecisionRequest",
@@ -191,6 +201,7 @@ __all__ = [
     "TodayLoopDigestItem",
     "TodayLoopLane",
     "TodayLoopReadModel",
+    "WeeklyCeoReviewV1ReadModel",
     "GateSummary",
     "GovernedProviderInvocationReadiness",
     "MobilePlanningSummary",
@@ -215,5 +226,6 @@ __all__ = [
     "build_morning_briefing_v1_read_model",
     "build_plans_to_actions_bridge_read_model",
     "build_today_loop_read_model",
+    "build_weekly_ceo_review_v1_read_model",
     "preview_control_center_action",
 ]

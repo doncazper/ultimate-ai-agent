@@ -41,6 +41,7 @@ import type {
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
+  FounderLoopWeeklyCeoReviewV1ReadModel,
   ControlCenterSettingsStatus,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
@@ -3063,6 +3064,131 @@ function WeeklyReviewNarrativeCard({
   );
 }
 
+function WeeklyCeoReviewV1Panel({
+  readModel,
+}: {
+  readModel?: FounderLoopWeeklyCeoReviewV1ReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  return (
+    <article
+      aria-label="Backend-owned Weekly CEO Review V1 read model"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <h3>Weekly CEO Review V1</h3>
+        <span>{readModel.status}</span>
+      </div>
+      <p className="eyebrow">Review artifact</p>
+      <p className="section-copy">{readModel.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm label="Review period" value={readModel.review_period_ref} />
+        <DetailTerm label="Completed" value={String(readModel.completed_count)} />
+        <DetailTerm label="Deferred" value={String(readModel.deferred_count)} />
+        <DetailTerm label="Rejected" value={String(readModel.rejected_count)} />
+        <DetailTerm label="Blocked" value={String(readModel.blocked_count)} />
+        <DetailTerm label="Stale" value={String(readModel.stale_count)} />
+        <DetailTerm label="Unresolved" value={String(readModel.unresolved_count)} />
+        <DetailTerm
+          label="Action decisions"
+          value={String(readModel.action_decision_count)}
+        />
+        <DetailTerm
+          label="Memory decisions"
+          value={String(readModel.memory_decision_count)}
+        />
+        <DetailTerm label="Follow-ups" value={String(readModel.follow_up_count)} />
+        <DetailTerm
+          label="Evidence events"
+          value={String(readModel.evidence_event_count)}
+        />
+        <DetailTerm
+          label="Connector runtime"
+          value={readModel.connector_runtime_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Model summaries"
+          value={readModel.model_summary_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Provider/model calls"
+          value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Production claim"
+          value={readModel.production_claim_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm label="Authority" value={readModel.authority_boundary} />
+        <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Completed refs: none"
+        refs={readModel.completed_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Deferred refs: none"
+        refs={readModel.deferred_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Rejected refs: none"
+        refs={readModel.rejected_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked refs: none"
+        refs={readModel.blocked_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Stale refs: none"
+        refs={readModel.stale_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Unresolved refs: none"
+        refs={readModel.unresolved_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Action decision refs: none"
+        refs={readModel.action_decision_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Memory decision refs: none"
+        refs={readModel.memory_decision_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Follow-up refs: none"
+        refs={readModel.follow_up_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={readModel.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence event refs: none"
+        refs={readModel.evidence_event_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: none"
+        refs={readModel.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing source refs: none"
+        refs={readModel.missing_source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Weekly review authority blockers: missing"
+        refs={readModel.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
 export function InboxSurfacePanel({
   sourceReadiness,
 }: {
@@ -4249,6 +4375,7 @@ function BriefingDailyLoopPanel({
     briefing.crm_lite_followups?.length ||
     briefing.memory_why_shown_items?.length ||
     briefing.review_queue_groups?.length ||
+    briefing.weekly_ceo_review_v1_read_model ||
     briefing.weekly_review_narrative ||
     briefing.dogfood_capture;
 
@@ -4271,6 +4398,9 @@ function BriefingDailyLoopPanel({
         <MemoryWhyShownCards items={briefing.memory_why_shown_items ?? []} />
         <DogfoodCaptureCard capture={briefing.dogfood_capture} />
       </div>
+      <WeeklyCeoReviewV1Panel
+        readModel={briefing.weekly_ceo_review_v1_read_model}
+      />
       <WeeklyReviewNarrativeCard narrative={briefing.weekly_review_narrative} />
     </>
   );
@@ -5827,6 +5957,9 @@ export function EvidenceTimelineSurfacePanel({
             material, and secret-like values stay omitted.
           </p>
         </article>
+        <WeeklyCeoReviewV1Panel
+          readModel={today.weekly_ceo_review_v1_read_model}
+        />
         <WeeklyReviewNarrativeCard narrative={today.weekly_review_narrative} />
         <article className="status-card">
           <div className="status-card-header">

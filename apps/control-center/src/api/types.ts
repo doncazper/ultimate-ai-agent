@@ -2746,6 +2746,69 @@ export interface FounderLoopWeeklyReviewNarrative {
   authority_boundary: string;
 }
 
+export interface FounderLoopWeeklyCeoReviewV1ReadModel {
+  schema_version: "product-loop-008-weekly-ceo-review.v1";
+  contract_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  local_review_artifact_only: boolean;
+  safe_refs_only: boolean;
+  safe_summary_only: boolean;
+  raw_content_included: boolean;
+  evidence_backed: boolean;
+  review_period_ref: string;
+  safe_summary: string;
+  completed_count: number;
+  deferred_count: number;
+  rejected_count: number;
+  blocked_count: number;
+  stale_count: number;
+  unresolved_count: number;
+  action_decision_count: number;
+  memory_decision_count: number;
+  follow_up_count: number;
+  evidence_event_count: number;
+  completed_refs: string[];
+  deferred_refs: string[];
+  rejected_refs: string[];
+  blocked_refs: string[];
+  stale_refs: string[];
+  unresolved_refs: string[];
+  carry_forward_refs: string[];
+  next_week_priority_refs: string[];
+  action_decision_refs: string[];
+  memory_decision_refs: string[];
+  follow_up_refs: string[];
+  evidence_event_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  missing_source_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+  raw_logs_included: boolean;
+  prompt_content_included: boolean;
+  response_content_included: boolean;
+  provider_exchange_content_included: boolean;
+  connector_read_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  connector_write_enabled: boolean;
+  email_calendar_fetch_enabled: boolean;
+  live_web_enabled: boolean;
+  model_summary_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  automatic_memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  action_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  public_beta_claim_enabled: boolean;
+  production_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopDailyLoopSummary {
   loop_ref: string;
   status: string;
@@ -3215,6 +3278,8 @@ export interface FounderLoopTodaySummary {
   today_loop_read_model?: FounderLoopTodayLoopReadModel;
   follow_up_tracker_contract_ref?: string;
   follow_up_tracker?: FounderLoopFollowUpTrackerReadModel;
+  weekly_ceo_review_v1_contract_ref?: string;
+  weekly_ceo_review_v1_read_model?: FounderLoopWeeklyCeoReviewV1ReadModel;
   plans_to_actions_bridge_contract_ref?: string;
   plans_to_actions_bridge_read_model?: FounderLoopPlansToActionsBridgeReadModel;
   daily_loop_summary?: FounderLoopDailyLoopSummary;
@@ -3375,6 +3440,8 @@ export interface FounderLoopMorningBriefing {
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];
   weekly_review_narrative?: FounderLoopWeeklyReviewNarrative;
+  weekly_ceo_review_v1_contract_ref?: string;
+  weekly_ceo_review_v1_read_model?: FounderLoopWeeklyCeoReviewV1ReadModel;
   dogfood_capture?: FounderLoopDogfoodCaptureSummary;
   morning_briefing_v1_contract_ref?: string;
   morning_briefing_v1_read_model?: FounderLoopMorningBriefingV1ReadModel;

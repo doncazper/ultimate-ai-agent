@@ -122,6 +122,10 @@ from ultimate_ai_agent.core.control_center.morning_briefing import (
     MORNING_BRIEFING_V1_CONTRACT_REF,
     build_morning_briefing_v1_read_model,
 )
+from ultimate_ai_agent.core.control_center.weekly_ceo_review import (
+    WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
+    build_weekly_ceo_review_v1_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -5030,6 +5034,19 @@ class FounderLoopRepository:
             source_readiness_items=source_readiness_items,
             evidence_timeline=evidence_timeline,
         )
+        evidence_event_refs = [
+            str(event["event_ref"])
+            for event in self._productized_evidence_events(evidence_timeline)
+        ]
+        weekly_ceo_review_v1_read_model = build_weekly_ceo_review_v1_read_model(
+            weekly_review_narrative=weekly_review_narrative,
+            actions=actions,
+            memory_review_decisions=memory_review_decisions,
+            follow_up_tracker=follow_up_tracker,
+            evidence_timeline=evidence_timeline,
+            source_readiness_items=source_readiness_items,
+            evidence_event_refs=evidence_event_refs,
+        )
         plans_to_actions_bridge_read_model = (
             build_plans_to_actions_bridge_read_model(
                 plans=plans,
@@ -5132,6 +5149,8 @@ class FounderLoopRepository:
             "today_loop_read_model": today_loop_read_model,
             "follow_up_tracker_contract_ref": FOLLOW_UP_TRACKER_CONTRACT_REF,
             "follow_up_tracker": follow_up_tracker,
+            "weekly_ceo_review_v1_contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
+            "weekly_ceo_review_v1_read_model": weekly_ceo_review_v1_read_model,
             "plans_to_actions_bridge_contract_ref": (
                 PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF
             ),
@@ -5462,6 +5481,45 @@ class FounderLoopRepository:
                 "inject memory into context, treat recall as truth, write "
                 "connectors, or confer production authority."
             ),
+        }
+
+    def weekly_ceo_review(self, *, limit: int = 20) -> dict[str, Any]:
+        today = self.today_summary(limit=min(max(int(limit), 6), 50))
+        read_model = today["weekly_ceo_review_v1_read_model"]
+        return {
+            "schema_version": "product-loop-008-weekly-ceo-review.index.v1",
+            "contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
+            "status": read_model["status"],
+            "surface": "Weekly CEO Review",
+            "source_today_route_ref": "GET /control-center/today/summary",
+            "source_evidence_route_ref": "GET /control-center/evidence/timeline",
+            "storage_ref": today["storage_ref"],
+            "side_effect_class": "local_dev_workspace_only",
+            "read_only": True,
+            "safe_refs_only": True,
+            "safe_summary_only": True,
+            "raw_content_included": False,
+            "connector_read_enabled": False,
+            "connector_runtime_enabled": False,
+            "connector_write_enabled": False,
+            "email_calendar_fetch_enabled": False,
+            "live_web_enabled": False,
+            "model_summary_enabled": False,
+            "provider_model_call_enabled": False,
+            "runtime_model_call_enabled": False,
+            "automatic_memory_write_authorized": False,
+            "context_injection_authorized": False,
+            "action_execution_enabled": False,
+            "shell_subprocess_execution_enabled": False,
+            "browser_execution_enabled": False,
+            "production_claim_enabled": False,
+            "production_authority_enabled": False,
+            "weekly_ceo_review_v1_contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
+            "weekly_ceo_review_v1_read_model": read_model,
+            "evidence_refs": read_model["evidence_refs"],
+            "blocked_authority_refs": read_model["blocked_authority_refs"],
+            "next_safe_action": read_model["next_safe_action"],
+            "authority_boundary": read_model["authority_boundary"],
         }
 
     def _productized_evidence_events(
@@ -7664,6 +7722,19 @@ class FounderLoopRepository:
             source_readiness_items=source_readiness_items,
             evidence_timeline=evidence_timeline,
         )
+        evidence_event_refs = [
+            str(event["event_ref"])
+            for event in self._productized_evidence_events(evidence_timeline)
+        ]
+        weekly_ceo_review_v1_read_model = build_weekly_ceo_review_v1_read_model(
+            weekly_review_narrative=weekly_review_narrative,
+            actions=actions,
+            memory_review_decisions=memory_review_decisions,
+            follow_up_tracker=follow_up_tracker,
+            evidence_timeline=evidence_timeline,
+            source_readiness_items=source_readiness_items,
+            evidence_event_refs=evidence_event_refs,
+        )
         storage_status = self.storage_status()
         memory_workbench = self._memory_workbench_read_only_status()
         payload = {
@@ -7805,6 +7876,8 @@ class FounderLoopRepository:
             "memory_why_shown_items": memory_why_shown_items,
             "review_queue_groups": review_queue_groups,
             "weekly_review_narrative": weekly_review_narrative,
+            "weekly_ceo_review_v1_contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
+            "weekly_ceo_review_v1_read_model": weekly_ceo_review_v1_read_model,
             "dogfood_capture": dogfood_capture,
             "items": items,
             "evidence_refs": ["evidence-ref:founder-loop:morning-briefing"],

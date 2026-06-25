@@ -528,6 +528,21 @@ context injection, no repo writes, no workbench apply, no notification
 delivery, no source refresh, no action execution, no shell/browser execution,
 no public beta, and no production authority.
 No-authority phrases: no connector reads; no connector runtime; no connector writes; no email/calendar/account fetch; no live web; no runtime model/provider calls; no automatic recommendations; no hidden memory writes; no repo writes; no workbench apply; no shell/browser execution; no action execution; no public beta; no production authority.
+
+Product Loop 008 Weekly CEO Review
+Goal met: Today and Morning Briefing now expose a backend-owned
+`weekly_ceo_review_v1_read_model` for completed, deferred, rejected, blocked,
+stale, unresolved, carry-forward, action decision, memory decision, follow-up,
+evidence event, and missing-source refs. `scripts/inspect_weekly_ceo_review.py`
+provides CLI parity and returns `state_not_found_no_write` without creating
+storage when local Founder Loop state is absent. The artifact is safe-ref-only,
+safe-summary-only, evidence-backed, and review-only. It adds no connector
+reads, no connector runtime, no connector writes, no email/calendar/account
+fetch, no live web, no model summaries, no runtime model/provider calls, no
+automatic memory writes, no context injection, no action execution, no
+shell/browser execution, no public beta claims, no production claims, and no
+production authority.
+No-authority phrases: no connector reads; no connector runtime; no connector writes; no email/calendar/account fetch; no live web; no model summaries; no runtime model/provider calls; no automatic memory writes; no context injection; no action execution; no shell/browser execution; no public beta claims; no production claims; no production authority.
 ```
 
 ## QA / Verification
