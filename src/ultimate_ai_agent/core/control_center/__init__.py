@@ -61,6 +61,13 @@ from ultimate_ai_agent.core.control_center.plans_to_actions import (
     PlansToActionsBridgeReadModel,
     build_plans_to_actions_bridge_read_model,
 )
+from ultimate_ai_agent.core.control_center.morning_briefing import (
+    MORNING_BRIEFING_V1_CONTRACT_REF,
+    MORNING_BRIEFING_V1_READ_MODEL_SOURCE,
+    MORNING_BRIEFING_V1_REQUIRED_BLOCKED_REFS,
+    MorningBriefingV1ReadModel,
+    build_morning_briefing_v1_read_model,
+)
 from ultimate_ai_agent.core.control_center.actions import (
     ControlCenterActionPreviewDecision,
     ControlCenterActionPreviewRequest,
@@ -155,6 +162,9 @@ __all__ = [
     "FOLLOW_UP_TRACKER_CONTRACT_REF",
     "FOLLOW_UP_TRACKER_READ_MODEL_SOURCE",
     "FOLLOW_UP_TRACKER_REQUIRED_BLOCKED_REFS",
+    "MORNING_BRIEFING_V1_CONTRACT_REF",
+    "MORNING_BRIEFING_V1_READ_MODEL_SOURCE",
+    "MORNING_BRIEFING_V1_REQUIRED_BLOCKED_REFS",
     "PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF",
     "PLANS_TO_ACTIONS_BRIDGE_READ_MODEL_SOURCE",
     "PLANS_TO_ACTIONS_BRIDGE_REQUIRED_BLOCKED_REFS",
@@ -177,6 +187,7 @@ __all__ = [
     "FollowUpTrackerReadModel",
     "PlansToActionsBridgeItem",
     "PlansToActionsBridgeReadModel",
+    "MorningBriefingV1ReadModel",
     "TodayLoopDigestItem",
     "TodayLoopLane",
     "TodayLoopReadModel",
@@ -201,6 +212,7 @@ __all__ = [
     "build_control_center_manifest",
     "build_action_inbox_decision_lane_read_model",
     "build_follow_up_tracker_read_model",
+    "build_morning_briefing_v1_read_model",
     "build_plans_to_actions_bridge_read_model",
     "build_today_loop_read_model",
     "preview_control_center_action",

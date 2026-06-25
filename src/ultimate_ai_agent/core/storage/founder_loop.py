@@ -118,6 +118,10 @@ from ultimate_ai_agent.core.control_center.plans_to_actions import (
     PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF,
     build_plans_to_actions_bridge_read_model,
 )
+from ultimate_ai_agent.core.control_center.morning_briefing import (
+    MORNING_BRIEFING_V1_CONTRACT_REF,
+    build_morning_briefing_v1_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -296,6 +300,7 @@ from ultimate_ai_agent.core.memory.workbench import (
     MEMORY_MANUAL_INTAKE_CONTRACT_REF,
     MEMORY_MANUAL_INTAKE_ROUTE_REF,
     MEMORY_RANKING_CONTRACT_REF,
+    MEMORY_WORKBENCH_BLOCKED_STATE_REFS,
     MEMORY_WORKBENCH_CONTRACT_REF,
     MEMORY_WORKBENCH_ROUTE_REF,
     ManualMemoryCandidateRequest,
@@ -4890,6 +4895,36 @@ class FounderLoopRepository:
             "updated_at": _utc_iso(),
         }
 
+    def _memory_workbench_read_only_status(self) -> dict[str, Any]:
+        needs_attention_refs: list[str] = []
+        if self._count("memory_review_queue") > 0:
+            needs_attention_refs.append("memory-workbench-attention:review-queue")
+        if self._count("memory_review_decisions") > 0:
+            needs_attention_refs.append("memory-workbench-attention:decision-receipts")
+        return {
+            "contract_ref": MEMORY_WORKBENCH_CONTRACT_REF,
+            "route_ref": MEMORY_WORKBENCH_ROUTE_REF,
+            "status": "read_only_status_no_recall_store_probe",
+            "health": {
+                "status": "read_only_status",
+                "needs_attention_refs": needs_attention_refs,
+                "safe_refs_only": True,
+                "raw_content_stored": False,
+                "recall_store_probe_performed": False,
+            },
+            "blocked_state_refs": [
+                *list(MEMORY_WORKBENCH_BLOCKED_STATE_REFS),
+                "blocked-state:morning-briefing-no-workbench-apply",
+            ],
+            "safe_refs_only": True,
+            "read_only_status_only": True,
+            "recall_store_probe_performed": False,
+            "workbench_apply_enabled": False,
+            "memory_write_authorized": False,
+            "context_injection_authorized": False,
+            "production_authority_enabled": False,
+        }
+
     def today_summary(self, *, limit: int = 6) -> dict[str, Any]:
         actions = self.list_action_inbox(limit=limit)
         bridge_action_items = self.list_action_inbox(limit=50)
@@ -7563,6 +7598,9 @@ class FounderLoopRepository:
         private_beta_readiness_gate_contract = (
             _private_beta_readiness_gate_contract_payload()
         )
+        user_intent_understanding_contract = (
+            _user_intent_understanding_contract_payload()
+        )
         source_readiness = self.source_readiness(briefing_items=items)
         source_readiness_items = source_readiness["source_readiness_items"]
         source_readiness_posture = source_readiness["source_readiness_posture"]
@@ -7585,9 +7623,22 @@ class FounderLoopRepository:
             briefing_items=items,
             private_beta_readiness_gate_contract=private_beta_readiness_gate_contract,
         )
+        evidence_timeline = self._build_evidence_timeline(
+            actions=actions,
+            plans=plans,
+            memory_items=memory_items,
+            briefing_items=items,
+            cross_surface_memory_intake_contract=cross_surface_memory_intake_contract,
+            memory_to_loop_binding_contract=memory_to_loop_binding_contract,
+            private_beta_readiness_gate_contract=private_beta_readiness_gate_contract,
+            user_intent_understanding_contract=user_intent_understanding_contract,
+            chat_turn_receipts=[],
+            chat_handoff_receipts=[],
+            memory_review_decisions=memory_review_decisions,
+        )
         weekly_review_narrative = _weekly_review_narrative(
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
-            evidence_timeline=[],
+            evidence_timeline=evidence_timeline,
             actions=actions,
             source_readiness_items=source_readiness_items,
             crm_lite_followups=crm_lite_followups,
@@ -7611,9 +7662,11 @@ class FounderLoopRepository:
             memory_review_decisions=memory_review_decisions,
             crm_lite_followups=crm_lite_followups,
             source_readiness_items=source_readiness_items,
-            evidence_timeline=[],
+            evidence_timeline=evidence_timeline,
         )
-        return {
+        storage_status = self.storage_status()
+        memory_workbench = self._memory_workbench_read_only_status()
+        payload = {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_briefing_skeleton",
             "surface": "Morning Briefing",
@@ -7766,6 +7819,18 @@ class FounderLoopRepository:
                 "no_model_provider_call",
             ],
         }
+        payload["morning_briefing_v1_contract_ref"] = MORNING_BRIEFING_V1_CONTRACT_REF
+        payload["morning_briefing_v1_read_model"] = (
+            build_morning_briefing_v1_read_model(
+                briefing=payload,
+                actions=actions,
+                memory_items=memory_items,
+                evidence_timeline=evidence_timeline,
+                storage_status=storage_status,
+                memory_workbench=memory_workbench,
+            )
+        )
+        return payload
 
     def source_readiness(
         self,

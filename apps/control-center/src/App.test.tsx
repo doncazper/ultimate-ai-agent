@@ -645,10 +645,90 @@ describe("Web Control Center shell", () => {
       expect(
         data.founderMorningBriefing.follow_up_tracker_contract_ref,
       ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.morning_briefing_v1_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.morning_briefing_v1_contract_ref,
+      ).toBeUndefined();
     } finally {
       vi.unstubAllEnvs();
       vi.resetModules();
     }
+  });
+
+  it("does not backfill Morning Briefing V1 from mocks for partial backend responses", async () => {
+    const partialBriefing = { ...mockControlCenterData.founderMorningBriefing };
+    delete (partialBriefing as {
+      morning_briefing_v1_read_model?: unknown;
+    }).morning_briefing_v1_read_model;
+    delete (partialBriefing as {
+      morning_briefing_v1_contract_ref?: unknown;
+    }).morning_briefing_v1_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMorningBriefing)) {
+        return new Response(JSON.stringify({ ok: true, result: partialBriefing }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/briefing");
+    render(<App />);
+
+    expect(await screen.findByText("backend read model missing")).toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:product-loop-007-morning-briefing-v1:v1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_morning_briefing_v1_read_model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe backend Morning Briefing V1 authority flags", async () => {
+    const unsafeBriefing = {
+      ...mockControlCenterData.founderMorningBriefing,
+      morning_briefing_v1_read_model: {
+        ...(mockControlCenterData.founderMorningBriefing
+          .morning_briefing_v1_read_model ?? {}),
+        connector_runtime_enabled: true,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMorningBriefing)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeBriefing }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/briefing");
+    render(<App />);
+
+    expect(await screen.findByText("backend read model missing")).toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:product-loop-007-morning-briefing-v1:v1"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Backend-owned Morning Briefing V1 read model"))
+      .not.toBeInTheDocument();
   });
 
   it("does not backfill Action Inbox decision lanes from mocks", async () => {
@@ -1007,11 +1087,52 @@ describe("Web Control Center shell", () => {
   });
 
   it("opens Morning Briefing as the daily local home without new authority", async () => {
-    mockFetchWithFallback();
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/briefing");
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /^Morning Briefing$/i })).toBeInTheDocument();
+    const briefingV1Panel = screen.getByLabelText(
+      "Backend-owned Morning Briefing V1 read model",
+    );
+    expect(
+      within(briefingV1Panel).getByText(
+        "contract-ref:product-loop-007-morning-briefing-v1:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(briefingV1Panel).getByText("Connector runtime").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Email/calendar fetch").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Automatic recommendations")
+        .nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Repo write").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Workbench apply").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(within(briefingV1Panel).getByText("Authority boundary")).toBeInTheDocument();
+    expect(
+      within(briefingV1Panel).getByText("founder-action:mock-setup-hardening"),
+    ).toBeInTheDocument();
+    expect(
+      within(briefingV1Panel).getByText("memory-review:founder-loop-preferences"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Briefing daily loop/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Daily command loop/i })).toBeInTheDocument();
     expect(screen.getByText("Home").nextElementSibling).toHaveTextContent("Morning Briefing");
@@ -1022,7 +1143,11 @@ describe("Web Control Center shell", () => {
     expect(screen.getByRole("heading", { name: /Memory why shown/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Dogfood capture/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Weekly Review narrative/i })).toBeInTheDocument();
-    expect(screen.getByText("Action execution").nextElementSibling).toHaveTextContent("blocked");
+    expect(
+      screen
+        .getAllByText("Action execution")
+        .some((node) => node.nextElementSibling?.textContent?.includes("blocked")),
+    ).toBe(true);
     expect(screen.getByText("Public beta claim").nextElementSibling).toHaveTextContent("blocked");
     expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
   });
