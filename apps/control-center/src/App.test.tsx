@@ -563,6 +563,10 @@ describe("Web Control Center shell", () => {
     delete (partialToday as { follow_up_tracker?: unknown }).follow_up_tracker;
     delete (partialToday as { follow_up_tracker_contract_ref?: unknown })
       .follow_up_tracker_contract_ref;
+    delete (partialToday as { weekly_ceo_review_v1_read_model?: unknown })
+      .weekly_ceo_review_v1_read_model;
+    delete (partialToday as { weekly_ceo_review_v1_contract_ref?: unknown })
+      .weekly_ceo_review_v1_contract_ref;
     const fetchMock = vi.fn(async (url: string) => {
       const urlText = String(url);
       if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
@@ -616,6 +620,8 @@ describe("Web Control Center shell", () => {
       expect(data.founderToday.today_loop_tightening_contract_ref).toBeUndefined();
       expect(data.founderToday.follow_up_tracker).toBeUndefined();
       expect(data.founderToday.follow_up_tracker_contract_ref).toBeUndefined();
+      expect(data.founderToday.weekly_ceo_review_v1_read_model).toBeUndefined();
+      expect(data.founderToday.weekly_ceo_review_v1_contract_ref).toBeUndefined();
       expect(data.founderToday.plans_to_actions_bridge_read_model).toBeUndefined();
       expect(
         data.founderToday.plans_to_actions_bridge_contract_ref,
@@ -650,6 +656,12 @@ describe("Web Control Center shell", () => {
       ).toBeUndefined();
       expect(
         data.founderMorningBriefing.morning_briefing_v1_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.weekly_ceo_review_v1_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.weekly_ceo_review_v1_contract_ref,
       ).toBeUndefined();
     } finally {
       vi.unstubAllEnvs();
@@ -729,6 +741,165 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Backend-owned Morning Briefing V1 read model"))
       .not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned Weekly CEO Review V1 from backend data", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    const weeklyPanel = await screen.findByLabelText(
+      "Backend-owned Weekly CEO Review V1 read model",
+    );
+    expect(
+      within(weeklyPanel).getByRole("heading", { name: /Weekly CEO Review V1/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(weeklyPanel).getByText(
+        "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(weeklyPanel).getByText("python_core_weekly_ceo_review_v1_read_model"),
+    ).toBeInTheDocument();
+    expect(within(weeklyPanel).getByText("Model summaries").nextElementSibling)
+      .toHaveTextContent("blocked");
+    expect(within(weeklyPanel).getByText("Production claim").nextElementSibling)
+      .toHaveTextContent("blocked");
+    expect(
+      within(weeklyPanel).getByText(
+        "blocked-state:weekly-ceo-review-no-production-authority",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not backfill Weekly CEO Review V1 from mocks for partial backend responses", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (partialToday as {
+      weekly_ceo_review_v1_read_model?: unknown;
+    }).weekly_ceo_review_v1_read_model;
+    delete (partialToday as {
+      weekly_ceo_review_v1_contract_ref?: unknown;
+    }).weekly_ceo_review_v1_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: partialToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Weekly CEO Review V1 read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:product-loop-008-weekly-ceo-review-v1:v1"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe backend Weekly CEO Review V1 authority flags", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      weekly_ceo_review_v1_read_model: {
+        ...(mockControlCenterData.founderToday.weekly_ceo_review_v1_read_model ?? {}),
+        model_summary_enabled: true,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Weekly CEO Review V1 read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:product-loop-008-weekly-ceo-review-v1:v1"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for malformed Weekly CEO Review V1 status and event refs", async () => {
+    const malformedToday = {
+      ...mockControlCenterData.founderToday,
+      weekly_ceo_review_v1_read_model: {
+        ...(mockControlCenterData.founderToday.weekly_ceo_review_v1_read_model ?? {}),
+        status: 42,
+        evidence_event_refs: ["evidence-timeline-ref:wrong-namespace"],
+        evidence_event_count: 1,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: malformedToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Weekly CEO Review V1 read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("evidence-timeline-ref:wrong-namespace"),
+    ).not.toBeInTheDocument();
   });
 
   it("does not backfill Action Inbox decision lanes from mocks", async () => {

@@ -8,6 +8,7 @@ import type {
   FounderLoopSourceReadinessPosture,
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopTodayLoopReadModel,
+  FounderLoopWeeklyCeoReviewV1ReadModel,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
@@ -1822,6 +1823,104 @@ const weeklyReviewNarrative = {
   authority_boundary:
     "Weekly Review summarizes refs only; it does not invent truth, write memory, sync accounts, execute actions, or claim release readiness.",
 };
+
+const weeklyCeoReviewV1BlockedRefs = [
+  "blocked-state:weekly-ceo-review-no-raw-logs",
+  "blocked-state:weekly-ceo-review-no-raw-prompts",
+  "blocked-state:weekly-ceo-review-no-raw-responses",
+  "blocked-state:weekly-ceo-review-no-provider-payloads",
+  "blocked-state:weekly-ceo-review-no-connector-runtime",
+  "blocked-state:weekly-ceo-review-no-connector-write",
+  "blocked-state:weekly-ceo-review-no-email-calendar-fetch",
+  "blocked-state:weekly-ceo-review-no-model-summary",
+  "blocked-state:weekly-ceo-review-no-provider-model-call",
+  "blocked-state:weekly-ceo-review-no-automatic-memory-write",
+  "blocked-state:weekly-ceo-review-no-context-injection",
+  "blocked-state:weekly-ceo-review-no-action-execution",
+  "blocked-state:weekly-ceo-review-no-production-claim",
+  "blocked-state:weekly-ceo-review-no-production-authority",
+  ...weeklyReviewNarrative.blocked_refs,
+];
+
+const weeklyCeoReviewV1ReadModel = {
+  schema_version: "product-loop-008-weekly-ceo-review.v1",
+  contract_ref: "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+  status: "implemented_backend_owned_weekly_review_artifact_v1",
+  source: "python_core_weekly_ceo_review_v1_read_model",
+  backend_owned: true,
+  local_review_artifact_only: true,
+  safe_refs_only: true,
+  safe_summary_only: true,
+  raw_content_included: false,
+  evidence_backed: true,
+  review_period_ref: "review-period-ref:local-weekly-window",
+  safe_summary:
+    "Weekly CEO Review V1 summarizes local completed, deferred, rejected, blocked, stale, unresolved, follow-up, memory-decision, action-decision, and evidence refs without storing source content.",
+  completed_count: weeklyReviewNarrative.completed_refs.length,
+  deferred_count: weeklyReviewNarrative.deferred_refs.length,
+  rejected_count: weeklyReviewNarrative.rejected_refs.length,
+  blocked_count: weeklyReviewNarrative.blocked_refs.length,
+  stale_count: weeklyReviewNarrative.stale_refs.length,
+  unresolved_count:
+    weeklyReviewNarrative.carry_forward_refs.length +
+    weeklyReviewNarrative.blocked_refs.length +
+    weeklyReviewNarrative.missing_source_refs.length,
+  action_decision_count: 0,
+  memory_decision_count: 1,
+  follow_up_count: followUpTracker.items.length,
+  evidence_event_count: 3,
+  completed_refs: weeklyReviewNarrative.completed_refs,
+  deferred_refs: weeklyReviewNarrative.deferred_refs,
+  rejected_refs: weeklyReviewNarrative.rejected_refs,
+  blocked_refs: weeklyReviewNarrative.blocked_refs,
+  stale_refs: weeklyReviewNarrative.stale_refs,
+  unresolved_refs: [
+    ...weeklyReviewNarrative.carry_forward_refs,
+    ...weeklyReviewNarrative.blocked_refs,
+    ...weeklyReviewNarrative.missing_source_refs,
+  ],
+  carry_forward_refs: weeklyReviewNarrative.carry_forward_refs,
+  next_week_priority_refs: weeklyReviewNarrative.next_week_priority_refs,
+  action_decision_refs: [],
+  memory_decision_refs: ["receipt:memory-review:defer:mock-stale"],
+  follow_up_refs: followUpTracker.items.map((item) => item.item_ref),
+  evidence_event_refs: [
+    "evidence-event:weekly-review:narrative",
+    "evidence-event:memory-review:mock-stale",
+    "evidence-event:action-inbox:setup-hardening",
+  ],
+  evidence_refs: [
+    "evidence-ref:weekly-ceo-review-v1",
+    ...weeklyReviewNarrative.evidence_refs,
+  ],
+  receipt_refs: ["receipt:memory-review:defer:mock-stale"],
+  missing_source_refs: weeklyReviewNarrative.missing_source_refs,
+  blocked_authority_refs: weeklyCeoReviewV1BlockedRefs,
+  next_safe_action:
+    "Review carry-forward, unresolved, blocked, stale, and missing-source refs before choosing the next local product loop priority.",
+  authority_boundary:
+    "Weekly CEO Review V1 is a backend-owned local review artifact. It summarizes safe refs only and does not fetch connectors, call models, summarize with providers, write memory, inject context, execute actions, read live web, run shell or browser execution, or claim production readiness.",
+  raw_logs_included: false,
+  prompt_content_included: false,
+  response_content_included: false,
+  provider_exchange_content_included: false,
+  connector_read_enabled: false,
+  connector_runtime_enabled: false,
+  connector_write_enabled: false,
+  email_calendar_fetch_enabled: false,
+  live_web_enabled: false,
+  model_summary_enabled: false,
+  provider_model_call_enabled: false,
+  runtime_model_call_enabled: false,
+  automatic_memory_write_authorized: false,
+  context_injection_authorized: false,
+  action_execution_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  browser_execution_enabled: false,
+  public_beta_claim_enabled: false,
+  production_claim_enabled: false,
+  production_authority_enabled: false,
+} satisfies FounderLoopWeeklyCeoReviewV1ReadModel;
 
 const dailyLoopSummary = {
   loop_ref: "daily-loop-ref:founder-command-center:v1",
@@ -4751,6 +4850,9 @@ export const mockControlCenterData: ControlCenterData = {
     follow_up_tracker_contract_ref:
       "contract-ref:product-loop-004-follow-up-tracker:v1",
     follow_up_tracker: followUpTracker,
+    weekly_ceo_review_v1_contract_ref:
+      "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+    weekly_ceo_review_v1_read_model: weeklyCeoReviewV1ReadModel,
     daily_loop_summary: dailyLoopSummary,
     source_readiness_items: sourceReadinessItems,
     source_readiness_posture: sourceReadinessPosture,
@@ -7385,10 +7487,13 @@ export const mockControlCenterData: ControlCenterData = {
       "contract-ref:product-loop-004-follow-up-tracker:v1",
     follow_up_tracker: followUpTracker,
     crm_lite_followups: crmLiteFollowups,
-    memory_why_shown_items: memoryWhyShownItems,
-    review_queue_groups: reviewQueueGroups,
-    weekly_review_narrative: weeklyReviewNarrative,
-    dogfood_capture: dogfoodCapture,
+      memory_why_shown_items: memoryWhyShownItems,
+      review_queue_groups: reviewQueueGroups,
+      weekly_review_narrative: weeklyReviewNarrative,
+      weekly_ceo_review_v1_contract_ref:
+        "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+      weekly_ceo_review_v1_read_model: weeklyCeoReviewV1ReadModel,
+      dogfood_capture: dogfoodCapture,
     items: [
       {
         briefing_ref: "briefing:api-boundary-modularization",
