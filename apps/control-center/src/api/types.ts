@@ -2351,6 +2351,84 @@ export interface FounderLoopCrmLiteFollowUp {
   production_authority_enabled: boolean;
 }
 
+export type FounderLoopFollowUpTrackerCategory =
+  | "relationship_follow_up"
+  | "promise"
+  | "open_loop"
+  | "pending_reply"
+  | "deferred_decision";
+
+export interface FounderLoopFollowUpTrackerItem {
+  item_ref: string;
+  category: FounderLoopFollowUpTrackerCategory;
+  title: string;
+  status: string;
+  source_state: string;
+  safe_summary: string;
+  why_shown: string;
+  relationship_ref?: string | null;
+  promise_ref?: string | null;
+  opportunity_ref?: string | null;
+  action_ref?: string | null;
+  memory_refs: string[];
+  source_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  blocked_state_refs: string[];
+  stale_state?: string | null;
+  next_safe_action: string;
+  authority_boundary: string;
+  review_required: boolean;
+  local_review_only: boolean;
+  safe_refs_only: boolean;
+  no_source_state: boolean;
+  reminder_scheduler_enabled: boolean;
+  message_send_enabled: boolean;
+  connector_read_enabled: boolean;
+  connector_write_enabled: boolean;
+  email_calendar_fetch_enabled: boolean;
+  automatic_task_creation_enabled: boolean;
+  action_execution_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  context_injection_authorized: boolean;
+  hidden_memory_write_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopFollowUpTrackerReadModel {
+  contract_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  category_order: FounderLoopFollowUpTrackerCategory[];
+  items: FounderLoopFollowUpTrackerItem[];
+  relationship_follow_up_refs: string[];
+  promise_refs: string[];
+  open_loop_refs: string[];
+  pending_reply_refs: string[];
+  deferred_decision_refs: string[];
+  stale_refs: string[];
+  no_source_refs: string[];
+  blocked_state_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+  reminder_scheduler_enabled: boolean;
+  message_send_enabled: boolean;
+  connector_read_enabled: boolean;
+  connector_write_enabled: boolean;
+  email_calendar_fetch_enabled: boolean;
+  automatic_task_creation_enabled: boolean;
+  action_execution_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  context_injection_authorized: boolean;
+  hidden_memory_write_authorized: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopMemoryWhyShownItem {
   memory_ref: string;
   loop_item_ref: string;
@@ -2894,6 +2972,8 @@ export interface FounderLoopTodaySummary {
   governed_code_workbench_blocked_state_refs: string[];
   today_loop_tightening_contract_ref?: string;
   today_loop_read_model?: FounderLoopTodayLoopReadModel;
+  follow_up_tracker_contract_ref?: string;
+  follow_up_tracker?: FounderLoopFollowUpTrackerReadModel;
   daily_loop_summary?: FounderLoopDailyLoopSummary;
   source_readiness_items?: FounderLoopSourceReadinessItem[];
   source_readiness_posture?: FounderLoopSourceReadinessPosture;
@@ -3010,6 +3090,8 @@ export interface FounderLoopActionsInbox {
   task_decomposition_proposal_summary?: FounderLoopTaskDecompositionProposalSummary;
   crm_lite_relationship_memory_contract_ref?: string;
   crm_lite_relationship_authority_posture?: Record<string, unknown>;
+  follow_up_tracker_contract_ref?: string;
+  follow_up_tracker?: FounderLoopFollowUpTrackerReadModel;
   crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];
@@ -3040,6 +3122,8 @@ export interface FounderLoopMorningBriefing {
   source_readiness_items?: FounderLoopSourceReadinessItem[];
   crm_lite_relationship_memory_contract_ref?: string;
   crm_lite_relationship_authority_posture?: Record<string, unknown>;
+  follow_up_tracker_contract_ref?: string;
+  follow_up_tracker?: FounderLoopFollowUpTrackerReadModel;
   crm_lite_followups?: FounderLoopCrmLiteFollowUp[];
   memory_why_shown_items?: FounderLoopMemoryWhyShownItem[];
   review_queue_groups?: FounderLoopReviewQueueGroup[];

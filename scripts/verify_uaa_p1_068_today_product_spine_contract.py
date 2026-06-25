@@ -158,7 +158,7 @@ def main() -> int:
         [
             "normalizeFounderToday",
             "fallbackWithoutDigest",
-            "delete todayWithoutMockDigest.today_loop_read_model",
+            "delete normalized.today_loop_read_model",
             "today_loop_tightening_contract_ref",
         ],
         failures,

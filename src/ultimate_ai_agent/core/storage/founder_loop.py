@@ -106,6 +106,10 @@ from ultimate_ai_agent.core.control_center.today_loop import (
     TODAY_LOOP_TIGHTENING_CONTRACT_REF,
     build_today_loop_read_model,
 )
+from ultimate_ai_agent.core.control_center.follow_up_tracker import (
+    FOLLOW_UP_TRACKER_CONTRACT_REF,
+    build_follow_up_tracker_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -4960,6 +4964,14 @@ class FounderLoopRepository:
             crm_lite_followups=crm_lite_followups,
             source_readiness_items=source_readiness_items,
         )
+        follow_up_tracker = build_follow_up_tracker_read_model(
+            actions=actions,
+            memory_items=memory_items,
+            memory_review_decisions=memory_review_decisions,
+            crm_lite_followups=crm_lite_followups,
+            source_readiness_items=source_readiness_items,
+            evidence_timeline=evidence_timeline,
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -5054,6 +5066,8 @@ class FounderLoopRepository:
             **governed_code_workbench_contract,
             "today_loop_tightening_contract_ref": TODAY_LOOP_TIGHTENING_CONTRACT_REF,
             "today_loop_read_model": today_loop_read_model,
+            "follow_up_tracker_contract_ref": FOLLOW_UP_TRACKER_CONTRACT_REF,
+            "follow_up_tracker": follow_up_tracker,
             "daily_loop_summary": daily_loop_summary,
             "source_readiness_route_ref": source_readiness["route_ref"],
             "source_readiness_items": source_readiness_items,
@@ -7326,6 +7340,7 @@ class FounderLoopRepository:
         items = self.list_action_inbox(limit=limit)
         memory_items = self.list_memory_review_queue(limit=3)
         briefing_items = self.list_briefing_items(limit=3)
+        memory_review_decisions = self.list_memory_review_decisions(limit=5)
         memory_to_loop_binding_contract = _memory_to_loop_binding_contract_payload(
             memory_items=memory_items,
             cross_surface_memory_intake_contract=(
@@ -7367,6 +7382,14 @@ class FounderLoopRepository:
             memory_items=memory_items,
             briefing_items=briefing_items,
             private_beta_readiness_gate_contract=private_beta_readiness_gate_contract,
+        )
+        follow_up_tracker = build_follow_up_tracker_read_model(
+            actions=items,
+            memory_items=memory_items,
+            memory_review_decisions=memory_review_decisions,
+            crm_lite_followups=crm_lite_followups,
+            source_readiness_items=source_readiness_items,
+            evidence_timeline=[],
         )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
@@ -7447,6 +7470,8 @@ class FounderLoopRepository:
             "crm_lite_relationship_authority_posture": (
                 crm_lite_relationship_authority_posture()
             ),
+            "follow_up_tracker_contract_ref": FOLLOW_UP_TRACKER_CONTRACT_REF,
+            "follow_up_tracker": follow_up_tracker,
             "crm_lite_followups": crm_lite_followups,
             "memory_why_shown_items": memory_why_shown_items,
             "review_queue_groups": review_queue_groups,
@@ -7471,6 +7496,7 @@ class FounderLoopRepository:
         actions = self.list_action_inbox(limit=6)
         plans = self.list_plan_summaries(limit=3)
         memory_items = self.list_memory_review_queue(limit=3)
+        memory_review_decisions = self.list_memory_review_decisions(limit=5)
         cross_surface_memory_intake_contract = (
             _cross_surface_memory_intake_contract_payload()
         )
@@ -7523,6 +7549,14 @@ class FounderLoopRepository:
             weekly_review_narrative=weekly_review_narrative,
             dogfood_capture=dogfood_capture,
         )
+        follow_up_tracker = build_follow_up_tracker_read_model(
+            actions=actions,
+            memory_items=memory_items,
+            memory_review_decisions=memory_review_decisions,
+            crm_lite_followups=crm_lite_followups,
+            source_readiness_items=source_readiness_items,
+            evidence_timeline=[],
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_briefing_skeleton",
@@ -7560,6 +7594,8 @@ class FounderLoopRepository:
             ],
             "source_readiness_route_ref": source_readiness["route_ref"],
             "source_readiness_posture": source_readiness_posture,
+            "follow_up_tracker_contract_ref": FOLLOW_UP_TRACKER_CONTRACT_REF,
+            "follow_up_tracker": follow_up_tracker,
             "daily_loop_summary": daily_loop_summary,
             "daily_loop_sections": [
                 {
