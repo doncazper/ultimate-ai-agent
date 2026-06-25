@@ -110,6 +110,10 @@ from ultimate_ai_agent.core.control_center.follow_up_tracker import (
     FOLLOW_UP_TRACKER_CONTRACT_REF,
     build_follow_up_tracker_read_model,
 )
+from ultimate_ai_agent.core.control_center.action_inbox_decision_lanes import (
+    ACTION_INBOX_DECISION_LANE_CONTRACT_REF,
+    build_action_inbox_decision_lane_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -7391,6 +7395,9 @@ class FounderLoopRepository:
             source_readiness_items=source_readiness_items,
             evidence_timeline=[],
         )
+        action_inbox_decision_lane_read_model = (
+            build_action_inbox_decision_lane_read_model(actions=items)
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_review_queue",
@@ -7418,6 +7425,12 @@ class FounderLoopRepository:
             ],
             "action_group_order": list(ACTION_INBOX_GROUP_ORDER),
             "action_groups": _action_group_summaries(items),
+            "action_inbox_decision_lane_contract_ref": (
+                ACTION_INBOX_DECISION_LANE_CONTRACT_REF
+            ),
+            "action_inbox_decision_lane_read_model": (
+                action_inbox_decision_lane_read_model
+            ),
             "items": items,
             "approval_required_before_mutation": True,
             "mutating_controls_enabled": True,

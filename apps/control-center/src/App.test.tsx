@@ -479,6 +479,10 @@ describe("Web Control Center shell", () => {
       expect(data.founderToday.follow_up_tracker_contract_ref).toBeUndefined();
       expect(data.founderActionsInbox.follow_up_tracker).toBeUndefined();
       expect(data.founderActionsInbox.follow_up_tracker_contract_ref).toBeUndefined();
+      expect(data.founderActionsInbox.action_inbox_decision_lane_read_model).toBeUndefined();
+      expect(
+        data.founderActionsInbox.action_inbox_decision_lane_contract_ref,
+      ).toBeUndefined();
       expect(data.founderMorningBriefing.follow_up_tracker).toBeUndefined();
       expect(
         data.founderMorningBriefing.follow_up_tracker_contract_ref,
@@ -487,6 +491,43 @@ describe("Web Control Center shell", () => {
       vi.unstubAllEnvs();
       vi.resetModules();
     }
+  });
+
+  it("does not backfill Action Inbox decision lanes from mocks", async () => {
+    const partialInbox = { ...mockControlCenterData.founderActionsInbox };
+    delete (partialInbox as {
+      action_inbox_decision_lane_read_model?: unknown;
+    }).action_inbox_decision_lane_read_model;
+    delete (partialInbox as {
+      action_inbox_decision_lane_contract_ref?: unknown;
+    }).action_inbox_decision_lane_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: partialInbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(await screen.findByText("backend decision lanes missing")).toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:product-loop-005-action-inbox-decision-lanes:v1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_action_inbox_decision_lane_read_model"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders backend follow-up tracker even when the Today loop digest is absent", async () => {
@@ -1722,6 +1763,238 @@ describe("Web Control Center shell", () => {
       fetchMock.mock.calls.some(
         ([, request]) => request?.method === "POST",
       ),
+    ).toBe(false);
+  });
+
+  it("renders backend Action Inbox decision lanes before operator approval", async () => {
+    const laneIds = [
+      "needs_approval",
+      "blocked",
+      "draft_only",
+      "cost_blocked",
+      "no_authority",
+      "approved_no_execution",
+      "rejected",
+      "deferred",
+      "receipt_recorded",
+    ] as const;
+    const laneLabels: Record<(typeof laneIds)[number], string> = {
+      needs_approval: "Needs approval",
+      blocked: "Blocked",
+      draft_only: "Draft-only",
+      cost_blocked: "Cost blocked",
+      no_authority: "No authority",
+      approved_no_execution: "Approved / no execution",
+      rejected: "Rejected",
+      deferred: "Deferred",
+      receipt_recorded: "Receipt recorded",
+    };
+    const costBlockedItem = {
+      item_ref: "founder-action:test-cost-blocked",
+      lane_id: "cost_blocked",
+      lane_label: "Cost blocked",
+      title: "Cost posture review",
+      status: "review_ready",
+      priority: "high",
+      action_kind: "local_task_create",
+      side_effect_class: "local_dev_workspace_only",
+      safe_summary: "Cost and provider refs must be reviewed first.",
+      why_shown: "Cost blocked before approval.",
+      next_safe_action: "Resolve cost estimate, budget decision, and receipt refs.",
+      authority_boundary: "Approval alone does not execute work.",
+      approval_required: true,
+      approval_envelope_ref: "approval-envelope:test-cost-blocked",
+      approval_envelope_status: "review_ready_exact_scope_required",
+      approval_scope_ref: "scope-ref:test-cost-blocked",
+      approval_requirement_ref: "approval-requirement:test-cost-blocked",
+      expected_receipt_refs: ["receipt-plan:test-cost-blocked"],
+      expected_receipt_state: "visible",
+      evidence_refs: ["evidence-ref:test-cost-blocked"],
+      receipt_refs: [],
+      expected_receipt_refs_visible: true,
+      rollback_ref: "rollback-ref:test-cost-blocked",
+      safe_disable_ref: "safe-disable:test-cost-blocked",
+      blocked_authority_refs: [
+        "blocked-state:action-inbox-no-action-execution",
+        "blocked-state:frontier-provider-model-ref-missing",
+      ],
+      missing_envelope_field_states: ["none"],
+      cost_state_label: "Cost blocked",
+      provider_authority_state_label: "No provider authority",
+      estimated_cost_usd: 0,
+      max_approved_cost_usd: 0,
+      provider_ref: "provider-ref:not-invoked",
+      model_profile_ref: "model-profile-ref:not-invoked",
+      input_metered_units: 0,
+      output_metered_units: 0,
+      total_metered_units: 0,
+      cost_estimate_ref: "cost-estimate-ref:test-cost-blocked",
+      captured_usage_ref: "usage-capture-ref:test-cost-blocked",
+      budget_decision_ref: "budget-decision-ref:test-cost-blocked",
+      cost_receipt_refs: [
+        "cost-estimate-ref:test-cost-blocked",
+        "usage-capture-ref:test-cost-blocked",
+        "budget-decision-ref:test-cost-blocked",
+      ],
+      cost_blocked_state_refs: [
+        "blocked-state:frontier-provider-model-ref-missing",
+      ],
+      unknown_paid_cost_requires_explicit_approval: true,
+      frontier_usage_claimed: false,
+      cost_telemetry_complete: true,
+      provider_model_refs_present: false,
+      backend_owned: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      approval_alone_executes: false,
+      approval_ref_authority: false,
+      approval_grants_runtime_authority: false,
+      action_execution_enabled: false,
+      connector_write_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      browser_execution_enabled: false,
+      provider_model_call_enabled: false,
+      memory_write_enabled: false,
+      context_injection_authorized: false,
+      hidden_memory_write_authorized: false,
+      production_authority_enabled: false,
+    };
+    const approvedNoExecutionItem = {
+      ...costBlockedItem,
+      item_ref: "founder-action:test-approved-no-execution",
+      lane_id: "approved_no_execution",
+      lane_label: "Approved / no execution",
+      title: "Approved receipt review",
+      status: "approved",
+      cost_state_label: "Cost approved",
+      provider_authority_state_label: "Provider/model refs present",
+      provider_ref: "provider-ref:test",
+      model_profile_ref: "model-profile-ref:test",
+      cost_blocked_state_refs: [],
+      unknown_paid_cost_requires_explicit_approval: false,
+      provider_model_refs_present: true,
+    };
+    const partialMissingEnvelopeItem = {
+      ...costBlockedItem,
+      item_ref: "founder-action:test-partial-missing-envelope",
+      lane_id: "blocked",
+      lane_label: "Blocked",
+      title: "Partial envelope review",
+      cost_state_label: "Cost approved",
+      provider_authority_state_label: "Provider/model refs present",
+      provider_ref: "provider-ref:test",
+      model_profile_ref: "model-profile-ref:test",
+      cost_blocked_state_refs: [],
+      unknown_paid_cost_requires_explicit_approval: false,
+      provider_model_refs_present: true,
+      missing_envelope_field_states: [
+        "approval_scope_ref:missing",
+        "expected_receipt_refs:missing",
+        "rollback_ref:missing",
+      ],
+      expected_receipt_refs: ["missing"],
+      expected_receipt_state: "missing_fail_closed",
+    };
+    const inbox = {
+      ...mockApiData.founderActionsInbox,
+      action_inbox_decision_lane_contract_ref:
+        "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
+      action_inbox_decision_lane_read_model: {
+        contract_ref: "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
+        status: "backend_owned_decision_lane_read_model",
+        source: "python_core_action_inbox_decision_lane_read_model",
+        backend_owned: true,
+        local_read_model_only: true,
+        safe_refs_only: true,
+        raw_content_included: false,
+        lane_order: laneIds,
+        lanes: laneIds.map((laneId) => ({
+          lane_id: laneId,
+          label: laneLabels[laneId],
+          status: `${laneId}_state`,
+          safe_summary: `${laneLabels[laneId]} safe-ref lane.`,
+          count:
+            laneId === "cost_blocked" || laneId === "approved_no_execution"
+              ? 1
+              : laneId === "blocked"
+                ? 1
+              : 0,
+          item_refs:
+            laneId === "cost_blocked"
+              ? ["founder-action:test-cost-blocked"]
+              : laneId === "approved_no_execution"
+                ? ["founder-action:test-approved-no-execution"]
+                : laneId === "blocked"
+                  ? ["founder-action:test-partial-missing-envelope"]
+                : [],
+          blocked_state_refs: ["blocked-state:action-inbox-no-action-execution"],
+          next_safe_action: "Inspect safe refs only.",
+          approval_alone_executes: false,
+          action_execution_enabled: false,
+        })),
+        items: [costBlockedItem, approvedNoExecutionItem, partialMissingEnvelopeItem],
+        blocked_state_refs: ["blocked-state:action-inbox-no-action-execution"],
+        missing_envelope_fields_fail_safe: true,
+        cost_posture_visible_before_approval: true,
+        provider_authority_visible_before_approval: true,
+        approval_scope_visible_before_approval: true,
+        expected_receipts_visible_before_approval: true,
+        action_execution_enabled: false,
+        connector_write_enabled: false,
+        shell_subprocess_execution_enabled: false,
+        browser_execution_enabled: false,
+        provider_model_call_enabled: false,
+        memory_write_enabled: false,
+        context_injection_authorized: false,
+        hidden_memory_write_authorized: false,
+        production_authority_enabled: false,
+        approval_alone_executes: false,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ ok: false }), { status: 500 });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python_core_action_inbox_decision_lane_read_model"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Cost blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cost approved").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unknown paid cost").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No provider authority").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Approved / no execution").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Expected receipts").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Missing envelope fields").length).toBeGreaterThan(0);
+    expect(screen.getByText("approval_scope_ref:missing")).toBeInTheDocument();
+    expect(screen.getByText("expected_receipt_refs:missing")).toBeInTheDocument();
+    expect(screen.getAllByText("Blocked authority").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([, request]) => request?.method === "POST"),
     ).toBe(false);
   });
 
