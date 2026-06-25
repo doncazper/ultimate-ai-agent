@@ -21,6 +21,7 @@ import type {
 } from "../api/types";
 import { EmptyState } from "./DataState";
 import { EvidenceViewerPanel } from "./EvidenceFileMemoryViewerPanel";
+import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 const DEFAULT_MODEL_ID = "uaa-llama-cpp-local";
@@ -355,11 +356,13 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         </div>
       </div>
 
+      <ChatToLoopHandoffPanel readModel={today.chat_to_loop_handoff_read_model} />
+
       {handoffReceipt ? (
         <article className="panel">
           <div className="panel-heading">
             <h3>Handoff receipt</h3>
-            <span>{handoffReceipt.handoff_target}</span>
+            <span>pending backend refresh</span>
           </div>
           <dl className="metadata-list">
             <div>
@@ -380,17 +383,15 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
             </div>
             <div>
               <dt>Action execution</dt>
-              <dd>{handoffReceipt.action_executed ? "enabled" : "blocked"}</dd>
+              <dd>{receiptDeniedLabel(handoffReceipt.action_executed)}</dd>
             </div>
             <div>
               <dt>Plan execution</dt>
-              <dd>{handoffReceipt.plan_executed ? "enabled" : "blocked"}</dd>
+              <dd>{receiptDeniedLabel(handoffReceipt.plan_executed)}</dd>
             </div>
             <div>
               <dt>Memory write</dt>
-              <dd>
-                {handoffReceipt.memory_write_performed ? "enabled" : "blocked"}
-              </dd>
+              <dd>{receiptDeniedLabel(handoffReceipt.memory_write_performed)}</dd>
             </div>
           </dl>
         </article>
@@ -405,6 +406,10 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
       <OperatorSurfaceStates surface="Chat Local Operator" />
     </section>
   );
+}
+
+function receiptDeniedLabel(value: boolean): string {
+  return value ? "blocked (unsafe receipt flag)" : "blocked";
 }
 
 function chatTurnReceiptRequestFromProbe(

@@ -543,6 +543,24 @@ automatic memory writes, no context injection, no action execution, no
 shell/browser execution, no public beta claims, no production claims, and no
 production authority.
 No-authority phrases: no connector reads; no connector runtime; no connector writes; no email/calendar/account fetch; no live web; no model summaries; no runtime model/provider calls; no automatic memory writes; no context injection; no action execution; no shell/browser execution; no public beta claims; no production claims; no production authority.
+
+Product Loop 009 Chat to loop handoff
+Goal met: Today, Action Inbox, and Morning Briefing now expose a backend-owned
+`chat_to_loop_handoff_read_model` over durable Chat turn receipts and handoff
+receipts. The read model classifies reviewable outcomes as remember-this,
+create-action, add-to-plan, defer, ask-human, and blocked while preserving the
+rule that model output is not authority. `remember-this` is a reviewed
+memory-intake proposal only, not a memory write or context-injection path.
+`scripts/inspect_chat_to_loop_handoff.py` provides CLI parity and returns
+`state_not_found_no_write` without creating storage when local Founder Loop
+state is absent. Control Center renders the handoff state only when the
+backend-owned payload validates; unsafe backend payloads and mock-only fallback
+fail closed. This lane adds no model output authority, no direct memory
+writes, no automatic memory writes, no context injection, no tool execution, no
+connector writes, no action execution, no plan execution, no provider/model
+calls, no live web, no shell/browser execution, no public beta, and no
+production authority.
+No-authority phrases: no model output authority; no direct memory writes; no automatic memory writes; no context injection; no tool execution; no connector writes; no action execution; no plan execution; no provider/model calls; no live web; no shell/browser execution; no public beta; no production authority.
 ```
 
 ## QA / Verification

@@ -1,5 +1,7 @@
 import type {
   ControlCenterData,
+  FounderLoopChatToLoopHandoffOutcome,
+  FounderLoopChatToLoopHandoffReadModel,
   FounderLoopEvidenceHistoryAnswer,
   FounderLoopEvidenceHistoryAnswers,
   FounderLoopFollowUpTrackerReadModel,
@@ -225,6 +227,168 @@ const chatLocalOperatorSurfaceBindings = [
       "Chat can feed reviewed memory intake candidates only; memory writes and context injection remain blocked.",
   },
 ];
+
+const chatToLoopHandoffContractRef =
+  "contract-ref:product-loop-009-chat-to-loop-handoff:v1";
+const chatToLoopHandoffBlockedRefs = [
+  "blocked-state:chat-to-loop-no-model-output-authority",
+  "blocked-state:chat-to-loop-no-direct-memory-write",
+  "blocked-state:chat-to-loop-no-context-injection",
+  "blocked-state:chat-to-loop-no-tool-execution",
+  "blocked-state:chat-to-loop-no-connector-write",
+  "blocked-state:chat-to-loop-no-action-execution",
+  "blocked-state:chat-to-loop-no-plan-execution",
+  "blocked-state:chat-to-loop-no-provider-model-call",
+  "blocked-state:chat-to-loop-no-browser-execution",
+  "blocked-state:chat-to-loop-no-production-authority",
+  ...chatLocalOperatorBlockedRefs,
+];
+const chatToLoopHandoffOutcomes: FounderLoopChatToLoopHandoffOutcome[] = [
+  {
+    outcome_ref: "chat-to-loop-outcome:remember_this:local-chat-gateway",
+    outcome_kind: "remember_this",
+    state: "blocked_review_required",
+    target_surface: "Memory",
+    safe_label: "remember this",
+    source_ref: "chat-turn:local-operator:local-chat-gateway",
+    proposal_ref: "memory-intake-proposal:chat:local-chat-gateway",
+    receipt_refs: [],
+    evidence_refs: ["evidence-ref:chat-to-loop-handoff:read-model"],
+    blocked_state_refs: chatToLoopHandoffBlockedRefs.slice(0, 12),
+    next_safe_action:
+      "Review this Chat handoff outcome through its target surface; presence here does not authorize execution or memory writes.",
+  },
+  {
+    outcome_ref: "chat-to-loop-outcome:create_action:local-chat-gateway",
+    outcome_kind: "create_action",
+    state: "blocked_review_required",
+    target_surface: "Actions",
+    safe_label: "create action",
+    source_ref: "chat-turn:local-operator:local-chat-gateway",
+    proposal_ref: "founder-action:chat-handoff:local-chat-gateway",
+    receipt_refs: [],
+    evidence_refs: ["evidence-ref:chat-to-loop-handoff:read-model"],
+    blocked_state_refs: chatToLoopHandoffBlockedRefs.slice(0, 12),
+    next_safe_action:
+      "Review this Chat handoff outcome through its target surface; presence here does not authorize execution or memory writes.",
+  },
+  {
+    outcome_ref: "chat-to-loop-outcome:add_to_plan:local-chat-gateway",
+    outcome_kind: "add_to_plan",
+    state: "blocked_review_required",
+    target_surface: "Plans",
+    safe_label: "add to plan",
+    source_ref: "chat-turn:local-operator:local-chat-gateway",
+    proposal_ref: "plan-summary:chat-handoff:local-chat-gateway",
+    receipt_refs: [],
+    evidence_refs: ["evidence-ref:chat-to-loop-handoff:read-model"],
+    blocked_state_refs: chatToLoopHandoffBlockedRefs.slice(0, 12),
+    next_safe_action:
+      "Review this Chat handoff outcome through its target surface; presence here does not authorize execution or memory writes.",
+  },
+  {
+    outcome_ref: "chat-to-loop-outcome:defer:local-chat-gateway",
+    outcome_kind: "defer",
+    state: "blocked_review_required",
+    target_surface: "Chat",
+    safe_label: "defer",
+    source_ref: "chat-turn:local-operator:local-chat-gateway",
+    proposal_ref: "defer-ref:chat-to-loop:local-chat-gateway",
+    receipt_refs: [],
+    evidence_refs: ["evidence-ref:chat-to-loop-handoff:read-model"],
+    blocked_state_refs: chatToLoopHandoffBlockedRefs.slice(0, 12),
+    next_safe_action:
+      "Review this Chat handoff outcome through its target surface; presence here does not authorize execution or memory writes.",
+  },
+  {
+    outcome_ref: "chat-to-loop-outcome:ask_human:local-chat-gateway",
+    outcome_kind: "ask_human",
+    state: "blocked_review_required",
+    target_surface: "Chat",
+    safe_label: "ask human",
+    source_ref: "chat-turn:local-operator:local-chat-gateway",
+    proposal_ref: "ask-human-ref:chat-to-loop:local-chat-gateway",
+    receipt_refs: [],
+    evidence_refs: ["evidence-ref:chat-to-loop-handoff:read-model"],
+    blocked_state_refs: chatToLoopHandoffBlockedRefs.slice(0, 12),
+    next_safe_action:
+      "Review this Chat handoff outcome through its target surface; presence here does not authorize execution or memory writes.",
+  },
+  {
+    outcome_ref: "chat-to-loop-outcome:blocked:local-chat-gateway",
+    outcome_kind: "blocked",
+    state: "blocked_authority",
+    target_surface: "Authority",
+    safe_label: "blocked",
+    source_ref: "chat-turn:local-operator:local-chat-gateway",
+    proposal_ref: "blocked-state:chat-to-loop-no-action-execution",
+    receipt_refs: [],
+    evidence_refs: ["evidence-ref:chat-to-loop-handoff:read-model"],
+    blocked_state_refs: chatToLoopHandoffBlockedRefs.slice(0, 12),
+    next_safe_action:
+      "Review this Chat handoff outcome through its target surface; presence here does not authorize execution or memory writes.",
+  },
+];
+const chatToLoopHandoffReadModel: FounderLoopChatToLoopHandoffReadModel = {
+  schema_version: "product-loop-009-chat-to-loop-handoff.v1",
+  contract_ref: chatToLoopHandoffContractRef,
+  source: "python_core_chat_to_loop_handoff_read_model",
+  status: "backend_owned_chat_to_loop_handoff_polish",
+  backend_owned: true,
+  local_read_model_only: true,
+  proposal_only: true,
+  safe_refs_only: true,
+  safe_summary_only: true,
+  raw_content_included: false,
+  idempotency_bound: true,
+  outcome_kinds: [
+    "remember_this",
+    "create_action",
+    "add_to_plan",
+    "defer",
+    "ask_human",
+    "blocked",
+  ],
+  safe_summary:
+    "Chat to loop handoff polish classifies safe Chat receipt refs into reviewable remember-this, create-action, add-to-plan, defer, ask-human, and blocked outcomes without granting runtime authority.",
+  outcome_count: chatToLoopHandoffOutcomes.length,
+  turn_receipt_count: 0,
+  handoff_receipt_count: 0,
+  remember_this_count: 1,
+  create_action_count: 0,
+  add_to_plan_count: 0,
+  defer_count: 1,
+  ask_human_count: 1,
+  blocked_count: chatToLoopHandoffBlockedRefs.length,
+  outcomes: chatToLoopHandoffOutcomes,
+  outcome_refs: chatToLoopHandoffOutcomes.map((outcome) => outcome.outcome_ref),
+  turn_receipt_refs: [],
+  handoff_receipt_refs: [],
+  action_created_refs: [],
+  plan_created_refs: [],
+  memory_proposal_refs: ["memory-intake-proposal:chat:local-chat-gateway"],
+  defer_refs: ["defer-ref:chat-to-loop:local-chat-gateway"],
+  ask_human_refs: ["ask-human-ref:chat-to-loop:local-chat-gateway"],
+  evidence_refs: ["evidence-ref:chat-to-loop-handoff:read-model"],
+  idempotency_refs: [],
+  blocked_state_refs: chatToLoopHandoffBlockedRefs,
+  next_safe_action:
+    "Review Chat handoff outcomes as proposals only; create scoped Action, Plan, Memory, or human-review receipts through their own governed lanes.",
+  model_output_authority: false,
+  direct_memory_write_authorized: false,
+  automatic_memory_write_authorized: false,
+  context_injection_authorized: false,
+  tool_execution_enabled: false,
+  connector_write_enabled: false,
+  action_execution_enabled: false,
+  plan_execution_enabled: false,
+  provider_model_call_enabled: false,
+  runtime_model_call_enabled: false,
+  live_web_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  browser_execution_enabled: false,
+  production_authority_enabled: false,
+};
 
 const governedCodeWorkbenchContractRef =
   "contract-ref:governed-code-workbench:v1";
@@ -4954,6 +5118,8 @@ export const mockControlCenterData: ControlCenterData = {
     ],
     chat_durable_receipt_status:
       "implemented_receipt_routes_ready_no_turn_recorded",
+    chat_to_loop_handoff_contract_ref: chatToLoopHandoffContractRef,
+    chat_to_loop_handoff_read_model: chatToLoopHandoffReadModel,
     chat_turn_receipt_refs: [],
     chat_handoff_receipt_refs: [],
     chat_handoff_created_refs: [],
@@ -7036,6 +7202,8 @@ export const mockControlCenterData: ControlCenterData = {
         count: 1,
       },
     ],
+    chat_to_loop_handoff_contract_ref: chatToLoopHandoffContractRef,
+    chat_to_loop_handoff_read_model: chatToLoopHandoffReadModel,
     items: [
       {
         item_ref: "founder-action:mock-local-task-review",
@@ -7493,6 +7661,8 @@ export const mockControlCenterData: ControlCenterData = {
       weekly_ceo_review_v1_contract_ref:
         "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
       weekly_ceo_review_v1_read_model: weeklyCeoReviewV1ReadModel,
+      chat_to_loop_handoff_contract_ref: chatToLoopHandoffContractRef,
+      chat_to_loop_handoff_read_model: chatToLoopHandoffReadModel,
       dogfood_capture: dogfoodCapture,
     items: [
       {

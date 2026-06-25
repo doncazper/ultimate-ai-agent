@@ -50,6 +50,14 @@ Both handoff modes are idempotent and receipt-backed. They preserve the blocked
 posture for action execution, plan execution, connector writes, memory writes,
 model-output authority, context injection, and production authority.
 
+Product Loop 009 Chat to loop handoff layers a backend-owned
+`chat_to_loop_handoff_read_model` over these existing receipts so Today, Action
+Inbox, Morning Briefing, and Chat can show remember-this, create-action,
+add-to-plan, defer, ask-human, and blocked outcomes without granting authority.
+`remember-this` is a reviewed memory-intake proposal only, not a direct memory
+write, automatic memory write, context-injection path, or model-output
+authority.
+
 ## Evidence
 
 Today summary and Evidence Timeline can show:
