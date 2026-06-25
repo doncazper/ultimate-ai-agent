@@ -102,6 +102,10 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     local_task_commit_receipt_ref,
     local_task_ref_for_action,
 )
+from ultimate_ai_agent.core.control_center.today_loop import (
+    TODAY_LOOP_TIGHTENING_CONTRACT_REF,
+    build_today_loop_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -4944,6 +4948,18 @@ class FounderLoopRepository:
             weekly_review_narrative=weekly_review_narrative,
             dogfood_capture=dogfood_capture,
         )
+        today_loop_read_model = build_today_loop_read_model(
+            actions=actions,
+            plans=plans,
+            memory_items=memory_items,
+            briefing_items=briefing_items,
+            evidence_timeline=evidence_timeline,
+            chat_turn_receipts=chat_turn_receipts,
+            chat_handoff_receipts=chat_handoff_receipts,
+            memory_review_decisions=memory_review_decisions,
+            crm_lite_followups=crm_lite_followups,
+            source_readiness_items=source_readiness_items,
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -5036,6 +5052,8 @@ class FounderLoopRepository:
             **user_intent_understanding_contract,
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
+            "today_loop_tightening_contract_ref": TODAY_LOOP_TIGHTENING_CONTRACT_REF,
+            "today_loop_read_model": today_loop_read_model,
             "daily_loop_summary": daily_loop_summary,
             "source_readiness_route_ref": source_readiness["route_ref"],
             "source_readiness_items": source_readiness_items,
