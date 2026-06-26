@@ -151,9 +151,10 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/settings/status",
     }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
-        "control_center_operational_status",
-        "control_center_setup_assistant",
-        "founder_loop",
+            "control_center_operational_status",
+            "control_center_provider_catalog",
+            "control_center_setup_assistant",
+            "founder_loop",
         "mattermost",
         "packaging_proof",
         "redacted_observability",

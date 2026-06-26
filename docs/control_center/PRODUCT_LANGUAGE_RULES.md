@@ -25,6 +25,15 @@ state or is where every UAA workflow will be wired.
 Today, Inbox, Plans, Actions, Memory, Evidence, and Settings remain the core
 operator loop surfaces for product-language enforcement.
 
+CRM and Communications copy is allowed as a contract-first product-line
+language lane only when it preserves Founder Command Center as the current
+first-party shell. CRM copy must distinguish fixture/read/proposal posture from
+callable runtime and must not imply `/crm` UI, backend CRM endpoints, connector
+runtime, connector writes, account auth, contact sync, sends, calendar writes,
+silent merges, silent contact creation, model/provider calls, live web, browser
+runtime, public beta, or production authority until an accepted milestone adds
+the exact capability.
+
 North-star visuals are allowed only as design direction. They must be labeled
 as north-star visual targets and must not be described as shipped
 implementation evidence unless matching route/API/UI behavior is verified.
@@ -49,6 +58,7 @@ with tests and redacted evidence.
 | No blanket read-only shell claim when scoped authority exists | Global shell copy must distinguish no generic execution from exact, backend-approved local authority lanes such as Action Inbox `local_task_create`. | Any top-level copy that says the whole Control Center has no authority while an approved receipt-backed micro-lane exists is blocked. |
 | No production/public distribution claims without evidence | Copy must say production readiness and public distribution are not claimed unless an accepted release packet proves otherwise. | Any public or production claim without source, test, verifier, release note, and rollback evidence is blocked. |
 | No model/provider output as authority | Model, provider, OpenWebUI, runtime, memory, and preview outputs may inform review but cannot authorize work. | Any copy that treats output as approval, truth authority, or execution authority is blocked. |
+| No provider catalog authority drift | Provider setup and pricing guidance must say it is reviewed static metadata only. Provider guidance is not credential enrollment, pricing guidance is not billing authority, provider docs links are not runtime fetches, and catalog visibility is not callable runtime authority. | Any copy implying key capture, key storage, provider validation, provider connection, model invocation, automatic pricing refresh, billing authority, or provider output authority from the catalog is blocked. |
 | No memory-derived execution claims | Memory review, L1/L2/L3 indexes, context packs, and Phase 6 execution-hook contracts must be described as recall, inspection, proposal, or blocked proof surfaces only. | Any copy implying memory/context packs execute actions or that Phase 6 hooks are shipped/available is blocked. |
 | No memory workbench authority drift | FCC-MEM-001 workbench, search, lifecycle receipts, and manual intake must be described as safe-ref review/read-model behavior. Manual intake creates candidates only; defer, merge, supersede, and forget-request are posture/receipt states only. | Any copy implying delete/export execution, semantic/vector search, hidden context injection, connector writes, CRM/account sync, or production authority from the workbench is blocked. |
 | No model lifecycle completion words without backend receipts | Words such as loaded, running, switched, and updated identity require backend receipt/evidence refs from Python Agent Core. Without those refs, use planned, blocked, unknown, or status-only language. | Any Control Center or OpenWebUI copy that treats React state, `/v1/models`, logs, or model output as proof of local model lifecycle completion is blocked. |
@@ -69,8 +79,13 @@ when they match the implementation and evidence:
 - review only
 - local UI state only
 - mock only
+- mock_only
+- fixture_only
+- read_only
+- proposal_only
 - partial
 - blocked
+- implemented
 - pending evidence
 - skipped prerequisite
 - not scoped
@@ -84,6 +99,11 @@ Completion words are allowed only when the implementation produced accepted
 durable evidence for the exact work described. A route returning a preview,
 validation decision, local UI state change, mock fallback, or skipped
 prerequisite is never completion evidence.
+
+CRM and Communications state words with underscores are schema-facing aliases
+for the same operator truth. Drafts are not sends. Calendar proposals are not
+calendar writes. Identity match candidates are review candidates, not silent
+merges. Derived contacts are review candidates, not silent contact creation.
 
 ## UI Requirements
 

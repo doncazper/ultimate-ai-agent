@@ -3,11 +3,15 @@ import type {
   MacOSSetupAssistantStep,
   MacOSSetupApprovalEnvelope,
   MacOSSetupModelRecommendation,
+  ProviderCatalog,
 } from "../api/types";
+import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
 
 export function MacOSSetupAssistantPanel({
+  providerCatalog,
   setup,
 }: {
+  providerCatalog: ProviderCatalog;
   setup: MacOSSetupAssistantData;
 }) {
   const prerequisiteRefs = uniqueRefs(
@@ -36,6 +40,8 @@ export function MacOSSetupAssistantPanel({
         approval envelopes, receipts, and rollback refs without running
         installer actions.
       </p>
+
+      <ProviderCatalogPanel catalog={providerCatalog} mode="setup" />
 
       <div className="setup-summary-grid">
         <SetupFlag label="macOS first" value={setup.macosFirst} />

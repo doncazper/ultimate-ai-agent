@@ -3851,6 +3851,164 @@ export interface ProviderCredentialReadinessSummary {
   future_gate: string;
 }
 
+export interface ProviderSourceRef {
+  source_ref: string;
+  source_kind:
+    | "setup"
+    | "api_docs"
+    | "pricing"
+    | "billing"
+    | "tokens"
+    | "models"
+    | "rate_limits"
+    | "cost_context";
+  label: string;
+  url: string;
+  last_verified_at: string;
+  reviewed_static_metadata: boolean;
+  runtime_fetch_performed: boolean;
+  provider_call_performed: boolean;
+  not_authority: boolean;
+}
+
+export interface BudgetPosture {
+  budget_posture_ref: string;
+  state: "approval_required_for_paid_or_unknown_cost";
+  unknown_paid_cost_requires_explicit_approval: boolean;
+  estimated_cost_above_budget_blocks_use: boolean;
+  provider_model_refs_required: boolean;
+  cost_estimate_ref_required: boolean;
+  budget_decision_ref_required: boolean;
+  receipt_ref_required: boolean;
+  max_approved_usd_required: boolean;
+  cost_governor_binding_required: boolean;
+  provider_use_authority_granted: boolean;
+  safe_summary: string;
+}
+
+export interface ProviderAuthorityPosture {
+  authority_ref: string;
+  authority_state: string;
+  credential_input_enabled: boolean;
+  raw_key_storage_enabled: boolean;
+  vault_storage_enabled: boolean;
+  credential_validation_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  runtime_network_call_enabled: boolean;
+  model_invocation_enabled: boolean;
+  automatic_pricing_refresh_enabled: boolean;
+  provider_response_persistence_enabled: boolean;
+  provider_output_authority_enabled: boolean;
+  provider_configuration_enabled: boolean;
+  catalog_visibility_grants_authority: boolean;
+  billing_authority_claimed: boolean;
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export interface ProviderKeyInstruction {
+  instruction_ref: string;
+  provider_ref: string;
+  env_var_styles: string[];
+  requires_api_key: boolean;
+  setup_source_ref: string;
+  api_docs_source_ref: string;
+  safe_summary: string;
+  credential_input_enabled: boolean;
+  raw_key_storage_enabled: boolean;
+  vault_storage_enabled: boolean;
+  credential_validation_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  credential_material_included: boolean;
+}
+
+export interface ProviderCostProfile {
+  cost_profile_ref: string;
+  provider_ref: string;
+  billing_prerequisite: string;
+  cost_units: string[];
+  token_cost_notes: string[];
+  pricing_source_ref: string;
+  pricing_may_change: boolean;
+  not_billing_authority: boolean;
+  reviewed_static_metadata: boolean;
+  live_price_amounts_included: boolean;
+  automatic_pricing_fetch_enabled: boolean;
+  runtime_cost_estimate_enabled: boolean;
+  billing_account_authority_enabled: boolean;
+  synthetic_examples_only: boolean;
+}
+
+export interface ProviderSetupCard {
+  provider_ref: string;
+  provider_manifest_ref: string;
+  provider_label: string;
+  provider_class:
+    | "direct_model_provider"
+    | "router_or_platform"
+    | "cloud_or_enterprise_channel"
+    | "local_or_open_model_family";
+  authority_state: string;
+  setup_step_ref: string;
+  setup_link: string;
+  api_docs_link: string;
+  pricing_link: string;
+  env_var_styles: string[];
+  billing_prerequisite: string;
+  token_cost_notes: string[];
+  source_refs: ProviderSourceRef[];
+  key_instruction: ProviderKeyInstruction;
+  cost_profile: ProviderCostProfile;
+  authority_posture: ProviderAuthorityPosture;
+  last_verified_at: string;
+  pricing_may_change: boolean;
+  not_billing_authority: boolean;
+  guidance_only: boolean;
+  credential_input_enabled: boolean;
+  raw_key_storage_enabled: boolean;
+  credential_validation_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  model_invocation_enabled: boolean;
+  automatic_pricing_refresh_enabled: boolean;
+  provider_output_authority_enabled: boolean;
+}
+
+export interface TokenCostExample {
+  example_ref: string;
+  label: string;
+  scenario: string;
+  metered_unit_notes: string[];
+  required_budget_refs: string[];
+  estimated_cost_usd?: number | null;
+  max_approved_usd?: number | null;
+  unknown_paid_cost_requires_explicit_approval: boolean;
+  safe_summary: string;
+  no_live_price_quote: boolean;
+  no_provider_call: boolean;
+}
+
+export interface ProviderCatalog {
+  catalog_ref: string;
+  last_verified_at: string;
+  provider_cards: ProviderSetupCard[];
+  token_cost_examples: TokenCostExample[];
+  budget_posture: BudgetPosture;
+  blocked_authorities: string[];
+  product_language_rules: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  redactions_applied: string[];
+  no_credential_input: boolean;
+  no_raw_key_storage: boolean;
+  no_provider_validation: boolean;
+  no_provider_sdk_calls: boolean;
+  no_model_invocation: boolean;
+  no_runtime_web_fetching: boolean;
+  no_automatic_pricing_fetch: boolean;
+  no_provider_output_authority: boolean;
+  catalog_visibility_grants_authority: boolean;
+}
+
 export interface OperatorLoopStepSummary {
   step_id: string;
   label: string;
@@ -4729,6 +4887,7 @@ export interface ControlCenterData {
   m36FileReview: M36FileReviewData;
   m39ContextProposals: M39ContextProposalData;
   macosSetupAssistant: MacOSSetupAssistantData;
+  providerCatalog: ProviderCatalog;
   settingsStatus: ControlCenterSettingsStatus;
   localModelsStatus: ControlCenterLocalModelsStatus;
   founderToday: FounderLoopTodaySummary;

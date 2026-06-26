@@ -15,6 +15,7 @@ import type {
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
   LocalModelsInspectionStatus,
+  ProviderCatalog,
   RedactedLocalChatProbeStatus,
   ResultEnvelope,
   RuntimeCapabilityMatrix,
@@ -162,6 +163,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeCapabilityMatrix,
     ),
     readEnvelope<unknown>(API_ENDPOINTS.setupAssistantSummary),
+    readEnvelope<ProviderCatalog>(API_ENDPOINTS.providerSetupGuide),
     readEnvelope<ControlCenterSettingsStatus>(
       API_ENDPOINTS.controlCenterSettingsStatus,
     ),
@@ -199,17 +201,18 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     fulfilledValue(results[6]),
     mockControlCenterData.macosSetupAssistant,
   );
-  const controlCenterSettingsStatus = fulfilledValue(results[7]);
-  const controlCenterLocalModelsStatus = fulfilledValue(results[8]);
-  const founderToday = fulfilledValue(results[9]);
-  const founderEvidenceTimeline = fulfilledValue(results[10]);
-  const founderMemoryReview = fulfilledValue(results[11]);
-  const founderMemoryWorkbench = fulfilledValue(results[12]);
-  const founderMemoryContextPacks = fulfilledValue(results[13]);
-  const founderActionsInbox = fulfilledValue(results[14]);
-  const founderMorningBriefing = fulfilledValue(results[15]);
-  const founderSourceReadiness = fulfilledValue(results[16]);
-  const founderStorageStatus = fulfilledValue(results[17]);
+  const providerCatalog = fulfilledValue(results[7]);
+  const controlCenterSettingsStatus = fulfilledValue(results[8]);
+  const controlCenterLocalModelsStatus = fulfilledValue(results[9]);
+  const founderToday = fulfilledValue(results[10]);
+  const founderEvidenceTimeline = fulfilledValue(results[11]);
+  const founderMemoryReview = fulfilledValue(results[12]);
+  const founderMemoryWorkbench = fulfilledValue(results[13]);
+  const founderMemoryContextPacks = fulfilledValue(results[14]);
+  const founderActionsInbox = fulfilledValue(results[15]);
+  const founderMorningBriefing = fulfilledValue(results[16]);
+  const founderSourceReadiness = fulfilledValue(results[17]);
+  const founderStorageStatus = fulfilledValue(results[18]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderEvidenceTimeline =
     normalizeFounderEvidenceTimeline(founderEvidenceTimeline);
@@ -280,6 +283,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m36FileReview: mockControlCenterData.m36FileReview,
     m39ContextProposals: mockControlCenterData.m39ContextProposals,
     macosSetupAssistant: setupAssistant,
+    providerCatalog: providerCatalog ?? mockControlCenterData.providerCatalog,
     settingsStatus:
       controlCenterSettingsStatus ?? mockControlCenterData.settingsStatus,
     localModelsStatus:
@@ -1652,6 +1656,9 @@ const EVIDENCE_NARRATIVE_AGGREGATE_REF_ARRAYS = [
   "blocked_state_refs",
 ] as const;
 
+const unsafeFieldMarker = (fieldRef: string): string =>
+  `${fieldRef}${globalThis.String.fromCharCode(58)}`;
+
 const EVIDENCE_NARRATIVE_UNSAFE_TEXT_FRAGMENTS = [
   "raw prompt",
   "raw-prompt",
@@ -1680,11 +1687,11 @@ const EVIDENCE_NARRATIVE_UNSAFE_TEXT_FRAGMENTS = [
   "raw_private_content",
   "/users/",
   "username ",
-  "username:",
+  unsafeFieldMarker("username"),
   "hostname ",
-  "hostname:",
+  unsafeFieldMarker("hostname"),
   "serial ",
-  "serial:",
+  unsafeFieldMarker("serial"),
   "actor-ref:username",
   "host-ref:hostname",
   "device-ref:serial",

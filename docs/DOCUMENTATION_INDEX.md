@@ -15,8 +15,8 @@ blocked, planned, and future-scoped states distinct.
 | Area | Canonical entry |
 |---|---|
 | GitHub landing page | `README.md` |
-| Portfolio demo path | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/CRM_NORTH_STAR.md`, `docs/portfolio/SCREENSHOTS.md`, `docs/portfolio/GOLDEN_PATH_DEMO.md`, `docs/portfolio/CASE_STUDY.md` |
-| Portfolio review | `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/CRM_NORTH_STAR.md`, `docs/portfolio/CASE_STUDY.md` |
+| Portfolio demo path | `README.md`, `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/SCREENSHOTS.md`, `docs/portfolio/GOLDEN_PATH_DEMO.md`, `docs/portfolio/CASE_STUDY.md` |
+| Portfolio review | `docs/portfolio/CURRENT_STATUS.md`, `docs/portfolio/PRODUCT_NORTH_STAR.md`, `docs/portfolio/CASE_STUDY.md` |
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and release convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
@@ -31,8 +31,10 @@ blocked, planned, and future-scoped states distinct.
 | Product Loop 010 Evidence Timeline narrative | `docs/control_center/PRODUCT_LOOP_010_EVIDENCE_TIMELINE_NARRATIVE.md`, `src/ultimate_ai_agent/core/storage/founder_loop.py`, `scripts/inspect_evidence_timeline_narrative.py`, `scripts/verify_product_loop_010_evidence_timeline_narrative.py` |
 | Product Loop 011 Settings and kill-switch clarity | `docs/control_center/PRODUCT_LOOP_011_SETTINGS_KILL_SWITCH_CLARITY.md`, `src/ultimate_ai_agent/core/control_center/operational_status.py`, `scripts/inspect_settings_authority_posture.py`, `scripts/verify_product_loop_011_settings_kill_switch_clarity.py` |
 | Product Loop 012 Private product loop trial script | `docs/control_center/PRODUCT_LOOP_012_PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT.md`, `src/ultimate_ai_agent/core/readiness/private_operator_trial.py`, `docs/control_center/private_product_loop_trial_script_v1.json`, `scripts/inspect_product_loop_trial_script.py`, `scripts/verify_product_loop_012_private_trial_script.py` |
+| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `tests/test_provider_catalog_cost_literacy.py` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center product narrative and strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/founder_loop_api_perimeter_manifest.json`, `docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`, `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`, `docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md`, `docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`, `docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`, `docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`, `docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`, `docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md`, `docs/macos/private_operator_14_day_dogfood_harness_v1.json`, `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`, `docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md`, `docs/control_center/visual_regression_manifest.json`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`, `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`, `docs/control_center/FCC_LOOP_002_FOUNDER_LOOP_ERGONOMICS_PASS.md`, `docs/control_center/PRODUCT_LOOP_004_FOLLOW_UP_TRACKER.md`, `docs/control_center/PRODUCT_LOOP_005_ACTION_INBOX_DECISION_LANES.md`, `docs/control_center/PRODUCT_LOOP_009_CHAT_TO_LOOP_HANDOFF.md`, `docs/control_center/PRODUCT_LOOP_010_EVIDENCE_TIMELINE_NARRATIVE.md`, `docs/control_center/PRODUCT_LOOP_011_SETTINGS_KILL_SWITCH_CLARITY.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`, `docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md`, `docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md`, `docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md` |
+| CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py`, `tests/test_crm_communications_spine_contracts.py` |
 | Operational maturity and authority ramp | `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md` |
@@ -56,6 +58,27 @@ visibility in this index.
 Product Loop 011 Settings and kill-switch clarity is backend-owned read-only posture with blocked/degraded/partial labels only: no toggles that grant authority, no provider configuration, no installer behavior, no runtime activation, no feature-flag writes, no kill-switch execution, no revocation execution, no connector runtime, no connector writes, no model calls, no provider SDK calls, no live web, no shell/browser execution, no public beta, no production readiness claims, and no production authority.
 
 Product Loop 012 Private product loop trial script is a local/private, safe-ref-only manual operator review artifact for Boot, Today, Morning Briefing, Follow-Ups, Memory, Actions, Plans, Chat Handoff, Evidence, Weekly Review, and Settings. `scripts/inspect_product_loop_trial_script.py` provides CLI parity for the same checklist and acceptance ledger posture. It adds no public beta, no public distribution, no telemetry export, no connector runtime, no connector reads/writes, no provider/model calls, no live web, no shell/browser execution, no production readiness claims, and no production authority.
+
+CRM + Communications Spine M0 is contract-only product-line truth in
+`docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, backed by
+`src/ultimate_ai_agent/core/crm/contracts.py`,
+`scripts/verify_crm_communications_spine_m0.py`, and
+`tests/test_crm_communications_spine_contracts.py`. It defines safe-ref
+contract nouns and fixture/proposal posture for future CRM and Communications
+work while adding no /crm UI, no backend endpoints, no connector runtime, no
+connector writes, no sends, no calendar writes, no silent merges, no silent
+contact creation, no provider/model calls, no live web, no browser runtime, no
+public beta, and no production authority.
+
+Provider Catalog + Cost Literacy is backend-owned read-only metadata in
+`docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, backed by
+`src/ultimate_ai_agent/core/providers/catalog.py`,
+`GET /control-center/providers/setup-guide`,
+`scripts/inspect_provider_setup_guide.py`, and
+`scripts/verify_provider_catalog_cost_literacy.py`. It adds no credential
+input, no key storage, no provider validation, no provider SDK calls, no model
+invocation, no automatic pricing fetch, no billing authority, no provider
+output authority, and no callable runtime authority.
 
 ## Founder Command Center / Product Strategy
 
@@ -258,7 +281,6 @@ VERSION.md
 SECURITY.md
 docs/portfolio/CURRENT_STATUS.md
 docs/portfolio/PRODUCT_NORTH_STAR.md
-docs/portfolio/CRM_NORTH_STAR.md
 docs/portfolio/SCREENSHOTS.md
 docs/portfolio/GOLDEN_PATH_DEMO.md
 docs/portfolio/CASE_STUDY.md

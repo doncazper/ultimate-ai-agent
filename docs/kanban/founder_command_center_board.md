@@ -367,6 +367,18 @@ and explicit "why shown" explanations. Milestone truth is recorded in
 model-output authority, CRM/account sync, connector writes, external CRM
 updates, or action execution.
 
+**CRM + Communications Spine M0 Bridge:** The broader CRM product-line
+contract now lives in `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`,
+`src/ultimate_ai_agent/core/crm/contracts.py`, and
+`scripts/verify_crm_communications_spine_m0.py`. It preserves the locked
+Global Identity -> Workspace Context -> Pipeline Object -> Communications
+Spine -> Work Queue / Proposal -> Action Inbox / Evidence / Memory shape and
+links source readiness plus professional memory to future CRM/Communications
+milestones. This bridge adds no /crm UI, no backend endpoints, no connector
+runtime, no connector writes, no sends, no calendar writes, no account sync, no
+silent merges, no silent contact creation, no provider/model calls, no live web,
+no browser runtime, no public beta, and no production authority.
+
 #### Phase 7 - `FCC-REVIEW-001` Evidence Narrative And Weekly CEO Review
 
 **Intent:** Make Evidence read like history and close the professional loop

@@ -4201,6 +4201,15 @@ describe("Web Control Center shell", () => {
         name: /enable web|configure provider|connect connector|inject context|install|start|stop|connect|provider call|model call|browser action|shell action/i,
       }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Provider Guidance/i })).toBeInTheDocument();
+    expect(screen.getByText("provider-catalog:cost-literacy:mock-fallback")).toBeInTheDocument();
+    expect(screen.getAllByText(/UNKNOWN_PAID_COST_REQUIRES_EXPLICIT_APPROVAL/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/OpenAI API/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/OPENAI_ENV_STYLE_REF/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("textbox", { name: /api key|secret|token/i }),
+    ).not.toBeInTheDocument();
 
     settingsView.unmount();
     cleanup();
@@ -4222,6 +4231,13 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("model_download")).toBeInTheDocument();
     expect(screen.getByText("provider_model_authority")).toBeInTheDocument();
     expect(screen.getByText("runtime_adapter_execution")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider Cost Literacy/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Quick chat")).toBeInTheDocument();
+    expect(screen.getByText("CRM briefing")).toBeInTheDocument();
+    expect(screen.getByText("Long document review")).toBeInTheDocument();
+    expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: /download|switch|start|stop|execute/i }),
     ).not.toBeInTheDocument();
@@ -4368,6 +4384,20 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /macOS Setup Assistant/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Visual setup preview/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Provider Catalog/i })).toBeInTheDocument();
+    expect(screen.getByText(/Provider account guidance/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Setup docs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/API docs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Secret entry controls/i).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("textbox", { name: /api key|secret|token/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /save key|connect provider|test provider|call provider|invoke provider/i,
+      }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Local prerequisites/i })).toBeInTheDocument();
     expect(screen.getByText(/existing local status routes only/i)).toBeInTheDocument();
     expect(screen.getAllByText("/runtime/readiness").length).toBeGreaterThan(0);
@@ -6845,6 +6875,7 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.controlCenterLocalModelsStatus),
     ).toBe(true);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.providerSetupGuide)).toBe(true);
     expect(isAllowedReadEndpoint("/control-center/actions/execute")).toBe(
       false,
     );
@@ -6875,6 +6906,7 @@ function envelopeForReadEndpoint(url: string) {
       baseline_version: "0.20.1",
     },
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
+    [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.controlCenterSettingsStatus]:
       mockControlCenterData.settingsStatus,
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:

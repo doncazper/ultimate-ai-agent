@@ -32,6 +32,20 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
+CRM + Communications Spine M0 is now a contract-only product-line foundation in
+`docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md` and
+`src/ultimate_ai_agent/core/crm/contracts.py`, with
+`scripts/verify_crm_communications_spine_m0.py` guard coverage. It adds no /crm
+UI, no backend endpoints, no connector runtime, no connector writes, no sends,
+no calendar writes, no silent merges, no silent contact creation, no
+provider/model calls, no live web, no browser runtime, no public beta, and no
+production authority.
+Provider Catalog + Cost Literacy now adds a backend-owned read-only setup guide
+at `GET /control-center/providers/setup-guide`, with typed catalog contracts,
+CLI inspection, route manifest coverage, and cost/budget posture language. It
+adds no credential input, no key storage, no provider validation, no provider
+SDK calls, no model invocation, no automatic pricing fetch, no billing
+authority, no provider output authority, and no callable runtime authority.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
@@ -224,6 +238,21 @@ until a separate milestone grants explicit approval, receipt, rollback,
 safe-disable, redaction, citation validation, and Evidence proof.
 Subagents: required. Use an independent repo-evidence reviewer and a
 safety/product-language reviewer before final hardening.
+
+CRM + Communications Spine M0
+Goal: lock the Global Identity -> Workspace Context -> Pipeline Object ->
+Communications Spine -> Work Queue / Proposal -> Action Inbox / Evidence /
+Memory architecture as typed safe-ref contracts and product language before
+adding any CRM shell or communications runtime.
+Scope: contract-only M0 in `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`,
+`src/ultimate_ai_agent/core/crm/contracts.py`,
+`scripts/verify_crm_communications_spine_m0.py`, and focused tests. No /crm UI,
+no backend endpoints, no connector runtime, no connector writes, no sends, no
+calendar writes, no silent merges, no silent contact creation, no
+provider/model calls, no live web, no browser runtime, no public beta, or
+production authority is authorized.
+Next: only after this contract is accepted, shape M1 as a deterministic
+fixture-only CRM shell milestone with route/status/product-language proof.
 
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and

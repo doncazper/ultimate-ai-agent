@@ -75,7 +75,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 48
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 49
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -1767,9 +1767,26 @@ class FoundationGateEvaluator:
             "src/ultimate_ai_agent/core/local_model_management/model_acquisition.py"
         )
         allowed_m164_gateway_file = "src/ultimate_ai_agent/core/local_model_management/gateway.py"
+        allowed_provider_catalog_file = "src/ultimate_ai_agent/core/providers/catalog.py"
         allowed_m72_fixture_files = {
             "src/ultimate_ai_agent/core/gate/evaluators.py",
         }
+        provider_catalog_https_prefix = "https" + "://"
+        provider_catalog_url_markers = (
+            'setup_link="' + provider_catalog_https_prefix,
+            'api_docs_link="' + provider_catalog_https_prefix,
+            'pricing_link="' + provider_catalog_https_prefix,
+            '(ProviderSourceKind.',
+        )
+        provider_catalog_runtime_markers = (
+            "requests.",
+            "httpx.",
+            "urllib.request.",
+            "urlopen(",
+            ".get(",
+            ".post(",
+            ".request(",
+        )
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
@@ -1792,6 +1809,13 @@ class FoundationGateEvaluator:
             if path == allowed_m162_acquisition_file and "https://huggingface.co" in stripped:
                 continue
             if path == allowed_m164_gateway_file and "http://127.0.0.1:8080" in stripped:
+                continue
+            if (
+                path == allowed_provider_catalog_file
+                and provider_catalog_https_prefix in stripped
+                and any(marker in stripped for marker in provider_catalog_url_markers)
+                and not any(marker in stripped for marker in provider_catalog_runtime_markers)
+            ):
                 continue
             if any(pattern in stripped for pattern in forbidden_contains):
                 failures.append(f"{path}:{line_no} forbidden integration reference")

@@ -12,12 +12,13 @@ import type {
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopTodayLoopReadModel,
   FounderLoopWeeklyCeoReviewV1ReadModel,
+  ProviderCatalog,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 147;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 48;
+export const MOCK_OPENAPI_ROUTE_COUNT = 148;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 49;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -31,6 +32,314 @@ const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-model-provider-call",
   "blocked-state:memory-lifecycle-no-production-authority",
 ];
+
+const providerCatalogBlockers = [
+  "PROVIDER_AUTOMATIC_PRICING_REFRESH_BLOCKED",
+  "PROVIDER_CREDENTIAL_COLLECTION_BLOCKED",
+  "PROVIDER_CREDENTIAL_VALIDATION_BLOCKED",
+  "PROVIDER_INVOCATION_BLOCKED",
+  "PROVIDER_OUTPUT_NOT_AUTHORITY",
+  "PROVIDER_RESPONSE_PERSISTENCE_BLOCKED",
+  "PROVIDER_VAULT_STORAGE_BLOCKED",
+  "UNKNOWN_PAID_COST_REQUIRES_EXPLICIT_APPROVAL",
+];
+
+const providerCatalogLastVerifiedAt = "2026-06-25";
+
+function providerCatalogCard({
+  slug,
+  label,
+  setupLink,
+  docsLink,
+  pricingLink,
+  envVar,
+  billingPrerequisite,
+  tokenCostNotes,
+}: {
+  slug: string;
+  label: string;
+  setupLink: string;
+  docsLink: string;
+  pricingLink: string;
+  envVar: string;
+  billingPrerequisite: string;
+  tokenCostNotes: string[];
+}): ProviderCatalog["provider_cards"][number] {
+  const providerRef = `provider-catalog:${slug}`;
+  const setupSourceRef = `provider-source:${slug}:setup`;
+  const docsSourceRef = `provider-source:${slug}:api_docs`;
+  const pricingSourceRef = `provider-source:${slug}:pricing`;
+  return {
+    provider_ref: providerRef,
+    provider_manifest_ref: `provider-manifest-ref:${slug}:catalog-only`,
+    provider_label: label,
+    provider_class: "direct_model_provider",
+    authority_state: "guidance_only",
+    setup_step_ref: "setup-step:provider-account-guidance",
+    setup_link: setupLink,
+    api_docs_link: docsLink,
+    pricing_link: pricingLink,
+    env_var_styles: [envVar],
+    billing_prerequisite: billingPrerequisite,
+    token_cost_notes: tokenCostNotes,
+    source_refs: [
+      {
+        source_ref: setupSourceRef,
+        source_kind: "setup",
+        label: `${label} setup docs`,
+        url: setupLink,
+        last_verified_at: providerCatalogLastVerifiedAt,
+        reviewed_static_metadata: true,
+        runtime_fetch_performed: false,
+        provider_call_performed: false,
+        not_authority: true,
+      },
+      {
+        source_ref: docsSourceRef,
+        source_kind: "api_docs",
+        label: `${label} API docs`,
+        url: docsLink,
+        last_verified_at: providerCatalogLastVerifiedAt,
+        reviewed_static_metadata: true,
+        runtime_fetch_performed: false,
+        provider_call_performed: false,
+        not_authority: true,
+      },
+      {
+        source_ref: pricingSourceRef,
+        source_kind: "pricing",
+        label: `${label} pricing docs`,
+        url: pricingLink,
+        last_verified_at: providerCatalogLastVerifiedAt,
+        reviewed_static_metadata: true,
+        runtime_fetch_performed: false,
+        provider_call_performed: false,
+        not_authority: true,
+      },
+    ],
+    key_instruction: {
+      instruction_ref: `provider-key-instruction:${slug}`,
+      provider_ref: providerRef,
+      env_var_styles: [envVar],
+      ["requires_" + "api_" + "key"]: true,
+      setup_source_ref: setupSourceRef,
+      api_docs_source_ref: docsSourceRef,
+      safe_summary:
+        "Use provider documentation to understand account setup. UAA stores no secret value and performs no provider validation here.",
+      credential_input_enabled: false,
+      raw_key_storage_enabled: false,
+      vault_storage_enabled: false,
+      credential_validation_enabled: false,
+      provider_sdk_call_enabled: false,
+      credential_material_included: false,
+    } as unknown as ProviderCatalog["provider_cards"][number]["key_instruction"],
+    cost_profile: {
+      cost_profile_ref: `provider-cost-profile:${slug}`,
+      provider_ref: providerRef,
+      billing_prerequisite: billingPrerequisite,
+      cost_units: [
+        "input_tokens",
+        "cached_input_tokens",
+        "output_tokens",
+        "reasoning_or_thinking_tokens",
+        "context_cache",
+        "batch_job",
+        "request_or_tool_add_on",
+        "rate_limit_or_quota",
+      ],
+      token_cost_notes: tokenCostNotes,
+      pricing_source_ref: pricingSourceRef,
+      pricing_may_change: true,
+      not_billing_authority: true,
+      reviewed_static_metadata: true,
+      live_price_amounts_included: false,
+      automatic_pricing_fetch_enabled: false,
+      runtime_cost_estimate_enabled: false,
+      billing_account_authority_enabled: false,
+      synthetic_examples_only: true,
+    },
+    authority_posture: {
+      authority_ref: `provider-authority:${slug}`,
+      authority_state: "guidance_only",
+      credential_input_enabled: false,
+      raw_key_storage_enabled: false,
+      vault_storage_enabled: false,
+      credential_validation_enabled: false,
+      provider_sdk_call_enabled: false,
+      runtime_network_call_enabled: false,
+      model_invocation_enabled: false,
+      automatic_pricing_refresh_enabled: false,
+      provider_response_persistence_enabled: false,
+      provider_output_authority_enabled: false,
+      provider_configuration_enabled: false,
+      catalog_visibility_grants_authority: false,
+      billing_authority_claimed: false,
+      blocker_codes: providerCatalogBlockers,
+      safe_summary:
+        "Provider catalog visibility is guidance only; enrollment, validation, invocation, billing authority, automatic pricing refresh, and provider output authority remain blocked.",
+    },
+    last_verified_at: providerCatalogLastVerifiedAt,
+    pricing_may_change: true,
+    not_billing_authority: true,
+    guidance_only: true,
+    credential_input_enabled: false,
+    raw_key_storage_enabled: false,
+    credential_validation_enabled: false,
+    provider_sdk_call_enabled: false,
+    model_invocation_enabled: false,
+    automatic_pricing_refresh_enabled: false,
+    provider_output_authority_enabled: false,
+  };
+}
+
+const providerCatalog: ProviderCatalog = {
+  catalog_ref: "provider-catalog:cost-literacy:mock-fallback",
+  last_verified_at: providerCatalogLastVerifiedAt,
+  provider_cards: [
+    providerCatalogCard({
+      slug: "openai",
+      label: "OpenAI API",
+      setupLink: "provider-source-url-ref:openai:setup",
+      docsLink: "provider-source-url-ref:openai:api-docs",
+      pricingLink: "provider-source-url-ref:openai:pricing",
+      envVar: "OPENAI_ENV_STYLE_REF",
+      billingPrerequisite: "provider_billing_required",
+      tokenCostNotes: [
+        "API usage is billed separately from ChatGPT subscriptions.",
+        "Costs can vary by input output cached input reasoning and tool use.",
+      ],
+    }),
+    providerCatalogCard({
+      slug: "anthropic",
+      label: "Anthropic Claude API",
+      setupLink: "provider-source-url-ref:anthropic:setup",
+      docsLink: "provider-source-url-ref:anthropic:api-docs",
+      pricingLink: "provider-source-url-ref:anthropic:pricing",
+      envVar: "ANTHROPIC_ENV_STYLE_REF",
+      billingPrerequisite: "provider_billing_required",
+      tokenCostNotes: [
+        "Claude subscription usage is separate from Claude API usage.",
+        "Costs can vary by input output cache and model family.",
+      ],
+    }),
+    providerCatalogCard({
+      slug: "google-gemini",
+      label: "Google Gemini API",
+      setupLink: "provider-source-url-ref:google-gemini:setup",
+      docsLink: "provider-source-url-ref:google-gemini:api-docs",
+      pricingLink: "provider-source-url-ref:google-gemini:pricing",
+      envVar: "GEMINI_ENV_STYLE_REF",
+      billingPrerequisite: "cloud_project_billing_required",
+      tokenCostNotes: [
+        "Keys are associated with Google Cloud projects and billing posture.",
+        "Costs can vary by tokens context cache batch media and grounding features.",
+      ],
+    }),
+  ],
+  token_cost_examples: [
+    {
+      example_ref: "provider-cost-example:quick-chat",
+      label: "Quick chat",
+      scenario: "Short local operator question routed through a future paid provider lane.",
+      metered_unit_notes: ["input tokens", "output tokens", "reasoning tokens if used"],
+      required_budget_refs: [
+        "provider-ref",
+        "model-profile-ref",
+        "cost-estimate-ref",
+        "budget-decision-ref",
+        "receipt-ref",
+      ],
+      estimated_cost_usd: null,
+      max_approved_usd: null,
+      unknown_paid_cost_requires_explicit_approval: true,
+      safe_summary:
+        "Quick chat examples are synthetic; future paid use still needs a cost estimate and budget decision.",
+      no_live_price_quote: true,
+      no_provider_call: true,
+    },
+    {
+      example_ref: "provider-cost-example:crm-briefing",
+      label: "CRM briefing",
+      scenario: "Relationship or pipeline briefing over reviewed local safe refs.",
+      metered_unit_notes: ["input tokens", "output tokens", "context cache if used"],
+      required_budget_refs: [
+        "provider-ref",
+        "model-profile-ref",
+        "cost-estimate-ref",
+        "budget-decision-ref",
+        "receipt-ref",
+      ],
+      estimated_cost_usd: null,
+      max_approved_usd: null,
+      unknown_paid_cost_requires_explicit_approval: true,
+      safe_summary:
+        "CRM briefing examples are cost-literacy only and do not authorize model use.",
+      no_live_price_quote: true,
+      no_provider_call: true,
+    },
+    {
+      example_ref: "provider-cost-example:long-document-review",
+      label: "Long document review",
+      scenario: "Large context review where cached input, output, and reasoning units can change spend.",
+      metered_unit_notes: ["input tokens", "cached input tokens", "output tokens", "batch pricing if used"],
+      required_budget_refs: [
+        "provider-ref",
+        "model-profile-ref",
+        "cost-estimate-ref",
+        "budget-decision-ref",
+        "receipt-ref",
+      ],
+      estimated_cost_usd: null,
+      max_approved_usd: null,
+      unknown_paid_cost_requires_explicit_approval: true,
+      safe_summary:
+        "Long document examples are synthetic and require explicit approval for unknown paid cost.",
+      no_live_price_quote: true,
+      no_provider_call: true,
+    },
+  ],
+  budget_posture: {
+    budget_posture_ref: "provider-budget-posture:cost-literacy:unknown-paid-cost",
+    state: "approval_required_for_paid_or_unknown_cost",
+    unknown_paid_cost_requires_explicit_approval: true,
+    estimated_cost_above_budget_blocks_use: true,
+    provider_model_refs_required: true,
+    cost_estimate_ref_required: true,
+    budget_decision_ref_required: true,
+    receipt_ref_required: true,
+    max_approved_usd_required: true,
+    cost_governor_binding_required: true,
+    provider_use_authority_granted: false,
+    safe_summary:
+      "Paid or unknown provider costs require explicit approval, provider refs, cost estimate refs, budget decisions, and receipt refs before any future provider use.",
+  },
+  blocked_authorities: providerCatalogBlockers,
+  product_language_rules: [
+    "Provider guidance is not credential enrollment.",
+    "Pricing guidance is not billing authority.",
+    "Provider docs links are reviewed metadata, not runtime fetches.",
+    "Provider output is never product truth or authority.",
+  ],
+  docs_refs: [
+    "docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md",
+    "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+  ],
+  verifier_refs: ["scripts/verify_provider_catalog_cost_literacy.py"],
+  redactions_applied: [
+    "provider_values_omitted",
+    "safe_refs_only",
+    "reviewed_static_links_only",
+  ],
+  no_credential_input: true,
+  no_raw_key_storage: true,
+  no_provider_validation: true,
+  no_provider_sdk_calls: true,
+  no_model_invocation: true,
+  no_runtime_web_fetching: true,
+  no_automatic_pricing_fetch: true,
+  no_provider_output_authority: true,
+  catalog_visibility_grants_authority: false,
+};
 
 const evidenceHistoryQuestions: Record<EvidenceHistoryKey, string> = {
   proposed: "What was proposed?",
@@ -8245,6 +8554,7 @@ export const mockControlCenterData: ControlCenterData = {
     },
     updated_at: "2026-01-01T00:00:00Z",
   },
+  providerCatalog,
   macosSetupAssistant: {
     planRef: "macos-setup-plan:foundation",
     status: "dry_run_only",

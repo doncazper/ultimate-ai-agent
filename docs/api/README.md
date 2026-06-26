@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `147`, generated from the FastAPI application and
+Current OpenAPI path count: `148`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -142,6 +142,10 @@ Current boundary summary:
   They do not enable unrestricted browsing, browser automation, request bodies,
   redirects, downloads, raw page/body storage, raw header storage, or hidden
   network access.
+- `GET /control-center/providers/setup-guide` exposes reviewed static provider
+  setup and cost-literacy metadata only. It does not collect credential values,
+  store keys, validate providers, call provider SDKs, invoke models, fetch live
+  pricing, or claim billing authority.
 - `/integrations/mattermost` exposes a disabled-by-default local bridge for
   Mattermost agent-room role metadata, bounded message ingress, role bindings,
   receipts, and audit summaries. It does not store raw transcripts, handle

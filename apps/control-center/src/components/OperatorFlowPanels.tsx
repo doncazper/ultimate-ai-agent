@@ -26,6 +26,7 @@ import { EmptyState } from "./DataState";
 import { EvidenceViewerPanel } from "./EvidenceFileMemoryViewerPanel";
 import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
+import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
 
 const DEFAULT_MODEL_ID = "uaa-llama-cpp-local";
 const SETTINGS_AUTHORITY_KEYS = [
@@ -568,6 +569,8 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
         summary="Local Models now display backend-owned read-only inventory and gateway posture. GGUF download, switch, start/stop, runtime adapter execution, and provider/model authority stay blocked."
       />
 
+      <ProviderCatalogPanel catalog={data.providerCatalog} mode="models" />
+
       <div className="operator-flow-grid">
         <StatusPanel
           title="Backend-owned Local Models status"
@@ -763,6 +766,8 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
         status={settingsStatus.status}
         summary="Settings show backend-owned read-only maturity, feature-flag, kill-switch, route-safety, and blocked-authority posture. Mutation controls are not exposed."
       />
+
+      <ProviderCatalogPanel catalog={data.providerCatalog} mode="settings" />
 
       <div className="panel-grid">
         <article className="panel">

@@ -91,6 +91,22 @@ expanded lifecycle receipts, quality grouping, `/memory` workbench UI, and CLI
 parity without memory truth authority, delete/export execution, semantic/vector
 search, connector writes, context injection, public beta, or production
 authority.
+CRM + Communications Spine M0 is a contract-only product-line foundation in
+`docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md` and
+`src/ultimate_ai_agent/core/crm/contracts.py`. It defines safe-ref nouns and
+fixture/proposal posture for future CRM and Communications work while adding
+no /crm UI, no backend endpoints, no connector runtime, no connector writes,
+no sends, no calendar writes, no silent merges, no silent contact creation, no
+provider/model calls, no live web, no browser runtime, no public beta, and no
+production authority.
+Provider Catalog + Cost Literacy is a backend-owned read-only guide in
+`docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md` and
+`src/ultimate_ai_agent/core/providers/catalog.py`, exposed through
+`GET /control-center/providers/setup-guide` and
+`scripts/inspect_provider_setup_guide.py`. It adds no credential input, no key
+storage, no provider validation, no provider SDK calls, no model invocation, no
+automatic pricing fetch, no billing authority, and no provider output
+authority.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -112,6 +128,8 @@ product-truth ledgers.
 | Product story and current repository truth | `README.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
+| CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py` |
+| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/verify_provider_catalog_cost_literacy.py` |
 | Memory Workbench V1 and Ranked Retrieval / Recall Tuning | `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_022_RANKED_RETRIEVAL_RECALL_TUNING.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md` |
 | Agent module maturity review | `docs/registry/agent_module_maturity_map.json`, `docs/registry/agent_module_maturity_review_v2.json`, `docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` |
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |

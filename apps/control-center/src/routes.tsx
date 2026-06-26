@@ -231,7 +231,12 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/storage":
       return <FounderLoopStoragePanel storage={data.founderStorageStatus} />;
     case "/setup":
-      return <MacOSSetupAssistantPanel setup={data.macosSetupAssistant} />;
+      return (
+        <MacOSSetupAssistantPanel
+          providerCatalog={data.providerCatalog}
+          setup={data.macosSetupAssistant}
+        />
+      );
     case "/chat":
       return <ChatOperatorPanel data={data} />;
     case "/plans":

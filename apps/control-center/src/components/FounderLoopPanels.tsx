@@ -640,7 +640,7 @@ function buildDailyLoopCommandItems(
       summary:
         today.blocker_refs[0] ??
         today.blocked_states[0] ??
-        "No hidden execution, connector write, context injection, shell, browser, provider/model, public beta, or production authority is granted.",
+        "Hidden execution, connector writes, context injection, shell, browser, provider/model use, public beta, and production authority all remain blocked.",
       whyShown:
         "Blocked states are shown to prevent proposal-only refs, memory recall, or approval identifiers from becoming authority.",
       whatThisAffects: "All Founder Loop surfaces",
