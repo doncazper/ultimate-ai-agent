@@ -79,6 +79,12 @@ class TinyProviderInvocationStatus(str, Enum):
     receipt_recorded = "receipt_recorded"
 
 
+class TinyProviderReceiptCompletenessStatus(str, Enum):
+    complete = "complete"
+    incomplete_cost_requires_review = "incomplete_cost_requires_review"
+    incomplete_usage_requires_review = "incomplete_usage_requires_review"
+
+
 class _TinyProviderInvocationModel(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
@@ -164,6 +170,20 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
     idempotency_ref_required: bool = True
     unknown_paid_cost_blocks: bool = True
     redacted_receipts_only: bool = True
+    actual_usage_ref_required: bool = True
+    actual_cost_ref_required: bool = True
+    receipt_completeness_required: bool = True
+    incomplete_cost_requires_review: bool = True
+    incomplete_cost_blocks_further_use: bool = True
+    receipt_observation_ref: str = (
+        "provider-invocation-receipt-observation-ref:tiny:no-receipt"
+    )
+    receipt_state_source: Literal["no_receipt_observed"] = "no_receipt_observed"
+    usage_captured: bool = False
+    cost_captured: bool = False
+    cost_incomplete: bool = False
+    review_required: bool = False
+    further_use_blocked: bool = False
     prompt_persistence_allowed: bool = False
     response_persistence_allowed: bool = False
     provider_exchange_persistence_allowed: bool = False
@@ -175,6 +195,11 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             "Disabled no execution",
             "Live adapter blocked",
             "Live receipt required",
+            "Usage captured",
+            "Cost captured",
+            "Cost incomplete",
+            "Review required",
+            "Further use blocked",
         ]
     )
     blocker_codes: list[str] = Field(
@@ -189,6 +214,11 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             "EXPECTED_RECEIPT_REF_REQUIRED",
             "UNKNOWN_PAID_COST_BLOCKS",
             "REDACTED_RECEIPT_REQUIRED",
+            "ACTUAL_USAGE_REF_REQUIRED",
+            "ACTUAL_COST_REF_REQUIRED",
+            "RECEIPT_COMPLETENESS_REQUIRED",
+            "INCOMPLETE_COST_REQUIRES_REVIEW",
+            "INCOMPLETE_COST_BLOCKS_FURTHER_USE",
             "LIVE_ADAPTER_DISABLED_BY_DEFAULT",
             "LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER",
         ]
@@ -214,12 +244,24 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             self.autonomous_model_call_enabled,
             self.background_execution_enabled,
             self.billing_authority_granted,
+            self.usage_captured,
+            self.cost_captured,
+            self.cost_incomplete,
+            self.review_required,
+            self.further_use_blocked,
             self.prompt_persistence_allowed,
             self.response_persistence_allowed,
             self.provider_exchange_persistence_allowed,
         ]
         if any(denied_flags):
             raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_AUTHORITY_DENIED")
+        if not _safe_ref_matches(
+            self.receipt_observation_ref,
+            ("provider-invocation-receipt-observation-ref:",),
+        ):
+            raise ValueError(
+                "TINY_PROVIDER_INVOCATION_READINESS_RECEIPT_OBSERVATION_REF_DENIED"
+            )
         required_flags = [
             self.exact_approval_required,
             self.credential_ref_required,
@@ -232,6 +274,11 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             self.idempotency_ref_required,
             self.unknown_paid_cost_blocks,
             self.redacted_receipts_only,
+            self.actual_usage_ref_required,
+            self.actual_cost_ref_required,
+            self.receipt_completeness_required,
+            self.incomplete_cost_requires_review,
+            self.incomplete_cost_blocks_further_use,
         ]
         if not all(required_flags):
             raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_GATE_DENIED")
@@ -246,6 +293,11 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             "EXPECTED_RECEIPT_REF_REQUIRED",
             "UNKNOWN_PAID_COST_BLOCKS",
             "REDACTED_RECEIPT_REQUIRED",
+            "ACTUAL_USAGE_REF_REQUIRED",
+            "ACTUAL_COST_REF_REQUIRED",
+            "RECEIPT_COMPLETENESS_REQUIRED",
+            "INCOMPLETE_COST_REQUIRES_REVIEW",
+            "INCOMPLETE_COST_BLOCKS_FURTHER_USE",
             "LIVE_ADAPTER_DISABLED_BY_DEFAULT",
             "LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER",
         }
@@ -258,6 +310,11 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             "Disabled no execution",
             "Live adapter blocked",
             "Live receipt required",
+            "Usage captured",
+            "Cost captured",
+            "Cost incomplete",
+            "Review required",
+            "Further use blocked",
         }
         if set(self.ui_states) != required_ui_states:
             raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_UI_STATES_DENIED")
@@ -522,6 +579,9 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
     usage_receipt_ref: str
     cost_receipt_ref: str
     cost_governor_decision_ref: str
+    estimated_cost_ref: str
+    actual_usage_ref: str
+    actual_cost_ref: str
     idempotency_ref: str
     redacted_input_summary_ref: str
     redacted_output_summary_ref: str
@@ -541,6 +601,11 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
     output_tokens_used: int = Field(default=0, ge=0)
     estimated_cost_usd: float | None = Field(None, ge=0)
     billed_cost_usd: float | None = Field(None, ge=0)
+    actual_usage_captured: bool
+    actual_cost_captured: bool
+    receipt_completeness_status: TinyProviderReceiptCompletenessStatus
+    incomplete_cost_requires_review: bool
+    further_provider_use_blocked: bool
     reason_codes: list[str] = Field(default_factory=list)
     safe_summary: str = Field(..., min_length=1)
     created_at: str = Field(
@@ -571,6 +636,9 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
                 "usage_receipt_ref": self.usage_receipt_ref,
                 "cost_receipt_ref": self.cost_receipt_ref,
                 "cost_governor_decision_ref": self.cost_governor_decision_ref,
+                "estimated_cost_ref": self.estimated_cost_ref,
+                "actual_usage_ref": self.actual_usage_ref,
+                "actual_cost_ref": self.actual_cost_ref,
                 "idempotency_ref": self.idempotency_ref,
                 "redacted_input_summary_ref": self.redacted_input_summary_ref,
                 "redacted_output_summary_ref": self.redacted_output_summary_ref,
@@ -593,6 +661,9 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
                 "usage_receipt_ref": ("usage-receipt-ref:",),
                 "cost_receipt_ref": ("cost-receipt-ref:",),
                 "cost_governor_decision_ref": ("cost_", "cost-decision-ref:"),
+                "estimated_cost_ref": ("cost-estimate-ref:", "estimated-cost-ref:"),
+                "actual_usage_ref": ("actual-usage-ref:",),
+                "actual_cost_ref": ("actual-cost-ref:",),
                 "idempotency_ref": ("idempotency:", "idempotency-ref:"),
                 "redacted_input_summary_ref": ("redacted-input-summary-ref:",),
                 "redacted_output_summary_ref": ("redacted-output-summary-ref:",),
@@ -622,6 +693,34 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
             raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_EXECUTION_STATUS_MISMATCH")
         if self.expected_receipt_ref != self.receipt_ref:
             raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_EXPECTED_REF_MISMATCH")
+        if self.estimated_cost_ref != self.cost_estimate_ref:
+            raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_ESTIMATE_REF_MISMATCH")
+        if self.status == TinyProviderInvocationStatus.receipt_recorded:
+            if self.receipt_completeness_status != TinyProviderReceiptCompletenessStatus.complete:
+                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_COMPLETENESS_REQUIRED")
+            if self.incomplete_cost_requires_review or self.further_provider_use_blocked:
+                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_REVIEW_BLOCK_DENIED")
+        if self.receipt_completeness_status == TinyProviderReceiptCompletenessStatus.complete:
+            if not self.actual_usage_captured or not self.actual_cost_captured:
+                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_ACTUAL_REFS_REQUIRED")
+            if self.incomplete_cost_requires_review or self.further_provider_use_blocked:
+                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_INCOMPLETE_FLAG_DENIED")
+        if (
+            self.receipt_completeness_status
+            == TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review
+        ):
+            if self.actual_cost_captured:
+                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_COST_CAPTURE_MISMATCH")
+            if not self.incomplete_cost_requires_review or not self.further_provider_use_blocked:
+                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_COST_REVIEW_REQUIRED")
+        if (
+            self.receipt_completeness_status
+            == TinyProviderReceiptCompletenessStatus.incomplete_usage_requires_review
+        ):
+            if self.actual_usage_captured:
+                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_USAGE_CAPTURE_MISMATCH")
+            if not self.further_provider_use_blocked:
+                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_USAGE_REVIEW_REQUIRED")
         return self
 
 
@@ -728,8 +827,32 @@ class TinyProviderInvocationReceiptStore:
             for line in handle:
                 if not line.strip():
                     continue
-                receipts.append(TinyProviderInvocationReceipt.model_validate_json(line))
+                payload = json.loads(line)
+                receipts.append(
+                    TinyProviderInvocationReceipt.model_validate(
+                        _normalize_receipt_payload_for_replay(payload)
+                    )
+                )
         return receipts
+
+    def find_unreviewed_incomplete_cost_receipt(
+        self,
+    ) -> TinyProviderInvocationReceipt | None:
+        for receipt in self.list_receipts():
+            if (
+                receipt.incomplete_cost_requires_review
+                and receipt.further_provider_use_blocked
+            ):
+                return receipt
+        return None
+
+    def find_unreviewed_blocking_receipt(
+        self,
+    ) -> TinyProviderInvocationReceipt | None:
+        for receipt in self.list_receipts():
+            if receipt.further_provider_use_blocked:
+                return receipt
+        return None
 
 
 def build_tiny_provider_invocation_readiness() -> TinyProviderInvocationReadiness:
@@ -1041,6 +1164,20 @@ def evaluate_tiny_provider_invocation(
                 cost_decision=cost_decision,
                 receipt=replay_receipt,
             )
+        blocking_receipt = receipt_store.find_unreviewed_blocking_receipt()
+        if blocking_receipt is not None:
+            blocking_reason_codes = _receipt_review_block_reason_codes(blocking_receipt)
+            return _blocked_decision(
+                request,
+                status=TinyProviderInvocationStatus.cost_blocked,
+                reason_codes=blocking_reason_codes,
+                safe_message=(
+                    "Provider use is blocked because a prior redacted receipt "
+                    "has incomplete usage or actual paid cost metadata awaiting review."
+                ),
+                required_next_action="review_incomplete_provider_receipt_before_retry",
+                cost_decision=cost_decision,
+            ).model_copy(update={"receipt": blocking_receipt})
 
     if not adapter.enabled:
         return _blocked_decision(
@@ -1141,6 +1278,10 @@ def evaluate_tiny_provider_invocation(
     if transport_receipt.status == "blocked":
         blocked_receipt = None
         if transport_receipt.network_call_performed:
+            completeness = _receipt_completeness_from_transport(
+                transport_receipt,
+                status=TinyProviderInvocationStatus.live_adapter_blocked,
+            )
             blocked_receipt = _receipt_from_transport(
                 request,
                 transport_receipt,
@@ -1153,8 +1294,10 @@ def evaluate_tiny_provider_invocation(
                     "COST_GOVERNOR_ALLOWED",
                     transport_receipt.block_reason_code
                     or "LIVE_PROVIDER_ADAPTER_BLOCKED",
+                    *completeness["reason_codes"],
                     "REDACTED_BLOCKED_ATTEMPT_RECEIPT_RECORDED",
                 ],
+                completeness=completeness,
             )
             if receipt_store is not None:
                 receipt_store.record(blocked_receipt)
@@ -1177,6 +1320,53 @@ def evaluate_tiny_provider_invocation(
                 "provider adapter blocked before invocation."
             ),
             required_next_action="inspect_live_provider_adapter_posture_and_safe_disable_ref",
+            cost_decision=cost_decision,
+        ).model_copy(update={"receipt": blocked_receipt})
+    completeness = _receipt_completeness_from_transport(
+        transport_receipt,
+        status=TinyProviderInvocationStatus.cost_blocked,
+    )
+    if (
+        completeness["receipt_completeness_status"]
+        != TinyProviderReceiptCompletenessStatus.complete
+    ):
+        blocked_receipt = _receipt_from_transport(
+            request,
+            transport_receipt,
+            cost_decision=cost_decision,
+            status=TinyProviderInvocationStatus.cost_blocked,
+            invocation_performed=False,
+            reason_codes=list(
+                dict.fromkeys(
+                    [
+                        "POLICY_ENGINE_APPROVAL_GATE_VALIDATED",
+                        "EXACT_APPROVAL_VALIDATED",
+                        "COST_GOVERNOR_ALLOWED",
+                        *completeness["reason_codes"],
+                        "REDACTED_INCOMPLETE_COST_RECEIPT_RECORDED",
+                    ]
+                )
+            ),
+            completeness=completeness,
+        )
+        if receipt_store is not None:
+            receipt_store.record(blocked_receipt)
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.cost_blocked,
+            reason_codes=list(
+                dict.fromkeys(
+                    [
+                        "ACTUAL_PROVIDER_COST_INCOMPLETE",
+                        *completeness["reason_codes"],
+                    ]
+                )
+            ),
+            safe_message=(
+                "Provider use is blocked because actual paid cost metadata "
+                "was unavailable after the scoped adapter returned."
+            ),
+            required_next_action="review_incomplete_provider_cost_receipt_before_retry",
             cost_decision=cost_decision,
         ).model_copy(update={"receipt": blocked_receipt})
     actual_estimate = CostEstimate(
@@ -1202,6 +1392,10 @@ def evaluate_tiny_provider_invocation(
     if not actual_cost_decision.allowed:
         blocked_receipt = None
         if transport_receipt.network_call_performed:
+            completeness = _receipt_completeness_from_transport(
+                transport_receipt,
+                status=TinyProviderInvocationStatus.cost_blocked,
+            )
             blocked_receipt = _receipt_from_transport(
                 request,
                 transport_receipt,
@@ -1215,10 +1409,12 @@ def evaluate_tiny_provider_invocation(
                             "EXACT_APPROVAL_VALIDATED",
                             *actual_cost_decision.reason_codes,
                             "ACTUAL_USAGE_OR_COST_EXCEEDED_APPROVED_SCOPE",
+                            *completeness["reason_codes"],
                             "REDACTED_BLOCKED_ATTEMPT_RECEIPT_RECORDED",
                         ]
                     )
                 ),
+                completeness=completeness,
             )
             if receipt_store is not None:
                 receipt_store.record(blocked_receipt)
@@ -1250,6 +1446,10 @@ def evaluate_tiny_provider_invocation(
             "USAGE_AND_ESTIMATED_COST_RECONCILED",
             "REDACTED_RECEIPT_RECORDED",
         ],
+        completeness=_receipt_completeness_from_transport(
+            transport_receipt,
+            status=TinyProviderInvocationStatus.receipt_recorded,
+        ),
     )
     if receipt_store is not None:
         receipt_store.record(receipt)
@@ -1365,7 +1565,12 @@ def _receipt_from_transport(
     status: TinyProviderInvocationStatus,
     invocation_performed: bool,
     reason_codes: list[str],
+    completeness: dict[str, object] | None = None,
 ) -> TinyProviderInvocationReceipt:
+    completeness = completeness or _receipt_completeness_from_transport(
+        transport_receipt,
+        status=status,
+    )
     return TinyProviderInvocationReceipt(
         receipt_ref=request.expected_receipt_ref,
         invocation_ref=request.invocation_ref,
@@ -1383,6 +1588,9 @@ def _receipt_from_transport(
         usage_receipt_ref=transport_receipt.usage_receipt_ref,
         cost_receipt_ref=transport_receipt.cost_receipt_ref,
         cost_governor_decision_ref=cost_decision.decision_id,
+        estimated_cost_ref=request.cost_estimate_ref,
+        actual_usage_ref=_actual_usage_ref(request),
+        actual_cost_ref=_actual_cost_ref(request),
         idempotency_ref=request.idempotency_ref,
         redacted_input_summary_ref=request.redacted_input_summary_ref,
         redacted_output_summary_ref=transport_receipt.redacted_output_summary_ref,
@@ -1395,9 +1603,156 @@ def _receipt_from_transport(
         output_tokens_used=transport_receipt.output_tokens_used,
         estimated_cost_usd=request.estimated_cost_usd,
         billed_cost_usd=transport_receipt.billed_cost_usd,
+        actual_usage_captured=bool(completeness["actual_usage_captured"]),
+        actual_cost_captured=bool(completeness["actual_cost_captured"]),
+        receipt_completeness_status=completeness["receipt_completeness_status"],
+        incomplete_cost_requires_review=bool(
+            completeness["incomplete_cost_requires_review"]
+        ),
+        further_provider_use_blocked=bool(
+            completeness["further_provider_use_blocked"]
+        ),
         reason_codes=reason_codes,
         safe_summary=TINY_PROVIDER_RECEIPT_SUMMARY,
     )
+
+
+def _receipt_completeness_from_transport(
+    transport_receipt: TinyProviderInvocationTransportReceipt,
+    *,
+    status: TinyProviderInvocationStatus,
+) -> dict[str, object]:
+    usage_captured = (
+        not transport_receipt.network_call_performed
+        or transport_receipt.input_tokens_used > 0
+        or transport_receipt.output_tokens_used > 0
+    )
+    cost_incomplete = (
+        transport_receipt.network_call_performed
+        and status != TinyProviderInvocationStatus.receipt_recorded
+        and (
+            transport_receipt.block_reason_code
+            == "TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE"
+            or transport_receipt.billed_cost_usd == 0
+        )
+    )
+    usage_incomplete = transport_receipt.network_call_performed and not usage_captured
+    if cost_incomplete:
+        return {
+            "actual_usage_captured": usage_captured,
+            "actual_cost_captured": False,
+            "receipt_completeness_status": (
+                TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review
+            ),
+            "incomplete_cost_requires_review": True,
+            "further_provider_use_blocked": True,
+            "reason_codes": [
+                "ACTUAL_COST_INCOMPLETE",
+                "INCOMPLETE_COST_REQUIRES_REVIEW",
+                "FURTHER_PROVIDER_USE_BLOCKED",
+            ],
+        }
+    if usage_incomplete:
+        return {
+            "actual_usage_captured": False,
+            "actual_cost_captured": True,
+            "receipt_completeness_status": (
+                TinyProviderReceiptCompletenessStatus.incomplete_usage_requires_review
+            ),
+            "incomplete_cost_requires_review": False,
+            "further_provider_use_blocked": True,
+            "reason_codes": [
+                "ACTUAL_USAGE_INCOMPLETE",
+                "REVIEW_REQUIRED",
+                "FURTHER_PROVIDER_USE_BLOCKED",
+            ],
+        }
+    return {
+        "actual_usage_captured": True,
+        "actual_cost_captured": True,
+        "receipt_completeness_status": TinyProviderReceiptCompletenessStatus.complete,
+        "incomplete_cost_requires_review": False,
+        "further_provider_use_blocked": False,
+        "reason_codes": ["ACTUAL_USAGE_CAPTURED", "ACTUAL_COST_CAPTURED"],
+    }
+
+
+def _receipt_review_block_reason_codes(
+    receipt: TinyProviderInvocationReceipt,
+) -> list[str]:
+    reason_codes = []
+    if receipt.incomplete_cost_requires_review:
+        reason_codes.append("INCOMPLETE_COST_REQUIRES_REVIEW")
+    if (
+        receipt.receipt_completeness_status
+        == TinyProviderReceiptCompletenessStatus.incomplete_usage_requires_review
+    ):
+        reason_codes.extend(["ACTUAL_USAGE_INCOMPLETE", "REVIEW_REQUIRED"])
+    reason_codes.append("FURTHER_PROVIDER_USE_BLOCKED")
+    return list(dict.fromkeys(reason_codes))
+
+
+def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
+    if not isinstance(payload, dict):
+        raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_STORE_PAYLOAD_DENIED")
+    normalized = dict(payload)
+    required_completeness_fields = {
+        "estimated_cost_ref",
+        "actual_usage_ref",
+        "actual_cost_ref",
+        "actual_usage_captured",
+        "actual_cost_captured",
+        "receipt_completeness_status",
+        "incomplete_cost_requires_review",
+        "further_provider_use_blocked",
+    }
+    if required_completeness_fields.issubset(normalized):
+        return normalized
+    cost_estimate_ref = str(normalized.get("cost_estimate_ref", "missing"))
+    usage_receipt_ref = str(normalized.get("usage_receipt_ref", "missing"))
+    cost_receipt_ref = str(normalized.get("cost_receipt_ref", "missing"))
+    existing_reasons = normalized.get("reason_codes")
+    reason_codes = existing_reasons if isinstance(existing_reasons, list) else []
+    normalized.update(
+        {
+            "estimated_cost_ref": cost_estimate_ref,
+            "actual_usage_ref": (
+                f"actual-usage-ref:provider-runtime:{_suffix(usage_receipt_ref)}"
+            ),
+            "actual_cost_ref": (
+                f"actual-cost-ref:provider-runtime:{_suffix(cost_receipt_ref)}"
+            ),
+            "status": TinyProviderInvocationStatus.cost_blocked.value,
+            "invocation_performed": False,
+            "actual_usage_captured": False,
+            "actual_cost_captured": False,
+            "receipt_completeness_status": (
+                TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review.value
+            ),
+            "incomplete_cost_requires_review": True,
+            "further_provider_use_blocked": True,
+            "reason_codes": list(
+                dict.fromkeys(
+                    [
+                        *[str(reason) for reason in reason_codes],
+                        "LEGACY_RECEIPT_COMPLETENESS_MISSING",
+                        "ACTUAL_COST_INCOMPLETE",
+                        "INCOMPLETE_COST_REQUIRES_REVIEW",
+                        "FURTHER_PROVIDER_USE_BLOCKED",
+                    ]
+                )
+            ),
+        }
+    )
+    return normalized
+
+
+def _actual_usage_ref(request: TinyProviderInvocationRequest) -> str:
+    return f"actual-usage-ref:provider-runtime:{_suffix(request.usage_receipt_ref)}"
+
+
+def _actual_cost_ref(request: TinyProviderInvocationRequest) -> str:
+    return f"actual-cost-ref:provider-runtime:{_suffix(request.cost_receipt_ref)}"
 
 
 def _receipt_matches_request(

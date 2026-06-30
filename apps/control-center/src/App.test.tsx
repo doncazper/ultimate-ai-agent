@@ -5250,6 +5250,22 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/Live receipt required/i).length).toBeGreaterThan(
       0,
     );
+    expect(screen.getAllByText(/Usage captured/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Cost captured/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Cost incomplete/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Review required/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Further use blocked/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/Receipt completeness/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/Receipt observation/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/no receipt observed/i).length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getAllByText(/No provider authority/i).length,
     ).toBeGreaterThan(0);

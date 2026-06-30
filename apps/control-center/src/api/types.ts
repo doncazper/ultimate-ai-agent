@@ -3933,6 +3933,18 @@ export interface TinyProviderInvocationReadiness {
   idempotency_ref_required: boolean;
   unknown_paid_cost_blocks: boolean;
   redacted_receipts_only: boolean;
+  actual_usage_ref_required: boolean;
+  actual_cost_ref_required: boolean;
+  receipt_completeness_required: boolean;
+  incomplete_cost_requires_review: boolean;
+  incomplete_cost_blocks_further_use: boolean;
+  receipt_observation_ref: string;
+  receipt_state_source: "no_receipt_observed";
+  usage_captured: boolean;
+  cost_captured: boolean;
+  cost_incomplete: boolean;
+  review_required: boolean;
+  further_use_blocked: boolean;
   prompt_persistence_allowed: boolean;
   response_persistence_allowed: boolean;
   provider_exchange_persistence_allowed: boolean;
@@ -3947,7 +3959,12 @@ export type TinyProviderInvocationUiState =
   | "No provider authority"
   | "Disabled no execution"
   | "Live adapter blocked"
-  | "Live receipt required";
+  | "Live receipt required"
+  | "Usage captured"
+  | "Cost captured"
+  | "Cost incomplete"
+  | "Review required"
+  | "Further use blocked";
 
 export interface ProviderCredentialReadinessSummary {
   status: string;

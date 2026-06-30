@@ -28,6 +28,11 @@ def main() -> int:
             "inspected": bool(args.receipts_path),
             "receipt_count": 0,
             "receipt_refs": [],
+            "actual_usage_refs": [],
+            "actual_cost_refs": [],
+            "receipt_completeness_statuses": [],
+            "incomplete_cost_requires_review_count": 0,
+            "further_use_blocked": False,
             "safe_schema_only": True,
             "raw_prompt_response_provider_exchange_stored": False,
         },
@@ -43,6 +48,17 @@ def main() -> int:
             "adapter_refs": [receipt.adapter_ref for receipt in receipts],
             "usage_receipt_refs": [receipt.usage_receipt_ref for receipt in receipts],
             "cost_receipt_refs": [receipt.cost_receipt_ref for receipt in receipts],
+            "actual_usage_refs": [receipt.actual_usage_ref for receipt in receipts],
+            "actual_cost_refs": [receipt.actual_cost_ref for receipt in receipts],
+            "receipt_completeness_statuses": [
+                receipt.receipt_completeness_status for receipt in receipts
+            ],
+            "incomplete_cost_requires_review_count": sum(
+                1 for receipt in receipts if receipt.incomplete_cost_requires_review
+            ),
+            "further_use_blocked": any(
+                receipt.further_provider_use_blocked for receipt in receipts
+            ),
             "network_call_performed": [
                 receipt.network_call_performed for receipt in receipts
             ],

@@ -4215,7 +4215,16 @@ function ActionInboxProviderCostPosture({
         emptyLabel="Provider cost blockers: missing"
         items={[
           ...readiness.blocker_codes.slice(0, 8),
-          ...readiness.tiny_invocation_readiness.ui_states,
+          ...readiness.tiny_invocation_readiness.ui_states.filter(
+            (state) =>
+              ![
+                "Usage captured",
+                "Cost captured",
+                "Cost incomplete",
+                "Review required",
+                "Further use blocked",
+              ].includes(state),
+          ),
         ]}
       />
     </article>

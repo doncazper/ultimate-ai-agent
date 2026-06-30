@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.providers import (
     TinyProviderInvocationRequest,
     TinyProviderInvocationStatus,
     TinyProviderInvocationTransportReceipt,
+    TinyProviderReceiptCompletenessStatus,
     build_tiny_provider_invocation_approval_request,
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
@@ -101,12 +102,20 @@ def receipt_payload(**overrides: object) -> dict[str, object]:
         "usage_receipt_ref": "usage-receipt-ref:provider-runtime:tiny-test",
         "cost_receipt_ref": "cost-receipt-ref:provider-runtime:tiny-test",
         "cost_governor_decision_ref": "cost-decision-ref:provider-runtime:tiny-test",
+        "estimated_cost_ref": "cost-estimate-ref:provider-runtime:tiny-test",
+        "actual_usage_ref": "actual-usage-ref:provider-runtime:tiny-test",
+        "actual_cost_ref": "actual-cost-ref:provider-runtime:tiny-test",
         "idempotency_ref": "idempotency:provider-runtime:tiny-test",
         "redacted_input_summary_ref": "redacted-input-summary-ref:provider-runtime:tiny-test",
         "redacted_output_summary_ref": "redacted-output-summary-ref:provider-runtime:tiny-test",
         "safe_disable_ref": "safe-disable-ref:provider-runtime:tiny-test",
         "status": TinyProviderInvocationStatus.receipt_recorded,
         "invocation_performed": True,
+        "actual_usage_captured": True,
+        "actual_cost_captured": True,
+        "receipt_completeness_status": TinyProviderReceiptCompletenessStatus.complete,
+        "incomplete_cost_requires_review": False,
+        "further_provider_use_blocked": False,
         "safe_summary": (
             "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter."
         ),
@@ -144,6 +153,12 @@ def test_tiny_provider_lane_default_readiness_is_disabled_and_cost_governed() ->
     assert readiness.exact_approval_required is True
     assert readiness.unknown_paid_cost_blocks is True
     assert readiness.redacted_receipts_only is True
+    assert readiness.receipt_state_source == "no_receipt_observed"
+    assert readiness.usage_captured is False
+    assert readiness.cost_captured is False
+    assert readiness.cost_incomplete is False
+    assert readiness.review_required is False
+    assert readiness.further_use_blocked is False
     assert "Cost blocked" in readiness.ui_states
     assert "No provider authority" in readiness.ui_states
     assert "Disabled no execution" in readiness.ui_states
@@ -270,6 +285,17 @@ def test_injected_adapter_records_only_redacted_receipt(tmp_path: Path) -> None:
     assert decision.receipt.raw_prompt_persisted is False
     assert decision.receipt.raw_response_persisted is False
     assert decision.receipt.raw_provider_exchange_persisted is False
+    assert decision.receipt.estimated_cost_ref == request.cost_estimate_ref
+    assert decision.receipt.actual_usage_ref.startswith("actual-usage-ref:")
+    assert decision.receipt.actual_cost_ref.startswith("actual-cost-ref:")
+    assert decision.receipt.actual_usage_captured is True
+    assert decision.receipt.actual_cost_captured is True
+    assert (
+        decision.receipt.receipt_completeness_status
+        == TinyProviderReceiptCompletenessStatus.complete
+    )
+    assert decision.receipt.incomplete_cost_requires_review is False
+    assert decision.receipt.further_provider_use_blocked is False
     persisted = store.list_receipts()
     assert len(persisted) == 1
     receipt_json = json.dumps(persisted[0].model_dump(mode="json"), sort_keys=True)
@@ -351,6 +377,164 @@ def test_receipt_rejects_authority_or_raw_persistence_claims() -> None:
     assert base.status == TinyProviderInvocationStatus.approved_no_execution
     with pytest.raises(ValidationError, match="TINY_PROVIDER_INVOCATION_RECEIPT_AUTHORITY_DENIED"):
         TinyProviderInvocationReceipt(**receipt_payload(provider_sdk_used=True))
+
+
+def test_receipt_rejects_success_when_actual_cost_is_incomplete() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_RECEIPT_COMPLETENESS_REQUIRED",
+    ):
+        TinyProviderInvocationReceipt(
+            **receipt_payload(
+                actual_cost_captured=False,
+                receipt_completeness_status=(
+                    TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review
+                ),
+                incomplete_cost_requires_review=True,
+                further_provider_use_blocked=True,
+            )
+        )
+
+
+def test_incomplete_cost_receipt_requires_review_and_blocks_further_use(
+    tmp_path: Path,
+) -> None:
+    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-incomplete-cost.jsonl")
+    incomplete_receipt = TinyProviderInvocationReceipt(
+        **receipt_payload(
+            status=TinyProviderInvocationStatus.live_adapter_blocked,
+            invocation_performed=False,
+            adapter_ref=TINY_LIVE_PROVIDER_ADAPTER_REF,
+            network_call_performed=True,
+            input_tokens_used=4,
+            output_tokens_used=2,
+            actual_usage_captured=True,
+            actual_cost_captured=False,
+            receipt_completeness_status=(
+                TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review
+            ),
+            incomplete_cost_requires_review=True,
+            further_provider_use_blocked=True,
+            reason_codes=[
+                "ACTUAL_COST_INCOMPLETE",
+                "INCOMPLETE_COST_REQUIRES_REVIEW",
+                "FURTHER_PROVIDER_USE_BLOCKED",
+            ],
+        )
+    )
+    store.record(incomplete_receipt)
+    next_request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:after-incomplete",
+        idempotency_ref="idempotency:provider-runtime:after-incomplete",
+        expected_receipt_ref="receipt:provider-runtime:after-incomplete",
+    )
+
+    decision = evaluate_tiny_provider_invocation(
+        next_request,
+        adapter=DeterministicTinyProviderInvocationAdapter(),
+        approval_authority=exact_authority_for(next_request),
+        receipt_store=store,
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.cost_blocked
+    assert decision.receipt == incomplete_receipt
+    assert "INCOMPLETE_COST_REQUIRES_REVIEW" in decision.reason_codes
+    assert "FURTHER_PROVIDER_USE_BLOCKED" in decision.reason_codes
+
+
+def test_incomplete_usage_receipt_blocks_further_use(tmp_path: Path) -> None:
+    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-incomplete-usage.jsonl")
+    incomplete_receipt = TinyProviderInvocationReceipt(
+        **receipt_payload(
+            status=TinyProviderInvocationStatus.live_adapter_blocked,
+            invocation_performed=False,
+            adapter_ref=TINY_LIVE_PROVIDER_ADAPTER_REF,
+            network_call_performed=True,
+            input_tokens_used=0,
+            output_tokens_used=0,
+            billed_cost_usd=0.001,
+            actual_usage_captured=False,
+            actual_cost_captured=True,
+            receipt_completeness_status=(
+                TinyProviderReceiptCompletenessStatus.incomplete_usage_requires_review
+            ),
+            incomplete_cost_requires_review=False,
+            further_provider_use_blocked=True,
+            reason_codes=[
+                "ACTUAL_USAGE_INCOMPLETE",
+                "REVIEW_REQUIRED",
+                "FURTHER_PROVIDER_USE_BLOCKED",
+            ],
+        )
+    )
+    store.record(incomplete_receipt)
+    next_request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:after-incomplete-usage",
+        idempotency_ref="idempotency:provider-runtime:after-incomplete-usage",
+        expected_receipt_ref="receipt:provider-runtime:after-incomplete-usage",
+    )
+
+    decision = evaluate_tiny_provider_invocation(
+        next_request,
+        adapter=DeterministicTinyProviderInvocationAdapter(),
+        approval_authority=exact_authority_for(next_request),
+        receipt_store=store,
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.cost_blocked
+    assert decision.receipt == incomplete_receipt
+    assert "ACTUAL_USAGE_INCOMPLETE" in decision.reason_codes
+    assert "REVIEW_REQUIRED" in decision.reason_codes
+    assert "FURTHER_PROVIDER_USE_BLOCKED" in decision.reason_codes
+
+
+def test_legacy_receipt_without_completeness_fields_fails_closed_on_replay(
+    tmp_path: Path,
+) -> None:
+    request = invocation_request()
+    store = TinyProviderInvocationReceiptStore(tmp_path / "legacy-receipts.jsonl")
+    legacy_payload = receipt_payload(
+        status=TinyProviderInvocationStatus.receipt_recorded,
+        invocation_performed=True,
+        estimated_cost_usd=request.estimated_cost_usd,
+        billed_cost_usd=request.estimated_cost_usd,
+    )
+    for field in (
+        "estimated_cost_ref",
+        "actual_usage_ref",
+        "actual_cost_ref",
+        "actual_usage_captured",
+        "actual_cost_captured",
+        "receipt_completeness_status",
+        "incomplete_cost_requires_review",
+        "further_provider_use_blocked",
+    ):
+        legacy_payload.pop(field)
+    store.path.parent.mkdir(parents=True, exist_ok=True)
+    store.path.write_text(json.dumps(legacy_payload) + "\n", encoding="utf-8")
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=DeterministicTinyProviderInvocationAdapter(),
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.cost_blocked
+    assert decision.receipt is not None
+    assert decision.receipt.status == TinyProviderInvocationStatus.cost_blocked
+    assert (
+        decision.receipt.receipt_completeness_status
+        == TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review
+    )
+    assert decision.receipt.actual_cost_captured is False
+    assert decision.receipt.incomplete_cost_requires_review is True
+    assert decision.receipt.further_provider_use_blocked is True
+    assert "LEGACY_RECEIPT_COMPLETENESS_MISSING" in decision.receipt.reason_codes
+    assert "FURTHER_PROVIDER_USE_BLOCKED" in decision.reason_codes
 
 
 def test_receipt_allows_scoped_network_flag_but_rejects_raw_persistence() -> None:
