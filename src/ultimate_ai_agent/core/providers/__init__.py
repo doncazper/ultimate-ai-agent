@@ -64,11 +64,6 @@ from ultimate_ai_agent.core.providers.invocation import (
     evaluate_tiny_provider_invocation,
     required_provider_invocation_resource_refs,
 )
-from ultimate_ai_agent.core.providers.live_invocation_adapter import (
-    OpenAICompatibleTinyLiveProviderAdapter,
-    TinyLiveCredentialResolution,
-    TinyLiveProviderTransportResult,
-)
 from ultimate_ai_agent.core.providers.credential_validation import (
     DeterministicProviderCredentialValidationAdapter,
     DisabledProviderCredentialValidationAdapter,
@@ -159,14 +154,11 @@ __all__ = [
     "build_tiny_provider_invocation_readiness",
     "evaluate_tiny_provider_invocation",
     "required_provider_invocation_resource_refs",
-    "OpenAICompatibleTinyLiveProviderAdapter",
     "TINY_LIVE_PROVIDER_ADAPTER_REF",
     "TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT",
     "TINY_LIVE_PROVIDER_ENDPOINT_REF",
     "TINY_LIVE_PROVIDER_MODEL_NAME",
     "TINY_LIVE_PROVIDER_TRANSPORT_REF",
-    "TinyLiveCredentialResolution",
-    "TinyLiveProviderTransportResult",
     "DeterministicProviderCredentialValidationAdapter",
     "DisabledProviderCredentialValidationAdapter",
     "OpenAICompatibleCredentialValidationAdapter",

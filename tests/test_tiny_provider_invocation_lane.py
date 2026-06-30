@@ -327,6 +327,25 @@ def test_transport_receipt_rejects_network_without_approved_transport_scope() ->
         )
 
 
+def test_transport_receipt_rejects_unsafe_block_reason_text() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_TRANSPORT_BLOCK_REASON_UNSAFE",
+    ):
+        TinyProviderInvocationTransportReceipt(
+            transport_ref="provider-transport-ref:tiny-provider:block",
+            adapter_ref="provider-adapter-ref:tiny-exact-approved:generic",
+            status="blocked",
+            redacted_output_summary_ref="redacted-output-summary-ref:provider-runtime:tiny-test",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-test",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-test",
+            input_tokens_used=0,
+            output_tokens_used=0,
+            billed_cost_usd=0.0,
+            block_reason_code="raw provider error with token",
+        )
+
+
 def test_receipt_rejects_authority_or_raw_persistence_claims() -> None:
     base = evaluate_with_exact_approval(invocation_request())
     assert base.status == TinyProviderInvocationStatus.approved_no_execution

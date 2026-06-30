@@ -2,16 +2,14 @@ import json
 import os
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 import pytest
 
+import ultimate_ai_agent.core.providers.live_invocation_adapter as live_adapter_module
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.providers import (
-    OpenAICompatibleTinyLiveProviderAdapter,
     TINY_LIVE_PROVIDER_ADAPTER_REF,
     TINY_LIVE_PROVIDER_TRANSPORT_REF,
-    TinyLiveCredentialResolution,
-    TinyLiveProviderTransportResult,
     TinyProviderInvocationAdapter,
     TinyProviderInvocationReceiptStore,
     TinyProviderInvocationRequest,
@@ -20,10 +18,16 @@ from ultimate_ai_agent.core.providers import (
     build_tiny_provider_invocation_approval_request,
     evaluate_tiny_provider_invocation,
 )
+from ultimate_ai_agent.core.providers.live_invocation_adapter import (
+    OpenAICompatibleTinyLiveProviderAdapter,
+    TinyLiveCredentialResolution,
+    TinyLiveProviderTransportResult,
+)
 from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_MODEL_REF,
     TINY_PROVIDER_INVOCATION_POLICY_REF,
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+    TinyProviderInvocationExecutionGrant,
 )
 from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVaultPosture
 
@@ -148,6 +152,83 @@ def test_live_adapter_requires_receipt_store_before_network() -> None:
     assert decision.receipt is None
 
 
+def test_live_adapter_direct_execute_blocks_without_execution_grant() -> None:
+    request = invocation_request()
+    transport_called = False
+
+    def mocked_transport(
+        _transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal transport_called
+        transport_called = True
+        return TinyLiveProviderTransportResult(
+            input_tokens_used=1,
+            output_tokens_used=1,
+            billed_cost_usd=0.001,
+        )
+
+    receipt = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True,
+        credential_resolver=lambda _credential_ref: available_credential_resolution(
+            request
+        ),
+        transport=mocked_transport,
+    ).execute(request)
+
+    assert receipt.status == "blocked"
+    assert receipt.block_reason_code == "TINY_LIVE_PROVIDER_EXECUTION_GRANT_REQUIRED"
+    assert receipt.network_call_performed is False
+    assert transport_called is False
+
+
+def test_live_adapter_direct_execute_blocks_self_minted_execution_grant() -> None:
+    request = invocation_request()
+    transport_called = False
+
+    def mocked_transport(
+        _transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal transport_called
+        transport_called = True
+        return TinyLiveProviderTransportResult(
+            input_tokens_used=1,
+            output_tokens_used=1,
+            billed_cost_usd=0.001,
+        )
+
+    self_minted_grant = TinyProviderInvocationExecutionGrant(
+        provider_ref=request.provider_ref,
+        model_ref=request.model_ref,
+        credential_ref=request.credential_ref,
+        policy_ref=request.policy_ref,
+        approval_ref=request.approval_ref,
+        approval_scope_ref=request.approval_scope_ref,
+        cost_estimate_ref=request.cost_estimate_ref,
+        budget_decision_ref=request.budget_decision_ref,
+        expected_receipt_ref=request.expected_receipt_ref,
+        cost_governor_decision_ref="cost-decision-ref:self-minted-test",
+        receipt_store_required=True,
+    )
+
+    receipt = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True,
+        credential_resolver=lambda _credential_ref: available_credential_resolution(
+            request
+        ),
+        transport=mocked_transport,
+    ).execute(request, execution_grant=self_minted_grant)
+
+    assert receipt.status == "blocked"
+    assert (
+        receipt.block_reason_code
+        == "TINY_LIVE_PROVIDER_EXECUTION_GRANT_AUTHORITY_REQUIRED"
+    )
+    assert receipt.network_call_performed is False
+    assert transport_called is False
+
+
 def test_spoofed_network_adapter_cannot_claim_live_transport_scope(tmp_path: Path) -> None:
     request = invocation_request(idempotency_ref="idempotency:provider-runtime:spoofed-net")
     store = TinyProviderInvocationReceiptStore(tmp_path / "spoofed-net.jsonl")
@@ -243,6 +324,17 @@ def test_live_adapter_blocks_unapproved_provider_model_name(tmp_path: Path) -> N
     assert decision.receipt is None
 
 
+def test_live_transport_result_rejects_unsafe_block_reason_text() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="TINY_LIVE_PROVIDER_TRANSPORT_BLOCK_REASON_UNSAFE",
+    ):
+        TinyLiveProviderTransportResult(
+            status="blocked",
+            block_reason_code="raw provider error with token",
+        )
+
+
 def test_live_adapter_records_network_receipt_with_mocked_transport(tmp_path: Path) -> None:
     request = invocation_request(invocation_ref="provider-invocation-ref:tiny:live-mock")
     store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-live-receipts.jsonl")
@@ -287,6 +379,54 @@ def test_live_adapter_records_network_receipt_with_mocked_transport(tmp_path: Pa
     persisted_json = json.dumps(persisted[0].model_dump(mode="json"), sort_keys=True)
     assert "transient-material" not in persisted_json
     assert "provider_payload" not in persisted_json
+
+
+def test_live_adapter_actual_cost_over_budget_records_blocked_receipt(
+    tmp_path: Path,
+) -> None:
+    request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:live-over-budget",
+        idempotency_ref="idempotency:provider-runtime:tiny-live-over-budget",
+        expected_receipt_ref="receipt:provider-runtime:tiny-live-over-budget",
+        usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-live-over-budget",
+        cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-live-over-budget",
+        estimated_cost_usd=0.001,
+        max_approved_usd=0.01,
+    )
+    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-live-over-budget.jsonl")
+
+    def over_budget_transport(
+        transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        return TinyLiveProviderTransportResult(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            input_tokens_used=transport_request.estimated_input_tokens,
+            output_tokens_used=transport_request.estimated_output_tokens,
+            billed_cost_usd=0.02,
+            network_call_performed=True,
+        )
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=OpenAICompatibleTinyLiveProviderAdapter(
+            enabled=True,
+            credential_resolver=lambda _credential_ref: available_credential_resolution(
+                request
+            ),
+            transport=over_budget_transport,
+        ),
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.cost_blocked
+    assert decision.receipt is not None
+    assert decision.receipt.status == TinyProviderInvocationStatus.cost_blocked
+    assert decision.receipt.network_call_performed is True
+    assert "REDACTED_BLOCKED_ATTEMPT_RECEIPT_RECORDED" in decision.receipt.reason_codes
+    assert len(store.list_receipts()) == 1
 
 
 def test_live_adapter_replays_existing_receipt_before_second_network_call(
@@ -441,6 +581,55 @@ def test_live_adapter_unknown_paid_cost_blocks_before_transport() -> None:
     assert decision.allowed is False
     assert decision.status == TinyProviderInvocationStatus.unknown_paid_cost_blocked
     assert transport_called is False
+
+
+def test_live_stdlib_transport_uses_no_redirect_opener() -> None:
+    source = Path(
+        "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py"
+    ).read_text(encoding="utf-8")
+
+    assert "_NO_REDIRECT_OPENER.open" in source
+    assert "urllib_request.urlopen" not in source
+    assert "billed_cost_usd=request.estimated_cost_usd" not in source
+
+
+def test_live_stdlib_transport_blocks_when_billed_cost_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {"usage": {"input_tokens": 11, "output_tokens": 4}}
+            ).encode("utf-8")
+
+    class FakeNoRedirectOpener:
+        def open(self, _request: object, *, timeout: float) -> FakeResponse:
+            assert timeout > 0
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        live_adapter_module,
+        "_NO_REDIRECT_OPENER",
+        FakeNoRedirectOpener(),
+    )
+
+    result = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True
+    )._stdlib_responses_transport(
+        invocation_request(),
+        SecretStr("transient-material"),
+    )
+
+    assert result.status == "blocked"
+    assert result.block_reason_code == "TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE"
+    assert result.billed_cost_usd == 0.0
+    assert result.network_call_performed is True
 
 
 @pytest.mark.skipif(

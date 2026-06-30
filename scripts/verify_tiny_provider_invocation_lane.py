@@ -13,19 +13,21 @@ from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
-    OpenAICompatibleTinyLiveProviderAdapter,
     TINY_LIVE_PROVIDER_ADAPTER_REF,
     TINY_LIVE_PROVIDER_TRANSPORT_REF,
     TinyProviderInvocationAdapter,
-    TinyLiveCredentialResolution,
     TinyProviderInvocationReceiptStore,
     TinyProviderInvocationRequest,
     TinyProviderInvocationStatus,
-    TinyLiveProviderTransportResult,
     TinyProviderInvocationTransportReceipt,
     build_tiny_provider_invocation_approval_request,
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
+)
+from ultimate_ai_agent.core.providers.live_invocation_adapter import (
+    OpenAICompatibleTinyLiveProviderAdapter,
+    TinyLiveCredentialResolution,
+    TinyLiveProviderTransportResult,
 )
 from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVaultPosture
 from ultimate_ai_agent.core.providers.invocation import (
@@ -33,6 +35,7 @@ from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_POLICY_REF,
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_PROVIDER_INVOCATION_ROUTE,
+    TinyProviderInvocationExecutionGrant,
 )
 
 
@@ -273,11 +276,67 @@ def main() -> int:
                 failures.append("receipt contains unsafe raw/provider/secret content")
             if len(store.list_receipts()) != 1:
                 failures.append("receipt store did not persist exactly one redacted receipt")
-            if "ACTUAL_USAGE_COST_RECONCILED" not in success.receipt.reason_codes:
-                failures.append("receipt does not record actual usage/cost reconciliation")
+            if "USAGE_AND_ESTIMATED_COST_RECONCILED" not in success.receipt.reason_codes:
+                failures.append("receipt does not record usage/estimated-cost reconciliation")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "live-receipts.jsonl")
+        live_direct_called = False
+
+        def direct_transport(
+            request: TinyProviderInvocationRequest,
+            credential: SecretStr,
+        ) -> TinyLiveProviderTransportResult:
+            nonlocal live_direct_called
+            live_direct_called = True
+            return _mocked_live_transport(request, credential)
+
+        live_direct = OpenAICompatibleTinyLiveProviderAdapter(
+            enabled=True,
+            credential_resolver=lambda _credential_ref: _credential_resolution(_request()),
+            transport=direct_transport,
+        ).execute(_request(invocation_ref="provider-invocation-ref:tiny:verify-direct"))
+        if live_direct.status != "blocked":
+            failures.append("direct live adapter execute did not block")
+        elif live_direct.block_reason_code != "TINY_LIVE_PROVIDER_EXECUTION_GRANT_REQUIRED":
+            failures.append("direct live adapter execute did not require execution grant")
+        if live_direct_called:
+            failures.append("direct live adapter execute reached transport without grant")
+
+        self_minted_request = _request(
+            invocation_ref="provider-invocation-ref:tiny:verify-self-minted-grant"
+        )
+        self_minted_grant = TinyProviderInvocationExecutionGrant(
+            provider_ref=self_minted_request.provider_ref,
+            model_ref=self_minted_request.model_ref,
+            credential_ref=self_minted_request.credential_ref,
+            policy_ref=self_minted_request.policy_ref,
+            approval_ref=self_minted_request.approval_ref,
+            approval_scope_ref=self_minted_request.approval_scope_ref,
+            cost_estimate_ref=self_minted_request.cost_estimate_ref,
+            budget_decision_ref=self_minted_request.budget_decision_ref,
+            expected_receipt_ref=self_minted_request.expected_receipt_ref,
+            cost_governor_decision_ref="cost-decision-ref:self-minted-verifier",
+            receipt_store_required=True,
+        )
+        live_direct_called = False
+        self_minted_direct = OpenAICompatibleTinyLiveProviderAdapter(
+            enabled=True,
+            credential_resolver=lambda _credential_ref: _credential_resolution(
+                self_minted_request
+            ),
+            transport=direct_transport,
+        ).execute(self_minted_request, execution_grant=self_minted_grant)
+        if self_minted_direct.status != "blocked":
+            failures.append("self-minted live execution grant did not block")
+        elif (
+            self_minted_direct.block_reason_code
+            != "TINY_LIVE_PROVIDER_EXECUTION_GRANT_AUTHORITY_REQUIRED"
+        ):
+            failures.append("self-minted live execution grant did not require authority")
+        if live_direct_called:
+            failures.append("self-minted live execution grant reached transport")
+
         missing_secret = _evaluate_with_exact_approval(
             _request(invocation_ref="provider-invocation-ref:tiny:verify-missing-secret"),
             adapter=OpenAICompatibleTinyLiveProviderAdapter(enabled=True),
@@ -343,6 +402,44 @@ def main() -> int:
         elif "TINY_LIVE_PROVIDER_MODEL_NAME_NOT_ALLOWLISTED" not in wrong_model.reason_codes:
             failures.append("live adapter wrong-model block did not expose safe reason code")
 
+        over_budget_request = _request(
+            invocation_ref="provider-invocation-ref:tiny:verify-live-over-budget",
+            idempotency_ref="idempotency:provider-runtime:tiny-live-over-budget",
+            expected_receipt_ref="receipt:provider-runtime:tiny-live-over-budget",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-live-over-budget",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-live-over-budget",
+        )
+
+        def over_budget_live_transport(
+            request: TinyProviderInvocationRequest,
+            _credential: SecretStr,
+        ) -> TinyLiveProviderTransportResult:
+            return TinyLiveProviderTransportResult(
+                transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+                input_tokens_used=request.estimated_input_tokens,
+                output_tokens_used=request.estimated_output_tokens,
+                billed_cost_usd=(request.max_approved_usd or 0.0) + 0.01,
+                network_call_performed=True,
+            )
+
+        over_budget_live = _evaluate_with_exact_approval(
+            over_budget_request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref: _credential_resolution(
+                    over_budget_request
+                ),
+                transport=over_budget_live_transport,
+            ),
+            receipt_store=store,
+        )
+        if over_budget_live.status != TinyProviderInvocationStatus.cost_blocked:
+            failures.append("live over-budget actual usage/cost did not block")
+        elif over_budget_live.receipt is None:
+            failures.append("live over-budget attempt did not record a redacted receipt")
+        elif "REDACTED_BLOCKED_ATTEMPT_RECEIPT_RECORDED" not in over_budget_live.receipt.reason_codes:
+            failures.append("live over-budget receipt did not record blocked-attempt posture")
+
     manifest = build_api_manifest(app).model_dump(mode="json")
     routes = {
         (route["method"], route["path"]): route
@@ -374,8 +471,12 @@ def main() -> int:
     live_adapter_source = Path(
         "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py"
     ).read_text(encoding="utf-8")
-    if "urllib_request.urlopen" not in live_adapter_source:
-        failures.append("live provider network call is not contained in the scoped adapter")
+    if "_NO_REDIRECT_OPENER.open" not in live_adapter_source:
+        failures.append("live provider network call is not routed through no-redirect opener")
+    if "urllib_request.urlopen" in live_adapter_source:
+        failures.append("live provider network call still uses redirect-following urlopen")
+    if "billed_cost_usd=request.estimated_cost_usd" in live_adapter_source:
+        failures.append("live adapter still records estimated cost as billed cost")
     for fragment in PROVIDER_SDK_FORBIDDEN_FRAGMENTS:
         if fragment in live_adapter_source:
             failures.append(

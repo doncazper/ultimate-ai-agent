@@ -15,9 +15,11 @@ from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_MODEL_REF,
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TinyProviderInvocationAdapter,
+    TinyProviderInvocationExecutionGrant,
     TinyProviderInvocationRequest,
     TinyProviderInvocationTransportReceipt,
     _reject_unsafe_payload,
+    _safe_reason_code_matches,
     _safe_ref_matches,
 )
 from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVaultPosture
@@ -25,6 +27,20 @@ from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVau
 
 TINY_LIVE_PROVIDER_ALLOWED_ENDPOINTS = frozenset({TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT})
 _SCOPED_NETWORK_CALL_PERFORMED = bool(1)
+
+
+class _NoRedirectHandler(urllib_request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        raise urllib_error.HTTPError(
+            req.full_url,
+            code,
+            "TINY_LIVE_PROVIDER_REDIRECT_BLOCKED",
+            headers,
+            fp,
+        )
+
+
+_NO_REDIRECT_OPENER = urllib_request.build_opener(_NoRedirectHandler)
 
 
 CredentialResolver = Callable[[str], "TinyLiveCredentialResolution | None"]
@@ -99,7 +115,9 @@ class TinyLiveProviderTransportResult(BaseModel):
             raise ValueError("TINY_LIVE_PROVIDER_TRANSPORT_NETWORK_REQUIRED")
         if self.network_call_performed and self.transport_ref != TINY_LIVE_PROVIDER_TRANSPORT_REF:
             raise ValueError("TINY_LIVE_PROVIDER_TRANSPORT_REF_DENIED")
-        if self.block_reason_code and not self.block_reason_code.isupper():
+        if self.block_reason_code and not _safe_reason_code_matches(
+            self.block_reason_code
+        ):
             raise ValueError("TINY_LIVE_PROVIDER_TRANSPORT_BLOCK_REASON_UNSAFE")
         return self
 
@@ -130,12 +148,17 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
     def execute(
         self,
         request: TinyProviderInvocationRequest,
+        *,
+        execution_grant: TinyProviderInvocationExecutionGrant | None = None,
     ) -> TinyProviderInvocationTransportReceipt:
         if not self.enabled:
             return self._blocked_transport(
                 request,
                 "TINY_LIVE_PROVIDER_ADAPTER_DISABLED",
             )
+        grant_block_reason = self._grant_block_reason(request, execution_grant)
+        if grant_block_reason is not None:
+            return self._blocked_transport(request, grant_block_reason)
         if self.provider_ref != TINY_PROVIDER_INVOCATION_PROVIDER_REF:
             return self._blocked_transport(
                 request,
@@ -224,6 +247,23 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             model_output_authoritative=False,
         )
 
+    def _grant_block_reason(
+        self,
+        request: TinyProviderInvocationRequest,
+        execution_grant: TinyProviderInvocationExecutionGrant | None,
+    ) -> str | None:
+        if execution_grant is None:
+            return "TINY_LIVE_PROVIDER_EXECUTION_GRANT_REQUIRED"
+        if not execution_grant.runtime_authority_bound:
+            return "TINY_LIVE_PROVIDER_EXECUTION_GRANT_AUTHORITY_REQUIRED"
+        if execution_grant.adapter_ref != self.adapter_ref:
+            return "TINY_LIVE_PROVIDER_EXECUTION_GRANT_ADAPTER_MISMATCH"
+        if not execution_grant.receipt_store_required:
+            return "TINY_LIVE_PROVIDER_EXECUTION_GRANT_RECEIPT_STORE_REQUIRED"
+        if not execution_grant.matches_request(request):
+            return "TINY_LIVE_PROVIDER_EXECUTION_GRANT_SCOPE_MISMATCH"
+        return None
+
     def _blocked_transport(
         self,
         request: TinyProviderInvocationRequest,
@@ -277,7 +317,10 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             },
         )
         try:
-            with urllib_request.urlopen(http_request, timeout=self.timeout_seconds) as response:
+            with _NO_REDIRECT_OPENER.open(
+                http_request,
+                timeout=self.timeout_seconds,
+            ) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib_error.HTTPError as exc:
             return TinyLiveProviderTransportResult(
@@ -304,9 +347,9 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             or usage.get("completion_tokens")
             or request.estimated_output_tokens
         )
+        _ = (input_tokens, output_tokens)
         return TinyLiveProviderTransportResult(
-            input_tokens_used=input_tokens,
-            output_tokens_used=output_tokens,
-            billed_cost_usd=request.estimated_cost_usd or 0.0,
+            status="blocked",
             network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
+            block_reason_code="TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE",
         )
