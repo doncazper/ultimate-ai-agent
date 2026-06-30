@@ -129,7 +129,8 @@ checked by `scripts/verify_provider_invocation_promotion_plan.py` and
 `scripts/verify_tiny_provider_invocation_lane.py`, and
 `scripts/verify_provider_credential_validation_lane.py`; backend safe-ref posture is
 checked by `scripts/verify_credential_vault_backend_v1.py`. They add no secret
-resolution API, no raw secret display, no model invocation, no provider SDK
+resolution API, no raw secret display, no built-in live validation transport,
+no model invocation, no provider SDK
 calls, no broad provider router, no fallback, no autonomous model calls, no
 background execution, no automatic pricing fetch, no billing authority, no
 unknown paid-cost bypass, no provider output authority, no vault runtime

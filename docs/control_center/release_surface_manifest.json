@@ -219,13 +219,6 @@
           "operation_id": "post_control_center_today_action_envelope",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
-        },
-        {
-          "method": "POST",
-          "path": "/control-center/providers/credentials/validate",
-          "operation_id": "post_control_center_providers_credentials_validate",
-          "side_effect_class": "governed_network_read_only",
-          "route_classification": "mutating_requires_authority"
         }
       ],
       "side_effect_class": "local_dev_workspace_only",
@@ -739,13 +732,6 @@
           "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
-        },
-        {
-          "method": "POST",
-          "path": "/control-center/providers/credentials/validate",
-          "operation_id": "post_control_center_providers_credentials_validate",
-          "side_effect_class": "governed_network_read_only",
-          "route_classification": "mutating_requires_authority"
         }
       ],
       "side_effect_class": "validation_only",
@@ -873,13 +859,6 @@
           "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
-        },
-        {
-          "method": "POST",
-          "path": "/control-center/providers/credentials/validate",
-          "operation_id": "post_control_center_providers_credentials_validate",
-          "side_effect_class": "governed_network_read_only",
-          "route_classification": "mutating_requires_authority"
         }
       ],
       "side_effect_class": "local_dev_workspace_only",

@@ -8,6 +8,10 @@ import pytest
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.providers import (
     DeterministicProviderCredentialValidationAdapter,
     ExactProviderCredentialValidationReceipt,
@@ -139,6 +143,21 @@ def test_request_rejects_unsafe_ref_fields() -> None:
         match="PROVIDER_CREDENTIAL_VALIDATION_REQUEST_UNSAFE_REF_REJECTED",
     ):
         validation_request(credential_ref="credential-ref:provider-runtime:../secret")
+
+
+def test_request_rejects_data_classification_downgrade() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="PROVIDER_CREDENTIAL_VALIDATION_REQUEST_DATA_CLASSIFICATION_DENIED",
+    ):
+        validation_request(
+            data_classification=DataClassification(
+                classification=ClassificationValue.public,
+                source="client-supplied-downgrade",
+                requires_redaction=False,
+                requires_consent=False,
+            )
+        )
 
 
 def test_client_supplied_approval_grants_are_not_accepted() -> None:
@@ -303,6 +322,23 @@ def test_non_allowlisted_validation_endpoint_blocks_before_secret_transport() ->
     assert "redacted-safe-test-credential" not in receipt_json
 
 
+def test_openai_compatible_adapter_without_injected_transport_blocks() -> None:
+    decision = evaluate_with_exact_approval(
+        validation_request(
+            validation_ref="provider-credential-validation-ref:no-transport",
+            validation_receipt_ref="receipt:provider-credential-validation:no-transport",
+        ),
+        adapter=OpenAICompatibleCredentialValidationAdapter(enabled=True),
+    )
+
+    assert decision.allowed is False
+    assert decision.status == ProviderCredentialValidationStatus.validation_blocked
+    assert decision.receipt is not None
+    assert decision.receipt.validation_performed is False
+    assert decision.receipt.provider_network_called is False
+    assert "PROVIDER_VALIDATION_TRANSPORT_NOT_CONFIGURED" in decision.reason_codes
+
+
 def test_receipt_rejects_model_or_provider_payload_authority() -> None:
     values = {
         "receipt_ref": "receipt:provider-credential-validation:test",
@@ -405,3 +441,23 @@ def test_provider_credential_validation_route_defaults_to_approval_required() ->
     evidence_refs = [item["evidence_ref"] for item in payload["evidence"]]
     assert request.validation_receipt_ref not in evidence_refs
     assert request.provider_manifest_ref in evidence_refs
+
+
+def test_provider_credential_validation_route_rejects_conflicting_idempotency_headers() -> None:
+    client = TestClient(app)
+    request = validation_request()
+
+    response = client.post(
+        PROVIDER_CREDENTIAL_VALIDATION_ROUTE,
+        headers={
+            "X-UAA-Idempotency-Key": request.idempotency_ref,
+            "X-UAA-Idempotency-Ref": "idempotency:provider-credential-validation:other",
+        },
+        json=request.model_dump(mode="json"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is False
+    assert payload["data"]["status"] == "validation_blocked"
+    assert payload["data"]["reason_codes"] == ["IDEMPOTENCY_HEADER_CONFLICT"]

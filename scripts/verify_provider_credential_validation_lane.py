@@ -14,6 +14,10 @@ from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.api.rate_limits import route_rate_limit_group  # noqa: E402
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.hygiene.policies import (  # noqa: E402
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.providers import (  # noqa: E402
     DeterministicProviderCredentialValidationAdapter,
     ExactProviderCredentialValidationRequest,
@@ -43,6 +47,8 @@ FORBIDDEN_PROVIDER_SDK_FRAGMENTS = (
     "chat.completions.create(",
     "/v1/chat/completions",
     "responses.create(",
+    "urllib.request",
+    "urlopen(",
 )
 
 
@@ -138,6 +144,18 @@ def main() -> int:
         failures.append("public request accepted transient credential material")
     except Exception:
         pass
+    try:
+        downgraded_values = _request().model_dump(mode="json")
+        downgraded_values["data_classification"] = DataClassification(
+            classification=ClassificationValue.public,
+            source="client-supplied-downgrade",
+            requires_redaction=False,
+            requires_consent=False,
+        )
+        ExactProviderCredentialValidationRequest(**downgraded_values)
+        failures.append("public request accepted downgraded data classification")
+    except Exception:
+        pass
 
     missing_provider = evaluate_provider_credential_validation(
         _request(provider_ref="provider-ref:provider-runtime:not-bound")
@@ -184,6 +202,18 @@ def main() -> int:
         not in no_transient_secret.reason_codes
     ):
         failures.append("missing transient credential material did not block")
+
+    no_transport = _evaluate_with_exact_approval(
+        _request(
+            validation_ref="provider-credential-validation-ref:no-transport",
+            validation_receipt_ref="receipt:provider-credential-validation:no-transport",
+        ),
+        adapter=OpenAICompatibleCredentialValidationAdapter(enabled=True),
+    )
+    if "PROVIDER_VALIDATION_TRANSPORT_NOT_CONFIGURED" not in no_transport.reason_codes:
+        failures.append("enabled validation adapter without injected transport did not block")
+    if no_transport.receipt is None or no_transport.receipt.provider_network_called:
+        failures.append("adapter without injected transport performed or omitted blocked receipt")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = ProviderCredentialValidationReceiptStore(

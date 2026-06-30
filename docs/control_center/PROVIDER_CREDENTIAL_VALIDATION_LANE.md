@@ -8,7 +8,8 @@ This lane adds one isolated provider credential validation path:
 OpenAI-compatible provider credential only after exact `LocalApprovalAuthority`
 scope, policy scope, idempotency, revocation/safe-disable refs, and a redacted
 validation receipt ref are present. The default app posture remains blocked
-because no enabled adapter or approval grant is installed by default.
+because no approval grant, enabled adapter, or injected validation transport is
+installed by default.
 The public request contract is safe-ref-only: it accepts `credential_ref` and
 scope refs, not raw credential material. Transient credential material can only
 enter the core through an exact-scoped internal adapter/vault handoff and is
@@ -35,6 +36,11 @@ provided by `scripts/verify_provider_credential_validation_lane.py` and
 - exact provider endpoint allowlist ref
 - rate budget ref
 - redacted validation summary ref
+
+The OpenAI-compatible adapter shell has no built-in stdlib/provider SDK
+transport. A later scoped enablement must inject an approved transport inside
+the exact validation adapter boundary; otherwise the lane records
+`validation_blocked` with `PROVIDER_VALIDATION_TRANSPORT_NOT_CONFIGURED`.
 
 The only returned statuses are:
 

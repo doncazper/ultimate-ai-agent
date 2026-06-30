@@ -32,10 +32,12 @@ Contract rules:
 - `POST /control-center/providers/credentials/validate` may use the
   `governed_network_read_only` side-effect class only for the exact-approved
   credential validation lane. It requires exact approval, policy scope,
-  idempotency, redacted receipt refs, revocation/safe-disable posture, and
-  remains blocked from model invocation, provider SDKs, raw credential display,
-  provider payload persistence, fallback, autonomous/background calls, billing
-  authority, and production authority.
+  idempotency, redacted receipt refs, revocation/safe-disable posture, and an
+  approved injected transport before any provider network validation can occur.
+  No built-in provider transport is enabled by default, and the lane remains
+  blocked from model invocation, provider SDKs, raw credential display, provider
+  payload persistence, fallback, autonomous/background calls, billing authority,
+  and production authority.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route

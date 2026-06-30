@@ -18,6 +18,20 @@ router = APIRouter(prefix="/control-center/providers", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_provider_setup_routes_registered"
 
 
+def _idempotency_header_reason_codes(
+    *,
+    body_idempotency_ref: str,
+    key_header: str | None,
+    ref_header: str | None,
+) -> list[str]:
+    if key_header and ref_header and key_header != ref_header:
+        return ["IDEMPOTENCY_HEADER_CONFLICT"]
+    header_idempotency_ref = key_header or ref_header
+    if header_idempotency_ref and header_idempotency_ref != body_idempotency_ref:
+        return ["IDEMPOTENCY_REF_MISMATCH"]
+    return []
+
+
 @router.get("/setup-guide", response_model=ResultEnvelope)
 def get_control_center_providers_setup_guide() -> ResultEnvelope:
     catalog = build_provider_setup_guide_catalog()
@@ -44,8 +58,12 @@ def post_control_center_providers_exact_approved_lane_tiny(
         alias="X-UAA-Idempotency-Ref",
     ),
 ) -> ResultEnvelope:
-    header_idempotency_ref = x_uaa_idempotency_key or x_uaa_idempotency_ref
-    if header_idempotency_ref and header_idempotency_ref != request.idempotency_ref:
+    idempotency_reason_codes = _idempotency_header_reason_codes(
+        body_idempotency_ref=request.idempotency_ref,
+        key_header=x_uaa_idempotency_key,
+        ref_header=x_uaa_idempotency_ref,
+    )
+    if idempotency_reason_codes:
         return ResultEnvelope(
             success=False,
             operation="control_center_providers_exact_approved_lane_tiny",
@@ -54,7 +72,7 @@ def post_control_center_providers_exact_approved_lane_tiny(
             data={
                 "allowed": False,
                 "status": "approval_invalid",
-                "reason_codes": ["IDEMPOTENCY_REF_MISMATCH"],
+                "reason_codes": idempotency_reason_codes,
                 "required_next_action": "submit_matching_exact_idempotency_ref",
             },
             redactions_applied=["provider_invocation_refs_only"],
@@ -104,8 +122,12 @@ def post_control_center_providers_credentials_validate(
         alias="X-UAA-Idempotency-Ref",
     ),
 ) -> ResultEnvelope:
-    header_idempotency_ref = x_uaa_idempotency_key or x_uaa_idempotency_ref
-    if header_idempotency_ref and header_idempotency_ref != request.idempotency_ref:
+    idempotency_reason_codes = _idempotency_header_reason_codes(
+        body_idempotency_ref=request.idempotency_ref,
+        key_header=x_uaa_idempotency_key,
+        ref_header=x_uaa_idempotency_ref,
+    )
+    if idempotency_reason_codes:
         return ResultEnvelope(
             success=False,
             operation="control_center_providers_credentials_validate",
@@ -114,7 +136,7 @@ def post_control_center_providers_credentials_validate(
             data={
                 "allowed": False,
                 "status": "validation_blocked",
-                "reason_codes": ["IDEMPOTENCY_REF_MISMATCH"],
+                "reason_codes": idempotency_reason_codes,
                 "required_next_action": "submit_matching_exact_idempotency_ref",
             },
             redactions_applied=[

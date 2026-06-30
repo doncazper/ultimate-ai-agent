@@ -255,9 +255,10 @@ remain approval-bound and blocked from production authority.
 Provider credential validation is represented by
 `POST /control-center/providers/credentials/validate` as an exact-approved,
 idempotency-required, redacted-receipt lane for one provider credential check.
-It is not model invocation, provider SDK authority, provider payload
-persistence, fallback routing, billing authority, autonomous/background calls,
-or production authority.
+It has no built-in live validation transport by default and is not model
+invocation, provider SDK authority, provider payload persistence, fallback
+routing, billing authority, autonomous/background calls, or production
+authority.
 
 ## Verification
 

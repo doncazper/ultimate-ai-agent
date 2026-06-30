@@ -335,6 +335,10 @@ class ProviderCredentialValidationRequest(_ProviderCredentialValidationModel):
             raise ValueError(
                 "PROVIDER_CREDENTIAL_VALIDATION_REQUEST_ACTOR_CONTEXT_DENIED"
             )
+        if self.data_classification != _default_data_classification():
+            raise ValueError(
+                "PROVIDER_CREDENTIAL_VALIDATION_REQUEST_DATA_CLASSIFICATION_DENIED"
+            )
         return self
 
 
@@ -356,6 +360,10 @@ class ProviderCredentialValidationTransportReceipt(_ProviderCredentialValidation
     model_invocation_performed: bool = False
     chat_or_completions_called: bool = False
     provider_payload_persisted: bool = False
+    block_reason_code: Literal[
+        "PROVIDER_VALIDATION_ENDPOINT_NOT_ALLOWLISTED",
+        "PROVIDER_VALIDATION_TRANSPORT_NOT_CONFIGURED",
+    ] | None = None
 
     @model_validator(mode="after")
     def transport_receipt_must_not_claim_model_or_sdk_authority(self) -> Any:
@@ -385,6 +393,14 @@ class ProviderCredentialValidationTransportReceipt(_ProviderCredentialValidation
                 raise ValueError(
                     "PROVIDER_CREDENTIAL_VALIDATION_TRANSPORT_STATUS_MISMATCH"
                 )
+            if not self.provider_network_called and self.block_reason_code is None:
+                raise ValueError(
+                    "PROVIDER_CREDENTIAL_VALIDATION_TRANSPORT_BLOCK_REASON_REQUIRED"
+                )
+        elif self.block_reason_code is not None:
+            raise ValueError(
+                "PROVIDER_CREDENTIAL_VALIDATION_TRANSPORT_BLOCK_REASON_DENIED"
+            )
         return self
 
 
@@ -597,7 +613,7 @@ class OpenAICompatibleCredentialValidationAdapter(ProviderCredentialValidationAd
         self.enabled = enabled
         self.endpoint_url = endpoint_url
         self.timeout_seconds = timeout_seconds
-        self._transport = transport or self._stdlib_transport
+        self._transport = transport
 
     def validate(
         self,
@@ -611,6 +627,15 @@ class OpenAICompatibleCredentialValidationAdapter(ProviderCredentialValidationAd
                 status=ProviderCredentialValidationStatus.validation_blocked,
                 provider_http_status_class="blocked_or_unknown",
                 provider_network_called=False,
+                block_reason_code="PROVIDER_VALIDATION_ENDPOINT_NOT_ALLOWLISTED",
+            )
+        if self._transport is None:
+            return ProviderCredentialValidationTransportReceipt(
+                transport_ref=f"provider-validation-transport-ref:openai-compatible:{_suffix(request.validation_ref)}",
+                status=ProviderCredentialValidationStatus.validation_blocked,
+                provider_http_status_class="blocked_or_unknown",
+                provider_network_called=False,
+                block_reason_code="PROVIDER_VALIDATION_TRANSPORT_NOT_CONFIGURED",
             )
         status_code = self._transport(
             self.endpoint_url,
@@ -631,25 +656,6 @@ class OpenAICompatibleCredentialValidationAdapter(ProviderCredentialValidationAd
             status=status,
             provider_http_status_class=status_class,
         )
-
-    @staticmethod
-    def _stdlib_transport(
-        endpoint_url: str, credential_secret: str, timeout: float
-    ) -> int:
-        from urllib import error as urllib_error, request as urllib_request
-
-        request = urllib_request.Request(
-            endpoint_url,
-            method="GET",
-            headers={"Authorization": f"Bearer {credential_secret}"},
-        )
-        try:
-            with urllib_request.urlopen(request, timeout=timeout) as response:
-                return int(response.status)
-        except urllib_error.HTTPError as exc:
-            return int(exc.code)
-        except Exception:
-            return 0
 
 
 class ProviderCredentialValidationReceiptStore:
@@ -953,7 +959,10 @@ def evaluate_provider_credential_validation(
             "PROVIDER_VALIDATION_TRANSPORT_BLOCKED_OR_UNKNOWN",
         ]
         if not transport_receipt.provider_network_called:
-            reason_codes.append("PROVIDER_VALIDATION_ENDPOINT_NOT_ALLOWLISTED")
+            reason_codes.append(
+                transport_receipt.block_reason_code
+                or "PROVIDER_VALIDATION_NETWORK_NOT_PERFORMED"
+            )
         return ProviderCredentialValidationDecision(
             decision_ref=f"provider-credential-validation-decision:{_suffix(request.validation_ref)}",
             allowed=False,
@@ -998,7 +1007,10 @@ def _receipt_for_transport(
             ]
         )
         if not transport_receipt.provider_network_called:
-            reason_codes.append("PROVIDER_VALIDATION_ENDPOINT_NOT_ALLOWLISTED")
+            reason_codes.append(
+                transport_receipt.block_reason_code
+                or "PROVIDER_VALIDATION_NETWORK_NOT_PERFORMED"
+            )
     return ProviderCredentialValidationReceipt(
         receipt_ref=request.validation_receipt_ref,
         validation_ref=request.validation_ref,
