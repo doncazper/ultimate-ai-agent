@@ -7,6 +7,12 @@ vault records before any live provider use. It is inspectable through
 `scripts/inspect_credential_vault_contract.py` and verified by
 `scripts/verify_credential_vault_contract_shell.py`.
 
+Backend distinction: `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`
+documents the separate local safe-ref ledger for enroll/revoke/rotation posture.
+The shell surface remains metadata-only, and backend V1 still does not expose
+secret resolution, provider validation, provider SDK calls, model invocation, or
+provider invocation authority.
+
 This shell does not collect, store, resolve, validate, rotate, or reveal secret
 material. Vault records are safe refs only and do not authorize provider
 validation, provider invocation, provider SDK calls, model invocation, billing
@@ -30,7 +36,7 @@ Blocked by this lane:
 - No secret collection UI.
 - No key paste field.
 - No OS keychain or credential manager access.
-- No storage of secret material.
+- No storage of secret material through the contract shell.
 - No provider validation call.
 - No provider SDK.
 - No model invocation.

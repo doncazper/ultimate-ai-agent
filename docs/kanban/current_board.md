@@ -61,6 +61,11 @@ and CLI inspection through `scripts/inspect_credential_vault_contract.py`. Vault
 presence remains non-authorizing: no secret collection, raw key storage, OS
 credential backend access, provider validation, provider SDK call, model
 invocation, billing authority, or provider invocation is granted.
+Credential Vault Backend V1 adds `scripts/inspect_credential_vault_backend.py`
+and a local safe-ref ledger for enroll/revoke/rotation posture only. It exposes
+no secret resolution API, raw secret display, provider validation, provider SDK
+call, network call, model invocation, billing authority, or callable provider
+runtime authority.
 Tiny Exact-Approved Provider Invocation Lane now adds a disabled-default
 contract path for one provider/model lane with credential/provider/model refs,
 exact approval scope, CostGovernor decision, unknown paid cost blocked by

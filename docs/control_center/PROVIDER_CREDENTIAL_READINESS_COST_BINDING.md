@@ -30,7 +30,8 @@ Implemented posture:
 Blocked by this lane:
 
 - secret entry
-- credential storage
+- recoverable credential storage
+- secret resolution
 - credential validation
 - provider SDK calls
 - model invocation
@@ -48,8 +49,9 @@ Product language rules:
 - Provider catalog visibility, credential readiness visibility, and provider
   diagnostics do not make providers callable.
 
-Credential Vault Contract Shell is a metadata-only contract layer. It defines
-vault posture contracts and redacted refs, but it still must not collect
-secrets, validate provider credentials, call provider SDKs, or invoke models.
-The Exact-Approved Provider Invocation Promotion Plan is planning-only future
-work and does not make providers callable.
+Credential Vault Contract Shell is a metadata-only contract layer. Credential
+Vault Backend V1 adds only a local safe-ref ledger for enroll/revoke/rotation
+posture. It still must not expose secret resolution, validate provider
+credentials, call provider SDKs, invoke models, or make providers callable. The
+Exact-Approved Provider Invocation Promotion Plan is planning-only future work
+and does not make providers callable.

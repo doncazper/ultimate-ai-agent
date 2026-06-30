@@ -35,14 +35,15 @@ keys against external services, call provider SDKs by default, run network
 calls, or enable callable provider runtime. CostGovernor binding refs are
 blockers and review scope only; they do not grant spend authority, bypass
 unknown paid-cost approval, bypass provider/model refs, or bypass usage/cost
-receipt refs. A real credential vault/keychain adapter requires a separate
-reviewed milestone.
+receipt refs. Credential Vault Backend V1 is a separate local safe-ref ledger
+only; secret resolution, provider validation, and provider invocation still
+require later reviewed milestones.
 
 The readiness gates are intentionally separate:
 
-- Provider Credential Vault Adapter v1: future disabled-by-default adapter
-  contract for opaque provider auth references only. The current dashboard records
-  `NO_APPROVED_VAULT_BACKEND` and keeps adapter runtime disabled.
+- Provider Credential Vault Backend V1: local safe-ref ledger for
+  enroll/revoke/rotation posture only. The current dashboard keeps provider
+  validation, provider invocation, and adapter runtime disabled.
 - Credential Enrollment Readiness: future transient intake contract requiring
   exact refs, approval, idempotency, audit, rollback, safe-disable, and an
   approved vault backend. The current dashboard records
