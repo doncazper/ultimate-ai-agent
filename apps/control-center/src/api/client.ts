@@ -1475,6 +1475,7 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     "approval_required",
     "approval_invalid",
     "approved_no_execution",
+    "live_adapter_blocked",
     "receipt_recorded",
   ];
   const supportedUiStateLabels = [
@@ -1482,6 +1483,8 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     "Unknown paid cost",
     "No provider authority",
     "Disabled no execution",
+    "Live adapter blocked",
+    "Live receipt required",
   ];
   const uiStates = value.ui_states;
   return (
@@ -1498,7 +1501,8 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     uiStates.every((label) => supportedUiStateLabels.includes(String(label))) &&
     Array.isArray(value.blocker_codes) &&
     value.blocker_codes.includes("TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT") &&
-    value.blocker_codes.includes("UNKNOWN_PAID_COST_BLOCKS")
+    value.blocker_codes.includes("UNKNOWN_PAID_COST_BLOCKS") &&
+    value.blocker_codes.includes("LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER")
   );
 }
 

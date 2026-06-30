@@ -112,7 +112,8 @@ Tiny Exact-Approved Provider Invocation Lane is documented in
 contracts live in
 `src/ultimate_ai_agent/core/providers/catalog.py`,
 `src/ultimate_ai_agent/core/providers/readiness.py`,
-`src/ultimate_ai_agent/core/providers/invocation.py`, and
+`src/ultimate_ai_agent/core/providers/invocation.py`,
+`src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, and
 `src/ultimate_ai_agent/core/providers/credential_validation.py`,
 `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, and
 `src/ultimate_ai_agent/core/secrets/vault_backend.py`, exposed through
@@ -130,13 +131,13 @@ checked by `scripts/verify_provider_invocation_promotion_plan.py` and
 `scripts/verify_provider_credential_validation_lane.py`; backend safe-ref posture is
 checked by `scripts/verify_credential_vault_backend_v1.py`. They add no secret
 resolution API, no raw secret display, no built-in live validation transport,
-no model invocation, no provider SDK
-calls, no broad provider router, no fallback, no autonomous model calls, no
-background execution, no automatic pricing fetch, no billing authority, no
-unknown paid-cost bypass, no provider output authority, no vault runtime
-authority, and no invocation authority from vault presence. Credential
-validation is exact-approved, one-provider, redacted-receipt only and does not
-grant provider/model runtime authority.
+no provider SDK calls, no provider network call by default, no provider network
+outside the scoped tiny live adapter, no broad provider router, no fallback, no
+autonomous model calls, no background execution, no automatic pricing fetch, no
+billing authority, no unknown paid-cost bypass, no provider output authority,
+no vault runtime authority, and no invocation authority from vault presence.
+Credential validation is exact-approved, one-provider, redacted-receipt only
+and does not grant provider/model runtime authority.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -159,7 +160,7 @@ product-truth ledgers.
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py` |
-| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, `src/ultimate_ai_agent/core/secrets/vault_backend.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/inspect_credential_vault_contract.py`, `scripts/inspect_credential_vault_backend.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py`, `scripts/verify_credential_vault_contract_shell.py`, `scripts/verify_credential_vault_backend_v1.py`, `scripts/verify_provider_invocation_promotion_plan.py` |
+| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `src/ultimate_ai_agent/core/providers/invocation.py`, `src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, `src/ultimate_ai_agent/core/providers/credential_validation.py`, `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, `src/ultimate_ai_agent/core/secrets/vault_backend.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/inspect_credential_vault_contract.py`, `scripts/inspect_credential_vault_backend.py`, `scripts/inspect_tiny_provider_invocation_lane.py`, `scripts/inspect_provider_credential_validation_lane.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py`, `scripts/verify_credential_vault_contract_shell.py`, `scripts/verify_credential_vault_backend_v1.py`, `scripts/verify_provider_invocation_promotion_plan.py`, `scripts/verify_tiny_provider_invocation_lane.py`, `scripts/verify_provider_credential_validation_lane.py` |
 | Memory Workbench V1 and Ranked Retrieval / Recall Tuning | `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_022_RANKED_RETRIEVAL_RECALL_TUNING.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md` |
 | Agent module maturity review | `docs/registry/agent_module_maturity_map.json`, `docs/registry/agent_module_maturity_review_v2.json`, `docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` |
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |

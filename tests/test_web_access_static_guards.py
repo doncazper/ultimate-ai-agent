@@ -87,6 +87,11 @@ TEMPORARY_BASELINE_EXCEPTIONS = {
         "scope=legacy governed evidence source wrapped by WebAccessGateway; "
         "authority=not_general_agent_web; migration=wrapped in PR 1"
     ),
+    "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py": (
+        "lane=tiny_exact_approved_provider_invocation; "
+        "scope=one provider/model scoped live adapter after exact approval and CostGovernor; "
+        "authority=not_agent_public_web; migration=provider-runtime scoped adapter"
+    ),
 }
 
 BANNED_PROVIDER_SURFACE_TERMS = {

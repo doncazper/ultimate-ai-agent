@@ -5244,6 +5244,12 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText(/Disabled no execution/i).length,
     ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Live adapter blocked/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/Live receipt required/i).length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getAllByText(/No provider authority/i).length,
     ).toBeGreaterThan(0);
@@ -5361,6 +5367,9 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText(/Disabled no execution/i).length,
     ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Live adapter blocked/i).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(
       0,
     );

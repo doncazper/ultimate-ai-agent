@@ -39,8 +39,13 @@ def main() -> int:
             "inspected": True,
             "receipt_count": len(receipts),
             "receipt_refs": [receipt.receipt_ref for receipt in receipts],
+            "statuses": [receipt.status for receipt in receipts],
+            "adapter_refs": [receipt.adapter_ref for receipt in receipts],
             "usage_receipt_refs": [receipt.usage_receipt_ref for receipt in receipts],
             "cost_receipt_refs": [receipt.cost_receipt_ref for receipt in receipts],
+            "network_call_performed": [
+                receipt.network_call_performed for receipt in receipts
+            ],
             "safe_schema_only": True,
             "raw_prompt_response_provider_exchange_stored": False,
         }

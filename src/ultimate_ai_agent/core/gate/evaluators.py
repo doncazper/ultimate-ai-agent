@@ -1883,6 +1883,12 @@ class FoundationGateEvaluator:
         allowed_provider_credential_validation_file = (
             "src/ultimate_ai_agent/core/providers/credential_validation.py"
         )
+        allowed_tiny_provider_invocation_file = (
+            "src/ultimate_ai_agent/core/providers/invocation.py"
+        )
+        allowed_tiny_provider_live_adapter_file = (
+            "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py"
+        )
         allowed_m72_fixture_files = {
             "src/ultimate_ai_agent/core/gate/evaluators.py",
         }
@@ -1905,6 +1911,9 @@ class FoundationGateEvaluator:
         provider_credential_validation_endpoint_marker = (
             provider_catalog_https_prefix + "api.openai.com/v1/models"
         )
+        tiny_provider_invocation_endpoint_marker = (
+            provider_catalog_https_prefix + "api.openai.com/v1/responses"
+        )
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
@@ -1919,6 +1928,13 @@ class FoundationGateEvaluator:
                     continue
                 if (
                     path == allowed_provider_credential_validation_file
+                    and stripped.startswith(
+                        ("from urllib import request", "from urllib import error")
+                    )
+                ):
+                    continue
+                if (
+                    path == allowed_tiny_provider_live_adapter_file
                     and stripped.startswith(
                         ("from urllib import request", "from urllib import error")
                     )
@@ -1966,6 +1982,11 @@ class FoundationGateEvaluator:
             if (
                 path == allowed_provider_credential_validation_file
                 and provider_credential_validation_endpoint_marker in stripped
+            ):
+                continue
+            if (
+                path == allowed_tiny_provider_invocation_file
+                and tiny_provider_invocation_endpoint_marker in stripped
             ):
                 continue
             if any(pattern in stripped for pattern in forbidden_contains):

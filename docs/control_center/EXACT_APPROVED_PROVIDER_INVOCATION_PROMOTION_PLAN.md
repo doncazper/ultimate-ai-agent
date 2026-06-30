@@ -1,20 +1,26 @@
 # Exact-Approved Provider Invocation Promotion Plan
 
-Status: disabled-default contract lane implemented; callable provider runtime remains future gated.
+Status: disabled-default live adapter lane implemented; broad callable provider runtime remains future gated.
 
 This plan defines the minimum promotion checklist for one tiny exact-approved
 provider/model lane. The current implementation adds typed contracts, a
 disabled-default Control Center route, CostGovernor blocking, redacted receipt
-storage, CLI inspection, and UI posture labels. It does not add provider
-credential validation authority, provider SDK calls, live model calls,
-autonomous model calls, background execution, or billing authority; provider
-credential validation is handled by the separate exact-approved validation lane
-and still does not authorize invocation.
+storage, CLI inspection, UI posture labels, and one core-only
+OpenAI-compatible adapter that can perform a synchronous network call only when
+constructed with exact scoped approval, known cost posture, injected transient
+credential resolution, durable receipt replay storage, and a scoped transport.
+It does not add provider
+credential validation authority through the invocation lane, provider SDK
+calls, broad provider routing, fallback, autonomous model calls, background
+execution, or billing authority; provider credential validation is handled by
+the separate exact-approved validation lane and still does not authorize
+invocation.
 
-The lane may become callable only after Provider Credential Readiness,
-CostGovernor Binding, Credential Vault Contract Shell posture, exact approval,
-redacted receipts, CLI inspection parity, and UI blocked-state parity remain
-green for a scoped adapter enablement milestone.
+The default API route still uses the disabled adapter and does not become
+callable from metadata visibility. Any future product surface that enables the
+scoped adapter must keep Provider Credential Readiness, CostGovernor Binding,
+Credential Vault posture, exact approval, redacted receipts, CLI inspection
+parity, and UI blocked-state parity green.
 
 ## Promotion Checklist
 
@@ -23,11 +29,8 @@ The tiny lane requires all of the following before adapter execution can occur:
 - `credential_ref`
 - `provider_ref`
 - `model_ref`
-- policy ref carried as part of the exact approval scope; `PolicyEngine`
-  decision validation remains a future promotion gate before enabling a real
-  adapter
-- future enabled adapters must perform `PolicyEngine` policy validation before
-  any provider call
+- policy ref carried as part of the exact approval scope
+- `PolicyEngine` policy validation before any scoped adapter call
 - exact approval scope validated by `LocalApprovalAuthority`
 - `CostGovernor` decision
 - unknown paid cost blocked by default
@@ -39,8 +42,11 @@ The tiny lane requires all of the following before adapter execution can occur:
   claim callable authority
 - no raw prompt, response, or provider payload persistence
 - rollback or safe-disable posture
+- durable receipt replay guard before any scoped network call
 - CLI inspection parity
 - UI blocked, approved, and cost-blocked states
+- live adapter blocked state when scoped adapter configuration is missing or
+  denied
 
 Every lane attempt must fail closed when any required ref, policy validation,
 approval scope, budget decision, receipt ref, or safe-disable posture is
@@ -52,7 +58,7 @@ cost/policy gates pass while the adapter remains disabled.
 
 ## Minimum Contract Shape
 
-The contract distinguishes these states before callable provider runtime exists:
+The contract distinguishes these states before broad callable provider runtime exists:
 
 - `blocked_missing_credential_ref`
 - `blocked_missing_provider_ref`
@@ -69,12 +75,13 @@ The contract distinguishes these states before callable provider runtime exists:
 - `cost_blocked`
 - `unknown_paid_cost_blocked`
 - `approved_no_execution`
+- `live_adapter_blocked`
 - `receipt_recorded`
 
 Approval refs, credential refs, provider refs, model refs, and max-approved USD
 refs remain identifiers. They do not authorize provider calls unless the exact
-lane contract validates the complete scope, passes CostGovernor checks, and
-records redacted receipts.
+lane contract validates the complete scope, passes CostGovernor checks, runs
+through the one scoped adapter, and records redacted receipts.
 
 ## Receipt And Evidence Rules
 
@@ -95,6 +102,12 @@ Receipts must store safe refs and redacted summaries only:
 - idempotency ref
 - rollback or safe-disable ref
 
+Successful live adapter calls and provider-network-attempt failures both remain
+receipt-backed. A repeated idempotency ref must return the existing redacted
+receipt or fail closed on scope conflict before a second network call can occur.
+Blocked-attempt receipts may record safe adapter refs and network posture, but
+never raw prompt, response, credential, or provider payload content.
+
 Receipts, evidence, logs, tests, and UI fixtures must not store raw prompt
 content, raw response content, raw provider exchange content, raw provider
 payloads, credentials, secrets, usernames, hostnames, local paths, env dumps, or
@@ -110,6 +123,7 @@ backend-owned data:
 - cost blocked
 - unknown paid cost
 - no provider authority
+- live adapter blocked
 - receipt recorded
 - disabled no execution
 
@@ -123,7 +137,8 @@ authority, or callable runtime from metadata visibility.
 - No provider SDK calls.
 - No enabled runtime invocation by default.
 - No credential validation authority through this invocation lane.
-- No network calls.
+- No network calls by default.
+- No network calls outside `OpenAICompatibleTinyLiveProviderAdapter`.
 - No model output authority.
 - No raw prompt, response, or provider payload persistence.
 - No broad provider enabled toggle.

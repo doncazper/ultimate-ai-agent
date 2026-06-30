@@ -90,6 +90,7 @@ APPROVED_PUBLIC_WEB_IMPORT_FILES = {
     "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
     "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
     "src/ultimate_ai_agent/core/network/governed_web_evidence.py",
+    "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py",
     "scripts/dev/uaa_launcher.py",
     "scripts/dev/uaa_setup.py",
     "scripts/run_local_runtime_packaging_proof.py",

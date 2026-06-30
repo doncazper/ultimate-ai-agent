@@ -601,6 +601,7 @@ def verify_no_forbidden_external_integrations() -> None:
     allowed_stdlib_network_import_files = {
         "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
         "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
+        "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py",
     }
     forbidden_imports = [
         "import requests",

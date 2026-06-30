@@ -10,6 +10,8 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
+    TINY_LIVE_PROVIDER_ADAPTER_REF,
+    TINY_LIVE_PROVIDER_TRANSPORT_REF,
     TinyProviderInvocationAdapter,
     TinyProviderInvocationReceipt,
     TinyProviderInvocationReceiptStore,
@@ -106,7 +108,7 @@ def receipt_payload(**overrides: object) -> dict[str, object]:
         "status": TinyProviderInvocationStatus.receipt_recorded,
         "invocation_performed": True,
         "safe_summary": (
-            "Tiny exact-approved provider lane recorded a redacted receipt using an injected adapter."
+            "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter."
         ),
     }
     values.update(overrides)
@@ -122,6 +124,7 @@ class OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
     ) -> TinyProviderInvocationTransportReceipt:
         return TinyProviderInvocationTransportReceipt(
             transport_ref=f"provider-transport-ref:tiny-provider:{request.invocation_ref.split(':')[-1]}",
+            adapter_ref=self.adapter_ref,
             redacted_output_summary_ref=request.redacted_output_summary_ref,
             usage_receipt_ref=request.usage_receipt_ref,
             cost_receipt_ref=request.cost_receipt_ref,
@@ -144,6 +147,8 @@ def test_tiny_provider_lane_default_readiness_is_disabled_and_cost_governed() ->
     assert "Cost blocked" in readiness.ui_states
     assert "No provider authority" in readiness.ui_states
     assert "Disabled no execution" in readiness.ui_states
+    assert "Live adapter blocked" in readiness.ui_states
+    assert "Live receipt required" in readiness.ui_states
     assert "Approved no execution" not in readiness.ui_states
 
 
@@ -286,11 +291,90 @@ def test_transport_receipt_requires_known_billed_cost() -> None:
         )
 
 
+def test_transport_receipt_allows_network_only_as_scoped_adapter_metadata() -> None:
+    receipt = TinyProviderInvocationTransportReceipt(
+        transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        redacted_output_summary_ref="redacted-output-summary-ref:provider-runtime:tiny-test",
+        usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-test",
+        cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-test",
+        input_tokens_used=1,
+        output_tokens_used=1,
+        billed_cost_usd=0.001,
+        network_call_performed=True,
+        adapter_ref=TINY_LIVE_PROVIDER_ADAPTER_REF,
+    )
+
+    assert receipt.network_call_performed is True
+    assert receipt.provider_sdk_used is False
+    assert receipt.raw_output_persisted is False
+
+
+def test_transport_receipt_rejects_network_without_approved_transport_scope() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_TRANSPORT_NETWORK_SCOPE_DENIED",
+    ):
+        TinyProviderInvocationTransportReceipt(
+            transport_ref="provider-transport-ref:tiny-live:unapproved",
+            adapter_ref=TINY_LIVE_PROVIDER_ADAPTER_REF,
+            redacted_output_summary_ref="redacted-output-summary-ref:provider-runtime:tiny-test",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-test",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-test",
+            input_tokens_used=1,
+            output_tokens_used=1,
+            billed_cost_usd=0.001,
+            network_call_performed=True,
+        )
+
+
+def test_transport_receipt_rejects_unsafe_block_reason_text() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_TRANSPORT_BLOCK_REASON_UNSAFE",
+    ):
+        TinyProviderInvocationTransportReceipt(
+            transport_ref="provider-transport-ref:tiny-provider:block",
+            adapter_ref="provider-adapter-ref:tiny-exact-approved:generic",
+            status="blocked",
+            redacted_output_summary_ref="redacted-output-summary-ref:provider-runtime:tiny-test",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-test",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-test",
+            input_tokens_used=0,
+            output_tokens_used=0,
+            billed_cost_usd=0.0,
+            block_reason_code="raw provider error with token",
+        )
+
+
 def test_receipt_rejects_authority_or_raw_persistence_claims() -> None:
     base = evaluate_with_exact_approval(invocation_request())
     assert base.status == TinyProviderInvocationStatus.approved_no_execution
     with pytest.raises(ValidationError, match="TINY_PROVIDER_INVOCATION_RECEIPT_AUTHORITY_DENIED"):
         TinyProviderInvocationReceipt(**receipt_payload(provider_sdk_used=True))
+
+
+def test_receipt_allows_scoped_network_flag_but_rejects_raw_persistence() -> None:
+    receipt = TinyProviderInvocationReceipt(
+        **receipt_payload(
+            adapter_ref=TINY_LIVE_PROVIDER_ADAPTER_REF,
+            network_call_performed=True,
+        )
+    )
+
+    assert receipt.network_call_performed is True
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_RECEIPT_AUTHORITY_DENIED",
+    ):
+        TinyProviderInvocationReceipt(**receipt_payload(raw_response_persisted=True))
+
+
+def test_receipt_rejects_network_claim_without_scoped_live_adapter_ref() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_RECEIPT_NETWORK_SCOPE_DENIED",
+    ):
+        TinyProviderInvocationReceipt(**receipt_payload(network_call_performed=True))
 
 
 def test_receipt_rejects_freeform_safe_summary_text() -> None:

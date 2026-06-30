@@ -80,14 +80,16 @@ Tiny Exact-Approved Provider Invocation Lane now adds a disabled-default
 contract path for one provider/model lane with credential/provider/model refs,
 exact approval scope, CostGovernor decision, unknown paid cost blocked by
 default, max-approved USD, idempotency, redacted receipt refs, safe-disable
-posture, CLI parity, and UI blocked/approved/cost-blocked states. The default
-API route blocks without exact approval and only an exact-approved,
-cost-cleared request can reach disabled-adapter approved-no-execution; a future
-scoped adapter enablement milestone is still required before callable provider
-authority. The lane adds no provider SDK calls,
-credential validation authority beyond the separate exact-approved validation
-lane, autonomous model calls, background execution, billing authority, provider
-output authority, or callable runtime authority.
+posture, CLI parity, UI blocked/approved/cost-blocked states, and a core-only
+OpenAI-compatible live adapter that can run only when explicitly constructed
+with exact approval, known cost, transient credential resolution, and scoped
+transport plus durable receipt replay storage. The default API route blocks
+without exact approval and uses the disabled adapter by default; metadata
+visibility does not create callable provider authority. The lane adds no
+provider SDK calls, credential validation authority beyond the separate
+exact-approved validation lane, broad provider router, fallback, autonomous
+model calls, background execution, billing authority, provider output
+authority, or broad callable runtime authority.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
