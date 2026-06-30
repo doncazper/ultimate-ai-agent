@@ -96,6 +96,7 @@ def main() -> int:
         check=False,
         text=True,
         capture_output=True,
+        timeout=30,  # Prevent hanging if inspection script deadlocks
     )
     if inspect_result.returncode != 0:
         failures.append("inspect_provider_setup_guide.py failed")

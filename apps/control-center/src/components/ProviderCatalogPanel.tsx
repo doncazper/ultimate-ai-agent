@@ -179,35 +179,30 @@ function TokenCostExampleCard({ example }: { example: TokenCostExample }) {
     <section className="provider-readiness-item">
       <div className="panel-heading compact-heading">
         <h4>{example.label}</h4>
-        <span>{example.no_provider_call ? "no provider use" : "unsafe"}</span>
+        <span>{example.synthetic_only ? "synthetic only" : "unsafe"}</span>
       </div>
       <p>{example.safe_summary}</p>
       <dl className="metadata-list">
         <div>
-          <dt>Scenario</dt>
-          <dd>{example.scenario}</dd>
+          <dt>Workload</dt>
+          <dd>{example.workload_kind}</dd>
         </div>
         <div>
           <dt>Live price quote</dt>
-          <dd>{example.no_live_price_quote ? "no" : "yes"}</dd>
+          <dd>{example.no_live_price_amounts ? "no" : "yes"}</dd>
         </div>
         <div>
           <dt>Unknown paid cost</dt>
           <dd>
-            {example.unknown_paid_cost_requires_explicit_approval
+            {example.approval_required_for_paid_use
               ? "approval required"
               : "not required"}
           </dd>
         </div>
       </dl>
-      <div className="note-list" aria-label={`${example.label} metered units`}>
-        {example.metered_unit_notes.map((note) => (
+      <div className="note-list" aria-label={`${example.label} cost driver notes`}>
+        {example.cost_driver_notes.map((note) => (
           <span key={note}>{note}</span>
-        ))}
-      </div>
-      <div className="note-list" aria-label={`${example.label} required budget refs`}>
-        {example.required_budget_refs.map((ref) => (
-          <span key={ref}>{ref}</span>
         ))}
       </div>
     </section>
@@ -276,9 +271,10 @@ function ProviderSetupCardView({ card }: { card: ProviderSetupCard }) {
 }
 
 function SourceRefLabel({ href, label }: { href: string; label: string }) {
-  if (/^https:\/\//.test(href)) {
+  // Explicitly block javascript:, data:, vbscript: protocols to prevent XSS
+  if (/^https:\/\//i.test(href)) {
     return (
-      <a href={href} rel="noreferrer" target="_blank">
+      <a href={href} rel="noreferrer noopener" target="_blank">
         {label}
       </a>
     );
