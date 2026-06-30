@@ -104,6 +104,20 @@ execution authority by itself, no network calls, no provider SDK calls, no
 credential validation, no model calls, no billing authority, no
 autonomous/background calls, no raw prompt/response/provider payload
 persistence, and no broad provider router authority.
+Background and Autonomous Provider Calls Promotion Plan is now a planning-only
+authority gate in
+`docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`
+with `scripts/verify_background_autonomous_provider_plan.py` coverage. It
+requires future proof for scoped autonomy windows, exact allowed
+provider/model refs, exact allowed credential refs, max spend per window,
+per-request and per-session budget limits, CostGovernor hard blocks, queue
+inspection, kill switch, revocation, replay/audit, red-team checks, UI/CLI
+parity, no hidden prompt injection, no raw payload persistence,
+incomplete-cost receipt blocking, explicit human approval boundaries, and
+safe-disable/rollback posture before any promotion. It adds no background
+execution, no scheduler, no autonomous model calls, no provider calls, no
+runtime activation, no billing authority, no broad provider router, no new API
+runtime route, no public beta, and no production authority.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
