@@ -5,21 +5,29 @@ import json
 import tempfile
 from pathlib import Path
 
+from pydantic import SecretStr
+
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
+    OpenAICompatibleTinyLiveProviderAdapter,
+    TINY_LIVE_PROVIDER_ADAPTER_REF,
+    TINY_LIVE_PROVIDER_TRANSPORT_REF,
     TinyProviderInvocationAdapter,
+    TinyLiveCredentialResolution,
     TinyProviderInvocationReceiptStore,
     TinyProviderInvocationRequest,
     TinyProviderInvocationStatus,
+    TinyLiveProviderTransportResult,
     TinyProviderInvocationTransportReceipt,
     build_tiny_provider_invocation_approval_request,
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
 )
+from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVaultPosture
 from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_MODEL_REF,
     TINY_PROVIDER_INVOCATION_POLICY_REF,
@@ -33,7 +41,12 @@ FORBIDDEN_SOURCE_FRAGMENTS = (
     "from requests import",
     "import httpx",
     "from httpx import",
-    "urllib.request",
+    "openai.OpenAI(",
+    "anthropic.Anthropic(",
+    "google.generativeai",
+    "chat.completions.create(",
+)
+PROVIDER_SDK_FORBIDDEN_FRAGMENTS = (
     "openai.OpenAI(",
     "anthropic.Anthropic(",
     "google.generativeai",
@@ -102,6 +115,7 @@ class _OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
     ) -> TinyProviderInvocationTransportReceipt:
         return TinyProviderInvocationTransportReceipt(
             transport_ref="provider-transport-ref:tiny-provider:over-budget",
+            adapter_ref=self.adapter_ref,
             redacted_output_summary_ref=request.redacted_output_summary_ref,
             usage_receipt_ref=request.usage_receipt_ref,
             cost_receipt_ref=request.cost_receipt_ref,
@@ -109,6 +123,52 @@ class _OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
             output_tokens_used=request.estimated_output_tokens,
             billed_cost_usd=(request.max_approved_usd or 0) + 0.01,
         )
+
+
+class _SpoofedNetworkTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
+    adapter_ref = "provider-adapter-ref:tiny-exact-approved:spoofed"
+    enabled = True
+
+    def execute(
+        self,
+        request: TinyProviderInvocationRequest,
+    ) -> TinyProviderInvocationTransportReceipt:
+        return TinyProviderInvocationTransportReceipt(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            adapter_ref=TINY_LIVE_PROVIDER_ADAPTER_REF,
+            redacted_output_summary_ref=request.redacted_output_summary_ref,
+            usage_receipt_ref=request.usage_receipt_ref,
+            cost_receipt_ref=request.cost_receipt_ref,
+            input_tokens_used=request.estimated_input_tokens,
+            output_tokens_used=request.estimated_output_tokens,
+            billed_cost_usd=request.estimated_cost_usd,
+            network_call_performed=True,
+        )
+
+
+def _mocked_live_transport(
+    request: TinyProviderInvocationRequest,
+    credential: SecretStr,
+) -> TinyLiveProviderTransportResult:
+    if credential.get_secret_value() != "transient-material":
+        raise AssertionError("unexpected transient credential material")
+    return TinyLiveProviderTransportResult(
+        transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        input_tokens_used=request.estimated_input_tokens,
+        output_tokens_used=request.estimated_output_tokens,
+        billed_cost_usd=request.estimated_cost_usd or 0.0,
+        network_call_performed=True,
+    )
+
+
+def _credential_resolution(request: TinyProviderInvocationRequest) -> TinyLiveCredentialResolution:
+    return TinyLiveCredentialResolution(
+        credential_ref=request.credential_ref,
+        secret_ref="secret-ref:openai-compatible:verify",
+        vault_record_ref="credential-vault-record-ref:openai-compatible:verify",
+        posture=ProviderCredentialVaultPosture.secret_ref_available,
+        transient_secret=SecretStr("transient-material"),
+    )
 
 
 def main() -> int:
@@ -119,6 +179,9 @@ def main() -> int:
         failures.append("default tiny provider readiness is not disabled")
     if "Approved no execution" in readiness.ui_states:
         failures.append("default tiny provider readiness exposes approved state label")
+    for label in ("Live adapter blocked", "Live receipt required"):
+        if label not in readiness.ui_states:
+            failures.append(f"default tiny provider readiness missing UI label: {label}")
 
     missing_provider = evaluate_tiny_provider_invocation(
         _request(provider_ref="provider-ref:provider-runtime:not-bound")
@@ -182,6 +245,20 @@ def main() -> int:
         failures.append("default adapter did not remain approved/no-execution")
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "spoofed-receipts.jsonl")
+        spoofed_network = _evaluate_with_exact_approval(
+            _request(invocation_ref="provider-invocation-ref:tiny:verify-spoofed-net"),
+            adapter=_SpoofedNetworkTinyProviderInvocationAdapter(),
+            receipt_store=store,
+        )
+        if spoofed_network.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("spoofed network adapter did not block")
+        elif "TINY_PROVIDER_TRANSPORT_ADAPTER_REF_MISMATCH" not in spoofed_network.reason_codes:
+            failures.append("spoofed network adapter did not report adapter-ref mismatch")
+        if store.list_receipts():
+            failures.append("spoofed network adapter recorded a receipt")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
         store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "receipts.jsonl")
         success = _evaluate_with_exact_approval(
             _request(invocation_ref="provider-invocation-ref:tiny:success"),
@@ -198,6 +275,73 @@ def main() -> int:
                 failures.append("receipt store did not persist exactly one redacted receipt")
             if "ACTUAL_USAGE_COST_RECONCILED" not in success.receipt.reason_codes:
                 failures.append("receipt does not record actual usage/cost reconciliation")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "live-receipts.jsonl")
+        missing_secret = _evaluate_with_exact_approval(
+            _request(invocation_ref="provider-invocation-ref:tiny:verify-missing-secret"),
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(enabled=True),
+            receipt_store=store,
+        )
+        if missing_secret.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("live adapter did not block without transient secret resolver")
+        elif "TINY_LIVE_PROVIDER_SECRET_RESOLVER_REQUIRED" not in missing_secret.reason_codes:
+            failures.append("live adapter missing-secret block did not expose safe reason code")
+
+        live_request = _request(invocation_ref="provider-invocation-ref:tiny:verify-live-mocked")
+        live_mocked = _evaluate_with_exact_approval(
+            live_request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref: _credential_resolution(live_request),
+                transport=_mocked_live_transport,
+            ),
+            receipt_store=store,
+        )
+        if not live_mocked.allowed or live_mocked.receipt is None:
+            failures.append("mocked live adapter did not record redacted receipt")
+        elif live_mocked.receipt.adapter_ref != TINY_LIVE_PROVIDER_ADAPTER_REF:
+            failures.append("mocked live adapter receipt did not record scoped adapter ref")
+        elif not live_mocked.receipt.network_call_performed:
+            failures.append("mocked live adapter receipt did not record network posture")
+        elif live_mocked.receipt.provider_sdk_used:
+            failures.append("mocked live adapter claimed provider SDK use")
+
+        replayed = _evaluate_with_exact_approval(
+            live_request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref: _credential_resolution(live_request),
+                transport=_mocked_live_transport,
+            ),
+            receipt_store=store,
+        )
+        if "IDEMPOTENCY_REPLAYED_RECEIPT" not in replayed.reason_codes:
+            failures.append("mocked live adapter did not replay existing idempotent receipt")
+
+        wrong_model_request = _request(
+            invocation_ref="provider-invocation-ref:tiny:verify-wrong-model",
+            idempotency_ref="idempotency:provider-runtime:tiny-wrong-model",
+            expected_receipt_ref="receipt:provider-runtime:tiny-wrong-model",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-wrong-model",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-wrong-model",
+        )
+        wrong_model = _evaluate_with_exact_approval(
+            wrong_model_request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                provider_model_name="not-the-single-allowed-model",
+                credential_resolver=lambda _credential_ref: _credential_resolution(
+                    wrong_model_request
+                ),
+                transport=_mocked_live_transport,
+            ),
+            receipt_store=store,
+        )
+        if wrong_model.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("live adapter did not block unapproved provider model name")
+        elif "TINY_LIVE_PROVIDER_MODEL_NAME_NOT_ALLOWLISTED" not in wrong_model.reason_codes:
+            failures.append("live adapter wrong-model block did not expose safe reason code")
 
     manifest = build_api_manifest(app).model_dump(mode="json")
     routes = {
@@ -216,6 +360,8 @@ def main() -> int:
             failures.append("tiny provider route does not require idempotency")
         if route["rate_limit_group"] != "provider_exact_approved_lane":
             failures.append("tiny provider route is not rate limited as provider lane")
+        if "disabled-by-default" not in route["classification_reason"]:
+            failures.append("tiny provider route description does not state disabled-by-default")
     if route_rate_limit_group("POST", TINY_PROVIDER_INVOCATION_ROUTE) != "provider_exact_approved_lane":
         failures.append("tiny provider route rate-limit group lookup failed")
 
@@ -225,6 +371,16 @@ def main() -> int:
     for fragment in FORBIDDEN_SOURCE_FRAGMENTS:
         if fragment in source:
             failures.append(f"forbidden provider/network source fragment present: {fragment}")
+    live_adapter_source = Path(
+        "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py"
+    ).read_text(encoding="utf-8")
+    if "urllib_request.urlopen" not in live_adapter_source:
+        failures.append("live provider network call is not contained in the scoped adapter")
+    for fragment in PROVIDER_SDK_FORBIDDEN_FRAGMENTS:
+        if fragment in live_adapter_source:
+            failures.append(
+                f"provider SDK source fragment present in live adapter: {fragment}"
+            )
 
     if failures:
         print("FAIL: tiny provider invocation lane verification failed")

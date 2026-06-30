@@ -1620,14 +1620,30 @@ export function ProviderCredentialReadinessPanel({
             [
               "Provider SDK",
               readiness.tiny_invocation_readiness.provider_sdk_call_enabled
-                ? "blocked until scoped adapter"
+                ? "blocked"
                 : "disabled",
             ],
             [
               "Network call",
               readiness.tiny_invocation_readiness.network_call_enabled
-                ? "blocked until scoped adapter"
-                : "disabled",
+                ? "scoped adapter only"
+                : "disabled by default",
+            ],
+            [
+              "Live adapter",
+              readiness.tiny_invocation_readiness.ui_states.includes(
+                "Live adapter blocked",
+              )
+                ? "blocked"
+                : "not scoped",
+            ],
+            [
+              "Live receipt",
+              readiness.tiny_invocation_readiness.ui_states.includes(
+                "Live receipt required",
+              )
+                ? "required"
+                : "not recorded",
             ],
             [
               "Autonomous calls",

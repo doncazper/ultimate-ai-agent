@@ -4115,6 +4115,8 @@ export const mockControlCenterData: ControlCenterData = {
           "Unknown paid cost",
           "No provider authority",
           "Disabled no execution",
+          "Live adapter blocked",
+          "Live receipt required",
         ],
         blocker_codes: [
           "TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT",
@@ -4127,9 +4129,11 @@ export const mockControlCenterData: ControlCenterData = {
           "EXPECTED_RECEIPT_REF_REQUIRED",
           "UNKNOWN_PAID_COST_BLOCKS",
           "REDACTED_RECEIPT_REQUIRED",
+          "LIVE_ADAPTER_DISABLED_BY_DEFAULT",
+          "LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER",
         ],
         safe_summary:
-          "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, and a separate future scoped adapter enablement gate. The default readiness posture remains disabled-no-execution.",
+          "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, and a separate scoped adapter enablement gate. Even with the live adapter contract present, the default readiness posture remains disabled-no-execution.",
       },
       providers: [
         {

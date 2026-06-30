@@ -301,6 +301,7 @@ CAPABILITIES_BLOCKED = [
     "tiny_provider_lane_background_execution",
     "tiny_provider_lane_billing_authority",
     "tiny_provider_lane_provider_sdk_or_network_call_by_default",
+    "tiny_provider_lane_network_call_outside_scoped_adapter",
     "provider_credential_validation_without_exact_approval",
     "provider_credential_validation_without_idempotency",
     "provider_credential_validation_without_redacted_receipt",
@@ -696,7 +697,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, and safe-disable posture required while broad provider authority stays blocked",
+            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, disabled-by-default scoped live adapter posture, and safe-disable posture required while the default API path performs no provider network call and broad provider authority stays blocked",
         )
     if (
         normalized_method == "POST"

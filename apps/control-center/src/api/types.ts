@@ -3914,6 +3914,7 @@ export interface TinyProviderInvocationReadiness {
     | "approval_required"
     | "approval_invalid"
     | "approved_no_execution"
+    | "live_adapter_blocked"
     | "receipt_recorded";
   invocation_enabled: boolean;
   provider_sdk_call_enabled: boolean;
@@ -3944,7 +3945,9 @@ export type TinyProviderInvocationUiState =
   | "Cost blocked"
   | "Unknown paid cost"
   | "No provider authority"
-  | "Disabled no execution";
+  | "Disabled no execution"
+  | "Live adapter blocked"
+  | "Live receipt required";
 
 export interface ProviderCredentialReadinessSummary {
   status: string;

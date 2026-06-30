@@ -16,7 +16,7 @@ CANONICAL_MAP_PATH = ROOT / "docs/canonical/CANONICAL_DOC_MAP.md"
 TRUTH_PACKET_PATH = ROOT / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
 
 REQUIRED_DOC_FRAGMENTS = {
-    "Status: disabled-default contract lane implemented; callable provider runtime remains future gated.",
+    "Status: disabled-default live adapter lane implemented; broad callable provider runtime remains future gated.",
     "credential_ref",
     "provider_ref",
     "model_ref",
@@ -31,13 +31,18 @@ REQUIRED_DOC_FRAGMENTS = {
     "`PolicyEngine` policy decision ref",
     "no raw prompt, response, or provider payload persistence",
     "rollback or safe-disable posture",
+    "durable receipt replay guard before any scoped network call",
+    "provider-network-attempt failures both remain",
+    "receipt-backed",
     "blocked_missing_policy_validation",
+    "live_adapter_blocked",
     "CLI inspection parity",
     "UI blocked, approved, and cost-blocked states",
     "No provider SDK calls.",
     "No enabled runtime invocation by default.",
     "No credential validation authority through this invocation lane.",
-    "No network calls.",
+    "No network calls by default.",
+    "No network calls outside `OpenAICompatibleTinyLiveProviderAdapter`.",
     "No model output authority.",
 }
 REQUIRED_SUPPORTING_FRAGMENTS = {

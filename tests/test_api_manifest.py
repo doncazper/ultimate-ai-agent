@@ -314,6 +314,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         in manifest["capabilities_blocked"]
     )
     assert (
+        "tiny_provider_lane_network_call_outside_scoped_adapter"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
         "provider_credential_validation_without_exact_approval"
         in manifest["capabilities_blocked"]
     )
