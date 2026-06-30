@@ -13,6 +13,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -297,6 +298,46 @@ def _provider_invocation_plan_findings(root: Path) -> list[ProductTruthFinding]:
     ]
 
 
+def _credential_vault_backend_failures(root: Path) -> list[str]:
+    if root.resolve() != ROOT.resolve():
+        return []
+    verifier_path = ROOT / "scripts" / "verify_credential_vault_backend_v1.py"
+    if not verifier_path.exists():
+        return ["credential vault backend v1 verifier is missing"]
+    result = subprocess.run(
+        [sys.executable, str(verifier_path)],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        return ["credential vault backend v1 verifier failed"]
+    return []
+
+
+def _credential_vault_backend_findings(root: Path) -> list[ProductTruthFinding]:
+    return [
+        ProductTruthFinding(
+            rel_path="docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md",
+            line=1,
+            category="credential_vault_backend_v1_guard",
+            evidence_hash=_safe_hash(
+                "docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md",
+                index,
+                "credential_vault_backend_v1_guard",
+                failure,
+            ),
+            safe_message=(
+                "credential vault backend v1 guard failed; "
+                "run the focused verifier for redacted details"
+            ),
+        )
+        for index, failure in enumerate(_credential_vault_backend_failures(root), start=1)
+    ]
+
+
 def validate_product_truth(
     root: Path = ROOT,
     scopes: Iterable[str] = DEFAULT_SCOPES,
@@ -306,6 +347,7 @@ def validate_product_truth(
     for path in _iter_scope_files(root, scopes):
         findings.extend(scan_file(root, path))
     findings.extend(_provider_invocation_plan_findings(root))
+    findings.extend(_credential_vault_backend_findings(root))
     return findings
 
 
