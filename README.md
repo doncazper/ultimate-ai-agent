@@ -218,8 +218,15 @@ Run focused checks before broad gates.
 ```bash
 make doctor
 make verify
+make verify-fast
 make frontend-check
 ```
+
+`make verify` preserves the serial all-in verification contract. `make verify-fast`
+shards local verification into `ruff`, `test`, `verify-static`, and
+`verify-gate-architecture` prerequisites before generating a report-only
+Foundation Gate summary with `--no-write-latest`; it is local verification
+evidence, not a release-readiness claim by itself.
 
 Useful direct checks:
 

@@ -62,11 +62,32 @@ def test_dev_environment_verifier_warns_without_failing_when_npm_is_missing(tmp_
 def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     text = MAKEFILE.read_text(encoding="utf-8")
 
-    for target in ["doctor:", "test:", "verify:", "frontend-check:", "openapi:", "ruff:"]:
+    for target in [
+        "doctor:",
+        "test:",
+        "verify:",
+        "verify-static:",
+        "verify-gate-architecture:",
+        "verify-fast:",
+        "verify-local:",
+        "frontend-check:",
+        "openapi:",
+        "ruff:",
+    ]:
         assert target in text
     assert "PYTHON := .venv/bin/python" in text
+    assert "VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json" in text
     assert "PYTHONPATH=src $(PYTHON) -m pytest" in text
     assert "$(PYTHON) scripts/verify_all.py" in text
+    assert (
+        "$(PYTHON) scripts/verify_all.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON)"
+        in text
+    )
+    assert "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py" in text
     assert "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only" in text
+    assert (
+        "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest"
+        in text
+    )
     assert "$(PYTHON) -m ruff check ." in text
     assert "python scripts/" not in text

@@ -493,6 +493,7 @@ def run_latency_gate_summary(
     warmup: int = 0,
     path_repeat: int = 5,
     path_warmup: int = 1,
+    write_report: bool = True,
     max_best_ms: float = DEFAULT_MAX_BEST_MS,
     max_mean_ms: float = DEFAULT_MAX_MEAN_MS,
     foundation_gate_report_json: str | None = None,
@@ -530,7 +531,7 @@ def run_latency_gate_summary(
             **_benchmark_release_latency_paths(
                 repeat=path_repeat,
                 warmup=path_warmup,
-                write_report=True,
+                write_report=write_report,
             ),
         }
     else:
@@ -539,6 +540,7 @@ def run_latency_gate_summary(
             warmup=warmup,
             path_repeat=path_repeat,
             path_warmup=path_warmup,
+            write_report=write_report,
         )
     return build_foundation_gate_latency_summary(
         metrics,

@@ -1,7 +1,8 @@
 PYTHON := .venv/bin/python
 FRONTEND_DIR := apps/control-center
+VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json
 
-.PHONY: doctor test verify frontend-check frontend-visual-check openapi ruff
+.PHONY: doctor test verify verify-static verify-gate-architecture verify-fast verify-local frontend-check frontend-visual-check openapi ruff
 
 doctor:
 	$(PYTHON) scripts/verify_dev_environment.py
@@ -13,6 +14,17 @@ verify:
 	$(PYTHON) scripts/verify_all.py
 	PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py
 	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only
+
+verify-static:
+	$(PYTHON) scripts/verify_all.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON)
+
+verify-gate-architecture:
+	PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py
+
+verify-fast: ruff test verify-static verify-gate-architecture
+	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
+
+verify-local: verify-fast
 
 frontend-check:
 	cd $(FRONTEND_DIR) && npm run typecheck --if-present

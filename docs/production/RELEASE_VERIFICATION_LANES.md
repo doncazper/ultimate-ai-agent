@@ -77,6 +77,18 @@ For a local release candidate, run:
 .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
 ```
 
+For faster local pre-review feedback, run:
+
+```bash
+make verify-fast
+```
+
+`verify-fast` runs `ruff`, `test`, `verify-static`, and
+`verify-gate-architecture` as make prerequisites, then generates a report-only
+Foundation Gate summary with `--no-write-latest`. It is useful local evidence,
+but it does not by itself create populated release evidence packets or claim
+release readiness.
+
 For lane-focused review, use the command refs from
 `scripts/verify_release_lanes.py --json`. Split CI may satisfy a lane with an
 equivalent required job only when the release evidence packet records the job

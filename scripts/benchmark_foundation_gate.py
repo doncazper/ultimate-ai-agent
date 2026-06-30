@@ -257,18 +257,8 @@ def _benchmark_release_latency_paths(
             "rollback": "delete reports/performance/latest_release_latency_baseline.json and .md",
         },
     }
-    if write_report:
-        _write_performance_reports(report, hot_path_profile)
-    return {
+    metrics = {
         "release_latency_schema_version": report["schema_version"],
-        "release_latency_report_json": _repo_relative(PERFORMANCE_REPORT_JSON),
-        "release_latency_report_md": _repo_relative(PERFORMANCE_REPORT_MD),
-        "performance_regression_report_json": _repo_relative(
-            PERFORMANCE_REGRESSION_JSON
-        ),
-        "performance_regression_report_md": _repo_relative(PERFORMANCE_REGRESSION_MD),
-        "hot_path_profile_report_json": _repo_relative(HOT_PATH_PROFILE_JSON),
-        "hot_path_profile_report_md": _repo_relative(HOT_PATH_PROFILE_MD),
         "hot_path_profile_overall_status": hot_path_profile["overall_status"],
         "hot_path_profile_results": hot_path_profile_rows,
         "release_latency_overall_status": report["overall_status"],
@@ -281,6 +271,23 @@ def _benchmark_release_latency_paths(
         "release_latency_budget_passed": not required_failures,
         "release_latency_path_results": results,
     }
+    if write_report:
+        _write_performance_reports(report, hot_path_profile)
+        metrics.update(
+            {
+                "release_latency_report_json": _repo_relative(PERFORMANCE_REPORT_JSON),
+                "release_latency_report_md": _repo_relative(PERFORMANCE_REPORT_MD),
+                "performance_regression_report_json": _repo_relative(
+                    PERFORMANCE_REGRESSION_JSON
+                ),
+                "performance_regression_report_md": _repo_relative(
+                    PERFORMANCE_REGRESSION_MD
+                ),
+                "hot_path_profile_report_json": _repo_relative(HOT_PATH_PROFILE_JSON),
+                "hot_path_profile_report_md": _repo_relative(HOT_PATH_PROFILE_MD),
+            }
+        )
+    return metrics
 
 
 @contextmanager

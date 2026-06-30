@@ -210,22 +210,9 @@ def test_foundation_gate_benchmark_emits_parseable_metrics(monkeypatch: pytest.M
         assert path_results[path_id]["status"] == "passed"
         assert path_results[path_id]["failed_call_count"] == 0
         assert path_results[path_id]["authority_path_bypassed_for_speed"] is False
-    assert (
-        metrics["performance_regression_report_json"]
-        == "reports/performance/latest_performance_regression_report.json"
-    )
-    assert (
-        metrics["performance_regression_report_md"]
-        == "reports/performance/latest_performance_regression_report.md"
-    )
-    assert (
-        metrics["hot_path_profile_report_json"]
-        == "reports/performance/latest_hot_path_profile.json"
-    )
-    assert (
-        metrics["hot_path_profile_report_md"]
-        == "reports/performance/latest_hot_path_profile.md"
-    )
+    assert "release_latency_report_json" not in metrics
+    assert "performance_regression_report_json" not in metrics
+    assert "hot_path_profile_report_json" not in metrics
     assert metrics["hot_path_profile_overall_status"] == "passed"
 
 
