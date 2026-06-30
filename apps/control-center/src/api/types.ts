@@ -3976,15 +3976,18 @@ export interface ProviderSetupCard {
 export interface TokenCostExample {
   example_ref: string;
   label: string;
-  scenario: string;
-  metered_unit_notes: string[];
-  required_budget_refs: string[];
-  estimated_cost_usd?: number | null;
-  max_approved_usd?: number | null;
-  unknown_paid_cost_requires_explicit_approval: boolean;
+  workload_kind:
+    | "quick_chat"
+    | "crm_briefing"
+    | "long_document_review"
+    | "code_task"
+    | "batch_analysis";
   safe_summary: string;
-  no_live_price_quote: boolean;
-  no_provider_call: boolean;
+  cost_driver_notes: string[];
+  synthetic_only: boolean;
+  no_live_price_amounts: boolean;
+  not_cost_estimate: boolean;
+  approval_required_for_paid_use: boolean;
 }
 
 export interface ProviderCatalog {
