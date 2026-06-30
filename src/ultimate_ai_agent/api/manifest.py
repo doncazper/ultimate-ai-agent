@@ -83,6 +83,9 @@ CAPABILITIES_DECLARED = [
     "control_center_tiny_exact_approved_provider_lane_disabled_default",
     "control_center_tiny_exact_approved_provider_lane_cost_governed",
     "control_center_tiny_exact_approved_provider_lane_redacted_receipts",
+    "control_center_provider_credential_validation_exact_approved_lane",
+    "control_center_provider_credential_validation_redacted_receipts",
+    "control_center_provider_credential_validation_cli_inspection",
     "control_center_source_readiness_status",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
@@ -298,6 +301,17 @@ CAPABILITIES_BLOCKED = [
     "tiny_provider_lane_background_execution",
     "tiny_provider_lane_billing_authority",
     "tiny_provider_lane_provider_sdk_or_network_call_by_default",
+    "provider_credential_validation_without_exact_approval",
+    "provider_credential_validation_without_idempotency",
+    "provider_credential_validation_without_redacted_receipt",
+    "provider_credential_validation_model_invocation",
+    "provider_credential_validation_chat_completions",
+    "provider_credential_validation_provider_payload_persistence",
+    "provider_credential_validation_raw_credential_display",
+    "provider_credential_validation_broad_provider_router",
+    "provider_credential_validation_multi_provider_fallback",
+    "provider_credential_validation_billing_authority",
+    "provider_credential_validation_autonomous_background_calls",
     "control_center_frontend_native_build_control",
     "control_center_mobile_sensor_access",
     "control_center_remote_dispatch",
@@ -457,6 +471,9 @@ CONTROL_CENTER_MEMORY_FEEDBACK_PATHS = {
 CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS = {
     "/control-center/providers/exact-approved-lanes/tiny",
 }
+CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS = {
+    "/control-center/providers/credentials/validate",
+}
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
 }
@@ -613,6 +630,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_VALIDATION_ONLY_PATHS:
         return ApiRouteSideEffectClass.validation_only
+    if path in CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS:
+        return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS:
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith(CONTROL_CENTER_LOCAL_STATE_PREFIXES):
@@ -678,6 +697,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, and safe-disable posture required while broad provider authority stays blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Exact-approved provider credential validation lane; exact approval, policy, idempotency, redacted validation receipt, revocation, and safe-disable posture required while model invocation, provider SDKs, fallback, and billing authority stay blocked",
         )
     if (
         normalized_method == "POST"

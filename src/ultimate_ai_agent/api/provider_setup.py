@@ -6,8 +6,10 @@ from fastapi import Header
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.providers import (
+    ExactProviderCredentialValidationRequest,
     TinyProviderInvocationRequest,
     build_provider_setup_guide_catalog,
+    evaluate_provider_credential_validation,
     evaluate_tiny_provider_invocation,
 )
 
@@ -85,6 +87,62 @@ def post_control_center_providers_exact_approved_lane_tiny(
             "redacted_input_summary_ref_only",
             "redacted_output_summary_ref_only",
             "provider_exchange_content_omitted",
+        ],
+        rollback_ref=request.safe_disable_ref,
+    )
+
+
+@router.post("/credentials/validate", response_model=ResultEnvelope)
+def post_control_center_providers_credentials_validate(
+    request: ExactProviderCredentialValidationRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias="X-UAA-Idempotency-Key",
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias="X-UAA-Idempotency-Ref",
+    ),
+) -> ResultEnvelope:
+    header_idempotency_ref = x_uaa_idempotency_key or x_uaa_idempotency_ref
+    if header_idempotency_ref and header_idempotency_ref != request.idempotency_ref:
+        return ResultEnvelope(
+            success=False,
+            operation="control_center_providers_credentials_validate",
+            service="ControlCenterProviderSetupAPI",
+            trace_id=request.validation_ref,
+            data={
+                "allowed": False,
+                "status": "validation_blocked",
+                "reason_codes": ["IDEMPOTENCY_REF_MISMATCH"],
+                "required_next_action": "submit_matching_exact_idempotency_ref",
+            },
+            redactions_applied=[
+                "provider_credential_validation_refs_only",
+                "raw_credential_omitted",
+            ],
+        )
+    decision = evaluate_provider_credential_validation(request)
+    evidence = [
+        {"evidence_ref": request.provider_manifest_ref},
+        {"evidence_ref": request.provider_allowlist_ref},
+        {"evidence_ref": request.rate_budget_ref},
+    ]
+    if decision.receipt is not None:
+        evidence.insert(0, {"evidence_ref": decision.receipt.receipt_ref})
+    return ResultEnvelope(
+        success=decision.allowed,
+        operation="control_center_providers_credentials_validate",
+        service="ControlCenterProviderSetupAPI",
+        run_id=request.run_id,
+        trace_id=request.validation_ref,
+        data=decision.model_dump(mode="json"),
+        evidence=evidence,
+        redactions_applied=[
+            "provider_credential_validation_refs_only",
+            "raw_credential_omitted",
+            "provider_payload_omitted",
+            "model_invocation_omitted",
         ],
         rollback_ref=request.safe_disable_ref,
     )

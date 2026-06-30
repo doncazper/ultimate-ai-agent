@@ -9,17 +9,10 @@ export type CapabilityStatus =
   | "manual_only";
 
 export type ControlCenterActionStatus =
-  | "allowed_preview"
-  | "approval_required"
-  | "blocked";
+  "allowed_preview" | "approval_required" | "blocked";
 
 export type BackendConnectionState =
-  | "unknown"
-  | "checking"
-  | "online"
-  | "offline"
-  | "degraded"
-  | "mock_fallback";
+  "unknown" | "checking" | "online" | "offline" | "degraded" | "mock_fallback";
 
 export interface BackendConnectionSummary {
   state: BackendConnectionState;
@@ -82,8 +75,7 @@ export interface FounderLoopActionApprovalEnvelope {
   schema_version: "founder_loop_action_approval_envelope.v1";
   contract_ref: string;
   source:
-    | "python_core_action_inbox_read_model"
-    | "mock_fallback_non_authoritative";
+    "python_core_action_inbox_read_model" | "mock_fallback_non_authoritative";
   backend_owned: boolean;
   action_kind: string;
   exact_scope: string;
@@ -119,8 +111,7 @@ export interface FounderLoopActionReceiptVisibility {
   schema_version: "founder_loop_action_receipt_visibility.v1";
   contract_ref: string;
   source:
-    | "python_core_action_inbox_read_model"
-    | "mock_fallback_non_authoritative";
+    "python_core_action_inbox_read_model" | "mock_fallback_non_authoritative";
   backend_owned: boolean;
   decision_receipt_ref: string;
   local_task_ref: string;
@@ -521,10 +512,7 @@ export interface FounderLoopActionInboxDecisionLaneReadModel {
 }
 
 export type FounderLoopActionDecisionKind =
-  | "approve"
-  | "edit"
-  | "reject"
-  | "defer";
+  "approve" | "edit" | "reject" | "defer";
 
 export interface FounderLoopActionDecisionRequest {
   decision_reason_ref: string;
@@ -896,7 +884,9 @@ export interface FounderLoopMemoryLifecyclePosture {
   contract_ref: string;
   status: string;
   lanes: FounderLoopMemoryLifecycleLane[];
-  decision_receipt_refs_by_kind: Partial<Record<MemoryReviewDecisionKind, string[]>>;
+  decision_receipt_refs_by_kind: Partial<
+    Record<MemoryReviewDecisionKind, string[]>
+  >;
   receipt_truncation_posture: string;
   receipt_backed_decision_kinds: MemoryReviewDecisionKind[];
   review_only: boolean;
@@ -1396,10 +1386,7 @@ export type FounderLoopEvidenceEventType =
   | "memory_review_decision_recorded";
 
 export type FounderLoopEvidenceGroupKind =
-  | "today_item"
-  | "action"
-  | "chat_turn"
-  | "memory_candidate";
+  "today_item" | "action" | "chat_turn" | "memory_candidate";
 
 export interface FounderLoopEvidenceTimelineEvent {
   event_ref: string;
@@ -1738,7 +1725,14 @@ export interface FounderLoopEvidenceTimelineIndex {
 }
 
 export interface FounderLoopEvidenceHistoryQuestion {
-  key: "proposed" | "approved" | "happened" | "changed" | "undoable" | "stale" | "blocked";
+  key:
+    | "proposed"
+    | "approved"
+    | "happened"
+    | "changed"
+    | "undoable"
+    | "stale"
+    | "blocked";
   question: string;
   required: boolean;
 }
@@ -2302,11 +2296,7 @@ export interface FounderLoopMemoryContextPackProposal {
 }
 
 export type FounderLoopMemoryFeedbackKind =
-  | "helpful"
-  | "unhelpful"
-  | "stale"
-  | "conflict"
-  | "not_relevant";
+  "helpful" | "unhelpful" | "stale" | "conflict" | "not_relevant";
 
 export interface FounderLoopMemoryFeedbackRequest {
   memory_record_ref: string;
@@ -3852,17 +3842,28 @@ export interface ProviderCredentialEnrollmentReadiness {
 }
 
 export interface ProviderCredentialValidationReadiness {
+  route_ref: string;
+  provider_ref: string;
   provider_manifest_ref: string;
+  provider_allowlist_ref: string;
   credential_ref: string;
   consent_ref: string;
   policy_ref: string;
   approval_ref: string;
   revocation_ref: string;
+  safe_disable_ref: string;
+  idempotency_ref: string;
   validation_enabled: boolean;
   external_validation_allowed: boolean;
   provider_response_persistence_allowed: boolean;
+  provider_sdk_call_enabled: boolean;
+  model_invocation_enabled: boolean;
+  billing_authority_granted: boolean;
+  exact_approval_required: boolean;
+  redacted_receipts_only: boolean;
   validation_receipt_ref: string;
   readiness_status: string;
+  ui_states: string[];
   blocker_codes: string[];
   safe_summary: string;
 }
@@ -3953,7 +3954,10 @@ export interface ProviderCredentialReadinessSummary {
   credential_material_stored: boolean;
   vault_adapter_configured: boolean;
   supported_readiness_postures: ProviderCredentialReadinessItem["readiness_posture"][];
-  posture_counts: Record<ProviderCredentialReadinessItem["readiness_posture"], number>;
+  posture_counts: Record<
+    ProviderCredentialReadinessItem["readiness_posture"],
+    number
+  >;
   cost_governor_posture_ref: string;
   cost_governor_decision_ref: string;
   cost_governor_binding_required: boolean;
@@ -4290,12 +4294,7 @@ export interface RuntimeCapabilityMatrix {
 }
 
 export type OperatorRouteInspectionState =
-  | "checking"
-  | "ready"
-  | "blocked"
-  | "denied"
-  | "degraded"
-  | "unavailable";
+  "checking" | "ready" | "blocked" | "denied" | "degraded" | "unavailable";
 
 export interface LocalModelsInspectionStatus {
   state: OperatorRouteInspectionState;
@@ -4746,9 +4745,7 @@ export interface FileReviewReceiptPlanSummary {
 }
 
 export type FileReviewApprovalCaptureStatus =
-  | "approved_for_review_only"
-  | "denied_for_review"
-  | "not_captured";
+  "approved_for_review_only" | "denied_for_review" | "not_captured";
 
 export interface FileReviewApprovalCaptureSummary {
   status: FileReviewApprovalCaptureStatus;

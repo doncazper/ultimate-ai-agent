@@ -43,8 +43,8 @@ production authority.
 Provider Catalog + Cost Literacy now adds a backend-owned read-only setup guide
 at `GET /control-center/providers/setup-guide`, with typed catalog contracts,
 CLI inspection, route manifest coverage, and cost/budget posture language. It
-adds no credential input, no key storage, no provider validation, no provider
-SDK calls, no model invocation, no automatic pricing fetch, no billing
+adds no credential input, no key storage, no broad provider validation, no
+provider SDK calls, no model invocation, no automatic pricing fetch, no billing
 authority, no provider output authority, and no callable runtime authority.
 Provider Credential Readiness + Cost Governor Binding now adds typed readiness
 postures and CostGovernor binding refs inside the backend-owned dashboard read
@@ -63,9 +63,19 @@ credential backend access, provider validation, provider SDK call, model
 invocation, billing authority, or provider invocation is granted.
 Credential Vault Backend V1 adds `scripts/inspect_credential_vault_backend.py`
 and a local safe-ref ledger for enroll/revoke/rotation posture only. It exposes
-no secret resolution API, raw secret display, provider validation, provider SDK
-call, network call, model invocation, billing authority, or callable provider
+no secret resolution API, raw secret display, broad provider validation,
+provider SDK call, model invocation, billing authority, or callable provider
 runtime authority.
+Exact-Approved Provider Credential Validation Lane now adds
+`POST /control-center/providers/credentials/validate`, one disabled-by-default
+OpenAI-compatible credential validation lane with exact approval, policy,
+idempotency, revocation/safe-disable, safe-ref public request, internal
+transient adapter secret, exact endpoint allowlist, and redacted-receipt scope.
+The default app route blocks without an exact approval grant and enabled
+adapter; blocked provider-network attempts record redacted receipts, and the
+lane adds no model invocation, provider SDK, broad provider router, fallback,
+billing authority, raw credential display, provider payload persistence,
+autonomous/background calls, or provider output authority.
 Tiny Exact-Approved Provider Invocation Lane now adds a disabled-default
 contract path for one provider/model lane with credential/provider/model refs,
 exact approval scope, CostGovernor decision, unknown paid cost blocked by
@@ -75,9 +85,9 @@ API route blocks without exact approval and only an exact-approved,
 cost-cleared request can reach disabled-adapter approved-no-execution; a future
 scoped adapter enablement milestone is still required before callable provider
 authority. The lane adds no provider SDK calls,
-network calls, credential validation, autonomous model calls, background
-execution, billing authority, provider output authority, or callable runtime
-authority.
+credential validation authority beyond the separate exact-approved validation
+lane, autonomous model calls, background execution, billing authority, provider
+output authority, or callable runtime authority.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are

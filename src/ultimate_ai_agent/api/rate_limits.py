@@ -26,6 +26,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "action_decision": {"max_requests": 60, "window_seconds": 60},
     "local_model_validation": {"max_requests": 120, "window_seconds": 60},
     "provider_exact_approved_lane": {"max_requests": 12, "window_seconds": 60},
+    "provider_credential_validation": {"max_requests": 12, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -96,6 +97,9 @@ CHAT_DURABLE_RECEIPT_PATHS = {
 }
 PROVIDER_EXACT_APPROVED_LANE_PATHS = {
     "/control-center/providers/exact-approved-lanes/tiny",
+}
+PROVIDER_CREDENTIAL_VALIDATION_PATHS = {
+    "/control-center/providers/credentials/validate",
 }
 
 
@@ -194,6 +198,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "local_model_validation"
     if normalized_method == "POST" and path in PROVIDER_EXACT_APPROVED_LANE_PATHS:
         return "provider_exact_approved_lane"
+    if normalized_method == "POST" and path in PROVIDER_CREDENTIAL_VALIDATION_PATHS:
+        return "provider_credential_validation"
     return None
 
 

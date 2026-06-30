@@ -21,7 +21,8 @@ resolution, provider SDK calls, model invocation, provider invocation, or billin
 authority.
 
 In shorter form: backend V1 does not authorize provider validation and does not
-authorize provider invocation.
+authorize provider invocation. Any provider credential validation must use the
+separate exact-approved validation lane; vault presence alone is never enough.
 
 Implemented contracts:
 
@@ -49,7 +50,7 @@ Blocked by this lane:
 - No secret resolution API.
 - No raw secret display.
 - No mutation without exact LocalApprovalAuthority approval.
-- No provider credential validation.
+- No provider credential validation from vault presence.
 - No provider SDK calls.
 - No model invocation.
 - No provider invocation authority.
@@ -63,5 +64,5 @@ Product language rules:
 - `secret_ref_revoked` blocks future use until a later scoped lane defines any
   revocation-aware validation or invocation behavior.
 - `rotation_required` is operator posture only.
-- Backend V1 is not a provider connection, not credential validation, not a
-  provider runtime, and not a billing or spend grant.
+- Backend V1 is not a provider connection, not provider validation authority,
+  not a provider runtime, and not a billing or spend grant.

@@ -2305,6 +2305,11 @@ CONTROL_CENTER_TINY_PROVIDER_LANE_ROUTES = frozenset(
         "/control-center/providers/exact-approved-lanes/tiny",
     }
 )
+CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES = frozenset(
+    {
+        "/control-center/providers/credentials/validate",
+    }
+)
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
@@ -2480,6 +2485,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,
     "control_center_operational_status": CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     "control_center_provider_catalog": CONTROL_CENTER_PROVIDER_CATALOG_ROUTES,
+    "control_center_provider_credential_validation": CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
     "control_center_tiny_provider_lane": CONTROL_CENTER_TINY_PROVIDER_LANE_ROUTES,
     "mattermost": MATTERMOST_AGENT_ROOMS_ROUTES,
     "packaging_proof": PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES,
@@ -2512,242 +2518,366 @@ def _historical_openapi_path_set(paths: Iterable[str]) -> set[str]:
     return path_set
 
 
-def m16_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT) -> List[str]:
+def m16_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M16_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M16 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M16_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M16 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M16_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M16 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M16 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m17_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M17_OPENAPI_PATH_COUNT) -> List[str]:
+def m17_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M17_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M17 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M17_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M17 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M17_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M17 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M17 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m18_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M18_OPENAPI_PATH_COUNT) -> List[str]:
+def m18_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M18_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M18 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M18_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M18 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M18_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M18 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M18 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m19_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M19_OPENAPI_PATH_COUNT) -> List[str]:
+def m19_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M19_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M19 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M19_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M19 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M19_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M19 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M19 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m20_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M20_OPENAPI_PATH_COUNT) -> List[str]:
+def m20_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M20_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M20 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M20_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M20 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M20_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M20 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M20 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m21_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M21_OPENAPI_PATH_COUNT) -> List[str]:
+def m21_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M21_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M21 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M21_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M21 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M21_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M21 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M21 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m22_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M22_OPENAPI_PATH_COUNT) -> List[str]:
+def m22_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M22_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M22 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M22_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M22 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M22_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M22 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M22 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m23_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M23_OPENAPI_PATH_COUNT) -> List[str]:
+def m23_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M23_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M23 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M23_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M23 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M23_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M23 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M23 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m24_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M24_OPENAPI_PATH_COUNT) -> List[str]:
+def m24_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M24_OPENAPI_PATH_COUNT
+) -> List[str]:
     failures: List[str] = []
     path_set = _historical_openapi_path_set(paths)
     if len(path_set) != expected_path_count:
-        failures.append(f"M24 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}")
-    forbidden_present = sorted(path for path in M24_FORBIDDEN_BACKEND_ROUTES if path in path_set)
+        failures.append(
+            f"M24 OpenAPI path count changed: expected {expected_path_count}, found {len(path_set)}"
+        )
+    forbidden_present = sorted(
+        path for path in M24_FORBIDDEN_BACKEND_ROUTES if path in path_set
+    )
     if forbidden_present:
-        failures.append(f"M24 forbidden backend route(s) present: {', '.join(forbidden_present)}")
+        failures.append(
+            f"M24 forbidden backend route(s) present: {', '.join(forbidden_present)}"
+        )
     return failures
 
 
-def m25_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M25_OPENAPI_PATH_COUNT) -> List[str]:
+def m25_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M25_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M25_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M25 forbidden backend route present: {route}")
     return failures
 
 
-def m26_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M26_OPENAPI_PATH_COUNT) -> List[str]:
+def m26_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M26_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M26_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M26 forbidden backend route present: {route}")
     return failures
 
 
-def m27_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M27_OPENAPI_PATH_COUNT) -> List[str]:
+def m27_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M27_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M27_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M27 forbidden backend route present: {route}")
     return failures
 
 
-def m28_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M28_OPENAPI_PATH_COUNT) -> List[str]:
+def m28_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M28_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M28_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M28 forbidden backend route present: {route}")
     return failures
 
 
-def m29_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M29_OPENAPI_PATH_COUNT) -> List[str]:
+def m29_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M29_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M29_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M29 forbidden backend route present: {route}")
     return failures
 
 
-def m30_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M30_OPENAPI_PATH_COUNT) -> List[str]:
+def m30_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M30_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M30_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M30 forbidden backend route present: {route}")
     return failures
 
 
-def m31_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M31_OPENAPI_PATH_COUNT) -> List[str]:
+def m31_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M31_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M31_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M31 forbidden backend route present: {route}")
     return failures
 
 
-def m32_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M32_OPENAPI_PATH_COUNT) -> List[str]:
+def m32_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M32_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M32_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M32 forbidden backend route present: {route}")
     return failures
 
 
-def m33_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M33_OPENAPI_PATH_COUNT) -> List[str]:
+def m33_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M33_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M33_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M33 forbidden backend route present: {route}")
     return failures
 
 
-def m34_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M34_OPENAPI_PATH_COUNT) -> List[str]:
+def m34_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M34_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M34_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M34 forbidden backend route present: {route}")
     return failures
 
 
-def m35_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M35_OPENAPI_PATH_COUNT) -> List[str]:
+def m35_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M35_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M35_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M35 forbidden backend route present: {route}")
     return failures
 
 
-def m36_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M36_OPENAPI_PATH_COUNT) -> List[str]:
+def m36_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M36_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _historical_openapi_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     for route in M36_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
             failures.append(f"M36 forbidden backend route present: {route}")
     return failures
 
 
-def m37_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M37_OPENAPI_PATH_COUNT) -> List[str]:
+def m37_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M37_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M37_FORBIDDEN_BACKEND_ROUTES:
@@ -2756,11 +2886,15 @@ def m37_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m38_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M38_OPENAPI_PATH_COUNT) -> List[str]:
+def m38_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M38_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M38_FORBIDDEN_BACKEND_ROUTES:
@@ -2769,11 +2903,15 @@ def m38_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m39_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M39_OPENAPI_PATH_COUNT) -> List[str]:
+def m39_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M39_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M39_FORBIDDEN_BACKEND_ROUTES:
@@ -2782,11 +2920,15 @@ def m39_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m40_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M40_OPENAPI_PATH_COUNT) -> List[str]:
+def m40_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M40_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M40_FORBIDDEN_BACKEND_ROUTES:
@@ -2795,11 +2937,15 @@ def m40_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m41_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M41_OPENAPI_PATH_COUNT) -> List[str]:
+def m41_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M41_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M41_FORBIDDEN_BACKEND_ROUTES:
@@ -2808,11 +2954,15 @@ def m41_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m42_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M42_OPENAPI_PATH_COUNT) -> List[str]:
+def m42_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M42_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M42_FORBIDDEN_BACKEND_ROUTES:
@@ -2821,11 +2971,15 @@ def m42_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m43_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M43_OPENAPI_PATH_COUNT) -> List[str]:
+def m43_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M43_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M43_FORBIDDEN_BACKEND_ROUTES:
@@ -2834,11 +2988,15 @@ def m43_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m44_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M44_OPENAPI_PATH_COUNT) -> List[str]:
+def m44_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M44_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M44_FORBIDDEN_BACKEND_ROUTES:
@@ -2847,11 +3005,15 @@ def m44_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m45_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M45_OPENAPI_PATH_COUNT) -> List[str]:
+def m45_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M45_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M45_FORBIDDEN_BACKEND_ROUTES:
@@ -2860,11 +3022,15 @@ def m45_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m46_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M46_OPENAPI_PATH_COUNT) -> List[str]:
+def m46_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M46_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M46_FORBIDDEN_BACKEND_ROUTES:
@@ -2873,11 +3039,15 @@ def m46_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m47_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M47_OPENAPI_PATH_COUNT) -> List[str]:
+def m47_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M47_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M47_FORBIDDEN_BACKEND_ROUTES:
@@ -2886,11 +3056,15 @@ def m47_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m48_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M48_OPENAPI_PATH_COUNT) -> List[str]:
+def m48_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M48_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M48_FORBIDDEN_BACKEND_ROUTES:
@@ -2899,11 +3073,15 @@ def m48_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m49_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M49_OPENAPI_PATH_COUNT) -> List[str]:
+def m49_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M49_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M49_FORBIDDEN_BACKEND_ROUTES:
@@ -2912,11 +3090,15 @@ def m49_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m50_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M50_OPENAPI_PATH_COUNT) -> List[str]:
+def m50_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M50_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M50_FORBIDDEN_BACKEND_ROUTES:
@@ -2925,11 +3107,15 @@ def m50_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m51_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M51_OPENAPI_PATH_COUNT) -> List[str]:
+def m51_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M51_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M51_FORBIDDEN_BACKEND_ROUTES:
@@ -2938,332 +3124,484 @@ def m51_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m52_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M52_OPENAPI_PATH_COUNT) -> List[str]:
+def m52_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M52_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M52_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M52 forbidden OpenWebUI conversation backend route present: {route}")
+            failures.append(
+                f"M52 forbidden OpenWebUI conversation backend route present: {route}"
+            )
     return failures
 
 
-def m53_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M53_OPENAPI_PATH_COUNT) -> List[str]:
+def m53_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M53_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M53_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M53 forbidden tool expansion/runtime backend route present: {route}")
+            failures.append(
+                f"M53 forbidden tool expansion/runtime backend route present: {route}"
+            )
     return failures
 
 
-def m54_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M54_OPENAPI_PATH_COUNT) -> List[str]:
+def m54_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M54_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M54_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M54 forbidden raw media/transform/model/backend route present: {route}")
+            failures.append(
+                f"M54 forbidden raw media/transform/model/backend route present: {route}"
+            )
     return failures
 
 
-def m55_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M55_OPENAPI_PATH_COUNT) -> List[str]:
+def m55_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M55_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M55_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M55 forbidden observability export/raw/SaaS/backend route present: {route}")
+            failures.append(
+                f"M55 forbidden observability export/raw/SaaS/backend route present: {route}"
+            )
     return failures
 
 
-def m56_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M56_OPENAPI_PATH_COUNT) -> List[str]:
+def m56_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M56_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M56_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M56 forbidden eval execution/raw/model/backend route present: {route}")
+            failures.append(
+                f"M56 forbidden eval execution/raw/model/backend route present: {route}"
+            )
     return failures
 
 
-def m57_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M57_OPENAPI_PATH_COUNT) -> List[str]:
+def m57_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M57_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M57_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M57 forbidden runtime sandbox execution/backend route present: {route}")
+            failures.append(
+                f"M57 forbidden runtime sandbox execution/backend route present: {route}"
+            )
     return failures
 
 
-def m58_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M58_OPENAPI_PATH_COUNT) -> List[str]:
+def m58_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M58_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M58_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M58 forbidden dry-run execution/backend route present: {route}")
+            failures.append(
+                f"M58 forbidden dry-run execution/backend route present: {route}"
+            )
     return failures
 
 
-def m59_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M59_OPENAPI_PATH_COUNT) -> List[str]:
+def m59_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M59_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M59_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M59 forbidden public publication/backend route present: {route}")
+            failures.append(
+                f"M59 forbidden public publication/backend route present: {route}"
+            )
     return failures
 
 
-def m60_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M60_OPENAPI_PATH_COUNT) -> List[str]:
+def m60_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M60_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M60_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M60 forbidden beta/public/autonomy/backend route present: {route}")
+            failures.append(
+                f"M60 forbidden beta/public/autonomy/backend route present: {route}"
+            )
     return failures
 
 
-def m61_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M61_OPENAPI_PATH_COUNT) -> List[str]:
+def m61_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M61_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M61_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M61 forbidden autonomy/execution/backend route present: {route}")
+            failures.append(
+                f"M61 forbidden autonomy/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m62_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M62_OPENAPI_PATH_COUNT) -> List[str]:
+def m62_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M62_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M62_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M62 forbidden autonomy session/execution/backend route present: {route}")
+            failures.append(
+                f"M62 forbidden autonomy session/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m63_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M63_OPENAPI_PATH_COUNT) -> List[str]:
+def m63_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M63_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M63_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M63 forbidden autonomy policy/execution/backend route present: {route}")
+            failures.append(
+                f"M63 forbidden autonomy policy/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m64_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M64_OPENAPI_PATH_COUNT) -> List[str]:
+def m64_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M64_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M64_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M64 forbidden autonomy simulation/execution/backend route present: {route}")
+            failures.append(
+                f"M64 forbidden autonomy simulation/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m65_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M65_OPENAPI_PATH_COUNT) -> List[str]:
+def m65_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M65_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M65_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M65 forbidden autonomy audit/replay/execution/backend route present: {route}")
+            failures.append(
+                f"M65 forbidden autonomy audit/replay/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m66_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M66_OPENAPI_PATH_COUNT) -> List[str]:
+def m66_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M66_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M66_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M66 forbidden scoped approval bundle/execution/backend route present: {route}")
+            failures.append(
+                f"M66 forbidden scoped approval bundle/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m67_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M67_OPENAPI_PATH_COUNT) -> List[str]:
+def m67_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M67_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M67_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M67 forbidden revocation/kill-switch/execution/backend route present: {route}")
+            failures.append(
+                f"M67 forbidden revocation/kill-switch/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m68_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M68_OPENAPI_PATH_COUNT) -> List[str]:
+def m68_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M68_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M68_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M68 forbidden risk-classifier/execution/backend route present: {route}")
+            failures.append(
+                f"M68 forbidden risk-classifier/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m69_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M69_OPENAPI_PATH_COUNT) -> List[str]:
+def m69_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M69_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M69_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M69 forbidden dry-run/execution/backend route present: {route}")
+            failures.append(
+                f"M69 forbidden dry-run/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m70_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M70_OPENAPI_PATH_COUNT) -> List[str]:
+def m70_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M70_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M70_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M70 forbidden freeze/execution/backend route present: {route}")
+            failures.append(
+                f"M70 forbidden freeze/execution/backend route present: {route}"
+            )
     return failures
 
 
-def m71_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M71_OPENAPI_PATH_COUNT) -> List[str]:
+def m71_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M71_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M71_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M71 forbidden network/runtime/backend route present: {route}")
+            failures.append(
+                f"M71 forbidden network/runtime/backend route present: {route}"
+            )
     return failures
 
 
-def m72_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M72_OPENAPI_PATH_COUNT) -> List[str]:
+def m72_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M72_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M72_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M72 forbidden network/runtime/backend route present: {route}")
+            failures.append(
+                f"M72 forbidden network/runtime/backend route present: {route}"
+            )
     return failures
 
 
-def m73_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M73_OPENAPI_PATH_COUNT) -> List[str]:
+def m73_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M73_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M73_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M73 forbidden browser/runtime/backend route present: {route}")
+            failures.append(
+                f"M73 forbidden browser/runtime/backend route present: {route}"
+            )
     return failures
 
 
-def m74_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M74_OPENAPI_PATH_COUNT) -> List[str]:
+def m74_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M74_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M74_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M74 forbidden browser observe/control/runtime route present: {route}")
+            failures.append(
+                f"M74 forbidden browser observe/control/runtime route present: {route}"
+            )
     return failures
 
 
-def m75_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M75_OPENAPI_PATH_COUNT) -> List[str]:
+def m75_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M75_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M75_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M75 forbidden browser action/runtime route present: {route}")
+            failures.append(
+                f"M75 forbidden browser action/runtime route present: {route}"
+            )
     return failures
 
 
-def m76_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M76_OPENAPI_PATH_COUNT) -> List[str]:
+def m76_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M76_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
-        failures.append(f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}")
+        failures.append(
+            f"OpenAPI path count expected {expected_path_count}, found {len(path_set)}"
+        )
     if M37_ALLOWED_CAPTURE_ROUTE not in path_set:
         failures.append("M37 capture route missing: /files/review/approvals/capture")
     for route in M76_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M76 forbidden OpenWebUI runtime/backend route present: {route}")
+            failures.append(
+                f"M76 forbidden OpenWebUI runtime/backend route present: {route}"
+            )
     return failures
 
 
-def m77_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M77_OPENAPI_PATH_COUNT) -> List[str]:
+def m77_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M77_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
@@ -3272,11 +3610,15 @@ def m77_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
         )
     for route in M77_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M77 forbidden OpenWebUI handoff/backend route present: {route}")
+            failures.append(
+                f"M77 forbidden OpenWebUI handoff/backend route present: {route}"
+            )
     return failures
 
 
-def m78_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M78_OPENAPI_PATH_COUNT) -> List[str]:
+def m78_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M78_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
@@ -3289,7 +3631,9 @@ def m78_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
     return failures
 
 
-def m79_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M79_OPENAPI_PATH_COUNT) -> List[str]:
+def m79_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M79_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
@@ -3298,11 +3642,15 @@ def m79_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
         )
     for route in M79_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M79 forbidden plugin install/backend route present: {route}")
+            failures.append(
+                f"M79 forbidden plugin install/backend route present: {route}"
+            )
     return failures
 
 
-def m80_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M80_OPENAPI_PATH_COUNT) -> List[str]:
+def m80_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M80_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
@@ -3311,11 +3659,15 @@ def m80_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
         )
     for route in M80_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M80 forbidden network/browser/OpenWebUI/plugin route present: {route}")
+            failures.append(
+                f"M80 forbidden network/browser/OpenWebUI/plugin route present: {route}"
+            )
     return failures
 
 
-def m81_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M81_OPENAPI_PATH_COUNT) -> List[str]:
+def m81_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M81_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
@@ -3324,11 +3676,15 @@ def m81_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
         )
     for route in M81_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M81 forbidden runtime sandbox/command/backend route present: {route}")
+            failures.append(
+                f"M81 forbidden runtime sandbox/command/backend route present: {route}"
+            )
     return failures
 
 
-def m82_openapi_route_failures(paths: Iterable[str], expected_path_count: int = EXPECTED_M82_OPENAPI_PATH_COUNT) -> List[str]:
+def m82_openapi_route_failures(
+    paths: Iterable[str], expected_path_count: int = EXPECTED_M82_OPENAPI_PATH_COUNT
+) -> List[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     failures: List[str] = []
     if len(path_set) != expected_path_count:
@@ -3337,7 +3693,9 @@ def m82_openapi_route_failures(paths: Iterable[str], expected_path_count: int = 
         )
     for route in M82_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M82 forbidden command execution/backend route present: {route}")
+            failures.append(
+                f"M82 forbidden command execution/backend route present: {route}"
+            )
     return failures
 
 
@@ -3352,7 +3710,9 @@ def m83_openapi_route_failures(
         )
     for route in M83_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M83 forbidden shell dry-run/backend route present: {route}")
+            failures.append(
+                f"M83 forbidden shell dry-run/backend route present: {route}"
+            )
     return failures
 
 
@@ -3367,7 +3727,9 @@ def m84_openapi_route_failures(
         )
     for route in M84_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M84 forbidden sandboxed command/backend route present: {route}")
+            failures.append(
+                f"M84 forbidden sandboxed command/backend route present: {route}"
+            )
     return failures
 
 
@@ -3382,7 +3744,9 @@ def m85_openapi_route_failures(
         )
     for route in M85_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M85 forbidden command allowlist/backend route present: {route}")
+            failures.append(
+                f"M85 forbidden command allowlist/backend route present: {route}"
+            )
     return failures
 
 
@@ -3397,7 +3761,9 @@ def m86_openapi_route_failures(
         )
     for route in M86_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M86 forbidden shell approval/backend route present: {route}")
+            failures.append(
+                f"M86 forbidden shell approval/backend route present: {route}"
+            )
     return failures
 
 
@@ -3412,7 +3778,9 @@ def m87_openapi_route_failures(
         )
     for route in M87_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M87 forbidden command audit replay/backend route present: {route}")
+            failures.append(
+                f"M87 forbidden command audit replay/backend route present: {route}"
+            )
     return failures
 
 
@@ -3427,7 +3795,9 @@ def m88_openapi_route_failures(
         )
     for route in M88_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M88 forbidden mutating command/backend route present: {route}")
+            failures.append(
+                f"M88 forbidden mutating command/backend route present: {route}"
+            )
     return failures
 
 
@@ -3442,7 +3812,9 @@ def m89_openapi_route_failures(
         )
     for route in M89_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M89 forbidden emergency/process/backend route present: {route}")
+            failures.append(
+                f"M89 forbidden emergency/process/backend route present: {route}"
+            )
     return failures
 
 
@@ -3457,7 +3829,9 @@ def m90_openapi_route_failures(
         )
     for route in M90_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M90 forbidden shell/subprocess/process/backend route present: {route}")
+            failures.append(
+                f"M90 forbidden shell/subprocess/process/backend route present: {route}"
+            )
     return failures
 
 
@@ -3472,7 +3846,9 @@ def m91_openapi_route_failures(
         )
     for route in M91_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M91 forbidden tool/autonomy execution backend route present: {route}")
+            failures.append(
+                f"M91 forbidden tool/autonomy execution backend route present: {route}"
+            )
     return failures
 
 
@@ -3487,7 +3863,9 @@ def m92_openapi_route_failures(
         )
     for route in M92_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M92 forbidden low-risk tool autonomy backend route present: {route}")
+            failures.append(
+                f"M92 forbidden low-risk tool autonomy backend route present: {route}"
+            )
     return failures
 
 
@@ -3502,7 +3880,9 @@ def m93_openapi_route_failures(
         )
     for route in M93_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M93 forbidden dry-run promotion/backend execution route present: {route}")
+            failures.append(
+                f"M93 forbidden dry-run promotion/backend execution route present: {route}"
+            )
     return failures
 
 
@@ -3517,7 +3897,9 @@ def m94_openapi_route_failures(
         )
     for route in M94_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M94 forbidden browser click/backend execution route present: {route}")
+            failures.append(
+                f"M94 forbidden browser click/backend execution route present: {route}"
+            )
     return failures
 
 
@@ -3532,7 +3914,9 @@ def m95_openapi_route_failures(
         )
     for route in M95_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M95 forbidden network/backend execution route present: {route}")
+            failures.append(
+                f"M95 forbidden network/backend execution route present: {route}"
+            )
     return failures
 
 
@@ -3547,7 +3931,9 @@ def m96_openapi_route_failures(
         )
     for route in M96_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M96 forbidden plugin/backend execution route present: {route}")
+            failures.append(
+                f"M96 forbidden plugin/backend execution route present: {route}"
+            )
     return failures
 
 
@@ -3562,7 +3948,9 @@ def m97_openapi_route_failures(
         )
     for route in M97_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M97 forbidden recurring automation runtime route present: {route}")
+            failures.append(
+                f"M97 forbidden recurring automation runtime route present: {route}"
+            )
     return failures
 
 
@@ -3577,7 +3965,9 @@ def m98_openapi_route_failures(
         )
     for route in M98_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M98 forbidden recurring automation runtime route present: {route}")
+            failures.append(
+                f"M98 forbidden recurring automation runtime route present: {route}"
+            )
     return failures
 
 
@@ -3607,7 +3997,9 @@ def m100_openapi_route_failures(
         )
     for route in M100_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M100 forbidden mobile permission runtime route present: {route}")
+            failures.append(
+                f"M100 forbidden mobile permission runtime route present: {route}"
+            )
     return failures
 
 
@@ -3622,7 +4014,9 @@ def m101_openapi_route_failures(
         )
     for route in M101_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M101 forbidden mobile sensor runtime route present: {route}")
+            failures.append(
+                f"M101 forbidden mobile sensor runtime route present: {route}"
+            )
     return failures
 
 
@@ -3652,7 +4046,9 @@ def m103_openapi_route_failures(
         )
     for route in M103_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M103 forbidden camera/photos runtime route present: {route}")
+            failures.append(
+                f"M103 forbidden camera/photos runtime route present: {route}"
+            )
     return failures
 
 
@@ -3667,7 +4063,9 @@ def m104_openapi_route_failures(
         )
     for route in M104_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M104 forbidden notification runtime route present: {route}")
+            failures.append(
+                f"M104 forbidden notification runtime route present: {route}"
+            )
     return failures
 
 
@@ -3697,7 +4095,9 @@ def m106_openapi_route_failures(
         )
     for route in M106_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M106 forbidden background status sync route present: {route}")
+            failures.append(
+                f"M106 forbidden background status sync route present: {route}"
+            )
     return failures
 
 
@@ -3712,7 +4112,9 @@ def m107_openapi_route_failures(
         )
     for route in M107_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M107 forbidden approval renewal UX route present: {route}")
+            failures.append(
+                f"M107 forbidden approval renewal UX route present: {route}"
+            )
     return failures
 
 
@@ -3727,7 +4129,9 @@ def m108_openapi_route_failures(
         )
     for route in M108_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M108 forbidden kill-switch/revocation route present: {route}")
+            failures.append(
+                f"M108 forbidden kill-switch/revocation route present: {route}"
+            )
     return failures
 
 
@@ -3772,7 +4176,9 @@ def m111_openapi_route_failures(
         )
     for route in M111_FORBIDDEN_BACKEND_ROUTES:
         if route in path_set:
-            failures.append(f"M111 forbidden production threat model route present: {route}")
+            failures.append(
+                f"M111 forbidden production threat model route present: {route}"
+            )
     return failures
 
 
@@ -4512,9 +4918,9 @@ def m167_openapi_route_failures(
             )
     return failures
 
+
 __all__ = [
     name
     for name in globals()
-    if not name.startswith("__")
-    and name not in {"re", "Iterable", "List"}
+    if not name.startswith("__") and name not in {"re", "Iterable", "List"}
 ]

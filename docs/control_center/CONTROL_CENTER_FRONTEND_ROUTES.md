@@ -121,7 +121,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. The current backend path count is `149` with
+OpenAPI remains a backend contract. The current backend path count is `150` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.
 
@@ -267,25 +267,29 @@ policy refs, revocation refs, approval refs, blocker codes, vault adapter
 readiness, validation readiness, invocation readiness, readiness status,
 unknown paid-cost approval posture, cost estimate refs, budget decision refs,
 max-approved USD refs, future receipt refs, and CostGovernor decision/posture
-refs. The exact tiny lane route
+refs. The exact credential validation lane route
+`POST /control-center/providers/credentials/validate` is exact-approval,
+policy, idempotency, revocation/safe-disable, and redacted-receipt scoped for
+one provider credential check only. It does not authorize invocation, model
+calls, provider SDKs, fallback, billing, raw credential display, or provider
+payload persistence. The exact tiny lane route
 `POST /control-center/providers/exact-approved-lanes/tiny` is disabled by
 default; the API route blocks without exact approval, and the Python core
 evaluator reaches approved-no-execution only when exact approval and cost gates
 are injected for inspection while callable provider authority still requires a
 later scoped adapter enablement milestone. It does not add a provider setup
 form, read environment values, collect raw keys, store credential material, run
-a vault/keychain adapter, validate credentials against an external provider,
-invoke provider SDKs by default, run network calls, run autonomous/background
-model calls, grant spend authority, bypass unknown paid-cost approval, bypass
-receipts, or enable provider calls.
+a vault/keychain adapter, perform broad provider validation, invoke provider
+SDKs, run autonomous/background model calls, grant spend authority, bypass
+unknown paid-cost approval, bypass receipts, or enable provider calls.
 
 The future gates are separate:
 
 - Provider Credential Vault Adapter v1 remains blocked until a scoped milestone
   defines adapter storage backend, consent, policy, approval, revocation,
   audit, redaction, and rollback behavior.
-- Provider Credential Validation v1 remains blocked until a scoped milestone
-  defines redacted validation receipts and external-call authority.
+- Broad Provider Credential Validation remains blocked outside the
+  exact-approved one-provider lane with redacted validation receipts.
 - Tiny Exact-Approved Provider Lane remains disabled by default until a scoped
   adapter enablement milestone defines provider SDK/network authority. The
   current route requires exact approval, CostGovernor posture, idempotency,

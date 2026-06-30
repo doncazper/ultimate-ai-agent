@@ -46,7 +46,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
-| `control-center` | 50 | `control-center` | `control_center_service` | local status or future auth per route | `local_dev_workspace_only`:38, `validation_only`:12 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
+| `control-center` | 51 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:1, `local_dev_workspace_only`:38, `validation_only`:12 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `status_available_not_completion` |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
@@ -159,6 +159,7 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | GET | `/control-center/memory/search` | `get_control_center_memory_search` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/workbench` | `get_control_center_memory_workbench` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/morning-briefing/summary` | `get_control_center_morning_briefing_summary` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/providers/credentials/validate` | `post_control_center_providers_credentials_validate` | `governed_network_read_only` | no | future | yes |
 | POST | `/control-center/providers/exact-approved-lanes/tiny` | `post_control_center_providers_exact_approved_lanes_tiny` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/providers/setup-guide` | `get_control_center_providers_setup_guide` | `validation_only` | yes | future | yes |
 | GET | `/control-center/routes` | `get_control_center_routes` | `validation_only` | yes | future | yes |

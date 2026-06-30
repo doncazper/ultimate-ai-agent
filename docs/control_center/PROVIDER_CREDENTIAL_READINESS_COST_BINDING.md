@@ -7,8 +7,9 @@ Center dashboard read model. It is inspectable through
 `scripts/inspect_provider_credential_readiness.py` and rendered in Setup,
 Settings, Models, and Action Inbox only as safe refs and blockers.
 
-This lane grants no provider SDK calls, no model invocation, no billing
-authority, no spend authority, and no callable runtime authority.
+This lane grants no credential validation, no provider SDK calls, no model
+invocation, no billing authority, no spend authority, and no callable runtime
+authority.
 Non-goal summary: no billing authority and no callable runtime authority.
 
 Implemented posture:
@@ -32,9 +33,9 @@ Blocked by this lane:
 - secret entry
 - recoverable credential storage
 - secret resolution
-- credential validation
+- credential validation from readiness posture
 - provider SDK calls
-- model invocation
+- model invocation (no model invocation from readiness posture)
 - runtime pricing fetch
 - billing authority
 - provider output authority
@@ -52,6 +53,8 @@ Product language rules:
 Credential Vault Contract Shell is a metadata-only contract layer. Credential
 Vault Backend V1 adds only a local safe-ref ledger for enroll/revoke/rotation
 posture. It still must not expose secret resolution, validate provider
-credentials, call provider SDKs, invoke models, or make providers callable. The
-Exact-Approved Provider Invocation Promotion Plan is planning-only future work
-and does not make providers callable.
+credentials, call provider SDKs, invoke models, or make providers callable.
+The exact-approved provider credential validation lane is a separate,
+one-provider, redacted-receipt validation boundary and still does not make
+providers callable. The Exact-Approved Provider Invocation Promotion Plan does
+not make providers callable.

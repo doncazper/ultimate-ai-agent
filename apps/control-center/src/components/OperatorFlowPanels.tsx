@@ -60,8 +60,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
   const [handoffReceipt, setHandoffReceipt] = useState<ChatHandoffReceipt>();
   const [probePending, setProbePending] = useState(false);
   const [receiptPending, setReceiptPending] = useState(false);
-  const [handoffPending, setHandoffPending] =
-    useState<ChatHandoffTarget>();
+  const [handoffPending, setHandoffPending] = useState<ChatHandoffTarget>();
   const [receiptError, setReceiptError] = useState<string>();
   const chatStep = useOperatorStep(data, "uaa_v1_chat");
   const localModelStep = useOperatorStep(data, "local_model_readiness");
@@ -370,7 +369,9 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         </div>
       </div>
 
-      <ChatToLoopHandoffPanel readModel={today.chat_to_loop_handoff_read_model} />
+      <ChatToLoopHandoffPanel
+        readModel={today.chat_to_loop_handoff_read_model}
+      />
 
       {handoffReceipt ? (
         <article className="panel">
@@ -405,7 +406,9 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
             </div>
             <div>
               <dt>Memory write</dt>
-              <dd>{receiptDeniedLabel(handoffReceipt.memory_write_performed)}</dd>
+              <dd>
+                {receiptDeniedLabel(handoffReceipt.memory_write_performed)}
+              </dd>
             </div>
           </dl>
         </article>
@@ -720,7 +723,10 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const taskStep = useOperatorStep(data, "task_decomposition_plan");
   const settingsStatus = data.settingsStatus;
-  const settingsStatusRecord = settingsStatus as unknown as Record<string, unknown>;
+  const settingsStatusRecord = settingsStatus as unknown as Record<
+    string,
+    unknown
+  >;
   const rawAuthorityPostures = Array.isArray(
     settingsStatusRecord.authority_postures,
   )
@@ -742,7 +748,8 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const authorityPosturesValid =
     safeAuthorityPostures.length === SETTINGS_AUTHORITY_KEYS.length &&
     safeAuthorityPostures.every(
-      (posture, index) => posture.capability_key === SETTINGS_AUTHORITY_KEYS[index],
+      (posture, index) =>
+        posture.capability_key === SETTINGS_AUTHORITY_KEYS[index],
     );
   const safeKillSwitchPostures = rawKillSwitchPostures.filter(
     isSafeSettingsKillSwitchPosture,
@@ -944,7 +951,10 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             <span className="surface-state-kind">{posture.state_label}</span>
             <strong>Kill switch: {posture.label}</strong>
             <p>{posture.safe_summary}</p>
-            <div className="note-list" aria-label={`${posture.label} kill-switch refs`}>
+            <div
+              className="note-list"
+              aria-label={`${posture.label} kill-switch refs`}
+            >
               <span>{posture.revocation_ref}</span>
               <span>{posture.safe_disable_ref}</span>
             </div>
@@ -961,7 +971,10 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             <span className="surface-state-kind">{posture.state_label}</span>
             <strong>Feature flag: {posture.label}</strong>
             <p>{posture.safe_summary}</p>
-            <div className="note-list" aria-label={`${posture.label} feature-flag refs`}>
+            <div
+              className="note-list"
+              aria-label={`${posture.label} feature-flag refs`}
+            >
               <span>{posture.owner_ref}</span>
               {posture.evidence_refs.slice(0, 2).map((ref) => (
                 <span key={ref}>{ref}</span>
@@ -1108,7 +1121,9 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 function isOneOfString(value: unknown, allowed: string[]): value is string {
@@ -1142,7 +1157,9 @@ export function ProviderCredentialReadinessPanel({
         </div>
         <div>
           <dt>Vault adapter</dt>
-          <dd>{readiness.vault_adapter_configured ? "configured" : "not scoped"}</dd>
+          <dd>
+            {readiness.vault_adapter_configured ? "configured" : "not scoped"}
+          </dd>
         </div>
         <div>
           <dt>Configured providers</dt>
@@ -1214,7 +1231,19 @@ export function ProviderCredentialReadinessPanel({
         </div>
         <div>
           <dt>External validation</dt>
-          <dd>{readiness.validation_readiness.external_validation_allowed ? "yes" : "no"}</dd>
+          <dd>
+            {readiness.validation_readiness.external_validation_allowed
+              ? "yes"
+              : "no"}
+          </dd>
+        </div>
+        <div>
+          <dt>Validation authority</dt>
+          <dd>
+            {readiness.validation_readiness.exact_approval_required
+              ? "approval required"
+              : "authority missing"}
+          </dd>
         </div>
         <div>
           <dt>Provider response persistence allowed</dt>
@@ -1325,7 +1354,8 @@ export function ProviderCredentialReadinessPanel({
             ],
             [
               "Repo-stored credential material",
-              readiness.vault_adapter_readiness.credential_material_stored_by_repo
+              readiness.vault_adapter_readiness
+                .credential_material_stored_by_repo
                 ? "yes"
                 : "no",
             ],
@@ -1386,7 +1416,8 @@ export function ProviderCredentialReadinessPanel({
             ],
             [
               "Evidence contains credential material",
-              readiness.enrollment_readiness.evidence_contains_credential_material
+              readiness.enrollment_readiness
+                .evidence_contains_credential_material
                 ? "yes"
                 : "no",
             ],
@@ -1398,6 +1429,7 @@ export function ProviderCredentialReadinessPanel({
           status={readiness.validation_readiness.readiness_status}
           summary={readiness.validation_readiness.safe_summary}
           details={[
+            ["Route", readiness.validation_readiness.route_ref],
             [
               "Provider manifest ref",
               readiness.validation_readiness.provider_manifest_ref,
@@ -1405,6 +1437,20 @@ export function ProviderCredentialReadinessPanel({
             [
               "Validation enabled",
               readiness.validation_readiness.validation_enabled ? "yes" : "no",
+            ],
+            [
+              "Approval required",
+              readiness.validation_readiness.exact_approval_required
+                ? "yes"
+                : "no",
+            ],
+            [
+              "No provider authority",
+              readiness.validation_readiness.ui_states.includes(
+                "no provider authority",
+              )
+                ? "shown"
+                : "missing",
             ],
             [
               "Validation receipt ref",
@@ -1438,7 +1484,8 @@ export function ProviderCredentialReadinessPanel({
             ],
             [
               "Provider allowlist required",
-              readiness.invocation_readiness.provider_manifest_allowlist_required
+              readiness.invocation_readiness
+                .provider_manifest_allowlist_required
                 ? "yes"
                 : "no",
             ],
@@ -1488,7 +1535,9 @@ export function ProviderCredentialReadinessPanel({
             ],
             [
               "Memory writes",
-              readiness.invocation_readiness.memory_write_enabled ? "yes" : "no",
+              readiness.invocation_readiness.memory_write_enabled
+                ? "yes"
+                : "no",
             ],
             [
               "Context injection",
@@ -1600,7 +1649,8 @@ export function ProviderCredentialReadinessPanel({
             ],
             [
               "Default execution label",
-              readiness.tiny_invocation_readiness.status === "approved_no_execution"
+              readiness.tiny_invocation_readiness.status ===
+              "approved_no_execution"
                 ? "Approved no execution"
                 : "Disabled no execution",
             ],
@@ -1616,7 +1666,10 @@ export function ProviderCredentialReadinessPanel({
         aria-label="Provider auth reference statuses"
       >
         {readiness.providers.map((provider) => (
-          <section className="provider-readiness-item" key={provider.provider_id}>
+          <section
+            className="provider-readiness-item"
+            key={provider.provider_id}
+          >
             <div className="panel-heading compact-heading">
               <h4>{provider.provider_label}</h4>
               <span>{provider.readiness_posture}</span>
@@ -1669,7 +1722,9 @@ export function ProviderCredentialReadinessPanel({
               </div>
               <div>
                 <dt>CostGovernor decision</dt>
-                <dd>{provider.cost_governor_binding.cost_governor_decision_ref}</dd>
+                <dd>
+                  {provider.cost_governor_binding.cost_governor_decision_ref}
+                </dd>
               </div>
               <div>
                 <dt>Model ref status</dt>

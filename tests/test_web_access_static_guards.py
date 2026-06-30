@@ -87,6 +87,11 @@ TEMPORARY_BASELINE_EXCEPTIONS = {
         "scope=legacy governed evidence source wrapped by WebAccessGateway; "
         "authority=not_general_agent_web; migration=wrapped in PR 1"
     ),
+    "src/ultimate_ai_agent/core/providers/credential_validation.py": (
+        "lane=exact_provider_credential_validation; "
+        "scope=one provider credential auth check after exact approval only; "
+        "authority=not_agent_public_web; migration=provider validation adapter boundary"
+    ),
 }
 
 BANNED_PROVIDER_SURFACE_TERMS = {

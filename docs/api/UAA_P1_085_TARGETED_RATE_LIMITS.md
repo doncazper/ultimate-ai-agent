@@ -18,6 +18,8 @@ The runtime gate applies to selected route groups:
 - `chat_durable_receipt`
 - `memory_review_decision`
 - `memory_context_pack_action_proposal`
+- `provider_credential_validation`
+- `provider_exact_approved_lane`
 - `local_model_validation`
 
 When a targeted local fixed-window limit is reached, the API returns a redacted

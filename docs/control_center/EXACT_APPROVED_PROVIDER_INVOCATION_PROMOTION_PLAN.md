@@ -5,9 +5,11 @@ Status: disabled-default contract lane implemented; callable provider runtime re
 This plan defines the minimum promotion checklist for one tiny exact-approved
 provider/model lane. The current implementation adds typed contracts, a
 disabled-default Control Center route, CostGovernor blocking, redacted receipt
-storage, CLI inspection, and UI posture labels. It does not add credential
-validation, network access, provider SDK calls, live model calls, autonomous
-model calls, background execution, or billing authority.
+storage, CLI inspection, and UI posture labels. It does not add provider
+credential validation authority, provider SDK calls, live model calls,
+autonomous model calls, background execution, or billing authority; provider
+credential validation is handled by the separate exact-approved validation lane
+and still does not authorize invocation.
 
 The lane may become callable only after Provider Credential Readiness,
 CostGovernor Binding, Credential Vault Contract Shell posture, exact approval,
@@ -120,7 +122,7 @@ authority, or callable runtime from metadata visibility.
 
 - No provider SDK calls.
 - No enabled runtime invocation by default.
-- No credential validation.
+- No credential validation authority through this invocation lane.
 - No network calls.
 - No model output authority.
 - No raw prompt, response, or provider payload persistence.

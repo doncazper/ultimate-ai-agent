@@ -18,8 +18,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 149;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 50;
+export const MOCK_OPENAPI_ROUTE_COUNT = 150;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 51;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -59,7 +59,9 @@ const providerReadinessPostures = [
   "unknown_paid_cost_requires_approval",
 ] as const;
 
-function providerCostGovernorBinding(slug: string): ProviderCostGovernorBinding {
+function providerCostGovernorBinding(
+  slug: string,
+): ProviderCostGovernorBinding {
   return {
     binding_ref: `provider-cost-binding-ref:${slug}:blocked`,
     provider_ref: `provider:${slug}:reference`,
@@ -301,7 +303,11 @@ const providerCatalog: ProviderCatalog = {
       workload_kind: "quick_chat",
       safe_summary:
         "Quick chat examples are synthetic; future paid use still needs a cost estimate and budget decision.",
-      cost_driver_notes: ["input tokens", "output tokens", "reasoning tokens if used"],
+      cost_driver_notes: [
+        "input tokens",
+        "output tokens",
+        "reasoning tokens if used",
+      ],
       synthetic_only: true,
       no_live_price_amounts: true,
       not_cost_estimate: true,
@@ -313,7 +319,11 @@ const providerCatalog: ProviderCatalog = {
       workload_kind: "crm_briefing",
       safe_summary:
         "CRM briefing examples are cost-literacy only and do not authorize model use.",
-      cost_driver_notes: ["input tokens", "output tokens", "context cache if used"],
+      cost_driver_notes: [
+        "input tokens",
+        "output tokens",
+        "context cache if used",
+      ],
       synthetic_only: true,
       no_live_price_amounts: true,
       not_cost_estimate: true,
@@ -325,7 +335,12 @@ const providerCatalog: ProviderCatalog = {
       workload_kind: "long_document_review",
       safe_summary:
         "Long document examples are synthetic and require explicit approval for unknown paid cost.",
-      cost_driver_notes: ["input tokens", "cached input tokens", "output tokens", "batch pricing if used"],
+      cost_driver_notes: [
+        "input tokens",
+        "cached input tokens",
+        "output tokens",
+        "batch pricing if used",
+      ],
       synthetic_only: true,
       no_live_price_amounts: true,
       not_cost_estimate: true,
@@ -333,7 +348,8 @@ const providerCatalog: ProviderCatalog = {
     },
   ],
   budget_posture: {
-    budget_posture_ref: "provider-budget-posture:cost-literacy:unknown-paid-cost",
+    budget_posture_ref:
+      "provider-budget-posture:cost-literacy:unknown-paid-cost",
     state: "approval_required_for_paid_or_unknown_cost",
     unknown_paid_cost_requires_explicit_approval: true,
     estimated_cost_above_budget_blocks_use: true,
@@ -543,7 +559,8 @@ const chatLocalOperatorSurfaceBindings = [
     surface: "Chat",
     feed_status: "implemented_local_turn_send_and_truth_surface",
     feed_ref: "/v1/chat/completions",
-    authority_boundary: "Chat output is not truth, memory, approval, or execution authority.",
+    authority_boundary:
+      "Chat output is not truth, memory, approval, or execution authority.",
   },
   {
     surface: "Plans",
@@ -561,7 +578,8 @@ const chatLocalOperatorSurfaceBindings = [
     surface: "Evidence",
     feed_status: "durable_receipt_evidence_refs",
     feed_ref: "evidence-ref:chat-local-operator",
-    authority_boundary: "Evidence is route/auth/runtime/tool-denial metadata only.",
+    authority_boundary:
+      "Evidence is route/auth/runtime/tool-denial metadata only.",
   },
   {
     surface: "Memory",
@@ -737,7 +755,8 @@ const chatToLoopHandoffReadModel: FounderLoopChatToLoopHandoffReadModel = {
 const evidenceTimelineNarrativeEntry = {
   narrative_ref: "evidence-narrative:mock-founder-loop",
   event_ref: "evidence-event:action-envelope-created-mock-founder-loop",
-  timeline_item_ref: "evidence-timeline:action/founder-action/mock-setup-hardening",
+  timeline_item_ref:
+    "evidence-timeline:action/founder-action/mock-setup-hardening",
   group_ref: "action-envelope:plans:founder-loop-mock",
   group_kind: "today_item",
   event_type: "action_envelope_created",
@@ -805,59 +824,61 @@ const evidenceTimelineNarrativeEntry = {
   production_authority_enabled: false,
 };
 
-const evidenceTimelineNarrativeReadModel: FounderLoopEvidenceTimelineNarrativeReadModel = {
-  schema_version: "product-loop-010-evidence-timeline-narrative.v1",
-  contract_ref: "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
-  source: "python_core_evidence_timeline_narrative_read_model",
-  status: "implemented_evidence_timeline_narrative_safe_refs_only",
-  backend_owned: true,
-  local_read_model_only: true,
-  safe_refs_only: true,
-  redacted_summaries_only: true,
-  narrative_from_existing_refs_only: true,
-  raw_content_included: false,
-  entry_count: 1,
-  event_count: 1,
-  group_count: 1,
-  narrative_item_count: 1,
-  entries: [evidenceTimelineNarrativeEntry],
-  narrative_refs: [evidenceTimelineNarrativeEntry.narrative_ref],
-  event_refs: [evidenceTimelineNarrativeEntry.event_ref],
-  timeline_item_refs: [evidenceTimelineNarrativeEntry.timeline_item_ref],
-  group_refs: [evidenceTimelineNarrativeEntry.group_ref],
-  receipt_refs: [],
-  approval_refs: evidenceTimelineNarrativeEntry.approval_refs,
-  audit_refs: evidenceTimelineNarrativeEntry.audit_refs,
-  idempotency_refs: evidenceTimelineNarrativeEntry.idempotency_refs,
-  rollback_refs: [],
-  evidence_refs: evidenceTimelineNarrativeEntry.evidence_refs,
-  blocked_state_refs: evidenceTimelineNarrativeEntry.blocked_state_refs,
-  authority_boundary:
-    "Evidence Timeline narrative is a read-only safe-ref history; approval refs are identifiers only and it grants no execution authority.",
-  next_safe_action:
-    "Inspect narrative entries and underlying safe refs; use owner routes for any later exact-scoped decisions.",
-  approval_ref_authority: false,
-  rollback_execution_enabled: false,
-  action_execution_enabled: false,
-  tool_execution_enabled: false,
-  workflow_execution_enabled: false,
-  connector_write_enabled: false,
-  connector_runtime_enabled: false,
-  provider_model_call_enabled: false,
-  runtime_model_calls_enabled: false,
-  provider_sdk_call_enabled: false,
-  live_web_enabled: false,
-  shell_subprocess_execution_enabled: false,
-  browser_execution_enabled: false,
-  public_beta_enabled: false,
-  distribution_enabled: false,
-  prompt_content_stored: false,
-  response_content_stored: false,
-  provider_exchange_content_stored: false,
-  memory_truth_authority: false,
-  context_injection_authorized: false,
-  production_authority_enabled: false,
-};
+const evidenceTimelineNarrativeReadModel: FounderLoopEvidenceTimelineNarrativeReadModel =
+  {
+    schema_version: "product-loop-010-evidence-timeline-narrative.v1",
+    contract_ref:
+      "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
+    source: "python_core_evidence_timeline_narrative_read_model",
+    status: "implemented_evidence_timeline_narrative_safe_refs_only",
+    backend_owned: true,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    redacted_summaries_only: true,
+    narrative_from_existing_refs_only: true,
+    raw_content_included: false,
+    entry_count: 1,
+    event_count: 1,
+    group_count: 1,
+    narrative_item_count: 1,
+    entries: [evidenceTimelineNarrativeEntry],
+    narrative_refs: [evidenceTimelineNarrativeEntry.narrative_ref],
+    event_refs: [evidenceTimelineNarrativeEntry.event_ref],
+    timeline_item_refs: [evidenceTimelineNarrativeEntry.timeline_item_ref],
+    group_refs: [evidenceTimelineNarrativeEntry.group_ref],
+    receipt_refs: [],
+    approval_refs: evidenceTimelineNarrativeEntry.approval_refs,
+    audit_refs: evidenceTimelineNarrativeEntry.audit_refs,
+    idempotency_refs: evidenceTimelineNarrativeEntry.idempotency_refs,
+    rollback_refs: [],
+    evidence_refs: evidenceTimelineNarrativeEntry.evidence_refs,
+    blocked_state_refs: evidenceTimelineNarrativeEntry.blocked_state_refs,
+    authority_boundary:
+      "Evidence Timeline narrative is a read-only safe-ref history; approval refs are identifiers only and it grants no execution authority.",
+    next_safe_action:
+      "Inspect narrative entries and underlying safe refs; use owner routes for any later exact-scoped decisions.",
+    approval_ref_authority: false,
+    rollback_execution_enabled: false,
+    action_execution_enabled: false,
+    tool_execution_enabled: false,
+    workflow_execution_enabled: false,
+    connector_write_enabled: false,
+    connector_runtime_enabled: false,
+    provider_model_call_enabled: false,
+    runtime_model_calls_enabled: false,
+    provider_sdk_call_enabled: false,
+    live_web_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_execution_enabled: false,
+    public_beta_enabled: false,
+    distribution_enabled: false,
+    prompt_content_stored: false,
+    response_content_stored: false,
+    provider_exchange_content_stored: false,
+    memory_truth_authority: false,
+    context_injection_authorized: false,
+    production_authority_enabled: false,
+  };
 
 const governedCodeWorkbenchContractRef =
   "contract-ref:governed-code-workbench:v1";
@@ -1059,8 +1080,10 @@ const crossSurfaceMemoryIntakeProposals =
       candidate_ref: `business-memory-candidate:${candidateKind.replaceAll("_", "-")}:${surfaceSlug}`,
       safe_summary: `${surface} can propose a reviewed memory candidate using safe refs; no write or context injection is authorized.`,
       source_refs: [`source-ref:${sourceSlug}:${surfaceSlug}`],
-      source_provenance_contract_ref: "contract-ref:memory-source-provenance:v1",
-      memory_review_decision_contract_ref: "contract-ref:memory-review-decision:v1",
+      source_provenance_contract_ref:
+        "contract-ref:memory-source-provenance:v1",
+      memory_review_decision_contract_ref:
+        "contract-ref:memory-review-decision:v1",
       business_memory_quality_contract_ref:
         "contract-ref:business-memory-quality-controls:v1",
       source_trust_posture: "untrusted_until_reviewed",
@@ -1070,7 +1093,9 @@ const crossSurfaceMemoryIntakeProposals =
         "business-memory-quality:low-confidence",
         "business-memory-quality:blocked",
       ],
-      missing_evidence_refs: [`missing-evidence-ref:memory-intake:${surfaceSlug}`],
+      missing_evidence_refs: [
+        `missing-evidence-ref:memory-intake:${surfaceSlug}`,
+      ],
       missing_evidence_posture: "missing_safe_evidence_until_reviewed",
       confidence_posture: "low_confidence_until_reviewed",
       stale_state: "recheck_source_refs_before_memory_intake",
@@ -1098,8 +1123,7 @@ const crossSurfaceMemoryIntakeProposals =
     };
   });
 
-const memoryToLoopBindingContractRef =
-  "contract-ref:memory-to-loop-binding:v1";
+const memoryToLoopBindingContractRef = "contract-ref:memory-to-loop-binding:v1";
 
 const memoryToLoopRequiredSurfaces = [
   "Today",
@@ -1309,7 +1333,10 @@ const privateBetaReadinessContractBySurface: Record<string, string[]> = {
 
 const privateBetaReadinessCriteria = privateBetaReadinessRequiredSurfaces.map(
   (surface) => {
-    const surfaceSlug = surface.toLowerCase().replaceAll("/", "-").replaceAll(" ", "-");
+    const surfaceSlug = surface
+      .toLowerCase()
+      .replaceAll("/", "-")
+      .replaceAll(" ", "-");
     const gateState = privateBetaReadinessStateBySurface[surface];
     return {
       contract_ref: privateBetaReadinessContractRef,
@@ -1319,7 +1346,9 @@ const privateBetaReadinessCriteria = privateBetaReadinessRequiredSurfaces.map(
       safe_summary: `${surface} has private local beta-test evidence posture as safe refs; broader authority remains blocked.`,
       evidence_refs: [`evidence-ref:private-beta:${surfaceSlug}`],
       required_contract_refs: privateBetaReadinessContractBySurface[surface],
-      acceptance_refs: [`acceptance-ref:private-beta:${surfaceSlug}:${gateState}`],
+      acceptance_refs: [
+        `acceptance-ref:private-beta:${surfaceSlug}:${gateState}`,
+      ],
       missing_evidence_refs: [
         `missing-evidence-ref:private-beta:${surfaceSlug}:rehearsal`,
       ],
@@ -1613,7 +1642,9 @@ const rejectedItemRefs = [
 const followUpCommitmentRefs = [
   "follow-up-commitment-ref:memory-review-founder-loop-preferences",
 ];
-const staleMemoryRefs = ["stale-memory-ref:recheck-source-refs-before-memory-use"];
+const staleMemoryRefs = [
+  "stale-memory-ref:recheck-source-refs-before-memory-use",
+];
 const missingEvidenceBlockerRefs = [
   "contract-ref:memory-write-policy-binding-missing",
   "contract-ref:memory-retention-delete-missing",
@@ -1716,13 +1747,15 @@ const memoryDerivedActionProposals = [
   },
 ];
 
-const memoryToLoopSurfaceBindings = memoryToLoopRequiredSurfaces.map((surface) => ({
-  surface,
-  feed_status: "implemented_read_only_memory_loop_refs",
-  feed_ref: `memory-loop-binding:${surface.toLowerCase().replaceAll(" ", "-")}`,
-  authority_boundary:
-    "Memory loop bindings are review-only safe refs and cannot write memory, inject context, approve work, or execute actions.",
-}));
+const memoryToLoopSurfaceBindings = memoryToLoopRequiredSurfaces.map(
+  (surface) => ({
+    surface,
+    feed_status: "implemented_read_only_memory_loop_refs",
+    feed_ref: `memory-loop-binding:${surface.toLowerCase().replaceAll(" ", "-")}`,
+    authority_boundary:
+      "Memory loop bindings are review-only safe refs and cannot write memory, inject context, approve work, or execute actions.",
+  }),
+);
 
 const memoryToLoopWeeklyReviewRefs = memoryToLoopItems.map(
   (item) => `weekly-review-ref:${item.loop_item_ref.replaceAll(":", "-")}`,
@@ -1897,9 +1930,9 @@ const sourceReadinessPosture: FounderLoopSourceReadinessPosture = {
     "contract-ref:email-read-only-missing",
     "contract-ref:calendar-read-only-missing",
   ],
-  blocked_state_refs: sourceReadinessItems.flatMap(
-    (item) => item.blocked_state_refs,
-  ).concat("blocked-state:mock-source-readiness-non-authoritative"),
+  blocked_state_refs: sourceReadinessItems
+    .flatMap((item) => item.blocked_state_refs)
+    .concat("blocked-state:mock-source-readiness-non-authoritative"),
   connector_runtime_enabled: false,
   source_refresh_enabled: false,
   notification_delivery_enabled: false,
@@ -1909,46 +1942,49 @@ const sourceReadinessPosture: FounderLoopSourceReadinessPosture = {
     "Reconnect the local backend before treating source readiness as Python-core read-model truth.",
 };
 
-const sourceReadinessProposalCandidates: FounderLoopSourceReadinessProposalCandidate[] = [
-  {
-    schema_version: "founder_loop_source_readiness_proposal.v1",
-    source: "mock_fallback_non_authoritative",
-    backend_owned: false,
-    proposal_ref: "source-readiness-proposal:mock-email-read-only-metadata-contract",
-    action_item_ref: "action:source-readiness:mock-email-read-only-metadata-contract",
-    title: "Define email read-only metadata contract",
-    safe_summary:
-      "Mock UI-shape proposal only; backend source readiness read model is unavailable.",
-    surface: "Sources",
-    source_kind: "email",
-    source_readiness_ref: "source-ref:inbox-email",
-    source_readiness_route_ref: "/control-center/sources/readiness",
-    missing_contract_ref: "contract-ref:email-read-only-missing",
-    proposal_kind: "proposal-kind:read-only-email-metadata-contract",
-    proposal_classification: "proposal_only_no_execution_path",
-    action_kind: "source_readiness_contract_proposal",
-    status: "mock_only_backend_read_model_unavailable",
-    side_effect_class: "local_dev_workspace_only",
-    risk_class: "low",
-    approval_required: false,
-    local_task_commit_eligible: false,
-    connector_runtime_enabled: false,
-    account_auth_enabled: false,
-    source_refresh_enabled: false,
-    raw_source_ingestion_enabled: false,
-    write_authority_enabled: false,
-    blocked_authority_refs: [
-      "blocked-state:mock-source-readiness-non-authoritative",
-      "blocked-state:no-connector-write",
-      "blocked-state:no-account-auth",
-    ],
-    evidence_refs: ["evidence-ref:source-readiness:mock-ui-shape"],
-    next_safe_action:
-      "Reconnect the local backend before treating this as a backend-owned proposal.",
-    authority_boundary:
-      "Mock proposal shape only; no connector, account, ingestion, write, or execution authority.",
-  },
-];
+const sourceReadinessProposalCandidates: FounderLoopSourceReadinessProposalCandidate[] =
+  [
+    {
+      schema_version: "founder_loop_source_readiness_proposal.v1",
+      source: "mock_fallback_non_authoritative",
+      backend_owned: false,
+      proposal_ref:
+        "source-readiness-proposal:mock-email-read-only-metadata-contract",
+      action_item_ref:
+        "action:source-readiness:mock-email-read-only-metadata-contract",
+      title: "Define email read-only metadata contract",
+      safe_summary:
+        "Mock UI-shape proposal only; backend source readiness read model is unavailable.",
+      surface: "Sources",
+      source_kind: "email",
+      source_readiness_ref: "source-ref:inbox-email",
+      source_readiness_route_ref: "/control-center/sources/readiness",
+      missing_contract_ref: "contract-ref:email-read-only-missing",
+      proposal_kind: "proposal-kind:read-only-email-metadata-contract",
+      proposal_classification: "proposal_only_no_execution_path",
+      action_kind: "source_readiness_contract_proposal",
+      status: "mock_only_backend_read_model_unavailable",
+      side_effect_class: "local_dev_workspace_only",
+      risk_class: "low",
+      approval_required: false,
+      local_task_commit_eligible: false,
+      connector_runtime_enabled: false,
+      account_auth_enabled: false,
+      source_refresh_enabled: false,
+      raw_source_ingestion_enabled: false,
+      write_authority_enabled: false,
+      blocked_authority_refs: [
+        "blocked-state:mock-source-readiness-non-authoritative",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-account-auth",
+      ],
+      evidence_refs: ["evidence-ref:source-readiness:mock-ui-shape"],
+      next_safe_action:
+        "Reconnect the local backend before treating this as a backend-owned proposal.",
+      authority_boundary:
+        "Mock proposal shape only; no connector, account, ingestion, write, or execution authority.",
+    },
+  ];
 
 const sourceReadiness: FounderLoopSourceReadiness = {
   schema_version: "founder_loop_source_readiness.v1",
@@ -2288,7 +2324,9 @@ const reviewQueueGroups = [
     status: "draft_only",
     safe_summary:
       "Draft opportunities are reviewable proposal refs only; no send, write, or external mutation is available.",
-    source_refs: memoryDerivedActionProposals.map((proposal) => proposal.proposal_ref),
+    source_refs: memoryDerivedActionProposals.map(
+      (proposal) => proposal.proposal_ref,
+    ),
     evidence_refs: ["evidence-ref:review-group:drafts"],
     next_safe_action:
       "Review proposal refs before any later exact-scope local action.",
@@ -2307,7 +2345,8 @@ const reviewQueueGroups = [
       "CRM-lite follow-ups are local relationship refs derived from reviewed memory, not external CRM state.",
     source_refs: followUpCommitmentRefs,
     evidence_refs: ["evidence-ref:review-group:crm-lite"],
-    next_safe_action: "Review source and memory refs before drafting a follow-up.",
+    next_safe_action:
+      "Review source and memory refs before drafting a follow-up.",
     blocked_state_refs: [
       "blocked-state:no-external-crm-write",
       "blocked-state:no-account-sync",
@@ -2321,7 +2360,9 @@ const reviewQueueGroups = [
     safe_summary:
       "System and product health are readiness refs for private use; they do not confer release authority.",
     source_refs: [privateBetaReadinessContractRef],
-    evidence_refs: ["evidence-packet:private-beta-readiness:local-founder-loop"],
+    evidence_refs: [
+      "evidence-packet:private-beta-readiness:local-founder-loop",
+    ],
     next_safe_action:
       "Run local private rehearsal checks before broader readiness claims.",
     blocked_state_refs: privateBetaReadinessBlockedRefs,
@@ -2443,7 +2484,9 @@ const weeklyReviewNarrative = {
   stale_refs: staleMemoryRefs,
   missing_source_refs: sourceReadinessItems
     .filter((item) =>
-      ["missing", "blocked", "unavailable", "not_configured"].includes(item.status),
+      ["missing", "blocked", "unavailable", "not_configured"].includes(
+        item.status,
+      ),
     )
     .map((item) => item.source_ref),
   dogfood_refs: [dogfoodCapture.capture_ref, ...dogfoodCapture.friction_refs],
@@ -2577,7 +2620,7 @@ const dailyLoopSummary = {
   next_safe_action:
     "Open Morning Briefing, review Today decisions, then record only supported Action Inbox or Memory receipts.",
   authority_boundary:
-      "This loop is review-only, draft-only, and local-only; no email send, calendar write, connector write, source polling, provider call, action execution, automatic memory truth, hidden context injection, or public distribution authority is granted.",
+    "This loop is review-only, draft-only, and local-only; no email send, calendar write, connector write, source polling, provider call, action execution, automatic memory truth, hidden context injection, or public distribution authority is granted.",
   action_execution_enabled: false,
   connector_runtime_enabled: false,
   external_write_enabled: false,
@@ -2690,7 +2733,8 @@ const todayLoopReadModel: FounderLoopTodayLoopReadModel = {
       evidence_refs: ["evidence-ref:founder-loop:memory"],
       receipt_refs: [],
       blocked_state_refs: todayLoopBlockedRefs,
-      next_safe_action: "Recheck source freshness before relying on these refs.",
+      next_safe_action:
+        "Recheck source freshness before relying on these refs.",
       review_only: true,
     },
   ],
@@ -2832,8 +2876,8 @@ const todayLoopReadModel: FounderLoopTodayLoopReadModel = {
   blocked_state_refs: todayLoopBlockedRefs,
 };
 
-const plansActionEnvelopeReviewPostures =
-  plansActionEnvelopeReviewActions.map((reviewAction) => ({
+const plansActionEnvelopeReviewPostures = plansActionEnvelopeReviewActions.map(
+  (reviewAction) => ({
     review_action: reviewAction,
     review_posture_ref: `review-posture:plans-action-envelope:${reviewAction}`,
     exact_scope_required: true,
@@ -2841,7 +2885,8 @@ const plansActionEnvelopeReviewPostures =
     receipt_refs_required: true,
     grants_execution_authority: false,
     captures_approval_grant: false,
-  }));
+  }),
+);
 
 const plansActionEnvelopeAuthorityPosture = {
   safe_refs_only: true,
@@ -2870,25 +2915,29 @@ const plansActionEnvelopeSurfaceBindings = [
     surface: "Today",
     feed_status: "implemented_plan_action_state_contract",
     feed_ref: "today-ref:plans-action-envelope-state",
-    authority_boundary: "Today can show envelope posture but cannot execute actions.",
+    authority_boundary:
+      "Today can show envelope posture but cannot execute actions.",
   },
   {
     surface: "Plans",
     feed_status: "implemented_reviewable_action_envelope_refs",
     feed_ref: "plan-ref:reviewable-action-envelope",
-    authority_boundary: "Plans can produce envelope metadata but not execution authority.",
+    authority_boundary:
+      "Plans can produce envelope metadata but not execution authority.",
   },
   {
     surface: "Actions",
     feed_status: "implemented_action_inbox_envelope_refs",
     feed_ref: "action-inbox-ref:reviewable-envelope-queue",
-    authority_boundary: "Actions can show review posture without grant capture.",
+    authority_boundary:
+      "Actions can show review posture without grant capture.",
   },
   {
     surface: "Evidence",
     feed_status: "implemented_history_refs_for_envelope_posture",
     feed_ref: "evidence-ref:plans-action-envelope-history",
-    authority_boundary: "Evidence records proposed envelope posture and blockers only.",
+    authority_boundary:
+      "Evidence records proposed envelope posture and blockers only.",
   },
   {
     surface: "Memory",
@@ -2900,7 +2949,10 @@ const plansActionEnvelopeSurfaceBindings = [
 ];
 
 function safeEnvelopeSuffix(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9_.@-]+/g, "-").replace(/^-|-$/g, "");
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9_.@-]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function mockActionCostFields(sourceRef: string) {
@@ -2990,7 +3042,9 @@ function planActionEnvelopeFields(planRef: string) {
     plan_action_scope_ref: `scope-ref:plans-action-envelope:${suffix}`,
     plan_action_approval_requirement_ref: `approval-requirement:plans-action-envelope:${suffix}`,
     plan_action_review_posture_refs: reviewPostureRefs,
-    plan_action_expected_receipt_refs: [`receipt-plan:plans-action-envelope:${suffix}`],
+    plan_action_expected_receipt_refs: [
+      `receipt-plan:plans-action-envelope:${suffix}`,
+    ],
     plan_action_blocked_state_refs: [
       ...blockedStateRefs,
       ...mockActionCostFields(`action-envelope:plans:${suffix}`)
@@ -3030,21 +3084,13 @@ function actionEnvelopeFields(
   const unavailableState = "mock_only_backend_read_model_unavailable";
   const unavailableRef = "backend_read_model_unavailable";
   const exactScope =
-    options.approvalRequired === false
-      ? "not_applicable"
-      : unavailableState;
+    options.approvalRequired === false ? "not_applicable" : unavailableState;
   const approvalRequirement =
-    options.approvalRequired === false
-      ? "not_applicable"
-      : unavailableRef;
+    options.approvalRequired === false ? "not_applicable" : unavailableRef;
   const receipts =
-    options.approvalRequired === false
-      ? ["not_applicable"]
-      : [unavailableRef];
+    options.approvalRequired === false ? ["not_applicable"] : [unavailableRef];
   const idempotencyRef =
-    options.approvalRequired === false
-      ? "not_applicable"
-      : unavailableRef;
+    options.approvalRequired === false ? "not_applicable" : unavailableRef;
   const blockedAuthorityRefs = options.blockedAuthorityRefs ?? [
     ...plansActionEnvelopeRequiredBlockedRefs,
     "blocked-state:state-change-blocked",
@@ -3052,10 +3098,10 @@ function actionEnvelopeFields(
   const localTaskRelevant = options.actionKind === "local_task_create";
   const decisionReceiptRef =
     options.approvalRequired === false ? "not_applicable" : unavailableRef;
-  const localTaskRef =
-    localTaskRelevant ? unavailableRef : "not_applicable";
-  const localTaskCommitReceiptRef =
-    localTaskRelevant ? unavailableRef : "not_applicable";
+  const localTaskRef = localTaskRelevant ? unavailableRef : "not_applicable";
+  const localTaskCommitReceiptRef = localTaskRelevant
+    ? unavailableRef
+    : "not_applicable";
   const evidenceTimelineEventRef =
     options.approvalRequired === false ? "not_applicable" : unavailableRef;
   const replayPosture =
@@ -3150,7 +3196,8 @@ function actionEnvelopeFields(
       captured_usage_ref: costFields.action_envelope_captured_usage_ref,
       budget_decision_ref: costFields.action_envelope_budget_decision_ref,
       cost_receipt_refs: costFields.action_envelope_cost_receipt_refs,
-      cost_blocked_state_refs: costFields.action_envelope_cost_blocked_state_refs,
+      cost_blocked_state_refs:
+        costFields.action_envelope_cost_blocked_state_refs,
       cost_state_label: costFields.action_envelope_cost_state_label,
       provider_authority_state_label:
         costFields.action_envelope_provider_authority_state_label,
@@ -3196,7 +3243,8 @@ export const mockControlCenterData: ControlCenterData = {
     state: "mock_fallback",
     apiBaseLabel: "relative local API",
     checkedAt: "2026-01-01T00:00:00Z",
-    safeMessage: "Backend unavailable; showing non-authoritative mock fallback data.",
+    safeMessage:
+      "Backend unavailable; showing non-authoritative mock fallback data.",
     usingMockData: true,
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"],
   },
@@ -3216,14 +3264,15 @@ export const mockControlCenterData: ControlCenterData = {
       "contract-ref:product-loop-011-settings-kill-switch-clarity:v1",
     settings_authority_verifier_ref:
       "scripts/verify_product_loop_011_settings_kill_switch_clarity.py",
-    route_status_manifest_ref:
-      "docs/control_center/route_status_manifest.json",
+    route_status_manifest_ref: "docs/control_center/route_status_manifest.json",
     api_manifest_route_ref: "GET /api/manifest",
-    runtime_readiness_route_ref: "GET /control-center/runtime-readiness/summary",
+    runtime_readiness_route_ref:
+      "GET /control-center/runtime-readiness/summary",
     runtime_capability_matrix_ref: "runtime_capability_matrix_m11",
     platform_capability_snapshot_ref:
       "platform-capability-snapshot:metadata-readiness",
-    platform_capability_inspection_ref: "scripts/inspect_platform_capabilities.py",
+    platform_capability_inspection_ref:
+      "scripts/inspect_platform_capabilities.py",
     review_proposals: [
       "settings-proposal:feature-flag-status-route",
       "settings-proposal:kill-switch-status-route",
@@ -3569,10 +3618,10 @@ export const mockControlCenterData: ControlCenterData = {
       "control_center_m36_file_review_surface",
       "control_center_m39_context_proposal_surface",
       "control_center_provider_credential_readiness",
-	      "control_center_macos_setup_assistant_preview",
-	      "control_center_founder_loop_storage_summaries",
-	      "control_center_evidence_timeline_productization",
-	    ],
+      "control_center_macos_setup_assistant_preview",
+      "control_center_founder_loop_storage_summaries",
+      "control_center_evidence_timeline_productization",
+    ],
     blocked_capabilities: [
       "runtime_execution",
       "model_execution",
@@ -3646,7 +3695,8 @@ export const mockControlCenterData: ControlCenterData = {
       {
         surface: "approval_receipt_event_review",
         status: "preview_only",
-        description: "Mock approval, receipt, and event review summaries for M15.",
+        description:
+          "Mock approval, receipt, and event review summaries for M15.",
         route_refs: [],
         execution_allowed: false,
         mutation_allowed: false,
@@ -3657,18 +3707,24 @@ export const mockControlCenterData: ControlCenterData = {
       {
         surface: "event_timeline_trace_viewer",
         status: "preview_only",
-        description: "Mock event timeline and run/receipt trace summaries for M16.",
+        description:
+          "Mock event timeline and run/receipt trace summaries for M16.",
         route_refs: [],
         execution_allowed: false,
         mutation_allowed: false,
         credential_resolution_allowed: false,
         approval_grant_allowed: false,
-        metadata: { mock: true, redacted_summary_only: true, external_export_allowed: false },
+        metadata: {
+          mock: true,
+          redacted_summary_only: true,
+          external_export_allowed: false,
+        },
       },
       {
         surface: "evidence_file_memory_viewer",
         status: "preview_only",
-        description: "Mock evidence, file ref, and memory ref summaries for M17.",
+        description:
+          "Mock evidence, file ref, and memory ref summaries for M17.",
         route_refs: [],
         execution_allowed: false,
         mutation_allowed: false,
@@ -3725,7 +3781,8 @@ export const mockControlCenterData: ControlCenterData = {
       {
         surface: "context_proposal_surface",
         status: "preview_only",
-        description: "Mock review-only context proposal surface for safe M38 proposal objects.",
+        description:
+          "Mock review-only context proposal surface for safe M38 proposal objects.",
         route_refs: [],
         execution_allowed: false,
         mutation_allowed: false,
@@ -3808,7 +3865,8 @@ export const mockControlCenterData: ControlCenterData = {
       status: "mock_passed",
       passed_count: 0,
       failed_count: 0,
-      summary: "Mock gate summary only; verify the backend for release evidence.",
+      summary:
+        "Mock gate summary only; verify the backend for release evidence.",
     },
     runtime_readiness_summary: {
       status: "readiness_report_only",
@@ -3871,8 +3929,10 @@ export const mockControlCenterData: ControlCenterData = {
         cost_blocked: 0,
         unknown_paid_cost_requires_approval: 0,
       },
-      cost_governor_posture_ref: "cost-governor-posture-ref:provider-runtime:required",
-      cost_governor_decision_ref: "cost-governor-decision-ref:provider-runtime:blocked",
+      cost_governor_posture_ref:
+        "cost-governor-posture-ref:provider-runtime:required",
+      cost_governor_decision_ref:
+        "cost-governor-decision-ref:provider-runtime:blocked",
       cost_governor_binding_required: true,
       provider_model_refs_required: true,
       cost_estimate_ref_required: true,
@@ -3927,7 +3987,8 @@ export const mockControlCenterData: ControlCenterData = {
           "Vault adapter readiness is contract-only; the repo does not collect, store, or reveal provider credential material.",
       },
       enrollment_readiness: {
-        provider_manifest_ref: "provider-manifest-ref:provider-runtime:required",
+        provider_manifest_ref:
+          "provider-manifest-ref:provider-runtime:required",
         credential_ref: "credential-ref:provider-runtime:not-bound",
         consent_ref: "consent-ref:provider-runtime:not-granted",
         policy_ref: "policy-ref:provider-runtime:disabled-by-default",
@@ -3951,24 +4012,49 @@ export const mockControlCenterData: ControlCenterData = {
           "Credential enrollment is disabled; any future enrollment must use exact refs, approval, idempotency, audit, rollback, safe-disable, and an approved vault backend.",
       },
       validation_readiness: {
-        provider_manifest_ref: "provider-manifest-ref:provider-runtime:required",
+        route_ref: "POST /control-center/providers/credentials/validate",
+        provider_ref: "provider-ref:openai-compatible:credential-validation",
+        provider_manifest_ref:
+          "provider-manifest-ref:provider-runtime:required",
+        provider_allowlist_ref:
+          "provider-allowlist-ref:provider-runtime:required",
         credential_ref: "credential-ref:provider-runtime:not-bound",
         consent_ref: "consent-ref:provider-runtime:not-granted",
-        policy_ref: "policy-ref:provider-runtime:disabled-by-default",
+        policy_ref:
+          "policy-ref:provider-credential-validation:exact-approved:v1",
         approval_ref: "approval-ref:provider-runtime:not-granted",
         revocation_ref: "revocation-ref:provider-runtime:not-active",
+        safe_disable_ref:
+          "safe-disable-ref:provider-credential-validation:not-active",
+        idempotency_ref:
+          "idempotency-ref:provider-credential-validation:required",
         validation_enabled: false,
         external_validation_allowed: false,
         provider_response_persistence_allowed: false,
+        provider_sdk_call_enabled: false,
+        model_invocation_enabled: false,
+        billing_authority_granted: false,
+        exact_approval_required: true,
+        redacted_receipts_only: true,
         validation_receipt_ref: "receipt-ref:provider-validation:not-created",
-        readiness_status: "blocked_not_scoped",
+        readiness_status: "validation_blocked",
+        ui_states: [
+          "validation blocked",
+          "credential valid",
+          "credential invalid",
+          "approval required",
+          "no provider authority",
+        ],
         blocker_codes: [
-          "PROVIDER_KEY_VALIDATION_NOT_SCOPED",
-          "PROVIDER_NETWORK_CALL_NOT_SCOPED",
+          "EXACT_APPROVAL_REQUIRED",
+          "VALIDATION_ADAPTER_DISABLED_BY_DEFAULT",
+          "PROVIDER_SDK_CALL_DENIED",
+          "MODEL_INVOCATION_DENIED",
+          "BILLING_AUTHORITY_DENIED",
           "REDACTED_VALIDATION_RECEIPT_REQUIRED",
         ],
         safe_summary:
-          "Provider credential-reference validation is not scoped; any future validation must use safe refs, explicit consent, policy, approval, revocation, and redacted receipts.",
+          "Provider credential-reference validation is exact-approval scoped for one provider lane; the app default remains validation-blocked with no provider SDK, model invocation, billing authority, raw credential display, or provider response persistence.",
       },
       invocation_readiness: {
         readiness_status: "blocked_not_scoped",
@@ -4063,7 +4149,8 @@ export const mockControlCenterData: ControlCenterData = {
           credential_configured: false,
           credential_revoked: false,
           provider_model_refs_bound: false,
-          cost_governor_binding: providerCostGovernorBinding("openai-compatible"),
+          cost_governor_binding:
+            providerCostGovernorBinding("openai-compatible"),
           invocation_enabled: false,
           credential_material_stored: false,
           raw_key_visible: false,
@@ -4100,7 +4187,9 @@ export const mockControlCenterData: ControlCenterData = {
           credential_configured: false,
           credential_revoked: false,
           provider_model_refs_bound: false,
-          cost_governor_binding: providerCostGovernorBinding("anthropic-compatible"),
+          cost_governor_binding: providerCostGovernorBinding(
+            "anthropic-compatible",
+          ),
           invocation_enabled: false,
           credential_material_stored: false,
           raw_key_visible: false,
@@ -4137,7 +4226,8 @@ export const mockControlCenterData: ControlCenterData = {
           credential_configured: false,
           credential_revoked: false,
           provider_model_refs_bound: false,
-          cost_governor_binding: providerCostGovernorBinding("gemini-compatible"),
+          cost_governor_binding:
+            providerCostGovernorBinding("gemini-compatible"),
           invocation_enabled: false,
           credential_material_stored: false,
           raw_key_visible: false,
@@ -4165,7 +4255,8 @@ export const mockControlCenterData: ControlCenterData = {
       status: "local_backend_loop_inspectable",
       safe_summary:
         "First product loop surfaces are wired for local backend inspection; Chat can send a redacted local turn, but the frontend does not grant approvals, execute tools, write memory, or execute plans.",
-      backend_authority: "Python Agent Core and LocalApprovalAuthority remain authoritative.",
+      backend_authority:
+        "Python Agent Core and LocalApprovalAuthority remain authoritative.",
       frontend_authority: false,
       production_ready: false,
       read_only_dashboard: true,
@@ -4210,8 +4301,16 @@ export const mockControlCenterData: ControlCenterData = {
           status: "route_ready",
           safe_summary:
             "Local health, version, readiness, and capability matrix routes are inspectable.",
-          route_refs: ["/health", "/version", "/runtime/readiness", "/runtime/capability-matrix"],
-          evidence_refs: ["runtime_readiness_summary", "runtime_capability_matrix"],
+          route_refs: [
+            "/health",
+            "/version",
+            "/runtime/readiness",
+            "/runtime/capability-matrix",
+          ],
+          evidence_refs: [
+            "runtime_readiness_summary",
+            "runtime_capability_matrix",
+          ],
           next_safe_action: "inspect_runtime_readiness_summary",
           authority_boundary: "backend_authority_only",
           frontend_authority: false,
@@ -4308,7 +4407,11 @@ export const mockControlCenterData: ControlCenterData = {
             "/task-decomposition/approvals/grants/capture",
             "/task-decomposition/approvals/revoke",
           ],
-          evidence_refs: ["local_approval_authority", "approval_request_ref", "approval_grant_ref"],
+          evidence_refs: [
+            "local_approval_authority",
+            "approval_request_ref",
+            "approval_grant_ref",
+          ],
           next_safe_action: "enable_task_decomposition_api_for_local_loop",
           authority_boundary: "backend_authority_only",
           frontend_authority: false,
@@ -4328,7 +4431,10 @@ export const mockControlCenterData: ControlCenterData = {
           status: "disabled_by_default",
           safe_summary:
             "Durable task-decomposition records expose safe receipt, audit, replay, latency, and rollback refs for inspection.",
-          route_refs: ["/task-decomposition/audit", "/task-decomposition/metrics"],
+          route_refs: [
+            "/task-decomposition/audit",
+            "/task-decomposition/metrics",
+          ],
           evidence_refs: [
             "receipt_refs",
             "audit_refs",
@@ -4504,7 +4610,11 @@ export const mockControlCenterData: ControlCenterData = {
     nonAuthoritative: true,
     authorityBoundary:
       "Approval Authority handles final decision; Control Center displays summaries only.",
-    warningCodes: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY", "REDACTED_SUMMARY_ONLY"],
+    warningCodes: [
+      "MOCK_DATA_ONLY",
+      "NO_PRODUCTION_AUTHORITY",
+      "REDACTED_SUMMARY_ONLY",
+    ],
     approvalQueue: [
       {
         approvalRef: "mock_approval_ref_001",
@@ -4512,14 +4622,20 @@ export const mockControlCenterData: ControlCenterData = {
         riskLevel: "medium",
         dataClassification: "internal",
         actorSummary: "Local developer session summary",
-        requestedActionSummary: "Preview-only policy review for a proposed local workspace change.",
-        subjectSummary: "Mock local review subject; no file body or prompt body is shown.",
-        reasonCodes: ["CONTROL_CENTER_REVIEW_REQUIRED", "APPROVAL_AUTHORITY_REQUIRED"],
+        requestedActionSummary:
+          "Preview-only policy review for a proposed local workspace change.",
+        subjectSummary:
+          "Mock local review subject; no file body or prompt body is shown.",
+        reasonCodes: [
+          "CONTROL_CENTER_REVIEW_REQUIRED",
+          "APPROVAL_AUTHORITY_REQUIRED",
+        ],
         createdAt: "2026-01-01T00:00:00Z",
         expiresAt: "2026-01-01T01:00:00Z",
         requiredNextAction: "Review in Python Agent Core approval authority.",
         safeMessage: "No approval was granted from this UI.",
-        previewOutcomeSummary: "Grant or denial outcome is preview-only and non-authoritative.",
+        previewOutcomeSummary:
+          "Grant or denial outcome is preview-only and non-authoritative.",
         relatedRefs: ["mock_receipt_ref_001", "mock_event_ref_001"],
         previewOnly: true,
         readOnly: true,
@@ -4531,12 +4647,14 @@ export const mockControlCenterData: ControlCenterData = {
         riskLevel: "low",
         dataClassification: "public",
         actorSummary: "Control Center mock reviewer",
-        requestedActionSummary: "Summary inspection request for a redacted receipt.",
+        requestedActionSummary:
+          "Summary inspection request for a redacted receipt.",
         subjectSummary: "Mock receipt summary reference only.",
         reasonCodes: ["SUMMARY_ONLY", "NO_AUTHORITY_GRANTED"],
         createdAt: "2026-01-01T00:10:00Z",
         requiredNextAction: "No action available in the Control Center.",
-        safeMessage: "Approval refs are displayed as identifiers only, never as authority.",
+        safeMessage:
+          "Approval refs are displayed as identifiers only, never as authority.",
         previewOutcomeSummary: "Preview indicates no mutation path.",
         relatedRefs: ["mock_receipt_ref_002"],
         previewOnly: true,
@@ -4571,7 +4689,8 @@ export const mockControlCenterData: ControlCenterData = {
         riskLevel: "low",
         dataClassification: "public",
         redactionStatus: "redacted_summary_only",
-        safeMessage: "Mock receipt summary only; backend evidence remains source of truth.",
+        safeMessage:
+          "Mock receipt summary only; backend evidence remains source of truth.",
         timestamp: "2026-01-01T00:12:00Z",
         relatedRefs: ["mock_approval_ref_002"],
         previewOnly: true,
@@ -4586,7 +4705,10 @@ export const mockControlCenterData: ControlCenterData = {
         actorSummary: "Local developer session summary",
         sourceSurface: "CCC Web mock surface",
         resultStatus: "summary_recorded",
-        reasonCodes: ["CONTROL_CENTER_REVIEW_REQUIRED", "REDACTED_SUMMARY_ONLY"],
+        reasonCodes: [
+          "CONTROL_CENTER_REVIEW_REQUIRED",
+          "REDACTED_SUMMARY_ONLY",
+        ],
         timestamp: "2026-01-01T00:02:00Z",
         relatedRefs: ["mock_approval_ref_001", "mock_receipt_ref_001"],
         redactionStatus: "redacted_summary_only",
@@ -4640,7 +4762,8 @@ export const mockControlCenterData: ControlCenterData = {
         receiptRefs: ["mock_receipt_ref_001"],
         evidenceRefs: ["mock_evidence_ref_gate_001"],
         redactionStatus: "redacted_summary_only",
-        safeMessage: "Timeline event is summary metadata only; no execution path is available.",
+        safeMessage:
+          "Timeline event is summary metadata only; no execution path is available.",
         previewOnly: true,
         readOnly: true,
         mock: true,
@@ -4671,7 +4794,8 @@ export const mockControlCenterData: ControlCenterData = {
         relationType: "child",
         fromRef: "mock_event_ref_001",
         toRef: "mock_event_ref_002",
-        safeSummary: "Event summary review followed the approval review preview.",
+        safeSummary:
+          "Event summary review followed the approval review preview.",
         redactionStatus: "redacted_summary_only",
       },
       {
@@ -4819,7 +4943,8 @@ export const mockControlCenterData: ControlCenterData = {
         relatedEventRefs: ["mock_event_ref_001"],
         relatedReceiptRefs: ["mock_receipt_ref_001"],
         relatedEvidenceRefs: ["mock_evidence_ref_001"],
-        authorityNotice: "Memory summary remains recall-only. Governed source refs outrank it.",
+        authorityNotice:
+          "Memory summary remains recall-only. Governed source refs outrank it.",
         previewOnly: true,
         readOnly: true,
         mock: true,
@@ -4875,7 +5000,10 @@ export const mockControlCenterData: ControlCenterData = {
         secretsAllowed: false,
         safeSummary:
           "Readiness report summarizes local contract state without claiming production runtime readiness.",
-        guardrailRefs: ["m11_runtime_readiness", "m18_local_runtime_manual_smoke_surface_safe"],
+        guardrailRefs: [
+          "m11_runtime_readiness",
+          "m18_local_runtime_manual_smoke_surface_safe",
+        ],
         redactionStatus: "redacted_summary_only",
       },
       {
@@ -4889,7 +5017,10 @@ export const mockControlCenterData: ControlCenterData = {
         secretsAllowed: false,
         safeSummary:
           "Capability matrix lists allowed and blocked runtime categories without enabling any provider.",
-        guardrailRefs: ["m11_runtime_capability_matrix", "m18_openapi_route_guard"],
+        guardrailRefs: [
+          "m11_runtime_capability_matrix",
+          "m18_openapi_route_guard",
+        ],
         redactionStatus: "redacted_summary_only",
       },
       {
@@ -4903,7 +5034,10 @@ export const mockControlCenterData: ControlCenterData = {
         secretsAllowed: false,
         safeSummary:
           "Manual smoke reports may be validated as metadata; the UI cannot perform the smoke attempt.",
-        guardrailRefs: ["m10_manual_smoke", "m11_manual_smoke_report_validation_safe"],
+        guardrailRefs: [
+          "m10_manual_smoke",
+          "m11_manual_smoke_report_validation_safe",
+        ],
         redactionStatus: "redacted_summary_only",
       },
     ],
@@ -4961,7 +5095,8 @@ export const mockControlCenterData: ControlCenterData = {
           previewResultRef: "redacted-file-preview-output:mock_001",
           redactionSummaryRef: "file-review-redaction-summary:mock_001",
           fileRef: "file-ref:mock_review_001",
-          safePathRef: "filesystem-preview-path:safe-root_m36/docs/review-summary.md",
+          safePathRef:
+            "filesystem-preview-path:safe-root_m36/docs/review-summary.md",
         },
         reviewDecisionStatus: "packet_valid_for_review",
         approvalGateContractStatus: "exact_binding_ready",
@@ -4977,7 +5112,8 @@ export const mockControlCenterData: ControlCenterData = {
           memoryWritePerformed: false,
           exportPerformed: false,
           executionPerformed: false,
-          safeSummary: "Receipt plan stores refs, redaction status, and decision metadata only.",
+          safeSummary:
+            "Receipt plan stores refs, redaction status, and decision metadata only.",
         },
         approvalCapture: {
           status: "not_captured",
@@ -4991,7 +5127,8 @@ export const mockControlCenterData: ControlCenterData = {
           exportAuthorized: false,
           executionAuthorized: false,
           executionPerformed: false,
-          safeMessage: "No review-only approval capture has been recorded for this mock packet.",
+          safeMessage:
+            "No review-only approval capture has been recorded for this mock packet.",
         },
         reasonCodes: [
           "M37_REVIEW_ONLY_CAPTURE_SURFACE",
@@ -5023,7 +5160,8 @@ export const mockControlCenterData: ControlCenterData = {
           previewResultRef: "redacted-file-preview-output:mock_002",
           redactionSummaryRef: "file-review-redaction-summary:mock_002",
           fileRef: "file-ref:mock_review_002",
-          safePathRef: "filesystem-preview-path:safe-root_m36/docs/alternate-review.md",
+          safePathRef:
+            "filesystem-preview-path:safe-root_m36/docs/alternate-review.md",
         },
         reviewDecisionStatus: "review_only_display",
         approvalGateContractStatus: "binding_refs_match_required",
@@ -5054,7 +5192,8 @@ export const mockControlCenterData: ControlCenterData = {
           exportAuthorized: false,
           executionAuthorized: false,
           executionPerformed: false,
-          safeMessage: "No review-only approval capture has been recorded for this mock packet.",
+          safeMessage:
+            "No review-only approval capture has been recorded for this mock packet.",
         },
         reasonCodes: [
           "M37_REVIEW_ONLY_CAPTURE_SURFACE",
@@ -5102,7 +5241,8 @@ export const mockControlCenterData: ControlCenterData = {
         status: "proposal_ready_for_review",
         proposalOnly: true,
         nonAuthoritative: true,
-        sourceSummary: "Proposal built from exact-scope approved redacted review packet mock_001.",
+        sourceSummary:
+          "Proposal built from exact-scope approved redacted review packet mock_001.",
         safeSummary:
           "Safe context proposal is proposal-only and non-authoritative. Future handoff requires a separate M40 approval gate and still performs no injection.",
         dataClassification: "project_private",
@@ -5113,7 +5253,8 @@ export const mockControlCenterData: ControlCenterData = {
           previewResultRef: "redacted-file-preview-output:mock_001",
           redactionSummaryRef: "file-review-redaction-summary:mock_001",
           fileRef: "file-ref:mock_review_001",
-          safePathRef: "filesystem-preview-path:safe-root_m39/docs/review-summary.md",
+          safePathRef:
+            "filesystem-preview-path:safe-root_m39/docs/review-summary.md",
           actorRef: "user:mock_reviewer_001",
         },
         sourceChainRefs: [
@@ -5127,7 +5268,8 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         sections: [
           {
-            sectionRef: "safe-context-proposal-section:mock_001:redacted-preview",
+            sectionRef:
+              "safe-context-proposal-section:mock_001:redacted-preview",
             title: "Redacted review excerpt",
             redactedContent:
               "M39 surface displays redacted proposal text with [REDACTED:SECRET_ASSIGNMENT] and safe review rationale only.",
@@ -5162,7 +5304,11 @@ export const mockControlCenterData: ControlCenterData = {
           rawFileAccessAuthorized: false,
           truthAuthorityClaimed: false,
         },
-        reasonCodes: ["M39_CONTEXT_PROPOSAL_SURFACE", "PROPOSAL_ONLY", "SAFE_REFS_ONLY"],
+        reasonCodes: [
+          "M39_CONTEXT_PROPOSAL_SURFACE",
+          "PROPOSAL_ONLY",
+          "SAFE_REFS_ONLY",
+        ],
         authorityWarnings: [
           "Control Center output is not authority.",
           "Context proposal review does not authorize OpenWebUI handoff or context injection.",
@@ -5190,7 +5336,8 @@ export const mockControlCenterData: ControlCenterData = {
           previewResultRef: "redacted-file-preview-output:mock_002",
           redactionSummaryRef: "file-review-redaction-summary:mock_002",
           fileRef: "file-ref:mock_review_002",
-          safePathRef: "filesystem-preview-path:safe-root_m39/docs/alternate-review.md",
+          safePathRef:
+            "filesystem-preview-path:safe-root_m39/docs/alternate-review.md",
           actorRef: "user:mock_reviewer_002",
         },
         sourceChainRefs: [
@@ -5204,7 +5351,8 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         sections: [
           {
-            sectionRef: "safe-context-proposal-section:mock_002:redacted-preview",
+            sectionRef:
+              "safe-context-proposal-section:mock_002:redacted-preview",
             title: "Redacted review excerpt",
             redactedContent:
               "Alternate proposal text is bounded, redacted, and limited to safe review rationale.",
@@ -5218,7 +5366,8 @@ export const mockControlCenterData: ControlCenterData = {
         decisionStatus: "proposal_ready_for_review",
         receiptPlan: {
           receiptPlanRef: "safe-context-proposal-receipt-plan:mock_002",
-          safeSummary: "Alternate receipt plan stores refs and no raw proposal source material.",
+          safeSummary:
+            "Alternate receipt plan stores refs and no raw proposal source material.",
           rawContentStored: false,
           fullFileContentStored: false,
           unredactedPreviewStored: false,
@@ -5238,7 +5387,11 @@ export const mockControlCenterData: ControlCenterData = {
           rawFileAccessAuthorized: false,
           truthAuthorityClaimed: false,
         },
-        reasonCodes: ["M39_CONTEXT_PROPOSAL_SURFACE", "NO_AUTHORITY_GRANTED", "SAFE_REFS_ONLY"],
+        reasonCodes: [
+          "M39_CONTEXT_PROPOSAL_SURFACE",
+          "NO_AUTHORITY_GRANTED",
+          "SAFE_REFS_ONLY",
+        ],
         authorityWarnings: [
           "Control Center output is not authority.",
           "M40 handoff approval remains future and does not imply injection.",
@@ -5301,7 +5454,12 @@ export const mockControlCenterData: ControlCenterData = {
       {
         module: "Today",
         status: "implemented_storage_backed_partial_loop",
-        required_loop_outputs: ["today_state", "action_state", "evidence_state", "memory_state"],
+        required_loop_outputs: [
+          "today_state",
+          "action_state",
+          "evidence_state",
+          "memory_state",
+        ],
         current_feed_refs: [
           "GET /control-center/today/summary",
           "evidence-ref:founder-loop:today-summary",
@@ -5340,7 +5498,8 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         module: "Memory",
-        status: "implemented_review_queue_quality_intake_and_loop_binding_contract",
+        status:
+          "implemented_review_queue_quality_intake_and_loop_binding_contract",
         required_loop_outputs: [
           "today_memory_review_count",
           "action_or_follow_up_candidate",
@@ -5553,7 +5712,8 @@ export const mockControlCenterData: ControlCenterData = {
           "Code evidence remains blocked until governed diffs and validation proof are scoped.",
       },
     ],
-    memory_source_provenance_contract_ref: "contract-ref:memory-source-provenance:v1",
+    memory_source_provenance_contract_ref:
+      "contract-ref:memory-source-provenance:v1",
     memory_source_required_kinds: [
       "manual_note",
       "external_assistant_review_summary",
@@ -5620,7 +5780,8 @@ export const mockControlCenterData: ControlCenterData = {
       public_distribution_claim_enabled: false,
       production_authority_enabled: false,
     },
-    memory_review_decision_contract_ref: "contract-ref:memory-review-decision:v1",
+    memory_review_decision_contract_ref:
+      "contract-ref:memory-review-decision:v1",
     memory_review_decision_states: [
       "accept",
       "correct",
@@ -5801,7 +5962,8 @@ export const mockControlCenterData: ControlCenterData = {
     },
     business_memory_status:
       "implemented_review_queue_safe_ref_quality_metadata_contract",
-    cross_surface_memory_intake_contract_ref: crossSurfaceMemoryIntakeContractRef,
+    cross_surface_memory_intake_contract_ref:
+      crossSurfaceMemoryIntakeContractRef,
     cross_surface_memory_intake_status:
       "implemented_review_only_proposal_intake_contract",
     cross_surface_memory_intake_required_surfaces:
@@ -5880,15 +6042,13 @@ export const mockControlCenterData: ControlCenterData = {
       privateBetaReadinessRequiredRefFields,
     private_beta_readiness_required_blocked_refs:
       privateBetaReadinessBlockedRefs,
-    private_beta_readiness_criterion_count:
-      privateBetaReadinessCriteria.length,
+    private_beta_readiness_criterion_count: privateBetaReadinessCriteria.length,
     private_beta_readiness_criteria: privateBetaReadinessCriteria,
     private_beta_readiness_surface_bindings:
       privateBetaReadinessSurfaceBindings,
     private_beta_readiness_authority_posture:
       privateBetaReadinessAuthorityPosture,
-    private_beta_readiness_blocked_state_refs:
-      privateBetaReadinessBlockedRefs,
+    private_beta_readiness_blocked_state_refs: privateBetaReadinessBlockedRefs,
     private_beta_readiness_missing_evidence_refs:
       privateBetaReadinessMissingEvidenceRefs,
     private_beta_readiness_next_safe_action:
@@ -5981,9 +6141,7 @@ export const mockControlCenterData: ControlCenterData = {
       "receipt-plan:governed-code-apply:code-proposal-founder-loop-safe-diff",
     governed_code_workbench_expected_rollback_receipt_ref:
       "rollback-receipt-plan:governed-code:code-proposal-founder-loop-safe-diff",
-    governed_code_workbench_evidence_refs: [
-      "evidence-ref:governed-code:today",
-    ],
+    governed_code_workbench_evidence_refs: ["evidence-ref:governed-code:today"],
     governed_code_workbench_idempotency_key_ref:
       "idempotency-ref:governed-code:code-proposal-founder-loop-safe-diff",
     governed_code_workbench_safe_summary:
@@ -5998,16 +6156,17 @@ export const mockControlCenterData: ControlCenterData = {
       governedCodeWorkbenchSurfaceBindings,
     governed_code_workbench_authority_posture:
       governedCodeWorkbenchAuthorityPosture,
-    governed_code_workbench_blocked_state_refs: governedCodeWorkbenchBlockedRefs,
-    plans_action_envelope_contract_ref:
-      "contract-ref:plans-action-envelope:v1",
+    governed_code_workbench_blocked_state_refs:
+      governedCodeWorkbenchBlockedRefs,
+    plans_action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
     plans_action_envelope_review_postures: plansActionEnvelopeReviewPostures,
     plans_action_envelope_required_ref_fields:
       plansActionEnvelopeRequiredRefFields,
     plans_action_envelope_required_blocked_refs:
       plansActionEnvelopeRequiredBlockedRefs,
     plans_action_envelope_surface_bindings: plansActionEnvelopeSurfaceBindings,
-    plans_action_envelope_authority_posture: plansActionEnvelopeAuthorityPosture,
+    plans_action_envelope_authority_posture:
+      plansActionEnvelopeAuthorityPosture,
     plans_action_envelope_status:
       "implemented_today_to_action_envelope_vertical_slice_execution_blocked",
     task_decomposition_proposal_contract_ref:
@@ -6117,28 +6276,33 @@ export const mockControlCenterData: ControlCenterData = {
         authority_boundary:
           "Review-only display; Python Agent Core and LocalApprovalAuthority must validate exact scope before mutation.",
         approval_required: true,
-        approval_envelope_ref: "approval-envelope:founder-loop:mock-setup-hardening",
+        approval_envelope_ref:
+          "approval-envelope:founder-loop:mock-setup-hardening",
         approval_envelope_status: "dry_run_ref_available",
-        state_change_contract_ref: "contract-ref:founder-loop:mock-setup-hardening",
+        state_change_contract_ref:
+          "contract-ref:founder-loop:mock-setup-hardening",
         state_change_readiness: "blocked_pending_scoped_mutation_contract",
         blocked_state:
           "Exact approval scope, idempotency, rollback, and receipt refs are required before mutation.",
         evidence_refs: ["evidence-ref:founder-loop:mock-setup-hardening"],
         receipt_refs: ["receipt-plan:founder-loop:mock-setup-hardening"],
         audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
-        idempotency_key_ref: "idempotency-ref:founder-loop:mock-setup-hardening",
+        idempotency_key_ref:
+          "idempotency-ref:founder-loop:mock-setup-hardening",
         expires_at: "review_required_before_mutation",
         stale_state: "recheck_setup_summary_before_mutation",
         rollback_ref: "rollback-plan:founder-loop:mock-setup-hardening",
         safe_disable_ref: "safe-disable:founder-loop:mock-setup-hardening",
-        ...actionEnvelopeFields("founder-action:mock-setup-hardening", [
-          "receipt-plan:founder-loop:mock-setup-hardening",
-        ], {
-          evidenceRefs: ["evidence-ref:founder-loop:mock-setup-hardening"],
-          idempotencyRef: "idempotency-ref:founder-loop:mock-setup-hardening",
-          riskClass: "high",
-          sideEffectClass: "validation_only",
-        }),
+        ...actionEnvelopeFields(
+          "founder-action:mock-setup-hardening",
+          ["receipt-plan:founder-loop:mock-setup-hardening"],
+          {
+            evidenceRefs: ["evidence-ref:founder-loop:mock-setup-hardening"],
+            idempotencyRef: "idempotency-ref:founder-loop:mock-setup-hardening",
+            riskClass: "high",
+            sideEffectClass: "validation_only",
+          },
+        ),
         next_safe_action:
           "Review refs only; request a scoped state-change milestone before mutation.",
       },
@@ -6159,7 +6323,8 @@ export const mockControlCenterData: ControlCenterData = {
         approval_envelope_status: "not_required_for_inspection",
         state_change_contract_ref: null,
         state_change_readiness: "blocked_no_source_read_contract",
-        blocked_state: "Connector reads and notification delivery are not scoped.",
+        blocked_state:
+          "Connector reads and notification delivery are not scoped.",
         evidence_refs: ["evidence-ref:founder-loop:mock-briefing"],
         receipt_refs: [],
         audit_refs: ["audit-plan:founder-loop:mock-briefing-review"],
@@ -6173,7 +6338,8 @@ export const mockControlCenterData: ControlCenterData = {
           evidenceRefs: ["evidence-ref:founder-loop:mock-briefing"],
           expiryOrStaleness:
             "review_required_before_source_contract; recheck_source_status_before_contract",
-          idempotencyRef: "idempotency-ref:plans-action-envelope:founder-action-mock-briefing",
+          idempotencyRef:
+            "idempotency-ref:plans-action-envelope:founder-action-mock-briefing",
         }),
         next_safe_action:
           "Define read-only briefing source refs before source reads.",
@@ -6205,9 +6371,7 @@ export const mockControlCenterData: ControlCenterData = {
         side_effect_class: "local_dev_workspace_only",
         authority_boundary:
           "Review-only memory candidate; recall is not truth, and writes, deletes, and context injection remain unscoped.",
-        provenance_refs: [
-          "provenance-ref:manual-note:mock-preferences",
-        ],
+        provenance_refs: ["provenance-ref:manual-note:mock-preferences"],
         source_refs: ["source-ref:manual-note:founder-loop-storage"],
         missing_contract_refs: [
           "contract-ref:memory-write-policy-binding-missing",
@@ -6215,7 +6379,8 @@ export const mockControlCenterData: ControlCenterData = {
           "contract-ref:context-injection-missing",
         ],
         correction_posture: "correction_requires_scoped_memory_write_contract",
-        rejection_posture: "rejection_is_review_state_only_until_capture_contract",
+        rejection_posture:
+          "rejection_is_review_state_only_until_capture_contract",
         retention_posture: "retention_policy_not_bound",
         delete_posture: "delete_execution_not_scoped",
         confidence_posture: "safe_summary_unverified",
@@ -6309,7 +6474,8 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         decision_stale_state: "recheck_source_refs_before_memory_use",
         decision_retention_posture: "retention_policy_not_bound",
-        decision_correction_posture: "correction_requires_scoped_memory_write_contract",
+        decision_correction_posture:
+          "correction_requires_scoped_memory_write_contract",
         decision_authority_boundary:
           "Memory review decisions are review metadata only; writes, deletes, exports, context injection, connector runtime, account auth, and production authority remain unscoped.",
         decision_review_only: true,
@@ -6391,9 +6557,9 @@ export const mockControlCenterData: ControlCenterData = {
     memory_delete_enabled: false,
     context_injection_enabled: false,
     memory_review_missing_contract_refs: [
-    "contract-ref:memory-write-policy-binding-missing",
-    "contract-ref:memory-retention-delete-missing",
-    "contract-ref:context-injection-missing",
+      "contract-ref:memory-write-policy-binding-missing",
+      "contract-ref:memory-retention-delete-missing",
+      "contract-ref:context-injection-missing",
     ],
     memory_review_blocked_states: [
       "no_memory_write",
@@ -6431,7 +6597,8 @@ export const mockControlCenterData: ControlCenterData = {
           "no_background_refresh",
         ],
         stale_state: "recheck_route_status_before_briefing_use",
-        evidence_gap: "No email, calendar, or notification source evidence is bound.",
+        evidence_gap:
+          "No email, calendar, or notification source evidence is bound.",
         next_safe_action:
           "Use route and storage refs only; define source contracts before refresh.",
         evidence_refs: ["evidence-ref:founder-loop:mock-api-boundary"],
@@ -6455,7 +6622,8 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         blocked_states: ["no_connector_runtime", "no_notification_delivery"],
         stale_state: "recheck_storage_status_before_briefing_use",
-        evidence_gap: "No connector receipts or source refresh receipts are bound.",
+        evidence_gap:
+          "No connector receipts or source refresh receipts are bound.",
         next_safe_action:
           "Inspect storage status only; keep source reads blocked until scoped.",
         evidence_refs: ["evidence-ref:founder-loop:mock-storage"],
@@ -6463,13 +6631,16 @@ export const mockControlCenterData: ControlCenterData = {
     ],
     evidence_timeline: [
       {
-        timeline_item_ref: "evidence-timeline:action/founder-action/mock-setup-hardening",
+        timeline_item_ref:
+          "evidence-timeline:action/founder-action/mock-setup-hardening",
         item_kind: "receipt_audit_rollback_ref",
         title: "Setup Assistant hardening review",
         safe_summary:
           "Action evidence is shown as receipt, audit, idempotency, rollback, and safe-disable refs only; mutation stays blocked.",
         history_contract_ref: "contract-ref:evidence-history-grammar:v1",
-        history_answers: evidenceHistoryAnswers("founder-action:mock-setup-hardening"),
+        history_answers: evidenceHistoryAnswers(
+          "founder-action:mock-setup-hardening",
+        ),
         source_refs: ["founder-action:mock-setup-hardening"],
         status_refs: ["status-ref:founder-loop-action-inbox"],
         related_route_refs: ["GET /control-center/actions/inbox", "/actions"],
@@ -6500,7 +6671,8 @@ export const mockControlCenterData: ControlCenterData = {
           "Review refs only; request a scoped state-change milestone before mutation.",
       },
       {
-        timeline_item_ref: "evidence-timeline:plan/plan-summary/founder-loop-v1",
+        timeline_item_ref:
+          "evidence-timeline:plan/plan-summary/founder-loop-v1",
         item_kind: "plan_action_envelope_ref",
         title: "Founder Loop v1 product spine",
         safe_summary:
@@ -6585,7 +6757,9 @@ export const mockControlCenterData: ControlCenterData = {
         audit_refs: [],
         replay_refs: ["replay-ref:chat-local-operator:turn"],
         rollback_refs: [],
-        rollback_blockers: ["rollback_execution_not_applicable_no_chat_mutation"],
+        rollback_blockers: [
+          "rollback_execution_not_applicable_no_chat_mutation",
+        ],
         latency_refs: [],
         foundation_gate_refs: [],
         redaction_status: "redacted_summary_only",
@@ -6724,7 +6898,8 @@ export const mockControlCenterData: ControlCenterData = {
         side_effect_class: "local_dev_workspace_only",
         authority_posture:
           "Memory-to-loop binding is review-only metadata; memory writes, recall promotion, approval capture, execution, and context injection remain unscoped.",
-        approval_posture: "approval-status:memory-derived-actions-not-authorized",
+        approval_posture:
+          "approval-status:memory-derived-actions-not-authorized",
         approval_ref_authority: false,
         rollback_execution_enabled: false,
         memory_truth_authority: false,
@@ -6753,7 +6928,9 @@ export const mockControlCenterData: ControlCenterData = {
         safe_summary:
           "Private local beta-test readiness is represented as acceptance-state evidence for the founder loop surfaces; broader authority remains blocked.",
         history_contract_ref: "contract-ref:evidence-history-grammar:v1",
-        history_answers: evidenceHistoryAnswers(privateBetaReadinessContractRef),
+        history_answers: evidenceHistoryAnswers(
+          privateBetaReadinessContractRef,
+        ),
         source_refs: privateBetaReadinessCriteria.map(
           (criterion) => criterion.criterion_ref,
         ),
@@ -6805,8 +6982,12 @@ export const mockControlCenterData: ControlCenterData = {
         safe_summary:
           "User intent understanding produces reviewable intent proposals with confidence, source refs, ambiguity posture, ask/act/defer routing, and evidence refs only.",
         history_contract_ref: "contract-ref:evidence-history-grammar:v1",
-        history_answers: evidenceHistoryAnswers(userIntentUnderstandingContractRef),
-        source_refs: userIntentProposals.map((proposal) => proposal.proposal_ref),
+        history_answers: evidenceHistoryAnswers(
+          userIntentUnderstandingContractRef,
+        ),
+        source_refs: userIntentProposals.map(
+          (proposal) => proposal.proposal_ref,
+        ),
         status_refs: [
           userIntentUnderstandingContractRef,
           "policy-ref:user-intent:low-confidence-asks-user",
@@ -6847,13 +7028,16 @@ export const mockControlCenterData: ControlCenterData = {
           "Review intent proposals, ask the user when confidence is low or sources conflict, and route any action-shaped intent into reviewable envelopes only.",
       },
       {
-        timeline_item_ref: "evidence-timeline:memory/memory-review/founder-loop-preferences",
+        timeline_item_ref:
+          "evidence-timeline:memory/memory-review/founder-loop-preferences",
         item_kind: "memory_review_evidence_ref",
         title: "Founder Loop memory review",
         safe_summary:
           "Memory evidence is recall metadata only. Memory is not truth, not approval, and not context-injection authority.",
         history_contract_ref: "contract-ref:evidence-history-grammar:v1",
-        history_answers: evidenceHistoryAnswers("memory-review:founder-loop-preferences"),
+        history_answers: evidenceHistoryAnswers(
+          "memory-review:founder-loop-preferences",
+        ),
         source_refs: [
           "memory-review:founder-loop-preferences",
           "source-ref:manual-note:founder-loop-storage",
@@ -6895,18 +7079,23 @@ export const mockControlCenterData: ControlCenterData = {
           "Review provenance and evidence refs; keep writes blocked until a scoped memory policy milestone.",
       },
       {
-        timeline_item_ref: "evidence-timeline:briefing/briefing/api-boundary-modularization",
+        timeline_item_ref:
+          "evidence-timeline:briefing/briefing/api-boundary-modularization",
         item_kind: "source_readiness_evidence_ref",
         title: "API boundary modularization",
         safe_summary:
           "Briefing evidence is source-readiness posture only. Email, calendar, connector, refresh, and notification runtime stay blocked.",
         history_contract_ref: "contract-ref:evidence-history-grammar:v1",
-        history_answers: evidenceHistoryAnswers("briefing:api-boundary-modularization"),
+        history_answers: evidenceHistoryAnswers(
+          "briefing:api-boundary-modularization",
+        ),
         source_refs: [
           "briefing:api-boundary-modularization",
           "source-ref:control-center-route-status",
         ],
-        status_refs: ["evidence-timeline:briefing-status/local_status_refs_only"],
+        status_refs: [
+          "evidence-timeline:briefing-status/local_status_refs_only",
+        ],
         related_route_refs: [
           "GET /control-center/morning-briefing/summary",
           "/briefing",
@@ -6945,7 +7134,9 @@ export const mockControlCenterData: ControlCenterData = {
         safe_summary:
           "Foundation Gate and latency refs are status evidence only; they do not grant production authority or runtime authority.",
         history_contract_ref: "contract-ref:evidence-history-grammar:v1",
-        history_answers: evidenceHistoryAnswers("status-ref:foundation-gate-summary"),
+        history_answers: evidenceHistoryAnswers(
+          "status-ref:foundation-gate-summary",
+        ),
         source_refs: ["status-ref:foundation-gate-summary"],
         status_refs: ["status-ref:foundation-gate-report"],
         related_route_refs: [
@@ -6984,27 +7175,28 @@ export const mockControlCenterData: ControlCenterData = {
           "Inspect Foundation Gate and latency refs; keep production claims blocked until release evidence is scoped.",
       },
     ],
-	    evidence_timeline_route_ref: "/evidence",
-	    evidence_timeline_backend_route_ref: "GET /control-center/evidence/timeline",
-	    evidence_timeline_status:
-	      "implemented_productized_evidence_timeline_safe_refs_only",
-	    evidence_timeline_productization_contract_ref:
-	      "contract-ref:founder-loop-evidence-timeline-productization:v1",
-	    evidence_timeline_productized_event_types: [
-	      "action_envelope_created",
-	      "action_decision_recorded",
-	      "chat_turn_receipt_recorded",
-	      "chat_handoff_created",
-	      "memory_review_decision_recorded",
-	    ],
-	    evidence_timeline_productized_group_kinds: [
-	      "today_item",
-	      "action",
-	      "chat_turn",
-	      "memory_candidate",
-	    ],
-	    evidence_timeline_authority_boundary:
-	      "Evidence Timeline is safe-ref and redacted-summary only. It does not expose private content, grant approval, perform rollback, or confer production authority.",
+    evidence_timeline_route_ref: "/evidence",
+    evidence_timeline_backend_route_ref:
+      "GET /control-center/evidence/timeline",
+    evidence_timeline_status:
+      "implemented_productized_evidence_timeline_safe_refs_only",
+    evidence_timeline_productization_contract_ref:
+      "contract-ref:founder-loop-evidence-timeline-productization:v1",
+    evidence_timeline_productized_event_types: [
+      "action_envelope_created",
+      "action_decision_recorded",
+      "chat_turn_receipt_recorded",
+      "chat_handoff_created",
+      "memory_review_decision_recorded",
+    ],
+    evidence_timeline_productized_group_kinds: [
+      "today_item",
+      "action",
+      "chat_turn",
+      "memory_candidate",
+    ],
+    evidence_timeline_authority_boundary:
+      "Evidence Timeline is safe-ref and redacted-summary only. It does not expose private content, grant approval, perform rollback, or confer production authority.",
     evidence_timeline_blocked_states: [
       "no_raw_evidence_display",
       "no_rollback_execution",
@@ -7020,391 +7212,395 @@ export const mockControlCenterData: ControlCenterData = {
       "no_connector_write_route",
       "no_shell_subprocess_execution",
       "no_runtime_model_call_route",
-	    ],
-	  },
-	  founderEvidenceTimeline: {
-	    schema_version: "founder_loop_storage.v1",
-	    contract_ref: "contract-ref:founder-loop-evidence-timeline-productization:v1",
-	    status: "implemented_productized_evidence_timeline_safe_refs_only",
-	    surface: "Evidence",
-	    route_ref: "GET /control-center/evidence/timeline",
-	    frontend_route_ref: "/evidence",
-	    source_today_route_ref: "GET /control-center/today/summary",
-	    storage_ref: "founder-loop-storage:mock-local-sqlite-jsonl",
-	    side_effect_class: "local_dev_workspace_only",
-	    read_only: true,
-	    safe_refs_only: true,
-	    redacted_summaries_only: true,
-	    raw_content_stored: false,
-	    approval_ref_authority: false,
-	    rollback_execution_enabled: false,
-	    memory_truth_authority: false,
-	    context_injection_authorized: false,
-	    action_execution_enabled: false,
-	    connector_write_enabled: false,
-	    production_authority_enabled: false,
-	    event_type_refs: [
-	      "evidence-event-type:action_envelope_created",
-	      "evidence-event-type:action_decision_recorded",
-	      "evidence-event-type:local_task_created",
-	      "evidence-event-type:chat_turn_receipt_recorded",
-	      "evidence-event-type:chat_handoff_created",
-	      "evidence-event-type:memory_review_decision_recorded",
-	    ],
-	    event_types: [
-	      "action_envelope_created",
-	      "action_decision_recorded",
-	      "local_task_created",
-	      "chat_turn_receipt_recorded",
-	      "chat_handoff_created",
-	      "memory_review_decision_recorded",
-	    ],
-	    group_kinds: ["today_item", "action", "chat_turn", "memory_candidate"],
-	    event_type_counts: {
-	      action_envelope_created: 1,
-	      action_decision_recorded: 0,
-	      local_task_created: 0,
-	      chat_turn_receipt_recorded: 0,
-	      chat_handoff_created: 0,
-	      memory_review_decision_recorded: 0,
-	    },
-	    event_count: 1,
-	    group_count: 1,
-	    groups: [
-	      {
-	        group_ref: "action-envelope:plans:founder-loop-mock",
-	        group_kind: "today_item",
-	        group_label: "Today-to-Action envelope",
-	        event_count: 1,
-	        event_refs: [
-	          "evidence-event:action-envelope-created-mock-founder-loop",
-	        ],
-	        event_types: ["action_envelope_created"],
-	        receipt_refs: [],
-	        approval_refs: ["approval-status:refs-identifiers-only"],
-	        idempotency_refs: ["idempotency-ref:founder-loop:mock-setup-hardening"],
-	        blocked_states: ["blocked_pending_scoped_mutation_contract"],
-	        rollback_posture: "rollback_not_applicable_or_not_scoped",
-	      },
-	    ],
-	    events: [
-	      {
-	        event_ref: "evidence-event:action-envelope-created-mock-founder-loop",
-	        event_type: "action_envelope_created",
-	        event_type_ref: "evidence-event-type:action_envelope_created",
-	        group_kind: "today_item",
-	        group_ref: "action-envelope:plans:founder-loop-mock",
-	        group_label: "Today-to-Action envelope",
-	        timeline_item_ref: "evidence-timeline:action/founder-action/mock-setup-hardening",
-	        item_kind: "receipt_audit_rollback_ref",
-	        title: "Setup Assistant hardening review",
-	        safe_summary:
-	          "Mock evidence index event for a reviewable Today-to-Action envelope; no action execution or approval grant capture occurs.",
-	        history_answers: evidenceHistoryAnswers("founder-action:mock-setup-hardening"),
-	        source_refs: ["founder-action:mock-setup-hardening"],
-	        status_refs: [
-	          "status-ref:founder-loop-action-inbox",
-	          "contract-ref:plans-action-envelope:v1",
-	          "action-envelope:plans:founder-loop-mock",
-	        ],
-	        related_route_refs: [
-	          "GET /control-center/evidence/timeline",
-	          "GET /control-center/actions/inbox",
-	          "/evidence",
-	        ],
-	        receipt_refs: [],
-	        approval_refs: ["approval-status:refs-identifiers-only"],
-	        idempotency_refs: ["idempotency-ref:founder-loop:mock-setup-hardening"],
-	        audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
-	        rollback_refs: [],
-	        rollback_blockers: ["rollback_execution_not_scoped"],
-	        blocked_states: ["blocked_pending_scoped_mutation_contract"],
-	        rollback_posture: "rollback_not_applicable_or_not_scoped",
-	        authority_posture:
-	          "Mock evidence event is safe-ref metadata only; it does not approve, execute, roll back, inject memory, or confer production authority.",
-	        redaction_status: "redacted_summary_only",
-	        raw_evidence_included: false,
-	        approval_ref_authority: false,
-	        rollback_execution_enabled: false,
-	        memory_truth_authority: false,
-	        context_injection_authorized: false,
-	      },
-	    ],
-	    narrative_contract_ref:
-	      "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
-	    narrative_read_model: evidenceTimelineNarrativeReadModel,
-	    operator_run_timeline: {
-	      schema_version: "founder_loop_operator_run_timeline.v1",
-	      contract_ref: "contract-ref:operator-run-timeline:v1",
-	      status: "implemented_read_only_operator_run_timeline_safe_refs_only",
-	      source: "python_core_evidence_timeline_read_model",
-	      route_ref: "GET /control-center/evidence/timeline",
-	      frontend_route_refs: [
-	        "/",
-	        "/actions",
-	        "/plans",
-	        "/memory",
-	        "/evidence",
-	        "/settings",
-	      ],
-	      safe_refs_only: true,
-	      redacted_summaries_only: true,
-	      action_execution_enabled: false,
-	      connector_write_enabled: false,
-	      runtime_model_calls_enabled: false,
-	      provider_sdk_call_enabled: false,
-	      provider_model_authority_allowed: false,
-	      prompt_content_stored: false,
-	      response_content_stored: false,
-	      provider_exchange_content_stored: false,
-	      borrowed_patterns: [
-	        {
-	          pattern_id: "typed_event_ledger",
-	          label: "Typed event ledger",
-	          safe_summary:
-	            "Each operator-visible step is represented as a typed event with stable safe refs.",
-	          implemented: true,
-	          source_ref: "borrowed-pattern:typed_event_ledger",
-	        },
-	        {
-	          pattern_id: "run_control_states",
-	          label: "Run control states",
-	          safe_summary:
-	            "Waiting, blocked, evidence-needed, and receipt-recorded states are visible without runtime pause or resume authority.",
-	          implemented: true,
-	          source_ref: "borrowed-pattern:run_control_states",
-	        },
-	        {
-	          pattern_id: "evidence_based_completion",
-	          label: "Evidence-based completion",
-	          safe_summary:
-	            "Completion posture depends on receipt, audit, and evidence refs instead of model-written claims.",
-	          implemented: true,
-	          source_ref: "borrowed-pattern:evidence_based_completion",
-	        },
-	        {
-	          pattern_id: "approval_preview_and_rejection_feedback",
-	          label: "Approval preview and rejection feedback",
-	          safe_summary:
-	            "Approval posture and blocked decisions stay reviewable before any future scoped mutation is considered.",
-	          implemented: true,
-	          source_ref:
-	            "borrowed-pattern:approval_preview_and_rejection_feedback",
-	        },
-	        {
-	          pattern_id: "evidence_condensing_with_safe_refs",
-	          label: "Evidence condensing with safe refs",
-	          safe_summary:
-	            "Dense receipts are condensed into safe summaries that keep source refs inspectable.",
-	          implemented: true,
-	          source_ref: "borrowed-pattern:evidence_condensing_with_safe_refs",
-	        },
-	      ],
-	      event_count: 1,
-	      group_count: 1,
-	      narrative_item_count: 1,
-	      run_events: [
-	        {
-	          run_event_ref:
-	            "operator-run-event:evidence-event-action-envelope-created-mock-founder-loop",
-	          event_ref: "evidence-event:action-envelope-created-mock-founder-loop",
-	          event_kind: "action_envelope_created",
-	          event_source: "python_core_evidence_timeline",
-	          llm_role_projection: "not_sent_to_model",
-	          operator_state: "blocked",
-	          approval_state: "waiting_for_approval",
-	          completion_state: "evidence_refs_present",
-	          completion_claim_allowed: false,
-	          safe_summary:
-	            "Mock evidence index event for a reviewable Today-to-Action envelope; no action execution or approval grant capture occurs.",
-	          condensed_summary_ref:
-	            "safe-summary-ref:operator-run:evidence-event-action-envelope-created-mock-founder-loop",
-	          source_refs: ["founder-action:mock-setup-hardening"],
-	          status_refs: [
-	            "status-ref:founder-loop-action-inbox",
-	            "contract-ref:plans-action-envelope:v1",
-	            "action-envelope:plans:founder-loop-mock",
-	          ],
-	          receipt_refs: [],
-	          approval_refs: ["approval-status:refs-identifiers-only"],
-	          audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
-	          idempotency_refs: [
-	            "idempotency-ref:founder-loop:mock-setup-hardening",
-	          ],
-	          rollback_refs: [],
-	          blocked_state_refs: [
-	            "blocked_pending_scoped_mutation_contract",
-	            "rollback_execution_not_scoped",
-	          ],
-	          evidence_refs: [
-	            "action-envelope:plans:founder-loop-mock",
-	            "approval-status:refs-identifiers-only",
-	            "audit-plan:founder-loop:mock-setup-hardening",
-	            "blocked_pending_scoped_mutation_contract",
-	            "contract-ref:plans-action-envelope:v1",
-	            "evidence-event:action-envelope-created-mock-founder-loop",
-	            "evidence-timeline:action/founder-action/mock-setup-hardening",
-	            "founder-action:mock-setup-hardening",
-	            "idempotency-ref:founder-loop:mock-setup-hardening",
-	            "rollback_execution_not_scoped",
-	            "status-ref:founder-loop-action-inbox",
-	          ],
-	          related_route_refs: [
-	            "/evidence",
-	            "GET /control-center/actions/inbox",
-	            "GET /control-center/evidence/timeline",
-	          ],
-	          authority_boundary:
-	            "Run event is read-only evidence projection. It does not grant approval, execute actions, call models, invoke provider SDKs, or store prompt, response, or provider exchange content.",
-		          cost_usage: {
-		            schema_version: "uaa_frontier_ai_cost_usage_slot.v1",
-		            contract_ref: "contract-ref:frontier-ai-cost-usage-telemetry:v1",
-		            cost_event_ref:
-		              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		            cost_estimate_ref:
-		              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		            captured_usage_ref:
-		              "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		            budget_decision_ref:
-		              "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		            source_event_ref:
-		              "evidence-event:action-envelope-created-mock-founder-loop",
-		            provider_ref: "provider-ref:not-invoked",
-		            model_profile_ref: "model-profile-ref:not-invoked",
-		            provider_model_ref_status:
-		              "provider_model_ref_missing_or_not_invoked",
-		            usage_capture_status: "no_frontier_ai_usage_recorded",
-		            cost_capture_status: "accounting_slot_ready_no_provider_call",
-		            cost_state_label: "Cost blocked",
-		            provider_authority_state_label: "No provider authority",
-		            frontier_usage_claimed: false,
-		            frontier_ai_routing_allowed: false,
-		            input_metered_units: 0,
-		            output_metered_units: 0,
-		            total_metered_units: 0,
-		            estimated_cost_usd: 0,
-		            captured_cost_usd: 0,
-		            max_approved_cost_usd: 0,
-		            unknown_cost: false,
-		            approval_required_for_unknown_paid_cost: true,
-		            cost_governor_ref: "core.costs.CostGovernor",
-		            cost_governor_allowed: true,
-		            cost_governor_decision_status: "allowed",
-		            cost_governor_reason_refs: [],
-		            budget_status_ref:
-		              "budget-status:unknown-paid-cost-requires-approval",
-		            cost_receipt_refs: [
-		              "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		              "model-profile-ref:not-invoked",
-		              "provider-ref:not-invoked",
-		              "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		            ],
-		            cost_blocked_state_refs: [
-		              "blocked-state:frontier-provider-model-ref-missing",
-		              "blocked-state:no-provider-model-authority",
-		              "blocked-state:no-provider-sdk-call",
-		              "blocked-state:no-runtime-model-call",
-		              "blocked-state:unknown-paid-cost-requires-approval",
-		            ],
-		            prompt_content_stored: false,
-		            response_content_stored: false,
-		            provider_exchange_content_stored: false,
-		          },
-	          prompt_content_stored: false,
-	          response_content_stored: false,
-	          provider_exchange_content_stored: false,
-	          provider_model_authority_allowed: false,
-	        },
-	      ],
-	      run_control_summary: {
-	        states: [
-	          "waiting_for_approval",
-	          "receipt_recorded",
-	          "blocked",
-	          "needs_evidence",
-	        ],
-	        state_refs: [
-	          "operator-run-state:waiting_for_approval",
-	          "operator-run-state:receipt_recorded",
-	          "operator-run-state:blocked",
-	          "operator-run-state:needs_evidence",
-	        ],
-	        waiting_for_approval_count: 0,
-	        receipt_recorded_count: 0,
-	        blocked_count: 1,
-	        needs_evidence_count: 0,
-	        stuck_detection_status:
-	          "timeline_state_counts_available_no_autonomous_resume",
-	        pause_resume_status: "status_visible_no_runtime_pause_resume_route",
-	        goal_completion_status:
-	          "evidence_refs_required_no_model_judge_authority",
-	      },
-	      frontier_ai_usage_summary: {
-	        schema_version: "uaa_frontier_ai_usage_summary.v1",
-	        contract_ref: "contract-ref:frontier-ai-cost-usage-telemetry:v1",
-	        status: "accounting_slots_ready_no_provider_calls",
-	        provider_model_authority_allowed: false,
-	        provider_sdk_call_enabled: false,
-	        runtime_model_calls_enabled: false,
-	        prompt_content_stored: false,
-	        response_content_stored: false,
-	        provider_exchange_content_stored: false,
-	        estimated_total_cost_usd: 0,
-	        captured_total_cost_usd: 0,
-	        input_metered_units: 0,
-	        output_metered_units: 0,
-	        total_metered_units: 0,
-	        unknown_paid_cost_requires_approval_before_routing: true,
-	        cost_governor_ref: "core.costs.CostGovernor",
-	        budget_status_ref: "budget-status:unknown-paid-cost-requires-approval",
-		        cost_event_refs: [
-		          "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		        ],
-		        cost_receipt_refs: [
-		          "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		          "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		          "model-profile-ref:not-invoked",
-		          "provider-ref:not-invoked",
-		          "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
-		        ],
-		        cost_blocked_state_refs: [
-		          "blocked-state:frontier-provider-model-ref-missing",
-		          "blocked-state:no-provider-model-authority",
-		          "blocked-state:no-provider-sdk-call",
-		          "blocked-state:no-runtime-model-call",
-		          "blocked-state:unknown-paid-cost-requires-approval",
-		        ],
-		      },
-	      blocked_state_refs: [
-	        "blocked-state:no-action-execution",
-	        "blocked-state:no-connector-write",
-	        "blocked-state:no-provider-model-authority",
-	        "blocked-state:no-provider-sdk-call",
-	        "blocked-state:no-runtime-model-call",
-	        "blocked_pending_scoped_mutation_contract",
-	        "rollback_execution_not_scoped",
-	      ],
-	      authority_boundary:
-	        "Operator Run Timeline is a read-only projection over Evidence Timeline safe refs. It records state, receipt posture, and frontier AI cost accounting slots without approving work, executing actions, invoking provider SDKs, calling models, or storing prompt, response, or provider exchange content.",
-	    },
-	    receipt_refs: [],
-	    approval_refs: ["approval-status:refs-identifiers-only"],
-	    idempotency_refs: ["idempotency-ref:founder-loop:mock-setup-hardening"],
-	    rollback_refs: [],
-	    blocked_states: [
-	      "no_raw_evidence_display",
-	      "no_approval_ref_authority",
-	      "no_rollback_execution",
-	      "no_memory_truth_authority",
-	      "no_context_injection",
-	      "no_action_execution",
-	      "no_connector_write",
-	      "no_production_authority",
-	    ],
-	    authority_boundary:
-	      "Evidence Timeline is a read-only audit index over safe refs and redacted summaries. It does not approve, execute, roll back, inject memory into context, treat recall as truth, write connectors, or confer production authority.",
-	  },
+    ],
+  },
+  founderEvidenceTimeline: {
+    schema_version: "founder_loop_storage.v1",
+    contract_ref:
+      "contract-ref:founder-loop-evidence-timeline-productization:v1",
+    status: "implemented_productized_evidence_timeline_safe_refs_only",
+    surface: "Evidence",
+    route_ref: "GET /control-center/evidence/timeline",
+    frontend_route_ref: "/evidence",
+    source_today_route_ref: "GET /control-center/today/summary",
+    storage_ref: "founder-loop-storage:mock-local-sqlite-jsonl",
+    side_effect_class: "local_dev_workspace_only",
+    read_only: true,
+    safe_refs_only: true,
+    redacted_summaries_only: true,
+    raw_content_stored: false,
+    approval_ref_authority: false,
+    rollback_execution_enabled: false,
+    memory_truth_authority: false,
+    context_injection_authorized: false,
+    action_execution_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    event_type_refs: [
+      "evidence-event-type:action_envelope_created",
+      "evidence-event-type:action_decision_recorded",
+      "evidence-event-type:local_task_created",
+      "evidence-event-type:chat_turn_receipt_recorded",
+      "evidence-event-type:chat_handoff_created",
+      "evidence-event-type:memory_review_decision_recorded",
+    ],
+    event_types: [
+      "action_envelope_created",
+      "action_decision_recorded",
+      "local_task_created",
+      "chat_turn_receipt_recorded",
+      "chat_handoff_created",
+      "memory_review_decision_recorded",
+    ],
+    group_kinds: ["today_item", "action", "chat_turn", "memory_candidate"],
+    event_type_counts: {
+      action_envelope_created: 1,
+      action_decision_recorded: 0,
+      local_task_created: 0,
+      chat_turn_receipt_recorded: 0,
+      chat_handoff_created: 0,
+      memory_review_decision_recorded: 0,
+    },
+    event_count: 1,
+    group_count: 1,
+    groups: [
+      {
+        group_ref: "action-envelope:plans:founder-loop-mock",
+        group_kind: "today_item",
+        group_label: "Today-to-Action envelope",
+        event_count: 1,
+        event_refs: [
+          "evidence-event:action-envelope-created-mock-founder-loop",
+        ],
+        event_types: ["action_envelope_created"],
+        receipt_refs: [],
+        approval_refs: ["approval-status:refs-identifiers-only"],
+        idempotency_refs: ["idempotency-ref:founder-loop:mock-setup-hardening"],
+        blocked_states: ["blocked_pending_scoped_mutation_contract"],
+        rollback_posture: "rollback_not_applicable_or_not_scoped",
+      },
+    ],
+    events: [
+      {
+        event_ref: "evidence-event:action-envelope-created-mock-founder-loop",
+        event_type: "action_envelope_created",
+        event_type_ref: "evidence-event-type:action_envelope_created",
+        group_kind: "today_item",
+        group_ref: "action-envelope:plans:founder-loop-mock",
+        group_label: "Today-to-Action envelope",
+        timeline_item_ref:
+          "evidence-timeline:action/founder-action/mock-setup-hardening",
+        item_kind: "receipt_audit_rollback_ref",
+        title: "Setup Assistant hardening review",
+        safe_summary:
+          "Mock evidence index event for a reviewable Today-to-Action envelope; no action execution or approval grant capture occurs.",
+        history_answers: evidenceHistoryAnswers(
+          "founder-action:mock-setup-hardening",
+        ),
+        source_refs: ["founder-action:mock-setup-hardening"],
+        status_refs: [
+          "status-ref:founder-loop-action-inbox",
+          "contract-ref:plans-action-envelope:v1",
+          "action-envelope:plans:founder-loop-mock",
+        ],
+        related_route_refs: [
+          "GET /control-center/evidence/timeline",
+          "GET /control-center/actions/inbox",
+          "/evidence",
+        ],
+        receipt_refs: [],
+        approval_refs: ["approval-status:refs-identifiers-only"],
+        idempotency_refs: ["idempotency-ref:founder-loop:mock-setup-hardening"],
+        audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+        rollback_refs: [],
+        rollback_blockers: ["rollback_execution_not_scoped"],
+        blocked_states: ["blocked_pending_scoped_mutation_contract"],
+        rollback_posture: "rollback_not_applicable_or_not_scoped",
+        authority_posture:
+          "Mock evidence event is safe-ref metadata only; it does not approve, execute, roll back, inject memory, or confer production authority.",
+        redaction_status: "redacted_summary_only",
+        raw_evidence_included: false,
+        approval_ref_authority: false,
+        rollback_execution_enabled: false,
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+      },
+    ],
+    narrative_contract_ref:
+      "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
+    narrative_read_model: evidenceTimelineNarrativeReadModel,
+    operator_run_timeline: {
+      schema_version: "founder_loop_operator_run_timeline.v1",
+      contract_ref: "contract-ref:operator-run-timeline:v1",
+      status: "implemented_read_only_operator_run_timeline_safe_refs_only",
+      source: "python_core_evidence_timeline_read_model",
+      route_ref: "GET /control-center/evidence/timeline",
+      frontend_route_refs: [
+        "/",
+        "/actions",
+        "/plans",
+        "/memory",
+        "/evidence",
+        "/settings",
+      ],
+      safe_refs_only: true,
+      redacted_summaries_only: true,
+      action_execution_enabled: false,
+      connector_write_enabled: false,
+      runtime_model_calls_enabled: false,
+      provider_sdk_call_enabled: false,
+      provider_model_authority_allowed: false,
+      prompt_content_stored: false,
+      response_content_stored: false,
+      provider_exchange_content_stored: false,
+      borrowed_patterns: [
+        {
+          pattern_id: "typed_event_ledger",
+          label: "Typed event ledger",
+          safe_summary:
+            "Each operator-visible step is represented as a typed event with stable safe refs.",
+          implemented: true,
+          source_ref: "borrowed-pattern:typed_event_ledger",
+        },
+        {
+          pattern_id: "run_control_states",
+          label: "Run control states",
+          safe_summary:
+            "Waiting, blocked, evidence-needed, and receipt-recorded states are visible without runtime pause or resume authority.",
+          implemented: true,
+          source_ref: "borrowed-pattern:run_control_states",
+        },
+        {
+          pattern_id: "evidence_based_completion",
+          label: "Evidence-based completion",
+          safe_summary:
+            "Completion posture depends on receipt, audit, and evidence refs instead of model-written claims.",
+          implemented: true,
+          source_ref: "borrowed-pattern:evidence_based_completion",
+        },
+        {
+          pattern_id: "approval_preview_and_rejection_feedback",
+          label: "Approval preview and rejection feedback",
+          safe_summary:
+            "Approval posture and blocked decisions stay reviewable before any future scoped mutation is considered.",
+          implemented: true,
+          source_ref:
+            "borrowed-pattern:approval_preview_and_rejection_feedback",
+        },
+        {
+          pattern_id: "evidence_condensing_with_safe_refs",
+          label: "Evidence condensing with safe refs",
+          safe_summary:
+            "Dense receipts are condensed into safe summaries that keep source refs inspectable.",
+          implemented: true,
+          source_ref: "borrowed-pattern:evidence_condensing_with_safe_refs",
+        },
+      ],
+      event_count: 1,
+      group_count: 1,
+      narrative_item_count: 1,
+      run_events: [
+        {
+          run_event_ref:
+            "operator-run-event:evidence-event-action-envelope-created-mock-founder-loop",
+          event_ref: "evidence-event:action-envelope-created-mock-founder-loop",
+          event_kind: "action_envelope_created",
+          event_source: "python_core_evidence_timeline",
+          llm_role_projection: "not_sent_to_model",
+          operator_state: "blocked",
+          approval_state: "waiting_for_approval",
+          completion_state: "evidence_refs_present",
+          completion_claim_allowed: false,
+          safe_summary:
+            "Mock evidence index event for a reviewable Today-to-Action envelope; no action execution or approval grant capture occurs.",
+          condensed_summary_ref:
+            "safe-summary-ref:operator-run:evidence-event-action-envelope-created-mock-founder-loop",
+          source_refs: ["founder-action:mock-setup-hardening"],
+          status_refs: [
+            "status-ref:founder-loop-action-inbox",
+            "contract-ref:plans-action-envelope:v1",
+            "action-envelope:plans:founder-loop-mock",
+          ],
+          receipt_refs: [],
+          approval_refs: ["approval-status:refs-identifiers-only"],
+          audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+          idempotency_refs: [
+            "idempotency-ref:founder-loop:mock-setup-hardening",
+          ],
+          rollback_refs: [],
+          blocked_state_refs: [
+            "blocked_pending_scoped_mutation_contract",
+            "rollback_execution_not_scoped",
+          ],
+          evidence_refs: [
+            "action-envelope:plans:founder-loop-mock",
+            "approval-status:refs-identifiers-only",
+            "audit-plan:founder-loop:mock-setup-hardening",
+            "blocked_pending_scoped_mutation_contract",
+            "contract-ref:plans-action-envelope:v1",
+            "evidence-event:action-envelope-created-mock-founder-loop",
+            "evidence-timeline:action/founder-action/mock-setup-hardening",
+            "founder-action:mock-setup-hardening",
+            "idempotency-ref:founder-loop:mock-setup-hardening",
+            "rollback_execution_not_scoped",
+            "status-ref:founder-loop-action-inbox",
+          ],
+          related_route_refs: [
+            "/evidence",
+            "GET /control-center/actions/inbox",
+            "GET /control-center/evidence/timeline",
+          ],
+          authority_boundary:
+            "Run event is read-only evidence projection. It does not grant approval, execute actions, call models, invoke provider SDKs, or store prompt, response, or provider exchange content.",
+          cost_usage: {
+            schema_version: "uaa_frontier_ai_cost_usage_slot.v1",
+            contract_ref: "contract-ref:frontier-ai-cost-usage-telemetry:v1",
+            cost_event_ref:
+              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+            cost_estimate_ref:
+              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+            captured_usage_ref:
+              "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
+            budget_decision_ref:
+              "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
+            source_event_ref:
+              "evidence-event:action-envelope-created-mock-founder-loop",
+            provider_ref: "provider-ref:not-invoked",
+            model_profile_ref: "model-profile-ref:not-invoked",
+            provider_model_ref_status:
+              "provider_model_ref_missing_or_not_invoked",
+            usage_capture_status: "no_frontier_ai_usage_recorded",
+            cost_capture_status: "accounting_slot_ready_no_provider_call",
+            cost_state_label: "Cost blocked",
+            provider_authority_state_label: "No provider authority",
+            frontier_usage_claimed: false,
+            frontier_ai_routing_allowed: false,
+            input_metered_units: 0,
+            output_metered_units: 0,
+            total_metered_units: 0,
+            estimated_cost_usd: 0,
+            captured_cost_usd: 0,
+            max_approved_cost_usd: 0,
+            unknown_cost: false,
+            approval_required_for_unknown_paid_cost: true,
+            cost_governor_ref: "core.costs.CostGovernor",
+            cost_governor_allowed: true,
+            cost_governor_decision_status: "allowed",
+            cost_governor_reason_refs: [],
+            budget_status_ref:
+              "budget-status:unknown-paid-cost-requires-approval",
+            cost_receipt_refs: [
+              "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
+              "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+              "model-profile-ref:not-invoked",
+              "provider-ref:not-invoked",
+              "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
+            ],
+            cost_blocked_state_refs: [
+              "blocked-state:frontier-provider-model-ref-missing",
+              "blocked-state:no-provider-model-authority",
+              "blocked-state:no-provider-sdk-call",
+              "blocked-state:no-runtime-model-call",
+              "blocked-state:unknown-paid-cost-requires-approval",
+            ],
+            prompt_content_stored: false,
+            response_content_stored: false,
+            provider_exchange_content_stored: false,
+          },
+          prompt_content_stored: false,
+          response_content_stored: false,
+          provider_exchange_content_stored: false,
+          provider_model_authority_allowed: false,
+        },
+      ],
+      run_control_summary: {
+        states: [
+          "waiting_for_approval",
+          "receipt_recorded",
+          "blocked",
+          "needs_evidence",
+        ],
+        state_refs: [
+          "operator-run-state:waiting_for_approval",
+          "operator-run-state:receipt_recorded",
+          "operator-run-state:blocked",
+          "operator-run-state:needs_evidence",
+        ],
+        waiting_for_approval_count: 0,
+        receipt_recorded_count: 0,
+        blocked_count: 1,
+        needs_evidence_count: 0,
+        stuck_detection_status:
+          "timeline_state_counts_available_no_autonomous_resume",
+        pause_resume_status: "status_visible_no_runtime_pause_resume_route",
+        goal_completion_status:
+          "evidence_refs_required_no_model_judge_authority",
+      },
+      frontier_ai_usage_summary: {
+        schema_version: "uaa_frontier_ai_usage_summary.v1",
+        contract_ref: "contract-ref:frontier-ai-cost-usage-telemetry:v1",
+        status: "accounting_slots_ready_no_provider_calls",
+        provider_model_authority_allowed: false,
+        provider_sdk_call_enabled: false,
+        runtime_model_calls_enabled: false,
+        prompt_content_stored: false,
+        response_content_stored: false,
+        provider_exchange_content_stored: false,
+        estimated_total_cost_usd: 0,
+        captured_total_cost_usd: 0,
+        input_metered_units: 0,
+        output_metered_units: 0,
+        total_metered_units: 0,
+        unknown_paid_cost_requires_approval_before_routing: true,
+        cost_governor_ref: "core.costs.CostGovernor",
+        budget_status_ref: "budget-status:unknown-paid-cost-requires-approval",
+        cost_event_refs: [
+          "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+        ],
+        cost_receipt_refs: [
+          "budget-decision-ref:evidence-event-action-envelope-created-mock-founder-loop",
+          "cost-estimate-ref:evidence-event-action-envelope-created-mock-founder-loop",
+          "model-profile-ref:not-invoked",
+          "provider-ref:not-invoked",
+          "usage-capture-ref:evidence-event-action-envelope-created-mock-founder-loop",
+        ],
+        cost_blocked_state_refs: [
+          "blocked-state:frontier-provider-model-ref-missing",
+          "blocked-state:no-provider-model-authority",
+          "blocked-state:no-provider-sdk-call",
+          "blocked-state:no-runtime-model-call",
+          "blocked-state:unknown-paid-cost-requires-approval",
+        ],
+      },
+      blocked_state_refs: [
+        "blocked-state:no-action-execution",
+        "blocked-state:no-connector-write",
+        "blocked-state:no-provider-model-authority",
+        "blocked-state:no-provider-sdk-call",
+        "blocked-state:no-runtime-model-call",
+        "blocked_pending_scoped_mutation_contract",
+        "rollback_execution_not_scoped",
+      ],
+      authority_boundary:
+        "Operator Run Timeline is a read-only projection over Evidence Timeline safe refs. It records state, receipt posture, and frontier AI cost accounting slots without approving work, executing actions, invoking provider SDKs, calling models, or storing prompt, response, or provider exchange content.",
+    },
+    receipt_refs: [],
+    approval_refs: ["approval-status:refs-identifiers-only"],
+    idempotency_refs: ["idempotency-ref:founder-loop:mock-setup-hardening"],
+    rollback_refs: [],
+    blocked_states: [
+      "no_raw_evidence_display",
+      "no_approval_ref_authority",
+      "no_rollback_execution",
+      "no_memory_truth_authority",
+      "no_context_injection",
+      "no_action_execution",
+      "no_connector_write",
+      "no_production_authority",
+    ],
+    authority_boundary:
+      "Evidence Timeline is a read-only audit index over safe refs and redacted summaries. It does not approve, execute, roll back, inject memory into context, treat recall as truth, write connectors, or confer production authority.",
+  },
   founderMemoryReview: {
     route_ref: "GET /control-center/memory/review",
     surface_ref: "Memory",
@@ -7541,10 +7737,8 @@ export const mockControlCenterData: ControlCenterData = {
           "why-shown:evidence-present",
           "why-shown:loop-relevance:founder-loop",
         ],
-        duplicate_key_ref:
-          "duplicate-key:preference:founder-loop-preferences",
-        conflict_key_ref:
-          "conflict-key:preference:founder-loop-preferences",
+        duplicate_key_ref: "duplicate-key:preference:founder-loop-preferences",
+        conflict_key_ref: "conflict-key:preference:founder-loop-preferences",
         duplicate_of_refs: [],
         conflict_with_refs: [],
         lifecycle_state_refs: [
@@ -7661,7 +7855,9 @@ export const mockControlCenterData: ControlCenterData = {
           posture_ref: "memory-lifecycle-posture:duplicate-review",
           decision_kind: "merge",
           count: 1,
-          item_refs: ["business-memory-candidate:preference:mock-duplicate-peer"],
+          item_refs: [
+            "business-memory-candidate:preference:mock-duplicate-peer",
+          ],
           receipt_refs: ["receipt:memory-review:merge:mock-peer"],
           receipt_backed: true,
           review_only: true,
@@ -7687,7 +7883,9 @@ export const mockControlCenterData: ControlCenterData = {
           posture_ref: "memory-lifecycle-posture:conflict-review",
           decision_kind: "supersede",
           count: 1,
-          item_refs: ["business-memory-candidate:preference:mock-conflict-peer"],
+          item_refs: [
+            "business-memory-candidate:preference:mock-conflict-peer",
+          ],
           receipt_refs: ["receipt:memory-review:supersede:mock-conflict"],
           receipt_backed: true,
           review_only: true,
@@ -7735,7 +7933,9 @@ export const mockControlCenterData: ControlCenterData = {
           posture_ref: "memory-lifecycle-posture:forget-requested",
           decision_kind: "forget_request",
           count: 1,
-          item_refs: ["business-memory-candidate:preference:mock-forget-request"],
+          item_refs: [
+            "business-memory-candidate:preference:mock-forget-request",
+          ],
           receipt_refs: ["receipt:memory-review:forget-request:mock"],
           receipt_backed: true,
           review_only: true,
@@ -7780,7 +7980,8 @@ export const mockControlCenterData: ControlCenterData = {
     context_pack_refs: ["context-pack:mock-founder-loop-preferences"],
     ranking: {
       schema_version: "fcc_mem_022_ranked_retrieval_recall_tuning.v1",
-      contract_ref: "contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1",
+      contract_ref:
+        "contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1",
       status: "implemented_ranked_read_model_safe_refs_only",
       query_ref: "query-ref:memory-ranking:default",
       candidate_count: 1,
@@ -7887,7 +8088,8 @@ export const mockControlCenterData: ControlCenterData = {
     generated_at: "2026-06-23T00:00:00Z",
     source_l1_contract_ref: "contract-ref:memory-l1-hot-index:v1",
     source_l2_contract_ref: "contract-ref:memory-l2-factual-graph-temporal:v1",
-    source_l3_contract_ref: "contract-ref:memory-l3-representation-proposals:v1",
+    source_l3_contract_ref:
+      "contract-ref:memory-l3-representation-proposals:v1",
     source_l1_preview_count: 1,
     source_l2_projection_count: 1,
     source_l3_representation_count: 1,
@@ -7962,7 +8164,7 @@ export const mockControlCenterData: ControlCenterData = {
     context_injection_performed: false,
     provider_model_call_performed: false,
   },
-    founderActionsInbox: {
+  founderActionsInbox: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_review_queue",
     surface: "Actions",
@@ -8023,7 +8225,8 @@ export const mockControlCenterData: ControlCenterData = {
         label: "Expired/stale",
         safe_summary:
           "Items whose approval window, evidence, or state is no longer fresh enough for a decision.",
-        available_action: "Recheck source and evidence refs before any decision.",
+        available_action:
+          "Recheck source and evidence refs before any decision.",
         count: 0,
       },
       {
@@ -8069,9 +8272,7 @@ export const mockControlCenterData: ControlCenterData = {
         blocked_state:
           "Local task commit is blocked until the backend supplies exact scope, approval, and idempotency posture.",
         evidence_refs: ["evidence-ref:founder-loop:local-task-review"],
-        receipt_refs: [
-          "receipt-plan:founder-loop:mock-local-task-review",
-        ],
+        receipt_refs: ["receipt-plan:founder-loop:mock-local-task-review"],
         audit_refs: ["audit-plan:founder-loop:mock-local-task-review"],
         idempotency_key_ref:
           "idempotency-ref:founder-loop:mock-local-task-review",
@@ -8079,28 +8280,30 @@ export const mockControlCenterData: ControlCenterData = {
         stale_state: "recheck_action_approval_before_local_task_commit",
         rollback_ref: "rollback-not-applicable:local-task-safe-disable",
         safe_disable_ref: "safe-disable:founder-loop:mock-local-task-review",
-        ...actionEnvelopeFields("founder-action:mock-local-task-review", [
-          "receipt-plan:founder-loop:mock-local-task-review",
-        ], {
-          actionKind: "local_task_create",
-          blockedAuthorityRefs: [
-            "blocked-state:action-not-approved",
-            "blocked-state:backend-owned-approval-missing",
-            "blocked-state:no-connector-write",
-            "blocked-state:no-shell-subprocess-execution",
-            "blocked-state:no-model-provider-authority",
-            "blocked-state:no-memory-write",
-            "blocked-state:no-context-injection",
-            "blocked-state:no-external-side-effect",
-            "blocked-state:no-production-authority",
-          ],
-          evidenceRefs: ["evidence-ref:founder-loop:local-task-review"],
-          idempotencyRef:
-            "idempotency-ref:founder-loop:mock-local-task-review",
-          rollbackSafeDisablePosture:
-            "rollback-not-applicable:local-task-safe-disable; safe-disable:founder-loop:mock-local-task-review",
-          sideEffectClass: "local_dev_workspace_only",
-        }),
+        ...actionEnvelopeFields(
+          "founder-action:mock-local-task-review",
+          ["receipt-plan:founder-loop:mock-local-task-review"],
+          {
+            actionKind: "local_task_create",
+            blockedAuthorityRefs: [
+              "blocked-state:action-not-approved",
+              "blocked-state:backend-owned-approval-missing",
+              "blocked-state:no-connector-write",
+              "blocked-state:no-shell-subprocess-execution",
+              "blocked-state:no-model-provider-authority",
+              "blocked-state:no-memory-write",
+              "blocked-state:no-context-injection",
+              "blocked-state:no-external-side-effect",
+              "blocked-state:no-production-authority",
+            ],
+            evidenceRefs: ["evidence-ref:founder-loop:local-task-review"],
+            idempotencyRef:
+              "idempotency-ref:founder-loop:mock-local-task-review",
+            rollbackSafeDisablePosture:
+              "rollback-not-applicable:local-task-safe-disable; safe-disable:founder-loop:mock-local-task-review",
+            sideEffectClass: "local_dev_workspace_only",
+          },
+        ),
         local_task_commit_contract_ref:
           "contract-ref:founder-loop-local-task-commit:v1",
         local_task_commit_route_ref:
@@ -8148,7 +8351,8 @@ export const mockControlCenterData: ControlCenterData = {
         authority_boundary:
           "Mock-only local task lane shape; backend approval is unavailable, and connector, shell, model, memory, context, and production authority remain blocked.",
         approval_required: true,
-        approval_envelope_ref: "approval-envelope:founder-loop:mock-local-task-create",
+        approval_envelope_ref:
+          "approval-envelope:founder-loop:mock-local-task-create",
         approval_envelope_status: "mock_only_backend_read_model_unavailable",
         state_change_contract_ref:
           "contract-ref:founder-loop-local-task-commit:v1",
@@ -8158,31 +8362,34 @@ export const mockControlCenterData: ControlCenterData = {
         evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
         receipt_refs: [],
         audit_refs: [],
-        idempotency_key_ref: "idempotency-ref:founder-loop:mock-local-task-create",
+        idempotency_key_ref:
+          "idempotency-ref:founder-loop:mock-local-task-create",
         expires_at: "review_required_before_local_task_commit",
         stale_state: "recheck_action_approval_before_local_task_commit",
         rollback_ref: "rollback-not-applicable:local-task-safe-disable",
         safe_disable_ref: "safe-disable:founder-loop:mock-local-task-create",
-        ...actionEnvelopeFields("founder-action:mock-local-task-create", [
-          "receipt-plan:founder-loop:mock-local-task-create",
-        ], {
-          actionKind: "local_task_create",
-          blockedAuthorityRefs: [
-            "blocked-state:no-connector-write",
-            "blocked-state:no-shell-subprocess-execution",
-            "blocked-state:no-model-provider-authority",
-            "blocked-state:no-memory-write",
-            "blocked-state:no-context-injection",
-            "blocked-state:no-external-side-effect",
-            "blocked-state:no-production-authority",
-          ],
-          evidenceRefs: ["evidence-ref:founder-loop:local-task-commit"],
-          idempotencyRef:
-            "idempotency-ref:founder-loop:mock-local-task-create",
-          rollbackSafeDisablePosture:
-            "rollback-not-applicable:local-task-safe-disable; safe-disable:founder-loop:mock-local-task-create",
-          sideEffectClass: "local_dev_workspace_only",
-        }),
+        ...actionEnvelopeFields(
+          "founder-action:mock-local-task-create",
+          ["receipt-plan:founder-loop:mock-local-task-create"],
+          {
+            actionKind: "local_task_create",
+            blockedAuthorityRefs: [
+              "blocked-state:no-connector-write",
+              "blocked-state:no-shell-subprocess-execution",
+              "blocked-state:no-model-provider-authority",
+              "blocked-state:no-memory-write",
+              "blocked-state:no-context-injection",
+              "blocked-state:no-external-side-effect",
+              "blocked-state:no-production-authority",
+            ],
+            evidenceRefs: ["evidence-ref:founder-loop:local-task-commit"],
+            idempotencyRef:
+              "idempotency-ref:founder-loop:mock-local-task-create",
+            rollbackSafeDisablePosture:
+              "rollback-not-applicable:local-task-safe-disable; safe-disable:founder-loop:mock-local-task-create",
+            sideEffectClass: "local_dev_workspace_only",
+          },
+        ),
         local_task_commit_contract_ref:
           "contract-ref:founder-loop-local-task-commit:v1",
         local_task_commit_route_ref:
@@ -8230,28 +8437,33 @@ export const mockControlCenterData: ControlCenterData = {
         authority_boundary:
           "Review-only display; Python Agent Core and LocalApprovalAuthority must validate exact scope before mutation.",
         approval_required: true,
-        approval_envelope_ref: "approval-envelope:founder-loop:mock-setup-hardening",
+        approval_envelope_ref:
+          "approval-envelope:founder-loop:mock-setup-hardening",
         approval_envelope_status: "dry_run_ref_available",
-        state_change_contract_ref: "contract-ref:founder-loop:mock-setup-hardening",
+        state_change_contract_ref:
+          "contract-ref:founder-loop:mock-setup-hardening",
         state_change_readiness: "blocked_pending_scoped_mutation_contract",
         blocked_state:
           "Exact approval scope, idempotency, rollback, and receipt refs are required before mutation.",
         evidence_refs: ["evidence-ref:founder-loop:mock-setup-hardening"],
         receipt_refs: ["receipt-plan:founder-loop:mock-setup-hardening"],
         audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
-        idempotency_key_ref: "idempotency-ref:founder-loop:mock-setup-hardening",
+        idempotency_key_ref:
+          "idempotency-ref:founder-loop:mock-setup-hardening",
         expires_at: "review_required_before_mutation",
         stale_state: "recheck_setup_summary_before_mutation",
         rollback_ref: "rollback-plan:founder-loop:mock-setup-hardening",
         safe_disable_ref: "safe-disable:founder-loop:mock-setup-hardening",
-        ...actionEnvelopeFields("founder-action:mock-setup-hardening", [
-          "receipt-plan:founder-loop:mock-setup-hardening",
-        ], {
-          evidenceRefs: ["evidence-ref:founder-loop:mock-setup-hardening"],
-          idempotencyRef: "idempotency-ref:founder-loop:mock-setup-hardening",
-          riskClass: "high",
-          sideEffectClass: "validation_only",
-        }),
+        ...actionEnvelopeFields(
+          "founder-action:mock-setup-hardening",
+          ["receipt-plan:founder-loop:mock-setup-hardening"],
+          {
+            evidenceRefs: ["evidence-ref:founder-loop:mock-setup-hardening"],
+            idempotencyRef: "idempotency-ref:founder-loop:mock-setup-hardening",
+            riskClass: "high",
+            sideEffectClass: "validation_only",
+          },
+        ),
         action_group_id: "blocked_by_authority",
         action_group_label: "Blocked by authority",
         action_group_reason:
@@ -8278,7 +8490,8 @@ export const mockControlCenterData: ControlCenterData = {
         approval_envelope_status: "not_required_for_inspection",
         state_change_contract_ref: null,
         state_change_readiness: "blocked_no_source_read_contract",
-        blocked_state: "Connector reads and notification delivery are not scoped.",
+        blocked_state:
+          "Connector reads and notification delivery are not scoped.",
         evidence_refs: ["evidence-ref:founder-loop:mock-briefing"],
         receipt_refs: [],
         audit_refs: ["audit-plan:founder-loop:mock-briefing-review"],
@@ -8292,7 +8505,8 @@ export const mockControlCenterData: ControlCenterData = {
           evidenceRefs: ["evidence-ref:founder-loop:mock-briefing"],
           expiryOrStaleness:
             "review_required_before_source_contract; recheck_source_status_before_contract",
-          idempotencyRef: "idempotency-ref:plans-action-envelope:founder-action-mock-briefing",
+          idempotencyRef:
+            "idempotency-ref:plans-action-envelope:founder-action-mock-briefing",
         }),
         action_group_id: "proposal_only_no_execution_path",
         action_group_label: "Proposal-only / no execution path",
@@ -8313,7 +8527,8 @@ export const mockControlCenterData: ControlCenterData = {
       "POST /control-center/actions/{action_id}/defer",
       "GET /control-center/actions/{action_id}/receipt",
     ],
-    decision_state_contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
+    decision_state_contract_ref:
+      "contract-ref:founder-loop-action-state-machine:v1",
     decision_statuses: [
       "proposed",
       "approved",
@@ -8354,8 +8569,7 @@ export const mockControlCenterData: ControlCenterData = {
     private_beta_readiness_criteria: privateBetaReadinessCriteria,
     private_beta_readiness_authority_posture:
       privateBetaReadinessAuthorityPosture,
-    private_beta_readiness_blocked_state_refs:
-      privateBetaReadinessBlockedRefs,
+    private_beta_readiness_blocked_state_refs: privateBetaReadinessBlockedRefs,
     user_intent_understanding_contract_ref: userIntentUnderstandingContractRef,
     user_intent_understanding_status:
       "implemented_reviewable_intent_proposals_authority_blocked",
@@ -8374,8 +8588,8 @@ export const mockControlCenterData: ControlCenterData = {
       "no_context_injection",
       "no_production_authority",
     ],
-    },
-    founderMorningBriefing: {
+  },
+  founderMorningBriefing: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_briefing_skeleton",
     surface: "Morning Briefing",
@@ -8496,15 +8710,15 @@ export const mockControlCenterData: ControlCenterData = {
       "contract-ref:product-loop-004-follow-up-tracker:v1",
     follow_up_tracker: followUpTracker,
     crm_lite_followups: crmLiteFollowups,
-      memory_why_shown_items: memoryWhyShownItems,
-      review_queue_groups: reviewQueueGroups,
-      weekly_review_narrative: weeklyReviewNarrative,
-      weekly_ceo_review_v1_contract_ref:
-        "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
-      weekly_ceo_review_v1_read_model: weeklyCeoReviewV1ReadModel,
-      chat_to_loop_handoff_contract_ref: chatToLoopHandoffContractRef,
-      chat_to_loop_handoff_read_model: chatToLoopHandoffReadModel,
-      dogfood_capture: dogfoodCapture,
+    memory_why_shown_items: memoryWhyShownItems,
+    review_queue_groups: reviewQueueGroups,
+    weekly_review_narrative: weeklyReviewNarrative,
+    weekly_ceo_review_v1_contract_ref:
+      "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+    weekly_ceo_review_v1_read_model: weeklyCeoReviewV1ReadModel,
+    chat_to_loop_handoff_contract_ref: chatToLoopHandoffContractRef,
+    chat_to_loop_handoff_read_model: chatToLoopHandoffReadModel,
+    dogfood_capture: dogfoodCapture,
     items: [
       {
         briefing_ref: "briefing:api-boundary-modularization",
@@ -8528,7 +8742,8 @@ export const mockControlCenterData: ControlCenterData = {
           "no_background_refresh",
         ],
         stale_state: "recheck_route_status_before_briefing_use",
-        evidence_gap: "No email, calendar, or notification source evidence is bound.",
+        evidence_gap:
+          "No email, calendar, or notification source evidence is bound.",
         next_safe_action:
           "Use route and storage refs only; define source contracts before refresh.",
         evidence_refs: ["evidence-ref:founder-loop:mock-api-boundary"],
@@ -8552,7 +8767,8 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         blocked_states: ["no_connector_runtime", "no_notification_delivery"],
         stale_state: "recheck_storage_status_before_briefing_use",
-        evidence_gap: "No connector receipts or source refresh receipts are bound.",
+        evidence_gap:
+          "No connector receipts or source refresh receipts are bound.",
         next_safe_action:
           "Inspect storage status only; keep source reads blocked until scoped.",
         evidence_refs: ["evidence-ref:founder-loop:mock-storage"],
@@ -8602,7 +8818,9 @@ export const mockControlCenterData: ControlCenterData = {
         "contract-ref:fcc-mem-001-memory-workbench:v1",
         "status-ref:memory-workbench:implemented-backend-owned-read-model-safe-refs-only",
       ],
-      source_readiness_refs: sourceReadinessItems.map((item) => item.source_ref),
+      source_readiness_refs: sourceReadinessItems.map(
+        (item) => item.source_ref,
+      ),
       missing_source_refs: [
         "contract-ref:email-read-only-missing",
         "contract-ref:calendar-read-only-missing",
@@ -8660,9 +8878,9 @@ export const mockControlCenterData: ControlCenterData = {
       source_refresh_enabled: false,
       production_authority_enabled: false,
     },
-    },
-    founderSourceReadiness: sourceReadiness,
-    founderStorageStatus: {
+  },
+  founderSourceReadiness: sourceReadiness,
+  founderStorageStatus: {
     schema_version: "founder_loop_storage.v1",
     migration_version: "founder_loop_storage.v1",
     storage_ref: "founder-loop-storage:mock-local-sqlite-jsonl",
@@ -8744,8 +8962,16 @@ export const mockControlCenterData: ControlCenterData = {
         status: "ready",
         safeSummary:
           "Use existing health and readiness refs as inspectable setup inputs.",
-        routeRefs: ["/health", "/version", "/runtime/readiness", "/runtime/capability-matrix"],
-        detailPreview: ["Runtime status is read-only.", "No lifecycle action is exposed."],
+        routeRefs: [
+          "/health",
+          "/version",
+          "/runtime/readiness",
+          "/runtime/capability-matrix",
+        ],
+        detailPreview: [
+          "Runtime status is read-only.",
+          "No lifecycle action is exposed.",
+        ],
         logPreview: ["health route planned for read-only inspection"],
         approvalRequired: false,
         receiptRef: "receipt-plan:macos-setup-runtime-health",
@@ -8827,7 +9053,9 @@ export const mockControlCenterData: ControlCenterData = {
           "Bridge enablement is disabled by default.",
           "No OpenWebUI runtime handoff is performed.",
         ],
-        logPreview: ["openwebui bridge preview only; no external runtime contacted"],
+        logPreview: [
+          "openwebui bridge preview only; no external runtime contacted",
+        ],
         approvalRequired: true,
         setupApprovalRef: "approval-ref:macos-setup-openwebui-bridge",
         receiptRef: "receipt-plan:macos-setup-openwebui-bridge",
@@ -8843,7 +9071,10 @@ export const mockControlCenterData: ControlCenterData = {
         status: "approval_required",
         safeSummary:
           "Mattermost Agent Rooms remain a local, disabled-by-default bridge with explicit room approval.",
-        routeRefs: ["/integrations/mattermost/status", "/integrations/mattermost/roles/catalog"],
+        routeRefs: [
+          "/integrations/mattermost/status",
+          "/integrations/mattermost/roles/catalog",
+        ],
         detailPreview: [
           "Room participation is speak-only by default.",
           "No transcript preview is persisted.",
@@ -8931,35 +9162,46 @@ export const mockControlCenterData: ControlCenterData = {
           "Runs through local UAA setup planning; no model call is made by this recommendation.",
         approvalRequiredBeforeDownload: true,
         selectedByDefault: true,
-        reasonCodes: ["MACOS_SETUP_DEFAULT_LOCAL_MODEL", "MACOS_SETUP_OFFLINE_FIRST"],
+        reasonCodes: [
+          "MACOS_SETUP_DEFAULT_LOCAL_MODEL",
+          "MACOS_SETUP_OFFLINE_FIRST",
+        ],
       },
       {
         recommendationRef: "macos-setup-model-rec:balanced-local",
         modelRef: "local-model-option:balanced-assistant-gguf",
         displayName: "Balanced local assistant",
         fitSummary: "Balanced local GGUF class for general chat and planning.",
-        recommendedFor: "Day-to-day UAA local assistant use after readiness is proven.",
+        recommendedFor:
+          "Day-to-day UAA local assistant use after readiness is proven.",
         memoryBucket: "ram:medium",
         diskBucket: "disk:medium",
         privacySummary:
           "Runs through local UAA setup planning; no model call is made by this recommendation.",
         approvalRequiredBeforeDownload: true,
         selectedByDefault: false,
-        reasonCodes: ["MACOS_SETUP_BALANCED_DEFAULT", "MACOS_SETUP_APPROVAL_BEFORE_DOWNLOAD"],
+        reasonCodes: [
+          "MACOS_SETUP_BALANCED_DEFAULT",
+          "MACOS_SETUP_APPROVAL_BEFORE_DOWNLOAD",
+        ],
       },
       {
         recommendationRef: "macos-setup-model-rec:coding-local",
         modelRef: "local-model-option:coding-assistant-gguf",
         displayName: "Coding local assistant",
         fitSummary: "Coding-focused local GGUF class for developer workflows.",
-        recommendedFor: "Code review, implementation planning, and local developer loops.",
+        recommendedFor:
+          "Code review, implementation planning, and local developer loops.",
         memoryBucket: "ram:medium-to-high",
         diskBucket: "disk:medium",
         privacySummary:
           "Runs through local UAA setup planning; no model call is made by this recommendation.",
         approvalRequiredBeforeDownload: true,
         selectedByDefault: false,
-        reasonCodes: ["MACOS_SETUP_CODING_WORKFLOW", "MACOS_SETUP_APPROVAL_BEFORE_DOWNLOAD"],
+        reasonCodes: [
+          "MACOS_SETUP_CODING_WORKFLOW",
+          "MACOS_SETUP_APPROVAL_BEFORE_DOWNLOAD",
+        ],
       },
     ],
     bridgePreviews: [
