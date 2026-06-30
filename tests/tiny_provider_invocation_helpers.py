@@ -129,6 +129,7 @@ def receipt_payload(**overrides: object) -> dict[str, object]:
         "run_id": "run-ref:tiny-provider-test",
         "provider_ref": TINY_PROVIDER_INVOCATION_PROVIDER_REF,
         "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "adapter_ref": TINY_LIVE_PROVIDER_ADAPTER_REF,
         "credential_ref": "credential-ref:openai-compatible:scoped-test",
         "approval_ref": "approval-ref:provider-runtime:tiny-test",
         "approval_scope_ref": "approval-scope-ref:provider-runtime:tiny-test",
@@ -204,6 +205,7 @@ def available_second_credential_resolution(
 
 class OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
     enabled = True
+    test_only_contract_adapter = True
 
     def execute(
         self,

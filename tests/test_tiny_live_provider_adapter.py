@@ -147,7 +147,7 @@ def test_spoofed_network_adapter_cannot_claim_live_transport_scope(tmp_path: Pat
 
     assert decision.allowed is False
     assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
-    assert "TINY_PROVIDER_TRANSPORT_ADAPTER_REF_MISMATCH" in decision.reason_codes
+    assert "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" in decision.reason_codes
     assert decision.receipt is None
     assert store.list_receipts() == []
 
@@ -250,7 +250,9 @@ def test_live_adapter_blocks_unavailable_secret_ref_without_network(tmp_path: Pa
     assert decision.allowed is False
     assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
     assert "TINY_LIVE_PROVIDER_CREDENTIAL_REF_NOT_AVAILABLE" in decision.reason_codes
-    assert decision.receipt is None
+    assert decision.receipt is not None
+    assert decision.receipt.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert len(store.list_receipts()) == 1
 
 
 def test_live_adapter_blocks_unapproved_provider_model_name(tmp_path: Path) -> None:
@@ -313,6 +315,109 @@ def test_live_adapter_blocks_cross_provider_endpoint_scope_before_transport(
     assert decision.allowed is False
     assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
     assert "TINY_LIVE_PROVIDER_ENDPOINT_NOT_ALLOWLISTED" in decision.reason_codes
+    assert transport_called is False
+    assert store.list_receipts() == []
+
+
+def test_live_adapter_blocks_subclass_endpoint_allowlist_override_before_transport(
+    tmp_path: Path,
+) -> None:
+    class EndpointOverrideAdapter(OpenAICompatibleTinyLiveProviderAdapter):
+        allowed_endpoint_url = SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT
+
+    request = invocation_request(
+        idempotency_ref="idempotency:provider-runtime:subclass-endpoint-override",
+        expected_receipt_ref="receipt:provider-runtime:subclass-endpoint-override",
+    )
+    store = TinyProviderInvocationReceiptStore(
+        tmp_path / "tiny-subclass-endpoint-override.jsonl"
+    )
+    transport_called = False
+
+    def mocked_transport(
+        _transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal transport_called
+        transport_called = True
+        return TinyLiveProviderTransportResult(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            input_tokens_used=1,
+            output_tokens_used=1,
+            billed_cost_usd=0.001,
+            network_call_performed=True,
+        )
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=EndpointOverrideAdapter(
+            enabled=True,
+            credential_resolver=lambda _credential_ref: available_credential_resolution(
+                request
+            ),
+            transport=mocked_transport,
+        ),
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert "TINY_LIVE_PROVIDER_ENDPOINT_NOT_ALLOWLISTED" in decision.reason_codes
+    assert transport_called is False
+    assert store.list_receipts() == []
+
+
+def test_live_adapter_preflight_exception_fails_closed_before_transport(
+    tmp_path: Path,
+) -> None:
+    class PreflightRaisingAdapter(OpenAICompatibleTinyLiveProviderAdapter):
+        def preflight_block_reason(
+            self,
+            request: TinyProviderInvocationRequest,
+            *,
+            execution_grant=None,
+        ) -> str | None:
+            raise RuntimeError("preflight failed")
+
+    request = invocation_request(
+        idempotency_ref="idempotency:provider-runtime:preflight-exception",
+        expected_receipt_ref="receipt:provider-runtime:preflight-exception",
+    )
+    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-preflight-exception.jsonl")
+    transport_called = False
+
+    def mocked_transport(
+        _transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal transport_called
+        transport_called = True
+        return TinyLiveProviderTransportResult(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            input_tokens_used=1,
+            output_tokens_used=1,
+            billed_cost_usd=0.001,
+            network_call_performed=True,
+        )
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=PreflightRaisingAdapter(
+            enabled=True,
+            credential_resolver=lambda _credential_ref: available_credential_resolution(
+                request
+            ),
+            transport=mocked_transport,
+        ),
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert "TINY_LIVE_PROVIDER_PREFLIGHT_EXCEPTION_BLOCKED" in decision.reason_codes
+    assert decision.receipt is None
     assert transport_called is False
     assert store.list_receipts() == []
 
@@ -476,6 +581,64 @@ def test_second_live_adapter_records_network_receipt_with_mocked_transport(
     persisted_json = json.dumps(store.list_receipts()[0].model_dump(mode="json"))
     assert "transient-material" not in persisted_json
     assert "provider_payload" not in persisted_json
+
+
+def test_second_live_adapter_wrong_transport_ref_fails_closed_and_replays(
+    tmp_path: Path,
+) -> None:
+    request = second_invocation_request(
+        invocation_ref="provider-invocation-ref:tiny-second:wrong-transport",
+        idempotency_ref="idempotency:provider-runtime:tiny-second-wrong-transport",
+        expected_receipt_ref="receipt:provider-runtime:tiny-second-wrong-transport",
+    )
+    store = TinyProviderInvocationReceiptStore(
+        tmp_path / "tiny-second-wrong-transport.jsonl"
+    )
+    call_count = 0
+
+    def wrong_transport(
+        transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal call_count
+        call_count += 1
+        return TinyLiveProviderTransportResult(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            input_tokens_used=transport_request.estimated_input_tokens,
+            output_tokens_used=transport_request.estimated_output_tokens,
+            billed_cost_usd=transport_request.estimated_cost_usd or 0.0,
+            network_call_performed=True,
+        )
+
+    adapter = AnthropicCompatibleTinyLiveProviderAdapter(
+        enabled=True,
+        credential_resolver=lambda _credential_ref: available_second_credential_resolution(
+            request
+        ),
+        transport=wrong_transport,
+    )
+    first = evaluate_tiny_provider_invocation(
+        request,
+        adapter=adapter,
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+    second = evaluate_tiny_provider_invocation(
+        request,
+        adapter=adapter,
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert first.allowed is False
+    assert first.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert "TINY_LIVE_PROVIDER_TRANSPORT_SCOPE_MISMATCH" in first.reason_codes
+    assert first.receipt is not None
+    assert first.receipt.network_call_performed is True
+    assert len(store.list_receipts()) == 1
+    assert second.allowed is False
+    assert "IDEMPOTENCY_REPLAYED_RECEIPT" in second.reason_codes
+    assert call_count == 1
 
 
 def test_first_live_adapter_cannot_execute_second_provider_scope(

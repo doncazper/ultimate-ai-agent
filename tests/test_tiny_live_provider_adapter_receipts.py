@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+import time
 from pathlib import Path
 
 from pydantic import SecretStr
@@ -124,21 +126,142 @@ def test_live_adapter_replays_existing_receipt_before_second_network_call(
     assert "IDEMPOTENCY_REPLAYED_RECEIPT" in second.reason_codes
 
 
+def test_live_adapter_exception_after_reservation_blocks_replay_before_retry(
+    tmp_path: Path,
+) -> None:
+    request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:live-exception-reserved",
+        idempotency_ref="idempotency:provider-runtime:tiny-live-exception-reserved",
+        expected_receipt_ref="receipt:provider-runtime:tiny-live-exception-reserved",
+    )
+    store = TinyProviderInvocationReceiptStore(
+        tmp_path / "tiny-live-exception-reserved.jsonl"
+    )
+    call_count = 0
+
+    def raising_transport(
+        _transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal call_count
+        call_count += 1
+        raise RuntimeError("transport failed")
+
+    adapter = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True,
+        credential_resolver=lambda _credential_ref: available_credential_resolution(request),
+        transport=raising_transport,
+    )
+    first = evaluate_tiny_provider_invocation(
+        request,
+        adapter=adapter,
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+    second = evaluate_tiny_provider_invocation(
+        request,
+        adapter=adapter,
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert first.allowed is False
+    assert first.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert first.receipt is not None
+    assert "TINY_LIVE_PROVIDER_TRANSPORT_EXCEPTION_BLOCKED" in first.reason_codes
+    assert second.allowed is False
+    assert "IDEMPOTENCY_REPLAYED_RECEIPT" in second.reason_codes
+    assert call_count == 1
+
+
+def test_live_adapter_concurrent_idempotency_reserves_before_transport(
+    tmp_path: Path,
+) -> None:
+    request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:live-concurrent-reserved",
+        idempotency_ref="idempotency:provider-runtime:tiny-live-concurrent-reserved",
+        expected_receipt_ref="receipt:provider-runtime:tiny-live-concurrent-reserved",
+    )
+    store = TinyProviderInvocationReceiptStore(
+        tmp_path / "tiny-live-concurrent-reserved.jsonl"
+    )
+    start = threading.Barrier(3)
+    lock = threading.Lock()
+    call_count = 0
+    decisions = []
+
+    def slow_transport(
+        transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal call_count
+        with lock:
+            call_count += 1
+        time.sleep(0.05)
+        return TinyLiveProviderTransportResult(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            input_tokens_used=transport_request.estimated_input_tokens,
+            output_tokens_used=transport_request.estimated_output_tokens,
+            billed_cost_usd=transport_request.estimated_cost_usd or 0.0,
+            network_call_performed=True,
+        )
+
+    adapter = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True,
+        credential_resolver=lambda _credential_ref: available_credential_resolution(request),
+        transport=slow_transport,
+    )
+
+    def invoke() -> None:
+        start.wait()
+        decision = evaluate_tiny_provider_invocation(
+            request,
+            adapter=adapter,
+            approval_authority=exact_authority_for(request),
+            receipt_store=store,
+        )
+        with lock:
+            decisions.append(decision)
+
+    threads = [threading.Thread(target=invoke) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    start.wait()
+    for thread in threads:
+        thread.join()
+
+    assert call_count == 1
+    assert len(decisions) == 2
+    assert len(store.list_receipts()) == 1
+    assert any(decision.allowed is True for decision in decisions)
+    assert all(decision.receipt is not None for decision in decisions)
+    assert all(decision.status != TinyProviderInvocationStatus.approval_invalid for decision in decisions)
+
+
 def test_live_adapter_blocks_revoked_or_rotation_required_credentials(
     tmp_path: Path,
 ) -> None:
-    request = invocation_request()
-    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-live-credential-block.jsonl")
-    for posture, reason_code in (
+    cases = (
         (
             ProviderCredentialVaultPosture.secret_ref_revoked,
             "TINY_LIVE_PROVIDER_CREDENTIAL_REF_REVOKED",
+            "revoked",
         ),
         (
             ProviderCredentialVaultPosture.rotation_required,
             "TINY_LIVE_PROVIDER_CREDENTIAL_ROTATION_REQUIRED",
+            "rotation",
         ),
-    ):
+    )
+    for posture, reason_code, suffix in cases:
+        request = invocation_request(
+            invocation_ref=f"provider-invocation-ref:tiny:credential-{suffix}",
+            idempotency_ref=f"idempotency:provider-runtime:credential-{suffix}",
+            expected_receipt_ref=f"receipt:provider-runtime:credential-{suffix}",
+        )
+        store = TinyProviderInvocationReceiptStore(
+            tmp_path / f"tiny-live-credential-block-{suffix}.jsonl"
+        )
         resolution = TinyLiveCredentialResolution(
             credential_ref=request.credential_ref,
             secret_ref=f"secret-ref:openai-compatible:{posture.value}",
@@ -160,6 +283,8 @@ def test_live_adapter_blocks_revoked_or_rotation_required_credentials(
         assert decision.allowed is False
         assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
         assert reason_code in decision.reason_codes
+        assert decision.receipt is not None
+        assert len(store.list_receipts()) == 1
 
 
 def test_live_adapter_unknown_paid_cost_blocks_before_transport() -> None:

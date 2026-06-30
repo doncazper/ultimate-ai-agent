@@ -151,6 +151,7 @@ def _evaluate_with_exact_approval(
 
 class _OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
     enabled = True
+    test_only_contract_adapter = True
 
     def execute(
         self,
@@ -354,10 +355,12 @@ def main() -> int:
         _request(),
         adapter=_OverBudgetTinyProviderInvocationAdapter(),
     )
-    if actual_over_budget.status != TinyProviderInvocationStatus.cost_blocked:
-        failures.append("actual usage/cost over approved budget did not block")
+    if actual_over_budget.status != TinyProviderInvocationStatus.live_adapter_blocked:
+        failures.append("unscoped over-budget adapter did not block")
+    elif "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" not in actual_over_budget.reason_codes:
+        failures.append("unscoped over-budget adapter did not report scope mismatch")
     elif actual_over_budget.receipt is not None:
-        failures.append("actual over-budget adapter recorded a receipt")
+        failures.append("unscoped over-budget adapter recorded a receipt")
 
     no_approval = evaluate_tiny_provider_invocation(_request())
     if no_approval.status != TinyProviderInvocationStatus.approval_required:
@@ -376,39 +379,24 @@ def main() -> int:
         )
         if spoofed_network.status != TinyProviderInvocationStatus.live_adapter_blocked:
             failures.append("spoofed network adapter did not block")
-        elif "TINY_PROVIDER_TRANSPORT_ADAPTER_REF_MISMATCH" not in spoofed_network.reason_codes:
-            failures.append("spoofed network adapter did not report adapter-ref mismatch")
+        elif "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" not in spoofed_network.reason_codes:
+            failures.append("spoofed network adapter did not report adapter-scope mismatch")
         if store.list_receipts():
             failures.append("spoofed network adapter recorded a receipt")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "receipts.jsonl")
-        success = _evaluate_with_exact_approval(
+        blocked_deterministic = _evaluate_with_exact_approval(
             _request(invocation_ref="provider-invocation-ref:tiny:success"),
             adapter=DeterministicTinyProviderInvocationAdapter(),
             receipt_store=store,
         )
-        if not success.allowed or success.receipt is None:
-            failures.append("deterministic exact-approved adapter did not record receipt")
-        else:
-            receipt_json = json.dumps(success.receipt.model_dump(mode="json"), sort_keys=True)
-            if any(fragment in receipt_json.lower() for fragment in ("api_key", "token=", "provider_payload")):
-                failures.append("receipt contains unsafe raw/provider/secret content")
-            if len(store.list_receipts()) != 1:
-                failures.append("receipt store did not persist exactly one redacted receipt")
-            if "USAGE_AND_ESTIMATED_COST_RECONCILED" not in success.receipt.reason_codes:
-                failures.append("receipt does not record usage/estimated-cost reconciliation")
-            if success.receipt.estimated_cost_ref != success.receipt.cost_estimate_ref:
-                failures.append("receipt does not expose explicit estimated cost ref")
-            if not success.receipt.actual_usage_ref.startswith("actual-usage-ref:"):
-                failures.append("receipt does not expose safe actual usage ref")
-            if not success.receipt.actual_cost_ref.startswith("actual-cost-ref:"):
-                failures.append("receipt does not expose safe actual cost ref")
-            if (
-                success.receipt.receipt_completeness_status
-                != TinyProviderReceiptCompletenessStatus.complete
-            ):
-                failures.append("successful receipt is not marked complete")
+        if blocked_deterministic.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("deterministic adapter did not block on exact adapter scope")
+        elif "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" not in blocked_deterministic.reason_codes:
+            failures.append("deterministic adapter did not report adapter-scope mismatch")
+        if blocked_deterministic.receipt is not None or store.list_receipts():
+            failures.append("deterministic adapter recorded an unscoped receipt")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "live-receipts.jsonl")

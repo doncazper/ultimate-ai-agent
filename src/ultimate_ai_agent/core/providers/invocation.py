@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import threading
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
@@ -61,6 +62,9 @@ TINY_LIVE_PROVIDER_TRANSPORT_REF = "provider-transport-ref:tiny-live:openai-comp
 TINY_LIVE_PROVIDER_ENDPOINT_REF = "provider-endpoint-ref:openai-compatible:responses"
 TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT = "https://api.openai.com/v1/responses"
 TINY_LIVE_PROVIDER_MODEL_NAME = "tiny-exact-approved-model"
+TINY_LIVE_PROVIDER_MODEL_NAME_REF = (
+    "provider-model-name-ref:openai-compatible:tiny-exact-approved"
+)
 SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF = (
     "provider-adapter-ref:tiny-exact-approved:anthropic-compatible-live"
 )
@@ -70,6 +74,9 @@ SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF = (
 SECOND_TINY_LIVE_PROVIDER_ENDPOINT_REF = "provider-endpoint-ref:anthropic-compatible:messages"
 SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT = "https://api.anthropic.com/v1/messages"
 SECOND_TINY_LIVE_PROVIDER_MODEL_NAME = "tiny-second-exact-approved-model"
+SECOND_TINY_LIVE_PROVIDER_MODEL_NAME_REF = (
+    "provider-model-name-ref:anthropic-compatible:tiny-exact-approved"
+)
 TINY_PROVIDER_INVOCATION_SCOPE_REFS = (
     TINY_LIVE_PROVIDER_ADAPTER_REF,
     SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
@@ -85,14 +92,26 @@ _TINY_PROVIDER_INVOCATION_SCOPES = {
         "policy_ref": TINY_PROVIDER_INVOCATION_POLICY_REF,
         "adapter_ref": TINY_LIVE_PROVIDER_ADAPTER_REF,
         "transport_ref": TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        "endpoint_ref": TINY_LIVE_PROVIDER_ENDPOINT_REF,
+        "endpoint_url": TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+        "provider_model_name_ref": TINY_LIVE_PROVIDER_MODEL_NAME_REF,
+        "provider_model_name": TINY_LIVE_PROVIDER_MODEL_NAME,
     },
     SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF: {
         "model_ref": SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
         "policy_ref": SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
         "adapter_ref": SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
         "transport_ref": SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        "endpoint_ref": SECOND_TINY_LIVE_PROVIDER_ENDPOINT_REF,
+        "endpoint_url": SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+        "provider_model_name_ref": SECOND_TINY_LIVE_PROVIDER_MODEL_NAME_REF,
+        "provider_model_name": SECOND_TINY_LIVE_PROVIDER_MODEL_NAME,
     },
 }
+_TINY_PROVIDER_NETWORK_ATTEMPT_RESERVED_REASON = (
+    "TINY_PROVIDER_NETWORK_ATTEMPT_RESERVED"
+)
+_TINY_PROVIDER_RECEIPT_STORE_LOCK = threading.RLock()
 
 
 class TinyProviderInvocationStatus(str, Enum):
@@ -830,8 +849,12 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
         scope = _tiny_provider_scope_for_provider_model(self.provider_ref, self.model_ref)
         if scope is None:
             raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_SCOPE_DENIED")
-        if self.network_call_performed and self.adapter_ref != scope["adapter_ref"]:
-            raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_NETWORK_SCOPE_DENIED")
+        if self.adapter_ref != scope["adapter_ref"]:
+            if self.network_call_performed:
+                raise ValueError(
+                    "TINY_PROVIDER_INVOCATION_RECEIPT_NETWORK_SCOPE_DENIED"
+                )
+            raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_ADAPTER_SCOPE_DENIED")
         if self.safe_summary != TINY_PROVIDER_RECEIPT_SUMMARY:
             raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_SAFE_SUMMARY_DENIED")
         if self.status == TinyProviderInvocationStatus.receipt_recorded and not self.invocation_performed:
@@ -909,6 +932,16 @@ class TinyProviderInvocationAdapter:
     enabled: bool = False
     may_perform_network_call: bool = False
     requires_receipt_store_before_network: bool = False
+    test_only_contract_adapter: bool = False
+
+    def preflight_block_reason(
+        self,
+        request: TinyProviderInvocationRequest,
+        *,
+        execution_grant: TinyProviderInvocationExecutionGrant | None = None,
+    ) -> str | None:
+        _ = (request, execution_grant)
+        return None
 
     def execute(
         self, request: TinyProviderInvocationRequest
@@ -923,6 +956,7 @@ class DisabledTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
 class DeterministicTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
     adapter_ref = "provider-adapter-ref:tiny-exact-approved:deterministic-test"
     enabled = True
+    test_only_contract_adapter = True
 
     def execute(
         self, request: TinyProviderInvocationRequest
@@ -955,15 +989,68 @@ class TinyProviderInvocationReceiptStore:
             payload,
             "TINY_PROVIDER_INVOCATION_RECEIPT_STORE_SECRET_LIKE_VALUE_REJECTED",
         )
-        existing = self.find_by_idempotency_ref(receipt.idempotency_ref)
-        if existing is not None:
-            if existing.model_dump(mode="json") != payload:
-                raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_IDEMPOTENCY_CONFLICT")
-            return existing
+        with _TINY_PROVIDER_RECEIPT_STORE_LOCK:
+            existing = self.find_by_idempotency_ref(receipt.idempotency_ref)
+            if existing is not None:
+                if existing.model_dump(mode="json") != payload:
+                    if _receipt_is_network_attempt_reservation(
+                        existing
+                    ) and _receipt_scope_matches(existing, receipt):
+                        self._replace_receipt(existing.idempotency_ref, payload)
+                        return receipt
+                    raise ValueError(
+                        "TINY_PROVIDER_INVOCATION_RECEIPT_IDEMPOTENCY_CONFLICT"
+                    )
+                return existing
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(payload, sort_keys=True) + "\n")
+            return receipt
+
+    def reserve_network_attempt(
+        self,
+        receipt: TinyProviderInvocationReceipt,
+    ) -> tuple[TinyProviderInvocationReceipt, bool]:
+        if not _receipt_is_network_attempt_reservation(receipt):
+            raise ValueError("TINY_PROVIDER_NETWORK_ATTEMPT_RESERVATION_REQUIRED")
+        payload = receipt.model_dump(mode="json")
+        _reject_unsafe_payload(
+            payload,
+            "TINY_PROVIDER_INVOCATION_RECEIPT_STORE_SECRET_LIKE_VALUE_REJECTED",
+        )
+        with _TINY_PROVIDER_RECEIPT_STORE_LOCK:
+            existing = self.find_by_idempotency_ref(receipt.idempotency_ref)
+            if existing is not None:
+                if not _receipt_scope_matches(existing, receipt):
+                    raise ValueError(
+                        "TINY_PROVIDER_INVOCATION_RECEIPT_IDEMPOTENCY_CONFLICT"
+                    )
+                return existing, False
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(payload, sort_keys=True) + "\n")
+            return receipt, True
+
+    def _replace_receipt(
+        self,
+        idempotency_ref: str,
+        payload: dict[str, object],
+    ) -> None:
+        receipts = [
+            receipt.model_dump(mode="json") for receipt in self.list_receipts()
+        ]
+        replaced = False
+        for index, existing_payload in enumerate(receipts):
+            if existing_payload.get("idempotency_ref") == idempotency_ref:
+                receipts[index] = payload
+                replaced = True
+                break
+        if not replaced:
+            raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_REPLACEMENT_MISSING")
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, sort_keys=True) + "\n")
-        return receipt
+        with self.path.open("w", encoding="utf-8") as handle:
+            for receipt_payload in receipts:
+                handle.write(json.dumps(receipt_payload, sort_keys=True) + "\n")
 
     def find_by_idempotency_ref(
         self,
@@ -977,20 +1064,21 @@ class TinyProviderInvocationReceiptStore:
         return None
 
     def list_receipts(self) -> list[TinyProviderInvocationReceipt]:
-        if not self.path.exists():
-            return []
-        receipts: list[TinyProviderInvocationReceipt] = []
-        with self.path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                payload = json.loads(line)
-                receipts.append(
-                    TinyProviderInvocationReceipt.model_validate(
-                        _normalize_receipt_payload_for_replay(payload)
+        with _TINY_PROVIDER_RECEIPT_STORE_LOCK:
+            if not self.path.exists():
+                return []
+            receipts: list[TinyProviderInvocationReceipt] = []
+            with self.path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    if not line.strip():
+                        continue
+                    payload = json.loads(line)
+                    receipts.append(
+                        TinyProviderInvocationReceipt.model_validate(
+                            _normalize_receipt_payload_for_replay(payload)
+                        )
                     )
-                )
-        return receipts
+            return receipts
 
     def find_unreviewed_incomplete_cost_receipt(
         self,
@@ -1143,6 +1231,7 @@ def evaluate_tiny_provider_policy_gate(
 def required_provider_invocation_resource_refs(
     request: TinyProviderInvocationRequest,
 ) -> list[str]:
+    scope = _tiny_provider_scope_for_request(request)
     refs = [
         request.provider_ref,
         request.model_ref,
@@ -1163,6 +1252,15 @@ def required_provider_invocation_resource_refs(
         _money_scope_ref("max-approved-usd-value-ref", request.max_approved_usd),
         _metered_unit_scope_ref(request),
     ]
+    if scope is not None:
+        refs.extend(
+            [
+                scope["adapter_ref"],
+                scope["transport_ref"],
+                scope["endpoint_ref"],
+                scope["provider_model_name_ref"],
+            ]
+        )
     return list(dict.fromkeys(refs))
 
 
@@ -1400,20 +1498,21 @@ def evaluate_tiny_provider_invocation(
             required_next_action="use_an_allowlisted_single_provider_scope_ref",
             cost_decision=cost_decision,
         )
-    if adapter.may_perform_network_call and adapter.adapter_ref != request_scope["adapter_ref"]:
+    adapter_scope_reason = _adapter_scope_reason(adapter, request, request_scope)
+    if adapter_scope_reason is not None:
         return _blocked_decision(
             request,
             status=TinyProviderInvocationStatus.live_adapter_blocked,
             reason_codes=[
                 "EXACT_APPROVAL_VALIDATED",
                 "COST_GOVERNOR_ALLOWED",
-                "TINY_LIVE_PROVIDER_ADAPTER_SCOPE_MISMATCH",
+                adapter_scope_reason,
             ],
             safe_message=(
-                "Scoped live provider adapter is blocked because its adapter ref "
-                "does not match the exact provider/model scope."
+                "Scoped provider adapter is blocked because its adapter, provider, "
+                "or model ref does not match the exact provider/model scope."
             ),
-            required_next_action="use_the_exact_live_adapter_for_the_provider_scope",
+            required_next_action="use_the_exact_adapter_for_the_provider_scope",
             cost_decision=cost_decision,
         )
     execution_grant = (
@@ -1421,6 +1520,97 @@ def evaluate_tiny_provider_invocation(
         if adapter.adapter_ref == request_scope["adapter_ref"]
         else None
     )
+    try:
+        preflight_block_reason = adapter.preflight_block_reason(
+            request,
+            execution_grant=execution_grant,
+        )
+    except (ValueError, ValidationError):
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.live_adapter_blocked,
+            reason_codes=[
+                "EXACT_APPROVAL_VALIDATED",
+                "COST_GOVERNOR_ALLOWED",
+                "TINY_LIVE_PROVIDER_PREFLIGHT_VALIDATION_BLOCKED",
+            ],
+            safe_message=(
+                "Scoped provider adapter preflight returned invalid metadata "
+                "and was blocked fail-closed before transport."
+            ),
+            required_next_action="inspect_live_provider_adapter_preflight_scope",
+            cost_decision=cost_decision,
+        )
+    except Exception:
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.live_adapter_blocked,
+            reason_codes=[
+                "EXACT_APPROVAL_VALIDATED",
+                "COST_GOVERNOR_ALLOWED",
+                "TINY_LIVE_PROVIDER_PREFLIGHT_EXCEPTION_BLOCKED",
+            ],
+            safe_message=(
+                "Scoped provider adapter preflight raised and was blocked "
+                "fail-closed before transport."
+            ),
+            required_next_action="inspect_live_provider_adapter_preflight_scope",
+            cost_decision=cost_decision,
+        )
+    if preflight_block_reason is not None:
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.live_adapter_blocked,
+            reason_codes=[
+                "EXACT_APPROVAL_VALIDATED",
+                "COST_GOVERNOR_ALLOWED",
+                preflight_block_reason,
+            ],
+            safe_message=(
+                "Scoped provider adapter is blocked before any network transport "
+                "because its exact preflight scope is not satisfied."
+            ),
+            required_next_action="inspect_live_provider_adapter_preflight_scope",
+            cost_decision=cost_decision,
+        )
+
+    network_attempt_receipt = None
+    if adapter.may_perform_network_call:
+        network_attempt_receipt = _network_attempt_reservation_receipt(
+            request,
+            adapter,
+            cost_decision=cost_decision,
+        )
+        if receipt_store is not None:
+            reserved_receipt, reservation_created = receipt_store.reserve_network_attempt(
+                network_attempt_receipt
+            )
+            if not reservation_created:
+                return TinyProviderInvocationDecision(
+                    decision_ref=(
+                        f"provider-invocation-decision:{_suffix(request.invocation_ref)}"
+                    ),
+                    allowed=(
+                        reserved_receipt.status
+                        == TinyProviderInvocationStatus.receipt_recorded
+                    ),
+                    status=reserved_receipt.status,
+                    reason_codes=list(
+                        dict.fromkeys(
+                            [
+                                *reserved_receipt.reason_codes,
+                                "IDEMPOTENCY_REPLAYED_RECEIPT",
+                            ]
+                        )
+                    ),
+                    safe_message=(
+                        "Tiny provider invocation returned an existing redacted "
+                        "receipt for the exact idempotency ref before transport."
+                    ),
+                    cost_decision=cost_decision,
+                    receipt=reserved_receipt,
+                )
+
     try:
         if execution_grant is None:
             transport_receipt = adapter.execute(request)
@@ -1444,7 +1634,39 @@ def evaluate_tiny_provider_invocation(
             ),
             required_next_action="inspect_live_provider_adapter_execution_grant_contract",
             cost_decision=cost_decision,
-        )
+        ).model_copy(update={"receipt": network_attempt_receipt})
+    except (ValueError, ValidationError):
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.live_adapter_blocked,
+            reason_codes=[
+                "EXACT_APPROVAL_VALIDATED",
+                "COST_GOVERNOR_ALLOWED",
+                "TINY_LIVE_PROVIDER_RECEIPT_VALIDATION_BLOCKED",
+            ],
+            safe_message=(
+                "Scoped live provider adapter returned invalid redacted receipt "
+                "metadata and was blocked fail-closed."
+            ),
+            required_next_action="inspect_live_provider_adapter_receipt_scope",
+            cost_decision=cost_decision,
+        ).model_copy(update={"receipt": network_attempt_receipt})
+    except Exception:
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.live_adapter_blocked,
+            reason_codes=[
+                "EXACT_APPROVAL_VALIDATED",
+                "COST_GOVERNOR_ALLOWED",
+                "TINY_LIVE_PROVIDER_ADAPTER_EXCEPTION_BLOCKED",
+            ],
+            safe_message=(
+                "Scoped live provider adapter raised during execution and was "
+                "blocked fail-closed with only redacted receipt posture."
+            ),
+            required_next_action="inspect_live_provider_adapter_safe_disable_ref",
+            cost_decision=cost_decision,
+        ).model_copy(update={"receipt": network_attempt_receipt})
     transport_scope_reason = _transport_scope_reason(adapter, transport_receipt, receipt_store)
     if transport_scope_reason is not None:
         return _blocked_decision(
@@ -1461,10 +1683,10 @@ def evaluate_tiny_provider_invocation(
             ),
             required_next_action="inspect_provider_adapter_transport_scope_before_retry",
             cost_decision=cost_decision,
-        )
+        ).model_copy(update={"receipt": network_attempt_receipt})
     if transport_receipt.status == "blocked":
         blocked_receipt = None
-        if transport_receipt.network_call_performed:
+        if transport_receipt.network_call_performed or network_attempt_receipt is not None:
             completeness = _receipt_completeness_from_transport(
                 transport_receipt,
                 status=TinyProviderInvocationStatus.live_adapter_blocked,
@@ -1726,6 +1948,80 @@ def _build_tiny_provider_execution_grant(
     return grant
 
 
+def _adapter_scope_reason(
+    adapter: TinyProviderInvocationAdapter,
+    request: TinyProviderInvocationRequest,
+    request_scope: dict[str, str],
+) -> str | None:
+    if adapter.provider_ref != request.provider_ref or adapter.model_ref != request.model_ref:
+        return (
+            "TINY_LIVE_PROVIDER_ADAPTER_SCOPE_MISMATCH"
+            if adapter.may_perform_network_call
+            else "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH"
+        )
+    if adapter.adapter_ref == request_scope["adapter_ref"]:
+        return None
+    return (
+        "TINY_LIVE_PROVIDER_ADAPTER_SCOPE_MISMATCH"
+        if adapter.may_perform_network_call
+        else "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH"
+    )
+
+
+def _network_attempt_reservation_receipt(
+    request: TinyProviderInvocationRequest,
+    adapter: TinyProviderInvocationAdapter,
+    *,
+    cost_decision: CostDecision,
+) -> TinyProviderInvocationReceipt:
+    return TinyProviderInvocationReceipt(
+        receipt_ref=request.expected_receipt_ref,
+        invocation_ref=request.invocation_ref,
+        run_id=request.run_id,
+        provider_ref=request.provider_ref,
+        model_ref=request.model_ref,
+        adapter_ref=adapter.adapter_ref,
+        credential_ref=request.credential_ref,
+        approval_ref=request.approval_ref,
+        approval_scope_ref=request.approval_scope_ref,
+        cost_estimate_ref=request.cost_estimate_ref,
+        budget_decision_ref=request.budget_decision_ref,
+        max_approved_usd_ref=request.max_approved_usd_ref,
+        expected_receipt_ref=request.expected_receipt_ref,
+        usage_receipt_ref=request.usage_receipt_ref,
+        cost_receipt_ref=request.cost_receipt_ref,
+        cost_governor_decision_ref=cost_decision.decision_id,
+        estimated_cost_ref=request.cost_estimate_ref,
+        actual_usage_ref=_actual_usage_ref(request),
+        actual_cost_ref=_actual_cost_ref(request),
+        idempotency_ref=request.idempotency_ref,
+        redacted_input_summary_ref=request.redacted_input_summary_ref,
+        redacted_output_summary_ref=request.redacted_output_summary_ref,
+        safe_disable_ref=request.safe_disable_ref,
+        status=TinyProviderInvocationStatus.live_adapter_blocked,
+        invocation_performed=False,
+        network_call_performed=False,
+        input_tokens_used=0,
+        output_tokens_used=0,
+        estimated_cost_usd=request.estimated_cost_usd,
+        billed_cost_usd=None,
+        actual_usage_captured=False,
+        actual_cost_captured=False,
+        receipt_completeness_status=(
+            TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review
+        ),
+        incomplete_cost_requires_review=True,
+        further_provider_use_blocked=True,
+        reason_codes=[
+            _TINY_PROVIDER_NETWORK_ATTEMPT_RESERVED_REASON,
+            "EXACT_APPROVAL_VALIDATED",
+            "COST_GOVERNOR_ALLOWED",
+            "FURTHER_PROVIDER_USE_BLOCKED",
+        ],
+        safe_summary=TINY_PROVIDER_RECEIPT_SUMMARY,
+    )
+
+
 def _transport_scope_reason(
     adapter: TinyProviderInvocationAdapter,
     transport_receipt: TinyProviderInvocationTransportReceipt,
@@ -1894,6 +2190,14 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
         normalized.get("reason_codes"),
         fallback="REDACTED_LEGACY_RECEIPT_REASON",
     )
+    replay_review_reasons: list[str] = []
+    scope = _tiny_provider_scope_for_provider_model(
+        str(normalized.get("provider_ref", "")),
+        str(normalized.get("model_ref", "")),
+    )
+    if scope is not None and normalized.get("adapter_ref") != scope["adapter_ref"]:
+        normalized["adapter_ref"] = scope["adapter_ref"]
+        replay_review_reasons.append("REPLAYED_RECEIPT_ADAPTER_SCOPE_MISMATCH")
     required_completeness_fields = {
         "estimated_cost_ref",
         "actual_usage_ref",
@@ -1905,7 +2209,10 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
         "further_provider_use_blocked",
     }
     if required_completeness_fields.issubset(normalized):
-        review_reasons = _replayed_receipt_completeness_review_reasons(normalized)
+        review_reasons = [
+            *replay_review_reasons,
+            *_replayed_receipt_completeness_review_reasons(normalized),
+        ]
         if review_reasons:
             return _mark_replayed_receipt_payload_review_blocked(
                 normalized,
@@ -1914,7 +2221,10 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
         return normalized
     return _mark_replayed_receipt_payload_review_blocked(
         normalized,
-        reason_codes=["LEGACY_RECEIPT_COMPLETENESS_MISSING"],
+        reason_codes=[
+            *replay_review_reasons,
+            "LEGACY_RECEIPT_COMPLETENESS_MISSING",
+        ],
     )
 
 
@@ -2024,12 +2334,16 @@ def _receipt_matches_request(
     receipt: TinyProviderInvocationReceipt,
     request: TinyProviderInvocationRequest,
 ) -> bool:
+    scope = _tiny_provider_scope_for_request(request)
+    if scope is None:
+        return False
     expected = {
         "receipt_ref": request.expected_receipt_ref,
         "invocation_ref": request.invocation_ref,
         "run_id": request.run_id,
         "provider_ref": request.provider_ref,
         "model_ref": request.model_ref,
+        "adapter_ref": scope["adapter_ref"],
         "credential_ref": request.credential_ref,
         "approval_ref": request.approval_ref,
         "approval_scope_ref": request.approval_scope_ref,
@@ -2057,6 +2371,50 @@ def _receipt_matches_request(
     ):
         return False
     return receipt.estimated_cost_usd == request.estimated_cost_usd
+
+
+def _receipt_is_network_attempt_reservation(
+    receipt: TinyProviderInvocationReceipt,
+) -> bool:
+    return (
+        receipt.status == TinyProviderInvocationStatus.live_adapter_blocked
+        and _TINY_PROVIDER_NETWORK_ATTEMPT_RESERVED_REASON in receipt.reason_codes
+        and receipt.further_provider_use_blocked
+    )
+
+
+def _receipt_scope_matches(
+    existing: TinyProviderInvocationReceipt,
+    replacement: TinyProviderInvocationReceipt,
+) -> bool:
+    scope_fields = (
+        "receipt_ref",
+        "invocation_ref",
+        "run_id",
+        "provider_ref",
+        "model_ref",
+        "adapter_ref",
+        "credential_ref",
+        "approval_ref",
+        "approval_scope_ref",
+        "cost_estimate_ref",
+        "budget_decision_ref",
+        "max_approved_usd_ref",
+        "expected_receipt_ref",
+        "usage_receipt_ref",
+        "cost_receipt_ref",
+        "estimated_cost_ref",
+        "actual_usage_ref",
+        "actual_cost_ref",
+        "idempotency_ref",
+        "redacted_input_summary_ref",
+        "redacted_output_summary_ref",
+        "safe_disable_ref",
+    )
+    return all(
+        getattr(existing, field_name) == getattr(replacement, field_name)
+        for field_name in scope_fields
+    ) and existing.estimated_cost_usd == replacement.estimated_cost_usd
 
 
 def _suffix(value: str) -> str:

@@ -32,6 +32,22 @@ from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVau
 
 
 _SCOPED_NETWORK_CALL_PERFORMED = bool(1)
+_LIVE_ADAPTER_CONTRACT_SCOPES = {
+    TINY_LIVE_PROVIDER_ADAPTER_REF: {
+        "provider_ref": TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "transport_ref": TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        "endpoint_url": TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+        "provider_model_name": TINY_LIVE_PROVIDER_MODEL_NAME,
+    },
+    SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF: {
+        "provider_ref": SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        "model_ref": SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "transport_ref": SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        "endpoint_url": SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+        "provider_model_name": SECOND_TINY_LIVE_PROVIDER_MODEL_NAME,
+    },
+}
 
 
 class _NoRedirectHandler(urllib_request.HTTPRedirectHandler):
@@ -164,34 +180,12 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
         *,
         execution_grant: TinyProviderInvocationExecutionGrant | None = None,
     ) -> TinyProviderInvocationTransportReceipt:
-        if not self.enabled:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_PROVIDER_ADAPTER_DISABLED",
-            )
-        grant_block_reason = self._grant_block_reason(request, execution_grant)
-        if grant_block_reason is not None:
-            return self._blocked_transport(request, grant_block_reason)
-        if request.provider_ref != self.provider_ref:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_PROVIDER_REF_SCOPE_DENIED",
-            )
-        if request.model_ref != self.model_ref:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_MODEL_REF_SCOPE_DENIED",
-            )
-        if self.endpoint_url != self.allowed_endpoint_url:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_PROVIDER_ENDPOINT_NOT_ALLOWLISTED",
-            )
-        if self.provider_model_name != self.allowed_provider_model_name:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_PROVIDER_MODEL_NAME_NOT_ALLOWLISTED",
-            )
+        preflight_block_reason = self.preflight_block_reason(
+            request,
+            execution_grant=execution_grant,
+        )
+        if preflight_block_reason is not None:
+            return self._blocked_transport(request, preflight_block_reason)
         if self.credential_resolver is None:
             return self._blocked_transport(
                 request,
@@ -237,6 +231,15 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
                 request,
                 "TINY_LIVE_PROVIDER_TRANSPORT_EXCEPTION_BLOCKED",
             )
+        if transport_result.transport_ref != self.transport_ref:
+            return self._blocked_transport(
+                request,
+                "TINY_LIVE_PROVIDER_TRANSPORT_SCOPE_MISMATCH",
+                network_call_performed=transport_result.network_call_performed,
+                input_tokens_used=transport_result.input_tokens_used,
+                output_tokens_used=transport_result.output_tokens_used,
+                billed_cost_usd=transport_result.billed_cost_usd,
+            )
         if transport_result.status == "blocked":
             return self._blocked_transport(
                 request,
@@ -262,6 +265,50 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             raw_output_persisted=False,
             model_output_authoritative=False,
         )
+
+    def preflight_block_reason(
+        self,
+        request: TinyProviderInvocationRequest,
+        *,
+        execution_grant: TinyProviderInvocationExecutionGrant | None = None,
+    ) -> str | None:
+        if not self.enabled:
+            return "TINY_LIVE_PROVIDER_ADAPTER_DISABLED"
+        grant_block_reason = self._grant_block_reason(request, execution_grant)
+        if grant_block_reason is not None:
+            return grant_block_reason
+        if request.provider_ref != self.provider_ref:
+            return "TINY_LIVE_PROVIDER_REF_SCOPE_DENIED"
+        if request.model_ref != self.model_ref:
+            return "TINY_LIVE_MODEL_REF_SCOPE_DENIED"
+        contract_block_reason = self._adapter_contract_block_reason()
+        if contract_block_reason is not None:
+            return contract_block_reason
+        if self.credential_resolver is None:
+            return "TINY_LIVE_PROVIDER_SECRET_RESOLVER_REQUIRED"
+        return None
+
+    def _adapter_contract_block_reason(self) -> str | None:
+        expected = _LIVE_ADAPTER_CONTRACT_SCOPES.get(self.adapter_ref)
+        if expected is None:
+            return "TINY_LIVE_PROVIDER_ADAPTER_SCOPE_DENIED"
+        if self.provider_ref != expected["provider_ref"]:
+            return "TINY_LIVE_PROVIDER_REF_SCOPE_DENIED"
+        if self.model_ref != expected["model_ref"]:
+            return "TINY_LIVE_MODEL_REF_SCOPE_DENIED"
+        if self.transport_ref != expected["transport_ref"]:
+            return "TINY_LIVE_PROVIDER_TRANSPORT_SCOPE_MISMATCH"
+        if (
+            self.allowed_endpoint_url != expected["endpoint_url"]
+            or self.endpoint_url != expected["endpoint_url"]
+        ):
+            return "TINY_LIVE_PROVIDER_ENDPOINT_NOT_ALLOWLISTED"
+        if (
+            self.allowed_provider_model_name != expected["provider_model_name"]
+            or self.provider_model_name != expected["provider_model_name"]
+        ):
+            return "TINY_LIVE_PROVIDER_MODEL_NAME_NOT_ALLOWLISTED"
+        return None
 
     def _grant_block_reason(
         self,

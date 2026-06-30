@@ -10,11 +10,15 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
     SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+    SECOND_TINY_LIVE_PROVIDER_ENDPOINT_REF,
+    SECOND_TINY_LIVE_PROVIDER_MODEL_NAME_REF,
     SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
     SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
     SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
     SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_LIVE_PROVIDER_ADAPTER_REF,
+    TINY_LIVE_PROVIDER_ENDPOINT_REF,
+    TINY_LIVE_PROVIDER_MODEL_NAME_REF,
     TINY_LIVE_PROVIDER_TRANSPORT_REF,
     TinyProviderInvocationReceipt,
     TinyProviderInvocationReceiptStore,
@@ -24,6 +28,7 @@ from ultimate_ai_agent.core.providers import (
     TinyProviderReceiptCompletenessStatus,
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
+    required_provider_invocation_resource_refs,
 )
 from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_MODEL_REF,
@@ -148,7 +153,7 @@ def test_second_provider_scope_requires_its_exact_model_and_policy() -> None:
     assert "POLICY_REF_NOT_ALLOWED" in wrong_policy.reason_codes
 
 
-def test_second_provider_scope_can_record_deterministic_redacted_receipt(
+def test_second_provider_scope_rejects_unscoped_deterministic_receipt(
     tmp_path: Path,
 ) -> None:
     request = second_invocation_request(
@@ -165,12 +170,25 @@ def test_second_provider_scope_can_record_deterministic_redacted_receipt(
         receipt_store=store,
     )
 
-    assert decision.allowed is True
-    assert decision.receipt is not None
-    assert decision.receipt.provider_ref == SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF
-    assert decision.receipt.model_ref == SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF
-    assert decision.receipt.network_call_performed is False
-    assert decision.receipt.raw_provider_exchange_persisted is False
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" in decision.reason_codes
+    assert decision.receipt is None
+    assert store.list_receipts() == []
+
+
+def test_exact_approval_resource_refs_include_adapter_transport_and_endpoint_scope() -> None:
+    primary_refs = required_provider_invocation_resource_refs(invocation_request())
+    second_refs = required_provider_invocation_resource_refs(second_invocation_request())
+
+    assert TINY_LIVE_PROVIDER_ADAPTER_REF in primary_refs
+    assert TINY_LIVE_PROVIDER_TRANSPORT_REF in primary_refs
+    assert TINY_LIVE_PROVIDER_ENDPOINT_REF in primary_refs
+    assert TINY_LIVE_PROVIDER_MODEL_NAME_REF in primary_refs
+    assert SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF in second_refs
+    assert SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF in second_refs
+    assert SECOND_TINY_LIVE_PROVIDER_ENDPOINT_REF in second_refs
+    assert SECOND_TINY_LIVE_PROVIDER_MODEL_NAME_REF in second_refs
 
 
 def test_exact_approval_binds_numeric_cost_scope_before_adapter_execution() -> None:
@@ -195,7 +213,7 @@ def test_exact_approval_binds_numeric_cost_scope_before_adapter_execution() -> N
     assert decision.receipt is None
 
 
-def test_actual_adapter_cost_above_approved_budget_blocks_without_receipt() -> None:
+def test_unscoped_cost_adapter_blocks_before_receipt() -> None:
     request = invocation_request(estimated_cost_usd=0.001, max_approved_usd=0.01)
 
     decision = evaluate_tiny_provider_invocation(
@@ -205,8 +223,8 @@ def test_actual_adapter_cost_above_approved_budget_blocks_without_receipt() -> N
     )
 
     assert decision.allowed is False
-    assert decision.status == TinyProviderInvocationStatus.cost_blocked
-    assert "ACTUAL_USAGE_OR_COST_EXCEEDED_APPROVED_SCOPE" in decision.reason_codes
+    assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" in decision.reason_codes
     assert decision.receipt is None
 
 
@@ -227,7 +245,9 @@ def test_default_adapter_remains_approved_no_execution_after_exact_approval() ->
     assert decision.receipt is None
 
 
-def test_injected_adapter_records_only_redacted_receipt(tmp_path: Path) -> None:
+def test_unscoped_deterministic_adapter_cannot_record_primary_receipt(
+    tmp_path: Path,
+) -> None:
     store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-provider-receipts.jsonl")
     request = invocation_request(invocation_ref="provider-invocation-ref:tiny:success")
     decision = evaluate_tiny_provider_invocation(
@@ -237,32 +257,11 @@ def test_injected_adapter_records_only_redacted_receipt(tmp_path: Path) -> None:
         receipt_store=store,
     )
 
-    assert decision.allowed is True
-    assert decision.status == TinyProviderInvocationStatus.receipt_recorded
-    assert decision.receipt is not None
-    assert decision.receipt.receipt_ref == "receipt:provider-runtime:tiny-test"
-    assert decision.receipt.provider_sdk_used is False
-    assert decision.receipt.network_call_performed is False
-    assert decision.receipt.raw_prompt_persisted is False
-    assert decision.receipt.raw_response_persisted is False
-    assert decision.receipt.raw_provider_exchange_persisted is False
-    assert decision.receipt.estimated_cost_ref == request.cost_estimate_ref
-    assert decision.receipt.actual_usage_ref.startswith("actual-usage-ref:")
-    assert decision.receipt.actual_cost_ref.startswith("actual-cost-ref:")
-    assert decision.receipt.actual_usage_captured is True
-    assert decision.receipt.actual_cost_captured is True
-    assert (
-        decision.receipt.receipt_completeness_status
-        == TinyProviderReceiptCompletenessStatus.complete
-    )
-    assert decision.receipt.incomplete_cost_requires_review is False
-    assert decision.receipt.further_provider_use_blocked is False
-    persisted = store.list_receipts()
-    assert len(persisted) == 1
-    receipt_json = json.dumps(persisted[0].model_dump(mode="json"), sort_keys=True)
-    assert "provider_payload" not in receipt_json
-    assert "api_key" not in receipt_json.lower()
-    assert "token=" not in receipt_json.lower()
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" in decision.reason_codes
+    assert decision.receipt is None
+    assert store.list_receipts() == []
 
 
 def test_transport_receipt_requires_known_billed_cost() -> None:
@@ -375,6 +374,19 @@ def test_receipt_rejects_authority_or_raw_persistence_claims() -> None:
     assert base.status == TinyProviderInvocationStatus.approved_no_execution
     with pytest.raises(ValidationError, match="TINY_PROVIDER_INVOCATION_RECEIPT_AUTHORITY_DENIED"):
         TinyProviderInvocationReceipt(**receipt_payload(provider_sdk_used=True))
+
+
+def test_receipt_rejects_non_network_unscoped_adapter_ref() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_RECEIPT_ADAPTER_SCOPE_DENIED",
+    ):
+        TinyProviderInvocationReceipt(
+            **receipt_payload(
+                adapter_ref="provider-adapter-ref:tiny-exact-approved:deterministic-test",
+                network_call_performed=False,
+            )
+        )
 
 
 def test_receipt_rejects_success_when_actual_cost_is_incomplete() -> None:
@@ -560,7 +572,13 @@ def test_receipt_rejects_network_claim_without_scoped_live_adapter_ref() -> None
         ValidationError,
         match="TINY_PROVIDER_INVOCATION_RECEIPT_NETWORK_SCOPE_DENIED",
     ):
-        TinyProviderInvocationReceipt(**receipt_payload(network_call_performed=True))
+        TinyProviderInvocationReceipt(
+            **receipt_payload(
+                adapter_ref="provider-adapter-ref:tiny-exact-approved:deterministic-test",
+                network_call_performed=True,
+                billed_cost_usd=0.001,
+            )
+        )
 
 
 def test_receipt_rejects_freeform_safe_summary_text() -> None:
