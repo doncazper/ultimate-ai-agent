@@ -79,3 +79,26 @@ runtime system prompts, and they do not grant authority by themselves. Use
 to run the sequence from baseline audit through workbench read model,
 lifecycle expansion, quality/ranking/search/intake, cross-surface bindings, UI,
 CLI parity, tests, docs, review, hardening, annotated tag, and push gates.
+
+## Fusion routing and delegation prompts
+
+Stored execution prompts for work classification, route/delegation visibility,
+future-only sidekick proposal envelopes, cache/context economics refs, private
+dogfood evidence, and product-language guards live in
+`docs/prompts/fcc_fusion_routing_delegation_prompts.md`. They are operator-run
+prompts, not runtime system prompts, and they do not grant runtime model calls,
+sidekick execution, action execution, provider/model authority, connector
+writes, memory writes, context injection, public beta, production authority, or
+broader autonomy. Use Prompt 00 in that file to run the nine-task sequence end
+to end.
+
+## CRM product sequence prompts
+
+Stored execution prompts for the CRM product-line sequence live in
+`docs/prompts/crm_product_sequence.md`. They start from the contract-only
+CRM + Communications Spine M0 foundation and gate CRM M1 fixture-only vertical
+screens, M2 read-model planning, communications metadata, work queues,
+relationship graph posture, proposal lanes, and later exact local-write
+candidates without granting connector runtime, external CRM writes, sends,
+calendar writes, account sync, provider/model calls, public beta, or
+production authority. Use Prompt 00 in that file for an end-to-end gated run.

@@ -5,6 +5,15 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.control_center.fusion_routing import (
+    CacheContextEconomics,
+    DelegationProposalEnvelope,
+    WorkClassification,
+    WorkClassificationValue,
+    build_cache_context_economics,
+    build_delegation_proposal,
+    build_work_classification,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_safe_task_text,
@@ -69,6 +78,9 @@ class GovernedCodeWorkbenchProposal(BaseModel):
     evidence_refs: list[str] = Field(default_factory=list, min_length=1)
     idempotency_key_ref: str = Field(..., min_length=1)
     blocked_state_refs: list[str] = Field(default_factory=list, min_length=1)
+    work_classification: WorkClassification
+    delegation_proposal: DelegationProposalEnvelope
+    cache_context_economics: CacheContextEconomics
     safe_summary: str = Field(..., min_length=1, max_length=500)
     validation_plan_summary: str = Field(..., min_length=1, max_length=500)
     side_effect_class: str = "local_dev_workspace_only"
@@ -131,6 +143,12 @@ class GovernedCodeWorkbenchProposal(BaseModel):
         )
         if missing_blockers:
             raise ValueError("governed Code workbench proposal missing blocked refs")
+        if self.work_classification.execution_authorized:
+            raise ValueError("work classification cannot authorize execution")
+        if self.delegation_proposal.worker_execution_enabled:
+            raise ValueError("delegation proposal cannot execute")
+        if self.cache_context_economics.runtime_model_switch_performed:
+            raise ValueError("cache/context economics cannot switch models")
         required_true_flags = {
             "repo_local_scope_required": self.repo_local_scope_required,
             "safe_diff_summary_only": self.safe_diff_summary_only,
@@ -184,6 +202,13 @@ def build_governed_code_workbench_proposal(
     evidence_refs: list[str] | None = None,
 ) -> GovernedCodeWorkbenchProposal:
     suffix = _safe_suffix(proposal_ref)
+    work_classification = build_work_classification(
+        WorkClassificationValue.validation,
+        suffix_ref=proposal_ref,
+        source_ref=proposal_ref,
+        evidence_ref=(evidence_refs or ["evidence-ref:governed-code:today"])[0],
+        reason_ref=f"classification-reason-ref:governed-code:{suffix}",
+    )
     return GovernedCodeWorkbenchProposal(
         proposal_ref=proposal_ref,
         repo_scope_ref=f"repo-scope:governed-code:{suffix}",
@@ -199,6 +224,15 @@ def build_governed_code_workbench_proposal(
         evidence_refs=evidence_refs or ["evidence-ref:governed-code:today"],
         idempotency_key_ref=f"idempotency-ref:governed-code:{suffix}",
         blocked_state_refs=list(GOVERNED_CODE_WORKBENCH_REQUIRED_BLOCKED_REFS),
+        work_classification=work_classification,
+        delegation_proposal=build_delegation_proposal(
+            work_classification=work_classification,
+            suffix_ref=proposal_ref,
+        ),
+        cache_context_economics=build_cache_context_economics(
+            suffix_ref=proposal_ref,
+            blocker_refs=["blocked-state:governed-code-no-runtime-model-switch"],
+        ),
         safe_summary=safe_summary,
         validation_plan_summary=validation_plan_summary,
     )

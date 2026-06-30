@@ -254,6 +254,212 @@ function plansToActionsBridgeFixture(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function fusionWorkClassificationFixture(
+  classification:
+    | "judgment_required"
+    | "mechanical"
+    | "validation"
+    | "bookkeeping"
+    | "ambiguous"
+    | "blocked",
+) {
+  const humanReviewRequired = [
+    "judgment_required",
+    "ambiguous",
+    "blocked",
+  ].includes(classification);
+  return {
+    schema_version: "fcc_fusion_work_classification.v1",
+    contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+    classification,
+    reason_refs: [`classification-reason-ref:fusion:${classification}`],
+    confidence_posture: "medium",
+    ambiguity_posture: humanReviewRequired ? "ambiguous" : "clear",
+    human_review_required: humanReviewRequired,
+    blocked_authority_refs:
+      classification === "blocked"
+        ? ["blocked-state:fusion-no-model-provider-call"]
+        : [],
+    source_refs: [`source-ref:fusion:${classification}`],
+    evidence_refs: [`evidence-ref:fusion:${classification}`],
+    reviewed_at_ref: "review-state:not-reviewed",
+    expiry_posture_ref: `expiry-posture:fusion:${classification}`,
+    review_aid_only: true,
+    execution_authorized: false,
+    action_execution_enabled: false,
+  };
+}
+
+function fusionCacheContextFixture() {
+  return {
+    schema_version: "fcc_fusion_cache_context_economics.v1",
+    contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+    context_budget_ref: "context-budget-ref:fusion:test",
+    compaction_boundary_ref: "compaction-boundary-ref:fusion:test:not-executed",
+    cache_miss_expected: false,
+    cache_reuse_posture: "possible",
+    reroute_reason: "none",
+    estimated_context_cost_posture: "context-cost-posture:estimated-metadata-only",
+    cache_or_context_blocker_refs: [],
+    evidence_refs: ["evidence-ref:fusion-cache-context:test"],
+    explanatory_posture_only: true,
+    measured_provider_event: false,
+    runtime_model_switch_performed: false,
+  };
+}
+
+function fusionDelegationFixture(
+  workClassification = fusionWorkClassificationFixture("mechanical"),
+) {
+  return {
+    schema_version: "fcc_fusion_delegation_proposal.v1",
+    contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+    proposal_state: "proposed",
+    proposed_delegate_kind: "validation_worker",
+    delegate_scope_ref: "delegate-scope-ref:fusion:test",
+    main_owner_responsibility_refs: [
+      "main-owner-responsibility-ref:fusion:test:plan",
+      "main-owner-responsibility-ref:fusion:test:final-review",
+    ],
+    delegated_work_refs: ["delegated-work-ref:fusion:test"],
+    review_required_posture_ref: "review-required:main-owner-final-review",
+    blocked_execution_refs: [
+      "blocked-state:fusion-sidekick-worker-execution-not-scoped",
+      "blocked-state:fusion-background-dispatch-not-scoped",
+    ],
+    expected_receipt_refs: ["receipt-plan:fusion-delegation:test"],
+    rollback_safe_disable_posture_refs: [
+      "rollback-posture-ref:fusion-delegation:test",
+      "safe-disable-posture-ref:fusion-delegation:test",
+    ],
+    work_classification: workClassification,
+    future_only: true,
+    creates_approval_ref: false,
+    creates_execution_ref: false,
+    worker_execution_enabled: false,
+    background_dispatch_enabled: false,
+  };
+}
+
+function fusionRoutingReadModelFixture() {
+  const classifications = [
+    fusionWorkClassificationFixture("judgment_required"),
+    fusionWorkClassificationFixture("mechanical"),
+    fusionWorkClassificationFixture("validation"),
+    fusionWorkClassificationFixture("ambiguous"),
+    fusionWorkClassificationFixture("blocked"),
+  ];
+  return {
+    schema_version: "fcc_fusion_routing_delegation.v1",
+    contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+    source: "python_core_fusion_routing_delegation_read_model",
+    status: "implemented_backend_owned_readability_metadata_no_execution",
+    backend_owned: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    surfaces: ["Today", "Plans", "Actions", "Chat", "Evidence", "Code"],
+    work_classifications: classifications,
+    route_decisions: [
+      {
+        schema_version: "fcc_fusion_route_decision_visibility.v1",
+        contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+        status: "selected",
+        selected_profile_ref: "model-profile-ref:local-preview",
+        rejected_profile_refs: [],
+        reason_codes: ["SELECTED_PROFILE"],
+        privacy_posture_ref: "privacy-posture:metadata-only",
+        cost_posture_ref: "cost-posture:preview-only",
+        latency_posture_ref: "latency-posture:estimated-only",
+        context_posture_ref: "context-posture:preview-only",
+        approval_posture_ref: "approval-posture:not-required-for-preview",
+        operator_summary:
+          "Local preview route selected for metadata visibility only.",
+        no_execution_performed: true,
+        model_invocation_performed: false,
+        provider_call_performed: false,
+      },
+      {
+        schema_version: "fcc_fusion_route_decision_visibility.v1",
+        contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+        status: "rejected",
+        selected_profile_ref: "model-profile-ref:none-selected",
+        rejected_profile_refs: ["model-profile-ref:disabled"],
+        reason_codes: ["PROFILE_DISABLED"],
+        privacy_posture_ref: "privacy-posture:metadata-only",
+        cost_posture_ref: "cost-posture:preview-only",
+        latency_posture_ref: "latency-posture:not-measured",
+        context_posture_ref: "context-posture:preview-only",
+        approval_posture_ref: "approval-posture:not-authority",
+        operator_summary: "Disabled profile rejected for preview readability.",
+        no_execution_performed: true,
+        model_invocation_performed: false,
+        provider_call_performed: false,
+      },
+      {
+        schema_version: "fcc_fusion_route_decision_visibility.v1",
+        contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+        status: "blocked",
+        selected_profile_ref: "model-profile-ref:none-selected",
+        rejected_profile_refs: ["model-profile-ref:cloud-paid"],
+        reason_codes: ["UNKNOWN_PAID_COST_REQUIRES_APPROVAL"],
+        privacy_posture_ref: "privacy-posture:cloud-review-required",
+        cost_posture_ref: "cost-posture:unknown-paid-cost-blocked",
+        latency_posture_ref: "latency-posture:not-measured",
+        context_posture_ref: "context-posture:not-expanded",
+        approval_posture_ref: "approval-posture:required",
+        operator_summary: "Paid route blocked until exact approval exists.",
+        no_execution_performed: true,
+        model_invocation_performed: false,
+        provider_call_performed: false,
+      },
+    ],
+    delegation_proposals: [
+      fusionDelegationFixture(fusionWorkClassificationFixture("validation")),
+    ],
+    cache_context_economics: [fusionCacheContextFixture()],
+    dogfood_records: [
+      {
+        schema_version: "fcc_fusion_dogfood_evidence.v1",
+        contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+        review_record_ref: "dogfood-review-ref:fusion:test",
+        outcome: "partially_useful",
+        friction_delta_ref: "dogfood-delta-ref:fusion:test:operator-friction",
+        review_time_delta_ref: "dogfood-delta-ref:fusion:test:review-time",
+        cost_confusion_delta_ref: "dogfood-delta-ref:fusion:test:cost-confusion",
+        routing_cost_delta_ref: "dogfood-delta-ref:fusion:test:routing-cost",
+        ambiguity_delta_ref: "dogfood-delta-ref:fusion:test:ambiguity",
+        interruption_delta_ref: "dogfood-delta-ref:fusion:test:interruptions",
+        redacted_summary_ref: "redacted-summary-ref:fusion-dogfood:test",
+        evidence_refs: ["evidence-ref:fusion-dogfood:test"],
+        local_private_only: true,
+        external_analytics_enabled: false,
+        live_learning_claimed: false,
+      },
+    ],
+    blocked_state_refs: [
+      "blocked-state:fusion-no-model-provider-call",
+      "blocked-state:fusion-no-sidekick-execution",
+      "blocked-state:fusion-no-action-execution",
+      "blocked-state:fusion-no-tool-execution",
+      "blocked-state:fusion-no-background-work",
+    ],
+    next_safe_action:
+      "Use classification, route, delegation, and context/cost fields as review aids only.",
+    authority_boundary:
+      "Fusion routing and delegation metadata improves review readability; it does not authorize runtime work.",
+    action_execution_enabled: false,
+    sidekick_execution_enabled: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_execution_enabled: false,
+    connector_write_enabled: false,
+    memory_write_authorized: false,
+    context_injection_authorized: false,
+    background_dispatch_enabled: false,
+    production_authority_enabled: false,
+  };
+}
+
 describe("Web Control Center shell", () => {
   it("renders mock dashboard summaries without production authority", async () => {
     mockFetchWithFallback();
@@ -1522,6 +1728,132 @@ describe("Web Control Center shell", () => {
       within(bridgePanel).queryByRole("button", {
         name: /execute|run|apply|commit/i,
       }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders fusion routing and delegation readability from backend contracts", async () => {
+    const fusionReadModel = fusionRoutingReadModelFixture();
+    const bridge = plansToActionsBridgeFixture();
+    const workClassification = fusionWorkClassificationFixture("validation");
+    (bridge as Record<string, unknown>).items = [
+      {
+        ...(bridge.items[0] as Record<string, unknown>),
+        work_classification: workClassification,
+        delegation_proposal: fusionDelegationFixture(workClassification),
+        cache_context_economics: fusionCacheContextFixture(),
+      },
+    ];
+    const today = {
+      ...mockControlCenterData.founderToday,
+      fusion_routing_delegation_contract_ref:
+        "contract-ref:fcc-fusion-routing-delegation:v1",
+      fusion_routing_delegation_read_model: fusionReadModel,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: bridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: today }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    const fusionPanels = await screen.findAllByLabelText(
+      "Fusion routing and delegation readability",
+    );
+    const fusionPanel = fusionPanels[0];
+    expect(fusionPanel).toHaveTextContent(
+      "contract-ref:fcc-fusion-routing-delegation:v1",
+    );
+    expect(fusionPanel).toHaveTextContent(
+      "python_core_fusion_routing_delegation_read_model",
+    );
+    expect(fusionPanel).toHaveTextContent("Sidekick executionblocked");
+    expect(fusionPanel).toHaveTextContent("Provider/model callsblocked");
+    expect(fusionPanel).toHaveTextContent("Work type judgment required");
+    expect(fusionPanel).toHaveTextContent("Work type mechanical");
+    expect(fusionPanel).toHaveTextContent("Work type validation");
+    expect(fusionPanel).toHaveTextContent("Work type ambiguous");
+    expect(fusionPanel).toHaveTextContent("Work type blocked");
+    expect(fusionPanel).toHaveTextContent(
+      "selected: Local preview route selected",
+    );
+    expect(fusionPanel).toHaveTextContent(
+      "rejected: Disabled profile rejected",
+    );
+    expect(fusionPanel).toHaveTextContent(
+      "blocked: Paid route blocked until exact approval exists.",
+    );
+    expect(
+      within(fusionPanel).queryByRole("button", {
+        name: /execute|run|apply|commit|delegate|switch/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    const metadataCards = await screen.findAllByLabelText(
+      "Fusion routing metadata",
+    );
+    expect(metadataCards[0]).toHaveTextContent("Work typevalidation");
+    expect(metadataCards[0]).toHaveTextContent(
+      "Proposed delegatevalidation_worker",
+    );
+    expect(metadataCards[0]).toHaveTextContent("Worker executionblocked");
+    expect(metadataCards[0]).toHaveTextContent("Runtime model switchblocked");
+  });
+
+  it("fails closed for unsafe fusion routing readability payloads", async () => {
+    const unsafeReadModel = {
+      ...fusionRoutingReadModelFixture(),
+      provider_model_call_enabled: true,
+    };
+    const today = {
+      ...mockControlCenterData.founderToday,
+      fusion_routing_delegation_contract_ref:
+        "contract-ref:fcc-fusion-routing-delegation:v1",
+      fusion_routing_delegation_read_model: unsafeReadModel,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: today }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Fusion routing and delegation readability"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_fusion_routing_delegation_read_model"),
     ).not.toBeInTheDocument();
   });
 

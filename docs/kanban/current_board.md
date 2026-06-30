@@ -40,6 +40,18 @@ UI, no backend endpoints, no connector runtime, no connector writes, no sends,
 no calendar writes, no silent merges, no silent contact creation, no
 provider/model calls, no live web, no browser runtime, no public beta, and no
 production authority.
+CRM M1 Fixture-Only Vertical Shell now adds a deterministic screen-ready
+fixture map in `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`,
+`src/ultimate_ai_agent/core/crm/fixtures.py`,
+`scripts/verify_crm_m1_fixture_only_vertical_shell.py`, and
+`tests/test_crm_m1_fixture_only_vertical_shell.py`. It covers Real
+Estate/Realtor, Healthcare, Finance/Insurance, Retail/E-commerce, and
+Professional Services as fixture_only metadata with read_only, proposal_only,
+and blocked state labels. It adds no /crm UI, no backend endpoints, no
+connector runtime, no connector writes, no external CRM writes, no account
+sync, no contact import, no sends, no calendar writes, no provider/model calls,
+no live web, no browser runtime, no hidden context injection, no public beta,
+and no production authority.
 Provider Catalog + Cost Literacy now adds a backend-owned read-only setup guide
 at `GET /control-center/providers/setup-guide`, with typed catalog contracts,
 CLI inspection, route manifest coverage, and cost/budget posture language. It
@@ -343,8 +355,12 @@ no backend endpoints, no connector runtime, no connector writes, no sends, no
 calendar writes, no silent merges, no silent contact creation, no
 provider/model calls, no live web, no browser runtime, no public beta, or
 production authority is authorized.
-Next: only after this contract is accepted, shape M1 as a deterministic
-fixture-only CRM shell milestone with route/status/product-language proof.
+Next: only after the CRM M1 fixture-only map is reviewed, consider a separate
+route/status/product-language PR for a `/crm` Control Center shell. That later
+PR must keep backend CRM endpoints, connector runtime, external CRM writes,
+account sync, sends, calendar writes, provider/model calls, live web, browser
+runtime, public beta, and production authority blocked unless separately
+accepted.
 
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and

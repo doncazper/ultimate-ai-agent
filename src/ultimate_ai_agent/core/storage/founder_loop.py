@@ -114,6 +114,17 @@ from ultimate_ai_agent.core.control_center.action_inbox_decision_lanes import (
     ACTION_INBOX_DECISION_LANE_CONTRACT_REF,
     build_action_inbox_decision_lane_read_model,
 )
+from ultimate_ai_agent.core.control_center.fusion_routing import (
+    FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF,
+    FCC_FUSION_ROUTING_REQUIRED_BLOCKED_REFS,
+    WorkClassificationValue,
+    build_cache_context_economics,
+    build_delegation_proposal,
+    build_fusion_routing_delegation_read_model,
+    build_work_classification,
+    fusion_routing_authority_posture,
+    fusion_routing_surface_bindings,
+)
 from ultimate_ai_agent.core.control_center.plans_to_actions import (
     PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF,
     build_plans_to_actions_bridge_read_model,
@@ -4790,6 +4801,48 @@ def _action_receipt_visibility_read_model(
     return visibility
 
 
+def _fusion_routing_fields_for_action(action: dict[str, Any]) -> dict[str, Any]:
+    item_ref = str(action.get("item_ref") or "founder-action:unknown")
+    action_kind = str(action.get("action_kind") or "review_only")
+    status = str(action.get("status") or "proposed")
+    blocked_refs = [
+        *(action.get("blocked_state_refs") or []),
+        *(action.get("action_blocked_state_refs") or []),
+        *(action.get("task_decomposition_blocked_authority_refs") or []),
+    ]
+    if status == "blocked" or blocked_refs:
+        classification = WorkClassificationValue.blocked
+    elif action_kind in {"local_task_create", "review_only"}:
+        classification = WorkClassificationValue.mechanical
+    else:
+        classification = WorkClassificationValue.judgment_required
+    work_classification = build_work_classification(
+        classification,
+        suffix_ref=item_ref,
+        source_ref=item_ref,
+        evidence_ref=(
+            str((action.get("evidence_refs") or ["evidence-ref:fusion:action"])[0])
+        ),
+        reason_ref=f"classification-reason-ref:fusion-action:{_safe_suffix(item_ref)}",
+        blocked_authority_refs=blocked_refs or None,
+    )
+    return {
+        "work_classification": work_classification.model_dump(mode="json"),
+        "delegation_proposal": build_delegation_proposal(
+            work_classification=work_classification,
+            suffix_ref=item_ref,
+        ).model_dump(mode="json"),
+        "cache_context_economics": build_cache_context_economics(
+            suffix_ref=item_ref,
+            blocker_refs=[
+                ref
+                for ref in blocked_refs
+                if "context" in str(ref).lower() or "cost" in str(ref).lower()
+            ],
+        ).model_dump(mode="json"),
+    }
+
+
 def _receipt_visibility_missing_states(
     *,
     decision_receipt_ref: str,
@@ -4879,6 +4932,15 @@ def _governed_code_workbench_contract_payload() -> dict[str, Any]:
         ),
         "governed_code_workbench_evidence_refs": payload["evidence_refs"],
         "governed_code_workbench_idempotency_key_ref": (payload["idempotency_key_ref"]),
+        "governed_code_workbench_work_classification": (
+            payload["work_classification"]
+        ),
+        "governed_code_workbench_delegation_proposal": (
+            payload["delegation_proposal"]
+        ),
+        "governed_code_workbench_cache_context_economics": (
+            payload["cache_context_economics"]
+        ),
         "governed_code_workbench_safe_summary": payload["safe_summary"],
         "governed_code_workbench_validation_plan_summary": (
             payload["validation_plan_summary"]
@@ -5375,6 +5437,9 @@ class FounderLoopRepository:
         )
         chat_local_operator_contract = _chat_local_operator_contract_payload()
         governed_code_workbench_contract = _governed_code_workbench_contract_payload()
+        fusion_routing_delegation_read_model = (
+            build_fusion_routing_delegation_read_model().model_dump(mode="json")
+        )
         source_readiness = self.source_readiness(briefing_items=briefing_items)
         source_readiness_items = source_readiness["source_readiness_items"]
         source_readiness_posture = source_readiness["source_readiness_posture"]
@@ -5548,6 +5613,24 @@ class FounderLoopRepository:
             **user_intent_understanding_contract,
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
+            "fusion_routing_delegation_contract_ref": (
+                FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF
+            ),
+            "fusion_routing_delegation_status": (
+                "implemented_backend_owned_readability_metadata_no_execution"
+            ),
+            "fusion_routing_delegation_read_model": (
+                fusion_routing_delegation_read_model
+            ),
+            "fusion_routing_delegation_surface_bindings": (
+                fusion_routing_surface_bindings()
+            ),
+            "fusion_routing_delegation_authority_posture": (
+                fusion_routing_authority_posture()
+            ),
+            "fusion_routing_delegation_blocked_state_refs": (
+                list(FCC_FUSION_ROUTING_REQUIRED_BLOCKED_REFS)
+            ),
             "today_loop_tightening_contract_ref": TODAY_LOOP_TIGHTENING_CONTRACT_REF,
             "today_loop_read_model": today_loop_read_model,
             "follow_up_tracker_contract_ref": FOLLOW_UP_TRACKER_CONTRACT_REF,
@@ -7219,6 +7302,117 @@ class FounderLoopRepository:
                 ),
             )
         )
+        fusion_read_model = build_fusion_routing_delegation_read_model().model_dump(
+            mode="json"
+        )
+        fusion_work_refs = [
+            str(item["source_refs"][0])
+            for item in fusion_read_model["work_classifications"]
+            if item.get("source_refs")
+        ]
+        fusion_receipt_refs = [
+            str(ref)
+            for proposal in fusion_read_model["delegation_proposals"]
+            for ref in proposal.get("expected_receipt_refs", [])
+        ]
+        fusion_evidence_refs = [
+            str(ref)
+            for record in fusion_read_model["dogfood_records"]
+            for ref in record.get("evidence_refs", [])
+        ]
+        timeline.append(
+            FounderLoopEvidenceTimelineItem(
+                timeline_item_ref=_timeline_ref(
+                    "fusion", FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF
+                ),
+                item_kind="fusion_routing_delegation_read_model_ref",
+                title="Fusion routing and delegation visibility",
+                safe_summary=(
+                    "Fusion evidence records work type, route-preview reasons, "
+                    "future-only delegation proposals, context/cost posture, and "
+                    "private dogfood refs as review metadata only."
+                ),
+                history_answers=_history_answers(
+                    proposed=_history_answer(
+                        "proposed",
+                        "Work classification, route visibility, delegation proposals, and cache/context posture are available as operator review aids.",
+                        refs=[
+                            FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF,
+                            *fusion_work_refs,
+                        ],
+                    ),
+                    approved=_history_answer(
+                        "approved",
+                        "No sidekick, worker, action, provider, model, shell, browser, connector, memory, or context authority is approved.",
+                        refs=["approval-status:fusion-readability-not-authority"],
+                        status="blocked",
+                    ),
+                    happened=_history_answer(
+                        "happened",
+                        "Only backend-owned safe metadata was produced for readability; no delegation, routing execution, model call, or action happened.",
+                        refs=[*fusion_receipt_refs, *fusion_evidence_refs],
+                        status="inspection_only",
+                    ),
+                    changed=_history_answer(
+                        "changed",
+                        "The operator can inspect classification and route rationale; system authority and runtime state remain unchanged.",
+                        refs=["change-status:fusion-readability-only"],
+                        status="metadata_only",
+                    ),
+                    undoable=_history_answer(
+                        "undoable",
+                        "No mutation is performed, so rollback execution is not applicable.",
+                        refs=["rollback-status:fusion-no-mutation-performed"],
+                        status="not_applicable",
+                    ),
+                    stale=_history_answer(
+                        "stale",
+                        "Classification, route, and context/cost posture must be rechecked before any later scoped execution lane.",
+                        refs=["stale-ref:fusion-recheck-before-use"],
+                        status="recheck_required",
+                    ),
+                    blocked=_history_answer(
+                        "blocked",
+                        "Execution, provider/model calls, background work, connector writes, memory writes, context injection, and production authority remain blocked.",
+                        refs=fusion_read_model["blocked_state_refs"],
+                        status="blocked",
+                    ),
+                ),
+                source_refs=[FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF],
+                status_refs=[
+                    FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF,
+                    "source-ref:fusion-routing-delegation-read-model",
+                    "status-ref:fusion-routing-delegation:readability-metadata",
+                ],
+                related_route_refs=[
+                    "GET /control-center/today/summary",
+                    "GET /control-center/actions/inbox",
+                    "/plans",
+                    "/actions",
+                    "/chat",
+                    "/evidence",
+                ],
+                side_effect_class="local_dev_workspace_only",
+                authority_posture=(
+                    "Fusion metadata is review aid only; it cannot authorize "
+                    "delegation, routing execution, model calls, or actions."
+                ),
+                approval_posture="approval-status:fusion-readability-not-authority",
+                receipt_refs=fusion_receipt_refs,
+                audit_refs=fusion_evidence_refs,
+                replay_refs=["replay-ref:fusion-readability:metadata-only"],
+                rollback_refs=[],
+                rollback_blockers=["rollback_execution_not_applicable_no_mutation"],
+                redaction_status="redacted_summary_only",
+                stale_state="recheck_fusion_metadata_before_any_future_lane",
+                missing_evidence_posture="runtime_evidence_missing_by_design",
+                blocked_states=fusion_read_model["blocked_state_refs"],
+                next_safe_action=(
+                    "Use the readable metadata to decide review focus; keep "
+                    "execution in separately scoped lanes."
+                ),
+            )
+        )
         memory_intake_proposals = list(
             cross_surface_memory_intake_contract[
                 "cross_surface_memory_intake_proposals"
@@ -8621,6 +8815,7 @@ class FounderLoopRepository:
             projected = {
                 **action,
                 **action_envelope_payload,
+                **_fusion_routing_fields_for_action(action),
                 **self._local_task_commit_projection(action),
             }
             projected["approval_envelope"] = _action_approval_envelope_read_model(

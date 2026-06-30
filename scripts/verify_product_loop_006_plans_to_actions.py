@@ -147,11 +147,19 @@ def main() -> int:
             [
                 "raw_prompt_content",
                 "raw_response_content",
-                "provider_payload_content",
                 "raw_local_path",
                 "raw_log_content",
                 "credential_value",
                 "secret_value",
+            ],
+            failures,
+        )
+        _require_absent(
+            path,
+            [
+                "provider_payload_content:",
+                "provider_payload_content =",
+                '"provider_payload_content"',
             ],
             failures,
         )

@@ -122,7 +122,9 @@ M0 does not add:
 
 Later milestones remain separately gated:
 
-- M1: Beautiful CRM North Star shell with deterministic fixtures only.
+- M1: Fixture-only vertical shell planning and screen-ready deterministic
+  fixture map in `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`;
+  no route or backend endpoint authority.
 - M2: Backend-owned CRM read model and read-only endpoints.
 - M3: Communications Spine in the existing Inbox product surface.
 - M4: Work queues, intake rules, and engagement signals.
