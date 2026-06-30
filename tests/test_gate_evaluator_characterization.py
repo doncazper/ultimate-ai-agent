@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
     CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
+    CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES,
     FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES,
@@ -158,10 +159,14 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES == {
         "/control-center/providers/credentials/validate",
     }
+    assert CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES == {
+        "/control-center/providers/router/dry-run",
+    }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
         "control_center_operational_status",
         "control_center_provider_catalog",
         "control_center_provider_credential_validation",
+        "control_center_provider_router_dry_run",
         "control_center_setup_assistant",
         "control_center_tiny_provider_lane",
         "founder_loop",

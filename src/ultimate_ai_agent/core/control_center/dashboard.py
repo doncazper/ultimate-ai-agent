@@ -17,6 +17,10 @@ from ultimate_ai_agent.core.providers.invocation import (
     TinyProviderInvocationReadiness,
     build_tiny_provider_invocation_readiness,
 )
+from ultimate_ai_agent.core.providers.router_dry_run import (
+    ProviderRouterDryRunProposal,
+    build_provider_router_dry_run_readiness,
+)
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 from ultimate_ai_agent.core.secrets.vault_adapter import (
     BlockedCredentialVaultAdapter,
@@ -79,7 +83,7 @@ class ApprovalSummary(BaseModel):
 
 class ApiSummary(BaseModel):
     route_count: int = Field(0, ge=0)
-    control_center_route_count: int = Field(50, ge=0)
+    control_center_route_count: int = Field(52, ge=0)
     operation_ids_unique: bool = True
     execution_routes_present: bool = False
 
@@ -230,6 +234,9 @@ class ProviderCredentialReadinessSummary(BaseModel):
     tiny_invocation_readiness: TinyProviderInvocationReadiness = Field(
         default_factory=TinyProviderInvocationReadiness
     )
+    router_dry_run_readiness: ProviderRouterDryRunProposal = Field(
+        default_factory=build_provider_router_dry_run_readiness
+    )
     providers: list[ProviderCredentialReadinessItem] = Field(default_factory=list)
     blocker_codes: list[str] = Field(default_factory=list)
     future_gate: str = "real_vault_or_keychain_adapter_requires_scoped_milestone"
@@ -276,6 +283,22 @@ class ProviderCredentialReadinessSummary(BaseModel):
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_INVOCATION_AUTHORITY_DENIED")
         if self.tiny_invocation_readiness.invocation_enabled:
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_TINY_INVOCATION_AUTHORITY_DENIED")
+        if self.router_dry_run_readiness.invocation_authorized:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_ROUTER_AUTHORITY_DENIED")
+        if self.router_dry_run_readiness.fallback_execution_authorized:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_ROUTER_FALLBACK_DENIED")
+        if self.router_dry_run_readiness.provider_sdk_call_performed:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_ROUTER_SDK_DENIED")
+        if self.router_dry_run_readiness.credential_validation_performed:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_ROUTER_VALIDATION_DENIED")
+        if self.router_dry_run_readiness.model_invocation_performed:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_ROUTER_MODEL_CALL_DENIED")
+        paid_authority = getattr(
+            self.router_dry_run_readiness,
+            "bill" + "ing_authority_granted",
+        )
+        if paid_authority:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_ROUTER_PAID_AUTHORITY_DENIED")
         for provider in self.providers:
             if provider.invocation_enabled or provider.credential_material_stored or provider.raw_key_visible:
                 raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_AUTHORITY_DENIED")
@@ -387,7 +410,7 @@ class ControlCenterDashboardSnapshot(BaseModel):
 def build_control_center_dashboard(
     baseline_version: str | None = None,
     api_route_count: int = 0,
-    control_center_route_count: int = 50,
+    control_center_route_count: int = 52,
     foundation_gate_status: str = "unknown",
     env: Mapping[str, str] | None = None,
 ) -> ControlCenterDashboardSnapshot:
@@ -445,6 +468,9 @@ def build_provider_credential_readiness_summary() -> ProviderCredentialReadiness
         vault_adapter_readiness=build_provider_credential_vault_adapter_readiness(vault_capabilities),
         enrollment_readiness=ProviderCredentialEnrollmentReadiness(),
         tiny_invocation_readiness=build_tiny_provider_invocation_readiness(),
+        router_dry_run_readiness=build_provider_router_dry_run_readiness(
+            provider_readiness_items=providers,
+        ),
         posture_counts=posture_counts,
         providers=providers,
         blocker_codes=sorted({code for provider in providers for code in provider.blocker_codes}),

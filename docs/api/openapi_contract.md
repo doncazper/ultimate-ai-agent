@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `150`.
+Current OpenAPI path count: `151`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -38,6 +38,11 @@ Contract rules:
   blocked from model invocation, provider SDKs, raw credential display, provider
   payload persistence, fallback, autonomous/background calls, billing authority,
   and production authority.
+- `POST /control-center/providers/router/dry-run` is a proposal-only provider
+  routing posture lane. Its OpenAPI visibility does not grant callable runtime:
+  provider invocation, fallback execution, network calls, provider SDK calls,
+  credential validation, model calls, billing authority, background execution,
+  and raw prompt/response/provider payload persistence remain blocked.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route

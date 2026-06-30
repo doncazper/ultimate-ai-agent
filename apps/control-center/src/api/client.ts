@@ -1188,7 +1188,8 @@ function isSafeProviderCredentialReadiness(
     !isSafeProviderCredentialEnrollmentReadiness(value.enrollment_readiness) ||
     !isSafeProviderCredentialValidationReadiness(value.validation_readiness) ||
     !isSafeGovernedProviderInvocationReadiness(value.invocation_readiness) ||
-    !isSafeTinyProviderInvocationReadiness(value.tiny_invocation_readiness)
+    !isSafeTinyProviderInvocationReadiness(value.tiny_invocation_readiness) ||
+    !isSafeProviderRouterDryRunReadiness(value.router_dry_run_readiness)
   ) {
     return false;
   }
@@ -1538,6 +1539,158 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     value.blocker_codes.includes("INCOMPLETE_COST_REQUIRES_REVIEW") &&
     value.blocker_codes.includes("INCOMPLETE_COST_BLOCKS_FURTHER_USE") &&
     value.blocker_codes.includes("LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER")
+  );
+}
+
+function isSafeProviderRouterDryRunReadiness(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "invocation_authorized",
+    "fallback_execution_authorized",
+    "network_call_performed",
+    "provider_sdk_call_performed",
+    "credential_validation_performed",
+    "model_invocation_performed",
+    "billing_authority_granted",
+    "autonomous_background_execution_enabled",
+    "prompt_content_persisted",
+    "response_content_persisted",
+    "provider_payload_content_persisted",
+  ];
+  const trueFlags = ["safe_refs_only", "proposal_only", "local_state_only"];
+  const requiredUiStates = [
+    "Provider router dry-run",
+    "Proposal only",
+    "Exact-approval candidate refs",
+    "Blocked provider refs",
+    "Degraded provider refs",
+    "Cost risky",
+    "Validation required",
+    "No provider authority",
+    "No fallback execution",
+  ];
+  const requiredBlockers = [
+    "PROVIDER_ROUTER_DRY_RUN_PROPOSAL_ONLY",
+    "NO_PROVIDER_INVOCATION",
+    "NO_FALLBACK_EXECUTION",
+    "NO_NETWORK_CALLS",
+    "NO_PROVIDER_SDK_CALL",
+    "NO_CREDENTIAL_VALIDATION",
+    "NO_MODEL_CALL",
+    "NO_BILLING_AUTHORITY",
+    "NO_AUTONOMOUS_BACKGROUND_CALLS",
+    "COSTGOVERNOR_REQUIRED_BEFORE_INVOCATION",
+    "UNKNOWN_PAID_COST_BLOCKS",
+    "EXACT_APPROVAL_SCOPE_REQUIRED_FOR_ANY_FUTURE_USE",
+  ];
+  if (
+    falseFlags.some((field) => value[field] !== false) ||
+    trueFlags.some((field) => value[field] !== true) ||
+    value.status !== "proposal_only" ||
+    typeof value.contract_ref !== "string" ||
+    typeof value.route_ref !== "string" ||
+    typeof value.proposal_ref !== "string" ||
+    typeof value.router_run_ref !== "string" ||
+    typeof value.idempotency_ref !== "string" ||
+    typeof value.safe_summary !== "string" ||
+    typeof value.recommended_exact_approval_scope_ref !== "string"
+  ) {
+    return false;
+  }
+  const uiStates = value.ui_states;
+  const blockerCodes = value.blocker_codes;
+  if (
+    !Array.isArray(uiStates) ||
+    uiStates.length !== requiredUiStates.length ||
+    !requiredUiStates.every((label) => uiStates.includes(label)) ||
+    !Array.isArray(blockerCodes) ||
+    !requiredBlockers.every((code) => blockerCodes.includes(code))
+  ) {
+    return false;
+  }
+  const refLists = [
+    "eligible_provider_refs",
+    "blocked_provider_refs",
+    "degraded_provider_refs",
+    "missing_credential_refs",
+    "cost_risky_refs",
+    "validation_required_refs",
+    "no_authority_refs",
+  ];
+  if (
+    refLists.some(
+      (field) =>
+        !Array.isArray(value[field]) ||
+        !(value[field] as unknown[]).every((item) => typeof item === "string"),
+    )
+  ) {
+    return false;
+  }
+  if (!Array.isArray(value.provider_proposals)) {
+    return false;
+  }
+  if (!value.provider_proposals.every(isSafeProviderRouterDryRunProviderProposal)) {
+    return false;
+  }
+  return isSafeProviderRouterDryRunRecommendedScope(
+    value.recommended_exact_approval_scope,
+  );
+}
+
+function isSafeProviderRouterDryRunProviderProposal(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.proposal_only === true &&
+    value.execution_authorized === false &&
+    value.fallback_execution_authorized === false &&
+    value.network_call_performed === false &&
+    value.provider_sdk_call_performed === false &&
+    value.credential_validation_performed === false &&
+    value.model_invocation_performed === false &&
+    value.billing_authority_granted === false &&
+    value.provider_output_authoritative === false &&
+    typeof value.provider_ref === "string" &&
+    typeof value.provider_label === "string" &&
+    typeof value.provider_manifest_ref === "string" &&
+    typeof value.model_ref === "string" &&
+    typeof value.credential_ref === "string" &&
+    typeof value.missing_credential_ref === "string" &&
+    typeof value.cost_risk_ref === "string" &&
+    typeof value.validation_required_ref === "string" &&
+    typeof value.no_authority_ref === "string" &&
+    typeof value.recommended_approval_scope_ref === "string" &&
+    Array.isArray(value.reason_codes) &&
+    value.reason_codes.includes("PROVIDER_ROUTER_DRY_RUN_PROPOSAL_ONLY") &&
+    value.reason_codes.includes("NO_PROVIDER_AUTHORITY")
+  );
+}
+
+function isSafeProviderRouterDryRunRecommendedScope(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const trueFlags = [
+    "exact_scope_required",
+    "provider_ref_required",
+    "model_ref_required",
+    "credential_ref_required",
+    "cost_governor_decision_required",
+    "max_approved_usd_required",
+    "idempotency_ref_required",
+    "receipt_ref_required",
+  ];
+  return (
+    trueFlags.every((field) => value[field] === true) &&
+    value.execution_authorized_by_scope === false &&
+    typeof value.approval_scope_ref === "string" &&
+    typeof value.policy_ref === "string" &&
+    typeof value.cost_estimate_ref === "string" &&
+    typeof value.budget_decision_ref === "string" &&
+    typeof value.expected_receipt_ref === "string"
   );
 }
 

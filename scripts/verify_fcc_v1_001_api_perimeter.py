@@ -75,6 +75,7 @@ TARGETED_ROUTE_EXPECTATIONS = {
     ("POST", "/control-center/actions/{action_id}/local-task/commit"): "action_decision",
     ("POST", "/control-center/providers/credentials/validate"): "provider_credential_validation",
     ("POST", "/control-center/providers/exact-approved-lanes/tiny"): "provider_exact_approved_lane",
+    ("POST", "/control-center/providers/router/dry-run"): "provider_router_dry_run",
     ("POST", "/task-decomposition/approval-requests"): "task_decomposition",
     ("POST", "/task-decomposition/approvals/grants/capture"): "task_decomposition",
     ("POST", "/task-decomposition/run"): "task_decomposition",

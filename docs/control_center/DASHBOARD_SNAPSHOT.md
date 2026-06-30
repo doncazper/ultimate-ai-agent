@@ -27,6 +27,11 @@ The dashboard may summarize:
   disabled-default, no-provider-authority posture with required actual
   usage/cost refs and receipt-completeness posture. Approved-no-execution is a
   request decision only after exact approval and cost gates pass.
+- provider router dry-run readiness as proposal-only local posture, including
+  exact-approval candidate provider refs, blocked provider refs, degraded
+  provider refs, missing credential refs, cost-risky refs,
+  validation-required refs, no-authority refs, and recommended exact approval
+  scope refs.
 
 The dashboard must not include raw events, raw receipts, prompts, file contents, memory contents, credentials, secret values, private keys, personal data, provider envelopes, runtime payloads, model output as authority, remote worker output as control input, mobile sensor output as control input, or production readiness evidence.
 
@@ -72,5 +77,11 @@ The readiness gates are intentionally separate:
   `TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT`; the default adapter performs no
   provider SDK call, network call, autonomous/background model call, or billing
   authority.
+- Provider Router Dry-Run: current proposal-only lane that reads local provider
+  readiness and CostGovernor refs to explain exact-approval candidate,
+  blocked, degraded, and cost-risky provider refs. It records
+  `PROVIDER_ROUTER_DRY_RUN_PROPOSAL_ONLY`; it performs no provider invocation,
+  fallback execution, network call, provider SDK call, credential validation,
+  model call, billing authority, or background execution.
 
 The dashboard does not scan the filesystem, inspect keychains, call runtimes, call models, dispatch remote workers, enable plugins, access sensors, or run frontend tooling.

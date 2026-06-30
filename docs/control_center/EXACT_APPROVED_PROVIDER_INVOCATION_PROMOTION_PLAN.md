@@ -13,10 +13,13 @@ constructed with exact scoped approval, known cost posture, injected transient
 credential resolution, durable receipt replay storage, and a scoped transport.
 It does not add provider
 credential validation authority through the invocation lane, provider SDK
-calls, broad provider routing, fallback, autonomous model calls, background
-execution, or billing authority; provider credential validation is handled by
-the separate exact-approved validation lane and still does not authorize
-invocation.
+calls, broad callable provider routing, fallback execution, autonomous model
+calls, background execution, or billing authority; provider credential
+validation is handled by the separate exact-approved validation lane and still
+does not authorize invocation. Provider Router Dry-Run is a later
+proposal-only lane that can explain exact-approval candidate, blocked,
+degraded, and cost-risky provider refs from local posture, but it cannot
+execute providers or fallback.
 
 The default API route still uses the disabled adapter and does not become
 callable from metadata visibility. Any future product surface that enables the
@@ -53,6 +56,8 @@ The tiny lane requires all of the following before adapter execution can occur:
 - UI blocked, approved, and cost-blocked states
 - live adapter blocked state when scoped adapter configuration is missing or
   denied
+- provider router dry-run remains proposal-only and recommends exact approval
+  scope refs without fallback execution
 
 Every lane attempt must fail closed when any required ref, policy validation,
 approval scope, budget decision, receipt ref, or safe-disable posture is
@@ -168,6 +173,7 @@ authority, or callable runtime from metadata visibility.
 - No model output authority.
 - No raw prompt, response, or provider payload persistence.
 - No broad provider enabled toggle.
+- No fallback execution from provider router dry-run proposals.
 - No billing authority.
 - No provider response truth authority.
 - No production authority.

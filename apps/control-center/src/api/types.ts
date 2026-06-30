@@ -3969,6 +3969,92 @@ export type TinyProviderInvocationReceiptObservationState =
   | "Review required"
   | "Further use blocked";
 
+export type ProviderRouterDryRunProviderStatus =
+  | "eligible"
+  | "blocked"
+  | "degraded"
+  | "cost_risky";
+
+export interface ProviderRouterDryRunProviderProposal {
+  provider_ref: string;
+  provider_label: string;
+  provider_manifest_ref: string;
+  model_ref: string;
+  credential_ref: string;
+  credential_ref_status: string;
+  status: ProviderRouterDryRunProviderStatus;
+  readiness_status: string;
+  eligible_for_exact_approval_scope: boolean;
+  missing_credential_ref: string;
+  cost_risk_ref: string;
+  validation_required_ref: string;
+  no_authority_ref: string;
+  recommended_approval_scope_ref: string;
+  reason_codes: string[];
+  proposal_only: boolean;
+  execution_authorized: boolean;
+  fallback_execution_authorized: boolean;
+  network_call_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  credential_validation_performed: boolean;
+  model_invocation_performed: boolean;
+  billing_authority_granted: boolean;
+  provider_output_authoritative: boolean;
+}
+
+export interface ProviderRouterDryRunRecommendedScope {
+  approval_scope_ref: string;
+  policy_ref: string;
+  cost_estimate_ref: string;
+  budget_decision_ref: string;
+  expected_receipt_ref: string;
+  exact_scope_required: boolean;
+  provider_ref_required: boolean;
+  model_ref_required: boolean;
+  credential_ref_required: boolean;
+  cost_governor_decision_required: boolean;
+  max_approved_usd_required: boolean;
+  idempotency_ref_required: boolean;
+  receipt_ref_required: boolean;
+  execution_authorized_by_scope: boolean;
+}
+
+export interface ProviderRouterDryRunReadiness {
+  contract_ref: string;
+  route_ref: string;
+  proposal_ref: string;
+  router_run_ref: string;
+  idempotency_ref: string;
+  status: "proposal_only";
+  safe_summary: string;
+  safe_refs_only: boolean;
+  proposal_only: boolean;
+  local_state_only: boolean;
+  invocation_authorized: boolean;
+  fallback_execution_authorized: boolean;
+  network_call_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  credential_validation_performed: boolean;
+  model_invocation_performed: boolean;
+  billing_authority_granted: boolean;
+  autonomous_background_execution_enabled: boolean;
+  prompt_content_persisted: boolean;
+  response_content_persisted: boolean;
+  provider_payload_content_persisted: boolean;
+  provider_proposals: ProviderRouterDryRunProviderProposal[];
+  eligible_provider_refs: string[];
+  blocked_provider_refs: string[];
+  degraded_provider_refs: string[];
+  missing_credential_refs: string[];
+  cost_risky_refs: string[];
+  validation_required_refs: string[];
+  no_authority_refs: string[];
+  recommended_exact_approval_scope_ref: string;
+  recommended_exact_approval_scope: ProviderRouterDryRunRecommendedScope;
+  ui_states: string[];
+  blocker_codes: string[];
+}
+
 export interface ProviderCredentialReadinessSummary {
   status: string;
   safe_summary: string;
@@ -3999,6 +4085,7 @@ export interface ProviderCredentialReadinessSummary {
   validation_readiness: ProviderCredentialValidationReadiness;
   invocation_readiness: GovernedProviderInvocationReadiness;
   tiny_invocation_readiness: TinyProviderInvocationReadiness;
+  router_dry_run_readiness: ProviderRouterDryRunReadiness;
   providers: ProviderCredentialReadinessItem[];
   blocker_codes: string[];
   future_gate: string;

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `150`.
+Current OpenAPI path count: `151`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -259,6 +259,15 @@ It has no built-in live validation transport by default and is not model
 invocation, provider SDK authority, provider payload persistence, fallback
 routing, billing authority, autonomous/background calls, or production
 authority.
+
+Provider router dry-run is represented by
+`POST /control-center/providers/router/dry-run` as a proposal-only local
+posture lane. It can return exact-approval candidate provider refs, blocked provider refs,
+missing credential refs, cost-risky refs, validation-required refs,
+no-authority refs, and recommended exact approval scope refs. It performs no
+provider invocation, fallback execution, network calls, provider SDK calls,
+credential validation, model calls, billing authority, autonomous/background
+calls, or raw provider payload persistence.
 
 ## Verification
 

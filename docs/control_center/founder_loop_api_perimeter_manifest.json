@@ -28,7 +28,7 @@
     "same_key_conflicting_payload": "required_future_reject_conflict",
     "evidence_requirement_ref": "receipt-backed append-first route-owner storage"
   },
-  "current_mutating_route_count": 33,
+  "current_mutating_route_count": 34,
   "current_mutating_routes": [
     {
       "method": "POST",
@@ -276,6 +276,19 @@
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
       "rate_limit_posture": "targeted_local_fixed_window",
       "rate_limit_group": "provider_exact_approved_lane"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/providers/router/dry-run",
+      "operation_id": "post_control_center_providers_router_dry_run",
+      "side_effect_class": "validation_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "provider_router_dry_run"
     },
     {
       "method": "POST",
