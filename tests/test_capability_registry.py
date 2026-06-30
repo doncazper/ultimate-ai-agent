@@ -13,10 +13,14 @@ from ultimate_ai_agent.core.capabilities import (
     tool_capability,
 )
 from ultimate_ai_agent.core.capabilities.adapters import (
+    capability_manifest_to_mcp_tool,
+    capability_manifest_to_openai_tool,
     capability_to_mcp_tool,
     capability_to_openai_tool,
     capability_to_tool_manifest,
 )
+from ultimate_ai_agent.core.capabilities.enums import CapabilityKind, CoordinationMode, RiskLevel as CoordinationRiskLevel, SideEffectLevel
+from ultimate_ai_agent.core.capabilities.models import CapabilityManifest
 from ultimate_ai_agent.core.capabilities.adapters.langchain import capability_to_langchain_structured_tool
 from ultimate_ai_agent.core.capabilities.adapters.pydantic_ai import capability_to_pydantic_ai_tool
 from ultimate_ai_agent.core.capabilities.discovery import importlib_metadata
@@ -253,6 +257,39 @@ def test_openai_and_mcp_adapters_do_not_expose_callable_refs_or_metadata() -> No
     assert mcp_tool["inputSchema"]["properties"]["path"]["type"] == "string"
     assert mcp_tool["outputSchema"]["properties"]["text"]["type"] == "string"
     assert "callable_ref" not in str(mcp_tool)
+
+
+def test_manifest_static_schema_exports_include_uaa_authority_metadata_without_dispatch() -> None:
+    manifest = CapabilityManifest(
+        id="cap:agent_runtime_export",
+        version="1.0.0",
+        kind=CapabilityKind.agent,
+        name="Agent Runtime Export",
+        description="Static schema export for a contract-only agent runtime.",
+        tags=["agent-runtime"],
+        examples=["Use for static schema export only."],
+        anti_examples=["Do not use as live dispatch authority."],
+        input_schema={"type": "object", "properties": {"task_ref": {"type": "string"}}},
+        output_schema={"type": "object", "properties": {"safe_output_ref": {"type": "string"}}},
+        input_modes=["structured_ref"],
+        output_modes=["artifact"],
+        side_effects=SideEffectLevel.read,
+        risk_level=CoordinationRiskLevel.low,
+        allowed_coordination_modes=[CoordinationMode.agent_as_tool],
+        concurrency_safe=True,
+    )
+
+    openai_tool = capability_manifest_to_openai_tool(manifest)
+    mcp_tool = capability_manifest_to_mcp_tool(manifest)
+
+    openai_authority = openai_tool["function"]["x-uaa-authority"]
+    mcp_authority = mcp_tool["annotations"]["x-uaa-authority"]
+    assert openai_authority["capability_id"] == manifest.id
+    assert openai_authority["dispatch_authorized"] is False
+    assert openai_authority["memory_write_allowed"] is False
+    assert openai_authority["context_injection_allowed"] is False
+    assert openai_authority["provider_runtime_allowed"] is False
+    assert mcp_authority == openai_authority
 
 
 def test_model_facing_instructions_reject_secret_like_values() -> None:

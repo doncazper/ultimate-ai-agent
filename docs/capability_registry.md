@@ -2,7 +2,7 @@
 
 The capability registry is an additive, contract-first layer for coordinating tools, local agents, deterministic workflows, reviewer steps, and future adapter families. It does not add backend routes, production authority, provider calls, network access, shell execution, browser automation, plugin execution, memory writes, context injection, or new dependencies.
 
-The existing `CapabilitySpec` registry remains available for decorator-style Python capabilities. The new `CapabilityManifest` lane adds typed manifests, compact catalog disclosure, structured task envelopes, policy checks, telemetry hooks, bounded in-process adapters, durable local coordinator state, exact approval validation, timeout/retry enforcement, adapter health checks, output-schema checks, and single-writer locking. Concrete live file/model/provider adapters remain outside this registry boundary unless a reviewed capability manifest and adapter are registered.
+The existing `CapabilitySpec` registry remains available for decorator-style Python capabilities. The new `CapabilityManifest` lane adds typed manifests, compact catalog disclosure, structured task envelopes, policy checks, telemetry hooks, bounded in-process adapters, durable local coordinator state, exact approval validation, timeout/retry enforcement, adapter health checks, output-schema checks, single-writer locking, and agent-runtime compatibility metadata. Concrete live file/model/provider adapters remain outside this registry boundary unless a reviewed capability manifest and adapter are registered.
 
 ## Architecture
 
@@ -13,6 +13,8 @@ The existing `CapabilitySpec` registry remains available for decorator-style Pyt
 - Specialists run as bounded agents-as-tools through `ToolAdapter`, `AgentAdapter`, `WorkflowAdapter`, `ReviewerAdapter`, `HandoffAdapter`, or `HumanGateAdapter`.
 - `PolicyEngine` gates selection, execution, approval requirements, read-only fan-out, and single-writer behavior.
 - `TaskEnvelope`, `TaskPlan`, `TaskNode`, and `Artifact` carry structured data instead of freeform inter-agent chat.
+- `CapabilityManifest` is the single registry language for tools, agents, workflows, reviewers, human gates, and future runtime adapters.
+- Agent-runtime compatibility fields describe authority, approval, determinism, rollback, receipts, evidence, privacy, latency, cost, memory writes, context injection, provider runtime, browser runtime, and connector writes without granting those authorities.
 - `TelemetrySink` receives selection, execution, latency, success/failure, estimated cost, and policy denial events.
 - `FileCoordinatorStateStore` or `InMemoryCoordinatorStateStore` records plans, run status, audit events, telemetry events, and artifacts.
 - `LocalApprovalAuthority` validates exact approval grants for high-risk or explicit-approval capabilities.
@@ -56,6 +58,16 @@ search_manifest = CapabilityManifest(
     output_modes=["artifact"],
     side_effects=SideEffectLevel.read,
     risk_level=RiskLevel.low,
+    authority_level="read_only",
+    deterministic=True,
+    rollback_supported=False,
+    receipt_required=True,
+    evidence_required=True,
+    memory_write_allowed=False,
+    context_injection_allowed=False,
+    provider_runtime_allowed=False,
+    browser_runtime_allowed=False,
+    connector_write_allowed=False,
     allowed_coordination_modes=[
         CoordinationMode.direct_tool,
         CoordinationMode.parallel_read_fanout,
@@ -84,6 +96,16 @@ writer_manifest = CapabilityManifest(
     output_modes=["artifact"],
     side_effects=SideEffectLevel.write,
     risk_level=RiskLevel.medium,
+    authority_level="mutating",
+    deterministic=False,
+    rollback_supported=True,
+    receipt_required=True,
+    evidence_required=True,
+    memory_write_allowed=False,
+    context_injection_allowed=False,
+    provider_runtime_allowed=False,
+    browser_runtime_allowed=False,
+    connector_write_allowed=False,
     allowed_coordination_modes=[CoordinationMode.agent_as_tool],
     concurrency_safe=False,
     single_writer_required=True,
@@ -139,6 +161,20 @@ The coordinator is now suitable for governed local production-readiness testing 
 - Failure semantics: timeout, retry attempts, cancellation, policy denial, rollback-hook completion/failure, and optional structured failure artifacts are recorded.
 - Adapter hardening: unhealthy adapters are denied before invocation, and required output-schema keys are checked on returned artifacts.
 - Security posture: model/provider calls, network access, shell execution, browser automation, plugin execution, remote dispatch, memory writes, and context injection are still not created by this layer.
+
+## Agent Runtime Compatibility
+
+`docs/architecture/UAA_P2_AGENT_RUNTIME_COMPATIBILITY.md` defines the P2
+compatibility boundary. Agent runtimes are adapters, not authority. The
+`ultimate_ai_agent.core.agent_runtime` contracts carry safe refs, safe
+summaries, blocked authority refs, trace refs, receipt refs, and evidence refs
+only. Adapter output is not truth, memory, approval evidence, or execution
+authority.
+
+Static OpenAI/MCP-shaped schema export may expose UAA authority metadata under
+`x-uaa-authority`, including `dispatch_authorized=false`. These exports are
+metadata only; they do not import SDKs, create MCP clients, perform A2A
+delegation, call providers, fetch the web, or dispatch tools.
 
 ## MCP And A2A Extension Points
 

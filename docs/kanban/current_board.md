@@ -173,6 +173,16 @@ backend route, model/provider calls, tool execution, action execution, workflow
 execution, memory writes, context injection, shell/subprocess execution,
 browser/network access, connector writes, autonomous planning authority, public
 beta, or production authority.
+UAA-P2 Agent Runtime Compatibility is implemented as a contract-only
+compatibility slice with a charter, capability-manifest authority metadata,
+inert agent-runtime adapter/handoff/trace/receipt contracts, static OpenAI/MCP
+schema exports with UAA authority metadata, a deterministic in-process
+specialist demo, focused tests, and a static guardrail verifier. It does not
+adopt the OpenAI Agents SDK as UAA architecture and adds no backend route,
+Control Center control, runtime model/provider call, provider SDK import, live
+web fetch, browser automation, shell/subprocess execution, connector write,
+memory write, context injection, plugin runtime import, public beta, public
+release, production authority, or broad autonomy.
 Governed Cognitive Memory Spine Phase 2 is implemented as a read-only L1 hot
 local memory index over reviewed recall-only `LocalMemoryStore` records at
 `GET /control-center/memory/l1-index`. Phase 3 L2 factual/graph/temporal
