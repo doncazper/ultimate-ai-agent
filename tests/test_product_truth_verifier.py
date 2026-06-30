@@ -110,6 +110,35 @@ def test_product_truth_verifier_flags_autonomy_overclaims() -> None:
     assert "autonomous_execution_enabled_claim" in categories
 
 
+def test_product_truth_embeds_provider_invocation_plan_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(verifier, "_iter_scope_files", lambda _root, _scopes: [])
+    monkeypatch.setattr(
+        verifier,
+        "_provider_invocation_plan_failures",
+        lambda _root: ["missing exact approval scope"],
+    )
+
+    findings = verifier.validate_product_truth(root=verifier.ROOT, scopes=())
+
+    assert len(findings) == 1
+    assert findings[0].category == "provider_invocation_promotion_plan_guard"
+    assert findings[0].evidence_hash.startswith("sha256:")
+    assert "missing exact approval scope" not in findings[0].safe_message
+
+
+def test_product_truth_provider_invocation_guard_handles_missing_verifier(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(verifier, "ROOT", tmp_path)
+
+    failures = verifier._provider_invocation_plan_failures(tmp_path)
+
+    assert failures == ["provider invocation promotion plan verifier is missing"]
+
+
 def test_product_truth_verifier_no_false_positive_on_correct_disclaimer_language() -> None:
     # These are the correct disclaimer forms used throughout the real repo docs.
     clean_lines = [

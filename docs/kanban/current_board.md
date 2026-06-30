@@ -61,6 +61,14 @@ and CLI inspection through `scripts/inspect_credential_vault_contract.py`. Vault
 presence remains non-authorizing: no secret collection, raw key storage, OS
 credential backend access, provider validation, provider SDK call, model
 invocation, billing authority, or provider invocation is granted.
+Exact-Approved Provider Invocation Promotion Plan now defines the future gated
+minimum for one tiny provider/model invocation lane with credential/provider/model
+refs, `PolicyEngine` policy validation, exact approval scope, CostGovernor
+decision, unknown paid cost blocked by default, max-approved USD, idempotency,
+redacted receipt refs, safe-disable posture, CLI parity, and UI
+blocked/approved/cost-blocked states. It is planning-only and adds no provider
+SDK calls, runtime invocation, credential validation, network calls, model output
+authority, or callable runtime authority.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are

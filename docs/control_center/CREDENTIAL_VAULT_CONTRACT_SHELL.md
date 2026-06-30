@@ -49,7 +49,9 @@ Product language rules:
 
 Promotion rule:
 
-The next runtime lane must still introduce exact approval, CostGovernor
-decision binding, policy validation, redacted receipts, revocation posture, and
-safe-disable or rollback posture before any provider credential validation or
-provider invocation can occur.
+The Exact-Approved Provider Invocation Promotion Plan in
+`docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`
+defines the next planning-only gate. A later runtime lane must still introduce
+exact approval, CostGovernor decision binding, policy validation, redacted
+receipts, revocation posture, and safe-disable or rollback posture before any
+provider credential validation or provider invocation can occur.
