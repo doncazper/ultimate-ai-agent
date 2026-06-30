@@ -229,6 +229,9 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
                 request,
                 transport_result.block_reason_code or "TINY_LIVE_PROVIDER_TRANSPORT_BLOCKED",
                 network_call_performed=transport_result.network_call_performed,
+                input_tokens_used=transport_result.input_tokens_used,
+                output_tokens_used=transport_result.output_tokens_used,
+                billed_cost_usd=transport_result.billed_cost_usd,
             )
         return TinyProviderInvocationTransportReceipt(
             transport_ref=transport_result.transport_ref,
@@ -270,6 +273,9 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
         block_reason_code: str,
         *,
         network_call_performed: bool = False,
+        input_tokens_used: int = 0,
+        output_tokens_used: int = 0,
+        billed_cost_usd: float = 0.0,
     ) -> TinyProviderInvocationTransportReceipt:
         return TinyProviderInvocationTransportReceipt(
             transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
@@ -280,9 +286,9 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             redacted_output_summary_ref=request.redacted_output_summary_ref,
             usage_receipt_ref=request.usage_receipt_ref,
             cost_receipt_ref=request.cost_receipt_ref,
-            input_tokens_used=0,
-            output_tokens_used=0,
-            billed_cost_usd=0.0,
+            input_tokens_used=input_tokens_used,
+            output_tokens_used=output_tokens_used,
+            billed_cost_usd=billed_cost_usd,
             provider_sdk_used=False,
             network_call_performed=network_call_performed,
             raw_output_persisted=False,
@@ -337,19 +343,28 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
 
         usage = payload.get("usage") if isinstance(payload, dict) else None
         usage = usage if isinstance(usage, dict) else {}
-        input_tokens = int(
-            usage.get("input_tokens")
-            or usage.get("prompt_tokens")
-            or request.estimated_input_tokens
-        )
-        output_tokens = int(
-            usage.get("output_tokens")
-            or usage.get("completion_tokens")
-            or request.estimated_output_tokens
-        )
+        try:
+            input_tokens = int(
+                usage.get("input_tokens")
+                or usage.get("prompt_tokens")
+                or request.estimated_input_tokens
+            )
+            output_tokens = int(
+                usage.get("output_tokens")
+                or usage.get("completion_tokens")
+                or request.estimated_output_tokens
+            )
+        except (TypeError, ValueError):
+            return TinyLiveProviderTransportResult(
+                status="blocked",
+                network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
+                block_reason_code="TINY_LIVE_PROVIDER_USAGE_PARSE_BLOCKED",
+            )
         _ = (input_tokens, output_tokens)
         return TinyLiveProviderTransportResult(
             status="blocked",
+            input_tokens_used=input_tokens,
+            output_tokens_used=output_tokens,
             network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
             block_reason_code="TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE",
         )

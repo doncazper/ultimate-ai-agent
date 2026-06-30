@@ -24,7 +24,8 @@ The dashboard may summarize:
 - credential vault adapter readiness, credential enrollment readiness, provider
   validation readiness, governed provider invocation readiness as blocked
   contract state, and tiny exact-approved provider lane readiness as
-  disabled-default, no-provider-authority posture. Approved-no-execution is a
+  disabled-default, no-provider-authority posture with required actual
+  usage/cost refs and receipt-completeness posture. Approved-no-execution is a
   request decision only after exact approval and cost gates pass.
 
 The dashboard must not include raw events, raw receipts, prompts, file contents, memory contents, credentials, secret values, private keys, personal data, provider envelopes, runtime payloads, model output as authority, remote worker output as control input, mobile sensor output as control input, or production readiness evidence.
@@ -63,7 +64,11 @@ The readiness gates are intentionally separate:
   records `PROVIDER_INVOCATION_NOT_SCOPED` and enables no provider call path.
 - Tiny Exact-Approved Provider Lane: current disabled-default contract lane
   requiring exact approval, CostGovernor posture, max-approved USD, idempotency,
-  redacted receipt refs, and safe-disable posture. The dashboard records
+  redacted receipt refs, actual usage/cost refs, receipt completeness, and
+  safe-disable posture. If actual paid-cost metadata is unavailable after a
+  scoped network attempt, the redacted receipt is incomplete, review is
+  required, and further provider use is blocked until later reviewed posture
+  exists. The dashboard records
   `TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT`; the default adapter performs no
   provider SDK call, network call, autonomous/background model call, or billing
   authority.

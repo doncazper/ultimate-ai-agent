@@ -83,6 +83,7 @@ CAPABILITIES_DECLARED = [
     "control_center_tiny_exact_approved_provider_lane_disabled_default",
     "control_center_tiny_exact_approved_provider_lane_cost_governed",
     "control_center_tiny_exact_approved_provider_lane_redacted_receipts",
+    "control_center_tiny_exact_approved_provider_lane_receipt_completeness",
     "control_center_provider_credential_validation_exact_approved_lane",
     "control_center_provider_credential_validation_redacted_receipts",
     "control_center_provider_credential_validation_cli_inspection",
@@ -294,6 +295,7 @@ CAPABILITIES_BLOCKED = [
     "tiny_provider_lane_unknown_paid_cost",
     "tiny_provider_lane_without_provider_model_credential_refs",
     "tiny_provider_lane_without_cost_budget_receipt_refs",
+    "tiny_provider_lane_incomplete_actual_paid_cost_without_review",
     "tiny_provider_lane_broad_provider_router",
     "tiny_provider_lane_multi_provider_fallback",
     "tiny_provider_lane_raw_prompt_response_or_provider_exchange_persistence",
@@ -697,7 +699,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, disabled-by-default scoped live adapter posture, and safe-disable posture required while the default API path performs no provider network call and broad provider authority stays blocked",
+            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, actual usage/cost refs, receipt completeness, disabled-by-default scoped live adapter posture, and safe-disable posture required while incomplete actual paid cost blocks further use until review and broad provider authority stays blocked",
         )
     if (
         normalized_method == "POST"

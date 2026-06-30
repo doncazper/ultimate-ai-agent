@@ -271,6 +271,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         in manifest["capabilities_declared"]
     )
     assert (
+        "control_center_tiny_exact_approved_provider_lane_receipt_completeness"
+        in manifest["capabilities_declared"]
+    )
+    assert (
         "control_center_provider_credential_validation_exact_approved_lane"
         in manifest["capabilities_declared"]
     )
@@ -292,6 +296,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     )
     assert (
         "tiny_provider_lane_without_cost_budget_receipt_refs"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "tiny_provider_lane_incomplete_actual_paid_cost_without_review"
         in manifest["capabilities_blocked"]
     )
     assert (

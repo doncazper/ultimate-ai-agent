@@ -1441,6 +1441,11 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     "autonomous_model_call_enabled",
     "background_execution_enabled",
     "billing_authority_granted",
+    "usage_captured",
+    "cost_captured",
+    "cost_incomplete",
+    "review_required",
+    "further_use_blocked",
     "prompt_persistence_allowed",
     "response_persistence_allowed",
     "provider_exchange_persistence_allowed",
@@ -1457,6 +1462,11 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     "idempotency_ref_required",
     "unknown_paid_cost_blocks",
     "redacted_receipts_only",
+    "actual_usage_ref_required",
+    "actual_cost_ref_required",
+    "receipt_completeness_required",
+    "incomplete_cost_requires_review",
+    "incomplete_cost_blocks_further_use",
   ];
   const supportedStates = [
     "disabled",
@@ -1486,7 +1496,16 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     "Live adapter blocked",
     "Live receipt required",
   ];
+  const supportedReceiptObservationLabels = [
+    "Usage captured",
+    "Cost captured",
+    "Cost incomplete",
+    "Review required",
+    "Further use blocked",
+  ];
   const uiStates = value.ui_states;
+  const receiptObservationSupportedStates =
+    value.receipt_observation_supported_states;
   return (
     falseFlags.every((field) => value[field] === false) &&
     trueFlags.every((field) => value[field] === true) &&
@@ -1494,14 +1513,30 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     typeof value.route_ref === "string" &&
     typeof value.provider_ref === "string" &&
     typeof value.model_ref === "string" &&
+    typeof value.receipt_observation_ref === "string" &&
+    value.receipt_state_source === "no_receipt_observed" &&
     supportedStates.includes(String(value.status)) &&
     Array.isArray(uiStates) &&
     uiStates.length === supportedUiStateLabels.length &&
     supportedUiStateLabels.every((label) => uiStates.includes(label)) &&
     uiStates.every((label) => supportedUiStateLabels.includes(String(label))) &&
+    Array.isArray(receiptObservationSupportedStates) &&
+    receiptObservationSupportedStates.length ===
+      supportedReceiptObservationLabels.length &&
+    supportedReceiptObservationLabels.every((label) =>
+      receiptObservationSupportedStates.includes(label),
+    ) &&
+    receiptObservationSupportedStates.every((label) =>
+      supportedReceiptObservationLabels.includes(String(label)),
+    ) &&
     Array.isArray(value.blocker_codes) &&
     value.blocker_codes.includes("TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT") &&
     value.blocker_codes.includes("UNKNOWN_PAID_COST_BLOCKS") &&
+    value.blocker_codes.includes("ACTUAL_USAGE_REF_REQUIRED") &&
+    value.blocker_codes.includes("ACTUAL_COST_REF_REQUIRED") &&
+    value.blocker_codes.includes("RECEIPT_COMPLETENESS_REQUIRED") &&
+    value.blocker_codes.includes("INCOMPLETE_COST_REQUIRES_REVIEW") &&
+    value.blocker_codes.includes("INCOMPLETE_COST_BLOCKS_FURTHER_USE") &&
     value.blocker_codes.includes("LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER")
   );
 }

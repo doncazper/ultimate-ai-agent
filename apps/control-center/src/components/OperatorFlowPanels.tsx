@@ -1618,6 +1618,81 @@ export function ProviderCredentialReadinessPanel({
                 : "missing",
             ],
             [
+              "Actual usage ref",
+              readiness.tiny_invocation_readiness.actual_usage_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Actual cost ref",
+              readiness.tiny_invocation_readiness.actual_cost_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Receipt completeness",
+              readiness.tiny_invocation_readiness.receipt_completeness_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Receipt observation",
+              readiness.tiny_invocation_readiness.receipt_state_source,
+            ],
+            [
+              "Receipt observation ref",
+              readiness.tiny_invocation_readiness.receipt_observation_ref,
+            ],
+            [
+              "Receipt observation labels",
+              readiness.tiny_invocation_readiness.receipt_observation_supported_states.join(
+                ", ",
+              ),
+            ],
+            [
+              "Usage captured",
+              readiness.tiny_invocation_readiness.usage_captured
+                ? "receipt-backed"
+                : "no receipt observed",
+            ],
+            [
+              "Cost captured",
+              readiness.tiny_invocation_readiness.cost_captured
+                ? "receipt-backed"
+                : "no receipt observed",
+            ],
+            [
+              "Cost incomplete",
+              readiness.tiny_invocation_readiness.cost_incomplete
+                ? "review required"
+                : "no receipt observed",
+            ],
+            [
+              "Review required",
+              readiness.tiny_invocation_readiness.review_required
+                ? "required"
+                : "no receipt observed",
+            ],
+            [
+              "Further use blocked",
+              readiness.tiny_invocation_readiness.further_use_blocked
+                ? "blocked pending review"
+                : "no receipt observed",
+            ],
+            [
+              "Incomplete cost review",
+              readiness.tiny_invocation_readiness.incomplete_cost_requires_review
+                ? "required if cost incomplete observed"
+                : "requires backend posture",
+            ],
+            [
+              "Further provider use",
+              readiness.tiny_invocation_readiness
+                .incomplete_cost_blocks_further_use
+                ? "blocks after incomplete cost"
+                : "requires backend posture",
+            ],
+            [
               "Provider SDK",
               readiness.tiny_invocation_readiness.provider_sdk_call_enabled
                 ? "blocked"
@@ -1673,7 +1748,16 @@ export function ProviderCredentialReadinessPanel({
           ]}
           blockerCodes={[
             ...readiness.tiny_invocation_readiness.blocker_codes,
-            ...readiness.tiny_invocation_readiness.ui_states,
+            ...readiness.tiny_invocation_readiness.ui_states.filter(
+              (state) =>
+                ![
+                  "Usage captured",
+                  "Cost captured",
+                  "Cost incomplete",
+                  "Review required",
+                  "Further use blocked",
+                ].includes(state),
+            ),
           ]}
         />
       </div>

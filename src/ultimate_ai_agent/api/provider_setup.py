@@ -98,7 +98,23 @@ def post_control_center_providers_exact_approved_lane_tiny(
             "cost_estimate_ref": request.cost_estimate_ref,
             "budget_decision_ref": request.budget_decision_ref,
             "max_approved_usd_ref": request.max_approved_usd_ref,
+            "actual_usage_ref": (
+                decision.receipt.actual_usage_ref if decision.receipt else None
+            ),
+            "actual_cost_ref": (
+                decision.receipt.actual_cost_ref if decision.receipt else None
+            ),
             "cost_receipt_ref": request.cost_receipt_ref,
+            "receipt_completeness_status": (
+                decision.receipt.receipt_completeness_status.value
+                if decision.receipt
+                else None
+            ),
+            "incomplete_cost_requires_review": (
+                decision.receipt.incomplete_cost_requires_review
+                if decision.receipt
+                else False
+            ),
             "unknown_paid_cost_blocks": True,
         },
         redactions_applied=[

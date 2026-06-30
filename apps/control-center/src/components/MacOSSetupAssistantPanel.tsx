@@ -295,7 +295,16 @@ function ProviderCredentialSetupSummary({
       <div className="note-list" aria-label="Provider credential cost blockers">
         {[
           ...readiness.blocker_codes.slice(0, 8),
-          ...readiness.tiny_invocation_readiness.ui_states,
+          ...readiness.tiny_invocation_readiness.ui_states.filter(
+            (state) =>
+              ![
+                "Usage captured",
+                "Cost captured",
+                "Cost incomplete",
+                "Review required",
+                "Further use blocked",
+              ].includes(state),
+          ),
         ].map((code) => (
           <span key={code}>{code}</span>
         ))}

@@ -1,11 +1,13 @@
 # Exact-Approved Provider Invocation Promotion Plan
 
-Status: disabled-default live adapter lane implemented; broad callable provider runtime remains future gated.
+Status: disabled-default live adapter lane implemented with usage/cost receipt
+hardening; broad callable provider runtime remains future gated.
 
 This plan defines the minimum promotion checklist for one tiny exact-approved
 provider/model lane. The current implementation adds typed contracts, a
 disabled-default Control Center route, CostGovernor blocking, redacted receipt
-storage, CLI inspection, UI posture labels, and one core-only
+storage, actual usage/cost receipt completeness checks, CLI inspection, UI
+posture labels, and one core-only
 OpenAI-compatible adapter that can perform a synchronous network call only when
 constructed with exact scoped approval, known cost posture, injected transient
 credential resolution, durable receipt replay storage, and a scoped transport.
@@ -38,6 +40,10 @@ The tiny lane requires all of the following before adapter execution can occur:
 - idempotency ref
 - redacted request receipt ref
 - redacted response receipt ref
+- actual usage ref
+- actual cost ref
+- receipt completeness status
+- incomplete actual paid cost review posture
 - `PolicyEngine` policy decision ref before any future enabled adapter can
   claim callable authority
 - no raw prompt, response, or provider payload persistence
@@ -55,6 +61,13 @@ approval grants, so it can only return blocked, cost-blocked, approval-required,
 or approval-invalid posture. The Python core evaluator can reach
 `approved_no_execution` only when an exact approval authority is injected and
 cost/policy gates pass while the adapter remains disabled.
+
+If a scoped network attempt occurs and actual paid-cost metadata is unavailable,
+the receipt is marked `incomplete_cost_requires_review`; the lane blocks further
+provider use through the same receipt store until that receipt is reviewed by a
+later scoped process. In short, incomplete actual paid cost blocks further provider use.
+A successful transport that cannot provide actual paid cost also
+fails closed into this review-required receipt posture.
 
 ## Minimum Contract Shape
 
@@ -92,6 +105,12 @@ Receipts must store safe refs and redacted summaries only:
 - policy ref, with `PolicyEngine` policy decision ref added before any future
   enabled adapter
 - cost estimate ref
+- explicit estimated cost ref
+- actual usage ref
+- actual cost ref
+- receipt completeness status
+- incomplete cost review and further-use-blocked flags when actual paid cost is
+  unavailable
 - CostGovernor decision ref
 - budget decision ref
 - max approved USD ref
@@ -107,6 +126,8 @@ receipt-backed. A repeated idempotency ref must return the existing redacted
 receipt or fail closed on scope conflict before a second network call can occur.
 Blocked-attempt receipts may record safe adapter refs and network posture, but
 never raw prompt, response, credential, or provider payload content.
+Incomplete actual paid-cost receipts are redacted receipts, not billing
+authority; they require review and block follow-up provider use.
 
 Receipts, evidence, logs, tests, and UI fixtures must not store raw prompt
 content, raw response content, raw provider exchange content, raw provider
@@ -125,6 +146,11 @@ backend-owned data:
 - no provider authority
 - live adapter blocked
 - receipt recorded
+- usage captured
+- cost captured
+- cost incomplete
+- review required
+- further use blocked
 - disabled no execution
 
 The same posture is inspectable through

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from ultimate_ai_agent.core.providers import (
     TinyProviderInvocationRequest,
     TinyProviderInvocationStatus,
     TinyProviderInvocationTransportReceipt,
+    TinyProviderReceiptCompletenessStatus,
     build_tiny_provider_invocation_approval_request,
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
@@ -180,11 +183,38 @@ def main() -> int:
     readiness = build_tiny_provider_invocation_readiness()
     if readiness.invocation_enabled or readiness.status != TinyProviderInvocationStatus.disabled:
         failures.append("default tiny provider readiness is not disabled")
+    if readiness.receipt_state_source != "no_receipt_observed":
+        failures.append("default tiny provider readiness does not report no receipt observed")
+    if any(
+        (
+            readiness.usage_captured,
+            readiness.cost_captured,
+            readiness.cost_incomplete,
+            readiness.review_required,
+            readiness.further_use_blocked,
+        )
+    ):
+        failures.append("default tiny provider readiness claims receipt state without receipt")
     if "Approved no execution" in readiness.ui_states:
         failures.append("default tiny provider readiness exposes approved state label")
     for label in ("Live adapter blocked", "Live receipt required"):
         if label not in readiness.ui_states:
             failures.append(f"default tiny provider readiness missing UI label: {label}")
+    for label in (
+        "Usage captured",
+        "Cost captured",
+        "Cost incomplete",
+        "Review required",
+        "Further use blocked",
+    ):
+        if label in readiness.ui_states:
+            failures.append(
+                f"default tiny provider readiness exposes receipt outcome as UI state: {label}"
+            )
+        if label not in readiness.receipt_observation_supported_states:
+            failures.append(
+                f"default tiny provider readiness missing receipt observation label: {label}"
+            )
 
     missing_provider = evaluate_tiny_provider_invocation(
         _request(provider_ref="provider-ref:provider-runtime:not-bound")
@@ -278,6 +308,17 @@ def main() -> int:
                 failures.append("receipt store did not persist exactly one redacted receipt")
             if "USAGE_AND_ESTIMATED_COST_RECONCILED" not in success.receipt.reason_codes:
                 failures.append("receipt does not record usage/estimated-cost reconciliation")
+            if success.receipt.estimated_cost_ref != success.receipt.cost_estimate_ref:
+                failures.append("receipt does not expose explicit estimated cost ref")
+            if not success.receipt.actual_usage_ref.startswith("actual-usage-ref:"):
+                failures.append("receipt does not expose safe actual usage ref")
+            if not success.receipt.actual_cost_ref.startswith("actual-cost-ref:"):
+                failures.append("receipt does not expose safe actual cost ref")
+            if (
+                success.receipt.receipt_completeness_status
+                != TinyProviderReceiptCompletenessStatus.complete
+            ):
+                failures.append("successful receipt is not marked complete")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "live-receipts.jsonl")
@@ -439,6 +480,189 @@ def main() -> int:
             failures.append("live over-budget attempt did not record a redacted receipt")
         elif "REDACTED_BLOCKED_ATTEMPT_RECEIPT_RECORDED" not in over_budget_live.receipt.reason_codes:
             failures.append("live over-budget receipt did not record blocked-attempt posture")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "incomplete-receipts.jsonl")
+        incomplete_request = _request(
+            invocation_ref="provider-invocation-ref:tiny:verify-cost-incomplete",
+            idempotency_ref="idempotency:provider-runtime:tiny-cost-incomplete",
+            expected_receipt_ref="receipt:provider-runtime:tiny-cost-incomplete",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-cost-incomplete",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-cost-incomplete",
+        )
+
+        def incomplete_cost_transport(
+            _request_obj: TinyProviderInvocationRequest,
+            _credential: SecretStr,
+        ) -> TinyLiveProviderTransportResult:
+            return TinyLiveProviderTransportResult(
+                status="blocked",
+                transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+                input_tokens_used=6,
+                output_tokens_used=2,
+                network_call_performed=True,
+                block_reason_code="TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE",
+            )
+
+        incomplete = _evaluate_with_exact_approval(
+            incomplete_request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref: _credential_resolution(
+                    incomplete_request
+                ),
+                transport=incomplete_cost_transport,
+            ),
+            receipt_store=store,
+        )
+        if incomplete.receipt is None:
+            failures.append("incomplete cost path did not record a receipt")
+        else:
+            if (
+                incomplete.receipt.receipt_completeness_status
+                != TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review
+            ):
+                failures.append("incomplete cost receipt did not require review")
+            if not incomplete.receipt.incomplete_cost_requires_review:
+                failures.append("incomplete cost receipt missing review-required flag")
+            if not incomplete.receipt.further_provider_use_blocked:
+                failures.append("incomplete cost receipt did not block further provider use")
+            if "ACTUAL_COST_INCOMPLETE" not in incomplete.receipt.reason_codes:
+                failures.append("incomplete cost receipt missing actual-cost reason code")
+
+        followup_request = _request(
+            invocation_ref="provider-invocation-ref:tiny:verify-cost-incomplete-followup",
+            idempotency_ref="idempotency:provider-runtime:tiny-cost-incomplete-followup",
+            expected_receipt_ref="receipt:provider-runtime:tiny-cost-incomplete-followup",
+        )
+        followup = _evaluate_with_exact_approval(
+            followup_request,
+            adapter=DeterministicTinyProviderInvocationAdapter(),
+            receipt_store=store,
+        )
+        if followup.status != TinyProviderInvocationStatus.cost_blocked:
+            failures.append("incomplete cost receipt did not block follow-up provider use")
+        elif "FURTHER_PROVIDER_USE_BLOCKED" not in followup.reason_codes:
+            failures.append("follow-up block did not expose further-use blocked reason")
+
+        cli_result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/inspect_tiny_provider_invocation_lane.py",
+                "--receipts-path",
+                str(store.path),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if cli_result.returncode != 0:
+            failures.append("tiny provider CLI inspection failed")
+        else:
+            cli_payload = json.loads(cli_result.stdout)
+            storage = cli_payload["receipt_storage"]
+            if storage["incomplete_cost_requires_review_count"] != 1:
+                failures.append("CLI did not expose incomplete cost review count")
+            if storage["further_use_blocked"] is not True:
+                failures.append("CLI did not expose further-use blocked posture")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "zero-cost-receipts.jsonl")
+        zero_cost_request = _request(
+            invocation_ref="provider-invocation-ref:tiny:verify-zero-cost-success",
+            idempotency_ref="idempotency:provider-runtime:tiny-zero-cost-success",
+            expected_receipt_ref="receipt:provider-runtime:tiny-zero-cost-success",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-zero-cost-success",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-zero-cost-success",
+        )
+
+        def zero_cost_success_transport(
+            transport_request: TinyProviderInvocationRequest,
+            _credential: SecretStr,
+        ) -> TinyLiveProviderTransportResult:
+            return TinyLiveProviderTransportResult(
+                transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+                input_tokens_used=transport_request.estimated_input_tokens,
+                output_tokens_used=transport_request.estimated_output_tokens,
+                billed_cost_usd=0.0,
+                network_call_performed=True,
+            )
+
+        zero_cost = _evaluate_with_exact_approval(
+            zero_cost_request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref: _credential_resolution(
+                    zero_cost_request
+                ),
+                transport=zero_cost_success_transport,
+            ),
+            receipt_store=store,
+        )
+        if zero_cost.status != TinyProviderInvocationStatus.cost_blocked:
+            failures.append("zero actual-cost provider success did not fail closed")
+        elif zero_cost.receipt is None:
+            failures.append("zero actual-cost provider success did not record receipt")
+        elif (
+            zero_cost.receipt.receipt_completeness_status
+            != TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review
+        ):
+            failures.append("zero actual-cost receipt did not require review")
+        elif "ACTUAL_PROVIDER_COST_INCOMPLETE" not in zero_cost.reason_codes:
+            failures.append("zero actual-cost decision missing incomplete-cost reason")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "legacy-receipts.jsonl")
+        legacy_request = _request(
+            invocation_ref="provider-invocation-ref:tiny:verify-legacy-replay",
+            idempotency_ref="idempotency:provider-runtime:tiny-legacy-replay",
+            expected_receipt_ref="receipt:provider-runtime:tiny-legacy-replay",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-legacy-replay",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-legacy-replay",
+        )
+        legacy_payload = {
+            "receipt_ref": legacy_request.expected_receipt_ref,
+            "invocation_ref": legacy_request.invocation_ref,
+            "run_id": legacy_request.run_id,
+            "provider_ref": legacy_request.provider_ref,
+            "model_ref": legacy_request.model_ref,
+            "credential_ref": legacy_request.credential_ref,
+            "approval_ref": legacy_request.approval_ref,
+            "approval_scope_ref": legacy_request.approval_scope_ref,
+            "cost_estimate_ref": legacy_request.cost_estimate_ref,
+            "budget_decision_ref": legacy_request.budget_decision_ref,
+            "max_approved_usd_ref": legacy_request.max_approved_usd_ref,
+            "expected_receipt_ref": legacy_request.expected_receipt_ref,
+            "usage_receipt_ref": legacy_request.usage_receipt_ref,
+            "cost_receipt_ref": legacy_request.cost_receipt_ref,
+            "cost_governor_decision_ref": "cost-decision-ref:legacy-replay",
+            "idempotency_ref": legacy_request.idempotency_ref,
+            "redacted_input_summary_ref": legacy_request.redacted_input_summary_ref,
+            "redacted_output_summary_ref": legacy_request.redacted_output_summary_ref,
+            "safe_disable_ref": legacy_request.safe_disable_ref,
+            "status": TinyProviderInvocationStatus.receipt_recorded.value,
+            "invocation_performed": True,
+            "estimated_cost_usd": legacy_request.estimated_cost_usd,
+            "billed_cost_usd": legacy_request.estimated_cost_usd,
+            "safe_summary": (
+                "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter."
+            ),
+        }
+        store.path.parent.mkdir(parents=True, exist_ok=True)
+        store.path.write_text(json.dumps(legacy_payload) + "\n", encoding="utf-8")
+        legacy_replay = _evaluate_with_exact_approval(
+            legacy_request,
+            adapter=DeterministicTinyProviderInvocationAdapter(),
+            receipt_store=store,
+        )
+        if legacy_replay.allowed:
+            failures.append("legacy receipt missing completeness fields replayed as allowed")
+        elif legacy_replay.status != TinyProviderInvocationStatus.cost_blocked:
+            failures.append("legacy receipt missing completeness fields did not cost-block")
+        elif legacy_replay.receipt is None:
+            failures.append("legacy receipt missing completeness fields did not return receipt")
+        elif "LEGACY_RECEIPT_COMPLETENESS_MISSING" not in legacy_replay.receipt.reason_codes:
+            failures.append("legacy receipt replay missing legacy completeness reason code")
 
     manifest = build_api_manifest(app).model_dump(mode="json")
     routes = {

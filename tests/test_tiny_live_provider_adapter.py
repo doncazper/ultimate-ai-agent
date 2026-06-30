@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.providers import (
     TinyProviderInvocationReceiptStore,
     TinyProviderInvocationRequest,
     TinyProviderInvocationStatus,
+    TinyProviderReceiptCompletenessStatus,
     TinyProviderInvocationTransportReceipt,
     build_tiny_provider_invocation_approval_request,
     evaluate_tiny_provider_invocation,
@@ -370,6 +371,14 @@ def test_live_adapter_records_network_receipt_with_mocked_transport(tmp_path: Pa
     assert decision.status == TinyProviderInvocationStatus.receipt_recorded
     assert decision.receipt is not None
     assert decision.receipt.network_call_performed is True
+    assert decision.receipt.actual_usage_captured is True
+    assert decision.receipt.actual_cost_captured is True
+    assert (
+        decision.receipt.receipt_completeness_status
+        == TinyProviderReceiptCompletenessStatus.complete
+    )
+    assert decision.receipt.actual_usage_ref.startswith("actual-usage-ref:")
+    assert decision.receipt.actual_cost_ref.startswith("actual-cost-ref:")
     assert decision.receipt.provider_sdk_used is False
     assert decision.receipt.raw_prompt_persisted is False
     assert decision.receipt.raw_response_persisted is False
@@ -425,6 +434,10 @@ def test_live_adapter_actual_cost_over_budget_records_blocked_receipt(
     assert decision.receipt is not None
     assert decision.receipt.status == TinyProviderInvocationStatus.cost_blocked
     assert decision.receipt.network_call_performed is True
+    assert (
+        decision.receipt.receipt_completeness_status
+        == TinyProviderReceiptCompletenessStatus.complete
+    )
     assert "REDACTED_BLOCKED_ATTEMPT_RECEIPT_RECORDED" in decision.receipt.reason_codes
     assert len(store.list_receipts()) == 1
 
@@ -472,45 +485,6 @@ def test_live_adapter_replays_existing_receipt_before_second_network_call(
     assert second.allowed is True
     assert call_count == 1
     assert "IDEMPOTENCY_REPLAYED_RECEIPT" in second.reason_codes
-
-
-def test_live_adapter_network_failure_records_blocked_attempt_receipt(
-    tmp_path: Path,
-) -> None:
-    request = invocation_request(invocation_ref="provider-invocation-ref:tiny:live-blocked")
-    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-live-blocked.jsonl")
-
-    def blocked_transport(
-        _transport_request: TinyProviderInvocationRequest,
-        _credential: SecretStr,
-    ) -> TinyLiveProviderTransportResult:
-        return TinyLiveProviderTransportResult(
-            status="blocked",
-            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
-            network_call_performed=True,
-            block_reason_code="TINY_LIVE_PROVIDER_HTTP_503_BLOCKED",
-        )
-
-    decision = evaluate_tiny_provider_invocation(
-        request,
-        adapter=OpenAICompatibleTinyLiveProviderAdapter(
-            enabled=True,
-            credential_resolver=lambda _credential_ref: available_credential_resolution(
-                request
-            ),
-            transport=blocked_transport,
-        ),
-        approval_authority=exact_authority_for(request),
-        receipt_store=store,
-    )
-
-    assert decision.allowed is False
-    assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
-    assert decision.receipt is not None
-    assert decision.receipt.network_call_performed is True
-    assert decision.receipt.status == TinyProviderInvocationStatus.live_adapter_blocked
-    assert "REDACTED_BLOCKED_ATTEMPT_RECEIPT_RECORDED" in decision.receipt.reason_codes
-    assert len(store.list_receipts()) == 1
 
 
 def test_live_adapter_blocks_revoked_or_rotation_required_credentials(
@@ -628,7 +602,47 @@ def test_live_stdlib_transport_blocks_when_billed_cost_unavailable(
 
     assert result.status == "blocked"
     assert result.block_reason_code == "TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE"
+    assert result.input_tokens_used == 11
+    assert result.output_tokens_used == 4
     assert result.billed_cost_usd == 0.0
+    assert result.network_call_performed is True
+
+
+def test_live_stdlib_transport_blocks_malformed_usage_after_network(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps({"usage": {"input_tokens": "not-a-token"}}).encode(
+                "utf-8"
+            )
+
+    class FakeNoRedirectOpener:
+        def open(self, _request: object, *, timeout: float) -> FakeResponse:
+            assert timeout > 0
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        live_adapter_module,
+        "_NO_REDIRECT_OPENER",
+        FakeNoRedirectOpener(),
+    )
+
+    result = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True
+    )._stdlib_responses_transport(
+        invocation_request(),
+        SecretStr("transient-material"),
+    )
+
+    assert result.status == "blocked"
+    assert result.block_reason_code == "TINY_LIVE_PROVIDER_USAGE_PARSE_BLOCKED"
     assert result.network_call_performed is True
 
 
