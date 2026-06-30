@@ -526,6 +526,13 @@
           "route_classification": "local_readonly"
         },
         {
+          "method": "POST",
+          "path": "/control-center/providers/exact-approved-lanes/tiny",
+          "operation_id": "post_control_center_providers_exact_approved_lanes_tiny",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
           "method": "GET",
           "path": "/v1/models",
           "operation_id": "get_v1_models",

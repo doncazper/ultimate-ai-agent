@@ -11,15 +11,18 @@ from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
+    TinyProviderInvocationAdapter,
     TinyProviderInvocationReceiptStore,
     TinyProviderInvocationRequest,
     TinyProviderInvocationStatus,
+    TinyProviderInvocationTransportReceipt,
     build_tiny_provider_invocation_approval_request,
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
 )
 from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_MODEL_REF,
+    TINY_PROVIDER_INVOCATION_POLICY_REF,
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_PROVIDER_INVOCATION_ROUTE,
 )
@@ -45,7 +48,7 @@ def _request(**overrides: object) -> TinyProviderInvocationRequest:
         "provider_ref": TINY_PROVIDER_INVOCATION_PROVIDER_REF,
         "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
         "credential_ref": "credential-ref:openai-compatible:scoped-test",
-        "policy_ref": "policy-ref:provider-runtime:tiny-test",
+        "policy_ref": TINY_PROVIDER_INVOCATION_POLICY_REF,
         "approval_ref": "approval-ref:provider-runtime:tiny-test",
         "approval_scope_ref": "approval-scope-ref:provider-runtime:tiny-test",
         "cost_estimate_ref": "cost-estimate-ref:provider-runtime:tiny-test",
@@ -90,6 +93,24 @@ def _evaluate_with_exact_approval(
     )
 
 
+class _OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
+    enabled = True
+
+    def execute(
+        self,
+        request: TinyProviderInvocationRequest,
+    ) -> TinyProviderInvocationTransportReceipt:
+        return TinyProviderInvocationTransportReceipt(
+            transport_ref="provider-transport-ref:tiny-provider:over-budget",
+            redacted_output_summary_ref=request.redacted_output_summary_ref,
+            usage_receipt_ref=request.usage_receipt_ref,
+            cost_receipt_ref=request.cost_receipt_ref,
+            input_tokens_used=request.estimated_input_tokens,
+            output_tokens_used=request.estimated_output_tokens,
+            billed_cost_usd=(request.max_approved_usd or 0) + 0.01,
+        )
+
+
 def main() -> int:
     failures: list[str] = []
 
@@ -115,6 +136,18 @@ def main() -> int:
     if above_budget.status != TinyProviderInvocationStatus.cost_blocked:
         failures.append("above budget provider estimate did not block")
 
+    bad_policy = _evaluate_with_exact_approval(
+        _request(policy_ref="policy-ref:provider-runtime:wrong-scope")
+    )
+    if bad_policy.status != TinyProviderInvocationStatus.blocked_missing_policy_validation:
+        failures.append("wrong provider policy ref did not block")
+
+    try:
+        _request(credential_ref="credential-ref:/Users/example/.env")
+        failures.append("path-shaped credential ref was accepted")
+    except ValueError:
+        pass
+
     original_scope = _request()
     replayed_cost_scope = evaluate_tiny_provider_invocation(
         original_scope.model_copy(
@@ -130,6 +163,15 @@ def main() -> int:
         failures.append("approval grant replay with elevated cost scope did not fail")
     elif "APPROVAL_RESOURCE_NOT_GRANTED" not in replayed_cost_scope.reason_codes:
         failures.append("approval grant replay did not report resource scope failure")
+
+    actual_over_budget = _evaluate_with_exact_approval(
+        _request(),
+        adapter=_OverBudgetTinyProviderInvocationAdapter(),
+    )
+    if actual_over_budget.status != TinyProviderInvocationStatus.cost_blocked:
+        failures.append("actual usage/cost over approved budget did not block")
+    elif actual_over_budget.receipt is not None:
+        failures.append("actual over-budget adapter recorded a receipt")
 
     no_approval = evaluate_tiny_provider_invocation(_request())
     if no_approval.status != TinyProviderInvocationStatus.approval_required:
@@ -154,6 +196,8 @@ def main() -> int:
                 failures.append("receipt contains unsafe raw/provider/secret content")
             if len(store.list_receipts()) != 1:
                 failures.append("receipt store did not persist exactly one redacted receipt")
+            if "ACTUAL_USAGE_COST_RECONCILED" not in success.receipt.reason_codes:
+                failures.append("receipt does not record actual usage/cost reconciliation")
 
     manifest = build_api_manifest(app).model_dump(mode="json")
     routes = {

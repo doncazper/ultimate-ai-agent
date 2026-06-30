@@ -58,6 +58,12 @@ def post_control_center_providers_exact_approved_lane_tiny(
             redactions_applied=["provider_invocation_refs_only"],
         )
     decision = evaluate_tiny_provider_invocation(request)
+    evidence = [
+        {"evidence_ref": request.cost_estimate_ref},
+        {"evidence_ref": request.budget_decision_ref},
+    ]
+    if decision.receipt is not None:
+        evidence.insert(0, {"evidence_ref": decision.receipt.receipt_ref})
     return ResultEnvelope(
         success=decision.allowed,
         operation="control_center_providers_exact_approved_lane_tiny",
@@ -65,11 +71,7 @@ def post_control_center_providers_exact_approved_lane_tiny(
         run_id=request.run_id,
         trace_id=request.invocation_ref,
         data=decision.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": request.expected_receipt_ref},
-            {"evidence_ref": request.cost_estimate_ref},
-            {"evidence_ref": request.budget_decision_ref},
-        ],
+        evidence=evidence,
         cost_attribution={
             "provider_ref": request.provider_ref,
             "model_ref": request.model_ref,

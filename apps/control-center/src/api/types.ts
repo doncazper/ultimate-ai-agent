@@ -3905,6 +3905,7 @@ export interface TinyProviderInvocationReadiness {
     | "blocked_missing_budget_decision_ref"
     | "blocked_missing_max_approved_usd"
     | "blocked_missing_expected_receipt_ref"
+    | "blocked_missing_policy_validation"
     | "blocked_provider_not_allowed"
     | "blocked_model_not_allowed"
     | "unknown_paid_cost_blocked"

@@ -10,16 +10,19 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
+    TinyProviderInvocationAdapter,
     TinyProviderInvocationReceipt,
     TinyProviderInvocationReceiptStore,
     TinyProviderInvocationRequest,
     TinyProviderInvocationStatus,
+    TinyProviderInvocationTransportReceipt,
     build_tiny_provider_invocation_approval_request,
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
 )
 from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_MODEL_REF,
+    TINY_PROVIDER_INVOCATION_POLICY_REF,
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_PROVIDER_INVOCATION_ROUTE,
 )
@@ -32,7 +35,7 @@ def invocation_request(**overrides: object) -> TinyProviderInvocationRequest:
         "provider_ref": TINY_PROVIDER_INVOCATION_PROVIDER_REF,
         "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
         "credential_ref": "credential-ref:openai-compatible:scoped-test",
-        "policy_ref": "policy-ref:provider-runtime:tiny-test",
+        "policy_ref": TINY_PROVIDER_INVOCATION_POLICY_REF,
         "approval_ref": "approval-ref:provider-runtime:tiny-test",
         "approval_scope_ref": "approval-scope-ref:provider-runtime:tiny-test",
         "cost_estimate_ref": "cost-estimate-ref:provider-runtime:tiny-test",
@@ -110,6 +113,24 @@ def receipt_payload(**overrides: object) -> dict[str, object]:
     return values
 
 
+class OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
+    enabled = True
+
+    def execute(
+        self,
+        request: TinyProviderInvocationRequest,
+    ) -> TinyProviderInvocationTransportReceipt:
+        return TinyProviderInvocationTransportReceipt(
+            transport_ref=f"provider-transport-ref:tiny-provider:{request.invocation_ref.split(':')[-1]}",
+            redacted_output_summary_ref=request.redacted_output_summary_ref,
+            usage_receipt_ref=request.usage_receipt_ref,
+            cost_receipt_ref=request.cost_receipt_ref,
+            input_tokens_used=request.estimated_input_tokens,
+            output_tokens_used=request.estimated_output_tokens,
+            billed_cost_usd=(request.max_approved_usd or 0) + 0.01,
+        )
+
+
 def test_tiny_provider_lane_default_readiness_is_disabled_and_cost_governed() -> None:
     readiness = build_tiny_provider_invocation_readiness()
 
@@ -161,6 +182,16 @@ def test_estimated_cost_above_max_approved_usd_blocks() -> None:
     assert "HARD_BUDGET_EXCEEDED" in decision.reason_codes
 
 
+def test_policy_ref_must_match_validated_tiny_provider_policy() -> None:
+    decision = evaluate_with_exact_approval(
+        invocation_request(policy_ref="policy-ref:provider-runtime:wrong-scope")
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.blocked_missing_policy_validation
+    assert "POLICY_REF_NOT_ALLOWED" in decision.reason_codes
+
+
 def test_exact_approval_binds_numeric_cost_scope_before_adapter_execution() -> None:
     original = invocation_request(estimated_cost_usd=0.001, max_approved_usd=0.01)
     authority = exact_authority_for(original)
@@ -180,6 +211,21 @@ def test_exact_approval_binds_numeric_cost_scope_before_adapter_execution() -> N
     assert decision.allowed is False
     assert decision.status == TinyProviderInvocationStatus.approval_invalid
     assert "APPROVAL_RESOURCE_NOT_GRANTED" in decision.reason_codes
+    assert decision.receipt is None
+
+
+def test_actual_adapter_cost_above_approved_budget_blocks_without_receipt() -> None:
+    request = invocation_request(estimated_cost_usd=0.001, max_approved_usd=0.01)
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=OverBudgetTinyProviderInvocationAdapter(),
+        approval_authority=exact_authority_for(request),
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.cost_blocked
+    assert "ACTUAL_USAGE_OR_COST_EXCEEDED_APPROVED_SCOPE" in decision.reason_codes
     assert decision.receipt is None
 
 
@@ -225,6 +271,19 @@ def test_injected_adapter_records_only_redacted_receipt(tmp_path: Path) -> None:
     assert "provider_payload" not in receipt_json
     assert "api_key" not in receipt_json.lower()
     assert "token=" not in receipt_json.lower()
+
+
+def test_transport_receipt_requires_known_billed_cost() -> None:
+    with pytest.raises(ValidationError):
+        TinyProviderInvocationTransportReceipt(
+            transport_ref="provider-transport-ref:tiny-provider:missing-cost",
+            redacted_output_summary_ref="redacted-output-summary-ref:provider-runtime:tiny-test",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-test",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-test",
+            input_tokens_used=1,
+            output_tokens_used=1,
+            billed_cost_usd=None,
+        )
 
 
 def test_receipt_rejects_authority_or_raw_persistence_claims() -> None:
@@ -285,6 +344,10 @@ def test_tiny_provider_route_defaults_to_no_execution_with_idempotency() -> None
     assert payload["success"] is False
     assert payload["data"]["status"] == "approval_required"
     assert payload["data"]["receipt"] is None
+    evidence_refs = [item["evidence_ref"] for item in payload["evidence"]]
+    assert request.expected_receipt_ref not in evidence_refs
+    assert request.cost_estimate_ref in evidence_refs
+    assert request.budget_decision_ref in evidence_refs
 
 
 def test_client_supplied_approval_grants_are_not_accepted() -> None:
@@ -318,6 +381,14 @@ def test_request_rejects_raw_text_in_ref_fields() -> None:
         invocation_request(
             redacted_input_summary_ref="raw prompt text should not persist"
         )
+
+
+def test_request_rejects_local_path_shaped_ref_fields() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_REQUEST_UNSAFE_REF_REJECTED",
+    ):
+        invocation_request(credential_ref="credential-ref:/Users/example/.env")
 
 
 def test_receipt_rejects_raw_text_in_ref_fields() -> None:

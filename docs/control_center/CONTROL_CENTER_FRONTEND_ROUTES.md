@@ -269,9 +269,10 @@ unknown paid-cost approval posture, cost estimate refs, budget decision refs,
 max-approved USD refs, future receipt refs, and CostGovernor decision/posture
 refs. The exact tiny lane route
 `POST /control-center/providers/exact-approved-lanes/tiny` is disabled by
-default; it blocks without exact approval and can reach approved-no-execution
-only after exact approval and cost gates pass, while callable provider authority
-still requires a later scoped adapter enablement milestone. It does not add a provider setup
+default; the API route blocks without exact approval, and the Python core
+evaluator reaches approved-no-execution only when exact approval and cost gates
+are injected for inspection while callable provider authority still requires a
+later scoped adapter enablement milestone. It does not add a provider setup
 form, read environment values, collect raw keys, store credential material, run
 a vault/keychain adapter, validate credentials against an external provider,
 invoke provider SDKs by default, run network calls, run autonomous/background

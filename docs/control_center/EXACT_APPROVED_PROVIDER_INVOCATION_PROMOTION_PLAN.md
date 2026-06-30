@@ -40,10 +40,13 @@ The tiny lane requires all of the following before adapter execution can occur:
 - CLI inspection parity
 - UI blocked, approved, and cost-blocked states
 
-Every lane attempt must fail closed when any required ref, approval scope,
-budget decision, receipt ref, or safe-disable posture is missing. The default
-API route uses a disabled adapter and can only return blocked, cost-blocked,
-approval-required, approval-invalid, or approved-no-execution posture.
+Every lane attempt must fail closed when any required ref, policy validation,
+approval scope, budget decision, receipt ref, or safe-disable posture is
+missing. The default API route uses a disabled adapter and does not load
+approval grants, so it can only return blocked, cost-blocked, approval-required,
+or approval-invalid posture. The Python core evaluator can reach
+`approved_no_execution` only when an exact approval authority is injected and
+cost/policy gates pass while the adapter remains disabled.
 
 ## Minimum Contract Shape
 
@@ -53,12 +56,18 @@ The contract distinguishes these states before callable provider runtime exists:
 - `blocked_missing_provider_ref`
 - `blocked_missing_model_ref`
 - `blocked_missing_policy_validation`
-- `blocked_missing_exact_approval_scope`
+- `blocked_missing_cost_estimate_ref`
+- `blocked_missing_budget_decision_ref`
+- `blocked_missing_max_approved_usd`
+- `blocked_missing_expected_receipt_ref`
+- `blocked_provider_not_allowed`
+- `blocked_model_not_allowed`
+- `approval_required`
+- `approval_invalid`
 - `cost_blocked`
 - `unknown_paid_cost_blocked`
 - `approved_no_execution`
 - `receipt_recorded`
-- `safe_disabled`
 
 Approval refs, credential refs, provider refs, model refs, and max-approved USD
 refs remain identifiers. They do not authorize provider calls unless the exact
@@ -100,7 +109,7 @@ backend-owned data:
 - unknown paid cost
 - no provider authority
 - receipt recorded
-- safe disabled
+- disabled no execution
 
 The same posture is inspectable through
 `scripts/inspect_tiny_provider_invocation_lane.py`. UI labels must never imply
