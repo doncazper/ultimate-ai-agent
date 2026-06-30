@@ -113,7 +113,12 @@ the Exact-Approved Provider Fallback lane is documented in
 `docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md`. The fallback lane is
 limited to two proven single-provider adapter scopes and requires per-attempt
 exact approval, CostGovernor posture, durable receipt refs, and complete
-usage/cost receipts. The contracts live in
+usage/cost receipts. Background and autonomous provider-call promotion
+requirements are planning-only and documented in
+`docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`;
+background execution, scheduler runtime, autonomous model calls, provider
+calls, runtime activation, billing authority, broad provider routing, and new
+API runtime routes remain blocked. The contracts live in
 `src/ultimate_ai_agent/core/providers/catalog.py`,
 `src/ultimate_ai_agent/core/providers/readiness.py`,
 `src/ultimate_ai_agent/core/providers/invocation.py`,
@@ -135,7 +140,10 @@ usage/cost receipts. The contracts live in
 checked by `scripts/verify_provider_invocation_promotion_plan.py` and
 `scripts/verify_tiny_provider_invocation_lane.py`, and
 `scripts/verify_provider_credential_validation_lane.py`, with fallback sequencing
-covered by `tests/test_exact_approved_provider_fallback.py`; backend safe-ref
+covered by `tests/test_exact_approved_provider_fallback.py`; background
+promotion planning is checked by
+`scripts/verify_background_autonomous_provider_plan.py` and
+`tests/test_background_autonomous_provider_plan.py`; backend safe-ref
 posture is checked by `scripts/verify_credential_vault_backend_v1.py`. They add no secret
 resolution API, no raw secret display, no built-in live validation transport,
 no provider SDK calls, no provider network call by default, no provider network
@@ -168,7 +176,7 @@ product-truth ledgers.
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py` |
-| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `src/ultimate_ai_agent/core/providers/invocation.py`, `src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, `src/ultimate_ai_agent/core/providers/credential_validation.py`, `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, `src/ultimate_ai_agent/core/secrets/vault_backend.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/inspect_credential_vault_contract.py`, `scripts/inspect_credential_vault_backend.py`, `scripts/inspect_tiny_provider_invocation_lane.py`, `scripts/inspect_provider_credential_validation_lane.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py`, `scripts/verify_credential_vault_contract_shell.py`, `scripts/verify_credential_vault_backend_v1.py`, `scripts/verify_provider_invocation_promotion_plan.py`, `scripts/verify_tiny_provider_invocation_lane.py`, `scripts/verify_provider_credential_validation_lane.py` |
+| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md`, `docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `src/ultimate_ai_agent/core/providers/invocation.py`, `src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, `src/ultimate_ai_agent/core/providers/credential_validation.py`, `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, `src/ultimate_ai_agent/core/secrets/vault_backend.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/inspect_credential_vault_contract.py`, `scripts/inspect_credential_vault_backend.py`, `scripts/inspect_tiny_provider_invocation_lane.py`, `scripts/inspect_provider_credential_validation_lane.py`, `scripts/inspect_exact_approved_provider_fallback.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py`, `scripts/verify_credential_vault_contract_shell.py`, `scripts/verify_credential_vault_backend_v1.py`, `scripts/verify_provider_invocation_promotion_plan.py`, `scripts/verify_tiny_provider_invocation_lane.py`, `scripts/verify_provider_credential_validation_lane.py`, `scripts/verify_background_autonomous_provider_plan.py` |
 | Memory Workbench V1 and Ranked Retrieval / Recall Tuning | `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_022_RANKED_RETRIEVAL_RECALL_TUNING.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md` |
 | Agent module maturity review | `docs/registry/agent_module_maturity_map.json`, `docs/registry/agent_module_maturity_review_v2.json`, `docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` |
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |

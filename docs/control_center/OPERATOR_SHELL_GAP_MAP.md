@@ -11,6 +11,10 @@ This map is production-readiness scaffolding for the Control Center operator
 shell. It does not add runtime authority, backend routes, frontend controls,
 shell/subprocess execution, browser automation, connector writes, plugin runtime
 import, mobile control, autonomous background execution, or public distribution.
+`docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`
+is planning-only: Control Center has no background provider queue dispatch,
+scheduler control, autonomous provider-call control, billing authority toggle,
+broad provider router toggle, or new API runtime route for that lane.
 
 Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
