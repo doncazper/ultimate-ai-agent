@@ -4089,6 +4089,22 @@ export const mockControlCenterData: ControlCenterData = {
         route_ref: "POST /control-center/providers/exact-approved-lanes/tiny",
         provider_ref: "provider-ref:openai-compatible:tiny-exact-approved",
         model_ref: "model-ref:openai-compatible:tiny-contract-model",
+        provider_scope_refs: [
+          "provider-ref:openai-compatible:tiny-exact-approved",
+          "provider-ref:anthropic-compatible:tiny-exact-approved",
+        ],
+        model_scope_refs: [
+          "model-ref:openai-compatible:tiny-contract-model",
+          "model-ref:anthropic-compatible:tiny-contract-model",
+        ],
+        policy_scope_refs: [
+          "policy-ref:provider-runtime:tiny-exact-approved:v1",
+          "policy-ref:provider-runtime:tiny-second-exact-approved:v1",
+        ],
+        adapter_scope_refs: [
+          "provider-adapter-ref:tiny-exact-approved:openai-compatible-live",
+          "provider-adapter-ref:tiny-exact-approved:anthropic-compatible-live",
+        ],
         status: "disabled",
         invocation_enabled: false,
         provider_sdk_call_enabled: false,
@@ -4158,7 +4174,7 @@ export const mockControlCenterData: ControlCenterData = {
           "LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER",
         ],
         safe_summary:
-          "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, actual usage/cost refs, receipt completeness checks, and a separate scoped adapter enablement gate. Incomplete actual paid cost requires review and blocks further use.",
+          "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, actual usage/cost refs, receipt completeness checks, and a separate scoped adapter enablement gate. Two named single-provider adapter scopes are visible as future fallback prerequisites, but fallback execution remains blocked. Incomplete actual paid cost requires review and blocks further use.",
       },
       router_dry_run_readiness: {
         contract_ref: "provider-router-dry-run:proposal-only:v1",

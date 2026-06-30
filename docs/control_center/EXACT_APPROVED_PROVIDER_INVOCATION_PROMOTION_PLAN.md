@@ -7,10 +7,13 @@ This plan defines the minimum promotion checklist for one tiny exact-approved
 provider/model lane. The current implementation adds typed contracts, a
 disabled-default Control Center route, CostGovernor blocking, redacted receipt
 storage, actual usage/cost receipt completeness checks, CLI inspection, UI
-posture labels, and one core-only
-OpenAI-compatible adapter that can perform a synchronous network call only when
-constructed with exact scoped approval, known cost posture, injected transient
-credential resolution, durable receipt replay storage, and a scoped transport.
+posture labels, and two core-only single-provider adapter scopes:
+OpenAI-compatible and Anthropic-compatible. Each adapter scope remains
+disabled-by-default and blocked unless explicitly constructed with exact scoped
+approval, known cost posture, injected transient credential resolution, durable
+receipt replay storage, and its matching scoped transport. The second adapter
+is prerequisite evidence for future fallback work; it does not itself enable
+fallback execution.
 It does not add provider
 credential validation authority through the invocation lane, provider SDK
 calls, broad callable provider routing, fallback execution, autonomous model
@@ -169,7 +172,10 @@ authority, or callable runtime from metadata visibility.
 - No enabled runtime invocation by default.
 - No credential validation authority through this invocation lane.
 - No network calls by default.
-- No network calls outside `OpenAICompatibleTinyLiveProviderAdapter`.
+- No network calls outside the two named exact-scoped live adapters.
+- No fallback execution until a separate exact-approved fallback lane validates
+  per-attempt approval, CostGovernor, idempotency, receipt, and safe-disable
+  scopes.
 - No model output authority.
 - No raw prompt, response, or provider payload persistence.
 - No broad provider enabled toggle.

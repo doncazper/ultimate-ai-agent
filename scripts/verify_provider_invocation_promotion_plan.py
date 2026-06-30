@@ -55,7 +55,7 @@ REQUIRED_DOC_FRAGMENTS = {
     "No enabled runtime invocation by default.",
     "No credential validation authority through this invocation lane.",
     "No network calls by default.",
-    "No network calls outside `OpenAICompatibleTinyLiveProviderAdapter`.",
+    "No network calls outside the two named exact-scoped live adapters.",
     "No model output authority.",
 }
 REQUIRED_SUPPORTING_FRAGMENTS = {

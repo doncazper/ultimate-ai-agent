@@ -76,18 +76,20 @@ adapter; blocked provider-network attempts record redacted receipts, and the
 lane adds no model invocation, provider SDK, broad provider router, fallback,
 billing authority, raw credential display, provider payload persistence,
 autonomous/background calls, or provider output authority.
-Tiny Exact-Approved Provider Invocation Lane now adds a disabled-default
-contract path for one provider/model lane with credential/provider/model refs,
+Tiny Exact-Approved Provider Invocation Lane now adds disabled-default
+contract paths for two named single-provider scopes with credential/provider/model refs,
 exact approval scope, CostGovernor decision, unknown paid cost blocked by
 default, max-approved USD, idempotency, redacted receipt refs, safe-disable
 posture, CLI parity, UI blocked/approved/cost-blocked states, and a core-only
-OpenAI-compatible live adapter that can run only when explicitly constructed
-with exact approval, known cost, transient credential resolution, and scoped
-transport plus durable receipt replay storage. The default API route blocks
+OpenAI-compatible live adapter plus an Anthropic-compatible live adapter that
+remain disabled by default and blocked unless explicitly constructed with exact
+approval, known cost, transient credential resolution, matching scoped
+transport, and durable receipt replay storage. The second adapter is
+prerequisite evidence for future fallback work only. The default API route blocks
 without exact approval and uses the disabled adapter by default; metadata
 visibility does not create callable provider authority. The lane adds no
 provider SDK calls, credential validation authority beyond the separate
-exact-approved validation lane, broad provider router, fallback, autonomous
+exact-approved validation lane, broad provider router, fallback execution, autonomous
 model calls, background execution, billing authority, provider output
 authority, or broad callable runtime authority.
 Provider Router Dry-Run now adds `POST /control-center/providers/router/dry-run`

@@ -81,7 +81,9 @@ Exact-Approved Provider Invocation Promotion Plan in
 `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md` and
 Exact-Approved Provider Credential Validation Lane in
 `docs/control_center/PROVIDER_CREDENTIAL_VALIDATION_LANE.md`, and Provider
-Router Dry-Run in `docs/control_center/PROVIDER_ROUTER_DRY_RUN.md`, backed by
+Router Dry-Run in `docs/control_center/PROVIDER_ROUTER_DRY_RUN.md`. The
+invocation lane now names two disabled-default single-provider adapter scopes
+while fallback execution remains future gated and blocked. The contracts are backed by
 `src/ultimate_ai_agent/core/providers/catalog.py`,
 `src/ultimate_ai_agent/core/providers/readiness.py`,
 `src/ultimate_ai_agent/core/providers/invocation.py`,
@@ -106,7 +108,7 @@ checked by `scripts/verify_provider_invocation_promotion_plan.py` and
 `scripts/verify_provider_router_dry_run.py`, plus
 `scripts/verify_credential_vault_backend_v1.py`. It adds no secret resolution
 API, no raw secret display, no provider SDK calls, no provider network call by
-default, no provider network outside the scoped tiny live adapter, no broad
+default, no provider network outside named exact-scoped tiny live adapters, no broad
 provider router authority, no fallback execution, no autonomous model calls, no background
 execution, no automatic pricing fetch, no billing authority, no provider output
 authority, no unknown paid-cost bypass, no vault runtime authority, no

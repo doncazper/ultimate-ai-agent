@@ -3897,6 +3897,10 @@ export interface TinyProviderInvocationReadiness {
   route_ref: string;
   provider_ref: string;
   model_ref: string;
+  provider_scope_refs: string[];
+  model_scope_refs: string[];
+  policy_scope_refs: string[];
+  adapter_scope_refs: string[];
   status:
     | "disabled"
     | "blocked_missing_provider_ref"

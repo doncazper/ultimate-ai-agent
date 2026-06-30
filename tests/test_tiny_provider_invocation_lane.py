@@ -7,19 +7,21 @@ import pytest
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
+    SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+    SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+    SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+    SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
+    SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_LIVE_PROVIDER_ADAPTER_REF,
     TINY_LIVE_PROVIDER_TRANSPORT_REF,
-    TinyProviderInvocationAdapter,
     TinyProviderInvocationReceipt,
     TinyProviderInvocationReceiptStore,
     TinyProviderInvocationRequest,
     TinyProviderInvocationStatus,
     TinyProviderInvocationTransportReceipt,
     TinyProviderReceiptCompletenessStatus,
-    build_tiny_provider_invocation_approval_request,
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
 )
@@ -29,124 +31,14 @@ from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_PROVIDER_INVOCATION_ROUTE,
 )
-
-
-def invocation_request(**overrides: object) -> TinyProviderInvocationRequest:
-    values: dict[str, object] = {
-        "invocation_ref": "provider-invocation-ref:tiny:test",
-        "run_id": "run-ref:tiny-provider-test",
-        "provider_ref": TINY_PROVIDER_INVOCATION_PROVIDER_REF,
-        "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
-        "credential_ref": "credential-ref:openai-compatible:scoped-test",
-        "policy_ref": TINY_PROVIDER_INVOCATION_POLICY_REF,
-        "approval_ref": "approval-ref:provider-runtime:tiny-test",
-        "approval_scope_ref": "approval-scope-ref:provider-runtime:tiny-test",
-        "cost_estimate_ref": "cost-estimate-ref:provider-runtime:tiny-test",
-        "budget_decision_ref": "budget-decision-ref:provider-runtime:tiny-test",
-        "max_approved_usd_ref": "max-approved-usd-ref:provider-runtime:tiny-test",
-        "max_approved_usd": 0.01,
-        "idempotency_ref": "idempotency:provider-runtime:tiny-test",
-        "expected_receipt_ref": "receipt:provider-runtime:tiny-test",
-        "usage_receipt_ref": "usage-receipt-ref:provider-runtime:tiny-test",
-        "cost_receipt_ref": "cost-receipt-ref:provider-runtime:tiny-test",
-        "redacted_input_summary_ref": "redacted-input-summary-ref:provider-runtime:tiny-test",
-        "redacted_output_summary_ref": "redacted-output-summary-ref:provider-runtime:tiny-test",
-        "safe_disable_ref": "safe-disable-ref:provider-runtime:tiny-test",
-        "estimated_input_tokens": 10,
-        "estimated_output_tokens": 5,
-        "estimated_cost_usd": 0.001,
-    }
-    values.update(overrides)
-    return TinyProviderInvocationRequest(**values)
-
-
-def exact_authority_for(
-    request: TinyProviderInvocationRequest,
-) -> LocalApprovalAuthority:
-    authority = LocalApprovalAuthority()
-    approval_request = build_tiny_provider_invocation_approval_request(request)
-    authority.create_request(approval_request)
-    authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="operator:local",
-        approval_ref=request.approval_ref,
-    )
-    return authority
-
-
-def evaluate_with_exact_approval(
-    request: TinyProviderInvocationRequest,
-    **kwargs: object,
-):
-    return evaluate_tiny_provider_invocation(
-        request,
-        approval_authority=exact_authority_for(request),
-        **kwargs,
-    )
-
-
-def receipt_payload(**overrides: object) -> dict[str, object]:
-    values: dict[str, object] = {
-        "receipt_ref": "receipt:provider-runtime:tiny-test",
-        "invocation_ref": "provider-invocation-ref:tiny:test",
-        "run_id": "run-ref:tiny-provider-test",
-        "provider_ref": TINY_PROVIDER_INVOCATION_PROVIDER_REF,
-        "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
-        "credential_ref": "credential-ref:openai-compatible:scoped-test",
-        "approval_ref": "approval-ref:provider-runtime:tiny-test",
-        "approval_scope_ref": "approval-scope-ref:provider-runtime:tiny-test",
-        "cost_estimate_ref": "cost-estimate-ref:provider-runtime:tiny-test",
-        "budget_decision_ref": "budget-decision-ref:provider-runtime:tiny-test",
-        "max_approved_usd_ref": "max-approved-usd-ref:provider-runtime:tiny-test",
-        "expected_receipt_ref": "receipt:provider-runtime:tiny-test",
-        "usage_receipt_ref": "usage-receipt-ref:provider-runtime:tiny-test",
-        "cost_receipt_ref": "cost-receipt-ref:provider-runtime:tiny-test",
-        "cost_governor_decision_ref": "cost-decision-ref:provider-runtime:tiny-test",
-        "estimated_cost_ref": "cost-estimate-ref:provider-runtime:tiny-test",
-        "actual_usage_ref": (
-            "actual-usage-ref:provider-runtime:"
-            "usage-receipt-ref-provider-runtime-tiny-test"
-        ),
-        "actual_cost_ref": (
-            "actual-cost-ref:provider-runtime:"
-            "cost-receipt-ref-provider-runtime-tiny-test"
-        ),
-        "idempotency_ref": "idempotency:provider-runtime:tiny-test",
-        "redacted_input_summary_ref": "redacted-input-summary-ref:provider-runtime:tiny-test",
-        "redacted_output_summary_ref": "redacted-output-summary-ref:provider-runtime:tiny-test",
-        "safe_disable_ref": "safe-disable-ref:provider-runtime:tiny-test",
-        "status": TinyProviderInvocationStatus.receipt_recorded,
-        "invocation_performed": True,
-        "actual_usage_captured": True,
-        "actual_cost_captured": True,
-        "receipt_completeness_status": TinyProviderReceiptCompletenessStatus.complete,
-        "incomplete_cost_requires_review": False,
-        "further_provider_use_blocked": False,
-        "safe_summary": (
-            "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter."
-        ),
-    }
-    values.update(overrides)
-    return values
-
-
-class OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
-    enabled = True
-
-    def execute(
-        self,
-        request: TinyProviderInvocationRequest,
-    ) -> TinyProviderInvocationTransportReceipt:
-        return TinyProviderInvocationTransportReceipt(
-            transport_ref=f"provider-transport-ref:tiny-provider:{request.invocation_ref.split(':')[-1]}",
-            adapter_ref=self.adapter_ref,
-            redacted_output_summary_ref=request.redacted_output_summary_ref,
-            usage_receipt_ref=request.usage_receipt_ref,
-            cost_receipt_ref=request.cost_receipt_ref,
-            input_tokens_used=request.estimated_input_tokens,
-            output_tokens_used=request.estimated_output_tokens,
-            billed_cost_usd=(request.max_approved_usd or 0) + 0.01,
-        )
+from tests.tiny_provider_invocation_helpers import (
+    OverBudgetTinyProviderInvocationAdapter,
+    exact_authority_for,
+    evaluate_with_exact_approval,
+    invocation_request,
+    receipt_payload,
+    second_invocation_request,
+)
 
 
 def test_tiny_provider_lane_default_readiness_is_disabled_and_cost_governed() -> None:
@@ -160,6 +52,22 @@ def test_tiny_provider_lane_default_readiness_is_disabled_and_cost_governed() ->
     assert readiness.unknown_paid_cost_blocks is True
     assert readiness.redacted_receipts_only is True
     assert readiness.receipt_state_source == "no_receipt_observed"
+    assert readiness.provider_scope_refs == [
+        TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+    ]
+    assert readiness.model_scope_refs == [
+        TINY_PROVIDER_INVOCATION_MODEL_REF,
+        SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+    ]
+    assert readiness.policy_scope_refs == [
+        TINY_PROVIDER_INVOCATION_POLICY_REF,
+        SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
+    ]
+    assert readiness.adapter_scope_refs == [
+        TINY_LIVE_PROVIDER_ADAPTER_REF,
+        SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+    ]
     assert readiness.usage_captured is False
     assert readiness.cost_captured is False
     assert readiness.cost_incomplete is False
@@ -219,6 +127,50 @@ def test_policy_ref_must_match_validated_tiny_provider_policy() -> None:
     assert decision.allowed is False
     assert decision.status == TinyProviderInvocationStatus.blocked_missing_policy_validation
     assert "POLICY_REF_NOT_ALLOWED" in decision.reason_codes
+
+
+def test_second_provider_scope_requires_its_exact_model_and_policy() -> None:
+    wrong_model = evaluate_with_exact_approval(
+        second_invocation_request(model_ref=TINY_PROVIDER_INVOCATION_MODEL_REF)
+    )
+    wrong_policy = evaluate_with_exact_approval(
+        second_invocation_request(policy_ref=TINY_PROVIDER_INVOCATION_POLICY_REF)
+    )
+
+    assert wrong_model.allowed is False
+    assert wrong_model.status == TinyProviderInvocationStatus.blocked_model_not_allowed
+    assert "MODEL_REF_NOT_ALLOWED" in wrong_model.reason_codes
+    assert wrong_policy.allowed is False
+    assert (
+        wrong_policy.status
+        == TinyProviderInvocationStatus.blocked_missing_policy_validation
+    )
+    assert "POLICY_REF_NOT_ALLOWED" in wrong_policy.reason_codes
+
+
+def test_second_provider_scope_can_record_deterministic_redacted_receipt(
+    tmp_path: Path,
+) -> None:
+    request = second_invocation_request(
+        invocation_ref="provider-invocation-ref:tiny-second:deterministic",
+        idempotency_ref="idempotency:provider-runtime:tiny-second-deterministic",
+        expected_receipt_ref="receipt:provider-runtime:tiny-second-deterministic",
+    )
+    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-second-receipts.jsonl")
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=DeterministicTinyProviderInvocationAdapter(),
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert decision.allowed is True
+    assert decision.receipt is not None
+    assert decision.receipt.provider_ref == SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF
+    assert decision.receipt.model_ref == SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF
+    assert decision.receipt.network_call_performed is False
+    assert decision.receipt.raw_provider_exchange_persisted is False
 
 
 def test_exact_approval_binds_numeric_cost_scope_before_adapter_execution() -> None:
@@ -342,6 +294,43 @@ def test_transport_receipt_allows_network_only_as_scoped_adapter_metadata() -> N
     assert receipt.network_call_performed is True
     assert receipt.provider_sdk_used is False
     assert receipt.raw_output_persisted is False
+
+
+def test_transport_receipt_allows_second_network_scope_only_with_matching_refs() -> None:
+    receipt = TinyProviderInvocationTransportReceipt(
+        transport_ref=SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        adapter_ref=SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+        provider_ref=SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        model_ref=SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+        redacted_output_summary_ref="redacted-output-summary-ref:provider-runtime:tiny-second-test",
+        usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-second-test",
+        cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-second-test",
+        input_tokens_used=1,
+        output_tokens_used=1,
+        billed_cost_usd=0.001,
+        network_call_performed=True,
+    )
+
+    assert receipt.network_call_performed is True
+    assert receipt.provider_sdk_used is False
+
+    with pytest.raises(
+        ValidationError,
+        match="TINY_PROVIDER_INVOCATION_TRANSPORT_NETWORK_SCOPE_DENIED",
+    ):
+        TinyProviderInvocationTransportReceipt(
+            transport_ref=SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            adapter_ref=TINY_LIVE_PROVIDER_ADAPTER_REF,
+            provider_ref=SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+            model_ref=SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+            redacted_output_summary_ref="redacted-output-summary-ref:provider-runtime:tiny-second-test",
+            usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-second-test",
+            cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-second-test",
+            input_tokens_used=1,
+            output_tokens_used=1,
+            billed_cost_usd=0.001,
+            network_call_performed=True,
+        )
 
 
 def test_transport_receipt_rejects_network_without_approved_transport_scope() -> None:
@@ -581,7 +570,7 @@ def test_receipt_rejects_freeform_safe_summary_text() -> None:
     ):
         TinyProviderInvocationReceipt(
             **receipt_payload(
-                safe_summary="A raw model answer or provider exchange could hide here."
+                safe_summary="Unsafe freeform non-ref summary should be rejected."
             )
         )
 
@@ -660,7 +649,7 @@ def test_request_rejects_raw_text_in_ref_fields() -> None:
         match="TINY_PROVIDER_INVOCATION_REQUEST_UNSAFE_REF_REJECTED",
     ):
         invocation_request(
-            redacted_input_summary_ref="raw prompt text should not persist"
+            redacted_input_summary_ref="unsafe freeform summary text"
         )
 
 
@@ -669,7 +658,7 @@ def test_request_rejects_local_path_shaped_ref_fields() -> None:
         ValidationError,
         match="TINY_PROVIDER_INVOCATION_REQUEST_UNSAFE_REF_REJECTED",
     ):
-        invocation_request(credential_ref="credential-ref:/Users/example/.env")
+        invocation_request(credential_ref="credential-ref:unsafe/value")
 
 
 def test_receipt_rejects_raw_text_in_ref_fields() -> None:
@@ -679,6 +668,6 @@ def test_receipt_rejects_raw_text_in_ref_fields() -> None:
     ):
         TinyProviderInvocationReceipt(
             **receipt_payload(
-                redacted_output_summary_ref="raw response text should not persist",
+                redacted_output_summary_ref="unsafe freeform summary text",
             )
         )

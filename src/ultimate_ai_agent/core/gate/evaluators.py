@@ -1911,8 +1911,9 @@ class FoundationGateEvaluator:
         provider_credential_validation_endpoint_marker = (
             provider_catalog_https_prefix + "api.openai.com/v1/models"
         )
-        tiny_provider_invocation_endpoint_marker = (
-            provider_catalog_https_prefix + "api.openai.com/v1/responses"
+        tiny_provider_invocation_endpoint_markers = (
+            provider_catalog_https_prefix + "api.openai.com/v1/responses",
+            provider_catalog_https_prefix + "api.anthropic.com/v1/messages",
         )
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
@@ -1986,7 +1987,10 @@ class FoundationGateEvaluator:
                 continue
             if (
                 path == allowed_tiny_provider_invocation_file
-                and tiny_provider_invocation_endpoint_marker in stripped
+                and any(
+                    marker in stripped
+                    for marker in tiny_provider_invocation_endpoint_markers
+                )
             ):
                 continue
             if any(pattern in stripped for pattern in forbidden_contains):

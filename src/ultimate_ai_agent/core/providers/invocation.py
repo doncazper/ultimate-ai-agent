@@ -43,6 +43,15 @@ TINY_PROVIDER_INVOCATION_ROUTE = "/control-center/providers/exact-approved-lanes
 TINY_PROVIDER_INVOCATION_PROVIDER_REF = "provider-ref:openai-compatible:tiny-exact-approved"
 TINY_PROVIDER_INVOCATION_MODEL_REF = "model-ref:openai-compatible:tiny-contract-model"
 TINY_PROVIDER_INVOCATION_POLICY_REF = "policy-ref:provider-runtime:tiny-exact-approved:v1"
+SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF = (
+    "provider-ref:anthropic-compatible:tiny-exact-approved"
+)
+SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF = (
+    "model-ref:anthropic-compatible:tiny-contract-model"
+)
+SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF = (
+    "policy-ref:provider-runtime:tiny-second-exact-approved:v1"
+)
 TINY_PROVIDER_INVOCATION_CAPABILITY_ID = "provider.invocation.tiny_exact_approved"
 TINY_PROVIDER_INVOCATION_ACTION = "provider_model_tiny_exact_approved"
 TINY_LIVE_PROVIDER_ADAPTER_REF = (
@@ -52,10 +61,38 @@ TINY_LIVE_PROVIDER_TRANSPORT_REF = "provider-transport-ref:tiny-live:openai-comp
 TINY_LIVE_PROVIDER_ENDPOINT_REF = "provider-endpoint-ref:openai-compatible:responses"
 TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT = "https://api.openai.com/v1/responses"
 TINY_LIVE_PROVIDER_MODEL_NAME = "tiny-exact-approved-model"
+SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF = (
+    "provider-adapter-ref:tiny-exact-approved:anthropic-compatible-live"
+)
+SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF = (
+    "provider-transport-ref:tiny-live:anthropic-compatible"
+)
+SECOND_TINY_LIVE_PROVIDER_ENDPOINT_REF = "provider-endpoint-ref:anthropic-compatible:messages"
+SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT = "https://api.anthropic.com/v1/messages"
+SECOND_TINY_LIVE_PROVIDER_MODEL_NAME = "tiny-second-exact-approved-model"
+TINY_PROVIDER_INVOCATION_SCOPE_REFS = (
+    TINY_LIVE_PROVIDER_ADAPTER_REF,
+    SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+)
 TINY_PROVIDER_RECEIPT_SUMMARY = (
     "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter."
 )
 _TINY_PROVIDER_EXECUTION_GRANT_TOKEN = object()
+
+_TINY_PROVIDER_INVOCATION_SCOPES = {
+    TINY_PROVIDER_INVOCATION_PROVIDER_REF: {
+        "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "policy_ref": TINY_PROVIDER_INVOCATION_POLICY_REF,
+        "adapter_ref": TINY_LIVE_PROVIDER_ADAPTER_REF,
+        "transport_ref": TINY_LIVE_PROVIDER_TRANSPORT_REF,
+    },
+    SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF: {
+        "model_ref": SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "policy_ref": SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
+        "adapter_ref": SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+        "transport_ref": SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+    },
+}
 
 
 class TinyProviderInvocationStatus(str, Enum):
@@ -160,11 +197,62 @@ def _ref_is_missing(ref: str | None) -> bool:
     )
 
 
+def _tiny_provider_scope(provider_ref: str) -> dict[str, str] | None:
+    return _TINY_PROVIDER_INVOCATION_SCOPES.get(provider_ref)
+
+
+def _tiny_provider_scope_for_provider_model(
+    provider_ref: str,
+    model_ref: str,
+) -> dict[str, str] | None:
+    scope = _tiny_provider_scope(provider_ref)
+    if scope is None or scope["model_ref"] != model_ref:
+        return None
+    return scope
+
+
+def _tiny_provider_scope_for_request(
+    request: "TinyProviderInvocationRequest",
+) -> dict[str, str] | None:
+    scope = _tiny_provider_scope_for_provider_model(
+        request.provider_ref,
+        request.model_ref,
+    )
+    if scope is None or scope["policy_ref"] != request.policy_ref:
+        return None
+    return scope
+
+
+def _tiny_provider_scope_for_transport(
+    receipt: "TinyProviderInvocationTransportReceipt",
+) -> dict[str, str] | None:
+    return _tiny_provider_scope_for_provider_model(
+        receipt.provider_ref,
+        receipt.model_ref,
+    )
+
+
 class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
     lane_ref: str = "provider-invocation-lane:tiny-exact-approved:v1"
     route_ref: str = f"POST {TINY_PROVIDER_INVOCATION_ROUTE}"
     provider_ref: str = TINY_PROVIDER_INVOCATION_PROVIDER_REF
     model_ref: str = TINY_PROVIDER_INVOCATION_MODEL_REF
+    provider_scope_refs: list[str] = Field(
+        default_factory=lambda: list(_TINY_PROVIDER_INVOCATION_SCOPES.keys())
+    )
+    model_scope_refs: list[str] = Field(
+        default_factory=lambda: [
+            scope["model_ref"] for scope in _TINY_PROVIDER_INVOCATION_SCOPES.values()
+        ]
+    )
+    policy_scope_refs: list[str] = Field(
+        default_factory=lambda: [
+            scope["policy_ref"] for scope in _TINY_PROVIDER_INVOCATION_SCOPES.values()
+        ]
+    )
+    adapter_scope_refs: list[str] = Field(
+        default_factory=lambda: list(TINY_PROVIDER_INVOCATION_SCOPE_REFS)
+    )
     status: TinyProviderInvocationStatus = TinyProviderInvocationStatus.disabled
     invocation_enabled: bool = False
     provider_sdk_call_enabled: bool = False
@@ -244,7 +332,9 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
         "Tiny exact-approved provider lane is contract-wired but disabled by default; "
         "provider execution requires exact approval, credential/provider/model/cost/budget "
         "refs, max approved USD, idempotency, expected receipts, redacted receipts, and "
-        "a separate scoped adapter enablement gate. Even with the live adapter contract "
+        "a separate scoped adapter enablement gate. The lane now recognizes two named "
+        "single-provider adapter scopes for future fallback prerequisites, but fallback "
+        "execution remains blocked. Even with live adapter contracts "
         "present, the default readiness posture remains disabled-no-execution."
     )
 
@@ -279,6 +369,38 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             raise ValueError(
                 "TINY_PROVIDER_INVOCATION_READINESS_RECEIPT_OBSERVATION_REF_DENIED"
             )
+        if self.adapter_scope_refs != list(TINY_PROVIDER_INVOCATION_SCOPE_REFS):
+            raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_SCOPE_REFS_DENIED")
+        if self.provider_scope_refs != list(_TINY_PROVIDER_INVOCATION_SCOPES.keys()):
+            raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_PROVIDER_SCOPE_REFS_DENIED")
+        if self.model_scope_refs != [
+            scope["model_ref"] for scope in _TINY_PROVIDER_INVOCATION_SCOPES.values()
+        ]:
+            raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_MODEL_SCOPE_REFS_DENIED")
+        if self.policy_scope_refs != [
+            scope["policy_ref"] for scope in _TINY_PROVIDER_INVOCATION_SCOPES.values()
+        ]:
+            raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_POLICY_SCOPE_REFS_DENIED")
+        for provider_scope_ref in self.provider_scope_refs:
+            if not _safe_ref_matches(provider_scope_ref, ("provider-ref:",)):
+                raise ValueError(
+                    "TINY_PROVIDER_INVOCATION_READINESS_PROVIDER_SCOPE_REF_UNSAFE"
+                )
+        for model_scope_ref in self.model_scope_refs:
+            if not _safe_ref_matches(model_scope_ref, ("model-ref:",)):
+                raise ValueError(
+                    "TINY_PROVIDER_INVOCATION_READINESS_MODEL_SCOPE_REF_UNSAFE"
+                )
+        for policy_scope_ref in self.policy_scope_refs:
+            if not _safe_ref_matches(policy_scope_ref, ("policy-ref:",)):
+                raise ValueError(
+                    "TINY_PROVIDER_INVOCATION_READINESS_POLICY_SCOPE_REF_UNSAFE"
+                )
+        for adapter_scope_ref in self.adapter_scope_refs:
+            if not _safe_ref_matches(adapter_scope_ref, ("provider-adapter-ref:",)):
+                raise ValueError(
+                    "TINY_PROVIDER_INVOCATION_READINESS_SCOPE_REF_UNSAFE"
+                )
         required_flags = [
             self.exact_approval_required,
             self.credential_ref_required,
@@ -481,14 +603,15 @@ class TinyProviderInvocationExecutionGrant(_TinyProviderInvocationModel):
             },
             "TINY_PROVIDER_INVOCATION_EXECUTION_GRANT_UNSAFE_REF_REJECTED",
         )
-        if self.adapter_ref != TINY_LIVE_PROVIDER_ADAPTER_REF:
-            raise ValueError("TINY_PROVIDER_INVOCATION_EXECUTION_GRANT_ADAPTER_DENIED")
-        if self.provider_ref != TINY_PROVIDER_INVOCATION_PROVIDER_REF:
+        scope = _tiny_provider_scope(self.provider_ref)
+        if scope is None:
             raise ValueError("TINY_PROVIDER_INVOCATION_EXECUTION_GRANT_PROVIDER_DENIED")
-        if self.model_ref != TINY_PROVIDER_INVOCATION_MODEL_REF:
+        if self.model_ref != scope["model_ref"]:
             raise ValueError("TINY_PROVIDER_INVOCATION_EXECUTION_GRANT_MODEL_DENIED")
-        if self.policy_ref != TINY_PROVIDER_INVOCATION_POLICY_REF:
+        if self.policy_ref != scope["policy_ref"]:
             raise ValueError("TINY_PROVIDER_INVOCATION_EXECUTION_GRANT_POLICY_DENIED")
+        if self.adapter_ref != scope["adapter_ref"]:
+            raise ValueError("TINY_PROVIDER_INVOCATION_EXECUTION_GRANT_ADAPTER_DENIED")
         if not self.receipt_store_required:
             raise ValueError(
                 "TINY_PROVIDER_INVOCATION_EXECUTION_GRANT_RECEIPT_STORE_REQUIRED"
@@ -560,16 +683,14 @@ class TinyProviderInvocationTransportReceipt(_TinyProviderInvocationModel):
             },
             "TINY_PROVIDER_INVOCATION_TRANSPORT_UNSAFE_REF_REJECTED",
         )
-        if (
-            self.provider_ref != TINY_PROVIDER_INVOCATION_PROVIDER_REF
-            or self.model_ref != TINY_PROVIDER_INVOCATION_MODEL_REF
-        ):
+        scope = _tiny_provider_scope_for_transport(self)
+        if scope is None:
             raise ValueError("TINY_PROVIDER_INVOCATION_TRANSPORT_SCOPE_DENIED")
         if self.provider_sdk_used:
             raise ValueError("TINY_PROVIDER_INVOCATION_TRANSPORT_PROVIDER_SDK_DENIED")
         if self.network_call_performed and (
-            self.adapter_ref != TINY_LIVE_PROVIDER_ADAPTER_REF
-            or self.transport_ref != TINY_LIVE_PROVIDER_TRANSPORT_REF
+            self.adapter_ref != scope["adapter_ref"]
+            or self.transport_ref != scope["transport_ref"]
         ):
             raise ValueError("TINY_PROVIDER_INVOCATION_TRANSPORT_NETWORK_SCOPE_DENIED")
         if self.raw_output_persisted or self.model_output_authoritative:
@@ -706,7 +827,10 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
         ]
         if any(denied_flags):
             raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_AUTHORITY_DENIED")
-        if self.network_call_performed and self.adapter_ref != TINY_LIVE_PROVIDER_ADAPTER_REF:
+        scope = _tiny_provider_scope_for_provider_model(self.provider_ref, self.model_ref)
+        if scope is None:
+            raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_SCOPE_DENIED")
+        if self.network_call_performed and self.adapter_ref != scope["adapter_ref"]:
             raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_NETWORK_SCOPE_DENIED")
         if self.safe_summary != TINY_PROVIDER_RECEIPT_SUMMARY:
             raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_SAFE_SUMMARY_DENIED")
@@ -806,6 +930,8 @@ class DeterministicTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
         return TinyProviderInvocationTransportReceipt(
             transport_ref=f"provider-transport-ref:tiny-provider:{_suffix(request.invocation_ref)}",
             adapter_ref=self.adapter_ref,
+            provider_ref=request.provider_ref,
+            model_ref=request.model_ref,
             redacted_output_summary_ref=request.redacted_output_summary_ref,
             usage_receipt_ref=request.usage_receipt_ref,
             cost_receipt_ref=request.cost_receipt_ref,
@@ -911,7 +1037,14 @@ def build_tiny_provider_invocation_approval_request(
     )
 
 
-def build_tiny_provider_invocation_policy_manifest() -> CapabilityManifest:
+def build_tiny_provider_invocation_policy_manifest(
+    policy_ref: str = TINY_PROVIDER_INVOCATION_POLICY_REF,
+) -> CapabilityManifest:
+    if policy_ref not in {
+        TINY_PROVIDER_INVOCATION_POLICY_REF,
+        SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
+    }:
+        raise ValueError("TINY_PROVIDER_INVOCATION_POLICY_REF_DENIED")
     return CapabilityManifest(
         id=TINY_PROVIDER_INVOCATION_CAPABILITY_ID,
         version="provider-invocation-v1",
@@ -954,7 +1087,7 @@ def build_tiny_provider_invocation_policy_manifest() -> CapabilityManifest:
         side_effects=SideEffectLevel.external,
         risk_level=CapabilityRiskLevel.high,
         approval_required=True,
-        auth_scopes=[TINY_PROVIDER_INVOCATION_POLICY_REF],
+        auth_scopes=[policy_ref],
         allowed_coordination_modes=[CoordinationMode.direct_tool],
         single_writer_required=True,
         safety=SafetyPolicy(
@@ -996,7 +1129,7 @@ def evaluate_tiny_provider_policy_gate(
 ):
     policy_engine = policy_engine or PolicyEngine(default_max_risk=CapabilityRiskLevel.high)
     return policy_engine.can_execute(
-        build_tiny_provider_invocation_policy_manifest(),
+        build_tiny_provider_invocation_policy_manifest(request.policy_ref),
         build_tiny_provider_invocation_policy_task(request),
         {
             "max_risk_level": CapabilityRiskLevel.high.value,
@@ -1055,29 +1188,30 @@ def evaluate_tiny_provider_invocation(
             safe_message="Tiny provider invocation is blocked because an exact required ref is missing.",
             required_next_action="provide_exact_provider_model_credential_cost_budget_and_receipt_refs",
         )
-    if request.provider_ref != TINY_PROVIDER_INVOCATION_PROVIDER_REF:
+    scope = _tiny_provider_scope(request.provider_ref)
+    if scope is None:
         return _blocked_decision(
             request,
             status=TinyProviderInvocationStatus.blocked_provider_not_allowed,
             reason_codes=["PROVIDER_REF_NOT_ALLOWED"],
-            safe_message="Tiny provider lane is scoped to one provider ref only.",
-            required_next_action="use_the_single_allowlisted_tiny_provider_ref",
+            safe_message="Tiny provider lane is scoped to two named provider refs only.",
+            required_next_action="use_an_allowlisted_single_provider_scope_ref",
         )
-    if request.model_ref != TINY_PROVIDER_INVOCATION_MODEL_REF:
+    if request.model_ref != scope["model_ref"]:
         return _blocked_decision(
             request,
             status=TinyProviderInvocationStatus.blocked_model_not_allowed,
             reason_codes=["MODEL_REF_NOT_ALLOWED"],
-            safe_message="Tiny provider lane is scoped to one model ref only.",
-            required_next_action="use_the_single_allowlisted_tiny_model_ref",
+            safe_message="Tiny provider lane requires the exact model ref for the selected provider scope.",
+            required_next_action="use_the_exact_model_ref_for_the_selected_provider_scope",
         )
-    if request.policy_ref != TINY_PROVIDER_INVOCATION_POLICY_REF:
+    if request.policy_ref != scope["policy_ref"]:
         return _blocked_decision(
             request,
             status=TinyProviderInvocationStatus.blocked_missing_policy_validation,
             reason_codes=["POLICY_REF_NOT_ALLOWED"],
-            safe_message="Tiny provider lane requires the exact PolicyEngine policy ref.",
-            required_next_action="use_the_exact_tiny_provider_policy_ref",
+            safe_message="Tiny provider lane requires the exact PolicyEngine policy ref for the selected provider scope.",
+            required_next_action="use_the_exact_policy_ref_for_the_selected_provider_scope",
         )
 
     estimate = CostEstimate(
@@ -1237,11 +1371,7 @@ def evaluate_tiny_provider_invocation(
             cost_decision=cost_decision,
         )
 
-    if (
-        adapter.adapter_ref == TINY_LIVE_PROVIDER_ADAPTER_REF
-        and adapter.may_perform_network_call
-        and not adapter.requires_receipt_store_before_network
-    ):
+    if adapter.may_perform_network_call and not adapter.requires_receipt_store_before_network:
         return _blocked_decision(
             request,
             status=TinyProviderInvocationStatus.live_adapter_blocked,
@@ -1260,9 +1390,35 @@ def evaluate_tiny_provider_invocation(
             cost_decision=cost_decision,
         )
 
+    request_scope = _tiny_provider_scope_for_request(request)
+    if request_scope is None:
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.blocked_provider_not_allowed,
+            reason_codes=["PROVIDER_SCOPE_NOT_ALLOWED"],
+            safe_message="Tiny provider lane requires one exact provider/model/policy scope.",
+            required_next_action="use_an_allowlisted_single_provider_scope_ref",
+            cost_decision=cost_decision,
+        )
+    if adapter.may_perform_network_call and adapter.adapter_ref != request_scope["adapter_ref"]:
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.live_adapter_blocked,
+            reason_codes=[
+                "EXACT_APPROVAL_VALIDATED",
+                "COST_GOVERNOR_ALLOWED",
+                "TINY_LIVE_PROVIDER_ADAPTER_SCOPE_MISMATCH",
+            ],
+            safe_message=(
+                "Scoped live provider adapter is blocked because its adapter ref "
+                "does not match the exact provider/model scope."
+            ),
+            required_next_action="use_the_exact_live_adapter_for_the_provider_scope",
+            cost_decision=cost_decision,
+        )
     execution_grant = (
         _build_tiny_provider_execution_grant(request, cost_decision)
-        if adapter.adapter_ref == TINY_LIVE_PROVIDER_ADAPTER_REF
+        if adapter.adapter_ref == request_scope["adapter_ref"]
         else None
     )
     try:
@@ -1549,7 +1705,11 @@ def _build_tiny_provider_execution_grant(
     request: TinyProviderInvocationRequest,
     cost_decision: CostDecision,
 ) -> TinyProviderInvocationExecutionGrant:
+    scope = _tiny_provider_scope_for_request(request)
+    if scope is None:
+        raise ValueError("TINY_PROVIDER_INVOCATION_EXECUTION_GRANT_SCOPE_DENIED")
     grant = TinyProviderInvocationExecutionGrant(
+        adapter_ref=scope["adapter_ref"],
         provider_ref=request.provider_ref,
         model_ref=request.model_ref,
         credential_ref=request.credential_ref,
@@ -1575,9 +1735,12 @@ def _transport_scope_reason(
         return "TINY_PROVIDER_TRANSPORT_ADAPTER_REF_MISMATCH"
     if not transport_receipt.network_call_performed:
         return None
-    if adapter.adapter_ref != TINY_LIVE_PROVIDER_ADAPTER_REF:
+    scope = _tiny_provider_scope_for_transport(transport_receipt)
+    if scope is None:
+        return "TINY_LIVE_PROVIDER_SCOPE_REQUIRED"
+    if adapter.adapter_ref != scope["adapter_ref"]:
         return "TINY_LIVE_PROVIDER_ADAPTER_SCOPE_REQUIRED"
-    if transport_receipt.transport_ref != TINY_LIVE_PROVIDER_TRANSPORT_REF:
+    if transport_receipt.transport_ref != scope["transport_ref"]:
         return "TINY_LIVE_PROVIDER_TRANSPORT_SCOPE_REQUIRED"
     if not adapter.may_perform_network_call:
         return "TINY_LIVE_PROVIDER_ADAPTER_NETWORK_FLAG_REQUIRED"

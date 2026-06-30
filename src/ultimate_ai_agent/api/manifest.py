@@ -84,6 +84,7 @@ CAPABILITIES_DECLARED = [
     "control_center_tiny_exact_approved_provider_lane_cost_governed",
     "control_center_tiny_exact_approved_provider_lane_redacted_receipts",
     "control_center_tiny_exact_approved_provider_lane_receipt_completeness",
+    "control_center_tiny_exact_approved_second_single_provider_adapter_scope_metadata_only",
     "control_center_provider_credential_validation_exact_approved_lane",
     "control_center_provider_credential_validation_redacted_receipts",
     "control_center_provider_credential_validation_cli_inspection",
@@ -713,7 +714,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, actual usage/cost refs, receipt completeness, disabled-by-default scoped live adapter posture, and safe-disable posture required while incomplete actual paid cost blocks further use until review and broad provider authority stays blocked",
+            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, actual usage/cost refs, receipt completeness, two named disabled-by-default single-provider live adapter scopes, and safe-disable posture required while incomplete actual paid cost blocks further use until review and broad provider authority and fallback execution stay blocked",
         )
     if (
         normalized_method == "POST"
