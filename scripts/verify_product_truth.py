@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 import sys
@@ -250,6 +251,52 @@ def scan_file(root: Path, path: Path) -> list[ProductTruthFinding]:
     return scan_text(rel_path, text)
 
 
+def _provider_invocation_plan_failures(root: Path) -> list[str]:
+    if root.resolve() != ROOT.resolve():
+        return []
+    verifier_path = ROOT / "scripts" / "verify_provider_invocation_promotion_plan.py"
+    if not verifier_path.exists():
+        return ["provider invocation promotion plan verifier is missing"]
+    spec = importlib.util.spec_from_file_location(
+        "verify_provider_invocation_promotion_plan",
+        verifier_path,
+    )
+    if spec is None or spec.loader is None:
+        return ["provider invocation promotion plan verifier could not be loaded"]
+    verifier = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = verifier
+    try:
+        spec.loader.exec_module(verifier)
+    except Exception:
+        return ["provider invocation promotion plan verifier could not be executed"]
+
+    return verifier.validate_provider_invocation_promotion_plan()
+
+
+def _provider_invocation_plan_findings(root: Path) -> list[ProductTruthFinding]:
+    return [
+        ProductTruthFinding(
+            rel_path=(
+                "docs/control_center/"
+                "EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md"
+            ),
+            line=1,
+            category="provider_invocation_promotion_plan_guard",
+            evidence_hash=_safe_hash(
+                "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
+                index,
+                "provider_invocation_promotion_plan_guard",
+                failure,
+            ),
+            safe_message=(
+                "provider invocation promotion plan guard failed; "
+                "run the focused verifier for redacted details"
+            ),
+        )
+        for index, failure in enumerate(_provider_invocation_plan_failures(root), start=1)
+    ]
+
+
 def validate_product_truth(
     root: Path = ROOT,
     scopes: Iterable[str] = DEFAULT_SCOPES,
@@ -258,6 +305,7 @@ def validate_product_truth(
     findings: list[ProductTruthFinding] = []
     for path in _iter_scope_files(root, scopes):
         findings.extend(scan_file(root, path))
+    findings.extend(_provider_invocation_plan_findings(root))
     return findings
 
 

@@ -51,3 +51,5 @@ Product language rules:
 Credential Vault Contract Shell is a metadata-only contract layer. It defines
 vault posture contracts and redacted refs, but it still must not collect
 secrets, validate provider credentials, call provider SDKs, or invoke models.
+The Exact-Approved Provider Invocation Promotion Plan is planning-only future
+work and does not make providers callable.
