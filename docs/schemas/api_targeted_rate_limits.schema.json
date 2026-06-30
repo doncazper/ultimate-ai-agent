@@ -32,18 +32,19 @@
           "memory_context_pack_action_proposal",
           "memory_review_decision",
           "model_chat",
+          "provider_credential_validation",
           "provider_exact_approved_lane",
           "today_to_action_envelope",
           "action_decision",
           "task_decomposition"
         ]
       },
-      "minItems": 11,
-      "maxItems": 11,
+      "minItems": 12,
+      "maxItems": 12,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 53
+      "const": 54
     },
     "posture_field": {
       "const": "rate_limit_posture"

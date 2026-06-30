@@ -111,25 +111,32 @@ Tiny Exact-Approved Provider Invocation Lane is documented in
 `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`. The
 contracts live in
 `src/ultimate_ai_agent/core/providers/catalog.py`,
-`src/ultimate_ai_agent/core/providers/readiness.py`, and
-`src/ultimate_ai_agent/core/providers/invocation.py`,
+`src/ultimate_ai_agent/core/providers/readiness.py`,
+`src/ultimate_ai_agent/core/providers/invocation.py`, and
+`src/ultimate_ai_agent/core/providers/credential_validation.py`,
 `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, and
 `src/ultimate_ai_agent/core/secrets/vault_backend.py`, exposed through
 `GET /control-center/providers/setup-guide`,
 `POST /control-center/providers/exact-approved-lanes/tiny`,
+`POST /control-center/providers/credentials/validate`,
 `scripts/inspect_provider_setup_guide.py`,
 `scripts/inspect_provider_credential_readiness.py`, and
 `scripts/inspect_credential_vault_contract.py`, and
 `scripts/inspect_credential_vault_backend.py`, and
-`scripts/inspect_tiny_provider_invocation_lane.py`. Provider lane posture is
+`scripts/inspect_tiny_provider_invocation_lane.py`, and
+`scripts/inspect_provider_credential_validation_lane.py`. Provider lane posture is
 checked by `scripts/verify_provider_invocation_promotion_plan.py` and
-`scripts/verify_tiny_provider_invocation_lane.py`; backend safe-ref posture is
+`scripts/verify_tiny_provider_invocation_lane.py`, and
+`scripts/verify_provider_credential_validation_lane.py`; backend safe-ref posture is
 checked by `scripts/verify_credential_vault_backend_v1.py`. They add no secret
-resolution API, no raw secret display, no provider validation, no provider SDK
-calls by default, no network calls, no autonomous model calls, no background
-execution, no automatic pricing fetch, no billing authority, no unknown paid-cost bypass, no provider
-output authority, no vault runtime authority, and no invocation authority from
-vault presence.
+resolution API, no raw secret display, no built-in live validation transport,
+no model invocation, no provider SDK
+calls, no broad provider router, no fallback, no autonomous model calls, no
+background execution, no automatic pricing fetch, no billing authority, no
+unknown paid-cost bypass, no provider output authority, no vault runtime
+authority, and no invocation authority from vault presence. Credential
+validation is exact-approved, one-provider, redacted-receipt only and does not
+grant provider/model runtime authority.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,

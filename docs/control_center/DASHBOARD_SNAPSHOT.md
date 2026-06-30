@@ -36,22 +36,26 @@ calls, or enable callable provider runtime. CostGovernor binding refs are
 blockers and review scope only; they do not grant spend authority, bypass
 unknown paid-cost approval, bypass provider/model refs, or bypass usage/cost
 receipt refs. Credential Vault Backend V1 is a separate local safe-ref ledger
-only; secret resolution, provider validation, and provider invocation still
+only; secret resolution, broad provider validation outside the exact-approved
+credential validation lane, and provider invocation still
 require later reviewed milestones.
 
 The readiness gates are intentionally separate:
 
 - Provider Credential Vault Backend V1: local safe-ref ledger for
   enroll/revoke/rotation posture only. The current dashboard keeps provider
-  validation, provider invocation, and adapter runtime disabled.
+  validation outside the exact-approved lane, provider invocation, and adapter
+  runtime disabled.
 - Credential Enrollment Readiness: future transient intake contract requiring
   exact refs, approval, idempotency, audit, rollback, safe-disable, and an
   approved vault backend. The current dashboard records
   `CREDENTIAL_ENROLLMENT_NOT_SCOPED` and collects no credential material.
-- Provider Credential Validation v1: future validation contract requiring
-  provider manifest refs, provider auth references, consent, policy, approval,
-  revocation, and redacted validation receipts. The current dashboard records
-  `PROVIDER_KEY_VALIDATION_NOT_SCOPED` and performs no external validation.
+- Provider Credential Validation v1: exact-approved one-provider validation
+  lane requiring provider manifest refs, provider auth references, consent,
+  policy, approval, idempotency, revocation/safe-disable refs, transient secret
+  material, and redacted validation receipts. The default app posture records
+  validation-blocked / approval-required states and broad provider validation
+  remains out of scope.
 - Governed Provider Invocation v1: future invocation contract requiring
   PolicyEngine, LocalApprovalAuthority or successor approval, provider
   allowlists, redacted request/response summaries, receipt/audit refs,

@@ -16,7 +16,10 @@ from ultimate_ai_agent.api.manifest import (
     route_group_for_path,
     route_side_effect_class,
 )
-from ultimate_ai_agent.api.openapi import forbidden_raw_provider_schema_fields, forbidden_raw_secret_schema_fields
+from ultimate_ai_agent.api.openapi import (
+    forbidden_raw_provider_schema_fields,
+    forbidden_raw_secret_schema_fields,
+)
 from scripts.verification.api_routes import (
     EXPECTED_APPROVAL_POSTURE_SUMMARY,
     EXPECTED_AUTH_POSTURE_SUMMARY,
@@ -43,8 +46,14 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "centralized_fastapi_security_headers" in manifest["capabilities_declared"]
     assert "explicit_loopback_cors_allowlist" in manifest["capabilities_declared"]
     assert "local_protected_route_bearer_gate" in manifest["capabilities_declared"]
-    assert "local_protected_route_fail_closed_by_default" in manifest["capabilities_declared"]
-    assert "local_protected_route_dev_only_bypass_manifest_visible" in manifest["capabilities_declared"]
+    assert (
+        "local_protected_route_fail_closed_by_default"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "local_protected_route_dev_only_bypass_manifest_visible"
+        in manifest["capabilities_declared"]
+    )
     assert "mutating_route_idempotency_audit" in manifest["capabilities_declared"]
     assert "targeted_local_rate_limits" in manifest["capabilities_declared"]
     assert "security_headers_as_authentication" in manifest["capabilities_blocked"]
@@ -53,97 +62,307 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "cors_as_authentication" in manifest["capabilities_blocked"]
     assert "cors_credentials" in manifest["capabilities_blocked"]
     assert "cors_wildcard_origins" in manifest["capabilities_blocked"]
-    assert "local_protected_route_gate_as_enterprise_auth" in manifest["capabilities_blocked"]
-    assert "local_protected_route_gate_as_multi_user_auth" in manifest["capabilities_blocked"]
+    assert (
+        "local_protected_route_gate_as_enterprise_auth"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "local_protected_route_gate_as_multi_user_auth"
+        in manifest["capabilities_blocked"]
+    )
     assert "local_protected_route_gate_as_oauth" in manifest["capabilities_blocked"]
-    assert "local_protected_route_gate_as_password_flow" in manifest["capabilities_blocked"]
-    assert "local_protected_route_gate_as_production_authority" in manifest["capabilities_blocked"]
-    assert "local_protected_route_dev_only_bypass_as_production_authority" in manifest["capabilities_blocked"]
+    assert (
+        "local_protected_route_gate_as_password_flow"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "local_protected_route_gate_as_production_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "local_protected_route_dev_only_bypass_as_production_authority"
+        in manifest["capabilities_blocked"]
+    )
     assert manifest["local_auth_policy"]["fail_closed_by_default"] is True
     assert (
         manifest["local_auth_policy"]["dev_only_bypass_env"]
         == "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY"
     )
-    assert manifest["local_auth_policy"]["dev_only_bypass_production_authority"] is False
-    assert "idempotency_audit_as_exactly_once_execution" in manifest["capabilities_blocked"]
-    assert "idempotency_audit_as_durable_dedupe_store" in manifest["capabilities_blocked"]
+    assert (
+        manifest["local_auth_policy"]["dev_only_bypass_production_authority"] is False
+    )
+    assert (
+        "idempotency_audit_as_exactly_once_execution"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "idempotency_audit_as_durable_dedupe_store" in manifest["capabilities_blocked"]
+    )
     assert "idempotency_audit_as_mutation_authority" in manifest["capabilities_blocked"]
-    assert "idempotency_audit_as_production_authority" in manifest["capabilities_blocked"]
+    assert (
+        "idempotency_audit_as_production_authority" in manifest["capabilities_blocked"]
+    )
     assert "targeted_rate_limits_as_auth" in manifest["capabilities_blocked"]
-    assert "targeted_rate_limits_as_distributed_quota" in manifest["capabilities_blocked"]
-    assert "targeted_rate_limits_as_production_authority" in manifest["capabilities_blocked"]
-    assert "local_loopback_gateway_explicit_bearer_required" in manifest["capabilities_declared"]
-    assert "local_loopback_gateway_allowlisted_response_shape" in manifest["capabilities_declared"]
+    assert (
+        "targeted_rate_limits_as_distributed_quota" in manifest["capabilities_blocked"]
+    )
+    assert (
+        "targeted_rate_limits_as_production_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "local_loopback_gateway_explicit_bearer_required"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "local_loopback_gateway_allowlisted_response_shape"
+        in manifest["capabilities_declared"]
+    )
     assert "file_api_safe_tree_preview_refs" in manifest["capabilities_declared"]
-    assert "inspectable_extension_catalog_read_only" in manifest["capabilities_declared"]
-    assert "extension_activation_grant_records_exact_scope" in manifest["capabilities_declared"]
+    assert (
+        "inspectable_extension_catalog_read_only" in manifest["capabilities_declared"]
+    )
+    assert (
+        "extension_activation_grant_records_exact_scope"
+        in manifest["capabilities_declared"]
+    )
     assert "redacted_session_logging_local" in manifest["capabilities_declared"]
     assert "observability_safe_summary_api" in manifest["capabilities_declared"]
     assert "control_center_setup_assistant_summary" in manifest["capabilities_declared"]
-    assert "control_center_setup_approval_envelopes_dry_run" in manifest["capabilities_declared"]
-    assert "control_center_founder_loop_storage_summaries" in manifest["capabilities_declared"]
+    assert (
+        "control_center_setup_approval_envelopes_dry_run"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_founder_loop_storage_summaries"
+        in manifest["capabilities_declared"]
+    )
     assert "control_center_today_summary" in manifest["capabilities_declared"]
     assert "control_center_action_inbox_summary" in manifest["capabilities_declared"]
-    assert "control_center_morning_briefing_summary" in manifest["capabilities_declared"]
+    assert (
+        "control_center_morning_briefing_summary" in manifest["capabilities_declared"]
+    )
     assert "control_center_storage_status" in manifest["capabilities_declared"]
-    assert "control_center_memory_safe_query_hashed_read_model" in manifest["capabilities_declared"]
-    assert "control_center_memory_feedback_receipts" in manifest["capabilities_declared"]
-    assert "control_center_memory_observation_candidates" in manifest["capabilities_declared"]
+    assert (
+        "control_center_memory_safe_query_hashed_read_model"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_memory_feedback_receipts" in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_memory_observation_candidates"
+        in manifest["capabilities_declared"]
+    )
     assert "control_center_memory_probe_index" in manifest["capabilities_declared"]
-    assert "control_center_memory_contradiction_previews" in manifest["capabilities_declared"]
-    assert "control_center_memory_hrr_readiness_blocked_contract" in manifest["capabilities_declared"]
-    assert "control_center_memory_hrr_enabled_without_explicit_milestone" in manifest["capabilities_blocked"]
-    assert "control_center_memory_safe_query_raw_echo" in manifest["capabilities_blocked"]
-    assert "control_center_provider_credential_readiness_cost_binding_read_only" in manifest["capabilities_declared"]
-    assert "control_center_provider_credential_readiness_cli_inspection" in manifest["capabilities_declared"]
-    assert "control_center_provider_credential_readiness_secret_entry" in manifest["capabilities_blocked"]
-    assert "control_center_provider_credential_readiness_provider_validation" in manifest["capabilities_blocked"]
-    assert "control_center_provider_credential_readiness_provider_invocation" in manifest["capabilities_blocked"]
-    assert "control_center_provider_credential_readiness_as_runtime_authority" in manifest["capabilities_blocked"]
-    assert "control_center_provider_cost_binding_as_billing_authority" in manifest["capabilities_blocked"]
-    assert "control_center_provider_cost_binding_without_budget_decision" in manifest["capabilities_blocked"]
-    assert "control_center_provider_cost_binding_without_receipts" in manifest["capabilities_blocked"]
-    assert "control_center_provider_unknown_paid_cost_without_explicit_approval" in manifest["capabilities_blocked"]
-    assert "provider_credential_vault_contract_shell_metadata_only" in manifest["capabilities_declared"]
-    assert "provider_credential_vault_contract_cli_inspection" in manifest["capabilities_declared"]
-    assert "provider_credential_vault_local_secret_ref_backend_v1" in manifest["capabilities_declared"]
-    assert "provider_credential_vault_backend_cli_inspection" in manifest["capabilities_declared"]
-    assert "provider_credential_vault_secret_collection" in manifest["capabilities_blocked"]
-    assert "provider_credential_vault_raw_secret_storage" in manifest["capabilities_blocked"]
-    assert "provider_credential_vault_secret_resolution_api" in manifest["capabilities_blocked"]
-    assert "provider_credential_vault_raw_secret_display" in manifest["capabilities_blocked"]
-    assert "provider_credential_vault_os_backend_access" in manifest["capabilities_blocked"]
-    assert "provider_credential_vault_validation_authority" in manifest["capabilities_blocked"]
-    assert "provider_credential_vault_invocation_authority" in manifest["capabilities_blocked"]
-    assert "provider_credential_vault_presence_as_authority" in manifest["capabilities_blocked"]
-    assert "control_center_tiny_exact_approved_provider_lane_disabled_default" in manifest["capabilities_declared"]
-    assert "control_center_tiny_exact_approved_provider_lane_cost_governed" in manifest["capabilities_declared"]
-    assert "control_center_tiny_exact_approved_provider_lane_redacted_receipts" in manifest["capabilities_declared"]
-    assert "tiny_provider_lane_without_exact_approval" in manifest["capabilities_blocked"]
+    assert (
+        "control_center_memory_contradiction_previews"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_memory_hrr_readiness_blocked_contract"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_memory_hrr_enabled_without_explicit_milestone"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_memory_safe_query_raw_echo" in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_provider_credential_readiness_cost_binding_read_only"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_provider_credential_readiness_cli_inspection"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_provider_credential_readiness_secret_entry"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_provider_credential_readiness_provider_validation"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_provider_credential_readiness_provider_invocation"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_provider_credential_readiness_as_runtime_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_provider_cost_binding_as_billing_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_provider_cost_binding_without_budget_decision"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_provider_cost_binding_without_receipts"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_provider_unknown_paid_cost_without_explicit_approval"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_vault_contract_shell_metadata_only"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "provider_credential_vault_contract_cli_inspection"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "provider_credential_vault_local_secret_ref_backend_v1"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "provider_credential_vault_backend_cli_inspection"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "provider_credential_vault_secret_collection"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_vault_raw_secret_storage"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_vault_secret_resolution_api"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_vault_raw_secret_display"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_vault_os_backend_access"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_vault_validation_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_vault_invocation_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_vault_presence_as_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_tiny_exact_approved_provider_lane_disabled_default"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_tiny_exact_approved_provider_lane_cost_governed"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_tiny_exact_approved_provider_lane_redacted_receipts"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_provider_credential_validation_exact_approved_lane"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_provider_credential_validation_redacted_receipts"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "control_center_provider_credential_validation_cli_inspection"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "tiny_provider_lane_without_exact_approval" in manifest["capabilities_blocked"]
+    )
     assert "tiny_provider_lane_unknown_paid_cost" in manifest["capabilities_blocked"]
-    assert "tiny_provider_lane_without_provider_model_credential_refs" in manifest["capabilities_blocked"]
-    assert "tiny_provider_lane_without_cost_budget_receipt_refs" in manifest["capabilities_blocked"]
-    assert "tiny_provider_lane_broad_provider_router" in manifest["capabilities_blocked"]
-    assert "tiny_provider_lane_multi_provider_fallback" in manifest["capabilities_blocked"]
-    assert "tiny_provider_lane_raw_prompt_response_or_provider_exchange_persistence" in manifest["capabilities_blocked"]
-    assert "tiny_provider_lane_autonomous_model_calls" in manifest["capabilities_blocked"]
+    assert (
+        "tiny_provider_lane_without_provider_model_credential_refs"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "tiny_provider_lane_without_cost_budget_receipt_refs"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "tiny_provider_lane_broad_provider_router" in manifest["capabilities_blocked"]
+    )
+    assert (
+        "tiny_provider_lane_multi_provider_fallback" in manifest["capabilities_blocked"]
+    )
+    assert (
+        "tiny_provider_lane_raw_prompt_response_or_provider_exchange_persistence"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "tiny_provider_lane_autonomous_model_calls" in manifest["capabilities_blocked"]
+    )
     assert "tiny_provider_lane_background_execution" in manifest["capabilities_blocked"]
     assert "tiny_provider_lane_billing_authority" in manifest["capabilities_blocked"]
-    assert "tiny_provider_lane_provider_sdk_or_network_call_by_default" in manifest["capabilities_blocked"]
-    assert "web_access_provider_adapter_shells_disabled" in manifest["capabilities_declared"]
-    assert "web_access_provider_diagnostics_metadata_only" in manifest["capabilities_declared"]
+    assert (
+        "tiny_provider_lane_provider_sdk_or_network_call_by_default"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_validation_without_exact_approval"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_validation_model_invocation"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_validation_provider_payload_persistence"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "provider_credential_validation_billing_authority"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "web_access_provider_adapter_shells_disabled"
+        in manifest["capabilities_declared"]
+    )
+    assert (
+        "web_access_provider_diagnostics_metadata_only"
+        in manifest["capabilities_declared"]
+    )
     assert (
         "web_access_provider_catalog_visibility_metadata_only"
         in manifest["capabilities_declared"]
     )
-    assert "mattermost_agent_rooms_disabled_by_default" in manifest["capabilities_declared"]
+    assert (
+        "mattermost_agent_rooms_disabled_by_default"
+        in manifest["capabilities_declared"]
+    )
     assert "mattermost_role_catalog" in manifest["capabilities_declared"]
     assert "mattermost_redacted_message_ingress" in manifest["capabilities_declared"]
-    assert "mattermost_approval_required_tool_actions" in manifest["capabilities_declared"]
+    assert (
+        "mattermost_approval_required_tool_actions" in manifest["capabilities_declared"]
+    )
     assert manifest["route_count"] >= 43
-    assert any(route["path"] == "/api/manifest" and route["method"] == "GET" for route in manifest["routes"])
-    assert any(route["path"] == "/extensions/catalog" and route["method"] == "GET" for route in manifest["routes"])
-    assert any(route["path"] == "/observability/session-events" and route["method"] == "GET" for route in manifest["routes"])
+    assert any(
+        route["path"] == "/api/manifest" and route["method"] == "GET"
+        for route in manifest["routes"]
+    )
+    assert any(
+        route["path"] == "/extensions/catalog" and route["method"] == "GET"
+        for route in manifest["routes"]
+    )
+    assert any(
+        route["path"] == "/observability/session-events" and route["method"] == "GET"
+        for route in manifest["routes"]
+    )
 
 
 def test_api_manifest_web_access_posture_is_boundary_only() -> None:
@@ -167,9 +386,17 @@ def test_api_manifest_web_access_posture_is_boundary_only() -> None:
     }
     assert "web_fetching" in manifest["capabilities_blocked"]
     assert "browser_automation" in manifest["capabilities_blocked"]
-    assert "governed_web_evidence_unrestricted_browsing" in manifest["capabilities_blocked"]
-    assert "governed_web_evidence_browser_automation" in manifest["capabilities_blocked"]
-    assert "governed_web_evidence_allowlisted_https_get" in manifest["capabilities_declared"]
+    assert (
+        "governed_web_evidence_unrestricted_browsing"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "governed_web_evidence_browser_automation" in manifest["capabilities_blocked"]
+    )
+    assert (
+        "governed_web_evidence_allowlisted_https_get"
+        in manifest["capabilities_declared"]
+    )
     assert "web_fetching" not in manifest["capabilities_declared"]
     assert "unrestricted_web_fetching" not in manifest["capabilities_declared"]
     assert "browser_execution" not in manifest["capabilities_declared"]
@@ -201,13 +428,18 @@ def test_registered_routes_do_not_depend_on_implicit_api_boundary_fallback() -> 
     assert implicit_fallback_routes == []
 
 
-def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_classes() -> None:
+def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_classes() -> (
+    None
+):
     manifest = client.get("/api/manifest").json()
     operation_ids = [route["operation_id"] for route in manifest["routes"]]
 
     assert len(operation_ids) == len(set(operation_ids))
     assert "get_api_manifest" in operation_ids
-    assert all(route["side_effect_class"] != "production_runtime" for route in manifest["routes"])
+    assert all(
+        route["side_effect_class"] != "production_runtime"
+        for route in manifest["routes"]
+    )
     assert all(route["requires_auth_future"] is True for route in manifest["routes"])
     assert all(route["blocked_from_production"] is True for route in manifest["routes"])
     assert manifest["route_classification_vocabulary"] == [
@@ -219,13 +451,27 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert set(manifest["route_classification_summary"]) == set(
         manifest["route_classification_vocabulary"]
     )
-    assert sum(manifest["route_classification_summary"].values()) == manifest["route_count"]
+    assert (
+        sum(manifest["route_classification_summary"].values())
+        == manifest["route_count"]
+    )
     assert manifest["route_auth_posture_summary"] == EXPECTED_AUTH_POSTURE_SUMMARY
-    assert manifest["route_approval_posture_summary"] == EXPECTED_APPROVAL_POSTURE_SUMMARY
-    assert manifest["idempotency_audit_policy_ref"] == "idempotency:p1-084:mutating-routes:v1"
-    assert manifest["route_idempotency_posture_summary"] == EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY
+    assert (
+        manifest["route_approval_posture_summary"] == EXPECTED_APPROVAL_POSTURE_SUMMARY
+    )
+    assert (
+        manifest["idempotency_audit_policy_ref"]
+        == "idempotency:p1-084:mutating-routes:v1"
+    )
+    assert (
+        manifest["route_idempotency_posture_summary"]
+        == EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY
+    )
     assert manifest["rate_limit_policy_ref"] == "rate-limit:p1-085:targeted-local:v1"
-    assert manifest["route_rate_limit_posture_summary"] == EXPECTED_RATE_LIMIT_POSTURE_SUMMARY
+    assert (
+        manifest["route_rate_limit_posture_summary"]
+        == EXPECTED_RATE_LIMIT_POSTURE_SUMMARY
+    )
     assert all(
         route["route_classification"] in manifest["route_classification_vocabulary"]
         for route in manifest["routes"]
@@ -263,30 +509,62 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert routes_by_path["/health"]["route_classification"] == "public_metadata"
     assert routes_by_path["/version"]["route_classification"] == "public_metadata"
     assert routes_by_path["/api/manifest"]["route_classification"] == "public_metadata"
-    assert routes_by_path["/control-center/routes"]["route_classification"] == "local_readonly"
-    assert routes_by_path["/runtime/readiness"]["route_classification"] == "local_readonly"
-    assert routes_by_path["/control-center/today/summary"]["route_classification"] == "local_sensitive"
-    assert routes_by_path["/files/tree/preview"]["route_classification"] == "local_sensitive"
-    assert routes_by_path["/observability/session-events"]["route_classification"] == "local_sensitive"
-    assert routes_by_path["/web-evidence/request"]["route_classification"] == "local_sensitive"
+    assert (
+        routes_by_path["/control-center/routes"]["route_classification"]
+        == "local_readonly"
+    )
+    assert (
+        routes_by_path["/runtime/readiness"]["route_classification"] == "local_readonly"
+    )
+    assert (
+        routes_by_path["/control-center/today/summary"]["route_classification"]
+        == "local_sensitive"
+    )
+    assert (
+        routes_by_path["/files/tree/preview"]["route_classification"]
+        == "local_sensitive"
+    )
+    assert (
+        routes_by_path["/observability/session-events"]["route_classification"]
+        == "local_sensitive"
+    )
+    assert (
+        routes_by_path["/web-evidence/request"]["route_classification"]
+        == "local_sensitive"
+    )
     assert routes_by_path["/kernel/tasks/run"]["route_classification"] == (
         "mutating_requires_authority"
     )
-    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
-        "route_classification"
-    ] == "mutating_requires_authority"
-    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
-        "idempotency_posture"
-    ] == "required_before_mutation_authority"
-    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
-        "idempotency_policy_ref"
-    ] == "idempotency:p1-084:mutating-routes:v1"
-    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
-        "rate_limit_posture"
-    ] == "targeted_local_fixed_window"
-    assert routes_by_path["/task-decomposition/approvals/grants/capture"][
-        "rate_limit_group"
-    ] == "task_decomposition"
+    assert (
+        routes_by_path["/task-decomposition/approvals/grants/capture"][
+            "route_classification"
+        ]
+        == "mutating_requires_authority"
+    )
+    assert (
+        routes_by_path["/task-decomposition/approvals/grants/capture"][
+            "idempotency_posture"
+        ]
+        == "required_before_mutation_authority"
+    )
+    assert (
+        routes_by_path["/task-decomposition/approvals/grants/capture"][
+            "idempotency_policy_ref"
+        ]
+        == "idempotency:p1-084:mutating-routes:v1"
+    )
+    assert (
+        routes_by_path["/task-decomposition/approvals/grants/capture"][
+            "rate_limit_posture"
+        ]
+        == "targeted_local_fixed_window"
+    )
+    assert (
+        routes_by_path["/task-decomposition/approvals/grants/capture"][
+            "rate_limit_group"
+        ]
+        == "task_decomposition"
+    )
     assert routes_by_path["/files/tree/preview"]["idempotency_posture"] == (
         "not_required_for_route_classification"
     )
@@ -300,47 +578,88 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         "action_preview_proposal"
     )
     assert routes_by_path["/v1/chat/completions"]["rate_limit_group"] == "model_chat"
-    assert routes_by_path["/v1/chat/completions"]["side_effect_class"] == "local_dev_workspace_only"
-    assert routes_by_path["/files/tree/preview"]["side_effect_class"] == "local_dev_workspace_only"
-    assert routes_by_path["/files/read/preview"]["side_effect_class"] == "local_dev_workspace_only"
-    assert routes_by_path["/control-center/setup-assistant/summary"]["side_effect_class"] == (
-        "validation_only"
+    assert (
+        routes_by_path["/v1/chat/completions"]["side_effect_class"]
+        == "local_dev_workspace_only"
     )
-    assert routes_by_path["/control-center/settings/status"]["route_classification"] == (
-        "local_readonly"
+    assert (
+        routes_by_path["/files/tree/preview"]["side_effect_class"]
+        == "local_dev_workspace_only"
     )
+    assert (
+        routes_by_path["/files/read/preview"]["side_effect_class"]
+        == "local_dev_workspace_only"
+    )
+    assert routes_by_path["/control-center/setup-assistant/summary"][
+        "side_effect_class"
+    ] == ("validation_only")
+    assert routes_by_path["/control-center/settings/status"][
+        "route_classification"
+    ] == ("local_readonly")
     assert routes_by_path["/control-center/settings/status"]["side_effect_class"] == (
         "validation_only"
     )
     assert routes_by_path["/control-center/settings/status"]["protected_route"] is True
-    assert routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+    assert (
+        routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+            "route_classification"
+        ]
+        == "mutating_requires_authority"
+    )
+    assert (
+        routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+            "side_effect_class"
+        ]
+        == "local_dev_workspace_only"
+    )
+    assert (
+        routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+            "idempotency_posture"
+        ]
+        == "required_before_mutation_authority"
+    )
+    assert (
+        routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+            "rate_limit_group"
+        ]
+        == "provider_exact_approved_lane"
+    )
+    assert (
+        routes_by_path["/control-center/providers/credentials/validate"][
+            "route_classification"
+        ]
+        == "mutating_requires_authority"
+    )
+    assert (
+        routes_by_path["/control-center/providers/credentials/validate"][
+            "side_effect_class"
+        ]
+        == "governed_network_read_only"
+    )
+    assert (
+        routes_by_path["/control-center/providers/credentials/validate"][
+            "rate_limit_group"
+        ]
+        == "provider_credential_validation"
+    )
+    assert routes_by_path["/control-center/local-models/status"][
         "route_classification"
-    ] == "mutating_requires_authority"
-    assert routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+    ] == ("local_readonly")
+    assert routes_by_path["/control-center/local-models/status"][
         "side_effect_class"
-    ] == "local_dev_workspace_only"
-    assert routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
-        "idempotency_posture"
-    ] == "required_before_mutation_authority"
-    assert routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
-        "rate_limit_group"
-    ] == "provider_exact_approved_lane"
-    assert routes_by_path["/control-center/local-models/status"]["route_classification"] == (
-        "local_readonly"
+    ] == ("validation_only")
+    assert (
+        routes_by_path["/control-center/local-models/status"]["protected_route"] is True
     )
-    assert routes_by_path["/control-center/local-models/status"]["side_effect_class"] == (
-        "validation_only"
-    )
-    assert routes_by_path["/control-center/local-models/status"]["protected_route"] is True
     assert routes_by_path["/control-center/today/summary"]["side_effect_class"] == (
         "local_dev_workspace_only"
     )
     assert routes_by_path["/control-center/actions/inbox"]["side_effect_class"] == (
         "local_dev_workspace_only"
     )
-    assert routes_by_path["/control-center/morning-briefing/summary"]["side_effect_class"] == (
-        "local_dev_workspace_only"
-    )
+    assert routes_by_path["/control-center/morning-briefing/summary"][
+        "side_effect_class"
+    ] == ("local_dev_workspace_only")
     assert routes_by_path["/control-center/storage/status"]["side_effect_class"] == (
         "local_dev_workspace_only"
     )
@@ -349,12 +668,22 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "file_api_raw_content_write_payload" in manifest["capabilities_blocked"]
     assert "secret_api_raw_secret_values" in manifest["capabilities_blocked"]
     assert "local_loopback_default_bearer" in manifest["capabilities_blocked"]
-    assert "local_loopback_raw_provider_payload_passthrough" in manifest["capabilities_blocked"]
+    assert (
+        "local_loopback_raw_provider_payload_passthrough"
+        in manifest["capabilities_blocked"]
+    )
     assert "control_center_setup_installer_actions" in manifest["capabilities_blocked"]
     assert "control_center_setup_model_downloads" in manifest["capabilities_blocked"]
-    assert "control_center_setup_launch_agent_changes" in manifest["capabilities_blocked"]
-    assert "control_center_setup_background_service_changes" in manifest["capabilities_blocked"]
-    assert "control_center_setup_credential_handling" in manifest["capabilities_blocked"]
+    assert (
+        "control_center_setup_launch_agent_changes" in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_setup_background_service_changes"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "control_center_setup_credential_handling" in manifest["capabilities_blocked"]
+    )
     assert "task_decomposition_raw_request_echo" in manifest["capabilities_blocked"]
     assert "extension_catalog_callable_runtime" in manifest["capabilities_blocked"]
     assert "extension_catalog_runtime_import" in manifest["capabilities_blocked"]
@@ -366,8 +695,14 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "extension_activation_overbroad_grants" in manifest["capabilities_blocked"]
     assert "session_logging_raw_capture" in manifest["capabilities_blocked"]
     assert "session_logging_external_telemetry" in manifest["capabilities_blocked"]
-    assert "session_logging_os_wide_activity_monitoring" in manifest["capabilities_blocked"]
-    assert "web_access_provider_shells_as_runtime_authority" in manifest["capabilities_blocked"]
+    assert (
+        "session_logging_os_wide_activity_monitoring"
+        in manifest["capabilities_blocked"]
+    )
+    assert (
+        "web_access_provider_shells_as_runtime_authority"
+        in manifest["capabilities_blocked"]
+    )
     assert "web_access_provider_sdk_imports" in manifest["capabilities_blocked"]
     assert "web_access_provider_credentials" in manifest["capabilities_blocked"]
     assert "search_provider_live_calls" in manifest["capabilities_blocked"]
@@ -376,15 +711,19 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     assert "browserbase_provider_sessions" in manifest["capabilities_blocked"]
     assert "mattermost_raw_transcript_storage" in manifest["capabilities_blocked"]
     assert "mattermost_unapproved_connector_writes" in manifest["capabilities_blocked"]
-    assert "mattermost_credential_or_cookie_handling" in manifest["capabilities_blocked"]
+    assert (
+        "mattermost_credential_or_cookie_handling" in manifest["capabilities_blocked"]
+    )
     assert "mattermost_model_output_authority" in manifest["capabilities_blocked"]
-    assert "mattermost_unbounded_background_autonomy" in manifest["capabilities_blocked"]
-    assert routes_by_path["/integrations/mattermost/events/message"]["side_effect_class"] == (
-        "local_dev_workspace_only"
+    assert (
+        "mattermost_unbounded_background_autonomy" in manifest["capabilities_blocked"]
     )
-    assert routes_by_path["/integrations/mattermost/roles/bind"]["side_effect_class"] == (
-        "local_dev_workspace_only"
-    )
+    assert routes_by_path["/integrations/mattermost/events/message"][
+        "side_effect_class"
+    ] == ("local_dev_workspace_only")
+    assert routes_by_path["/integrations/mattermost/roles/bind"][
+        "side_effect_class"
+    ] == ("local_dev_workspace_only")
     assert routes_by_path["/observability/session-events"]["side_effect_class"] == (
         "local_dev_workspace_only"
     )
@@ -393,7 +732,9 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     )
 
 
-def test_api_manifest_static_cache_policy_excludes_authority_and_private_state() -> None:
+def test_api_manifest_static_cache_policy_excludes_authority_and_private_state() -> (
+    None
+):
     policy = api_manifest_cache_policy()
 
     assert "routes" in API_MANIFEST_CACHEABLE_FIELDS
@@ -413,7 +754,9 @@ def test_api_manifest_static_cache_policy_excludes_authority_and_private_state()
     )
     assert "route_classification_logic_change" in API_MANIFEST_CACHE_INVALIDATION_RULES
     assert "route_auth_posture_logic_change" in API_MANIFEST_CACHE_INVALIDATION_RULES
-    assert "route_approval_posture_logic_change" in API_MANIFEST_CACHE_INVALIDATION_RULES
+    assert (
+        "route_approval_posture_logic_change" in API_MANIFEST_CACHE_INVALIDATION_RULES
+    )
     assert policy["authority_decisions_cached"] is False
     assert policy["policy_decisions_cached"] is False
     assert policy["approval_decisions_cached"] is False

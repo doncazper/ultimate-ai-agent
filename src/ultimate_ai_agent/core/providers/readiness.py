@@ -28,7 +28,10 @@ def _ref_is_unbound(ref: str) -> bool:
     if not ref.strip():
         return True
     lowered = ref.lower()
-    return any(marker in lowered for marker in (":missing", "not-bound", "not-selected", "not-configured"))
+    return any(
+        marker in lowered
+        for marker in (":missing", "not-bound", "not-selected", "not-configured")
+    )
 
 
 class ProviderCredentialReadinessPosture(str, Enum):
@@ -56,8 +59,12 @@ class ProviderCostGovernorBinding(_ProviderRuntimeContract):
     future_receipt_ref: str = "receipt-ref:provider-runtime:future-required"
     usage_receipt_ref: str = "usage-receipt-ref:provider-runtime:future-required"
     cost_receipt_ref: str = "cost-receipt-ref:provider-runtime:future-required"
-    cost_governor_posture_ref: str = "cost-governor-posture-ref:provider-runtime:required"
-    cost_governor_decision_ref: str = "cost-governor-decision-ref:provider-runtime:blocked"
+    cost_governor_posture_ref: str = (
+        "cost-governor-posture-ref:provider-runtime:required"
+    )
+    cost_governor_decision_ref: str = (
+        "cost-governor-decision-ref:provider-runtime:blocked"
+    )
     cost_governor_ref: str = "core.costs.CostGovernor"
     readiness_posture: ProviderCredentialReadinessPosture = (
         ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval
@@ -137,7 +144,9 @@ class ProviderCostGovernorBinding(_ProviderRuntimeContract):
         if not all(required_flags):
             raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_REQUIRED_GATE_DENIED")
         if self.provider_ref_status == "present" and _ref_is_unbound(self.provider_ref):
-            raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_PROVIDER_REF_STATUS_MISMATCH")
+            raise ValueError(
+                "PROVIDER_COST_GOVERNOR_BINDING_PROVIDER_REF_STATUS_MISMATCH"
+            )
         if self.model_ref_status == "present" and _ref_is_unbound(self.model_ref):
             raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_MODEL_REF_STATUS_MISMATCH")
         if self.provider_ref_status == "missing" or self.model_ref_status == "missing":
@@ -146,14 +155,11 @@ class ProviderCostGovernorBinding(_ProviderRuntimeContract):
                 {"PROVIDER_MODEL_REFS_REQUIRED"},
                 "PROVIDER_COST_GOVERNOR_BINDING_PROVIDER_MODEL_BLOCKER_REQUIRED",
             )
-        if (
-            self.readiness_posture
-            not in {
-                ProviderCredentialReadinessPosture.cost_blocked,
-                ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval,
-                ProviderCredentialReadinessPosture.blocked,
-            }
-        ):
+        if self.readiness_posture not in {
+            ProviderCredentialReadinessPosture.cost_blocked,
+            ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval,
+            ProviderCredentialReadinessPosture.blocked,
+        }:
             raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_POSTURE_DENIED")
         _require_codes(
             self.blocker_codes,
@@ -171,27 +177,50 @@ class ProviderCostGovernorBinding(_ProviderRuntimeContract):
 
 
 class ProviderCredentialValidationReadiness(_ProviderRuntimeContract):
+    route_ref: str = "POST /control-center/providers/credentials/validate"
+    provider_ref: str = "provider-ref:openai-compatible:credential-validation"
     provider_manifest_ref: str = "provider-manifest-ref:provider-runtime:required"
+    provider_allowlist_ref: str = "provider-allowlist-ref:provider-runtime:required"
     credential_ref: str = "credential-ref:provider-runtime:not-bound"
     consent_ref: str = "consent-ref:provider-runtime:not-granted"
-    policy_ref: str = "policy-ref:provider-runtime:disabled-by-default"
+    policy_ref: str = "policy-ref:provider-credential-validation:exact-approved:v1"
     approval_ref: str = "approval-ref:provider-runtime:not-granted"
     revocation_ref: str = "revocation-ref:provider-runtime:not-active"
+    safe_disable_ref: str = "safe-disable-ref:provider-credential-validation:not-active"
+    idempotency_ref: str = "idempotency-ref:provider-credential-validation:required"
     validation_enabled: bool = False
     external_validation_allowed: bool = False
     provider_response_persistence_allowed: bool = False
+    provider_sdk_call_enabled: bool = False
+    model_invocation_enabled: bool = False
+    billing_authority_granted: bool = False
+    exact_approval_required: bool = True
+    redacted_receipts_only: bool = True
     validation_receipt_ref: str = "receipt-ref:provider-validation:not-created"
-    readiness_status: str = "blocked_not_scoped"
+    readiness_status: str = "validation_blocked"
+    ui_states: list[str] = Field(
+        default_factory=lambda: [
+            "validation blocked",
+            "credential valid",
+            "credential invalid",
+            "approval required",
+            "no provider authority",
+        ]
+    )
     blocker_codes: list[str] = Field(
         default_factory=lambda: [
-            "PROVIDER_KEY_VALIDATION_NOT_SCOPED",
-            "PROVIDER_NETWORK_CALL_NOT_SCOPED",
+            "EXACT_APPROVAL_REQUIRED",
+            "VALIDATION_ADAPTER_DISABLED_BY_DEFAULT",
+            "PROVIDER_SDK_CALL_DENIED",
+            "MODEL_INVOCATION_DENIED",
+            "BILLING_AUTHORITY_DENIED",
             "REDACTED_VALIDATION_RECEIPT_REQUIRED",
         ]
     )
     safe_summary: str = (
-        "Provider credential-reference validation is not scoped; any future validation must use safe refs, "
-        "explicit consent, policy, approval, revocation, and redacted receipts."
+        "Provider credential-reference validation is exact-approval scoped for one provider lane; "
+        "the app default remains validation-blocked with no provider SDK, model invocation, "
+        "billing authority, raw credential display, or provider response persistence."
     )
 
     @model_validator(mode="after")
@@ -204,15 +233,32 @@ class ProviderCredentialValidationReadiness(_ProviderRuntimeContract):
             self.validation_enabled
             or self.external_validation_allowed
             or self.provider_response_persistence_allowed
+            or self.provider_sdk_call_enabled
+            or self.model_invocation_enabled
+            or self.billing_authority_granted
         ):
             raise ValueError("PROVIDER_CREDENTIAL_VALIDATION_AUTHORITY_DENIED")
-        if self.readiness_status != "blocked_not_scoped":
+        if self.readiness_status != "validation_blocked":
             raise ValueError("PROVIDER_CREDENTIAL_VALIDATION_STATUS_DENIED")
+        required_ui_states = {
+            "validation blocked",
+            "credential valid",
+            "credential invalid",
+            "approval required",
+            "no provider authority",
+        }
+        if set(self.ui_states) != required_ui_states:
+            raise ValueError("PROVIDER_CREDENTIAL_VALIDATION_UI_STATES_DENIED")
+        if not self.exact_approval_required or not self.redacted_receipts_only:
+            raise ValueError("PROVIDER_CREDENTIAL_VALIDATION_GATE_DENIED")
         _require_codes(
             self.blocker_codes,
             {
-                "PROVIDER_KEY_VALIDATION_NOT_SCOPED",
-                "PROVIDER_NETWORK_CALL_NOT_SCOPED",
+                "EXACT_APPROVAL_REQUIRED",
+                "VALIDATION_ADAPTER_DISABLED_BY_DEFAULT",
+                "PROVIDER_SDK_CALL_DENIED",
+                "MODEL_INVOCATION_DENIED",
+                "BILLING_AUTHORITY_DENIED",
                 "REDACTED_VALIDATION_RECEIPT_REQUIRED",
             },
             "PROVIDER_CREDENTIAL_VALIDATION_BLOCKER_CODES_REQUIRED",
@@ -261,7 +307,9 @@ class ProviderCredentialValidationReceipt(_ProviderRuntimeContract):
     provider_sdk_used: bool = False
     provider_response_persisted: bool = False
     redacted_validation_receipt_ref: str = Field(..., min_length=1)
-    safe_error_summary: str = "Provider credential validation is blocked until a scoped runtime milestone."
+    safe_error_summary: str = (
+        "Provider credential validation is blocked until a scoped runtime milestone."
+    )
     reason_codes: list[str] = Field(
         default_factory=lambda: [
             "PROVIDER_KEY_VALIDATION_NOT_SCOPED",
@@ -443,7 +491,9 @@ class GovernedProviderInvocationReceipt(_ProviderRuntimeContract):
             "PROVIDER_OUTPUT_NOT_AUTHORITY",
         ]
     )
-    safe_error_summary: str = "Provider invocation is blocked until a scoped runtime milestone."
+    safe_error_summary: str = (
+        "Provider invocation is blocked until a scoped runtime milestone."
+    )
 
     @model_validator(mode="after")
     def invocation_receipt_must_remain_blocked(self) -> Any:

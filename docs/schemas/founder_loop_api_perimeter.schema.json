@@ -117,12 +117,12 @@
       }
     },
     "current_mutating_route_count": {
-      "const": 32
+      "const": 33
     },
     "current_mutating_routes": {
       "type": "array",
-      "minItems": 32,
-      "maxItems": 32,
+      "minItems": 33,
+      "maxItems": 33,
       "items": {
         "$ref": "#/$defs/mutating_route"
       }
@@ -217,7 +217,10 @@
           "minLength": 1
         },
         "side_effect_class": {
-          "const": "local_dev_workspace_only"
+          "enum": [
+            "local_dev_workspace_only",
+            "governed_network_read_only"
+          ]
         },
         "route_classification": {
           "const": "mutating_requires_authority"
@@ -246,7 +249,32 @@
             "null"
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "path": {
+                "const": "/control-center/providers/credentials/validate"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "side_effect_class": {
+                "const": "governed_network_read_only"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "side_effect_class": {
+                "const": "local_dev_workspace_only"
+              }
+            }
+          }
+        }
+      ]
     },
     "mutation_family": {
       "type": "object",

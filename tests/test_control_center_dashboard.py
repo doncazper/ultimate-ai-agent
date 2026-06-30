@@ -50,15 +50,40 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only() -> None:
     assert snapshot.provider_credential_readiness.budget_decision_ref_required is True
     assert snapshot.provider_credential_readiness.max_approved_usd_ref_required is True
     assert snapshot.provider_credential_readiness.future_receipt_refs_required is True
-    assert snapshot.provider_credential_readiness.unknown_paid_cost_requires_approval is True
-    assert snapshot.provider_credential_readiness.estimated_cost_above_budget_blocks_use is True
-    assert snapshot.provider_credential_readiness.provider_usage_claim_requires_receipt_refs is True
-    assert snapshot.provider_credential_readiness.provider_runtime_authority_denied is True
-    assert snapshot.provider_credential_readiness.provider_spend_authority_denied is True
-    assert snapshot.provider_credential_readiness.vault_adapter_readiness.adapter_runtime_enabled is False
-    assert snapshot.provider_credential_readiness.enrollment_readiness.enrollment_enabled is False
-    assert snapshot.provider_credential_readiness.validation_readiness.validation_enabled is False
-    assert snapshot.provider_credential_readiness.invocation_readiness.invocation_enabled is False
+    assert (
+        snapshot.provider_credential_readiness.unknown_paid_cost_requires_approval
+        is True
+    )
+    assert (
+        snapshot.provider_credential_readiness.estimated_cost_above_budget_blocks_use
+        is True
+    )
+    assert (
+        snapshot.provider_credential_readiness.provider_usage_claim_requires_receipt_refs
+        is True
+    )
+    assert (
+        snapshot.provider_credential_readiness.provider_runtime_authority_denied is True
+    )
+    assert (
+        snapshot.provider_credential_readiness.provider_spend_authority_denied is True
+    )
+    assert (
+        snapshot.provider_credential_readiness.vault_adapter_readiness.adapter_runtime_enabled
+        is False
+    )
+    assert (
+        snapshot.provider_credential_readiness.enrollment_readiness.enrollment_enabled
+        is False
+    )
+    assert (
+        snapshot.provider_credential_readiness.validation_readiness.validation_enabled
+        is False
+    )
+    assert (
+        snapshot.provider_credential_readiness.invocation_readiness.invocation_enabled
+        is False
+    )
     assert snapshot.operator_loop_summary.milestone_ref == "UAA-P1-011"
     assert snapshot.operator_loop_summary.frontend_authority is False
     assert snapshot.operator_loop_summary.production_ready is False
@@ -87,7 +112,9 @@ def test_control_center_dashboard_contains_no_raw_or_secret_content() -> None:
         assert fragment not in dump
 
 
-def test_operator_loop_summary_reports_local_backend_prerequisites_without_authority() -> None:
+def test_operator_loop_summary_reports_local_backend_prerequisites_without_authority() -> (
+    None
+):
     snapshot = build_control_center_dashboard(
         env={
             UAA_LLAMA_CPP_GATEWAY_ENV: "1",
@@ -108,8 +135,13 @@ def test_operator_loop_summary_reports_local_backend_prerequisites_without_autho
     assert statuses["runtime_health"] == "route_ready"
     assert statuses["local_model_readiness"] == "gateway_enabled_requires_bearer"
     assert statuses["uaa_v1_chat"] == "gateway_enabled_requires_bearer"
-    assert statuses["task_decomposition_plan"] == "local_authority_enabled_requires_bearer"
-    assert statuses["safe_capability_approval"] == "local_authority_enabled_requires_bearer"
+    assert (
+        statuses["task_decomposition_plan"] == "local_authority_enabled_requires_bearer"
+    )
+    assert (
+        statuses["safe_capability_approval"]
+        == "local_authority_enabled_requires_bearer"
+    )
     assert statuses["receipt_audit_latency_rollback"] == "inspection_route_ready"
     assert "/v1/chat/completions" in loop.inspection_route_refs
     assert "/task-decomposition/metrics" in loop.inspection_route_refs
@@ -123,7 +155,10 @@ def test_provider_credential_readiness_is_reference_only() -> None:
     assert summary.raw_key_collection_enabled is False
     assert summary.credential_material_stored is False
     assert summary.vault_adapter_configured is False
-    assert summary.vault_adapter_readiness.readiness_status == "blocked_no_approved_backend"
+    assert (
+        summary.vault_adapter_readiness.readiness_status
+        == "blocked_no_approved_backend"
+    )
     assert summary.vault_adapter_readiness.adapter_available is False
     assert summary.vault_adapter_readiness.supports_write is False
     assert summary.vault_adapter_readiness.supports_read_handle is False
@@ -131,24 +166,30 @@ def test_provider_credential_readiness_is_reference_only() -> None:
     assert summary.vault_adapter_readiness.credential_material_stored_by_repo is False
     assert summary.vault_adapter_readiness.raw_key_visible is False
     assert summary.vault_adapter_readiness.adapter_runtime_enabled is False
-    assert summary.enrollment_readiness.readiness_status == "blocked_disabled_by_default"
+    assert (
+        summary.enrollment_readiness.readiness_status == "blocked_disabled_by_default"
+    )
     assert summary.enrollment_readiness.enrollment_enabled is False
     assert summary.enrollment_readiness.raw_key_collection_enabled is False
     assert summary.enrollment_readiness.credential_material_stored_by_repo is False
-    assert summary.validation_readiness.readiness_status == "blocked_not_scoped"
+    assert summary.validation_readiness.readiness_status == "validation_blocked"
     assert summary.validation_readiness.validation_enabled is False
     assert summary.validation_readiness.external_validation_allowed is False
     assert summary.validation_readiness.provider_response_persistence_allowed is False
+    assert summary.validation_readiness.exact_approval_required is True
+    assert "approval required" in summary.validation_readiness.ui_states
     assert summary.invocation_readiness.readiness_status == "blocked_not_scoped"
     assert summary.invocation_readiness.invocation_enabled is False
     assert summary.invocation_readiness.policy_engine_required is True
     assert summary.invocation_readiness.local_approval_required is True
     assert summary.invocation_readiness.model_output_authoritative is False
-    assert set(summary.supported_readiness_postures) == set(ProviderCredentialReadinessPosture)
-    assert summary.posture_counts[ProviderCredentialReadinessPosture.configured] == 0
-    assert summary.posture_counts[ProviderCredentialReadinessPosture.not_configured] == len(
-        summary.providers
+    assert set(summary.supported_readiness_postures) == set(
+        ProviderCredentialReadinessPosture
     )
+    assert summary.posture_counts[ProviderCredentialReadinessPosture.configured] == 0
+    assert summary.posture_counts[
+        ProviderCredentialReadinessPosture.not_configured
+    ] == len(summary.providers)
     assert summary.posture_counts[ProviderCredentialReadinessPosture.cost_blocked] == 0
     assert summary.cost_governor_binding_required is True
     assert summary.unknown_paid_cost_requires_approval is True
@@ -169,18 +210,37 @@ def test_provider_credential_readiness_is_reference_only() -> None:
         assert provider.credential_material_stored is False
         assert provider.raw_key_visible is False
         assert provider.readiness_status == "blocked_reference_only"
-        assert provider.readiness_posture == ProviderCredentialReadinessPosture.not_configured
+        assert (
+            provider.readiness_posture
+            == ProviderCredentialReadinessPosture.not_configured
+        )
         assert provider.cost_governor_binding.provider_ref == provider.provider_id
         assert provider.cost_governor_binding.credential_ref == provider.credential_ref
         assert provider.cost_governor_binding.provider_ref_status == "present"
         assert provider.cost_governor_binding.model_ref_status == "missing"
-        assert provider.cost_governor_binding.unknown_paid_cost_requires_approval is True
-        assert provider.cost_governor_binding.provider_usage_claim_requires_receipt_refs is True
+        assert (
+            provider.cost_governor_binding.unknown_paid_cost_requires_approval is True
+        )
+        assert (
+            provider.cost_governor_binding.provider_usage_claim_requires_receipt_refs
+            is True
+        )
         assert provider.cost_governor_binding.provider_use_authority_granted is False
-        assert "UNKNOWN_PAID_COST_REQUIRES_APPROVAL" in provider.cost_governor_binding.blocker_codes
-        assert "COST_ESTIMATE_REF_REQUIRED" in provider.cost_governor_binding.blocker_codes
-        assert "BUDGET_DECISION_REF_REQUIRED" in provider.cost_governor_binding.blocker_codes
-        assert "FUTURE_RECEIPT_REFS_REQUIRED" in provider.cost_governor_binding.blocker_codes
+        assert (
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL"
+            in provider.cost_governor_binding.blocker_codes
+        )
+        assert (
+            "COST_ESTIMATE_REF_REQUIRED" in provider.cost_governor_binding.blocker_codes
+        )
+        assert (
+            "BUDGET_DECISION_REF_REQUIRED"
+            in provider.cost_governor_binding.blocker_codes
+        )
+        assert (
+            "FUTURE_RECEIPT_REFS_REQUIRED"
+            in provider.cost_governor_binding.blocker_codes
+        )
 
 
 def test_provider_credential_readiness_rejects_authority_or_secret_like_refs() -> None:
@@ -188,13 +248,19 @@ def test_provider_credential_readiness_rejects_authority_or_secret_like_refs() -
         ProviderCredentialReadinessSummary(invocation_enabled=True, providers=[])
 
     with pytest.raises(ValidationError, match="COST_GOVERNOR_GATE_DENIED"):
-        ProviderCredentialReadinessSummary(cost_governor_binding_required=False, providers=[])
+        ProviderCredentialReadinessSummary(
+            cost_governor_binding_required=False, providers=[]
+        )
 
     with pytest.raises(ValidationError, match="COST_AUTHORITY_DENIED"):
-        ProviderCredentialReadinessSummary(provider_runtime_authority_denied=False, providers=[])
+        ProviderCredentialReadinessSummary(
+            provider_runtime_authority_denied=False, providers=[]
+        )
 
     with pytest.raises(ValidationError, match="COST_AUTHORITY_DENIED"):
-        ProviderCredentialReadinessSummary(provider_spend_authority_denied=False, providers=[])
+        ProviderCredentialReadinessSummary(
+            provider_spend_authority_denied=False, providers=[]
+        )
 
     with pytest.raises(ValidationError, match="POSTURE_COUNTS_MISMATCH"):
         ProviderCredentialReadinessSummary(
@@ -278,7 +344,9 @@ def test_provider_credential_readiness_rejects_authority_or_secret_like_refs() -
         )
 
     with pytest.raises(ValidationError, match="STORAGE_DENIED"):
-        ProviderCredentialReadinessSummary(credential_material_stored=True, providers=[])
+        ProviderCredentialReadinessSummary(
+            credential_material_stored=True, providers=[]
+        )
 
     with pytest.raises(ValidationError, match="VAULT_AUTHORITY_DENIED"):
         ProviderCredentialVaultAdapterReadiness(adapter_runtime_enabled=True)

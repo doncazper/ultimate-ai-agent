@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `149`.
+Current OpenAPI path count: `150`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -29,6 +29,15 @@ Contract rules:
 - Governed web evidence routes may use the `governed_network_read_only`
   side-effect class and must remain HTTPS GET only, allowlisted, bounded,
   redacted, receipt-ref oriented, and blocked from unrestricted browsing.
+- `POST /control-center/providers/credentials/validate` may use the
+  `governed_network_read_only` side-effect class only for the exact-approved
+  credential validation lane. It requires exact approval, policy scope,
+  idempotency, redacted receipt refs, revocation/safe-disable posture, and an
+  approved injected transport before any provider network validation can occur.
+  No built-in provider transport is enabled by default, and the lane remains
+  blocked from model invocation, provider SDKs, raw credential display, provider
+  payload persistence, fallback, autonomous/background calls, billing authority,
+  and production authority.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route

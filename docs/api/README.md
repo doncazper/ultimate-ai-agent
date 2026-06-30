@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `149`, generated from the FastAPI application and
+Current OpenAPI path count: `150`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -68,8 +68,8 @@ Current boundary summary:
   decomposition, action preview/proposal, Action Inbox decisions, Today to
   Action envelope promotion, Chat durable receipt/handoff routes, Memory Review
   decision receipt routes, Memory context-pack internal Action proposal routes,
-  the tiny exact-approved provider lane, and local model validation route
-  groups. It does not
+  the exact-approved provider credential validation lane, the tiny
+  exact-approved provider lane, and local model validation route groups. It does not
   add auth, distributed quota,
   dependencies, billing, or production
   authority.

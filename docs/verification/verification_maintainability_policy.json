@@ -21,8 +21,8 @@
       ],
       "allowlist": {
         "scripts/verification/run_all_legacy.py": {
-          "max_lines": 30299,
-          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003, FCC-V1-004, governed memory spine, fail-closed local auth compatibility, and the operational maturity gate add stable small verifier hooks, future static scans must move to small modules."
+          "max_lines": 30300,
+          "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003, FCC-V1-004, governed memory spine, fail-closed local auth compatibility, the operational maturity gate, and the exact-approved credential validation static guard exception add stable small verifier hooks, future static scans must move to small modules."
         },
         "scripts/verification/documentation_integrity/legacy.py": {
           "max_lines": 21975,
@@ -75,6 +75,10 @@
         "tests/test_operational_maturity_manifest.py": {
           "max_lines": 714,
           "reason": "Pre-existing oversized operational maturity manifest regression test outside the FCC-MEM-001 implementation scope."
+        },
+        "tests/test_api_manifest.py": {
+          "max_lines": 900,
+          "reason": "Frozen API manifest route/capability contract test with provider credential validation lane route-currentness assertions; future API manifest cases should be sharded into focused tests."
         }
       }
     }

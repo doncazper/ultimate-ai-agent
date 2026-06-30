@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `149`.
+Current OpenAPI path count: `150`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -45,7 +45,7 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 18 |
 | `local_sensitive` | 96 |
-| `mutating_requires_authority` | 32 |
+| `mutating_requires_authority` | 33 |
 
 Allowed current side-effect classes are:
 
@@ -90,8 +90,9 @@ UAA-P1-085 implements targeted local fixed-window rate-limit posture for
 model/chat, task decomposition, action preview/proposal, Action Inbox decisions,
 Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
 Review decision receipts, Memory context-pack internal Action proposal receipts,
-Memory feedback receipts, the tiny exact-approved provider lane, and local
-model validation route groups.
+Memory feedback receipts, the exact-approved provider credential validation
+lane, the tiny exact-approved provider lane, and local model validation route
+groups.
 `/api/manifest` and the frozen route inventory expose
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production
@@ -250,6 +251,14 @@ provider, connector, or production authority.
 These groups keep their existing validation, preview, evaluate, dry-run,
 summary, readiness, and local-dev scoped boundaries. Mutating local-dev paths
 remain approval-bound and blocked from production authority.
+
+Provider credential validation is represented by
+`POST /control-center/providers/credentials/validate` as an exact-approved,
+idempotency-required, redacted-receipt lane for one provider credential check.
+It has no built-in live validation transport by default and is not model
+invocation, provider SDK authority, provider payload persistence, fallback
+routing, billing authority, autonomous/background calls, or production
+authority.
 
 ## Verification
 

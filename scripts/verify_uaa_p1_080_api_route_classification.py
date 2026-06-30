@@ -37,7 +37,7 @@ EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 68,
     "none": 4,
     "local_dev_workspace_only": 76,
-    "governed_network_read_only": 1,
+    "governed_network_read_only": 2,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
     ("GET", "/api/manifest"),

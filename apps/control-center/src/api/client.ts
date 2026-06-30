@@ -160,9 +160,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
-        founderEvidenceTimeline: normalizeFounderEvidenceTimeline(undefined).value,
+        founderEvidenceTimeline:
+          normalizeFounderEvidenceTimeline(undefined).value,
         founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
-        founderMorningBriefing: normalizeFounderMorningBriefing(undefined).value,
+        founderMorningBriefing:
+          normalizeFounderMorningBriefing(undefined).value,
       },
       {
         state: "mock_fallback",
@@ -237,8 +239,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderSourceReadiness = fulfilledValue(results[17]);
   const founderStorageStatus = fulfilledValue(results[18]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
-  const normalizedFounderEvidenceTimeline =
-    normalizeFounderEvidenceTimeline(founderEvidenceTimeline);
+  const normalizedFounderEvidenceTimeline = normalizeFounderEvidenceTimeline(
+    founderEvidenceTimeline,
+  );
   const normalizedFounderActionsInbox =
     normalizeFounderActionsInbox(founderActionsInbox);
   const normalizedFounderMemoryReview = mergeMissingFields(
@@ -252,8 +255,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderMemoryContextPacks,
     founderMemoryContextPacks,
   );
-  const normalizedFounderMorningBriefing =
-    normalizeFounderMorningBriefing(founderMorningBriefing);
+  const normalizedFounderMorningBriefing = normalizeFounderMorningBriefing(
+    founderMorningBriefing,
+  );
   const normalizedFounderSourceReadiness = mergeMissingFields(
     mockControlCenterData.founderSourceReadiness,
     founderSourceReadiness,
@@ -278,16 +282,18 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
-        founderEvidenceTimeline: normalizeFounderEvidenceTimeline(undefined).value,
+        founderEvidenceTimeline:
+          normalizeFounderEvidenceTimeline(undefined).value,
         founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
-        founderMorningBriefing: normalizeFounderMorningBriefing(undefined).value,
+        founderMorningBriefing:
+          normalizeFounderMorningBriefing(undefined).value,
       },
       {
-      state: "mock_fallback",
-      safeMessage:
-        "Backend unavailable; showing non-authoritative mock fallback data.",
-      usingMockData: true,
-      warnings: ["LOCAL_BACKEND_UNAVAILABLE", "MOCK_DATA_ONLY"],
+        state: "mock_fallback",
+        safeMessage:
+          "Backend unavailable; showing non-authoritative mock fallback data.",
+        usingMockData: true,
+        warnings: ["LOCAL_BACKEND_UNAVAILABLE", "MOCK_DATA_ONLY"],
       },
     );
   }
@@ -343,11 +349,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
 
   return withConnection(data, {
     state: "degraded",
-    safeMessage:
-      providerCredentialReadinessFallbackUsed
-        ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
-        : founderLoopFieldFallbackUsed
-          ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
+    safeMessage: providerCredentialReadinessFallbackUsed
+      ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
+      : founderLoopFieldFallbackUsed
+        ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
         : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
     usingMockData: true,
     warnings: [
@@ -452,8 +457,9 @@ export async function commitLocalTask(
       body: JSON.stringify(request),
     },
   );
-  const data =
-    (await readJsonSafely(response)) as ResultEnvelope<FounderLoopLocalTaskCommitReceipt>;
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<FounderLoopLocalTaskCommitReceipt>;
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
@@ -472,7 +478,9 @@ export async function fetchFounderActionsInbox(): Promise<FounderLoopActionsInbo
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
-  return readEnvelope<FounderLoopActionsInbox>(API_ENDPOINTS.founderActionsInbox);
+  return readEnvelope<FounderLoopActionsInbox>(
+    API_ENDPOINTS.founderActionsInbox,
+  );
 }
 
 export async function submitTodayActionEnvelope(
@@ -531,7 +539,9 @@ export async function recordChatTurnReceipt(
       body: JSON.stringify(request),
     },
   );
-  const data = (await readJsonSafely(response)) as ResultEnvelope<ChatTurnReceipt>;
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<ChatTurnReceipt>;
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
@@ -577,12 +587,17 @@ export async function recordChatHandoff(
       body: JSON.stringify(request),
     },
   );
-  const data = (await readJsonSafely(response)) as ResultEnvelope<ChatHandoffReceipt>;
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<ChatHandoffReceipt>;
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
       sanitizeForDisplay(
-        extractErrorMessage(data, "Chat handoff receipt was not recorded safely."),
+        extractErrorMessage(
+          data,
+          "Chat handoff receipt was not recorded safely.",
+        ),
       ),
     );
   }
@@ -613,8 +628,9 @@ export async function recordMemoryReviewDecision(
       body: JSON.stringify(request),
     },
   );
-  const data =
-    (await readJsonSafely(response)) as ResultEnvelope<MemoryReviewDecisionReceipt>;
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<MemoryReviewDecisionReceipt>;
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
@@ -636,7 +652,9 @@ export async function fetchFounderMemoryContextPacks(): Promise<FounderLoopMemor
 }
 
 export async function fetchFounderMemoryReview(): Promise<FounderLoopMemoryReview> {
-  return readEnvelope<FounderLoopMemoryReview>(API_ENDPOINTS.founderMemoryReview);
+  return readEnvelope<FounderLoopMemoryReview>(
+    API_ENDPOINTS.founderMemoryReview,
+  );
 }
 
 export async function fetchFounderMemoryWorkbench(): Promise<FounderLoopMemoryWorkbench> {
@@ -663,8 +681,9 @@ export async function recordManualMemoryCandidate(
       body: JSON.stringify(request),
     },
   );
-  const data =
-    (await readJsonSafely(response)) as ResultEnvelope<ManualMemoryCandidateReceipt>;
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<ManualMemoryCandidateReceipt>;
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
@@ -701,8 +720,9 @@ export async function recordMemoryContextPackActionProposal(
       body: JSON.stringify(request),
     },
   );
-  const data =
-    (await readJsonSafely(response)) as ResultEnvelope<FounderLoopMemoryContextPackActionProposalReceipt>;
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<FounderLoopMemoryContextPackActionProposalReceipt>;
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
@@ -1111,7 +1131,9 @@ function normalizeControlCenterDashboard(
     return { value: mockControlCenterData.dashboard, usedFallback: true };
   }
   const normalized = { ...value } as Record<string, unknown>;
-  if (isSafeProviderCredentialReadiness(normalized.provider_credential_readiness)) {
+  if (
+    isSafeProviderCredentialReadiness(normalized.provider_credential_readiness)
+  ) {
     return {
       value: normalized as unknown as ControlCenterDashboardSnapshot,
       usedFallback: false,
@@ -1156,7 +1178,9 @@ function isSafeProviderCredentialReadiness(
   if (requiredTrueFlags.some((field) => value[field] !== true)) {
     return false;
   }
-  if (!isSupportedProviderReadinessPostureList(value.supported_readiness_postures)) {
+  if (
+    !isSupportedProviderReadinessPostureList(value.supported_readiness_postures)
+  ) {
     return false;
   }
   if (
@@ -1177,8 +1201,9 @@ function isSafeProviderCredentialReadiness(
   if (!providerPostureCountsMatch(value.posture_counts, value.providers)) {
     return false;
   }
-  return REQUIRED_PROVIDER_COST_BLOCKERS.every((code) =>
-    Array.isArray(value.blocker_codes) && value.blocker_codes.includes(code),
+  return REQUIRED_PROVIDER_COST_BLOCKERS.every(
+    (code) =>
+      Array.isArray(value.blocker_codes) && value.blocker_codes.includes(code),
   );
 }
 
@@ -1289,8 +1314,10 @@ function isSafeProviderCredentialReadinessItem(value: unknown): boolean {
   if (bindingTrueFlags.some((field) => binding[field] !== true)) {
     return false;
   }
-  return REQUIRED_PROVIDER_COST_BLOCKERS.every((code) =>
-    Array.isArray(binding.blocker_codes) && binding.blocker_codes.includes(code),
+  return REQUIRED_PROVIDER_COST_BLOCKERS.every(
+    (code) =>
+      Array.isArray(binding.blocker_codes) &&
+      binding.blocker_codes.includes(code),
   );
 }
 
@@ -1341,12 +1368,30 @@ function isSafeProviderCredentialValidationReadiness(value: unknown): boolean {
     "validation_enabled",
     "external_validation_allowed",
     "provider_response_persistence_allowed",
+    "provider_sdk_call_enabled",
+    "model_invocation_enabled",
+    "billing_authority_granted",
+  ];
+  const trueFlags = ["exact_approval_required", "redacted_receipts_only"];
+  const uiStates = value.ui_states;
+  const expectedUiStates = [
+    "validation blocked",
+    "credential valid",
+    "credential invalid",
+    "approval required",
+    "no provider authority",
   ];
   return (
     falseFlags.every((field) => value[field] === false) &&
-    value.readiness_status === "blocked_not_scoped" &&
+    trueFlags.every((field) => value[field] === true) &&
+    value.readiness_status === "validation_blocked" &&
+    Array.isArray(uiStates) &&
+    uiStates.length === expectedUiStates.length &&
+    expectedUiStates.every((label) => uiStates.includes(label)) &&
+    uiStates.every((label) => expectedUiStates.includes(String(label))) &&
     Array.isArray(value.blocker_codes) &&
-    value.blocker_codes.includes("PROVIDER_KEY_VALIDATION_NOT_SCOPED")
+    value.blocker_codes.includes("EXACT_APPROVAL_REQUIRED") &&
+    value.blocker_codes.includes("VALIDATION_ADAPTER_DISABLED_BY_DEFAULT")
   );
 }
 
@@ -1468,7 +1513,10 @@ function providerPostureCountsMatch(
     PROVIDER_READINESS_POSTURES.map((posture) => [posture, 0]),
   ) as Record<string, number>;
   for (const provider of providers) {
-    if (!isPlainRecord(provider) || !isProviderReadinessPosture(provider.readiness_posture)) {
+    if (
+      !isPlainRecord(provider) ||
+      !isProviderReadinessPosture(provider.readiness_posture)
+    ) {
       return false;
     }
     expected[provider.readiness_posture] += 1;
@@ -1505,8 +1553,8 @@ function providerBindingRefLooksUnbound(value: unknown): boolean {
     return true;
   }
   const lowered = value.toLowerCase();
-  return [":missing", "not-bound", "not-selected", "not-configured"].some((marker) =>
-    lowered.includes(marker),
+  return [":missing", "not-bound", "not-selected", "not-configured"].some(
+    (marker) => lowered.includes(marker),
   );
 }
 
@@ -1599,7 +1647,9 @@ function hasStringArrays(
 ): boolean {
   return fields.every((field) => {
     const value = record[field];
-    return Array.isArray(value) && value.every((item) => typeof item === "string");
+    return (
+      Array.isArray(value) && value.every((item) => typeof item === "string")
+    );
   });
 }
 
@@ -1661,8 +1711,12 @@ function hasRequiredReviewReceiptLabels(value: unknown): boolean {
   if (!Array.isArray(value)) {
     return false;
   }
-  const labels = new Set(value.filter((item): item is string => typeof item === "string"));
-  return ["approve", "edit", "reject", "defer"].every((label) => labels.has(label));
+  const labels = new Set(
+    value.filter((item): item is string => typeof item === "string"),
+  );
+  return ["approve", "edit", "reject", "defer"].every((label) =>
+    labels.has(label),
+  );
 }
 
 const PLAN_ACTION_ENVELOPE_TOP_LEVEL_KEYS = [
@@ -1729,12 +1783,16 @@ function stripPlansActionEnvelopePosture(
   return stripped;
 }
 
-function normalizeFounderToday(
-  value: FounderLoopTodaySummary | undefined,
-): { value: FounderLoopTodaySummary; usedFallback: boolean } {
+function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
+  value: FounderLoopTodaySummary;
+  usedFallback: boolean;
+} {
   if (value === undefined) {
     const fallbackWithoutDigest = {
-      ...(mockControlCenterData.founderToday as unknown as Record<string, unknown>),
+      ...(mockControlCenterData.founderToday as unknown as Record<
+        string,
+        unknown
+      >),
     };
     delete fallbackWithoutDigest.today_loop_read_model;
     delete fallbackWithoutDigest.today_loop_tightening_contract_ref;
@@ -1758,7 +1816,9 @@ function normalizeFounderToday(
   let normalized: Record<string, unknown> = {
     ...(merged.value as unknown as Record<string, unknown>),
   };
-  if (Object.prototype.hasOwnProperty.call(valueRecord, "today_loop_read_model")) {
+  if (
+    Object.prototype.hasOwnProperty.call(valueRecord, "today_loop_read_model")
+  ) {
     normalized.today_loop_read_model = valueRecord.today_loop_read_model;
     normalized.today_loop_tightening_contract_ref =
       valueRecord.today_loop_tightening_contract_ref;
@@ -1777,13 +1837,18 @@ function normalizeFounderToday(
   const weeklyCeoReview = valueRecord.weekly_ceo_review_v1_read_model;
   if (isSafeWeeklyCeoReviewV1ReadModel(weeklyCeoReview)) {
     normalized.weekly_ceo_review_v1_read_model = weeklyCeoReview;
-    normalized.weekly_ceo_review_v1_contract_ref =
-      (weeklyCeoReview as Record<string, unknown>).contract_ref;
+    normalized.weekly_ceo_review_v1_contract_ref = (
+      weeklyCeoReview as Record<string, unknown>
+    ).contract_ref;
   } else {
     delete normalized.weekly_ceo_review_v1_read_model;
     delete normalized.weekly_ceo_review_v1_contract_ref;
   }
-  if (isSafePlansToActionsBridgeReadModel(valueRecord.plans_to_actions_bridge_read_model)) {
+  if (
+    isSafePlansToActionsBridgeReadModel(
+      valueRecord.plans_to_actions_bridge_read_model,
+    )
+  ) {
     normalized.plans_to_actions_bridge_read_model =
       valueRecord.plans_to_actions_bridge_read_model;
     normalized.plans_to_actions_bridge_contract_ref =
@@ -1822,7 +1887,8 @@ function normalizeFounderEvidenceTimeline(
     delete fallbackWithoutNarrative.narrative_read_model;
     delete fallbackWithoutNarrative.narrative_contract_ref;
     return {
-      value: fallbackWithoutNarrative as unknown as FounderLoopEvidenceTimelineIndex,
+      value:
+        fallbackWithoutNarrative as unknown as FounderLoopEvidenceTimelineIndex,
       usedFallback: true,
     };
   }
@@ -1865,7 +1931,10 @@ function stripFollowUpTrackerIfMissing<T>(
     const withoutMockTracker = { ...(merged.value as Record<string, unknown>) };
     delete withoutMockTracker.follow_up_tracker;
     delete withoutMockTracker.follow_up_tracker_contract_ref;
-    return { value: withoutMockTracker as T, usedFallback: merged.usedFallback };
+    return {
+      value: withoutMockTracker as T,
+      usedFallback: merged.usedFallback,
+    };
   }
   return {
     value: {
@@ -2231,7 +2300,9 @@ function normalizeFounderMorningBriefing(
   const normalized: Record<string, unknown> = {
     ...(merged.value as unknown as Record<string, unknown>),
   };
-  if (isSafeMorningBriefingV1ReadModel(valueRecord.morning_briefing_v1_read_model)) {
+  if (
+    isSafeMorningBriefingV1ReadModel(valueRecord.morning_briefing_v1_read_model)
+  ) {
     normalized.morning_briefing_v1_read_model =
       valueRecord.morning_briefing_v1_read_model;
     normalized.morning_briefing_v1_contract_ref =
@@ -2243,8 +2314,9 @@ function normalizeFounderMorningBriefing(
   const weeklyCeoReview = valueRecord.weekly_ceo_review_v1_read_model;
   if (isSafeWeeklyCeoReviewV1ReadModel(weeklyCeoReview)) {
     normalized.weekly_ceo_review_v1_read_model = weeklyCeoReview;
-    normalized.weekly_ceo_review_v1_contract_ref =
-      (weeklyCeoReview as Record<string, unknown>).contract_ref;
+    normalized.weekly_ceo_review_v1_contract_ref = (
+      weeklyCeoReview as Record<string, unknown>
+    ).contract_ref;
   } else {
     delete normalized.weekly_ceo_review_v1_read_model;
     delete normalized.weekly_ceo_review_v1_contract_ref;
@@ -2271,7 +2343,8 @@ function isSafeWeeklyCeoReviewV1ReadModel(value: unknown): boolean {
   }
   if (
     value.schema_version !== "product-loop-008-weekly-ceo-review.v1" ||
-    value.contract_ref !== "contract-ref:product-loop-008-weekly-ceo-review-v1:v1" ||
+    value.contract_ref !==
+      "contract-ref:product-loop-008-weekly-ceo-review-v1:v1" ||
     value.source !== "python_core_weekly_ceo_review_v1_read_model"
   ) {
     return false;
@@ -2309,11 +2382,15 @@ function isSafeWeeklyCeoReviewV1ReadModel(value: unknown): boolean {
   );
 }
 
-function hasMatchingWeeklyCeoReviewV1Counts(value: Record<string, unknown>): boolean {
+function hasMatchingWeeklyCeoReviewV1Counts(
+  value: Record<string, unknown>,
+): boolean {
   return WEEKLY_CEO_REVIEW_V1_COUNT_ARRAY_PAIRS.every(([countKey, refsKey]) => {
     const count = value[countKey];
     const refs = value[refsKey];
-    return typeof count === "number" && Array.isArray(refs) && count === refs.length;
+    return (
+      typeof count === "number" && Array.isArray(refs) && count === refs.length
+    );
   });
 }
 
@@ -2323,7 +2400,8 @@ function isSafeChatToLoopHandoffReadModel(value: unknown): boolean {
   }
   if (
     value.schema_version !== "product-loop-009-chat-to-loop-handoff.v1" ||
-    value.contract_ref !== "contract-ref:product-loop-009-chat-to-loop-handoff:v1" ||
+    value.contract_ref !==
+      "contract-ref:product-loop-009-chat-to-loop-handoff:v1" ||
     value.source !== "python_core_chat_to_loop_handoff_read_model"
   ) {
     return false;
@@ -2341,17 +2419,23 @@ function isSafeChatToLoopHandoffReadModel(value: unknown): boolean {
     !isSafeChatToLoopText(value.next_safe_action) ||
     !hasDeniedFlagsFalse(value, CHAT_TO_LOOP_HANDOFF_DENIED_FLAGS) ||
     !hasStringArrays(value, CHAT_TO_LOOP_HANDOFF_REQUIRED_ARRAYS) ||
-    !hasSafeChatToLoopRefArrays(value, CHAT_TO_LOOP_HANDOFF_REQUIRED_REF_ARRAYS) ||
+    !hasSafeChatToLoopRefArrays(
+      value,
+      CHAT_TO_LOOP_HANDOFF_REQUIRED_REF_ARRAYS,
+    ) ||
     !hasMatchingChatToLoopHandoffCounts(value) ||
     !Array.isArray(value.outcomes) ||
     !value.outcomes.every(isSafeChatToLoopHandoffOutcome) ||
     !hasExactStringList(
-      (value.outcomes as Record<string, unknown>[]).map(
-        (outcome) => String(outcome.outcome_kind),
+      (value.outcomes as Record<string, unknown>[]).map((outcome) =>
+        String(outcome.outcome_kind),
       ),
       CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS,
     ) ||
-    !hasExactStringList(value.outcome_kinds, CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS) ||
+    !hasExactStringList(
+      value.outcome_kinds,
+      CHAT_TO_LOOP_HANDOFF_OUTCOME_KINDS,
+    ) ||
     !Array.isArray(value.blocked_state_refs) ||
     !value.blocked_state_refs.includes(
       "blocked-state:chat-to-loop-no-production-authority",
@@ -2410,11 +2494,15 @@ function isSafeChatToLoopHandoffOutcome(value: unknown): boolean {
   );
 }
 
-function hasMatchingChatToLoopHandoffCounts(value: Record<string, unknown>): boolean {
+function hasMatchingChatToLoopHandoffCounts(
+  value: Record<string, unknown>,
+): boolean {
   return CHAT_TO_LOOP_HANDOFF_COUNT_ARRAY_PAIRS.every(([countKey, refsKey]) => {
     const count = value[countKey];
     const refs = value[refsKey];
-    return typeof count === "number" && Array.isArray(refs) && count === refs.length;
+    return (
+      typeof count === "number" && Array.isArray(refs) && count === refs.length
+    );
   });
 }
 
@@ -2423,7 +2511,8 @@ function isSafeEvidenceTimelineNarrativeReadModel(value: unknown): boolean {
     return false;
   }
   if (
-    value.schema_version !== "product-loop-010-evidence-timeline-narrative.v1" ||
+    value.schema_version !==
+      "product-loop-010-evidence-timeline-narrative.v1" ||
     value.contract_ref !==
       "contract-ref:product-loop-010-evidence-timeline-narrative:v1" ||
     value.source !== "python_core_evidence_timeline_narrative_read_model"
@@ -2483,8 +2572,12 @@ function isSafeEvidenceNarrativeEntry(value: unknown): boolean {
     "group_ref",
   ] as const;
   return (
-    requiredTextFields.every((field) => isSafeEvidenceNarrativeText(value[field])) &&
-    requiredRefFields.every((field) => isSafeEvidenceNarrativeRef(value[field])) &&
+    requiredTextFields.every((field) =>
+      isSafeEvidenceNarrativeText(value[field]),
+    ) &&
+    requiredRefFields.every((field) =>
+      isSafeEvidenceNarrativeRef(value[field]),
+    ) &&
     hasDeniedFlagsFalse(value, EVIDENCE_NARRATIVE_DENIED_FLAGS) &&
     hasStringArrays(value, EVIDENCE_NARRATIVE_REF_ARRAYS) &&
     hasSafeEvidenceNarrativeRefArrays(value, EVIDENCE_NARRATIVE_REF_ARRAYS)
@@ -2496,11 +2589,15 @@ function hasMatchingEvidenceNarrativeAggregates(
   entries: Record<string, unknown>[],
 ): boolean {
   const expected: Record<string, string[]> = {
-    event_refs: uniqueSortedStrings(entries.map((entry) => String(entry.event_ref))),
+    event_refs: uniqueSortedStrings(
+      entries.map((entry) => String(entry.event_ref)),
+    ),
     timeline_item_refs: uniqueSortedStrings(
       entries.map((entry) => String(entry.timeline_item_ref)),
     ),
-    group_refs: uniqueSortedStrings(entries.map((entry) => String(entry.group_ref))),
+    group_refs: uniqueSortedStrings(
+      entries.map((entry) => String(entry.group_ref)),
+    ),
     receipt_refs: uniqueSortedStrings(
       entries.flatMap((entry) => entryStringArray(entry, "receipt_refs")),
     ),
@@ -2590,7 +2687,8 @@ function isSafeMorningBriefingV1ReadModel(value: unknown): boolean {
   }
   if (
     value.schema_version !== "product-loop-007-morning-briefing.v1" ||
-    value.contract_ref !== "contract-ref:product-loop-007-morning-briefing-v1:v1" ||
+    value.contract_ref !==
+      "contract-ref:product-loop-007-morning-briefing-v1:v1" ||
     value.source !== "python_core_morning_briefing_v1_read_model"
   ) {
     return false;
@@ -2763,7 +2861,11 @@ function isSafePlansToActionsBridgeItem(value: unknown): boolean {
     "task_decomposition_review_envelope_ref",
     "task_decomposition_action_inbox_bridge_ref",
   ]) {
-    if (value[field] !== null && value[field] !== undefined && typeof value[field] !== "string") {
+    if (
+      value[field] !== null &&
+      value[field] !== undefined &&
+      typeof value[field] !== "string"
+    ) {
       return false;
     }
   }
@@ -2823,7 +2925,8 @@ function normalizeFounderMemoryWorkbench(
       delete workbenchWithoutMockPosture.lifecycle_posture;
     }
     return {
-      value: workbenchWithoutMockPosture as unknown as FounderLoopMemoryWorkbench,
+      value:
+        workbenchWithoutMockPosture as unknown as FounderLoopMemoryWorkbench,
       usedFallback: merged.usedFallback,
     };
   }

@@ -105,23 +105,33 @@ def test_blocked_vault_adapter_reports_no_backend_or_runtime_capability() -> Non
 
 
 def test_vault_adapter_capability_report_rejects_unsafe_claims() -> None:
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_UNSAFE_CAPABILITY_DENIED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_ADAPTER_UNSAFE_CAPABILITY_DENIED"
+    ):
         CredentialVaultAdapterCapabilityReport(raw_key_return_supported=True)
 
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_BLOCKED_BACKEND_DENIED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_ADAPTER_BLOCKED_BACKEND_DENIED"
+    ):
         CredentialVaultAdapterCapabilityReport(supports_write=True)
 
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_BLOCKED_BACKEND_DENIED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_ADAPTER_BLOCKED_BACKEND_DENIED"
+    ):
         CredentialVaultAdapterCapabilityReport(adapter_available=True)
 
     with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_STATUS_DENIED"):
         CredentialVaultAdapterCapabilityReport(readiness_status="ready")
 
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_BLOCKER_CODES_REQUIRED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_ADAPTER_BLOCKER_CODES_REQUIRED"
+    ):
         CredentialVaultAdapterCapabilityReport(blocker_codes=[])
 
 
-def test_blocked_vault_adapter_denies_store_resolve_and_revoke_without_handles() -> None:
+def test_blocked_vault_adapter_denies_store_resolve_and_revoke_without_handles() -> (
+    None
+):
     adapter = BlockedCredentialVaultAdapter()
     store = vault_store_request()
     resolve = CredentialVaultResolveRequest(
@@ -163,7 +173,9 @@ def test_blocked_vault_adapter_denies_store_resolve_and_revoke_without_handles()
 
 
 def test_vault_adapter_decision_rejects_allowed_backend_or_handle_spoofing() -> None:
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_DECISION_ALLOWED_DENIED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_ADAPTER_DECISION_ALLOWED_DENIED"
+    ):
         CredentialVaultAdapterDecision(
             decision_id="credential-vault-decision:test",
             action="resolve_credential_handle",
@@ -172,7 +184,9 @@ def test_vault_adapter_decision_rejects_allowed_backend_or_handle_spoofing() -> 
             safe_message="blocked",
         )
 
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_DECISION_BACKEND_DENIED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_ADAPTER_DECISION_BACKEND_DENIED"
+    ):
         CredentialVaultAdapterDecision(
             decision_id="credential-vault-decision:test",
             action="resolve_credential_handle",
@@ -181,7 +195,9 @@ def test_vault_adapter_decision_rejects_allowed_backend_or_handle_spoofing() -> 
             safe_message="blocked",
         )
 
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_DENIED_HANDLE_REF_DENIED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_ADAPTER_DENIED_HANDLE_REF_DENIED"
+    ):
         CredentialVaultAdapterDecision(
             decision_id="credential-vault-decision:test",
             action="resolve_credential_handle",
@@ -192,10 +208,15 @@ def test_vault_adapter_decision_rejects_allowed_backend_or_handle_spoofing() -> 
 
 
 def test_vault_store_request_rejects_material_intake_and_secret_like_refs() -> None:
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_STORE_MATERIAL_INTAKE_DENIED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_STORE_MATERIAL_INTAKE_DENIED"
+    ):
         vault_store_request(credential_material_supplied_to_repo=True)
 
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_REQUEST_SECRET_LIKE_VALUE_REJECTED") as exc:
+    with pytest.raises(
+        ValidationError,
+        match="CREDENTIAL_VAULT_ADAPTER_REQUEST_SECRET_LIKE_VALUE_REJECTED",
+    ) as exc:
         CredentialVaultStoreRequest(
             credential_ref="token=" + ("D" * 16),
             provider_id="provider:test",
@@ -213,27 +234,39 @@ def test_vault_store_request_rejects_material_intake_and_secret_like_refs() -> N
     assert "D" * 16 not in str(exc.value)
 
 
-def test_vault_adapter_readiness_rejects_runtime_storage_visibility_and_secret_refs() -> None:
+def test_vault_adapter_readiness_rejects_runtime_storage_visibility_and_secret_refs() -> (
+    None
+):
     for field in [
         "adapter_runtime_enabled",
         "credential_material_stored_by_repo",
         "raw_key_visible",
     ]:
-        with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VAULT_AUTHORITY_DENIED"):
+        with pytest.raises(
+            ValidationError, match="PROVIDER_CREDENTIAL_VAULT_AUTHORITY_DENIED"
+        ):
             ProviderCredentialVaultAdapterReadiness(**{field: True})
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VAULT_SECRET_LIKE_VALUE_REJECTED") as exc:
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VAULT_SECRET_LIKE_VALUE_REJECTED"
+    ) as exc:
         ProviderCredentialVaultAdapterReadiness(credential_ref="token=" + ("A" * 16))
 
     assert "A" * 16 not in str(exc.value)
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VAULT_STATUS_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VAULT_STATUS_DENIED"
+    ):
         ProviderCredentialVaultAdapterReadiness(readiness_status="ready")
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VAULT_BLOCKER_CODES_REQUIRED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VAULT_BLOCKER_CODES_REQUIRED"
+    ):
         ProviderCredentialVaultAdapterReadiness(blocker_codes=[])
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VAULT_BLOCKED_BACKEND_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VAULT_BLOCKED_BACKEND_DENIED"
+    ):
         ProviderCredentialVaultAdapterReadiness(adapter_available=True)
 
 
@@ -255,18 +288,27 @@ def test_provider_credential_enrollment_rejects_authority_and_secret_refs() -> N
         "credential_material_stored_by_repo",
         "evidence_contains_credential_material",
     ]:
-        with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_AUTHORITY_DENIED"):
+        with pytest.raises(
+            ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_AUTHORITY_DENIED"
+        ):
             ProviderCredentialEnrollmentReadiness(**{field: True})
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_SECRET_LIKE_VALUE_REJECTED") as exc:
+    with pytest.raises(
+        ValidationError,
+        match="PROVIDER_CREDENTIAL_ENROLLMENT_SECRET_LIKE_VALUE_REJECTED",
+    ) as exc:
         ProviderCredentialEnrollmentReadiness(credential_ref="token=" + ("E" * 16))
 
     assert "E" * 16 not in str(exc.value)
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_STATUS_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_STATUS_DENIED"
+    ):
         ProviderCredentialEnrollmentReadiness(readiness_status="ready")
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_BLOCKER_CODES_REQUIRED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_BLOCKER_CODES_REQUIRED"
+    ):
         ProviderCredentialEnrollmentReadiness(blocker_codes=[])
 
 
@@ -276,8 +318,21 @@ def test_provider_validation_readiness_is_blocked_without_external_calls() -> No
     assert readiness.validation_enabled is False
     assert readiness.external_validation_allowed is False
     assert readiness.provider_response_persistence_allowed is False
-    assert readiness.readiness_status == "blocked_not_scoped"
-    assert "PROVIDER_KEY_VALIDATION_NOT_SCOPED" in readiness.blocker_codes
+    assert readiness.provider_sdk_call_enabled is False
+    assert readiness.model_invocation_enabled is False
+    assert readiness.billing_authority_granted is False
+    assert readiness.exact_approval_required is True
+    assert readiness.redacted_receipts_only is True
+    assert readiness.readiness_status == "validation_blocked"
+    assert set(readiness.ui_states) == {
+        "validation blocked",
+        "credential valid",
+        "credential invalid",
+        "approval required",
+        "no provider authority",
+    }
+    assert "EXACT_APPROVAL_REQUIRED" in readiness.blocker_codes
+    assert "VALIDATION_ADAPTER_DISABLED_BY_DEFAULT" in readiness.blocker_codes
 
 
 def test_provider_cost_governor_binding_requires_refs_receipts_and_approval() -> None:
@@ -290,7 +345,10 @@ def test_provider_cost_governor_binding_requires_refs_receipts_and_approval() ->
     )
 
     assert binding.cost_governor_ref == "core.costs.CostGovernor"
-    assert binding.readiness_posture == ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval
+    assert (
+        binding.readiness_posture
+        == ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval
+    )
     assert binding.unknown_paid_cost_requires_approval is True
     assert binding.estimated_cost_above_budget_blocks_use is True
     assert binding.provider_model_refs_required is True
@@ -340,7 +398,9 @@ def test_provider_cost_governor_binding_rejects_authority_or_missing_gates() -> 
         )
 
     with pytest.raises(ValidationError, match="POSTURE_DENIED"):
-        ProviderCostGovernorBinding(readiness_posture=ProviderCredentialReadinessPosture.configured)
+        ProviderCostGovernorBinding(
+            readiness_posture=ProviderCredentialReadinessPosture.configured
+        )
 
     with pytest.raises(ValidationError, match="PROVIDER_REF_STATUS_MISMATCH"):
         ProviderCostGovernorBinding(provider_ref_status="present")
@@ -373,13 +433,19 @@ def test_provider_validation_request_and_receipt_remain_blocked() -> None:
 
 
 def test_provider_validation_request_and_receipt_reject_runtime_authority() -> None:
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_REQUEST_AUTHORITY_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_REQUEST_AUTHORITY_DENIED"
+    ):
         validation_request(network_validation_allowed=True)
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_REQUEST_AUTHORITY_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_REQUEST_AUTHORITY_DENIED"
+    ):
         validation_request(provider_sdk_allowed=True)
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_RECEIPT_AUTHORITY_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_RECEIPT_AUTHORITY_DENIED"
+    ):
         ProviderCredentialValidationReceipt(
             receipt_ref="receipt-ref:provider-validation:test",
             provider_manifest_ref="provider-manifest-ref:provider:test",
@@ -388,7 +454,9 @@ def test_provider_validation_request_and_receipt_reject_runtime_authority() -> N
             provider_network_called=True,
         )
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_RECEIPT_STATUS_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_RECEIPT_STATUS_DENIED"
+    ):
         ProviderCredentialValidationReceipt(
             receipt_ref="receipt-ref:provider-validation:test",
             provider_manifest_ref="provider-manifest-ref:provider:test",
@@ -398,24 +466,35 @@ def test_provider_validation_request_and_receipt_reject_runtime_authority() -> N
         )
 
 
-def test_provider_validation_readiness_rejects_calls_persistence_and_secret_refs() -> None:
+def test_provider_validation_readiness_rejects_calls_persistence_and_secret_refs() -> (
+    None
+):
     for field in [
         "validation_enabled",
         "external_validation_allowed",
         "provider_response_persistence_allowed",
     ]:
-        with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_AUTHORITY_DENIED"):
+        with pytest.raises(
+            ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_AUTHORITY_DENIED"
+        ):
             ProviderCredentialValidationReadiness(**{field: True})
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_SECRET_LIKE_VALUE_REJECTED") as exc:
+    with pytest.raises(
+        ValidationError,
+        match="PROVIDER_CREDENTIAL_VALIDATION_SECRET_LIKE_VALUE_REJECTED",
+    ) as exc:
         ProviderCredentialValidationReadiness(credential_ref="api_key=" + ("B" * 16))
 
     assert "B" * 16 not in str(exc.value)
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_STATUS_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_STATUS_DENIED"
+    ):
         ProviderCredentialValidationReadiness(readiness_status="ready")
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_BLOCKER_CODES_REQUIRED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_BLOCKER_CODES_REQUIRED"
+    ):
         ProviderCredentialValidationReadiness(blocker_codes=[])
 
 
@@ -433,7 +512,9 @@ def test_governed_provider_invocation_readiness_requires_future_exact_gates() ->
     assert "PROVIDER_INVOCATION_NOT_SCOPED" in readiness.blocker_codes
 
 
-def test_governed_provider_invocation_readiness_rejects_invocation_or_expansion_flags() -> None:
+def test_governed_provider_invocation_readiness_rejects_invocation_or_expansion_flags() -> (
+    None
+):
     denied_flags = [
         "invocation_enabled",
         "model_output_authoritative",
@@ -446,21 +527,31 @@ def test_governed_provider_invocation_readiness_rejects_invocation_or_expansion_
     ]
 
     for field in denied_flags:
-        with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_AUTHORITY_DENIED"):
+        with pytest.raises(
+            ValidationError, match="GOVERNED_PROVIDER_INVOCATION_AUTHORITY_DENIED"
+        ):
             GovernedProviderInvocationReadiness(**{field: True})
 
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_SECRET_LIKE_VALUE_REJECTED") as exc:
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_SECRET_LIKE_VALUE_REJECTED"
+    ) as exc:
         GovernedProviderInvocationReadiness(safe_summary="private_key=" + ("C" * 16))
 
     assert "C" * 16 not in str(exc.value)
 
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_STATUS_DENIED"):
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_STATUS_DENIED"
+    ):
         GovernedProviderInvocationReadiness(readiness_status="ready")
 
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_REQUIRED_GATE_DENIED"):
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_REQUIRED_GATE_DENIED"
+    ):
         GovernedProviderInvocationReadiness(policy_engine_required=False)
 
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_BLOCKER_CODES_REQUIRED"):
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_BLOCKER_CODES_REQUIRED"
+    ):
         GovernedProviderInvocationReadiness(blocker_codes=[])
 
 
@@ -493,14 +584,22 @@ def test_governed_provider_invocation_request_and_receipt_remain_blocked() -> No
     assert receipt.model_output_authoritative is False
 
 
-def test_governed_provider_invocation_request_and_receipt_reject_runtime_authority() -> None:
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_REQUEST_AUTHORITY_DENIED"):
+def test_governed_provider_invocation_request_and_receipt_reject_runtime_authority() -> (
+    None
+):
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_REQUEST_AUTHORITY_DENIED"
+    ):
         invocation_request(provider_model_call_allowed=True)
 
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_REQUEST_AUTHORITY_DENIED"):
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_REQUEST_AUTHORITY_DENIED"
+    ):
         invocation_request(context_injection_enabled=True)
 
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_RECEIPT_AUTHORITY_DENIED"):
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_RECEIPT_AUTHORITY_DENIED"
+    ):
         GovernedProviderInvocationReceipt(
             receipt_ref="receipt-ref:provider:test",
             policy_decision_ref="policy-decision-ref:provider:test",
@@ -514,7 +613,9 @@ def test_governed_provider_invocation_request_and_receipt_reject_runtime_authori
             invocation_performed=True,
         )
 
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_RECEIPT_STATUS_DENIED"):
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_RECEIPT_STATUS_DENIED"
+    ):
         GovernedProviderInvocationReceipt(
             receipt_ref="receipt-ref:provider:test",
             policy_decision_ref="policy-decision-ref:provider:test",
@@ -530,16 +631,28 @@ def test_governed_provider_invocation_request_and_receipt_reject_runtime_authori
 
 
 def test_provider_runtime_contracts_revalidate_model_copy_updates() -> None:
-    with pytest.raises(ValidationError, match="GOVERNED_PROVIDER_INVOCATION_AUTHORITY_DENIED"):
-        GovernedProviderInvocationReadiness().model_copy(update={"invocation_enabled": True})
+    with pytest.raises(
+        ValidationError, match="GOVERNED_PROVIDER_INVOCATION_AUTHORITY_DENIED"
+    ):
+        GovernedProviderInvocationReadiness().model_copy(
+            update={"invocation_enabled": True}
+        )
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_REQUEST_AUTHORITY_DENIED"):
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_VALIDATION_REQUEST_AUTHORITY_DENIED"
+    ):
         validation_request().model_copy(update={"external_validation_allowed": True})
 
-    with pytest.raises(ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_AUTHORITY_DENIED"):
-        ProviderCredentialEnrollmentReadiness().model_copy(update={"enrollment_enabled": True})
+    with pytest.raises(
+        ValidationError, match="PROVIDER_CREDENTIAL_ENROLLMENT_AUTHORITY_DENIED"
+    ):
+        ProviderCredentialEnrollmentReadiness().model_copy(
+            update={"enrollment_enabled": True}
+        )
 
-    with pytest.raises(ValidationError, match="CREDENTIAL_VAULT_ADAPTER_DECISION_ALLOWED_DENIED"):
+    with pytest.raises(
+        ValidationError, match="CREDENTIAL_VAULT_ADAPTER_DECISION_ALLOWED_DENIED"
+    ):
         CredentialVaultAdapterDecision(
             decision_id="credential-vault-decision:test",
             action="resolve_credential_handle",

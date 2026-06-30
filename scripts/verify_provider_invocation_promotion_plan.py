@@ -36,7 +36,7 @@ REQUIRED_DOC_FRAGMENTS = {
     "UI blocked, approved, and cost-blocked states",
     "No provider SDK calls.",
     "No enabled runtime invocation by default.",
-    "No credential validation.",
+    "No credential validation authority through this invocation lane.",
     "No network calls.",
     "No model output authority.",
 }
