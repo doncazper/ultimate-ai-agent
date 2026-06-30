@@ -108,7 +108,9 @@ Credential Vault Contract Shell is documented in
 Backend V1 is documented in
 `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, and the
 Tiny Exact-Approved Provider Invocation Lane is documented in
-`docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`. The
+`docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`;
+it now names two disabled-default single-provider adapter scopes as prerequisite
+evidence for future fallback work without granting fallback execution. The
 contracts live in
 `src/ultimate_ai_agent/core/providers/catalog.py`,
 `src/ultimate_ai_agent/core/providers/readiness.py`,
@@ -132,7 +134,7 @@ checked by `scripts/verify_provider_invocation_promotion_plan.py` and
 checked by `scripts/verify_credential_vault_backend_v1.py`. They add no secret
 resolution API, no raw secret display, no built-in live validation transport,
 no provider SDK calls, no provider network call by default, no provider network
-outside the scoped tiny live adapter, no broad provider router, no fallback, no
+outside named exact-scoped tiny live adapters, no broad provider router, no fallback, no
 autonomous model calls, no background execution, no automatic pricing fetch, no
 billing authority, no unknown paid-cost bypass, no provider output authority,
 no vault runtime authority, and no invocation authority from vault presence.

@@ -15,7 +15,14 @@ from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
+    SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+    SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+    SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+    SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+    SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
+    SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_LIVE_PROVIDER_ADAPTER_REF,
+    TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
     TINY_LIVE_PROVIDER_TRANSPORT_REF,
     TinyProviderInvocationAdapter,
     TinyProviderInvocationReceiptStore,
@@ -28,6 +35,7 @@ from ultimate_ai_agent.core.providers import (
     evaluate_tiny_provider_invocation,
 )
 from ultimate_ai_agent.core.providers.live_invocation_adapter import (
+    AnthropicCompatibleTinyLiveProviderAdapter,
     OpenAICompatibleTinyLiveProviderAdapter,
     TinyLiveCredentialResolution,
     TinyLiveProviderTransportResult,
@@ -89,6 +97,35 @@ def _request(**overrides: object) -> TinyProviderInvocationRequest:
     return TinyProviderInvocationRequest(**values)
 
 
+def _second_request(**overrides: object) -> TinyProviderInvocationRequest:
+    values: dict[str, object] = {
+        "invocation_ref": "provider-invocation-ref:tiny-second:verify",
+        "run_id": "run-ref:tiny-second-provider-verify",
+        "provider_ref": SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        "model_ref": SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "credential_ref": "credential-ref:anthropic-compatible:scoped-test",
+        "policy_ref": SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
+        "approval_ref": "approval-ref:provider-runtime:tiny-second-test",
+        "approval_scope_ref": "approval-scope-ref:provider-runtime:tiny-second-test",
+        "cost_estimate_ref": "cost-estimate-ref:provider-runtime:tiny-second-test",
+        "budget_decision_ref": "budget-decision-ref:provider-runtime:tiny-second-test",
+        "max_approved_usd_ref": "max-approved-usd-ref:provider-runtime:tiny-second-test",
+        "max_approved_usd": 0.01,
+        "idempotency_ref": "idempotency:provider-runtime:tiny-second-test",
+        "expected_receipt_ref": "receipt:provider-runtime:tiny-second-test",
+        "usage_receipt_ref": "usage-receipt-ref:provider-runtime:tiny-second-test",
+        "cost_receipt_ref": "cost-receipt-ref:provider-runtime:tiny-second-test",
+        "redacted_input_summary_ref": "redacted-input-summary-ref:provider-runtime:tiny-second-test",
+        "redacted_output_summary_ref": "redacted-output-summary-ref:provider-runtime:tiny-second-test",
+        "safe_disable_ref": "safe-disable-ref:provider-runtime:tiny-second-test",
+        "estimated_input_tokens": 10,
+        "estimated_output_tokens": 5,
+        "estimated_cost_usd": 0.001,
+    }
+    values.update(overrides)
+    return TinyProviderInvocationRequest(**values)
+
+
 def _exact_authority_for(request: TinyProviderInvocationRequest) -> LocalApprovalAuthority:
     authority = LocalApprovalAuthority()
     approval_request = build_tiny_provider_invocation_approval_request(request)
@@ -114,6 +151,7 @@ def _evaluate_with_exact_approval(
 
 class _OverBudgetTinyProviderInvocationAdapter(TinyProviderInvocationAdapter):
     enabled = True
+    test_only_contract_adapter = True
 
     def execute(
         self,
@@ -152,6 +190,12 @@ class _SpoofedNetworkTinyProviderInvocationAdapter(TinyProviderInvocationAdapter
         )
 
 
+class _SecondLiveRefWithoutReceiptRequirementAdapter(
+    AnthropicCompatibleTinyLiveProviderAdapter
+):
+    requires_receipt_store_before_network = False
+
+
 def _mocked_live_transport(
     request: TinyProviderInvocationRequest,
     credential: SecretStr,
@@ -160,6 +204,21 @@ def _mocked_live_transport(
         raise AssertionError("unexpected transient credential material")
     return TinyLiveProviderTransportResult(
         transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        input_tokens_used=request.estimated_input_tokens,
+        output_tokens_used=request.estimated_output_tokens,
+        billed_cost_usd=request.estimated_cost_usd or 0.0,
+        network_call_performed=True,
+    )
+
+
+def _mocked_second_live_transport(
+    request: TinyProviderInvocationRequest,
+    credential: SecretStr,
+) -> TinyLiveProviderTransportResult:
+    if credential.get_secret_value() != "transient-material":
+        raise AssertionError("unexpected transient credential material")
+    return TinyLiveProviderTransportResult(
+        transport_ref=SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
         input_tokens_used=request.estimated_input_tokens,
         output_tokens_used=request.estimated_output_tokens,
         billed_cost_usd=request.estimated_cost_usd or 0.0,
@@ -177,6 +236,18 @@ def _credential_resolution(request: TinyProviderInvocationRequest) -> TinyLiveCr
     )
 
 
+def _second_credential_resolution(
+    request: TinyProviderInvocationRequest,
+) -> TinyLiveCredentialResolution:
+    return TinyLiveCredentialResolution(
+        credential_ref=request.credential_ref,
+        secret_ref="secret-ref:anthropic-compatible:verify",
+        vault_record_ref="credential-vault-record-ref:anthropic-compatible:verify",
+        posture=ProviderCredentialVaultPosture.secret_ref_available,
+        transient_secret=SecretStr("transient-material"),
+    )
+
+
 def main() -> int:
     failures: list[str] = []
 
@@ -185,6 +256,26 @@ def main() -> int:
         failures.append("default tiny provider readiness is not disabled")
     if readiness.receipt_state_source != "no_receipt_observed":
         failures.append("default tiny provider readiness does not report no receipt observed")
+    if readiness.provider_scope_refs != [
+        TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+    ]:
+        failures.append("default tiny provider readiness does not expose both provider scope refs")
+    if readiness.model_scope_refs != [
+        TINY_PROVIDER_INVOCATION_MODEL_REF,
+        SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+    ]:
+        failures.append("default tiny provider readiness does not expose both model scope refs")
+    if readiness.policy_scope_refs != [
+        TINY_PROVIDER_INVOCATION_POLICY_REF,
+        SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
+    ]:
+        failures.append("default tiny provider readiness does not expose both policy scope refs")
+    if readiness.adapter_scope_refs != [
+        TINY_LIVE_PROVIDER_ADAPTER_REF,
+        SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+    ]:
+        failures.append("default tiny provider readiness does not expose both adapter scope refs")
     if any(
         (
             readiness.usage_captured,
@@ -239,7 +330,7 @@ def main() -> int:
         failures.append("wrong provider policy ref did not block")
 
     try:
-        _request(credential_ref="credential-ref:/Users/example/.env")
+        _request(credential_ref="credential-ref:unsafe/value")
         failures.append("path-shaped credential ref was accepted")
     except ValueError:
         pass
@@ -264,10 +355,12 @@ def main() -> int:
         _request(),
         adapter=_OverBudgetTinyProviderInvocationAdapter(),
     )
-    if actual_over_budget.status != TinyProviderInvocationStatus.cost_blocked:
-        failures.append("actual usage/cost over approved budget did not block")
+    if actual_over_budget.status != TinyProviderInvocationStatus.live_adapter_blocked:
+        failures.append("unscoped over-budget adapter did not block")
+    elif "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" not in actual_over_budget.reason_codes:
+        failures.append("unscoped over-budget adapter did not report scope mismatch")
     elif actual_over_budget.receipt is not None:
-        failures.append("actual over-budget adapter recorded a receipt")
+        failures.append("unscoped over-budget adapter recorded a receipt")
 
     no_approval = evaluate_tiny_provider_invocation(_request())
     if no_approval.status != TinyProviderInvocationStatus.approval_required:
@@ -286,39 +379,24 @@ def main() -> int:
         )
         if spoofed_network.status != TinyProviderInvocationStatus.live_adapter_blocked:
             failures.append("spoofed network adapter did not block")
-        elif "TINY_PROVIDER_TRANSPORT_ADAPTER_REF_MISMATCH" not in spoofed_network.reason_codes:
-            failures.append("spoofed network adapter did not report adapter-ref mismatch")
+        elif "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" not in spoofed_network.reason_codes:
+            failures.append("spoofed network adapter did not report adapter-scope mismatch")
         if store.list_receipts():
             failures.append("spoofed network adapter recorded a receipt")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "receipts.jsonl")
-        success = _evaluate_with_exact_approval(
+        blocked_deterministic = _evaluate_with_exact_approval(
             _request(invocation_ref="provider-invocation-ref:tiny:success"),
             adapter=DeterministicTinyProviderInvocationAdapter(),
             receipt_store=store,
         )
-        if not success.allowed or success.receipt is None:
-            failures.append("deterministic exact-approved adapter did not record receipt")
-        else:
-            receipt_json = json.dumps(success.receipt.model_dump(mode="json"), sort_keys=True)
-            if any(fragment in receipt_json.lower() for fragment in ("api_key", "token=", "provider_payload")):
-                failures.append("receipt contains unsafe raw/provider/secret content")
-            if len(store.list_receipts()) != 1:
-                failures.append("receipt store did not persist exactly one redacted receipt")
-            if "USAGE_AND_ESTIMATED_COST_RECONCILED" not in success.receipt.reason_codes:
-                failures.append("receipt does not record usage/estimated-cost reconciliation")
-            if success.receipt.estimated_cost_ref != success.receipt.cost_estimate_ref:
-                failures.append("receipt does not expose explicit estimated cost ref")
-            if not success.receipt.actual_usage_ref.startswith("actual-usage-ref:"):
-                failures.append("receipt does not expose safe actual usage ref")
-            if not success.receipt.actual_cost_ref.startswith("actual-cost-ref:"):
-                failures.append("receipt does not expose safe actual cost ref")
-            if (
-                success.receipt.receipt_completeness_status
-                != TinyProviderReceiptCompletenessStatus.complete
-            ):
-                failures.append("successful receipt is not marked complete")
+        if blocked_deterministic.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("deterministic adapter did not block on exact adapter scope")
+        elif "TINY_PROVIDER_ADAPTER_SCOPE_MISMATCH" not in blocked_deterministic.reason_codes:
+            failures.append("deterministic adapter did not report adapter-scope mismatch")
+        if blocked_deterministic.receipt is not None or store.list_receipts():
+            failures.append("deterministic adapter recorded an unscoped receipt")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "live-receipts.jsonl")
@@ -406,6 +484,154 @@ def main() -> int:
             failures.append("mocked live adapter receipt did not record network posture")
         elif live_mocked.receipt.provider_sdk_used:
             failures.append("mocked live adapter claimed provider SDK use")
+
+        second_live_request = _second_request(
+            invocation_ref="provider-invocation-ref:tiny-second:verify-live-mocked"
+        )
+        second_live_mocked = _evaluate_with_exact_approval(
+            second_live_request,
+            adapter=AnthropicCompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref: _second_credential_resolution(
+                    second_live_request
+                ),
+                transport=_mocked_second_live_transport,
+            ),
+            receipt_store=store,
+        )
+        if not second_live_mocked.allowed or second_live_mocked.receipt is None:
+            failures.append("second mocked live adapter did not record redacted receipt")
+        elif second_live_mocked.receipt.adapter_ref != SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF:
+            failures.append("second mocked live adapter receipt did not record scoped adapter ref")
+        elif second_live_mocked.receipt.provider_ref != SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF:
+            failures.append("second mocked live adapter receipt did not record provider scope")
+        elif second_live_mocked.receipt.provider_sdk_used:
+            failures.append("second mocked live adapter claimed provider SDK use")
+
+        wrong_adapter_second_request = _second_request(
+            invocation_ref="provider-invocation-ref:tiny-second:verify-wrong-adapter",
+            idempotency_ref="idempotency:provider-runtime:tiny-second-wrong-adapter",
+            expected_receipt_ref="receipt:provider-runtime:tiny-second-wrong-adapter",
+        )
+        wrong_adapter = _evaluate_with_exact_approval(
+            wrong_adapter_second_request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref: _second_credential_resolution(
+                    wrong_adapter_second_request
+                ),
+                transport=_mocked_live_transport,
+            ),
+            receipt_store=store,
+        )
+        if wrong_adapter.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("wrong live adapter for second scope did not block")
+        elif "TINY_LIVE_PROVIDER_ADAPTER_SCOPE_MISMATCH" not in wrong_adapter.reason_codes:
+            failures.append("wrong live adapter for second scope missed mismatch reason")
+
+        cross_endpoint_called = False
+
+        def cross_endpoint_transport(
+            request: TinyProviderInvocationRequest,
+            credential: SecretStr,
+        ) -> TinyLiveProviderTransportResult:
+            nonlocal cross_endpoint_called
+            cross_endpoint_called = True
+            return _mocked_live_transport(request, credential)
+
+        cross_endpoint_request = _request(
+            invocation_ref="provider-invocation-ref:tiny:verify-cross-endpoint",
+            idempotency_ref="idempotency:provider-runtime:tiny-cross-endpoint",
+            expected_receipt_ref="receipt:provider-runtime:tiny-cross-endpoint",
+        )
+        cross_endpoint = _evaluate_with_exact_approval(
+            cross_endpoint_request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                endpoint_url=SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+                credential_resolver=lambda _credential_ref: _credential_resolution(
+                    cross_endpoint_request
+                ),
+                transport=cross_endpoint_transport,
+            ),
+            receipt_store=store,
+        )
+        if cross_endpoint.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("cross-provider endpoint scope did not block")
+        elif "TINY_LIVE_PROVIDER_ENDPOINT_NOT_ALLOWLISTED" not in cross_endpoint.reason_codes:
+            failures.append("cross-provider endpoint block missed safe reason code")
+        if cross_endpoint_called:
+            failures.append("cross-provider endpoint scope reached transport")
+
+        second_cross_endpoint_called = False
+
+        def second_cross_endpoint_transport(
+            request: TinyProviderInvocationRequest,
+            credential: SecretStr,
+        ) -> TinyLiveProviderTransportResult:
+            nonlocal second_cross_endpoint_called
+            second_cross_endpoint_called = True
+            return _mocked_second_live_transport(request, credential)
+
+        second_cross_endpoint_request = _second_request(
+            invocation_ref="provider-invocation-ref:tiny-second:verify-cross-endpoint",
+            idempotency_ref="idempotency:provider-runtime:tiny-second-cross-endpoint",
+            expected_receipt_ref="receipt:provider-runtime:tiny-second-cross-endpoint",
+        )
+        second_cross_endpoint = _evaluate_with_exact_approval(
+            second_cross_endpoint_request,
+            adapter=AnthropicCompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                endpoint_url=TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+                credential_resolver=lambda _credential_ref: _second_credential_resolution(
+                    second_cross_endpoint_request
+                ),
+                transport=second_cross_endpoint_transport,
+            ),
+            receipt_store=store,
+        )
+        if second_cross_endpoint.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("second cross-provider endpoint scope did not block")
+        elif "TINY_LIVE_PROVIDER_ENDPOINT_NOT_ALLOWLISTED" not in second_cross_endpoint.reason_codes:
+            failures.append("second cross-provider endpoint block missed safe reason code")
+        if second_cross_endpoint_called:
+            failures.append("second cross-provider endpoint scope reached transport")
+
+        no_receipt_preflight_called = False
+
+        def no_receipt_preflight_transport(
+            request: TinyProviderInvocationRequest,
+            credential: SecretStr,
+        ) -> TinyLiveProviderTransportResult:
+            nonlocal no_receipt_preflight_called
+            no_receipt_preflight_called = True
+            return _mocked_second_live_transport(request, credential)
+
+        no_receipt_preflight_request = _second_request(
+            invocation_ref="provider-invocation-ref:tiny-second:verify-no-store-contract",
+            idempotency_ref="idempotency:provider-runtime:tiny-second-no-store-contract",
+            expected_receipt_ref="receipt:provider-runtime:tiny-second-no-store-contract",
+        )
+        no_receipt_preflight = _evaluate_with_exact_approval(
+            no_receipt_preflight_request,
+            adapter=_SecondLiveRefWithoutReceiptRequirementAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref: _second_credential_resolution(
+                    no_receipt_preflight_request
+                ),
+                transport=no_receipt_preflight_transport,
+            ),
+            receipt_store=store,
+        )
+        if no_receipt_preflight.status != TinyProviderInvocationStatus.live_adapter_blocked:
+            failures.append("second network adapter without receipt-store contract did not block")
+        elif (
+            "TINY_LIVE_PROVIDER_RECEIPT_STORE_REQUIREMENT_REQUIRED"
+            not in no_receipt_preflight.reason_codes
+        ):
+            failures.append("second no-receipt-store block missed safe reason code")
+        if no_receipt_preflight_called:
+            failures.append("second no-receipt-store adapter reached transport")
 
         replayed = _evaluate_with_exact_approval(
             live_request,

@@ -1507,6 +1507,10 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
   const uiStates = value.ui_states;
   const receiptObservationSupportedStates =
     value.receipt_observation_supported_states;
+  const providerScopeRefs = value.provider_scope_refs;
+  const modelScopeRefs = value.model_scope_refs;
+  const policyScopeRefs = value.policy_scope_refs;
+  const adapterScopeRefs = value.adapter_scope_refs;
   return (
     falseFlags.every((field) => value[field] === false) &&
     trueFlags.every((field) => value[field] === true) &&
@@ -1514,6 +1518,36 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     typeof value.route_ref === "string" &&
     typeof value.provider_ref === "string" &&
     typeof value.model_ref === "string" &&
+    Array.isArray(providerScopeRefs) &&
+    providerScopeRefs.length === 2 &&
+    providerScopeRefs.includes(
+      "provider-ref:openai-compatible:tiny-exact-approved",
+    ) &&
+    providerScopeRefs.includes(
+      "provider-ref:anthropic-compatible:tiny-exact-approved",
+    ) &&
+    Array.isArray(modelScopeRefs) &&
+    modelScopeRefs.length === 2 &&
+    modelScopeRefs.includes("model-ref:openai-compatible:tiny-contract-model") &&
+    modelScopeRefs.includes(
+      "model-ref:anthropic-compatible:tiny-contract-model",
+    ) &&
+    Array.isArray(policyScopeRefs) &&
+    policyScopeRefs.length === 2 &&
+    policyScopeRefs.includes(
+      "policy-ref:provider-runtime:tiny-exact-approved:v1",
+    ) &&
+    policyScopeRefs.includes(
+      "policy-ref:provider-runtime:tiny-second-exact-approved:v1",
+    ) &&
+    Array.isArray(adapterScopeRefs) &&
+    adapterScopeRefs.length === 2 &&
+    adapterScopeRefs.includes(
+      "provider-adapter-ref:tiny-exact-approved:openai-compatible-live",
+    ) &&
+    adapterScopeRefs.includes(
+      "provider-adapter-ref:tiny-exact-approved:anthropic-compatible-live",
+    ) &&
     typeof value.receipt_observation_ref === "string" &&
     value.receipt_state_source === "no_receipt_observed" &&
     supportedStates.includes(String(value.status)) &&

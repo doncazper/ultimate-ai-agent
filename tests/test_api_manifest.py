@@ -275,6 +275,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         in manifest["capabilities_declared"]
     )
     assert (
+        "control_center_tiny_exact_approved_second_single_provider_adapter_scope_metadata_only"
+        in manifest["capabilities_declared"]
+    )
+    assert (
         "control_center_provider_credential_validation_exact_approved_lane"
         in manifest["capabilities_declared"]
     )

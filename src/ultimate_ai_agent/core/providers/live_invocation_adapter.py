@@ -8,6 +8,12 @@ from urllib import request as urllib_request
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 from ultimate_ai_agent.core.providers.invocation import (
+    SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
+    SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+    SECOND_TINY_LIVE_PROVIDER_MODEL_NAME,
+    SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+    SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+    SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_LIVE_PROVIDER_ADAPTER_REF,
     TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
     TINY_LIVE_PROVIDER_MODEL_NAME,
@@ -25,8 +31,23 @@ from ultimate_ai_agent.core.providers.invocation import (
 from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVaultPosture
 
 
-TINY_LIVE_PROVIDER_ALLOWED_ENDPOINTS = frozenset({TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT})
 _SCOPED_NETWORK_CALL_PERFORMED = bool(1)
+_LIVE_ADAPTER_CONTRACT_SCOPES = {
+    TINY_LIVE_PROVIDER_ADAPTER_REF: {
+        "provider_ref": TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "transport_ref": TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        "endpoint_url": TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+        "provider_model_name": TINY_LIVE_PROVIDER_MODEL_NAME,
+    },
+    SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF: {
+        "provider_ref": SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        "model_ref": SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "transport_ref": SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        "endpoint_url": SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
+        "provider_model_name": SECOND_TINY_LIVE_PROVIDER_MODEL_NAME,
+    },
+}
 
 
 class _NoRedirectHandler(urllib_request.HTTPRedirectHandler):
@@ -113,7 +134,10 @@ class TinyLiveProviderTransportResult(BaseModel):
             raise ValueError("TINY_LIVE_PROVIDER_TRANSPORT_BLOCK_REASON_DENIED")
         if self.status == "succeeded" and not self.network_call_performed:
             raise ValueError("TINY_LIVE_PROVIDER_TRANSPORT_NETWORK_REQUIRED")
-        if self.network_call_performed and self.transport_ref != TINY_LIVE_PROVIDER_TRANSPORT_REF:
+        if self.network_call_performed and self.transport_ref not in {
+            TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF,
+        }:
             raise ValueError("TINY_LIVE_PROVIDER_TRANSPORT_REF_DENIED")
         if self.block_reason_code and not _safe_reason_code_matches(
             self.block_reason_code
@@ -124,6 +148,11 @@ class TinyLiveProviderTransportResult(BaseModel):
 
 class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
     adapter_ref = TINY_LIVE_PROVIDER_ADAPTER_REF
+    provider_ref = TINY_PROVIDER_INVOCATION_PROVIDER_REF
+    model_ref = TINY_PROVIDER_INVOCATION_MODEL_REF
+    transport_ref = TINY_LIVE_PROVIDER_TRANSPORT_REF
+    allowed_endpoint_url = TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT
+    allowed_provider_model_name = TINY_LIVE_PROVIDER_MODEL_NAME
     enabled = False
     may_perform_network_call = True
     requires_receipt_store_before_network = True
@@ -132,15 +161,15 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
         self,
         *,
         enabled: bool = False,
-        endpoint_url: str = TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
-        provider_model_name: str = TINY_LIVE_PROVIDER_MODEL_NAME,
+        endpoint_url: str | None = None,
+        provider_model_name: str | None = None,
         timeout_seconds: float = 15.0,
         credential_resolver: CredentialResolver | None = None,
         transport: TinyLiveProviderTransport | None = None,
     ) -> None:
         self.enabled = enabled
-        self.endpoint_url = endpoint_url
-        self.provider_model_name = provider_model_name
+        self.endpoint_url = endpoint_url or self.allowed_endpoint_url
+        self.provider_model_name = provider_model_name or self.allowed_provider_model_name
         self.timeout_seconds = timeout_seconds
         self.credential_resolver = credential_resolver
         self.transport = transport or self._stdlib_responses_transport
@@ -151,34 +180,12 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
         *,
         execution_grant: TinyProviderInvocationExecutionGrant | None = None,
     ) -> TinyProviderInvocationTransportReceipt:
-        if not self.enabled:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_PROVIDER_ADAPTER_DISABLED",
-            )
-        grant_block_reason = self._grant_block_reason(request, execution_grant)
-        if grant_block_reason is not None:
-            return self._blocked_transport(request, grant_block_reason)
-        if self.provider_ref != TINY_PROVIDER_INVOCATION_PROVIDER_REF:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_PROVIDER_REF_SCOPE_DENIED",
-            )
-        if self.model_ref != TINY_PROVIDER_INVOCATION_MODEL_REF:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_MODEL_REF_SCOPE_DENIED",
-            )
-        if self.endpoint_url not in TINY_LIVE_PROVIDER_ALLOWED_ENDPOINTS:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_PROVIDER_ENDPOINT_NOT_ALLOWLISTED",
-            )
-        if self.provider_model_name != TINY_LIVE_PROVIDER_MODEL_NAME:
-            return self._blocked_transport(
-                request,
-                "TINY_LIVE_PROVIDER_MODEL_NAME_NOT_ALLOWLISTED",
-            )
+        preflight_block_reason = self.preflight_block_reason(
+            request,
+            execution_grant=execution_grant,
+        )
+        if preflight_block_reason is not None:
+            return self._blocked_transport(request, preflight_block_reason)
         if self.credential_resolver is None:
             return self._blocked_transport(
                 request,
@@ -224,6 +231,15 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
                 request,
                 "TINY_LIVE_PROVIDER_TRANSPORT_EXCEPTION_BLOCKED",
             )
+        if transport_result.transport_ref != self.transport_ref:
+            return self._blocked_transport(
+                request,
+                "TINY_LIVE_PROVIDER_TRANSPORT_SCOPE_MISMATCH",
+                network_call_performed=transport_result.network_call_performed,
+                input_tokens_used=transport_result.input_tokens_used,
+                output_tokens_used=transport_result.output_tokens_used,
+                billed_cost_usd=transport_result.billed_cost_usd,
+            )
         if transport_result.status == "blocked":
             return self._blocked_transport(
                 request,
@@ -249,6 +265,50 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             raw_output_persisted=False,
             model_output_authoritative=False,
         )
+
+    def preflight_block_reason(
+        self,
+        request: TinyProviderInvocationRequest,
+        *,
+        execution_grant: TinyProviderInvocationExecutionGrant | None = None,
+    ) -> str | None:
+        if not self.enabled:
+            return "TINY_LIVE_PROVIDER_ADAPTER_DISABLED"
+        grant_block_reason = self._grant_block_reason(request, execution_grant)
+        if grant_block_reason is not None:
+            return grant_block_reason
+        if request.provider_ref != self.provider_ref:
+            return "TINY_LIVE_PROVIDER_REF_SCOPE_DENIED"
+        if request.model_ref != self.model_ref:
+            return "TINY_LIVE_MODEL_REF_SCOPE_DENIED"
+        contract_block_reason = self._adapter_contract_block_reason()
+        if contract_block_reason is not None:
+            return contract_block_reason
+        if self.credential_resolver is None:
+            return "TINY_LIVE_PROVIDER_SECRET_RESOLVER_REQUIRED"
+        return None
+
+    def _adapter_contract_block_reason(self) -> str | None:
+        expected = _LIVE_ADAPTER_CONTRACT_SCOPES.get(self.adapter_ref)
+        if expected is None:
+            return "TINY_LIVE_PROVIDER_ADAPTER_SCOPE_DENIED"
+        if self.provider_ref != expected["provider_ref"]:
+            return "TINY_LIVE_PROVIDER_REF_SCOPE_DENIED"
+        if self.model_ref != expected["model_ref"]:
+            return "TINY_LIVE_MODEL_REF_SCOPE_DENIED"
+        if self.transport_ref != expected["transport_ref"]:
+            return "TINY_LIVE_PROVIDER_TRANSPORT_SCOPE_MISMATCH"
+        if (
+            self.allowed_endpoint_url != expected["endpoint_url"]
+            or self.endpoint_url != expected["endpoint_url"]
+        ):
+            return "TINY_LIVE_PROVIDER_ENDPOINT_NOT_ALLOWLISTED"
+        if (
+            self.allowed_provider_model_name != expected["provider_model_name"]
+            or self.provider_model_name != expected["provider_model_name"]
+        ):
+            return "TINY_LIVE_PROVIDER_MODEL_NAME_NOT_ALLOWLISTED"
+        return None
 
     def _grant_block_reason(
         self,
@@ -278,7 +338,7 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
         billed_cost_usd: float = 0.0,
     ) -> TinyProviderInvocationTransportReceipt:
         return TinyProviderInvocationTransportReceipt(
-            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            transport_ref=self.transport_ref,
             adapter_ref=self.adapter_ref,
             status="blocked",
             provider_ref=request.provider_ref,
@@ -362,6 +422,86 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             )
         _ = (input_tokens, output_tokens)
         return TinyLiveProviderTransportResult(
+            status="blocked",
+            input_tokens_used=input_tokens,
+            output_tokens_used=output_tokens,
+            network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
+            block_reason_code="TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE",
+        )
+
+
+class AnthropicCompatibleTinyLiveProviderAdapter(OpenAICompatibleTinyLiveProviderAdapter):
+    adapter_ref = SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF
+    provider_ref = SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF
+    model_ref = SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF
+    transport_ref = SECOND_TINY_LIVE_PROVIDER_TRANSPORT_REF
+    allowed_endpoint_url = SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT
+    allowed_provider_model_name = SECOND_TINY_LIVE_PROVIDER_MODEL_NAME
+
+    def _stdlib_responses_transport(
+        self,
+        request: TinyProviderInvocationRequest,
+        credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        body = json.dumps(
+            {
+                "model": self.provider_model_name,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Return readiness_ok.",
+                    }
+                ],
+                "max_tokens": max(1, request.estimated_output_tokens),
+            }
+        ).encode("utf-8")
+        http_request = urllib_request.Request(
+            self.endpoint_url,
+            data=body,
+            method="POST",
+            headers={
+                "x-api-key": credential.get_secret_value(),
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with _NO_REDIRECT_OPENER.open(
+                http_request,
+                timeout=self.timeout_seconds,
+            ) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib_error.HTTPError as exc:
+            return TinyLiveProviderTransportResult(
+                transport_ref=self.transport_ref,
+                status="blocked",
+                network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
+                block_reason_code=f"TINY_LIVE_PROVIDER_HTTP_{exc.code}_BLOCKED",
+            )
+        except (urllib_error.URLError, TimeoutError, json.JSONDecodeError):
+            return TinyLiveProviderTransportResult(
+                transport_ref=self.transport_ref,
+                status="blocked",
+                network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
+                block_reason_code="TINY_LIVE_PROVIDER_NETWORK_OR_PARSE_BLOCKED",
+            )
+
+        usage = payload.get("usage") if isinstance(payload, dict) else None
+        usage = usage if isinstance(usage, dict) else {}
+        try:
+            input_tokens = int(usage.get("input_tokens") or request.estimated_input_tokens)
+            output_tokens = int(
+                usage.get("output_tokens") or request.estimated_output_tokens
+            )
+        except (TypeError, ValueError):
+            return TinyLiveProviderTransportResult(
+                transport_ref=self.transport_ref,
+                status="blocked",
+                network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
+                block_reason_code="TINY_LIVE_PROVIDER_USAGE_PARSE_BLOCKED",
+            )
+        return TinyLiveProviderTransportResult(
+            transport_ref=self.transport_ref,
             status="blocked",
             input_tokens_used=input_tokens,
             output_tokens_used=output_tokens,

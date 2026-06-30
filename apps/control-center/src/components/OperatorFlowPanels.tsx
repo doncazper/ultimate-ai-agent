@@ -1584,6 +1584,22 @@ export function ProviderCredentialReadinessPanel({
             ["Provider ref", readiness.tiny_invocation_readiness.provider_ref],
             ["Model ref", readiness.tiny_invocation_readiness.model_ref],
             [
+              "Provider scope refs",
+              readiness.tiny_invocation_readiness.provider_scope_refs.join(", "),
+            ],
+            [
+              "Model scope refs",
+              readiness.tiny_invocation_readiness.model_scope_refs.join(", "),
+            ],
+            [
+              "Policy scope refs",
+              readiness.tiny_invocation_readiness.policy_scope_refs.join(", "),
+            ],
+            [
+              "Adapter scope refs",
+              readiness.tiny_invocation_readiness.adapter_scope_refs.join(", "),
+            ],
+            [
               "Exact approval",
               readiness.tiny_invocation_readiness.exact_approval_required
                 ? "required"

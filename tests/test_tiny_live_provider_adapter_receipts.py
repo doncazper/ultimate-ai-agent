@@ -1,0 +1,439 @@
+import json
+import os
+import threading
+import time
+from pathlib import Path
+
+from pydantic import SecretStr
+import pytest
+
+import ultimate_ai_agent.core.providers.live_invocation_adapter as live_adapter_module
+from ultimate_ai_agent.core.providers import (
+    TINY_LIVE_PROVIDER_TRANSPORT_REF,
+    TinyProviderInvocationReceiptStore,
+    TinyProviderInvocationRequest,
+    TinyProviderInvocationStatus,
+    TinyProviderReceiptCompletenessStatus,
+    evaluate_tiny_provider_invocation,
+)
+from ultimate_ai_agent.core.providers.live_invocation_adapter import (
+    OpenAICompatibleTinyLiveProviderAdapter,
+    TinyLiveCredentialResolution,
+    TinyLiveProviderTransportResult,
+)
+from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVaultPosture
+from tests.tiny_provider_invocation_helpers import (
+    available_credential_resolution,
+    exact_authority_for,
+    invocation_request,
+)
+
+
+def test_live_adapter_actual_cost_over_budget_records_blocked_receipt(
+    tmp_path: Path,
+) -> None:
+    request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:live-over-budget",
+        idempotency_ref="idempotency:provider-runtime:tiny-live-over-budget",
+        expected_receipt_ref="receipt:provider-runtime:tiny-live-over-budget",
+        usage_receipt_ref="usage-receipt-ref:provider-runtime:tiny-live-over-budget",
+        cost_receipt_ref="cost-receipt-ref:provider-runtime:tiny-live-over-budget",
+        estimated_cost_usd=0.001,
+        max_approved_usd=0.01,
+    )
+    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-live-over-budget.jsonl")
+
+    def over_budget_transport(
+        transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        return TinyLiveProviderTransportResult(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            input_tokens_used=transport_request.estimated_input_tokens,
+            output_tokens_used=transport_request.estimated_output_tokens,
+            billed_cost_usd=0.02,
+            network_call_performed=True,
+        )
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=OpenAICompatibleTinyLiveProviderAdapter(
+            enabled=True,
+            credential_resolver=lambda _credential_ref: available_credential_resolution(
+                request
+            ),
+            transport=over_budget_transport,
+        ),
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.cost_blocked
+    assert decision.receipt is not None
+    assert decision.receipt.status == TinyProviderInvocationStatus.cost_blocked
+    assert decision.receipt.network_call_performed is True
+    assert (
+        decision.receipt.receipt_completeness_status
+        == TinyProviderReceiptCompletenessStatus.complete
+    )
+    assert "REDACTED_BLOCKED_ATTEMPT_RECEIPT_RECORDED" in decision.receipt.reason_codes
+    assert len(store.list_receipts()) == 1
+
+
+def test_live_adapter_replays_existing_receipt_before_second_network_call(
+    tmp_path: Path,
+) -> None:
+    request = invocation_request(invocation_ref="provider-invocation-ref:tiny:live-replay")
+    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-live-replay.jsonl")
+    call_count = 0
+
+    def mocked_transport(
+        transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal call_count
+        call_count += 1
+        return TinyLiveProviderTransportResult(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            input_tokens_used=transport_request.estimated_input_tokens,
+            output_tokens_used=transport_request.estimated_output_tokens,
+            billed_cost_usd=transport_request.estimated_cost_usd or 0.0,
+            network_call_performed=True,
+        )
+
+    adapter = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True,
+        credential_resolver=lambda _credential_ref: available_credential_resolution(request),
+        transport=mocked_transport,
+    )
+    first = evaluate_tiny_provider_invocation(
+        request,
+        adapter=adapter,
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+    second = evaluate_tiny_provider_invocation(
+        request,
+        adapter=adapter,
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert first.allowed is True
+    assert second.allowed is True
+    assert call_count == 1
+    assert "IDEMPOTENCY_REPLAYED_RECEIPT" in second.reason_codes
+
+
+def test_live_adapter_exception_after_reservation_blocks_replay_before_retry(
+    tmp_path: Path,
+) -> None:
+    request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:live-exception-reserved",
+        idempotency_ref="idempotency:provider-runtime:tiny-live-exception-reserved",
+        expected_receipt_ref="receipt:provider-runtime:tiny-live-exception-reserved",
+    )
+    store = TinyProviderInvocationReceiptStore(
+        tmp_path / "tiny-live-exception-reserved.jsonl"
+    )
+    call_count = 0
+
+    def raising_transport(
+        _transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal call_count
+        call_count += 1
+        raise RuntimeError("transport failed")
+
+    adapter = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True,
+        credential_resolver=lambda _credential_ref: available_credential_resolution(request),
+        transport=raising_transport,
+    )
+    first = evaluate_tiny_provider_invocation(
+        request,
+        adapter=adapter,
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+    second = evaluate_tiny_provider_invocation(
+        request,
+        adapter=adapter,
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert first.allowed is False
+    assert first.status == TinyProviderInvocationStatus.live_adapter_blocked
+    assert first.receipt is not None
+    assert "TINY_LIVE_PROVIDER_TRANSPORT_EXCEPTION_BLOCKED" in first.reason_codes
+    assert second.allowed is False
+    assert "IDEMPOTENCY_REPLAYED_RECEIPT" in second.reason_codes
+    assert call_count == 1
+
+
+def test_live_adapter_concurrent_idempotency_reserves_before_transport(
+    tmp_path: Path,
+) -> None:
+    request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:live-concurrent-reserved",
+        idempotency_ref="idempotency:provider-runtime:tiny-live-concurrent-reserved",
+        expected_receipt_ref="receipt:provider-runtime:tiny-live-concurrent-reserved",
+    )
+    store = TinyProviderInvocationReceiptStore(
+        tmp_path / "tiny-live-concurrent-reserved.jsonl"
+    )
+    start = threading.Barrier(3)
+    lock = threading.Lock()
+    call_count = 0
+    decisions = []
+
+    def slow_transport(
+        transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal call_count
+        with lock:
+            call_count += 1
+        time.sleep(0.05)
+        return TinyLiveProviderTransportResult(
+            transport_ref=TINY_LIVE_PROVIDER_TRANSPORT_REF,
+            input_tokens_used=transport_request.estimated_input_tokens,
+            output_tokens_used=transport_request.estimated_output_tokens,
+            billed_cost_usd=transport_request.estimated_cost_usd or 0.0,
+            network_call_performed=True,
+        )
+
+    adapter = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True,
+        credential_resolver=lambda _credential_ref: available_credential_resolution(request),
+        transport=slow_transport,
+    )
+
+    def invoke() -> None:
+        start.wait()
+        decision = evaluate_tiny_provider_invocation(
+            request,
+            adapter=adapter,
+            approval_authority=exact_authority_for(request),
+            receipt_store=store,
+        )
+        with lock:
+            decisions.append(decision)
+
+    threads = [threading.Thread(target=invoke) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    start.wait()
+    for thread in threads:
+        thread.join()
+
+    assert call_count == 1
+    assert len(decisions) == 2
+    assert len(store.list_receipts()) == 1
+    assert any(decision.allowed is True for decision in decisions)
+    assert all(decision.receipt is not None for decision in decisions)
+    assert all(decision.status != TinyProviderInvocationStatus.approval_invalid for decision in decisions)
+
+
+def test_live_adapter_blocks_revoked_or_rotation_required_credentials(
+    tmp_path: Path,
+) -> None:
+    cases = (
+        (
+            ProviderCredentialVaultPosture.secret_ref_revoked,
+            "TINY_LIVE_PROVIDER_CREDENTIAL_REF_REVOKED",
+            "revoked",
+        ),
+        (
+            ProviderCredentialVaultPosture.rotation_required,
+            "TINY_LIVE_PROVIDER_CREDENTIAL_ROTATION_REQUIRED",
+            "rotation",
+        ),
+    )
+    for posture, reason_code, suffix in cases:
+        request = invocation_request(
+            invocation_ref=f"provider-invocation-ref:tiny:credential-{suffix}",
+            idempotency_ref=f"idempotency:provider-runtime:credential-{suffix}",
+            expected_receipt_ref=f"receipt:provider-runtime:credential-{suffix}",
+        )
+        store = TinyProviderInvocationReceiptStore(
+            tmp_path / f"tiny-live-credential-block-{suffix}.jsonl"
+        )
+        resolution = TinyLiveCredentialResolution(
+            credential_ref=request.credential_ref,
+            secret_ref=f"secret-ref:openai-compatible:{posture.value}",
+            vault_record_ref=(
+                f"credential-vault-record-ref:openai-compatible:{posture.value}"
+            ),
+            posture=posture,
+        )
+        decision = evaluate_tiny_provider_invocation(
+            request,
+            adapter=OpenAICompatibleTinyLiveProviderAdapter(
+                enabled=True,
+                credential_resolver=lambda _credential_ref, resolution=resolution: resolution,
+            ),
+            approval_authority=exact_authority_for(request),
+            receipt_store=store,
+        )
+
+        assert decision.allowed is False
+        assert decision.status == TinyProviderInvocationStatus.live_adapter_blocked
+        assert reason_code in decision.reason_codes
+        assert decision.receipt is not None
+        assert len(store.list_receipts()) == 1
+
+
+def test_live_adapter_unknown_paid_cost_blocks_before_transport() -> None:
+    request = invocation_request(estimated_cost_usd=None)
+    transport_called = False
+
+    def mocked_transport(
+        _transport_request: TinyProviderInvocationRequest,
+        _credential: SecretStr,
+    ) -> TinyLiveProviderTransportResult:
+        nonlocal transport_called
+        transport_called = True
+        return TinyLiveProviderTransportResult(
+            transport_ref="provider-transport-ref:tiny-live:should-not-run",
+            input_tokens_used=1,
+            output_tokens_used=1,
+            billed_cost_usd=0.001,
+        )
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=OpenAICompatibleTinyLiveProviderAdapter(
+            enabled=True,
+            credential_resolver=lambda _credential_ref: available_credential_resolution(
+                request
+            ),
+            transport=mocked_transport,
+        ),
+        approval_authority=exact_authority_for(request),
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.unknown_paid_cost_blocked
+    assert transport_called is False
+
+
+def test_live_stdlib_transport_uses_no_redirect_opener() -> None:
+    source = Path(
+        "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py"
+    ).read_text(encoding="utf-8")
+
+    assert "_NO_REDIRECT_OPENER.open" in source
+    assert "urllib_request.urlopen" not in source
+    assert "billed_cost_usd=request.estimated_cost_usd" not in source
+
+
+def test_live_stdlib_transport_blocks_when_billed_cost_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {"usage": {"input_tokens": 11, "output_tokens": 4}}
+            ).encode("utf-8")
+
+    class FakeNoRedirectOpener:
+        def open(self, _request: object, *, timeout: float) -> FakeResponse:
+            assert timeout > 0
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        live_adapter_module,
+        "_NO_REDIRECT_OPENER",
+        FakeNoRedirectOpener(),
+    )
+
+    result = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True
+    )._stdlib_responses_transport(
+        invocation_request(),
+        SecretStr("transient-material"),
+    )
+
+    assert result.status == "blocked"
+    assert result.block_reason_code == "TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE"
+    assert result.input_tokens_used == 11
+    assert result.output_tokens_used == 4
+    assert result.billed_cost_usd == 0.0
+    assert result.network_call_performed is True
+
+
+def test_live_stdlib_transport_blocks_malformed_usage_after_network(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps({"usage": {"input_tokens": "not-a-token"}}).encode(
+                "utf-8"
+            )
+
+    class FakeNoRedirectOpener:
+        def open(self, _request: object, *, timeout: float) -> FakeResponse:
+            assert timeout > 0
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        live_adapter_module,
+        "_NO_REDIRECT_OPENER",
+        FakeNoRedirectOpener(),
+    )
+
+    result = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True
+    )._stdlib_responses_transport(
+        invocation_request(),
+        SecretStr("transient-material"),
+    )
+
+    assert result.status == "blocked"
+    assert result.block_reason_code == "TINY_LIVE_PROVIDER_USAGE_PARSE_BLOCKED"
+    assert result.network_call_performed is True
+
+
+@pytest.mark.skipif(
+    os.environ.get("UAA_TINY_LIVE_PROVIDER_REAL_NETWORK") != "1"
+    or not os.environ.get("UAA_TINY_LIVE_PROVIDER_TRANSIENT_CREDENTIAL"),
+    reason="real provider invocation is skipped unless explicit local env is configured",
+)
+def test_live_adapter_optional_real_network_path_is_exact_approved(tmp_path: Path) -> None:
+    request = invocation_request(invocation_ref="provider-invocation-ref:tiny:real-network")
+    credential = os.environ["UAA_TINY_LIVE_PROVIDER_TRANSIENT_CREDENTIAL"]
+    store = TinyProviderInvocationReceiptStore(tmp_path / "tiny-live-real-network.jsonl")
+
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        adapter=OpenAICompatibleTinyLiveProviderAdapter(
+            enabled=True,
+            credential_resolver=lambda _credential_ref: available_credential_resolution(
+                request,
+                secret_value=credential,
+            ),
+        ),
+        approval_authority=exact_authority_for(request),
+        receipt_store=store,
+    )
+
+    assert decision.status in {
+        TinyProviderInvocationStatus.receipt_recorded,
+        TinyProviderInvocationStatus.live_adapter_blocked,
+    }
