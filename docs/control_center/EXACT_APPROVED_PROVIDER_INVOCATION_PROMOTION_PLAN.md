@@ -12,12 +12,14 @@ OpenAI-compatible and Anthropic-compatible. Each adapter scope remains
 disabled-by-default and blocked unless explicitly constructed with exact scoped
 approval, known cost posture, injected transient credential resolution, durable
 receipt replay storage, and its matching scoped transport. The second adapter
-is prerequisite evidence for future fallback work; it does not itself enable
-fallback execution.
+is prerequisite evidence for the separate Exact-Approved Provider Fallback
+lane; it does not itself turn the default API route or router dry-run into
+fallback execution authority.
 It does not add provider
 credential validation authority through the invocation lane, provider SDK
-calls, broad callable provider routing, fallback execution, autonomous model
-calls, background execution, or billing authority; provider credential
+calls, broad callable provider routing, unbounded or router-dry-run fallback
+execution, autonomous model calls, background execution, or billing authority;
+provider credential
 validation is handled by the separate exact-approved validation lane and still
 does not authorize invocation. Provider Router Dry-Run is a later
 proposal-only lane that can explain exact-approval candidate, blocked,

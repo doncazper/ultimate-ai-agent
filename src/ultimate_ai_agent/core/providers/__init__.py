@@ -55,6 +55,9 @@ from ultimate_ai_agent.core.providers.invocation import (
     SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
     SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF,
     SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+    TINY_PROVIDER_INVOCATION_MODEL_REF,
+    TINY_PROVIDER_INVOCATION_POLICY_REF,
+    TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_LIVE_PROVIDER_ADAPTER_REF,
     TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
     TINY_LIVE_PROVIDER_ENDPOINT_REF,
@@ -74,6 +77,17 @@ from ultimate_ai_agent.core.providers.invocation import (
     build_tiny_provider_invocation_readiness,
     evaluate_tiny_provider_invocation,
     required_provider_invocation_resource_refs,
+)
+from ultimate_ai_agent.core.providers.fallback import (
+    EXACT_APPROVED_PROVIDER_FALLBACK_CLI_REF,
+    EXACT_APPROVED_PROVIDER_FALLBACK_CONTRACT_REF,
+    EXACT_APPROVED_PROVIDER_FALLBACK_POLICY_REF,
+    ExactApprovedProviderFallbackAttempt,
+    ExactApprovedProviderFallbackAttemptResult,
+    ExactApprovedProviderFallbackDecision,
+    ExactApprovedProviderFallbackRequest,
+    ExactApprovedProviderFallbackStatus,
+    evaluate_exact_approved_provider_fallback,
 )
 from ultimate_ai_agent.core.providers.router_dry_run import (
     PROVIDER_ROUTER_DRY_RUN_CONTRACT_REF,
@@ -108,7 +122,10 @@ from ultimate_ai_agent.core.providers.credential_validation import (
     required_provider_credential_validation_resource_refs,
 )
 from ultimate_ai_agent.core.providers.requests import ProviderRequest
-from ultimate_ai_agent.core.providers.resolver import ProviderResolutionDecision, ProviderResolver
+from ultimate_ai_agent.core.providers.resolver import (
+    ProviderResolutionDecision,
+    ProviderResolver,
+)
 from ultimate_ai_agent.core.providers.results import (
     NewsNormalized,
     ProviderCostMetadata,
@@ -176,6 +193,9 @@ __all__ = [
     "SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF",
     "SECOND_TINY_PROVIDER_INVOCATION_POLICY_REF",
     "SECOND_TINY_PROVIDER_INVOCATION_PROVIDER_REF",
+    "TINY_PROVIDER_INVOCATION_MODEL_REF",
+    "TINY_PROVIDER_INVOCATION_POLICY_REF",
+    "TINY_PROVIDER_INVOCATION_PROVIDER_REF",
     "TinyProviderInvocationAdapter",
     "TinyProviderInvocationDecision",
     "TinyProviderInvocationReadiness",
@@ -189,6 +209,15 @@ __all__ = [
     "build_tiny_provider_invocation_readiness",
     "evaluate_tiny_provider_invocation",
     "required_provider_invocation_resource_refs",
+    "EXACT_APPROVED_PROVIDER_FALLBACK_CLI_REF",
+    "EXACT_APPROVED_PROVIDER_FALLBACK_CONTRACT_REF",
+    "EXACT_APPROVED_PROVIDER_FALLBACK_POLICY_REF",
+    "ExactApprovedProviderFallbackAttempt",
+    "ExactApprovedProviderFallbackAttemptResult",
+    "ExactApprovedProviderFallbackDecision",
+    "ExactApprovedProviderFallbackRequest",
+    "ExactApprovedProviderFallbackStatus",
+    "evaluate_exact_approved_provider_fallback",
     "PROVIDER_ROUTER_DRY_RUN_CONTRACT_REF",
     "PROVIDER_ROUTER_DRY_RUN_POLICY_REF",
     "PROVIDER_ROUTER_DRY_RUN_ROUTE",
