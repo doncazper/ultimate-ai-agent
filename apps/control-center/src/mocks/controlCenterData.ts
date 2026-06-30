@@ -4130,6 +4130,8 @@ export const mockControlCenterData: ControlCenterData = {
           "Disabled no execution",
           "Live adapter blocked",
           "Live receipt required",
+        ],
+        receipt_observation_supported_states: [
           "Usage captured",
           "Cost captured",
           "Cost incomplete",

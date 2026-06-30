@@ -197,17 +197,24 @@ def main() -> int:
         failures.append("default tiny provider readiness claims receipt state without receipt")
     if "Approved no execution" in readiness.ui_states:
         failures.append("default tiny provider readiness exposes approved state label")
+    for label in ("Live adapter blocked", "Live receipt required"):
+        if label not in readiness.ui_states:
+            failures.append(f"default tiny provider readiness missing UI label: {label}")
     for label in (
-        "Live adapter blocked",
-        "Live receipt required",
         "Usage captured",
         "Cost captured",
         "Cost incomplete",
         "Review required",
         "Further use blocked",
     ):
-        if label not in readiness.ui_states:
-            failures.append(f"default tiny provider readiness missing UI label: {label}")
+        if label in readiness.ui_states:
+            failures.append(
+                f"default tiny provider readiness exposes receipt outcome as UI state: {label}"
+            )
+        if label not in readiness.receipt_observation_supported_states:
+            failures.append(
+                f"default tiny provider readiness missing receipt observation label: {label}"
+            )
 
     missing_provider = evaluate_tiny_provider_invocation(
         _request(provider_ref="provider-ref:provider-runtime:not-bound")

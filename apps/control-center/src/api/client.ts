@@ -1495,6 +1495,8 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     "Disabled no execution",
     "Live adapter blocked",
     "Live receipt required",
+  ];
+  const supportedReceiptObservationLabels = [
     "Usage captured",
     "Cost captured",
     "Cost incomplete",
@@ -1502,6 +1504,8 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     "Further use blocked",
   ];
   const uiStates = value.ui_states;
+  const receiptObservationSupportedStates =
+    value.receipt_observation_supported_states;
   return (
     falseFlags.every((field) => value[field] === false) &&
     trueFlags.every((field) => value[field] === true) &&
@@ -1516,6 +1520,15 @@ function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
     uiStates.length === supportedUiStateLabels.length &&
     supportedUiStateLabels.every((label) => uiStates.includes(label)) &&
     uiStates.every((label) => supportedUiStateLabels.includes(String(label))) &&
+    Array.isArray(receiptObservationSupportedStates) &&
+    receiptObservationSupportedStates.length ===
+      supportedReceiptObservationLabels.length &&
+    supportedReceiptObservationLabels.every((label) =>
+      receiptObservationSupportedStates.includes(label),
+    ) &&
+    receiptObservationSupportedStates.every((label) =>
+      supportedReceiptObservationLabels.includes(String(label)),
+    ) &&
     Array.isArray(value.blocker_codes) &&
     value.blocker_codes.includes("TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT") &&
     value.blocker_codes.includes("UNKNOWN_PAID_COST_BLOCKS") &&

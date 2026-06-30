@@ -343,16 +343,23 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
 
         usage = payload.get("usage") if isinstance(payload, dict) else None
         usage = usage if isinstance(usage, dict) else {}
-        input_tokens = int(
-            usage.get("input_tokens")
-            or usage.get("prompt_tokens")
-            or request.estimated_input_tokens
-        )
-        output_tokens = int(
-            usage.get("output_tokens")
-            or usage.get("completion_tokens")
-            or request.estimated_output_tokens
-        )
+        try:
+            input_tokens = int(
+                usage.get("input_tokens")
+                or usage.get("prompt_tokens")
+                or request.estimated_input_tokens
+            )
+            output_tokens = int(
+                usage.get("output_tokens")
+                or usage.get("completion_tokens")
+                or request.estimated_output_tokens
+            )
+        except (TypeError, ValueError):
+            return TinyLiveProviderTransportResult(
+                status="blocked",
+                network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
+                block_reason_code="TINY_LIVE_PROVIDER_USAGE_PARSE_BLOCKED",
+            )
         _ = (input_tokens, output_tokens)
         return TinyLiveProviderTransportResult(
             status="blocked",

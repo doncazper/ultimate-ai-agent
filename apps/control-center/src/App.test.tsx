@@ -5263,6 +5263,9 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/Receipt observation/i).length).toBeGreaterThan(
       0,
     );
+    expect(
+      screen.getAllByText(/Receipt observation labels/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/no receipt observed/i).length).toBeGreaterThan(
       0,
     );

@@ -103,8 +103,14 @@ def receipt_payload(**overrides: object) -> dict[str, object]:
         "cost_receipt_ref": "cost-receipt-ref:provider-runtime:tiny-test",
         "cost_governor_decision_ref": "cost-decision-ref:provider-runtime:tiny-test",
         "estimated_cost_ref": "cost-estimate-ref:provider-runtime:tiny-test",
-        "actual_usage_ref": "actual-usage-ref:provider-runtime:tiny-test",
-        "actual_cost_ref": "actual-cost-ref:provider-runtime:tiny-test",
+        "actual_usage_ref": (
+            "actual-usage-ref:provider-runtime:"
+            "usage-receipt-ref-provider-runtime-tiny-test"
+        ),
+        "actual_cost_ref": (
+            "actual-cost-ref:provider-runtime:"
+            "cost-receipt-ref-provider-runtime-tiny-test"
+        ),
         "idempotency_ref": "idempotency:provider-runtime:tiny-test",
         "redacted_input_summary_ref": "redacted-input-summary-ref:provider-runtime:tiny-test",
         "redacted_output_summary_ref": "redacted-output-summary-ref:provider-runtime:tiny-test",
@@ -164,6 +170,9 @@ def test_tiny_provider_lane_default_readiness_is_disabled_and_cost_governed() ->
     assert "Disabled no execution" in readiness.ui_states
     assert "Live adapter blocked" in readiness.ui_states
     assert "Live receipt required" in readiness.ui_states
+    assert "Usage captured" not in readiness.ui_states
+    assert "Usage captured" in readiness.receipt_observation_supported_states
+    assert "Cost incomplete" in readiness.receipt_observation_supported_states
     assert "Approved no execution" not in readiness.ui_states
 
 
@@ -500,6 +509,7 @@ def test_legacy_receipt_without_completeness_fields_fails_closed_on_replay(
         invocation_performed=True,
         estimated_cost_usd=request.estimated_cost_usd,
         billed_cost_usd=request.estimated_cost_usd,
+        reason_codes=["unsafe lowercase reason"],
     )
     for field in (
         "estimated_cost_ref",
@@ -533,7 +543,9 @@ def test_legacy_receipt_without_completeness_fields_fails_closed_on_replay(
     assert decision.receipt.actual_cost_captured is False
     assert decision.receipt.incomplete_cost_requires_review is True
     assert decision.receipt.further_provider_use_blocked is True
+    assert "REDACTED_LEGACY_RECEIPT_REASON" in decision.receipt.reason_codes
     assert "LEGACY_RECEIPT_COMPLETENESS_MISSING" in decision.receipt.reason_codes
+    assert "unsafe lowercase reason" not in decision.receipt.reason_codes
     assert "FURTHER_PROVIDER_USE_BLOCKED" in decision.reason_codes
 
 
@@ -542,6 +554,7 @@ def test_receipt_allows_scoped_network_flag_but_rejects_raw_persistence() -> Non
         **receipt_payload(
             adapter_ref=TINY_LIVE_PROVIDER_ADAPTER_REF,
             network_call_performed=True,
+            billed_cost_usd=0.001,
         )
     )
 

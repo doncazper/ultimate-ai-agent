@@ -1644,6 +1644,12 @@ export function ProviderCredentialReadinessPanel({
               readiness.tiny_invocation_readiness.receipt_observation_ref,
             ],
             [
+              "Receipt observation labels",
+              readiness.tiny_invocation_readiness.receipt_observation_supported_states.join(
+                ", ",
+              ),
+            ],
+            [
               "Usage captured",
               readiness.tiny_invocation_readiness.usage_captured
                 ? "receipt-backed"
@@ -1676,14 +1682,14 @@ export function ProviderCredentialReadinessPanel({
             [
               "Incomplete cost review",
               readiness.tiny_invocation_readiness.incomplete_cost_requires_review
-                ? "review required"
+                ? "required if cost incomplete observed"
                 : "requires backend posture",
             ],
             [
               "Further provider use",
               readiness.tiny_invocation_readiness
                 .incomplete_cost_blocks_further_use
-                ? "blocked pending review"
+                ? "blocks after incomplete cost"
                 : "requires backend posture",
             ],
             [

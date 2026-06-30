@@ -3949,6 +3949,7 @@ export interface TinyProviderInvocationReadiness {
   response_persistence_allowed: boolean;
   provider_exchange_persistence_allowed: boolean;
   ui_states: TinyProviderInvocationUiState[];
+  receipt_observation_supported_states: TinyProviderInvocationReceiptObservationState[];
   blocker_codes: string[];
   safe_summary: string;
 }
@@ -3959,7 +3960,9 @@ export type TinyProviderInvocationUiState =
   | "No provider authority"
   | "Disabled no execution"
   | "Live adapter blocked"
-  | "Live receipt required"
+  | "Live receipt required";
+
+export type TinyProviderInvocationReceiptObservationState =
   | "Usage captured"
   | "Cost captured"
   | "Cost incomplete"

@@ -608,6 +608,44 @@ def test_live_stdlib_transport_blocks_when_billed_cost_unavailable(
     assert result.network_call_performed is True
 
 
+def test_live_stdlib_transport_blocks_malformed_usage_after_network(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps({"usage": {"input_tokens": "not-a-token"}}).encode(
+                "utf-8"
+            )
+
+    class FakeNoRedirectOpener:
+        def open(self, _request: object, *, timeout: float) -> FakeResponse:
+            assert timeout > 0
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        live_adapter_module,
+        "_NO_REDIRECT_OPENER",
+        FakeNoRedirectOpener(),
+    )
+
+    result = OpenAICompatibleTinyLiveProviderAdapter(
+        enabled=True
+    )._stdlib_responses_transport(
+        invocation_request(),
+        SecretStr("transient-material"),
+    )
+
+    assert result.status == "blocked"
+    assert result.block_reason_code == "TINY_LIVE_PROVIDER_USAGE_PARSE_BLOCKED"
+    assert result.network_call_performed is True
+
+
 @pytest.mark.skipif(
     os.environ.get("UAA_TINY_LIVE_PROVIDER_REAL_NETWORK") != "1"
     or not os.environ.get("UAA_TINY_LIVE_PROVIDER_TRANSIENT_CREDENTIAL"),

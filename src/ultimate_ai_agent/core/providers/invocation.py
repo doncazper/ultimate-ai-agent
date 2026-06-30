@@ -127,6 +127,19 @@ def _safe_reason_code_matches(value: str) -> bool:
     )
 
 
+def _sanitize_reason_codes(values: object, *, fallback: str) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    sanitized: list[str] = []
+    for value in values:
+        reason_code = str(value)
+        if _safe_reason_code_matches(reason_code):
+            sanitized.append(reason_code)
+        else:
+            sanitized.append(fallback)
+    return list(dict.fromkeys(sanitized))
+
+
 def _reject_unsafe_ref_fields(
     values: dict[str, str],
     prefixes: dict[str, tuple[str, ...]],
@@ -195,6 +208,10 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             "Disabled no execution",
             "Live adapter blocked",
             "Live receipt required",
+        ]
+    )
+    receipt_observation_supported_states: list[str] = Field(
+        default_factory=lambda: [
             "Usage captured",
             "Cost captured",
             "Cost incomplete",
@@ -310,14 +327,20 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
             "Disabled no execution",
             "Live adapter blocked",
             "Live receipt required",
+        }
+        if set(self.ui_states) != required_ui_states:
+            raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_UI_STATES_DENIED")
+        required_observation_states = {
             "Usage captured",
             "Cost captured",
             "Cost incomplete",
             "Review required",
             "Further use blocked",
         }
-        if set(self.ui_states) != required_ui_states:
-            raise ValueError("TINY_PROVIDER_INVOCATION_READINESS_UI_STATES_DENIED")
+        if set(self.receipt_observation_supported_states) != required_observation_states:
+            raise ValueError(
+                "TINY_PROVIDER_INVOCATION_READINESS_RECEIPT_OBSERVATION_STATES_DENIED"
+            )
         return self
 
 
@@ -700,6 +723,12 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
                 raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_COMPLETENESS_REQUIRED")
             if self.incomplete_cost_requires_review or self.further_provider_use_blocked:
                 raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_REVIEW_BLOCK_DENIED")
+            if self.network_call_performed and (
+                self.billed_cost_usd is None or self.billed_cost_usd <= 0
+            ):
+                raise ValueError(
+                    "TINY_PROVIDER_INVOCATION_RECEIPT_ACTUAL_COST_REQUIRED"
+                )
         if self.receipt_completeness_status == TinyProviderReceiptCompletenessStatus.complete:
             if not self.actual_usage_captured or not self.actual_cost_captured:
                 raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_ACTUAL_REFS_REQUIRED")
@@ -721,6 +750,8 @@ class TinyProviderInvocationReceipt(_TinyProviderInvocationModel):
                 raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_USAGE_CAPTURE_MISMATCH")
             if not self.further_provider_use_blocked:
                 raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_USAGE_REVIEW_REQUIRED")
+        if any(not _safe_reason_code_matches(reason) for reason in self.reason_codes):
+            raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_REASON_CODE_UNSAFE")
         return self
 
 
@@ -1696,6 +1727,10 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_STORE_PAYLOAD_DENIED")
     normalized = dict(payload)
+    normalized["reason_codes"] = _sanitize_reason_codes(
+        normalized.get("reason_codes"),
+        fallback="REDACTED_LEGACY_RECEIPT_REASON",
+    )
     required_completeness_fields = {
         "estimated_cost_ref",
         "actual_usage_ref",
@@ -1707,12 +1742,31 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
         "further_provider_use_blocked",
     }
     if required_completeness_fields.issubset(normalized):
+        review_reasons = _replayed_receipt_completeness_review_reasons(normalized)
+        if review_reasons:
+            return _mark_replayed_receipt_payload_review_blocked(
+                normalized,
+                reason_codes=review_reasons,
+            )
         return normalized
+    return _mark_replayed_receipt_payload_review_blocked(
+        normalized,
+        reason_codes=["LEGACY_RECEIPT_COMPLETENESS_MISSING"],
+    )
+
+
+def _mark_replayed_receipt_payload_review_blocked(
+    normalized: dict[str, object],
+    *,
+    reason_codes: list[str],
+) -> dict[str, object]:
     cost_estimate_ref = str(normalized.get("cost_estimate_ref", "missing"))
     usage_receipt_ref = str(normalized.get("usage_receipt_ref", "missing"))
     cost_receipt_ref = str(normalized.get("cost_receipt_ref", "missing"))
-    existing_reasons = normalized.get("reason_codes")
-    reason_codes = existing_reasons if isinstance(existing_reasons, list) else []
+    existing_reasons = _sanitize_reason_codes(
+        normalized.get("reason_codes"),
+        fallback="REDACTED_LEGACY_RECEIPT_REASON",
+    )
     normalized.update(
         {
             "estimated_cost_ref": cost_estimate_ref,
@@ -1724,7 +1778,7 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
             ),
             "status": TinyProviderInvocationStatus.cost_blocked.value,
             "invocation_performed": False,
-            "actual_usage_captured": False,
+            "actual_usage_captured": _receipt_payload_has_usage(normalized),
             "actual_cost_captured": False,
             "receipt_completeness_status": (
                 TinyProviderReceiptCompletenessStatus.incomplete_cost_requires_review.value
@@ -1734,8 +1788,8 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
             "reason_codes": list(
                 dict.fromkeys(
                     [
-                        *[str(reason) for reason in reason_codes],
-                        "LEGACY_RECEIPT_COMPLETENESS_MISSING",
+                        *existing_reasons,
+                        *reason_codes,
                         "ACTUAL_COST_INCOMPLETE",
                         "INCOMPLETE_COST_REQUIRES_REVIEW",
                         "FURTHER_PROVIDER_USE_BLOCKED",
@@ -1745,6 +1799,54 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
         }
     )
     return normalized
+
+
+def _receipt_payload_has_usage(payload: dict[str, object]) -> bool:
+    for field_name in ("input_tokens_used", "output_tokens_used"):
+        try:
+            if int(payload.get(field_name) or 0) > 0:
+                return True
+        except (TypeError, ValueError):
+            return False
+    return False
+
+
+def _receipt_payload_cost_is_missing(payload: dict[str, object]) -> bool:
+    try:
+        billed_cost = float(payload.get("billed_cost_usd") or 0)
+    except (TypeError, ValueError):
+        return True
+    return billed_cost <= 0
+
+
+def _replayed_receipt_completeness_review_reasons(
+    payload: dict[str, object],
+) -> list[str]:
+    reasons: list[str] = []
+    usage_receipt_ref = str(payload.get("usage_receipt_ref", "missing"))
+    cost_receipt_ref = str(payload.get("cost_receipt_ref", "missing"))
+    if payload.get("actual_usage_ref") != (
+        f"actual-usage-ref:provider-runtime:{_suffix(usage_receipt_ref)}"
+    ):
+        reasons.append("REPLAYED_RECEIPT_ACTUAL_USAGE_REF_MISMATCH")
+    if payload.get("actual_cost_ref") != (
+        f"actual-cost-ref:provider-runtime:{_suffix(cost_receipt_ref)}"
+    ):
+        reasons.append("REPLAYED_RECEIPT_ACTUAL_COST_REF_MISMATCH")
+    if (
+        payload.get("status") == TinyProviderInvocationStatus.receipt_recorded.value
+        and payload.get("receipt_completeness_status")
+        == TinyProviderReceiptCompletenessStatus.complete.value
+    ):
+        if payload.get("network_call_performed") and _receipt_payload_cost_is_missing(
+            payload
+        ):
+            reasons.append("REPLAYED_RECEIPT_ACTUAL_COST_MISSING")
+        if payload.get("actual_usage_captured") is not True:
+            reasons.append("REPLAYED_RECEIPT_ACTUAL_USAGE_CAPTURE_MISSING")
+        if payload.get("actual_cost_captured") is not True:
+            reasons.append("REPLAYED_RECEIPT_ACTUAL_COST_CAPTURE_MISSING")
+    return reasons
 
 
 def _actual_usage_ref(request: TinyProviderInvocationRequest) -> str:
@@ -1774,6 +1876,9 @@ def _receipt_matches_request(
         "expected_receipt_ref": request.expected_receipt_ref,
         "usage_receipt_ref": request.usage_receipt_ref,
         "cost_receipt_ref": request.cost_receipt_ref,
+        "estimated_cost_ref": request.cost_estimate_ref,
+        "actual_usage_ref": _actual_usage_ref(request),
+        "actual_cost_ref": _actual_cost_ref(request),
         "idempotency_ref": request.idempotency_ref,
         "redacted_input_summary_ref": request.redacted_input_summary_ref,
         "redacted_output_summary_ref": request.redacted_output_summary_ref,
@@ -1782,6 +1887,12 @@ def _receipt_matches_request(
     for field_name, expected_value in expected.items():
         if getattr(receipt, field_name) != expected_value:
             return False
+    if (
+        receipt.status == TinyProviderInvocationStatus.receipt_recorded
+        and receipt.network_call_performed
+        and (receipt.billed_cost_usd is None or receipt.billed_cost_usd <= 0)
+    ):
+        return False
     return receipt.estimated_cost_usd == request.estimated_cost_usd
 
 
