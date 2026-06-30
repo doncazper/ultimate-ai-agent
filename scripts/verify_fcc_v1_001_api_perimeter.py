@@ -73,6 +73,7 @@ TARGETED_ROUTE_EXPECTATIONS = {
     ("POST", "/control-center/memory/feedback"): "memory_feedback",
     ("POST", "/control-center/actions/{action_id}/reject"): "action_decision",
     ("POST", "/control-center/actions/{action_id}/local-task/commit"): "action_decision",
+    ("POST", "/control-center/providers/exact-approved-lanes/tiny"): "provider_exact_approved_lane",
     ("POST", "/task-decomposition/approval-requests"): "task_decomposition",
     ("POST", "/task-decomposition/approvals/grants/capture"): "task_decomposition",
     ("POST", "/task-decomposition/run"): "task_decomposition",

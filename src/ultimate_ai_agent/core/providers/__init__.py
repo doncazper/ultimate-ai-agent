@@ -43,6 +43,22 @@ from ultimate_ai_agent.core.providers.readiness import (
     ProviderCredentialValidationReadiness,
     ProviderCredentialValidationRequest,
 )
+from ultimate_ai_agent.core.providers.invocation import (
+    DeterministicTinyProviderInvocationAdapter,
+    DisabledTinyProviderInvocationAdapter,
+    TinyProviderInvocationAdapter,
+    TinyProviderInvocationDecision,
+    TinyProviderInvocationReadiness,
+    TinyProviderInvocationReceipt,
+    TinyProviderInvocationReceiptStore,
+    TinyProviderInvocationRequest,
+    TinyProviderInvocationStatus,
+    TinyProviderInvocationTransportReceipt,
+    build_tiny_provider_invocation_approval_request,
+    build_tiny_provider_invocation_readiness,
+    evaluate_tiny_provider_invocation,
+    required_provider_invocation_resource_refs,
+)
 from ultimate_ai_agent.core.providers.requests import ProviderRequest
 from ultimate_ai_agent.core.providers.resolver import ProviderResolutionDecision, ProviderResolver
 from ultimate_ai_agent.core.providers.results import (
@@ -101,6 +117,20 @@ __all__ = [
     "ProviderCredentialValidationReadiness",
     "ProviderCredentialValidationReceipt",
     "ProviderCredentialValidationRequest",
+    "DeterministicTinyProviderInvocationAdapter",
+    "DisabledTinyProviderInvocationAdapter",
+    "TinyProviderInvocationAdapter",
+    "TinyProviderInvocationDecision",
+    "TinyProviderInvocationReadiness",
+    "TinyProviderInvocationReceipt",
+    "TinyProviderInvocationReceiptStore",
+    "TinyProviderInvocationRequest",
+    "TinyProviderInvocationStatus",
+    "TinyProviderInvocationTransportReceipt",
+    "build_tiny_provider_invocation_approval_request",
+    "build_tiny_provider_invocation_readiness",
+    "evaluate_tiny_provider_invocation",
+    "required_provider_invocation_resource_refs",
     "SourceMetadata",
     "TokenCostExample",
     "WeatherNormalized",

@@ -1163,7 +1163,8 @@ function isSafeProviderCredentialReadiness(
     !isSafeProviderVaultAdapterReadiness(value.vault_adapter_readiness) ||
     !isSafeProviderCredentialEnrollmentReadiness(value.enrollment_readiness) ||
     !isSafeProviderCredentialValidationReadiness(value.validation_readiness) ||
-    !isSafeGovernedProviderInvocationReadiness(value.invocation_readiness)
+    !isSafeGovernedProviderInvocationReadiness(value.invocation_readiness) ||
+    !isSafeTinyProviderInvocationReadiness(value.tiny_invocation_readiness)
   ) {
     return false;
   }
@@ -1381,6 +1382,77 @@ function isSafeGovernedProviderInvocationReadiness(value: unknown): boolean {
     value.readiness_status === "blocked_not_scoped" &&
     Array.isArray(value.blocker_codes) &&
     value.blocker_codes.includes("PROVIDER_INVOCATION_NOT_SCOPED")
+  );
+}
+
+function isSafeTinyProviderInvocationReadiness(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "invocation_enabled",
+    "provider_sdk_call_enabled",
+    "network_call_enabled",
+    "autonomous_model_call_enabled",
+    "background_execution_enabled",
+    "billing_authority_granted",
+    "prompt_persistence_allowed",
+    "response_persistence_allowed",
+    "provider_exchange_persistence_allowed",
+  ];
+  const trueFlags = [
+    "exact_approval_required",
+    "credential_ref_required",
+    "provider_ref_required",
+    "model_ref_required",
+    "cost_estimate_ref_required",
+    "budget_decision_ref_required",
+    "max_approved_usd_required",
+    "expected_receipt_ref_required",
+    "idempotency_ref_required",
+    "unknown_paid_cost_blocks",
+    "redacted_receipts_only",
+  ];
+  const supportedStates = [
+    "disabled",
+    "blocked_missing_provider_ref",
+    "blocked_missing_model_ref",
+    "blocked_missing_credential_ref",
+    "blocked_missing_cost_estimate_ref",
+    "blocked_missing_budget_decision_ref",
+    "blocked_missing_max_approved_usd",
+    "blocked_missing_expected_receipt_ref",
+    "blocked_provider_not_allowed",
+    "blocked_model_not_allowed",
+    "unknown_paid_cost_blocked",
+    "cost_blocked",
+    "approval_required",
+    "approval_invalid",
+    "approved_no_execution",
+    "receipt_recorded",
+  ];
+  const supportedUiStateLabels = [
+    "Cost blocked",
+    "Unknown paid cost",
+    "No provider authority",
+    "Disabled no execution",
+  ];
+  const uiStates = value.ui_states;
+  return (
+    falseFlags.every((field) => value[field] === false) &&
+    trueFlags.every((field) => value[field] === true) &&
+    typeof value.lane_ref === "string" &&
+    typeof value.route_ref === "string" &&
+    typeof value.provider_ref === "string" &&
+    typeof value.model_ref === "string" &&
+    supportedStates.includes(String(value.status)) &&
+    Array.isArray(uiStates) &&
+    uiStates.length === supportedUiStateLabels.length &&
+    supportedUiStateLabels.every((label) => uiStates.includes(label)) &&
+    uiStates.every((label) => supportedUiStateLabels.includes(String(label))) &&
+    Array.isArray(value.blocker_codes) &&
+    value.blocker_codes.includes("TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT") &&
+    value.blocker_codes.includes("UNKNOWN_PAID_COST_BLOCKS")
   );
 }
 

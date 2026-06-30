@@ -36,7 +36,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 68,
     "none": 4,
-    "local_dev_workspace_only": 75,
+    "local_dev_workspace_only": 76,
     "governed_network_read_only": 1,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -57,6 +57,7 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/integrations/mattermost/events/message"): "mutating_requires_authority",
     ("POST", "/integrations/mattermost/roles/bind"): "mutating_requires_authority",
     ("POST", "/control-center/actions/{action_id}/local-task/commit"): "mutating_requires_authority",
+    ("POST", "/control-center/providers/exact-approved-lanes/tiny"): "mutating_requires_authority",
     ("POST", "/web-evidence/request"): "local_sensitive",
 }
 REQUIRED_DOC_SNIPPETS = {

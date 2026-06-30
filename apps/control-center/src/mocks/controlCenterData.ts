@@ -18,8 +18,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 148;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 49;
+export const MOCK_OPENAPI_ROUTE_COUNT = 149;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 50;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -3997,6 +3997,53 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         safe_summary:
           "Governed provider invocation remains disabled; any future invocation requires policy, approval, provider auth references, provider allowlists, redacted summaries, receipts, audit refs, safe-disable behavior, and rate or budget boundaries.",
+      },
+      tiny_invocation_readiness: {
+        lane_ref: "provider-invocation-lane:tiny-exact-approved:v1",
+        route_ref: "POST /control-center/providers/exact-approved-lanes/tiny",
+        provider_ref: "provider-ref:openai-compatible:tiny-exact-approved",
+        model_ref: "model-ref:openai-compatible:tiny-contract-model",
+        status: "disabled",
+        invocation_enabled: false,
+        provider_sdk_call_enabled: false,
+        network_call_enabled: false,
+        autonomous_model_call_enabled: false,
+        background_execution_enabled: false,
+        billing_authority_granted: false,
+        exact_approval_required: true,
+        credential_ref_required: true,
+        provider_ref_required: true,
+        model_ref_required: true,
+        cost_estimate_ref_required: true,
+        budget_decision_ref_required: true,
+        max_approved_usd_required: true,
+        expected_receipt_ref_required: true,
+        idempotency_ref_required: true,
+        unknown_paid_cost_blocks: true,
+        redacted_receipts_only: true,
+        prompt_persistence_allowed: false,
+        response_persistence_allowed: false,
+        provider_exchange_persistence_allowed: false,
+        ui_states: [
+          "Cost blocked",
+          "Unknown paid cost",
+          "No provider authority",
+          "Disabled no execution",
+        ],
+        blocker_codes: [
+          "TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT",
+          "EXACT_APPROVAL_REQUIRED",
+          "CREDENTIAL_REF_REQUIRED",
+          "PROVIDER_MODEL_REFS_REQUIRED",
+          "COST_ESTIMATE_REF_REQUIRED",
+          "BUDGET_DECISION_REF_REQUIRED",
+          "MAX_APPROVED_USD_REQUIRED",
+          "EXPECTED_RECEIPT_REF_REQUIRED",
+          "UNKNOWN_PAID_COST_BLOCKS",
+          "REDACTED_RECEIPT_REQUIRED",
+        ],
+        safe_summary:
+          "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, and a separate future scoped adapter enablement gate. The default readiness posture remains disabled-no-execution.",
       },
       providers: [
         {

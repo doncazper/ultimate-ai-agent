@@ -25,6 +25,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "memory_feedback": {"max_requests": 60, "window_seconds": 60},
     "action_decision": {"max_requests": 60, "window_seconds": 60},
     "local_model_validation": {"max_requests": 120, "window_seconds": 60},
+    "provider_exact_approved_lane": {"max_requests": 12, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -92,6 +93,9 @@ MEMORY_FEEDBACK_PATHS = {
 }
 CHAT_DURABLE_RECEIPT_PATHS = {
     "/control-center/chat/turns",
+}
+PROVIDER_EXACT_APPROVED_LANE_PATHS = {
+    "/control-center/providers/exact-approved-lanes/tiny",
 }
 
 
@@ -188,6 +192,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "memory_feedback"
     if normalized_method == "POST" and path in LOCAL_MODEL_VALIDATION_PATHS:
         return "local_model_validation"
+    if normalized_method == "POST" and path in PROVIDER_EXACT_APPROVED_LANE_PATHS:
+        return "provider_exact_approved_lane"
     return None
 
 

@@ -3891,6 +3891,59 @@ export interface GovernedProviderInvocationReadiness {
   safe_summary: string;
 }
 
+export interface TinyProviderInvocationReadiness {
+  lane_ref: string;
+  route_ref: string;
+  provider_ref: string;
+  model_ref: string;
+  status:
+    | "disabled"
+    | "blocked_missing_provider_ref"
+    | "blocked_missing_model_ref"
+    | "blocked_missing_credential_ref"
+    | "blocked_missing_cost_estimate_ref"
+    | "blocked_missing_budget_decision_ref"
+    | "blocked_missing_max_approved_usd"
+    | "blocked_missing_expected_receipt_ref"
+    | "blocked_provider_not_allowed"
+    | "blocked_model_not_allowed"
+    | "unknown_paid_cost_blocked"
+    | "cost_blocked"
+    | "approval_required"
+    | "approval_invalid"
+    | "approved_no_execution"
+    | "receipt_recorded";
+  invocation_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  network_call_enabled: boolean;
+  autonomous_model_call_enabled: boolean;
+  background_execution_enabled: boolean;
+  billing_authority_granted: boolean;
+  exact_approval_required: boolean;
+  credential_ref_required: boolean;
+  provider_ref_required: boolean;
+  model_ref_required: boolean;
+  cost_estimate_ref_required: boolean;
+  budget_decision_ref_required: boolean;
+  max_approved_usd_required: boolean;
+  expected_receipt_ref_required: boolean;
+  idempotency_ref_required: boolean;
+  unknown_paid_cost_blocks: boolean;
+  redacted_receipts_only: boolean;
+  prompt_persistence_allowed: boolean;
+  response_persistence_allowed: boolean;
+  provider_exchange_persistence_allowed: boolean;
+  ui_states: TinyProviderInvocationUiState[];
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export type TinyProviderInvocationUiState =
+  | "Cost blocked"
+  | "Unknown paid cost"
+  | "No provider authority"
+  | "Disabled no execution";
+
 export interface ProviderCredentialReadinessSummary {
   status: string;
   safe_summary: string;
@@ -3917,6 +3970,7 @@ export interface ProviderCredentialReadinessSummary {
   enrollment_readiness: ProviderCredentialEnrollmentReadiness;
   validation_readiness: ProviderCredentialValidationReadiness;
   invocation_readiness: GovernedProviderInvocationReadiness;
+  tiny_invocation_readiness: TinyProviderInvocationReadiness;
   providers: ProviderCredentialReadinessItem[];
   blocker_codes: string[];
   future_gate: string;

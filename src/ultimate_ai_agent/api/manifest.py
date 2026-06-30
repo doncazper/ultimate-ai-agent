@@ -78,6 +78,9 @@ CAPABILITIES_DECLARED = [
     "control_center_provider_credential_readiness_cli_inspection",
     "provider_credential_vault_contract_shell_metadata_only",
     "provider_credential_vault_contract_cli_inspection",
+    "control_center_tiny_exact_approved_provider_lane_disabled_default",
+    "control_center_tiny_exact_approved_provider_lane_cost_governed",
+    "control_center_tiny_exact_approved_provider_lane_redacted_receipts",
     "control_center_source_readiness_status",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
@@ -280,6 +283,17 @@ CAPABILITIES_BLOCKED = [
     "provider_credential_vault_validation_authority",
     "provider_credential_vault_invocation_authority",
     "provider_credential_vault_presence_as_authority",
+    "tiny_provider_lane_without_exact_approval",
+    "tiny_provider_lane_unknown_paid_cost",
+    "tiny_provider_lane_without_provider_model_credential_refs",
+    "tiny_provider_lane_without_cost_budget_receipt_refs",
+    "tiny_provider_lane_broad_provider_router",
+    "tiny_provider_lane_multi_provider_fallback",
+    "tiny_provider_lane_raw_prompt_response_or_provider_exchange_persistence",
+    "tiny_provider_lane_autonomous_model_calls",
+    "tiny_provider_lane_background_execution",
+    "tiny_provider_lane_billing_authority",
+    "tiny_provider_lane_provider_sdk_or_network_call_by_default",
     "control_center_frontend_native_build_control",
     "control_center_mobile_sensor_access",
     "control_center_remote_dispatch",
@@ -435,6 +449,9 @@ CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
 }
 CONTROL_CENTER_MEMORY_FEEDBACK_PATHS = {
     "/control-center/memory/feedback",
+}
+CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS = {
+    "/control-center/providers/exact-approved-lanes/tiny",
 }
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
@@ -592,6 +609,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_VALIDATION_ONLY_PATHS:
         return ApiRouteSideEffectClass.validation_only
+    if path in CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS:
+        return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith(CONTROL_CENTER_LOCAL_STATE_PREFIXES):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith(LOCAL_DEV_WORKSPACE_PREFIXES):
@@ -647,6 +666,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Memory feedback receipt route; exact local authority, approval, idempotency, audit, and evidence posture required while deletes, exports, context injection, connector writes, and execution stay blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, and safe-disable posture required while broad provider authority stays blocked",
         )
     if (
         normalized_method == "POST"

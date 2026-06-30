@@ -105,21 +105,25 @@ Provider Credential Readiness + Cost Governor Binding is documented in
 `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, and the
 Credential Vault Contract Shell is documented in
 `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, and the
-Exact-Approved Provider Invocation Promotion Plan is documented in
+Tiny Exact-Approved Provider Invocation Lane is documented in
 `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`. The
 contracts live in
 `src/ultimate_ai_agent/core/providers/catalog.py`,
 `src/ultimate_ai_agent/core/providers/readiness.py`, and
+`src/ultimate_ai_agent/core/providers/invocation.py`,
 `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, exposed through
 `GET /control-center/providers/setup-guide`,
+`POST /control-center/providers/exact-approved-lanes/tiny`,
 `scripts/inspect_provider_setup_guide.py`,
 `scripts/inspect_provider_credential_readiness.py`, and
-`scripts/inspect_credential_vault_contract.py`. The provider invocation plan is
-checked by `scripts/verify_provider_invocation_promotion_plan.py`. They add no
-credential input, no key storage, no provider validation, no provider SDK calls,
-no model invocation, no automatic pricing fetch, no billing authority, no
-unknown paid-cost bypass, no provider output authority, no vault runtime
-authority, no provider invocation runtime, and no invocation authority from
+`scripts/inspect_credential_vault_contract.py`, and
+`scripts/inspect_tiny_provider_invocation_lane.py`. Provider lane posture is
+checked by `scripts/verify_provider_invocation_promotion_plan.py` and
+`scripts/verify_tiny_provider_invocation_lane.py`. They add no credential input,
+no key storage, no provider validation, no provider SDK calls by default, no
+network calls, no autonomous model calls, no background execution, no automatic
+pricing fetch, no billing authority, no unknown paid-cost bypass, no provider
+output authority, no vault runtime authority, and no invocation authority from
 vault presence.
 
 This is the human-facing entrypoint for active documentation. The full catalog

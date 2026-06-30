@@ -112,6 +112,20 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "provider_credential_vault_validation_authority" in manifest["capabilities_blocked"]
     assert "provider_credential_vault_invocation_authority" in manifest["capabilities_blocked"]
     assert "provider_credential_vault_presence_as_authority" in manifest["capabilities_blocked"]
+    assert "control_center_tiny_exact_approved_provider_lane_disabled_default" in manifest["capabilities_declared"]
+    assert "control_center_tiny_exact_approved_provider_lane_cost_governed" in manifest["capabilities_declared"]
+    assert "control_center_tiny_exact_approved_provider_lane_redacted_receipts" in manifest["capabilities_declared"]
+    assert "tiny_provider_lane_without_exact_approval" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_unknown_paid_cost" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_without_provider_model_credential_refs" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_without_cost_budget_receipt_refs" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_broad_provider_router" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_multi_provider_fallback" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_raw_prompt_response_or_provider_exchange_persistence" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_autonomous_model_calls" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_background_execution" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_billing_authority" in manifest["capabilities_blocked"]
+    assert "tiny_provider_lane_provider_sdk_or_network_call_by_default" in manifest["capabilities_blocked"]
     assert "web_access_provider_adapter_shells_disabled" in manifest["capabilities_declared"]
     assert "web_access_provider_diagnostics_metadata_only" in manifest["capabilities_declared"]
     assert (
@@ -295,6 +309,18 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         "validation_only"
     )
     assert routes_by_path["/control-center/settings/status"]["protected_route"] is True
+    assert routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+        "route_classification"
+    ] == "mutating_requires_authority"
+    assert routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+        "side_effect_class"
+    ] == "local_dev_workspace_only"
+    assert routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+        "idempotency_posture"
+    ] == "required_before_mutation_authority"
+    assert routes_by_path["/control-center/providers/exact-approved-lanes/tiny"][
+        "rate_limit_group"
+    ] == "provider_exact_approved_lane"
     assert routes_by_path["/control-center/local-models/status"]["route_classification"] == (
         "local_readonly"
     )

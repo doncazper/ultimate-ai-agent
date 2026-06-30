@@ -1229,6 +1229,10 @@ export function ProviderCredentialReadinessPanel({
           <dt>Invocation readiness</dt>
           <dd>{readiness.invocation_readiness.readiness_status}</dd>
         </div>
+        <div>
+          <dt>Tiny provider lane</dt>
+          <dd>{readiness.tiny_invocation_readiness.status}</dd>
+        </div>
       </dl>
       <div
         className="provider-readiness-list"
@@ -1512,6 +1516,99 @@ export function ProviderCredentialReadinessPanel({
             ],
           ]}
           blockerCodes={readiness.invocation_readiness.blocker_codes}
+        />
+        <ReadinessGateCard
+          title="Tiny exact-approved provider lane"
+          status={readiness.tiny_invocation_readiness.status}
+          summary={readiness.tiny_invocation_readiness.safe_summary}
+          details={[
+            ["Lane ref", readiness.tiny_invocation_readiness.lane_ref],
+            ["Route ref", readiness.tiny_invocation_readiness.route_ref],
+            ["Provider ref", readiness.tiny_invocation_readiness.provider_ref],
+            ["Model ref", readiness.tiny_invocation_readiness.model_ref],
+            [
+              "Exact approval",
+              readiness.tiny_invocation_readiness.exact_approval_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Credential ref",
+              readiness.tiny_invocation_readiness.credential_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Cost estimate ref",
+              readiness.tiny_invocation_readiness.cost_estimate_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Budget decision ref",
+              readiness.tiny_invocation_readiness.budget_decision_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Max approved USD",
+              readiness.tiny_invocation_readiness.max_approved_usd_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Unknown paid cost",
+              readiness.tiny_invocation_readiness.unknown_paid_cost_blocks
+                ? "blocked"
+                : "missing",
+            ],
+            [
+              "Redacted receipts",
+              readiness.tiny_invocation_readiness.redacted_receipts_only
+                ? "only"
+                : "missing",
+            ],
+            [
+              "Provider SDK",
+              readiness.tiny_invocation_readiness.provider_sdk_call_enabled
+                ? "blocked until scoped adapter"
+                : "disabled",
+            ],
+            [
+              "Network call",
+              readiness.tiny_invocation_readiness.network_call_enabled
+                ? "blocked until scoped adapter"
+                : "disabled",
+            ],
+            [
+              "Autonomous calls",
+              readiness.tiny_invocation_readiness.autonomous_model_call_enabled
+                ? "blocked"
+                : "disabled",
+            ],
+            [
+              "Billing authority",
+              readiness.tiny_invocation_readiness.billing_authority_granted
+                ? "blocked until exact billing scope"
+                : "not granted",
+            ],
+            [
+              "Provider authority label",
+              readiness.tiny_invocation_readiness.invocation_enabled
+                ? "exact scope required"
+                : "No provider authority",
+            ],
+            [
+              "Default execution label",
+              readiness.tiny_invocation_readiness.status === "approved_no_execution"
+                ? "Approved no execution"
+                : "Disabled no execution",
+            ],
+          ]}
+          blockerCodes={[
+            ...readiness.tiny_invocation_readiness.blocker_codes,
+            ...readiness.tiny_invocation_readiness.ui_states,
+          ]}
         />
       </div>
       <div

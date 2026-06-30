@@ -75,7 +75,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 49
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 50
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -4097,6 +4097,18 @@ class FoundationGateEvaluator:
                 and route.rate_limit_group == "memory_feedback"
                 and route.blocked_from_production
             )
+            is_tiny_provider_lane_state = (
+                path == "/control-center/providers/exact-approved-lanes/tiny"
+                and route.method == "POST"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "mutating_requires_authority"
+                and route.protected_route
+                and route.approval_posture == "required_before_mutation_authority"
+                and route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "provider_exact_approved_lane"
+                and route.blocked_from_production
+            )
             if (
                 not route.validation_only
                 and not is_founder_loop_summary
@@ -4107,6 +4119,7 @@ class FoundationGateEvaluator:
                 and not is_founder_loop_local_task_commit_state
                 and not is_founder_loop_memory_context_action_proposal_state
                 and not is_founder_loop_memory_feedback_state
+                and not is_tiny_provider_lane_state
             ):
                 failures.append(
                     f"{path} is not read-only/preview-only/founder-loop-state"

@@ -271,9 +271,32 @@ function ProviderCredentialSetupSummary({
               : "receipt posture missing"}
           </dd>
         </div>
+        <div>
+          <dt>Tiny provider lane</dt>
+          <dd>{readiness.tiny_invocation_readiness.status}</dd>
+        </div>
+        <div>
+          <dt>Provider authority</dt>
+          <dd>
+            {readiness.tiny_invocation_readiness.invocation_enabled
+              ? "exact scope required"
+              : "No provider authority"}
+          </dd>
+        </div>
+        <div>
+          <dt>Redacted receipts</dt>
+          <dd>
+            {readiness.tiny_invocation_readiness.redacted_receipts_only
+              ? "required"
+              : "receipt posture missing"}
+          </dd>
+        </div>
       </dl>
       <div className="note-list" aria-label="Provider credential cost blockers">
-        {readiness.blocker_codes.slice(0, 8).map((code) => (
+        {[
+          ...readiness.blocker_codes.slice(0, 8),
+          ...readiness.tiny_invocation_readiness.ui_states,
+        ].map((code) => (
           <span key={code}>{code}</span>
         ))}
       </div>

@@ -11,18 +11,18 @@ def _write_supporting_docs(tmp_path: Path, *, text: str = "supporting ok") -> di
     paths = {
         tmp_path / "product_language.md": (
             "No provider invocation promotion authority drift\n"
-            "`PolicyEngine` policy validation"
+            "exact approval"
         ),
         tmp_path / "current_board.md": (
-            "Exact-Approved Provider Invocation Promotion Plan\n"
-            "`PolicyEngine` policy validation"
+            "Tiny Exact-Approved Provider Invocation Lane\n"
+            "exact approval"
         ),
         tmp_path / "documentation_index.md": "EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
         tmp_path / "readme.md": "EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
         tmp_path / "canonical_map.md": "EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
         tmp_path / "truth_packet.md": (
-            "Exact-Approved Provider Invocation Promotion Plan\n"
-            "`PolicyEngine` policy validation"
+            "Tiny Exact-Approved Provider Invocation Lane\n"
+            "exact-approval-bound"
         ),
     }
     for path, fragment in paths.items():
@@ -78,8 +78,8 @@ def test_provider_invocation_plan_verifier_rejects_authority_drift_variants(
         path for path in supporting if path.name == "current_board.md"
     )
     current_board_path.write_text(
-        "Exact-Approved Provider Invocation Promotion Plan\n"
-        "`PolicyEngine` policy validation\n"
+        "Tiny Exact-Approved Provider Invocation Lane\n"
+        "exact approval\n"
         "providers are callable\n"
         "provider SDK calls are available\n"
         "model output has authority\n",
@@ -105,7 +105,7 @@ def test_provider_invocation_plan_verifier_rejects_missing_supporting_policy_gat
         path for path in supporting if path.name == "current_board.md"
     )
     current_board_path.write_text(
-        "Exact-Approved Provider Invocation Promotion Plan\n",
+        "Tiny Exact-Approved Provider Invocation Lane\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "DOC_PATH", doc)
@@ -113,7 +113,7 @@ def test_provider_invocation_plan_verifier_rejects_missing_supporting_policy_gat
     monkeypatch.setattr(
         verifier,
         "REQUIRED_SUPPORTING_POLICY_FRAGMENTS",
-        {current_board_path: "`PolicyEngine` policy validation"},
+        {current_board_path: "exact approval"},
     )
 
     failures = verifier.validate_provider_invocation_promotion_plan()

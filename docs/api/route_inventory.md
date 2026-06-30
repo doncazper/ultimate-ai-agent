@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `148`.
+Current OpenAPI path count: `149`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -43,9 +43,9 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 17 |
+| `local_readonly` | 18 |
 | `local_sensitive` | 96 |
-| `mutating_requires_authority` | 31 |
+| `mutating_requires_authority` | 32 |
 
 Allowed current side-effect classes are:
 
@@ -90,7 +90,8 @@ UAA-P1-085 implements targeted local fixed-window rate-limit posture for
 model/chat, task decomposition, action preview/proposal, Action Inbox decisions,
 Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
 Review decision receipts, Memory context-pack internal Action proposal receipts,
-Memory feedback receipts, and local model validation route groups.
+Memory feedback receipts, the tiny exact-approved provider lane, and local
+model validation route groups.
 `/api/manifest` and the frozen route inventory expose
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production
