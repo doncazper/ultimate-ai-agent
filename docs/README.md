@@ -109,13 +109,16 @@ Backend V1 is documented in
 `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, and the
 Tiny Exact-Approved Provider Invocation Lane is documented in
 `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`;
-it now names two disabled-default single-provider adapter scopes as prerequisite
-evidence for future fallback work without granting fallback execution. The
-contracts live in
+the Exact-Approved Provider Fallback lane is documented in
+`docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md`. The fallback lane is
+limited to two proven single-provider adapter scopes and requires per-attempt
+exact approval, CostGovernor posture, durable receipt refs, and complete
+usage/cost receipts. The contracts live in
 `src/ultimate_ai_agent/core/providers/catalog.py`,
 `src/ultimate_ai_agent/core/providers/readiness.py`,
 `src/ultimate_ai_agent/core/providers/invocation.py`,
-`src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, and
+`src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`,
+`src/ultimate_ai_agent/core/providers/fallback.py`, and
 `src/ultimate_ai_agent/core/providers/credential_validation.py`,
 `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, and
 `src/ultimate_ai_agent/core/secrets/vault_backend.py`, exposed through
@@ -127,17 +130,20 @@ contracts live in
 `scripts/inspect_credential_vault_contract.py`, and
 `scripts/inspect_credential_vault_backend.py`, and
 `scripts/inspect_tiny_provider_invocation_lane.py`, and
-`scripts/inspect_provider_credential_validation_lane.py`. Provider lane posture is
+`scripts/inspect_provider_credential_validation_lane.py`, and
+`scripts/inspect_exact_approved_provider_fallback.py`. Provider lane posture is
 checked by `scripts/verify_provider_invocation_promotion_plan.py` and
 `scripts/verify_tiny_provider_invocation_lane.py`, and
-`scripts/verify_provider_credential_validation_lane.py`; backend safe-ref posture is
-checked by `scripts/verify_credential_vault_backend_v1.py`. They add no secret
+`scripts/verify_provider_credential_validation_lane.py`, with fallback sequencing
+covered by `tests/test_exact_approved_provider_fallback.py`; backend safe-ref
+posture is checked by `scripts/verify_credential_vault_backend_v1.py`. They add no secret
 resolution API, no raw secret display, no built-in live validation transport,
 no provider SDK calls, no provider network call by default, no provider network
-outside named exact-scoped tiny live adapters, no broad provider router, no fallback, no
-autonomous model calls, no background execution, no automatic pricing fetch, no
-billing authority, no unknown paid-cost bypass, no provider output authority,
-no vault runtime authority, and no invocation authority from vault presence.
+outside named exact-scoped tiny live adapters, no broad provider router, no
+unbounded or router-dry-run fallback, no autonomous model calls, no background
+execution, no automatic pricing fetch, no billing authority, no unknown
+paid-cost bypass, no provider output authority, no vault runtime authority, and
+no invocation authority from vault presence.
 Credential validation is exact-approved, one-provider, redacted-receipt only
 and does not grant provider/model runtime authority.
 
@@ -255,6 +261,7 @@ provider payload export, or no-secret-output regression.
 |---|---|
 | Operator Runtime Excellence | `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` |
 | Founder Command Center product-loop planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`, `docs/metrics/NORTH_STAR_METRICS.md`, `docs/codex/CODEX_EXECUTION_PROMPTS.md` |
+| Agent runtime compatibility prompts | `docs/codex/UAA_P2_AGENT_RUNTIME_COMPATIBILITY_PROMPTS.md` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | Product truth packet | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
 | Control Center readiness | `docs/control_center/OPERATOR_SHELL_GAP_MAP.md`, `docs/control_center/ROUTE_STATUS_MANIFEST.md`, `docs/control_center/route_status_manifest.json`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`, `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`, `docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md`, `docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`, `docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`, `docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`, `docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`, `docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md`, `docs/macos/private_operator_14_day_dogfood_harness_v1.json`, `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`, `docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md`, `docs/control_center/visual_regression_manifest.json`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`, `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`, `docs/control_center/FCC_LOOP_002_FOUNDER_LOOP_ERGONOMICS_PASS.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/control_center/UAA_P1_078_PRIVATE_BETA_READINESS_GATE.md`, `docs/control_center/UAA_P1_079_USER_INTENT_UNDERSTANDING.md` |

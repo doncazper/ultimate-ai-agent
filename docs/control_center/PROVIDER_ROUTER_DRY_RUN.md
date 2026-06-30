@@ -21,8 +21,9 @@ run background work, persist raw prompts, persist raw responses, or persist raw
 provider payloads. Visibility in the dashboard or API manifest is metadata and
 proposal posture only; it is not callable runtime authority.
 
-Future multi-provider fallback remains blocked. The tiny provider lane now has
-two named exact-approved single-provider adapter scopes available as prerequisite
-evidence, but no fallback may execute until a separate lane validates every
-attempt with its own approval, CostGovernor decision, budget scope, idempotency
-ref, receipt refs, and safe-disable posture.
+Broad and unbounded multi-provider fallback remains blocked. Exact-approved
+two-provider fallback now lives in the separate
+`docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md` lane, where each
+attempt must carry its own approval, CostGovernor decision, budget scope,
+idempotency ref, receipt refs, and safe-disable posture. Router dry-run
+visibility remains proposal-only and cannot execute fallback by itself.

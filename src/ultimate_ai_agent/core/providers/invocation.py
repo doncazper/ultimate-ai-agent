@@ -351,10 +351,10 @@ class TinyProviderInvocationReadiness(_TinyProviderInvocationModel):
         "Tiny exact-approved provider lane is contract-wired but disabled by default; "
         "provider execution requires exact approval, credential/provider/model/cost/budget "
         "refs, max approved USD, idempotency, expected receipts, redacted receipts, and "
-        "a separate scoped adapter enablement gate. The lane now recognizes two named "
-        "single-provider adapter scopes for future fallback prerequisites, but fallback "
-        "execution remains blocked. Even with live adapter contracts "
-        "present, the default readiness posture remains disabled-no-execution."
+        "a separate scoped adapter enablement gate. Exact-approved fallback is a separate "
+        "core/CLI lane with per-attempt receipts; Control Center/router fallback stays "
+        "blocked. Even with live adapter contracts present, the default readiness posture "
+        "remains disabled-no-execution."
     )
 
     @model_validator(mode="after")

@@ -4174,7 +4174,7 @@ export const mockControlCenterData: ControlCenterData = {
           "LIVE_PROVIDER_NETWORK_ONLY_INSIDE_SCOPED_ADAPTER",
         ],
         safe_summary:
-          "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, actual usage/cost refs, receipt completeness checks, and a separate scoped adapter enablement gate. Two named single-provider adapter scopes are visible as future fallback prerequisites, but fallback execution remains blocked. Incomplete actual paid cost requires review and blocks further use.",
+          "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, actual usage/cost refs, receipt completeness checks, and a separate scoped adapter enablement gate. Exact-approved fallback is a separate core/CLI lane with per-attempt receipts; Control Center/router fallback stays blocked. Incomplete actual paid cost requires review and blocks further use.",
       },
       router_dry_run_readiness: {
         contract_ref: "provider-router-dry-run:proposal-only:v1",

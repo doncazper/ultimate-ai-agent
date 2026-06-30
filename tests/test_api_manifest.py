@@ -258,77 +258,40 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         "provider_credential_vault_presence_as_authority"
         in manifest["capabilities_blocked"]
     )
-    assert (
-        "control_center_tiny_exact_approved_provider_lane_disabled_default"
-        in manifest["capabilities_declared"]
-    )
-    assert (
-        "control_center_tiny_exact_approved_provider_lane_cost_governed"
-        in manifest["capabilities_declared"]
-    )
-    assert (
-        "control_center_tiny_exact_approved_provider_lane_redacted_receipts"
-        in manifest["capabilities_declared"]
-    )
-    assert (
-        "control_center_tiny_exact_approved_provider_lane_receipt_completeness"
-        in manifest["capabilities_declared"]
-    )
-    assert (
-        "control_center_tiny_exact_approved_second_single_provider_adapter_scope_metadata_only"
-        in manifest["capabilities_declared"]
-    )
-    assert (
-        "control_center_provider_credential_validation_exact_approved_lane"
-        in manifest["capabilities_declared"]
-    )
-    assert (
-        "control_center_provider_credential_validation_redacted_receipts"
-        in manifest["capabilities_declared"]
-    )
-    assert (
-        "control_center_provider_credential_validation_cli_inspection"
-        in manifest["capabilities_declared"]
-    )
-    assert (
-        "tiny_provider_lane_without_exact_approval" in manifest["capabilities_blocked"]
-    )
-    assert "tiny_provider_lane_unknown_paid_cost" in manifest["capabilities_blocked"]
-    assert (
-        "tiny_provider_lane_without_provider_model_credential_refs"
-        in manifest["capabilities_blocked"]
-    )
-    assert (
-        "tiny_provider_lane_without_cost_budget_receipt_refs"
-        in manifest["capabilities_blocked"]
-    )
-    assert (
-        "tiny_provider_lane_incomplete_actual_paid_cost_without_review"
-        in manifest["capabilities_blocked"]
-    )
-    assert (
-        "tiny_provider_lane_broad_provider_router" in manifest["capabilities_blocked"]
-    )
-    assert (
-        "tiny_provider_lane_multi_provider_fallback" in manifest["capabilities_blocked"]
-    )
-    assert (
-        "tiny_provider_lane_raw_prompt_response_or_provider_exchange_persistence"
-        in manifest["capabilities_blocked"]
-    )
-    assert (
-        "tiny_provider_lane_autonomous_model_calls" in manifest["capabilities_blocked"]
-    )
-    assert "tiny_provider_lane_background_execution" in manifest["capabilities_blocked"]
-    assert "tiny_provider_lane_billing_authority" in manifest["capabilities_blocked"]
-    assert (
-        "tiny_provider_lane_provider_sdk_or_network_call_by_default"
-        in manifest["capabilities_blocked"]
-    )
-    assert (
-        "tiny_provider_lane_network_call_outside_scoped_adapter"
-        in manifest["capabilities_blocked"]
-    )
+    for capability in {
+        "control_center_tiny_exact_approved_provider_lane_disabled_default",
+        "control_center_tiny_exact_approved_provider_lane_cost_governed",
+        "control_center_tiny_exact_approved_provider_lane_redacted_receipts",
+        "control_center_tiny_exact_approved_provider_lane_receipt_completeness",
+        "control_center_tiny_exact_approved_second_single_provider_adapter_scope_metadata_only",
+        "provider_exact_approved_two_provider_fallback_core_cli_metadata",
+        "provider_exact_approved_two_provider_fallback_cli_inspection",
+        "provider_exact_approved_two_provider_fallback_per_attempt_receipts",
+        "control_center_provider_credential_validation_exact_approved_lane",
+        "control_center_provider_credential_validation_redacted_receipts",
+        "control_center_provider_credential_validation_cli_inspection",
+    }:
+        assert capability in manifest["capabilities_declared"]
+    for capability in {
+        "tiny_provider_lane_without_exact_approval",
+        "tiny_provider_lane_unknown_paid_cost",
+        "tiny_provider_lane_without_provider_model_credential_refs",
+        "tiny_provider_lane_without_cost_budget_receipt_refs",
+        "tiny_provider_lane_incomplete_actual_paid_cost_without_review",
+        "tiny_provider_lane_broad_provider_router",
+        "tiny_provider_lane_unbounded_multi_provider_fallback",
+        "tiny_provider_lane_router_dry_run_as_fallback_execution",
+        "tiny_provider_lane_fallback_without_per_attempt_exact_approval",
+        "tiny_provider_lane_fallback_without_per_attempt_receipts",
+        "tiny_provider_lane_fallback_after_incomplete_cost_without_review",
+        "tiny_provider_lane_raw_prompt_response_or_provider_exchange_persistence",
+        "tiny_provider_lane_autonomous_model_calls",
+        "tiny_provider_lane_background_execution",
+        "tiny_provider_lane_billing_authority",
+        "tiny_provider_lane_provider_sdk_or_network_call_by_default",
+        "tiny_provider_lane_network_call_outside_scoped_adapter",
+    }:
+        assert capability in manifest["capabilities_blocked"]
     assert (
         "provider_credential_validation_without_exact_approval"
         in manifest["capabilities_blocked"]
