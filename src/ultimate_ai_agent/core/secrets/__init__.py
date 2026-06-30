@@ -28,6 +28,12 @@ from ultimate_ai_agent.core.secrets.vault_adapter import (
     CredentialVaultStoreRequest,
     ProviderCredentialEnrollmentReadiness,
 )
+from ultimate_ai_agent.core.secrets.vault_contracts import (
+    ProviderCredentialVaultPosture,
+    ProviderCredentialVaultRecord,
+    ProviderCredentialVaultSnapshot,
+    build_provider_credential_vault_snapshot,
+)
 from ultimate_ai_agent.core.secrets.vault_readiness import (
     ProviderCredentialVaultAdapterReadiness,
     build_provider_credential_vault_adapter_readiness,
@@ -48,6 +54,9 @@ __all__ = [
     "CredentialVaultStoreRequest",
     "ProviderCredentialEnrollmentReadiness",
     "ProviderCredentialVaultAdapterReadiness",
+    "ProviderCredentialVaultPosture",
+    "ProviderCredentialVaultRecord",
+    "ProviderCredentialVaultSnapshot",
     "RedactedSecretView",
     "SecretAccessDecision",
     "SecretAccessRequest",
@@ -57,6 +66,7 @@ __all__ = [
     "SecretSensitivity",
     "contains_obvious_secret",
     "build_provider_credential_vault_adapter_readiness",
+    "build_provider_credential_vault_snapshot",
     "redact_secret_value",
     "validate_credential_reference",
 ]

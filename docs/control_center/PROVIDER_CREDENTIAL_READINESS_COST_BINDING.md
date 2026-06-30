@@ -48,6 +48,6 @@ Product language rules:
 - Provider catalog visibility, credential readiness visibility, and provider
   diagnostics do not make providers callable.
 
-Next scoped lane: Credential Vault Contract Shell. That lane may define vault
-adapter contracts and redacted refs, but it still must not collect secrets,
-validate provider credentials, call provider SDKs, or invoke models.
+Credential Vault Contract Shell is a metadata-only contract layer. It defines
+vault posture contracts and redacted refs, but it still must not collect
+secrets, validate provider credentials, call provider SDKs, or invoke models.
