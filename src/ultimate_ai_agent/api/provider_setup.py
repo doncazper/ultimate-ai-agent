@@ -7,10 +7,15 @@ from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.providers import (
     ExactProviderCredentialValidationRequest,
+    ProviderRouterDryRunRequest,
     TinyProviderInvocationRequest,
     build_provider_setup_guide_catalog,
     evaluate_provider_credential_validation,
+    evaluate_provider_router_dry_run,
     evaluate_tiny_provider_invocation,
+)
+from ultimate_ai_agent.core.control_center.dashboard import (
+    build_provider_credential_readiness_summary,
 )
 
 
@@ -183,6 +188,68 @@ def post_control_center_providers_credentials_validate(
             "model_invocation_omitted",
         ],
         rollback_ref=request.safe_disable_ref,
+    )
+
+
+@router.post("/router/dry-run", response_model=ResultEnvelope)
+def post_control_center_providers_router_dry_run(
+    request: ProviderRouterDryRunRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias="X-UAA-Idempotency-Key",
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias="X-UAA-Idempotency-Ref",
+    ),
+) -> ResultEnvelope:
+    idempotency_reason_codes = _idempotency_header_reason_codes(
+        body_idempotency_ref=request.idempotency_ref,
+        key_header=x_uaa_idempotency_key,
+        ref_header=x_uaa_idempotency_ref,
+    )
+    if idempotency_reason_codes:
+        return ResultEnvelope(
+            success=False,
+            operation="control_center_providers_router_dry_run",
+            service="ControlCenterProviderSetupAPI",
+            trace_id=request.router_run_ref,
+            data={
+                "proposal_only": True,
+                "invocation_authorized": False,
+                "fallback_execution_authorized": False,
+                "reason_codes": idempotency_reason_codes,
+                "required_next_action": "submit_matching_exact_idempotency_ref",
+            },
+            redactions_applied=[
+                "provider_router_safe_refs_only",
+                "provider_exchange_content_omitted",
+            ],
+        )
+    readiness = build_provider_credential_readiness_summary()
+    proposal = evaluate_provider_router_dry_run(
+        request,
+        provider_readiness_items=readiness.providers,
+    )
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_providers_router_dry_run",
+        service="ControlCenterProviderSetupAPI",
+        trace_id=request.router_run_ref,
+        data=proposal.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": proposal.proposal_ref},
+        ],
+        cost_attribution={
+            "cost_governor_decision_ref": readiness.cost_governor_decision_ref,
+            "unknown_paid_cost_blocks": True,
+            "billing_authority_granted": False,
+        },
+        redactions_applied=[
+            "provider_router_safe_refs_only",
+            "provider_exchange_content_omitted",
+            "raw_prompt_response_provider_payload_omitted",
+        ],
     )
 
 

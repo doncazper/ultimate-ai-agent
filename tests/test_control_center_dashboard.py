@@ -84,6 +84,26 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only() -> None:
         snapshot.provider_credential_readiness.invocation_readiness.invocation_enabled
         is False
     )
+    assert (
+        snapshot.provider_credential_readiness.router_dry_run_readiness.proposal_only
+        is True
+    )
+    assert (
+        snapshot.provider_credential_readiness.router_dry_run_readiness.invocation_authorized
+        is False
+    )
+    assert (
+        snapshot.provider_credential_readiness.router_dry_run_readiness.fallback_execution_authorized
+        is False
+    )
+    assert (
+        snapshot.provider_credential_readiness.router_dry_run_readiness.provider_sdk_call_performed
+        is False
+    )
+    assert (
+        snapshot.provider_credential_readiness.router_dry_run_readiness.billing_authority_granted
+        is False
+    )
     assert snapshot.operator_loop_summary.milestone_ref == "UAA-P1-011"
     assert snapshot.operator_loop_summary.frontend_authority is False
     assert snapshot.operator_loop_summary.production_ready is False

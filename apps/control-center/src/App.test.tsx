@@ -5160,6 +5160,18 @@ describe("Web Control Center shell", () => {
     (
       unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>
     ).status = "tiny-ready-bypass";
+    (
+      unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
+    ).invocation_authorized = true;
+    (
+      unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
+    ).provider_sdk_call_performed = true;
+    (
+      unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
+    ).billing_authority_granted = true;
+    (
+      unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
+    ).status = "router-ready-bypass";
     unsafeDashboard.provider_credential_readiness = unsafeReadiness;
 
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
@@ -5214,6 +5226,7 @@ describe("Web Control Center shell", () => {
       screen.queryByText(/invocation-ready-bypass/i),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/tiny-ready-bypass/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/router-ready-bypass/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
         name: /validate provider|invoke provider/i,
@@ -5392,6 +5405,15 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(
       0,
     );
+    expect(
+      screen.getAllByText(/Provider router dry-run/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/No fallback execution/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Router no-authority refs/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/Setup docs/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/API docs/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);

@@ -18,8 +18,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 150;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 51;
+export const MOCK_OPENAPI_ROUTE_COUNT = 151;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 52;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -4159,6 +4159,132 @@ export const mockControlCenterData: ControlCenterData = {
         ],
         safe_summary:
           "Tiny exact-approved provider lane is contract-wired but disabled by default; provider execution requires exact approval, credential/provider/model/cost/budget refs, max approved USD, idempotency, expected receipts, redacted receipts, actual usage/cost refs, receipt completeness checks, and a separate scoped adapter enablement gate. Incomplete actual paid cost requires review and blocks further use.",
+      },
+      router_dry_run_readiness: {
+        contract_ref: "provider-router-dry-run:proposal-only:v1",
+        route_ref: "POST /control-center/providers/router/dry-run",
+        proposal_ref:
+          "provider-router-proposal-ref:dry-run-local:proposal-only",
+        router_run_ref: "provider-router-run-ref:dry-run:local",
+        idempotency_ref: "idempotency-ref:provider-router:dry-run:local",
+        status: "proposal_only",
+        safe_summary:
+          "Provider router dry-run explains exact-approval candidate, blocked, degraded, and cost-risky provider refs without provider invocation, fallback execution, provider SDK calls, credential validation, model calls, billing authority, or background work.",
+        safe_refs_only: true,
+        proposal_only: true,
+        local_state_only: true,
+        invocation_authorized: false,
+        fallback_execution_authorized: false,
+        network_call_performed: false,
+        provider_sdk_call_performed: false,
+        credential_validation_performed: false,
+        model_invocation_performed: false,
+        billing_authority_granted: false,
+        autonomous_background_execution_enabled: false,
+        prompt_content_persisted: false,
+        response_content_persisted: false,
+        provider_payload_content_persisted: false,
+        provider_proposals: [
+          {
+            provider_ref: "provider:openai-compatible:reference",
+            provider_label: "OpenAI-compatible provider",
+            provider_manifest_ref:
+              "provider-manifest-ref:openai-compatible:reference-only",
+            model_ref: "model-ref:openai-compatible:not-selected",
+            credential_ref: "credential-ref:openai-compatible:not-configured",
+            credential_ref_status: "reference_missing",
+            status: "blocked",
+            readiness_status: "blocked_reference_only",
+            eligible_for_exact_approval_scope: false,
+            missing_credential_ref:
+              "credential-ref:openai-compatible:missing-for-router-dry-run",
+            cost_risk_ref:
+              "cost-estimate-ref:openai-compatible:router-review-required",
+            validation_required_ref:
+              "validation-ref:openai-compatible:required-before-invocation",
+            no_authority_ref:
+              "provider-ref:openai-compatible:router-no-runtime-authority",
+            recommended_approval_scope_ref:
+              "approval-scope-ref:provider-router:required",
+            reason_codes: [
+              "PROVIDER_ROUTER_DRY_RUN_PROPOSAL_ONLY",
+              "CREDENTIAL_REFERENCE_NOT_BOUND",
+              "PROVIDER_MODEL_REFS_REQUIRED",
+              "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+              "COST_RISK_REVIEW_REQUIRED",
+              "CREDENTIAL_VALIDATION_REQUIRED_BEFORE_INVOCATION",
+              "NO_PROVIDER_AUTHORITY",
+            ],
+            proposal_only: true,
+            execution_authorized: false,
+            fallback_execution_authorized: false,
+            network_call_performed: false,
+            provider_sdk_call_performed: false,
+            credential_validation_performed: false,
+            model_invocation_performed: false,
+            billing_authority_granted: false,
+            provider_output_authoritative: false,
+          },
+        ],
+        eligible_provider_refs: [],
+        blocked_provider_refs: ["provider:openai-compatible:reference"],
+        degraded_provider_refs: [],
+        missing_credential_refs: [
+          "credential-ref:openai-compatible:missing-for-router-dry-run",
+        ],
+        cost_risky_refs: [
+          "cost-estimate-ref:openai-compatible:router-review-required",
+        ],
+        validation_required_refs: [
+          "validation-ref:openai-compatible:required-before-invocation",
+        ],
+        no_authority_refs: [
+          "provider-ref:openai-compatible:router-no-runtime-authority",
+        ],
+        recommended_exact_approval_scope_ref:
+          "approval-scope-ref:provider-router:exact-scope-required",
+        recommended_exact_approval_scope: {
+          approval_scope_ref:
+            "approval-scope-ref:provider-router:exact-scope-required",
+          policy_ref: "policy-ref:provider-router:dry-run-only:v1",
+          cost_estimate_ref: "cost-estimate-ref:provider-router:required",
+          budget_decision_ref: "budget-decision-ref:provider-router:required",
+          expected_receipt_ref: "receipt-ref:provider-router:future-required",
+          exact_scope_required: true,
+          provider_ref_required: true,
+          model_ref_required: true,
+          credential_ref_required: true,
+          cost_governor_decision_required: true,
+          max_approved_usd_required: true,
+          idempotency_ref_required: true,
+          receipt_ref_required: true,
+          execution_authorized_by_scope: false,
+        },
+        ui_states: [
+          "Provider router dry-run",
+          "Proposal only",
+          "Exact-approval candidate refs",
+          "Blocked provider refs",
+          "Degraded provider refs",
+          "Cost risky",
+          "Validation required",
+          "No provider authority",
+          "No fallback execution",
+        ],
+        blocker_codes: [
+          "PROVIDER_ROUTER_DRY_RUN_PROPOSAL_ONLY",
+          "NO_PROVIDER_INVOCATION",
+          "NO_FALLBACK_EXECUTION",
+          "NO_NETWORK_CALLS",
+          "NO_PROVIDER_SDK_CALL",
+          "NO_CREDENTIAL_VALIDATION",
+          "NO_MODEL_CALL",
+          "NO_BILLING_AUTHORITY",
+          "NO_AUTONOMOUS_BACKGROUND_CALLS",
+          "COSTGOVERNOR_REQUIRED_BEFORE_INVOCATION",
+          "UNKNOWN_PAID_COST_BLOCKS",
+          "EXACT_APPROVAL_SCOPE_REQUIRED_FOR_ANY_FUTURE_USE",
+        ],
       },
       providers: [
         {

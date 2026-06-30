@@ -3,16 +3,16 @@
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
     "not_required_for_route_classification": 117,
-    "required_before_mutation_authority": 33
+    "required_before_mutation_authority": 34
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 147,
+    "protected_local_bearer_required": 148,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 18,
     "local_sensitive": 96,
-    "mutating_requires_authority": 33,
+    "mutating_requires_authority": 34,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -21,14 +21,14 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 150,
+  "route_count": 151,
   "route_idempotency_posture_summary": {
     "not_required_for_route_classification": 117,
-    "required_before_mutation_authority": 33
+    "required_before_mutation_authority": 34
   },
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 96,
-    "targeted_local_fixed_window": 54
+    "targeted_local_fixed_window": 55
   },
   "routes": [
     {
@@ -1067,6 +1067,26 @@
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post control center providers exact approved lanes tiny",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_providers_router_dry_run",
+      "path": "/control-center/providers/router/dry-run",
+      "rate_limit_group": "provider_router_dry_run",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "validation_only",
+      "summary": "Post control center providers router dry run",
       "tags": [
         "control-center"
       ]

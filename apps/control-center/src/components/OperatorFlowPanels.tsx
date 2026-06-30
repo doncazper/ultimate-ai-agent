@@ -1262,6 +1262,14 @@ export function ProviderCredentialReadinessPanel({
           <dt>Tiny provider lane</dt>
           <dd>{readiness.tiny_invocation_readiness.status}</dd>
         </div>
+        <div>
+          <dt>Provider router dry-run</dt>
+          <dd>{readiness.router_dry_run_readiness.status}</dd>
+        </div>
+        <div>
+          <dt>Router no-authority refs</dt>
+          <dd>{readiness.router_dry_run_readiness.no_authority_refs.length}</dd>
+        </div>
       </dl>
       <div
         className="provider-readiness-list"
@@ -1758,6 +1766,100 @@ export function ProviderCredentialReadinessPanel({
                   "Further use blocked",
                 ].includes(state),
             ),
+          ]}
+        />
+        <ReadinessGateCard
+          title="Provider router dry-run"
+          status={readiness.router_dry_run_readiness.status}
+          summary={readiness.router_dry_run_readiness.safe_summary}
+          details={[
+            ["Contract", readiness.router_dry_run_readiness.contract_ref],
+            ["Route ref", readiness.router_dry_run_readiness.route_ref],
+            ["Proposal ref", readiness.router_dry_run_readiness.proposal_ref],
+            [
+              "Recommended exact scope",
+              readiness.router_dry_run_readiness
+                .recommended_exact_approval_scope_ref,
+            ],
+            [
+              "Exact-approval candidate refs",
+              String(
+                readiness.router_dry_run_readiness.eligible_provider_refs
+                  .length,
+              ),
+            ],
+            [
+              "Blocked provider refs",
+              String(
+                readiness.router_dry_run_readiness.blocked_provider_refs
+                  .length,
+              ),
+            ],
+            [
+              "Degraded provider refs",
+              String(
+                readiness.router_dry_run_readiness.degraded_provider_refs
+                  .length,
+              ),
+            ],
+            [
+              "Missing credential refs",
+              String(
+                readiness.router_dry_run_readiness.missing_credential_refs
+                  .length,
+              ),
+            ],
+            [
+              "Cost risky",
+              String(readiness.router_dry_run_readiness.cost_risky_refs.length),
+            ],
+            [
+              "Validation required",
+              String(
+                readiness.router_dry_run_readiness.validation_required_refs
+                  .length,
+              ),
+            ],
+            [
+              "No provider authority",
+              String(
+                readiness.router_dry_run_readiness.no_authority_refs.length,
+              ),
+            ],
+            [
+              "No fallback execution",
+              readiness.router_dry_run_readiness.fallback_execution_authorized
+                ? "blocked"
+                : "not authorized",
+            ],
+            [
+              "Provider SDK",
+              readiness.router_dry_run_readiness.provider_sdk_call_performed
+                ? "blocked"
+                : "not performed",
+            ],
+            [
+              "Credential validation",
+              readiness.router_dry_run_readiness.credential_validation_performed
+                ? "blocked"
+                : "not performed",
+            ],
+            [
+              "Model invocation",
+              readiness.router_dry_run_readiness.model_invocation_performed
+                ? "blocked"
+                : "not performed",
+            ],
+            [
+              "Billing authority",
+              readiness.router_dry_run_readiness.billing_authority_granted
+                ? "blocked"
+                : "not granted",
+            ],
+          ]}
+          blockerCodes={[
+            ...readiness.router_dry_run_readiness.blocker_codes,
+            ...readiness.router_dry_run_readiness.ui_states,
           ]}
         />
       </div>

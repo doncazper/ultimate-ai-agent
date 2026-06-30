@@ -87,6 +87,8 @@ CAPABILITIES_DECLARED = [
     "control_center_provider_credential_validation_exact_approved_lane",
     "control_center_provider_credential_validation_redacted_receipts",
     "control_center_provider_credential_validation_cli_inspection",
+    "control_center_provider_router_dry_run_proposal_only",
+    "control_center_provider_router_dry_run_cli_inspection",
     "control_center_source_readiness_status",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
@@ -283,6 +285,13 @@ CAPABILITIES_BLOCKED = [
     "control_center_provider_cost_binding_without_budget_decision",
     "control_center_provider_cost_binding_without_receipts",
     "control_center_provider_unknown_paid_cost_without_explicit_approval",
+    "control_center_provider_router_dry_run_as_invocation_authority",
+    "control_center_provider_router_dry_run_fallback_execution",
+    "control_center_provider_router_dry_run_provider_sdk_calls",
+    "control_center_provider_router_dry_run_credential_validation",
+    "control_center_provider_router_dry_run_model_calls",
+    "control_center_provider_router_dry_run_billing_authority",
+    "control_center_provider_router_dry_run_background_execution",
     "provider_credential_vault_secret_collection",
     "provider_credential_vault_raw_secret_storage",
     "provider_credential_vault_secret_resolution_api",
@@ -477,6 +486,9 @@ CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS = {
 CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS = {
     "/control-center/providers/credentials/validate",
 }
+CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS = {
+    "/control-center/providers/router/dry-run",
+}
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
 }
@@ -635,6 +647,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.validation_only
     if path in CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS:
         return ApiRouteSideEffectClass.governed_network_read_only
+    if path in CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS:
+        return ApiRouteSideEffectClass.validation_only
     if path in CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS:
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith(CONTROL_CENTER_LOCAL_STATE_PREFIXES):
@@ -708,6 +722,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Exact-approved provider credential validation lane; exact approval, policy, idempotency, redacted validation receipt, revocation, and safe-disable posture required while model invocation, provider SDKs, fallback, and billing authority stay blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Provider router dry-run proposal lane; safe task/model refs, local provider readiness, CostGovernor posture, exact approval scope recommendations, idempotency, and redacted refs required while invocation, fallback execution, provider SDK calls, credential validation, model calls, billing authority, and background execution stay blocked",
         )
     if (
         normalized_method == "POST"

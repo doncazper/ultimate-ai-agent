@@ -90,6 +90,14 @@ provider SDK calls, credential validation authority beyond the separate
 exact-approved validation lane, broad provider router, fallback, autonomous
 model calls, background execution, billing authority, provider output
 authority, or broad callable runtime authority.
+Provider Router Dry-Run now adds `POST /control-center/providers/router/dry-run`
+and `scripts/inspect_provider_router_dry_run.py` as proposal-only local posture:
+it can explain exact-approval candidate, blocked, degraded, cost-risky,
+validation-required, missing-credential, and no-authority provider refs and
+recommend exact approval scope refs. It adds no provider invocation, no fallback execution, no network
+calls, no provider SDK calls, no credential validation, no model calls, no
+billing authority, no autonomous/background calls, no raw prompt/response/
+provider payload persistence, and no broad provider router authority.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are

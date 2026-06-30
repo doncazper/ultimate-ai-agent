@@ -276,6 +276,26 @@ function ProviderCredentialSetupSummary({
           <dd>{readiness.tiny_invocation_readiness.status}</dd>
         </div>
         <div>
+          <dt>Provider router dry-run</dt>
+          <dd>{readiness.router_dry_run_readiness.status}</dd>
+        </div>
+        <div>
+          <dt>Exact-approval candidate refs</dt>
+          <dd>{readiness.router_dry_run_readiness.eligible_provider_refs.length}</dd>
+        </div>
+        <div>
+          <dt>Router no-authority refs</dt>
+          <dd>{readiness.router_dry_run_readiness.no_authority_refs.length}</dd>
+        </div>
+        <div>
+          <dt>No fallback execution</dt>
+          <dd>
+            {readiness.router_dry_run_readiness.fallback_execution_authorized
+              ? "blocked"
+              : "not authorized"}
+          </dd>
+        </div>
+        <div>
           <dt>Provider authority</dt>
           <dd>
             {readiness.tiny_invocation_readiness.invocation_enabled
@@ -305,6 +325,7 @@ function ProviderCredentialSetupSummary({
                 "Further use blocked",
               ].includes(state),
           ),
+          ...readiness.router_dry_run_readiness.ui_states,
         ].map((code) => (
           <span key={code}>{code}</span>
         ))}

@@ -2310,6 +2310,11 @@ CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES = frozenset(
         "/control-center/providers/credentials/validate",
     }
 )
+CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES = frozenset(
+    {
+        "/control-center/providers/router/dry-run",
+    }
+)
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
@@ -2486,6 +2491,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_operational_status": CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     "control_center_provider_catalog": CONTROL_CENTER_PROVIDER_CATALOG_ROUTES,
     "control_center_provider_credential_validation": CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
+    "control_center_provider_router_dry_run": CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
     "control_center_tiny_provider_lane": CONTROL_CENTER_TINY_PROVIDER_LANE_ROUTES,
     "mattermost": MATTERMOST_AGENT_ROOMS_ROUTES,
     "packaging_proof": PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES,

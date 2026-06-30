@@ -27,6 +27,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "local_model_validation": {"max_requests": 120, "window_seconds": 60},
     "provider_exact_approved_lane": {"max_requests": 12, "window_seconds": 60},
     "provider_credential_validation": {"max_requests": 12, "window_seconds": 60},
+    "provider_router_dry_run": {"max_requests": 60, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -100,6 +101,9 @@ PROVIDER_EXACT_APPROVED_LANE_PATHS = {
 }
 PROVIDER_CREDENTIAL_VALIDATION_PATHS = {
     "/control-center/providers/credentials/validate",
+}
+PROVIDER_ROUTER_DRY_RUN_PATHS = {
+    "/control-center/providers/router/dry-run",
 }
 
 
@@ -200,6 +204,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "provider_exact_approved_lane"
     if normalized_method == "POST" and path in PROVIDER_CREDENTIAL_VALIDATION_PATHS:
         return "provider_credential_validation"
+    if normalized_method == "POST" and path in PROVIDER_ROUTER_DRY_RUN_PATHS:
+        return "provider_router_dry_run"
     return None
 
 
