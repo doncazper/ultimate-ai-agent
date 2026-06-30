@@ -101,6 +101,30 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
         "route_classification": "local_sensitive",
     } in evidence_action["backend_routes"]
 
+    surfaces = {surface["surface"]: surface for surface in manifest["surfaces"]}
+    for surface_name in ["Models", "Settings"]:
+        route_paths = {
+            route["path"]
+            for route in surfaces[surface_name]["current_backend_routes"]
+        }
+        assert "/control-center/dashboard" in route_paths
+    assert (
+        "/control-center/providers/setup-guide"
+        in {
+            route["path"]
+            for route in surfaces["Models"]["current_backend_routes"]
+        }
+    )
+
+    setup_action = next(
+        action
+        for action in visible_actions
+        if action["action_id"] == "navigate-setup-assistant"
+    )
+    setup_route_paths = {route["path"] for route in setup_action["backend_routes"]}
+    assert "/control-center/dashboard" in setup_route_paths
+    assert "/control-center/providers/setup-guide" in setup_route_paths
+
 
 def test_control_center_route_status_manifest_matches_openapi_and_api_manifest() -> (
     None

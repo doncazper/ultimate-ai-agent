@@ -570,6 +570,9 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
       />
 
       <ProviderCatalogPanel catalog={data.providerCatalog} mode="models" />
+      <ProviderCredentialReadinessPanel
+        readiness={data.dashboard.provider_credential_readiness}
+      />
 
       <div className="operator-flow-grid">
         <StatusPanel
@@ -1112,7 +1115,7 @@ function isOneOfString(value: unknown, allowed: string[]): value is string {
   return typeof value === "string" && allowed.includes(value);
 }
 
-function ProviderCredentialReadinessPanel({
+export function ProviderCredentialReadinessPanel({
   readiness,
 }: {
   readiness: ProviderCredentialReadinessSummary;
@@ -1140,6 +1143,62 @@ function ProviderCredentialReadinessPanel({
         <div>
           <dt>Vault adapter</dt>
           <dd>{readiness.vault_adapter_configured ? "configured" : "not scoped"}</dd>
+        </div>
+        <div>
+          <dt>Configured providers</dt>
+          <dd>{readiness.posture_counts.configured}</dd>
+        </div>
+        <div>
+          <dt>Not configured providers</dt>
+          <dd>{readiness.posture_counts.not_configured}</dd>
+        </div>
+        <div>
+          <dt>Revoked providers</dt>
+          <dd>{readiness.posture_counts.revoked}</dd>
+        </div>
+        <div>
+          <dt>Blocked provider postures</dt>
+          <dd>{readiness.posture_counts.blocked}</dd>
+        </div>
+        <div>
+          <dt>CostGovernor binding</dt>
+          <dd>
+            {readiness.cost_governor_binding_required
+              ? "required"
+              : "blocked posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Unknown paid cost</dt>
+          <dd>
+            {readiness.unknown_paid_cost_requires_approval
+              ? "approval required"
+              : "blocked posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Above-budget estimate</dt>
+          <dd>
+            {readiness.estimated_cost_above_budget_blocks_use
+              ? "blocked"
+              : "blocked posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Future receipt refs</dt>
+          <dd>
+            {readiness.future_receipt_refs_required
+              ? "required"
+              : "receipt posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Provider usage claims</dt>
+          <dd>
+            {readiness.provider_usage_claim_requires_receipt_refs
+              ? "receipt-bound"
+              : "receipt posture missing"}
+          </dd>
         </div>
         <div>
           <dt>Credential adapter readiness</dt>
@@ -1175,6 +1234,58 @@ function ProviderCredentialReadinessPanel({
         className="provider-readiness-list"
         aria-label="Provider credential readiness gates"
       >
+        <ReadinessGateCard
+          title="CostGovernor binding"
+          status={
+            readiness.cost_governor_binding_required
+              ? "required"
+              : "blocked posture missing"
+          }
+          summary="Provider/model refs, cost estimate refs, budget decisions, max-approved refs, and future receipt refs are required before any paid provider use."
+          details={[
+            ["Posture ref", readiness.cost_governor_posture_ref],
+            ["Decision ref", readiness.cost_governor_decision_ref],
+            [
+              "Provider/model refs",
+              readiness.provider_model_refs_required
+                ? "required"
+                : "blocked posture missing",
+            ],
+            [
+              "Cost estimate ref",
+              readiness.cost_estimate_ref_required
+                ? "required"
+                : "blocked posture missing",
+            ],
+            [
+              "Budget decision ref",
+              readiness.budget_decision_ref_required
+                ? "required"
+                : "blocked posture missing",
+            ],
+            [
+              "Max approved USD ref",
+              readiness.max_approved_usd_ref_required
+                ? "required"
+                : "blocked posture missing",
+            ],
+            [
+              "Future receipts",
+              readiness.future_receipt_refs_required
+                ? "required"
+                : "receipt posture missing",
+            ],
+          ]}
+          blockerCodes={[
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+            "PROVIDER_MODEL_REFS_REQUIRED",
+            "COST_ESTIMATE_REF_REQUIRED",
+            "BUDGET_DECISION_REF_REQUIRED",
+            "MAX_APPROVED_USD_REF_REQUIRED",
+            "FUTURE_RECEIPT_REFS_REQUIRED",
+            "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
+          ]}
+        />
         <ReadinessGateCard
           title="Vault adapter contract"
           status={readiness.vault_adapter_readiness.readiness_status}
@@ -1411,10 +1522,14 @@ function ProviderCredentialReadinessPanel({
           <section className="provider-readiness-item" key={provider.provider_id}>
             <div className="panel-heading compact-heading">
               <h4>{provider.provider_label}</h4>
-              <span>{provider.readiness_status}</span>
+              <span>{provider.readiness_posture}</span>
             </div>
             <p>{provider.safe_summary}</p>
             <dl className="metadata-list">
+              <div>
+                <dt>Readiness status</dt>
+                <dd>{provider.readiness_status}</dd>
+              </div>
               <div>
                 <dt>Provider auth ref status</dt>
                 <dd>{provider.credential_ref_status}</dd>
@@ -1438,6 +1553,30 @@ function ProviderCredentialReadinessPanel({
               <div>
                 <dt>Credential material visible</dt>
                 <dd>{provider.raw_key_visible ? "yes" : "no"}</dd>
+              </div>
+              <div>
+                <dt>Cost estimate ref</dt>
+                <dd>{provider.cost_governor_binding.cost_estimate_ref}</dd>
+              </div>
+              <div>
+                <dt>Budget decision ref</dt>
+                <dd>{provider.cost_governor_binding.budget_decision_ref}</dd>
+              </div>
+              <div>
+                <dt>Max approved USD ref</dt>
+                <dd>{provider.cost_governor_binding.max_approved_usd_ref}</dd>
+              </div>
+              <div>
+                <dt>Cost receipt ref</dt>
+                <dd>{provider.cost_governor_binding.cost_receipt_ref}</dd>
+              </div>
+              <div>
+                <dt>CostGovernor decision</dt>
+                <dd>{provider.cost_governor_binding.cost_governor_decision_ref}</dd>
+              </div>
+              <div>
+                <dt>Model ref status</dt>
+                <dd>{provider.cost_governor_binding.model_ref_status}</dd>
               </div>
             </dl>
             <div

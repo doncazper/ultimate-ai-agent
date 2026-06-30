@@ -49,6 +49,7 @@ import type {
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
   ManualMemoryCandidateReceipt,
+  ProviderCredentialReadinessSummary,
 } from "../api/types";
 
 const evidenceHistoryKeys = [
@@ -3494,9 +3495,11 @@ export function InboxSurfacePanel({
 export function ActionInboxSurfacePanel({
   actionReadModelAuthoritative,
   inbox,
+  providerCredentialReadiness,
 }: {
   actionReadModelAuthoritative: boolean;
   inbox: FounderLoopActionsInbox;
+  providerCredentialReadiness?: ProviderCredentialReadinessSummary;
 }) {
   const [selectedActionGroup, setSelectedActionGroup] = useState<
     FounderLoopActionGroupId | "all"
@@ -3563,6 +3566,9 @@ export function ActionInboxSurfacePanel({
         contractRef={displayedInbox.plans_to_actions_bridge_contract_ref}
         readModel={displayedInbox.plans_to_actions_bridge_read_model}
       />
+      {providerCredentialReadiness ? (
+        <ActionInboxProviderCostPosture readiness={providerCredentialReadiness} />
+      ) : null}
       <ChatToLoopHandoffPanel
         compact
         readModel={displayedInbox.chat_to_loop_handoff_read_model}
@@ -4128,6 +4134,66 @@ function ActionInboxDecisionLaneItemCard({
       <RefListWithFallback
         emptyLabel="Blocked authority refs: none"
         refs={item.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
+function ActionInboxProviderCostPosture({
+  readiness,
+}: {
+  readiness: ProviderCredentialReadinessSummary;
+}) {
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Provider cost authority posture</h3>
+        <span>
+          {readiness.cost_governor_binding_required ? "cost blocked" : "missing"}
+        </span>
+      </div>
+      <p>
+        Provider-backed Action proposals remain review-only until provider/model
+        refs, CostGovernor decisions, budget decisions, max-approved refs, and
+        future receipt refs are present.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Configured providers"
+          value={String(readiness.posture_counts.configured)}
+        />
+        <DetailTerm
+          label="Not configured providers"
+          value={String(readiness.posture_counts.not_configured)}
+        />
+        <DetailTerm
+          label="Revoked providers"
+          value={String(readiness.posture_counts.revoked)}
+        />
+        <DetailTerm
+          label="Blocked providers"
+          value={String(readiness.posture_counts.blocked)}
+        />
+        <DetailTerm
+          label="Unknown paid cost"
+          value={
+            readiness.unknown_paid_cost_requires_approval
+              ? "approval required"
+              : "blocked posture missing"
+          }
+        />
+        <DetailTerm
+          label="Usage claims"
+          value={
+            readiness.provider_usage_claim_requires_receipt_refs
+              ? "receipt-bound"
+              : "receipt posture missing"
+          }
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Provider cost blockers: missing"
+        items={readiness.blocker_codes.slice(0, 8)}
       />
     </article>
   );

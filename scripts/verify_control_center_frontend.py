@@ -1489,6 +1489,7 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
     panel_path = app_root / "src/components/OperatorFlowPanels.tsx"
     mock_path = app_root / "src/mocks/controlCenterData.ts"
     types_path = app_root / "src/api/types.ts"
+    client_path = app_root / "src/api/client.ts"
     test_path = app_root / "src/App.test.tsx"
 
     if not panel_path.exists():
@@ -1502,6 +1503,7 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
         "Provider invocation",
         "Raw key collection",
         "Credential material stored",
+        "CostGovernor binding",
         "Vault adapter",
         "Credential adapter readiness",
         "Credential enrollment",
@@ -1523,6 +1525,11 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
         "Context injection",
         "Connector writes",
         "ReadinessGateCard",
+        "Unknown paid cost",
+        "Above-budget estimate",
+        "Future receipt refs",
+        "Provider usage claims",
+        "CostGovernor decision",
         "Provider auth ref status",
         "Consent ref",
         "Policy ref",
@@ -1558,11 +1565,49 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
     if "<input" in panel_lowered:
         failures.append("provider credential readiness UI must not add input controls")
 
+    for rel_path in [
+        "src/components/OperatorFlowPanels.tsx",
+        "src/components/ProviderCatalogPanel.tsx",
+        "src/components/FounderLoopPanels.tsx",
+        "src/components/MacOSSetupAssistantPanel.tsx",
+    ]:
+        candidate_path = app_root / rel_path
+        if not candidate_path.exists():
+            failures.append(f"missing provider cost posture UI file: {rel_path}")
+            continue
+        candidate_text = candidate_path.read_text(encoding="utf-8").lower()
+        for unsafe in ["not blocked", "unbound"]:
+            if unsafe in candidate_text:
+                failures.append(
+                    f"provider cost posture UI contains unsafe fail-open wording in {rel_path}: {unsafe}"
+                )
+
+    if client_path.exists():
+        client_text = client_path.read_text(encoding="utf-8")
+        for fragment in [
+            "normalizeControlCenterDashboard",
+            "isSafeProviderCredentialReadiness",
+            "isSafeProviderVaultAdapterReadiness",
+            "isSafeProviderCredentialEnrollmentReadiness",
+            "isSafeProviderCredentialValidationReadiness",
+            "isSafeGovernedProviderInvocationReadiness",
+            "providerPostureCountsMatch",
+            "providerBindingRefLooksUnbound",
+            "provider_runtime_authority_denied",
+            "provider_spend_authority_denied",
+        ]:
+            if fragment not in client_text:
+                failures.append(f"provider credential readiness client normalizer missing fragment: {fragment}")
+    else:
+        failures.append("missing Control Center frontend client file")
+
     if types_path.exists():
         types_text = types_path.read_text(encoding="utf-8")
         for fragment in [
             "ProviderCredentialReadinessItem",
             "ProviderCredentialReadinessSummary",
+            "ProviderCredentialReadinessPosture",
+            "ProviderCostGovernorBinding",
             "ProviderCredentialVaultAdapterReadiness",
             "ProviderCredentialEnrollmentReadiness",
             "ProviderCredentialValidationReadiness",
@@ -1575,6 +1620,13 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
             "raw_key_collection_enabled",
             "credential_material_stored",
             "invocation_enabled",
+            "cost_governor_binding",
+            "unknown_paid_cost_requires_approval",
+            "cost_estimate_ref",
+            "budget_decision_ref",
+            "max_approved_usd_ref",
+            "future_receipt_refs_required",
+            "provider_usage_claim_requires_receipt_refs",
         ]:
             if fragment not in types_text:
                 failures.append(f"provider credential readiness type missing fragment: {fragment}")
@@ -1587,12 +1639,20 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
             "provider_credential_readiness",
             "reference_readiness_only",
             "credential-ref:openai-compatible:not-configured",
+            "providerCostGovernorBinding",
+            "providerCostGovernorBinding(\"openai-compatible\")",
+            "cost-estimate-ref:${slug}:required",
+            "budget-decision-ref:${slug}:required",
+            "max-approved-usd-ref:${slug}:required",
+            "cost-receipt-ref:${slug}:future-required",
             "consent-ref:provider-runtime:not-granted",
             "policy-ref:provider-runtime:disabled-by-default",
             "revocation-ref:provider-runtime:not-active",
             "PROVIDER_INVOCATION_NOT_SCOPED",
             "CREDENTIAL_REFERENCE_NOT_BOUND",
             "VAULT_ADAPTER_NOT_SCOPED",
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+            "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
             "PROVIDER_KEY_VALIDATION_NOT_SCOPED",
             "PROVIDER_NETWORK_CALL_NOT_SCOPED",
             "POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED",
@@ -1633,6 +1693,19 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
         for fragment in [
             "shows governed provider credential readiness without credential collection",
             "Provider credential readiness",
+            "Provider credential and cost posture",
+            "Provider cost authority posture",
+            "CostGovernor binding",
+            "Unknown paid cost",
+            "Above-budget estimate",
+            "Future receipt refs",
+            "Provider usage claims",
+            "cost-estimate-ref:openai-compatible:required",
+            "budget-decision-ref:openai-compatible:required",
+            "max-approved-usd-ref:openai-compatible:required",
+            "cost-receipt-ref:openai-compatible:future-required",
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+            "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
             "Raw key collection",
             "Credential material stored",
             "Credential adapter readiness",

@@ -1,4 +1,5 @@
-from typing import Any
+from enum import Enum
+from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
@@ -21,6 +22,152 @@ class _ProviderRuntimeContract(BaseModel):
 def _require_codes(actual: list[str], required: set[str], error_code: str) -> None:
     if not required.issubset(set(actual)):
         raise ValueError(error_code)
+
+
+def _ref_is_unbound(ref: str) -> bool:
+    if not ref.strip():
+        return True
+    lowered = ref.lower()
+    return any(marker in lowered for marker in (":missing", "not-bound", "not-selected", "not-configured"))
+
+
+class ProviderCredentialReadinessPosture(str, Enum):
+    configured = "configured"
+    not_configured = "not_configured"
+    revoked = "revoked"
+    blocked = "blocked"
+    validation_blocked = "validation_blocked"
+    invocation_blocked = "invocation_blocked"
+    vault_blocked = "vault_blocked"
+    cost_blocked = "cost_blocked"
+    unknown_paid_cost_requires_approval = "unknown_paid_cost_requires_approval"
+
+
+class ProviderCostGovernorBinding(_ProviderRuntimeContract):
+    binding_ref: str = "provider-cost-binding-ref:provider-runtime:required"
+    provider_ref: str = "provider-ref:provider-runtime:not-bound"
+    provider_ref_status: Literal["present", "missing"] = "missing"
+    model_ref: str = "model-ref:provider-runtime:not-bound"
+    model_ref_status: Literal["present", "missing"] = "missing"
+    credential_ref: str = "credential-ref:provider-runtime:not-bound"
+    cost_estimate_ref: str = "cost-estimate-ref:provider-runtime:required"
+    budget_decision_ref: str = "budget-decision-ref:provider-runtime:required"
+    max_approved_usd_ref: str = "max-approved-usd-ref:provider-runtime:required"
+    future_receipt_ref: str = "receipt-ref:provider-runtime:future-required"
+    usage_receipt_ref: str = "usage-receipt-ref:provider-runtime:future-required"
+    cost_receipt_ref: str = "cost-receipt-ref:provider-runtime:future-required"
+    cost_governor_posture_ref: str = "cost-governor-posture-ref:provider-runtime:required"
+    cost_governor_decision_ref: str = "cost-governor-decision-ref:provider-runtime:blocked"
+    cost_governor_ref: str = "core.costs.CostGovernor"
+    readiness_posture: ProviderCredentialReadinessPosture = (
+        ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval
+    )
+    unknown_paid_cost_requires_approval: bool = True
+    estimated_cost_above_budget_blocks_use: bool = True
+    provider_model_refs_required: bool = True
+    cost_estimate_ref_required: bool = True
+    budget_decision_ref_required: bool = True
+    max_approved_usd_ref_required: bool = True
+    future_receipt_refs_required: bool = True
+    provider_usage_claim_requires_receipt_refs: bool = True
+    provider_use_authority_granted: bool = False
+    credential_validation_authority_granted: bool = False
+    provider_sdk_call_enabled: bool = False
+    model_invocation_enabled: bool = False
+    billing_authority_granted: bool = False
+    blocker_codes: list[str] = Field(
+        default_factory=lambda: [
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+            "PROVIDER_MODEL_REFS_REQUIRED",
+            "COST_ESTIMATE_REF_REQUIRED",
+            "BUDGET_DECISION_REF_REQUIRED",
+            "MAX_APPROVED_USD_REF_REQUIRED",
+            "FUTURE_RECEIPT_REFS_REQUIRED",
+            "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
+        ]
+    )
+    safe_summary: str = (
+        "Provider/model use remains blocked until CostGovernor posture includes "
+        "provider and model refs, cost estimate refs, budget decision refs, max "
+        "approved USD refs, and future redacted receipt refs."
+    )
+
+    @model_validator(mode="after")
+    def cost_binding_must_remain_blocked_and_receipt_bound(self) -> Any:
+        _reject_unsafe_payload(
+            self.model_dump(mode="json"),
+            "PROVIDER_COST_GOVERNOR_BINDING_SECRET_LIKE_VALUE_REJECTED",
+        )
+        required_refs = [
+            self.binding_ref,
+            self.provider_ref,
+            self.model_ref,
+            self.credential_ref,
+            self.cost_estimate_ref,
+            self.budget_decision_ref,
+            self.max_approved_usd_ref,
+            self.future_receipt_ref,
+            self.usage_receipt_ref,
+            self.cost_receipt_ref,
+            self.cost_governor_posture_ref,
+            self.cost_governor_decision_ref,
+            self.cost_governor_ref,
+        ]
+        if any(not ref.strip() for ref in required_refs):
+            raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_REF_REQUIRED")
+        denied_flags = [
+            self.provider_use_authority_granted,
+            self.credential_validation_authority_granted,
+            self.provider_sdk_call_enabled,
+            self.model_invocation_enabled,
+            self.billing_authority_granted,
+        ]
+        if any(denied_flags):
+            raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_AUTHORITY_DENIED")
+        required_flags = [
+            self.unknown_paid_cost_requires_approval,
+            self.estimated_cost_above_budget_blocks_use,
+            self.provider_model_refs_required,
+            self.cost_estimate_ref_required,
+            self.budget_decision_ref_required,
+            self.max_approved_usd_ref_required,
+            self.future_receipt_refs_required,
+            self.provider_usage_claim_requires_receipt_refs,
+        ]
+        if not all(required_flags):
+            raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_REQUIRED_GATE_DENIED")
+        if self.provider_ref_status == "present" and _ref_is_unbound(self.provider_ref):
+            raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_PROVIDER_REF_STATUS_MISMATCH")
+        if self.model_ref_status == "present" and _ref_is_unbound(self.model_ref):
+            raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_MODEL_REF_STATUS_MISMATCH")
+        if self.provider_ref_status == "missing" or self.model_ref_status == "missing":
+            _require_codes(
+                self.blocker_codes,
+                {"PROVIDER_MODEL_REFS_REQUIRED"},
+                "PROVIDER_COST_GOVERNOR_BINDING_PROVIDER_MODEL_BLOCKER_REQUIRED",
+            )
+        if (
+            self.readiness_posture
+            not in {
+                ProviderCredentialReadinessPosture.cost_blocked,
+                ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval,
+                ProviderCredentialReadinessPosture.blocked,
+            }
+        ):
+            raise ValueError("PROVIDER_COST_GOVERNOR_BINDING_POSTURE_DENIED")
+        _require_codes(
+            self.blocker_codes,
+            {
+                "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+                "COST_ESTIMATE_REF_REQUIRED",
+                "BUDGET_DECISION_REF_REQUIRED",
+                "MAX_APPROVED_USD_REF_REQUIRED",
+                "FUTURE_RECEIPT_REFS_REQUIRED",
+                "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
+            },
+            "PROVIDER_COST_GOVERNOR_BINDING_BLOCKER_CODES_REQUIRED",
+        )
+        return self
 
 
 class ProviderCredentialValidationReadiness(_ProviderRuntimeContract):

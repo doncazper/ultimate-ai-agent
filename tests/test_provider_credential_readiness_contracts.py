@@ -6,6 +6,8 @@ from ultimate_ai_agent.core.providers import (
     GovernedProviderInvocationReadiness,
     GovernedProviderInvocationReceipt,
     GovernedProviderInvocationRequest,
+    ProviderCostGovernorBinding,
+    ProviderCredentialReadinessPosture,
     ProviderCredentialValidationReceipt,
     ProviderCredentialValidationReadiness,
     ProviderCredentialValidationRequest,
@@ -276,6 +278,79 @@ def test_provider_validation_readiness_is_blocked_without_external_calls() -> No
     assert readiness.provider_response_persistence_allowed is False
     assert readiness.readiness_status == "blocked_not_scoped"
     assert "PROVIDER_KEY_VALIDATION_NOT_SCOPED" in readiness.blocker_codes
+
+
+def test_provider_cost_governor_binding_requires_refs_receipts_and_approval() -> None:
+    binding = ProviderCostGovernorBinding(
+        provider_ref="provider:openai-compatible:reference",
+        provider_ref_status="present",
+        model_ref="model-ref:openai-compatible:not-selected",
+        model_ref_status="missing",
+        credential_ref="credential-ref:openai-compatible:not-configured",
+    )
+
+    assert binding.cost_governor_ref == "core.costs.CostGovernor"
+    assert binding.readiness_posture == ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval
+    assert binding.unknown_paid_cost_requires_approval is True
+    assert binding.estimated_cost_above_budget_blocks_use is True
+    assert binding.provider_model_refs_required is True
+    assert binding.cost_estimate_ref_required is True
+    assert binding.budget_decision_ref_required is True
+    assert binding.max_approved_usd_ref_required is True
+    assert binding.future_receipt_refs_required is True
+    assert binding.provider_usage_claim_requires_receipt_refs is True
+    assert binding.provider_use_authority_granted is False
+    assert binding.credential_validation_authority_granted is False
+    assert binding.provider_sdk_call_enabled is False
+    assert binding.model_invocation_enabled is False
+    assert binding.billing_authority_granted is False
+    assert "UNKNOWN_PAID_COST_REQUIRES_APPROVAL" in binding.blocker_codes
+    assert "PROVIDER_MODEL_REFS_REQUIRED" in binding.blocker_codes
+    assert "FUTURE_RECEIPT_REFS_REQUIRED" in binding.blocker_codes
+
+
+def test_provider_cost_governor_binding_rejects_authority_or_missing_gates() -> None:
+    with pytest.raises(ValidationError, match="AUTHORITY_DENIED"):
+        ProviderCostGovernorBinding(provider_use_authority_granted=True)
+
+    with pytest.raises(ValidationError, match="AUTHORITY_DENIED"):
+        ProviderCostGovernorBinding(model_invocation_enabled=True)
+
+    with pytest.raises(ValidationError, match="REQUIRED_GATE_DENIED"):
+        ProviderCostGovernorBinding(unknown_paid_cost_requires_approval=False)
+
+    with pytest.raises(ValidationError, match="REF_REQUIRED"):
+        ProviderCostGovernorBinding(cost_estimate_ref="")
+
+    with pytest.raises(ValidationError, match="REF_REQUIRED"):
+        ProviderCostGovernorBinding(
+            provider_ref="",
+            provider_ref_status="present",
+            model_ref="model-ref:openai-compatible:selected",
+            model_ref_status="present",
+        )
+
+    with pytest.raises(ValidationError, match="BLOCKER_CODES_REQUIRED"):
+        ProviderCostGovernorBinding(
+            provider_ref="provider:openai-compatible:reference",
+            provider_ref_status="present",
+            model_ref="model-ref:openai-compatible:selected",
+            model_ref_status="present",
+            blocker_codes=[],
+        )
+
+    with pytest.raises(ValidationError, match="POSTURE_DENIED"):
+        ProviderCostGovernorBinding(readiness_posture=ProviderCredentialReadinessPosture.configured)
+
+    with pytest.raises(ValidationError, match="PROVIDER_REF_STATUS_MISMATCH"):
+        ProviderCostGovernorBinding(provider_ref_status="present")
+
+    with pytest.raises(ValidationError, match="MODEL_REF_STATUS_MISMATCH"):
+        ProviderCostGovernorBinding(
+            provider_ref="provider:openai-compatible:reference",
+            provider_ref_status="present",
+            model_ref_status="present",
+        )
 
 
 def test_provider_validation_request_and_receipt_remain_blocked() -> None:

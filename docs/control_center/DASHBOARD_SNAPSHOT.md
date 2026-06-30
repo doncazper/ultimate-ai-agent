@@ -15,9 +15,12 @@ The dashboard may summarize:
 - private mesh planned-disabled status.
 - mobile planning status.
 - plugin governance status.
-- provider credential readiness as safe refs only, including provider manifest
-  refs, provider auth ref status, consent refs, policy refs, revocation refs,
-  approval refs, blocker codes, and readiness status.
+- provider credential readiness and CostGovernor binding posture as safe refs
+  only, including provider manifest refs, provider auth ref status, consent
+  refs, policy refs, revocation refs, approval refs, blocker codes, readiness
+  status, unknown paid-cost approval posture, provider/model ref posture, cost
+  estimate refs, budget decision refs, max-approved USD refs, future receipt
+  refs, and CostGovernor decision/posture refs.
 - credential vault adapter readiness, credential enrollment readiness, provider
   validation readiness, and governed provider invocation readiness as blocked
   contract states only.
@@ -27,8 +30,10 @@ The dashboard must not include raw events, raw receipts, prompts, file contents,
 Provider credential readiness means reference posture only. It does not collect
 provider keys, read environment values, resolve credential material, validate
 keys against external services, call provider SDKs, or enable provider
-invocation. A real credential vault/keychain adapter requires a separate
-reviewed milestone.
+invocation. CostGovernor binding refs are blockers and review scope only; they
+do not grant spend authority, bypass unknown paid-cost approval, bypass
+provider/model refs, or bypass usage/cost receipt refs. A real credential
+vault/keychain adapter requires a separate reviewed milestone.
 
 The readiness gates are intentionally separate:
 

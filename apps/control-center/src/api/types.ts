@@ -3734,6 +3734,17 @@ export interface PluginGovernanceSummary {
   native_build_tools_enabled: boolean;
 }
 
+export type ProviderCredentialReadinessPosture =
+  | "configured"
+  | "not_configured"
+  | "revoked"
+  | "blocked"
+  | "validation_blocked"
+  | "invocation_blocked"
+  | "vault_blocked"
+  | "cost_blocked"
+  | "unknown_paid_cost_requires_approval";
+
 export interface ProviderCredentialReadinessItem {
   provider_id: string;
   provider_label: string;
@@ -3746,10 +3757,55 @@ export interface ProviderCredentialReadinessItem {
   revocation_ref: string;
   approval_ref: string;
   risk_class: string;
+  readiness_posture: ProviderCredentialReadinessPosture;
+  credential_configured: boolean;
+  credential_revoked: boolean;
+  provider_model_refs_bound: boolean;
+  cost_governor_binding: ProviderCostGovernorBinding;
   invocation_enabled: boolean;
   credential_material_stored: boolean;
   raw_key_visible: boolean;
   readiness_status: string;
+  blocker_codes: string[];
+  safe_summary: string;
+}
+
+export interface ProviderCostGovernorBinding {
+  binding_ref: string;
+  provider_ref: string;
+  provider_ref_status: "present" | "missing";
+  model_ref: string;
+  model_ref_status: "present" | "missing";
+  credential_ref: string;
+  cost_estimate_ref: string;
+  budget_decision_ref: string;
+  max_approved_usd_ref: string;
+  future_receipt_ref: string;
+  usage_receipt_ref: string;
+  cost_receipt_ref: string;
+  cost_governor_posture_ref: string;
+  cost_governor_decision_ref: string;
+  cost_governor_ref: string;
+  readiness_posture:
+    | Extract<ProviderCredentialReadinessPosture, "cost_blocked">
+    | Extract<
+        ProviderCredentialReadinessPosture,
+        "unknown_paid_cost_requires_approval"
+      >
+    | Extract<ProviderCredentialReadinessPosture, "blocked">;
+  unknown_paid_cost_requires_approval: boolean;
+  estimated_cost_above_budget_blocks_use: boolean;
+  provider_model_refs_required: boolean;
+  cost_estimate_ref_required: boolean;
+  budget_decision_ref_required: boolean;
+  max_approved_usd_ref_required: boolean;
+  future_receipt_refs_required: boolean;
+  provider_usage_claim_requires_receipt_refs: boolean;
+  provider_use_authority_granted: boolean;
+  credential_validation_authority_granted: boolean;
+  provider_sdk_call_enabled: boolean;
+  model_invocation_enabled: boolean;
+  billing_authority_granted: boolean;
   blocker_codes: string[];
   safe_summary: string;
 }
@@ -3842,6 +3898,21 @@ export interface ProviderCredentialReadinessSummary {
   raw_key_collection_enabled: boolean;
   credential_material_stored: boolean;
   vault_adapter_configured: boolean;
+  supported_readiness_postures: ProviderCredentialReadinessItem["readiness_posture"][];
+  posture_counts: Record<ProviderCredentialReadinessItem["readiness_posture"], number>;
+  cost_governor_posture_ref: string;
+  cost_governor_decision_ref: string;
+  cost_governor_binding_required: boolean;
+  provider_model_refs_required: boolean;
+  cost_estimate_ref_required: boolean;
+  budget_decision_ref_required: boolean;
+  max_approved_usd_ref_required: boolean;
+  future_receipt_refs_required: boolean;
+  unknown_paid_cost_requires_approval: boolean;
+  estimated_cost_above_budget_blocks_use: boolean;
+  provider_usage_claim_requires_receipt_refs: boolean;
+  provider_runtime_authority_denied: boolean;
+  provider_spend_authority_denied: boolean;
   vault_adapter_readiness: ProviderCredentialVaultAdapterReadiness;
   enrollment_readiness: ProviderCredentialEnrollmentReadiness;
   validation_readiness: ProviderCredentialValidationReadiness;

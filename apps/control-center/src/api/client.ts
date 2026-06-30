@@ -39,6 +39,8 @@ import type {
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
   MemoryReviewDecisionRequest,
+  ProviderCredentialReadinessSummary,
+  ProviderCredentialReadinessPosture,
   ChatHandoffReceipt,
   ChatHandoffRequest,
   ChatHandoffTarget,
@@ -78,6 +80,26 @@ const CHAT_OPERATOR_BLOCKED_REFS = [
   "blocked-state:no-approval-grant-capture",
   "blocked-state:no-production-authority",
 ];
+const PROVIDER_READINESS_POSTURES = [
+  "configured",
+  "not_configured",
+  "revoked",
+  "blocked",
+  "validation_blocked",
+  "invocation_blocked",
+  "vault_blocked",
+  "cost_blocked",
+  "unknown_paid_cost_requires_approval",
+] as const;
+const REQUIRED_PROVIDER_COST_BLOCKERS = [
+  "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+  "PROVIDER_MODEL_REFS_REQUIRED",
+  "COST_ESTIMATE_REF_REQUIRED",
+  "BUDGET_DECISION_REF_REQUIRED",
+  "MAX_APPROVED_USD_REF_REQUIRED",
+  "FUTURE_RECEIPT_REFS_REQUIRED",
+  "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
+] as const;
 
 let sessionLocalApiBearer: string | null = null;
 
@@ -193,6 +215,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
+  const normalizedDashboard = normalizeControlCenterDashboard(dashboard);
   const status = fulfilledValue(results[2]);
   const routes = fulfilledValue(results[3]);
   const runtimeReadiness = fulfilledValue(results[4]);
@@ -244,6 +267,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderMemoryContextPacks.usedFallback ||
     normalizedFounderMorningBriefing.usedFallback ||
     normalizedFounderSourceReadiness.usedFallback;
+  const providerCredentialReadinessFallbackUsed =
+    normalizedDashboard.usedFallback;
   const fulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
@@ -269,7 +294,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
 
   const data: ControlCenterData = {
     manifest: manifest ?? mockControlCenterData.manifest,
-    dashboard: dashboard ?? mockControlCenterData.dashboard,
+    dashboard: normalizedDashboard.value,
     status: status ?? mockControlCenterData.status,
     routes: routes ?? mockControlCenterData.routes,
     runtimeReadiness:
@@ -302,7 +327,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     connection: mockControlCenterData.connection,
   };
 
-  if (fulfilledCount === results.length && !founderLoopFieldFallbackUsed) {
+  if (
+    fulfilledCount === results.length &&
+    !founderLoopFieldFallbackUsed &&
+    !providerCredentialReadinessFallbackUsed
+  ) {
     return withConnection(data, {
       state: "online",
       safeMessage:
@@ -315,8 +344,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   return withConnection(data, {
     state: "degraded",
     safeMessage:
-      founderLoopFieldFallbackUsed
-        ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
+      providerCredentialReadinessFallbackUsed
+        ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
+        : founderLoopFieldFallbackUsed
+          ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
         : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
     usingMockData: true,
     warnings: [
@@ -324,6 +355,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       "PARTIAL_MOCK_FALLBACK",
       ...(founderLoopFieldFallbackUsed
         ? ["PARTIAL_FOUNDER_LOOP_FIELD_FALLBACK"]
+        : []),
+      ...(providerCredentialReadinessFallbackUsed
+        ? ["PARTIAL_PROVIDER_CREDENTIAL_READINESS_FALLBACK"]
         : []),
     ],
   });
@@ -1068,6 +1102,339 @@ function mergeMissingFields<T>(
   }
 
   return { value: merged as T, usedFallback };
+}
+
+function normalizeControlCenterDashboard(
+  value: ControlCenterDashboardSnapshot | undefined,
+): { value: ControlCenterDashboardSnapshot; usedFallback: boolean } {
+  if (!isPlainRecord(value)) {
+    return { value: mockControlCenterData.dashboard, usedFallback: true };
+  }
+  const normalized = { ...value } as Record<string, unknown>;
+  if (isSafeProviderCredentialReadiness(normalized.provider_credential_readiness)) {
+    return {
+      value: normalized as unknown as ControlCenterDashboardSnapshot,
+      usedFallback: false,
+    };
+  }
+  normalized.provider_credential_readiness =
+    mockControlCenterData.dashboard.provider_credential_readiness;
+  return {
+    value: normalized as unknown as ControlCenterDashboardSnapshot,
+    usedFallback: true,
+  };
+}
+
+function isSafeProviderCredentialReadiness(
+  value: unknown,
+): value is ProviderCredentialReadinessSummary {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const requiredFalseFlags = [
+    "invocation_enabled",
+    "raw_key_collection_enabled",
+    "credential_material_stored",
+    "vault_adapter_configured",
+  ];
+  if (requiredFalseFlags.some((field) => value[field] !== false)) {
+    return false;
+  }
+  const requiredTrueFlags = [
+    "cost_governor_binding_required",
+    "provider_model_refs_required",
+    "cost_estimate_ref_required",
+    "budget_decision_ref_required",
+    "max_approved_usd_ref_required",
+    "future_receipt_refs_required",
+    "unknown_paid_cost_requires_approval",
+    "estimated_cost_above_budget_blocks_use",
+    "provider_usage_claim_requires_receipt_refs",
+    "provider_runtime_authority_denied",
+    "provider_spend_authority_denied",
+  ];
+  if (requiredTrueFlags.some((field) => value[field] !== true)) {
+    return false;
+  }
+  if (!isSupportedProviderReadinessPostureList(value.supported_readiness_postures)) {
+    return false;
+  }
+  if (
+    !isSafeProviderVaultAdapterReadiness(value.vault_adapter_readiness) ||
+    !isSafeProviderCredentialEnrollmentReadiness(value.enrollment_readiness) ||
+    !isSafeProviderCredentialValidationReadiness(value.validation_readiness) ||
+    !isSafeGovernedProviderInvocationReadiness(value.invocation_readiness)
+  ) {
+    return false;
+  }
+  if (!Array.isArray(value.providers)) {
+    return false;
+  }
+  if (!value.providers.every(isSafeProviderCredentialReadinessItem)) {
+    return false;
+  }
+  if (!providerPostureCountsMatch(value.posture_counts, value.providers)) {
+    return false;
+  }
+  return REQUIRED_PROVIDER_COST_BLOCKERS.every((code) =>
+    Array.isArray(value.blocker_codes) && value.blocker_codes.includes(code),
+  );
+}
+
+function isSafeProviderCredentialReadinessItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.invocation_enabled !== false ||
+    value.credential_material_stored !== false ||
+    value.raw_key_visible !== false
+  ) {
+    return false;
+  }
+  if (!isProviderReadinessPosture(value.readiness_posture)) {
+    return false;
+  }
+  if (
+    (value.readiness_posture === "configured") !==
+    (value.credential_configured === true)
+  ) {
+    return false;
+  }
+  if (
+    (value.readiness_posture === "revoked") !==
+    (value.credential_revoked === true)
+  ) {
+    return false;
+  }
+  const binding = value.cost_governor_binding;
+  if (!isPlainRecord(binding)) {
+    return false;
+  }
+  const requiredBindingRefs = [
+    "binding_ref",
+    "provider_ref",
+    "model_ref",
+    "credential_ref",
+    "cost_estimate_ref",
+    "budget_decision_ref",
+    "max_approved_usd_ref",
+    "future_receipt_ref",
+    "usage_receipt_ref",
+    "cost_receipt_ref",
+    "cost_governor_posture_ref",
+    "cost_governor_decision_ref",
+    "cost_governor_ref",
+  ];
+  if (
+    requiredBindingRefs.some(
+      (field) =>
+        typeof binding[field] !== "string" ||
+        String(binding[field]).trim().length === 0,
+    )
+  ) {
+    return false;
+  }
+  const refsBound =
+    binding.provider_ref_status === "present" &&
+    binding.model_ref_status === "present";
+  if (value.provider_model_refs_bound !== refsBound) {
+    return false;
+  }
+  if (
+    binding.provider_ref_status === "present" &&
+    providerBindingRefLooksUnbound(binding.provider_ref)
+  ) {
+    return false;
+  }
+  if (
+    binding.provider_ref_status === "present" &&
+    binding.provider_ref !== value.provider_id
+  ) {
+    return false;
+  }
+  if (
+    binding.model_ref_status === "present" &&
+    providerBindingRefLooksUnbound(binding.model_ref)
+  ) {
+    return false;
+  }
+  if (
+    !providerBindingRefLooksUnbound(binding.credential_ref) &&
+    binding.credential_ref !== value.credential_ref
+  ) {
+    return false;
+  }
+  const bindingFalseFlags = [
+    "provider_use_authority_granted",
+    "credential_validation_authority_granted",
+    "provider_sdk_call_enabled",
+    "model_invocation_enabled",
+    "billing_authority_granted",
+  ];
+  if (bindingFalseFlags.some((field) => binding[field] !== false)) {
+    return false;
+  }
+  const bindingTrueFlags = [
+    "unknown_paid_cost_requires_approval",
+    "estimated_cost_above_budget_blocks_use",
+    "provider_model_refs_required",
+    "cost_estimate_ref_required",
+    "budget_decision_ref_required",
+    "max_approved_usd_ref_required",
+    "future_receipt_refs_required",
+    "provider_usage_claim_requires_receipt_refs",
+  ];
+  if (bindingTrueFlags.some((field) => binding[field] !== true)) {
+    return false;
+  }
+  return REQUIRED_PROVIDER_COST_BLOCKERS.every((code) =>
+    Array.isArray(binding.blocker_codes) && binding.blocker_codes.includes(code),
+  );
+}
+
+function isSafeProviderVaultAdapterReadiness(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "adapter_available",
+    "supports_write",
+    "supports_read_handle",
+    "supports_revoke",
+    "credential_material_stored_by_repo",
+    "raw_key_visible",
+    "adapter_runtime_enabled",
+  ];
+  return (
+    falseFlags.every((field) => value[field] === false) &&
+    value.readiness_status === "blocked_no_approved_backend" &&
+    Array.isArray(value.blocker_codes) &&
+    value.blocker_codes.includes("VAULT_ADAPTER_NOT_SCOPED")
+  );
+}
+
+function isSafeProviderCredentialEnrollmentReadiness(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "enrollment_enabled",
+    "raw_key_collection_enabled",
+    "credential_material_stored_by_repo",
+    "evidence_contains_credential_material",
+  ];
+  return (
+    falseFlags.every((field) => value[field] === false) &&
+    value.readiness_status === "blocked_disabled_by_default" &&
+    Array.isArray(value.blocker_codes) &&
+    value.blocker_codes.includes("CREDENTIAL_ENROLLMENT_NOT_SCOPED")
+  );
+}
+
+function isSafeProviderCredentialValidationReadiness(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "validation_enabled",
+    "external_validation_allowed",
+    "provider_response_persistence_allowed",
+  ];
+  return (
+    falseFlags.every((field) => value[field] === false) &&
+    value.readiness_status === "blocked_not_scoped" &&
+    Array.isArray(value.blocker_codes) &&
+    value.blocker_codes.includes("PROVIDER_KEY_VALIDATION_NOT_SCOPED")
+  );
+}
+
+function isSafeGovernedProviderInvocationReadiness(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "invocation_enabled",
+    "model_output_authoritative",
+    "streaming_enabled",
+    "tools_functions_enabled",
+    "memory_write_enabled",
+    "context_injection_enabled",
+    "browser_network_automation_enabled",
+    "connector_writes_enabled",
+  ];
+  const trueFlags = [
+    "policy_engine_required",
+    "local_approval_required",
+    "credential_ref_required",
+    "provider_manifest_allowlist_required",
+    "redacted_request_summary_only",
+    "redacted_response_summary_only",
+    "receipt_refs_required",
+    "audit_refs_required",
+    "rollback_or_safe_disable_required",
+    "rate_budget_boundary_required",
+  ];
+  return (
+    falseFlags.every((field) => value[field] === false) &&
+    trueFlags.every((field) => value[field] === true) &&
+    value.readiness_status === "blocked_not_scoped" &&
+    Array.isArray(value.blocker_codes) &&
+    value.blocker_codes.includes("PROVIDER_INVOCATION_NOT_SCOPED")
+  );
+}
+
+function providerPostureCountsMatch(
+  counts: unknown,
+  providers: unknown[],
+): boolean {
+  if (!isPlainRecord(counts)) {
+    return false;
+  }
+  const expected = Object.fromEntries(
+    PROVIDER_READINESS_POSTURES.map((posture) => [posture, 0]),
+  ) as Record<string, number>;
+  for (const provider of providers) {
+    if (!isPlainRecord(provider) || !isProviderReadinessPosture(provider.readiness_posture)) {
+      return false;
+    }
+    expected[provider.readiness_posture] += 1;
+  }
+  return PROVIDER_READINESS_POSTURES.every(
+    (posture) => counts[posture] === expected[posture],
+  );
+}
+
+function isSupportedProviderReadinessPostureList(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === PROVIDER_READINESS_POSTURES.length &&
+    PROVIDER_READINESS_POSTURES.every((posture) => value.includes(posture))
+  );
+}
+
+function isProviderReadinessPosture(
+  value: unknown,
+): value is (typeof PROVIDER_READINESS_POSTURES)[number] {
+  return (
+    typeof value === "string" &&
+    PROVIDER_READINESS_POSTURES.includes(
+      value as ProviderCredentialReadinessPosture,
+    )
+  );
+}
+
+function providerBindingRefLooksUnbound(value: unknown): boolean {
+  if (typeof value !== "string") {
+    return true;
+  }
+  if (value.trim().length === 0) {
+    return true;
+  }
+  const lowered = value.toLowerCase();
+  return [":missing", "not-bound", "not-selected", "not-configured"].some((marker) =>
+    lowered.includes(marker),
+  );
 }
 
 const PLANS_TO_ACTIONS_BRIDGE_TRUE_FLAGS = [

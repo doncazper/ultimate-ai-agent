@@ -209,6 +209,9 @@ export function renderRoute(path: string, data: ControlCenterData) {
           <ActionInboxSurfacePanel
             actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             inbox={data.founderActionsInbox}
+            providerCredentialReadiness={
+              data.dashboard.provider_credential_readiness
+            }
           />
         </>
       );
@@ -234,6 +237,9 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return (
         <MacOSSetupAssistantPanel
           providerCatalog={data.providerCatalog}
+          providerCredentialReadiness={
+            data.dashboard.provider_credential_readiness
+          }
           setup={data.macosSetupAssistant}
         />
       );
