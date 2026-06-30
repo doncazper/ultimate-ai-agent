@@ -56,6 +56,11 @@ and missing usage/cost receipt refs remain blockers. It adds no secret entry,
 credential storage, credential validation, provider SDK call, model invocation,
 runtime pricing fetch, billing authority, provider output authority, or callable
 runtime authority.
+Credential Vault Contract Shell now adds metadata-only vault posture contracts
+and CLI inspection through `scripts/inspect_credential_vault_contract.py`. Vault
+presence remains non-authorizing: no secret collection, raw key storage, OS
+credential backend access, provider validation, provider SDK call, model
+invocation, billing authority, or provider invocation is granted.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
