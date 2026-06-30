@@ -4423,6 +4423,16 @@ describe("Web Control Center shell", () => {
       .model_output_authoritative = true;
     (unsafeReadiness.invocation_readiness as Record<string, unknown>)
       .readiness_status = "invocation-ready-bypass";
+    (unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>)
+      .invocation_enabled = true;
+    (unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>)
+      .provider_sdk_call_enabled = true;
+    (unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>)
+      .network_call_enabled = true;
+    (unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>)
+      .billing_authority_granted = true;
+    (unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>)
+      .status = "tiny-ready-bypass";
     unsafeDashboard.provider_credential_readiness = unsafeReadiness;
 
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
@@ -4454,6 +4464,7 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/enrollment-ready-bypass/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/validation-ready-bypass/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/invocation-ready-bypass/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tiny-ready-bypass/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /validate provider|invoke provider/i }),
     ).not.toBeInTheDocument();
@@ -4476,6 +4487,14 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/Provider invocation/i).length).toBeGreaterThan(
       0,
     );
+    expect(
+      screen.getAllByText(/Tiny exact-approved provider lane/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Disabled no execution/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/No provider authority/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/Raw key collection/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Credential material stored/i).length).toBeGreaterThan(
       0,
@@ -4560,6 +4579,8 @@ describe("Web Control Center shell", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/No provider authority/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Disabled no execution/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Setup docs/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/API docs/i).length).toBeGreaterThan(0);

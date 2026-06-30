@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `148`.
+Current OpenAPI path count: `149`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -115,7 +115,8 @@ API boundary hardening:
   decomposition, action preview/proposal, Action Inbox decisions and the
   Action Inbox local task commit lane,
   Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
-  Review decision receipts, and expensive validation or local-model paths. It
+  Review decision receipts, the tiny exact-approved provider lane, and
+  expensive validation or local-model paths. It
   does not add auth, distributed
   quota, dependencies, billing, or production authority.
 - UAA-P1-086 adds enforcement tests for OpenAPI, `/api/manifest`, and route

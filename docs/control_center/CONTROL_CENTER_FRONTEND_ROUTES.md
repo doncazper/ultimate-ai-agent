@@ -121,7 +121,7 @@ Forbidden frontend route/API targets:
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
 
-OpenAPI remains a backend contract. The current backend path count is `108` with
+OpenAPI remains a backend contract. The current backend path count is `149` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.
 
@@ -258,7 +258,8 @@ M40 remains future.
 ## Provider Credential Readiness + Cost Binding Visibility
 
 Setup, Settings, Models, and Action Inbox may render provider credential
-readiness and CostGovernor posture from `GET /control-center/dashboard`.
+readiness, CostGovernor posture, and tiny provider lane posture from
+`GET /control-center/dashboard`.
 Setup, Settings, and Models may also render provider catalog/cost-literacy
 metadata from `GET /control-center/providers/setup-guide`. This is reference
 posture only: provider manifest refs, provider auth ref status, consent refs,
@@ -266,11 +267,16 @@ policy refs, revocation refs, approval refs, blocker codes, vault adapter
 readiness, validation readiness, invocation readiness, readiness status,
 unknown paid-cost approval posture, cost estimate refs, budget decision refs,
 max-approved USD refs, future receipt refs, and CostGovernor decision/posture
-refs. It does not add a provider setup form, read environment values, collect
-raw keys, store credential material, run a vault/keychain adapter, validate
-credentials against an external provider, invoke provider SDKs, invoke models,
-grant spend authority, bypass unknown paid-cost approval, bypass receipts, or
-enable provider calls.
+refs. The exact tiny lane route
+`POST /control-center/providers/exact-approved-lanes/tiny` is disabled by
+default; it blocks without exact approval and can reach approved-no-execution
+only after exact approval and cost gates pass, while callable provider authority
+still requires a later scoped adapter enablement milestone. It does not add a provider setup
+form, read environment values, collect raw keys, store credential material, run
+a vault/keychain adapter, validate credentials against an external provider,
+invoke provider SDKs by default, run network calls, run autonomous/background
+model calls, grant spend authority, bypass unknown paid-cost approval, bypass
+receipts, or enable provider calls.
 
 The future gates are separate:
 
@@ -279,7 +285,8 @@ The future gates are separate:
   audit, redaction, and rollback behavior.
 - Provider Credential Validation v1 remains blocked until a scoped milestone
   defines redacted validation receipts and external-call authority.
-- Governed Provider Invocation v1 remains blocked until a scoped milestone
-  defines PolicyEngine checks, LocalApprovalAuthority or successor approval,
-  provider allowlists, provider auth references, redacted request/response summaries,
-  receipt/audit refs, safe-disable behavior, and rate/budget boundaries.
+- Tiny Exact-Approved Provider Lane remains disabled by default until a scoped
+  adapter enablement milestone defines provider SDK/network authority. The
+  current route requires exact approval, CostGovernor posture, idempotency,
+  redacted receipt refs, safe-disable behavior, and complete provider/model/
+  credential/cost refs before it can reach approved-no-execution posture.

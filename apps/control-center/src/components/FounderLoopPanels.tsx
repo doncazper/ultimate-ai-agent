@@ -4190,10 +4190,33 @@ function ActionInboxProviderCostPosture({
               : "receipt posture missing"
           }
         />
+        <DetailTerm
+          label="Tiny provider lane"
+          value={readiness.tiny_invocation_readiness.status}
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={
+            readiness.tiny_invocation_readiness.invocation_enabled
+              ? "exact scope required"
+              : "No provider authority"
+          }
+        />
+        <DetailTerm
+          label="Redacted receipts"
+          value={
+            readiness.tiny_invocation_readiness.redacted_receipts_only
+              ? "required"
+              : "receipt posture missing"
+          }
+        />
       </dl>
       <InlineListWithFallback
         emptyLabel="Provider cost blockers: missing"
-        items={readiness.blocker_codes.slice(0, 8)}
+        items={[
+          ...readiness.blocker_codes.slice(0, 8),
+          ...readiness.tiny_invocation_readiness.ui_states,
+        ]}
       />
     </article>
   );

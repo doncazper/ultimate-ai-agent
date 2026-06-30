@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import tempfile
+from pathlib import Path
+
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.providers import (
+    DeterministicTinyProviderInvocationAdapter,
+    TinyProviderInvocationReceiptStore,
+    TinyProviderInvocationRequest,
+    TinyProviderInvocationStatus,
+    build_tiny_provider_invocation_approval_request,
+    build_tiny_provider_invocation_readiness,
+    evaluate_tiny_provider_invocation,
+)
+from ultimate_ai_agent.core.providers.invocation import (
+    TINY_PROVIDER_INVOCATION_MODEL_REF,
+    TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+    TINY_PROVIDER_INVOCATION_ROUTE,
+)
+
+
+FORBIDDEN_SOURCE_FRAGMENTS = (
+    "import requests",
+    "from requests import",
+    "import httpx",
+    "from httpx import",
+    "urllib.request",
+    "openai.OpenAI(",
+    "anthropic.Anthropic(",
+    "google.generativeai",
+    "chat.completions.create(",
+)
+
+
+def _request(**overrides: object) -> TinyProviderInvocationRequest:
+    values: dict[str, object] = {
+        "invocation_ref": "provider-invocation-ref:tiny:verify",
+        "run_id": "run-ref:tiny-provider-verify",
+        "provider_ref": TINY_PROVIDER_INVOCATION_PROVIDER_REF,
+        "model_ref": TINY_PROVIDER_INVOCATION_MODEL_REF,
+        "credential_ref": "credential-ref:openai-compatible:scoped-test",
+        "policy_ref": "policy-ref:provider-runtime:tiny-test",
+        "approval_ref": "approval-ref:provider-runtime:tiny-test",
+        "approval_scope_ref": "approval-scope-ref:provider-runtime:tiny-test",
+        "cost_estimate_ref": "cost-estimate-ref:provider-runtime:tiny-test",
+        "budget_decision_ref": "budget-decision-ref:provider-runtime:tiny-test",
+        "max_approved_usd_ref": "max-approved-usd-ref:provider-runtime:tiny-test",
+        "max_approved_usd": 0.01,
+        "idempotency_ref": "idempotency:provider-runtime:tiny-test",
+        "expected_receipt_ref": "receipt:provider-runtime:tiny-test",
+        "usage_receipt_ref": "usage-receipt-ref:provider-runtime:tiny-test",
+        "cost_receipt_ref": "cost-receipt-ref:provider-runtime:tiny-test",
+        "redacted_input_summary_ref": "redacted-input-summary-ref:provider-runtime:tiny-test",
+        "redacted_output_summary_ref": "redacted-output-summary-ref:provider-runtime:tiny-test",
+        "safe_disable_ref": "safe-disable-ref:provider-runtime:tiny-test",
+        "estimated_input_tokens": 10,
+        "estimated_output_tokens": 5,
+        "estimated_cost_usd": 0.001,
+    }
+    values.update(overrides)
+    return TinyProviderInvocationRequest(**values)
+
+
+def _exact_authority_for(request: TinyProviderInvocationRequest) -> LocalApprovalAuthority:
+    authority = LocalApprovalAuthority()
+    approval_request = build_tiny_provider_invocation_approval_request(request)
+    authority.create_request(approval_request)
+    authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="operator:local",
+        approval_ref=request.approval_ref,
+    )
+    return authority
+
+
+def _evaluate_with_exact_approval(
+    request: TinyProviderInvocationRequest,
+    **kwargs: object,
+):
+    return evaluate_tiny_provider_invocation(
+        request,
+        approval_authority=_exact_authority_for(request),
+        **kwargs,
+    )
+
+
+def main() -> int:
+    failures: list[str] = []
+
+    readiness = build_tiny_provider_invocation_readiness()
+    if readiness.invocation_enabled or readiness.status != TinyProviderInvocationStatus.disabled:
+        failures.append("default tiny provider readiness is not disabled")
+    if "Approved no execution" in readiness.ui_states:
+        failures.append("default tiny provider readiness exposes approved state label")
+
+    missing_provider = evaluate_tiny_provider_invocation(
+        _request(provider_ref="provider-ref:provider-runtime:not-bound")
+    )
+    if missing_provider.status != TinyProviderInvocationStatus.blocked_missing_provider_ref:
+        failures.append("missing provider ref did not block")
+
+    unknown_cost = _evaluate_with_exact_approval(_request(estimated_cost_usd=None))
+    if unknown_cost.status != TinyProviderInvocationStatus.unknown_paid_cost_blocked:
+        failures.append("unknown paid cost did not block")
+
+    above_budget = _evaluate_with_exact_approval(
+        _request(estimated_cost_usd=0.02, max_approved_usd=0.01)
+    )
+    if above_budget.status != TinyProviderInvocationStatus.cost_blocked:
+        failures.append("above budget provider estimate did not block")
+
+    original_scope = _request()
+    replayed_cost_scope = evaluate_tiny_provider_invocation(
+        original_scope.model_copy(
+            update={
+                "estimated_cost_usd": 0.5,
+                "max_approved_usd": 1.0,
+            }
+        ),
+        adapter=DeterministicTinyProviderInvocationAdapter(),
+        approval_authority=_exact_authority_for(original_scope),
+    )
+    if replayed_cost_scope.status != TinyProviderInvocationStatus.approval_invalid:
+        failures.append("approval grant replay with elevated cost scope did not fail")
+    elif "APPROVAL_RESOURCE_NOT_GRANTED" not in replayed_cost_scope.reason_codes:
+        failures.append("approval grant replay did not report resource scope failure")
+
+    no_approval = evaluate_tiny_provider_invocation(_request())
+    if no_approval.status != TinyProviderInvocationStatus.approval_required:
+        failures.append("missing exact approval did not block")
+
+    approved_disabled = _evaluate_with_exact_approval(_request())
+    if approved_disabled.status != TinyProviderInvocationStatus.approved_no_execution:
+        failures.append("default adapter did not remain approved/no-execution")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        store = TinyProviderInvocationReceiptStore(Path(tmpdir) / "receipts.jsonl")
+        success = _evaluate_with_exact_approval(
+            _request(invocation_ref="provider-invocation-ref:tiny:success"),
+            adapter=DeterministicTinyProviderInvocationAdapter(),
+            receipt_store=store,
+        )
+        if not success.allowed or success.receipt is None:
+            failures.append("deterministic exact-approved adapter did not record receipt")
+        else:
+            receipt_json = json.dumps(success.receipt.model_dump(mode="json"), sort_keys=True)
+            if any(fragment in receipt_json.lower() for fragment in ("api_key", "token=", "provider_payload")):
+                failures.append("receipt contains unsafe raw/provider/secret content")
+            if len(store.list_receipts()) != 1:
+                failures.append("receipt store did not persist exactly one redacted receipt")
+
+    manifest = build_api_manifest(app).model_dump(mode="json")
+    routes = {
+        (route["method"], route["path"]): route
+        for route in manifest["routes"]
+    }
+    route = routes.get(("POST", TINY_PROVIDER_INVOCATION_ROUTE))
+    if route is None:
+        failures.append("tiny provider route missing from API manifest")
+    else:
+        if route["route_classification"] != "mutating_requires_authority":
+            failures.append("tiny provider route is not mutating_requires_authority")
+        if route["side_effect_class"] != "local_dev_workspace_only":
+            failures.append("tiny provider route is not local_dev_workspace_only")
+        if route["idempotency_required"] is not True:
+            failures.append("tiny provider route does not require idempotency")
+        if route["rate_limit_group"] != "provider_exact_approved_lane":
+            failures.append("tiny provider route is not rate limited as provider lane")
+    if route_rate_limit_group("POST", TINY_PROVIDER_INVOCATION_ROUTE) != "provider_exact_approved_lane":
+        failures.append("tiny provider route rate-limit group lookup failed")
+
+    source = Path("src/ultimate_ai_agent/core/providers/invocation.py").read_text(
+        encoding="utf-8"
+    )
+    for fragment in FORBIDDEN_SOURCE_FRAGMENTS:
+        if fragment in source:
+            failures.append(f"forbidden provider/network source fragment present: {fragment}")
+
+    if failures:
+        print("FAIL: tiny provider invocation lane verification failed")
+        for failure in failures:
+            print(f"- {failure}")
+        return 1
+    print("OK: tiny provider invocation lane remains exact-approved, cost-governed, and redacted")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -13,6 +13,10 @@ from ultimate_ai_agent.core.providers.readiness import (
     ProviderCredentialReadinessPosture,
     ProviderCredentialValidationReadiness,
 )
+from ultimate_ai_agent.core.providers.invocation import (
+    TinyProviderInvocationReadiness,
+    build_tiny_provider_invocation_readiness,
+)
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 from ultimate_ai_agent.core.secrets.vault_adapter import (
     BlockedCredentialVaultAdapter,
@@ -75,7 +79,7 @@ class ApprovalSummary(BaseModel):
 
 class ApiSummary(BaseModel):
     route_count: int = Field(0, ge=0)
-    control_center_route_count: int = Field(49, ge=0)
+    control_center_route_count: int = Field(50, ge=0)
     operation_ids_unique: bool = True
     execution_routes_present: bool = False
 
@@ -223,6 +227,9 @@ class ProviderCredentialReadinessSummary(BaseModel):
     invocation_readiness: GovernedProviderInvocationReadiness = Field(
         default_factory=GovernedProviderInvocationReadiness
     )
+    tiny_invocation_readiness: TinyProviderInvocationReadiness = Field(
+        default_factory=TinyProviderInvocationReadiness
+    )
     providers: list[ProviderCredentialReadinessItem] = Field(default_factory=list)
     blocker_codes: list[str] = Field(default_factory=list)
     future_gate: str = "real_vault_or_keychain_adapter_requires_scoped_milestone"
@@ -267,6 +274,8 @@ class ProviderCredentialReadinessSummary(BaseModel):
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_VALIDATION_AUTHORITY_DENIED")
         if self.invocation_readiness.invocation_enabled:
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_INVOCATION_AUTHORITY_DENIED")
+        if self.tiny_invocation_readiness.invocation_enabled:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_TINY_INVOCATION_AUTHORITY_DENIED")
         for provider in self.providers:
             if provider.invocation_enabled or provider.credential_material_stored or provider.raw_key_visible:
                 raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_AUTHORITY_DENIED")
@@ -378,7 +387,7 @@ class ControlCenterDashboardSnapshot(BaseModel):
 def build_control_center_dashboard(
     baseline_version: str | None = None,
     api_route_count: int = 0,
-    control_center_route_count: int = 49,
+    control_center_route_count: int = 50,
     foundation_gate_status: str = "unknown",
     env: Mapping[str, str] | None = None,
 ) -> ControlCenterDashboardSnapshot:
@@ -435,6 +444,7 @@ def build_provider_credential_readiness_summary() -> ProviderCredentialReadiness
     return ProviderCredentialReadinessSummary(
         vault_adapter_readiness=build_provider_credential_vault_adapter_readiness(vault_capabilities),
         enrollment_readiness=ProviderCredentialEnrollmentReadiness(),
+        tiny_invocation_readiness=build_tiny_provider_invocation_readiness(),
         posture_counts=posture_counts,
         providers=providers,
         blocker_codes=sorted({code for provider in providers for code in provider.blocker_codes}),

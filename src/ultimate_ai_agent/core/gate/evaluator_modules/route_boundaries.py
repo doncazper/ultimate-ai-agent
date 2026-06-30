@@ -2300,6 +2300,11 @@ CONTROL_CENTER_PROVIDER_CATALOG_ROUTES = frozenset(
         "/control-center/providers/setup-guide",
     }
 )
+CONTROL_CENTER_TINY_PROVIDER_LANE_ROUTES = frozenset(
+    {
+        "/control-center/providers/exact-approved-lanes/tiny",
+    }
+)
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
@@ -2475,6 +2480,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,
     "control_center_operational_status": CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     "control_center_provider_catalog": CONTROL_CENTER_PROVIDER_CATALOG_ROUTES,
+    "control_center_tiny_provider_lane": CONTROL_CENTER_TINY_PROVIDER_LANE_ROUTES,
     "mattermost": MATTERMOST_AGENT_ROOMS_ROUTES,
     "packaging_proof": PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES,
     "redacted_observability": M167_REDACTED_OBSERVABILITY_ROUTES,

@@ -1,26 +1,31 @@
 # Exact-Approved Provider Invocation Promotion Plan
 
-Status: planning-only future gated lane.
+Status: disabled-default contract lane implemented; callable provider runtime remains future gated.
 
-This plan defines the minimum future promotion checklist for one tiny
-exact-approved provider/model invocation lane. It does not implement provider
-runtime, credential validation, network access, provider SDK calls, or model
-invocation.
+This plan defines the minimum promotion checklist for one tiny exact-approved
+provider/model lane. The current implementation adds typed contracts, a
+disabled-default Control Center route, CostGovernor blocking, redacted receipt
+storage, CLI inspection, and UI posture labels. It does not add credential
+validation, network access, provider SDK calls, live model calls, autonomous
+model calls, background execution, or billing authority.
 
-The lane may be promoted only after Provider Credential Readiness, CostGovernor
-Binding, and Credential Vault Contract Shell posture remain green and the new
-runtime contract has exact approval, redacted receipts, CLI inspection parity,
-and UI blocked-state parity.
+The lane may become callable only after Provider Credential Readiness,
+CostGovernor Binding, Credential Vault Contract Shell posture, exact approval,
+redacted receipts, CLI inspection parity, and UI blocked-state parity remain
+green for a scoped adapter enablement milestone.
 
 ## Promotion Checklist
 
-The first provider invocation lane must require all of the following before any
-callable runtime can exist:
+The tiny lane requires all of the following before adapter execution can occur:
 
 - `credential_ref`
 - `provider_ref`
 - `model_ref`
-- `PolicyEngine` policy validation
+- policy ref carried as part of the exact approval scope; `PolicyEngine`
+  decision validation remains a future promotion gate before enabling a real
+  adapter
+- future enabled adapters must perform `PolicyEngine` policy validation before
+  any provider call
 - exact approval scope validated by `LocalApprovalAuthority`
 - `CostGovernor` decision
 - unknown paid cost blocked by default
@@ -28,18 +33,21 @@ callable runtime can exist:
 - idempotency ref
 - redacted request receipt ref
 - redacted response receipt ref
+- `PolicyEngine` policy decision ref before any future enabled adapter can
+  claim callable authority
 - no raw prompt, response, or provider payload persistence
 - rollback or safe-disable posture
 - CLI inspection parity
 - UI blocked, approved, and cost-blocked states
 
-Every future invocation attempt must fail closed when any required ref, policy
-validation, approval scope, budget decision, receipt ref, or safe-disable posture
-is missing.
+Every lane attempt must fail closed when any required ref, approval scope,
+budget decision, receipt ref, or safe-disable posture is missing. The default
+API route uses a disabled adapter and can only return blocked, cost-blocked,
+approval-required, approval-invalid, or approved-no-execution posture.
 
 ## Minimum Contract Shape
 
-The future runtime contract must distinguish these states before it is callable:
+The contract distinguishes these states before callable provider runtime exists:
 
 - `blocked_missing_credential_ref`
 - `blocked_missing_provider_ref`
@@ -48,22 +56,23 @@ The future runtime contract must distinguish these states before it is callable:
 - `blocked_missing_exact_approval_scope`
 - `cost_blocked`
 - `unknown_paid_cost_blocked`
-- `approved_no_execution_until_receipts_ready`
+- `approved_no_execution`
 - `receipt_recorded`
 - `safe_disabled`
 
 Approval refs, credential refs, provider refs, model refs, and max-approved USD
 refs remain identifiers. They do not authorize provider calls unless the exact
-future invocation contract validates the complete scope and records redacted
-receipts.
+lane contract validates the complete scope, passes CostGovernor checks, and
+records redacted receipts.
 
 ## Receipt And Evidence Rules
 
-Future receipts must store safe refs and redacted summaries only:
+Receipts must store safe refs and redacted summaries only:
 
 - request receipt ref
 - response receipt ref
-- `PolicyEngine` policy decision ref
+- policy ref, with `PolicyEngine` policy decision ref added before any future
+  enabled adapter
 - cost estimate ref
 - CostGovernor decision ref
 - budget decision ref
@@ -82,8 +91,8 @@ raw logs.
 
 ## UI And CLI Requirements
 
-Before promotion, Control Center must show provider invocation posture as one of
-these states from backend-owned data:
+Control Center must show provider lane posture as one of these states from
+backend-owned data:
 
 - blocked
 - approved no execution
@@ -93,15 +102,15 @@ these states from backend-owned data:
 - receipt recorded
 - safe disabled
 
-The same posture must be inspectable through a repo-local CLI script before the
-UI can present it as reviewable. UI labels must never imply provider connection,
-provider readiness, model output authority, billing authority, or callable
-runtime from metadata visibility.
+The same posture is inspectable through
+`scripts/inspect_tiny_provider_invocation_lane.py`. UI labels must never imply
+provider connection, provider readiness, model output authority, billing
+authority, or callable runtime from metadata visibility.
 
 ## Non-Goals
 
 - No provider SDK calls.
-- No runtime invocation.
+- No enabled runtime invocation by default.
 - No credential validation.
 - No network calls.
 - No model output authority.
@@ -113,9 +122,9 @@ runtime from metadata visibility.
 
 ## Promotion Gate
 
-The future implementation PR must add typed runtime contracts, focused tests,
-OpenAPI/route truth only if a route is added, CLI inspection parity, Action
-Inbox/Settings/Models blocked-state UI parity, CostGovernor enforcement, receipt
-storage, `PolicyEngine` validation, redaction tests, revocation or safe-disable
-proof, and a verifier that fails if any provider invocation can occur without
-exact approval and complete policy/cost/receipt posture.
+Any future adapter enablement PR must keep typed runtime contracts, focused
+tests, OpenAPI/route truth, CLI inspection parity, Action Inbox/Settings/Models
+blocked-state UI parity, CostGovernor enforcement, receipt storage, policy
+validation, redaction tests, revocation or safe-disable proof, and a verifier
+that fails if any provider lane can run without exact approval and complete
+policy/cost/receipt posture.

@@ -16,7 +16,7 @@ CANONICAL_MAP_PATH = ROOT / "docs/canonical/CANONICAL_DOC_MAP.md"
 TRUTH_PACKET_PATH = ROOT / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
 
 REQUIRED_DOC_FRAGMENTS = {
-    "Status: planning-only future gated lane.",
+    "Status: disabled-default contract lane implemented; callable provider runtime remains future gated.",
     "credential_ref",
     "provider_ref",
     "model_ref",
@@ -35,23 +35,23 @@ REQUIRED_DOC_FRAGMENTS = {
     "CLI inspection parity",
     "UI blocked, approved, and cost-blocked states",
     "No provider SDK calls.",
-    "No runtime invocation.",
+    "No enabled runtime invocation by default.",
     "No credential validation.",
     "No network calls.",
     "No model output authority.",
 }
 REQUIRED_SUPPORTING_FRAGMENTS = {
     PRODUCT_LANGUAGE_PATH: "No provider invocation promotion authority drift",
-    CURRENT_BOARD_PATH: "Exact-Approved Provider Invocation Promotion Plan",
+    CURRENT_BOARD_PATH: "Tiny Exact-Approved Provider Invocation Lane",
     DOC_INDEX_PATH: "EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
     README_PATH: "EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
     CANONICAL_MAP_PATH: "EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
-    TRUTH_PACKET_PATH: "Exact-Approved Provider Invocation Promotion Plan",
+    TRUTH_PACKET_PATH: "Tiny Exact-Approved Provider Invocation Lane",
 }
 REQUIRED_SUPPORTING_POLICY_FRAGMENTS = {
-    PRODUCT_LANGUAGE_PATH: "`PolicyEngine` policy validation",
-    CURRENT_BOARD_PATH: "`PolicyEngine` policy validation",
-    TRUTH_PACKET_PATH: "`PolicyEngine` policy validation",
+    PRODUCT_LANGUAGE_PATH: "exact approval",
+    CURRENT_BOARD_PATH: "exact approval",
+    TRUTH_PACKET_PATH: "exact-approval-bound",
 }
 FORBIDDEN_DOC_FRAGMENTS = {
     "provider invocation is implemented",

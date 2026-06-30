@@ -22,18 +22,21 @@ The dashboard may summarize:
   estimate refs, budget decision refs, max-approved USD refs, future receipt
   refs, and CostGovernor decision/posture refs.
 - credential vault adapter readiness, credential enrollment readiness, provider
-  validation readiness, and governed provider invocation readiness as blocked
-  contract states only.
+  validation readiness, governed provider invocation readiness as blocked
+  contract state, and tiny exact-approved provider lane readiness as
+  disabled-default, no-provider-authority posture. Approved-no-execution is a
+  request decision only after exact approval and cost gates pass.
 
 The dashboard must not include raw events, raw receipts, prompts, file contents, memory contents, credentials, secret values, private keys, personal data, provider envelopes, runtime payloads, model output as authority, remote worker output as control input, mobile sensor output as control input, or production readiness evidence.
 
 Provider credential readiness means reference posture only. It does not collect
 provider keys, read environment values, resolve credential material, validate
-keys against external services, call provider SDKs, or enable provider
-invocation. CostGovernor binding refs are blockers and review scope only; they
-do not grant spend authority, bypass unknown paid-cost approval, bypass
-provider/model refs, or bypass usage/cost receipt refs. A real credential
-vault/keychain adapter requires a separate reviewed milestone.
+keys against external services, call provider SDKs by default, run network
+calls, or enable callable provider runtime. CostGovernor binding refs are
+blockers and review scope only; they do not grant spend authority, bypass
+unknown paid-cost approval, bypass provider/model refs, or bypass usage/cost
+receipt refs. A real credential vault/keychain adapter requires a separate
+reviewed milestone.
 
 The readiness gates are intentionally separate:
 
@@ -53,5 +56,11 @@ The readiness gates are intentionally separate:
   allowlists, redacted request/response summaries, receipt/audit refs,
   safe-disable behavior, and rate/budget boundaries. The current dashboard
   records `PROVIDER_INVOCATION_NOT_SCOPED` and enables no provider call path.
+- Tiny Exact-Approved Provider Lane: current disabled-default contract lane
+  requiring exact approval, CostGovernor posture, max-approved USD, idempotency,
+  redacted receipt refs, and safe-disable posture. The dashboard records
+  `TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT`; the default adapter performs no
+  provider SDK call, network call, autonomous/background model call, or billing
+  authority.
 
 The dashboard does not scan the filesystem, inspect keychains, call runtimes, call models, dispatch remote workers, enable plugins, access sensors, or run frontend tooling.

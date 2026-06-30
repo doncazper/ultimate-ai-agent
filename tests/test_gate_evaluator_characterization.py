@@ -154,6 +154,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
             "control_center_operational_status",
             "control_center_provider_catalog",
             "control_center_setup_assistant",
+            "control_center_tiny_provider_lane",
             "founder_loop",
         "mattermost",
         "packaging_proof",
