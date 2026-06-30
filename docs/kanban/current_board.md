@@ -46,6 +46,16 @@ CLI inspection, route manifest coverage, and cost/budget posture language. It
 adds no credential input, no key storage, no provider validation, no provider
 SDK calls, no model invocation, no automatic pricing fetch, no billing
 authority, no provider output authority, and no callable runtime authority.
+Provider Credential Readiness + Cost Governor Binding now adds typed readiness
+postures and CostGovernor binding refs inside the backend-owned dashboard read
+model with `scripts/inspect_provider_credential_readiness.py` CLI parity. Setup,
+Settings, Models, and Action Inbox may show configured/not-configured/revoked
+and blocked cost posture only from backend data; unknown paid cost, missing
+provider/model refs, missing budget decisions, missing max-approved USD refs,
+and missing usage/cost receipt refs remain blockers. It adds no secret entry,
+credential storage, credential validation, provider SDK call, model invocation,
+runtime pricing fetch, billing authority, provider output authority, or callable
+runtime authority.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are

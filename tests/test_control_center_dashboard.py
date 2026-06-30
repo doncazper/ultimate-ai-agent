@@ -3,6 +3,8 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.core.control_center import (
     GovernedProviderInvocationReadiness,
+    ProviderCostGovernorBinding,
+    ProviderCredentialReadinessPosture,
     ProviderCredentialReadinessItem,
     ProviderCredentialReadinessSummary,
     ProviderCredentialValidationReadiness,
@@ -42,6 +44,17 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only() -> None:
     assert snapshot.provider_credential_readiness.raw_key_collection_enabled is False
     assert snapshot.provider_credential_readiness.credential_material_stored is False
     assert snapshot.provider_credential_readiness.vault_adapter_configured is False
+    assert snapshot.provider_credential_readiness.cost_governor_binding_required is True
+    assert snapshot.provider_credential_readiness.provider_model_refs_required is True
+    assert snapshot.provider_credential_readiness.cost_estimate_ref_required is True
+    assert snapshot.provider_credential_readiness.budget_decision_ref_required is True
+    assert snapshot.provider_credential_readiness.max_approved_usd_ref_required is True
+    assert snapshot.provider_credential_readiness.future_receipt_refs_required is True
+    assert snapshot.provider_credential_readiness.unknown_paid_cost_requires_approval is True
+    assert snapshot.provider_credential_readiness.estimated_cost_above_budget_blocks_use is True
+    assert snapshot.provider_credential_readiness.provider_usage_claim_requires_receipt_refs is True
+    assert snapshot.provider_credential_readiness.provider_runtime_authority_denied is True
+    assert snapshot.provider_credential_readiness.provider_spend_authority_denied is True
     assert snapshot.provider_credential_readiness.vault_adapter_readiness.adapter_runtime_enabled is False
     assert snapshot.provider_credential_readiness.enrollment_readiness.enrollment_enabled is False
     assert snapshot.provider_credential_readiness.validation_readiness.validation_enabled is False
@@ -131,6 +144,15 @@ def test_provider_credential_readiness_is_reference_only() -> None:
     assert summary.invocation_readiness.policy_engine_required is True
     assert summary.invocation_readiness.local_approval_required is True
     assert summary.invocation_readiness.model_output_authoritative is False
+    assert set(summary.supported_readiness_postures) == set(ProviderCredentialReadinessPosture)
+    assert summary.posture_counts[ProviderCredentialReadinessPosture.configured] == 0
+    assert summary.posture_counts[ProviderCredentialReadinessPosture.not_configured] == len(
+        summary.providers
+    )
+    assert summary.posture_counts[ProviderCredentialReadinessPosture.cost_blocked] == 0
+    assert summary.cost_governor_binding_required is True
+    assert summary.unknown_paid_cost_requires_approval is True
+    assert summary.provider_usage_claim_requires_receipt_refs is True
     assert "PROVIDER_INVOCATION_NOT_SCOPED" in summary.blocker_codes
     assert "CREDENTIAL_REFERENCE_NOT_BOUND" in summary.blocker_codes
     assert "VAULT_ADAPTER_NOT_SCOPED" in summary.blocker_codes
@@ -147,11 +169,113 @@ def test_provider_credential_readiness_is_reference_only() -> None:
         assert provider.credential_material_stored is False
         assert provider.raw_key_visible is False
         assert provider.readiness_status == "blocked_reference_only"
+        assert provider.readiness_posture == ProviderCredentialReadinessPosture.not_configured
+        assert provider.cost_governor_binding.provider_ref == provider.provider_id
+        assert provider.cost_governor_binding.credential_ref == provider.credential_ref
+        assert provider.cost_governor_binding.provider_ref_status == "present"
+        assert provider.cost_governor_binding.model_ref_status == "missing"
+        assert provider.cost_governor_binding.unknown_paid_cost_requires_approval is True
+        assert provider.cost_governor_binding.provider_usage_claim_requires_receipt_refs is True
+        assert provider.cost_governor_binding.provider_use_authority_granted is False
+        assert "UNKNOWN_PAID_COST_REQUIRES_APPROVAL" in provider.cost_governor_binding.blocker_codes
+        assert "COST_ESTIMATE_REF_REQUIRED" in provider.cost_governor_binding.blocker_codes
+        assert "BUDGET_DECISION_REF_REQUIRED" in provider.cost_governor_binding.blocker_codes
+        assert "FUTURE_RECEIPT_REFS_REQUIRED" in provider.cost_governor_binding.blocker_codes
 
 
 def test_provider_credential_readiness_rejects_authority_or_secret_like_refs() -> None:
     with pytest.raises(ValidationError, match="AUTHORITY_DENIED"):
         ProviderCredentialReadinessSummary(invocation_enabled=True, providers=[])
+
+    with pytest.raises(ValidationError, match="COST_GOVERNOR_GATE_DENIED"):
+        ProviderCredentialReadinessSummary(cost_governor_binding_required=False, providers=[])
+
+    with pytest.raises(ValidationError, match="COST_AUTHORITY_DENIED"):
+        ProviderCredentialReadinessSummary(provider_runtime_authority_denied=False, providers=[])
+
+    with pytest.raises(ValidationError, match="COST_AUTHORITY_DENIED"):
+        ProviderCredentialReadinessSummary(provider_spend_authority_denied=False, providers=[])
+
+    with pytest.raises(ValidationError, match="POSTURE_COUNTS_MISMATCH"):
+        ProviderCredentialReadinessSummary(
+            posture_counts={ProviderCredentialReadinessPosture.configured: 99},
+            providers=[],
+        )
+
+    with pytest.raises(ValidationError, match="CONFIGURED_REF_POSTURE_MISMATCH"):
+        ProviderCredentialReadinessItem(
+            provider_id="provider:openai-compatible:reference",
+            provider_label="OpenAI-compatible provider",
+            provider_kind="frontier_model",
+            provider_manifest_ref="provider-manifest-ref:openai-compatible:reference-only",
+            credential_ref="credential-ref:openai-compatible:not-configured",
+            credential_ref_status="reference_missing",
+            consent_ref="consent-ref:provider-runtime:not-granted",
+            policy_ref="policy-ref:provider-runtime:disabled-by-default",
+            revocation_ref="revocation-ref:provider-runtime:not-active",
+            approval_ref="approval-ref:provider-runtime:not-granted",
+            credential_configured=True,
+            safe_summary="Provider readiness is metadata only.",
+        )
+
+    with pytest.raises(ValidationError, match="PROVIDER_MODEL_REF_BOUND_MISMATCH"):
+        ProviderCredentialReadinessItem(
+            provider_id="provider:openai-compatible:reference",
+            provider_label="OpenAI-compatible provider",
+            provider_kind="frontier_model",
+            provider_manifest_ref="provider-manifest-ref:openai-compatible:reference-only",
+            credential_ref="credential-ref:openai-compatible:not-configured",
+            credential_ref_status="reference_missing",
+            consent_ref="consent-ref:provider-runtime:not-granted",
+            policy_ref="policy-ref:provider-runtime:disabled-by-default",
+            revocation_ref="revocation-ref:provider-runtime:not-active",
+            approval_ref="approval-ref:provider-runtime:not-granted",
+            provider_model_refs_bound=True,
+            safe_summary="Provider readiness is metadata only.",
+        )
+
+    with pytest.raises(ValidationError, match="PROVIDER_REF_MISMATCH"):
+        ProviderCredentialReadinessItem(
+            provider_id="provider:openai-compatible:reference",
+            provider_label="OpenAI-compatible provider",
+            provider_kind="frontier_model",
+            provider_manifest_ref="provider-manifest-ref:openai-compatible:reference-only",
+            credential_ref="credential-ref:openai-compatible:not-configured",
+            credential_ref_status="reference_missing",
+            consent_ref="consent-ref:provider-runtime:not-granted",
+            policy_ref="policy-ref:provider-runtime:disabled-by-default",
+            revocation_ref="revocation-ref:provider-runtime:not-active",
+            approval_ref="approval-ref:provider-runtime:not-granted",
+            provider_model_refs_bound=True,
+            cost_governor_binding=ProviderCostGovernorBinding(
+                provider_ref="provider:anthropic-compatible:reference",
+                provider_ref_status="present",
+                model_ref="model-ref:anthropic-compatible:selected",
+                model_ref_status="present",
+                credential_ref="credential-ref:openai-compatible:not-configured",
+            ),
+            safe_summary="Provider readiness is metadata only.",
+        )
+
+    with pytest.raises(ValidationError, match="CREDENTIAL_REF_MISMATCH"):
+        ProviderCredentialReadinessItem(
+            provider_id="provider:openai-compatible:reference",
+            provider_label="OpenAI-compatible provider",
+            provider_kind="frontier_model",
+            provider_manifest_ref="provider-manifest-ref:openai-compatible:reference-only",
+            credential_ref="credential-ref:openai-compatible:not-configured",
+            credential_ref_status="reference_missing",
+            consent_ref="consent-ref:provider-runtime:not-granted",
+            policy_ref="policy-ref:provider-runtime:disabled-by-default",
+            revocation_ref="revocation-ref:provider-runtime:not-active",
+            approval_ref="approval-ref:provider-runtime:not-granted",
+            cost_governor_binding=ProviderCostGovernorBinding(
+                provider_ref="provider:openai-compatible:reference",
+                provider_ref_status="present",
+                credential_ref="credential-ref:anthropic-compatible:reference",
+            ),
+            safe_summary="Provider readiness is metadata only.",
+        )
 
     with pytest.raises(ValidationError, match="STORAGE_DENIED"):
         ProviderCredentialReadinessSummary(credential_material_stored=True, providers=[])

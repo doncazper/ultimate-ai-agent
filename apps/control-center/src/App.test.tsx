@@ -2112,6 +2112,16 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("status-ref:control-center-route-manifest")).toBeInTheDocument();
     expect(screen.getByText("capability-ref:local-approval-authority")).toBeInTheDocument();
     expect(
+      screen.getByRole("heading", { name: /Provider cost authority posture/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/COST_ESTIMATE_REF_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/BUDGET_DECISION_REF_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
+    expect(
       screen.getByRole("heading", { name: /^Ready for decision$/i }),
     ).toBeInTheDocument();
     expect(
@@ -4208,6 +4218,36 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/OPENAI_ENV_STYLE_REF/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);
     expect(
+      screen.getByRole("heading", { name: /Provider credential readiness/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Above-budget estimate/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Future receipt refs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Provider usage claims/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/cost-estimate-ref:openai-compatible:required/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/budget-decision-ref:openai-compatible:required/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/max-approved-usd-ref:openai-compatible:required/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/cost-receipt-ref:openai-compatible:future-required/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/UNKNOWN_PAID_COST_REQUIRES_APPROVAL/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
       screen.queryByRole("textbox", { name: /api key|secret|token/i }),
     ).not.toBeInTheDocument();
 
@@ -4237,6 +4277,10 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Quick chat")).toBeInTheDocument();
     expect(screen.getByText("CRM briefing")).toBeInTheDocument();
     expect(screen.getByText("Long document review")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider credential readiness/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: /download|switch|start|stop|execute/i }),
@@ -4288,6 +4332,130 @@ describe("Web Control Center shell", () => {
       screen.queryByRole("button", {
         name: /enable|toggle|save|execute|install|start|stop|connect/i,
       }),
+    ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for unsafe provider credential readiness dashboard payloads", async () => {
+    const unsafeDashboard = JSON.parse(
+      JSON.stringify(mockApiData.dashboard),
+    ) as Record<string, unknown>;
+    const unsafeReadiness = JSON.parse(
+      JSON.stringify(mockControlCenterData.dashboard.provider_credential_readiness),
+    ) as Record<string, unknown>;
+    const unsafePostureCounts = unsafeReadiness.posture_counts as Record<
+      string,
+      unknown
+    >;
+    const unsafeProviders = unsafeReadiness.providers as Array<
+      Record<string, unknown>
+    >;
+    unsafeReadiness.provider_runtime_authority_denied = false;
+    unsafeReadiness.unknown_paid_cost_requires_approval = false;
+    unsafePostureCounts.configured = 99;
+    unsafeProviders[0].provider_model_refs_bound = true;
+    (unsafeProviders[0].cost_governor_binding as Record<string, unknown>)
+      .provider_use_authority_granted = true;
+    unsafeDashboard.provider_credential_readiness = unsafeReadiness;
+
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.controlCenterDashboard)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeDashboard }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Settings$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider credential readiness/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/OpenAI-compatible provider/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/approval required/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText("99")).not.toBeInTheDocument();
+    expect(screen.queryByText(/blocked posture missing/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /test provider|call provider|invoke provider/i }),
+    ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for nested provider readiness authority flags", async () => {
+    const unsafeDashboard = JSON.parse(
+      JSON.stringify(mockApiData.dashboard),
+    ) as Record<string, unknown>;
+    const unsafeReadiness = JSON.parse(
+      JSON.stringify(mockControlCenterData.dashboard.provider_credential_readiness),
+    ) as Record<string, unknown>;
+    (unsafeReadiness.vault_adapter_readiness as Record<string, unknown>)
+      .adapter_runtime_enabled = true;
+    (unsafeReadiness.vault_adapter_readiness as Record<string, unknown>)
+      .readiness_status = "vault-ready-bypass";
+    (unsafeReadiness.enrollment_readiness as Record<string, unknown>)
+      .enrollment_enabled = true;
+    (unsafeReadiness.enrollment_readiness as Record<string, unknown>)
+      .readiness_status = "enrollment-ready-bypass";
+    (unsafeReadiness.validation_readiness as Record<string, unknown>)
+      .validation_enabled = true;
+    (unsafeReadiness.validation_readiness as Record<string, unknown>)
+      .provider_response_persistence_allowed = true;
+    (unsafeReadiness.validation_readiness as Record<string, unknown>)
+      .readiness_status = "validation-ready-bypass";
+    (unsafeReadiness.invocation_readiness as Record<string, unknown>)
+      .invocation_enabled = true;
+    (unsafeReadiness.invocation_readiness as Record<string, unknown>)
+      .model_output_authoritative = true;
+    (unsafeReadiness.invocation_readiness as Record<string, unknown>)
+      .readiness_status = "invocation-ready-bypass";
+    unsafeDashboard.provider_credential_readiness = unsafeReadiness;
+
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (!options?.method && urlText.endsWith(API_ENDPOINTS.controlCenterDashboard)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeDashboard }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Settings$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/blocked_no_approved_backend/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/blocked_not_scoped/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/vault-ready-bypass/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/enrollment-ready-bypass/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/validation-ready-bypass/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/invocation-ready-bypass/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /validate provider|invoke provider/i }),
     ).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();
@@ -4386,6 +4554,13 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Visual setup preview/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Provider Catalog/i })).toBeInTheDocument();
     expect(screen.getByText(/Provider account guidance/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Provider credential and cost posture/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Setup docs/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/API docs/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);

@@ -13,9 +13,12 @@ Implemented shell behavior:
 - labels action preview as preview-only and displays blocked decisions as non-executed safety results.
 - exposes the action preview risk level as policy metadata only.
 - provides route-level headings and accessible loading, empty, error, and mock fallback states for local browser smoke review.
-- shows provider credential readiness as status-only safe refs under Settings,
-  including vault adapter, credential enrollment, validation, invocation,
-  consent, policy, revocation, approval, and blocker state.
+- shows provider credential readiness and CostGovernor binding posture as
+  status-only safe refs in Setup, Settings, Models, and Action Inbox, including
+  vault adapter, credential enrollment, validation, invocation, consent, policy,
+  revocation, approval, blocker state, unknown paid-cost approval, cost
+  estimate refs, budget decision refs, max-approved USD refs, future receipt
+  refs, and provider/model ref posture.
 - falls back to clearly marked mock data when the local backend is unavailable.
 - displays unknown/checking, backend online, degraded, offline-safe, and mock fallback connection states.
 - sanitizes secret-like frontend errors before display.
@@ -33,7 +36,9 @@ Non-goals:
 - no provider credential collection form.
 - no raw provider key, token, secret, or environment-value display.
 - no provider credential resolution, validation call, vault adapter runtime, or
-  credential enrollment runtime, or invocation.
+  provider invocation.
+- no provider spend authority, unknown paid-cost approval bypass, or usage/cost
+  receipt bypass.
 - no remote dispatch.
 - no mobile/native app.
 - no sensor access.

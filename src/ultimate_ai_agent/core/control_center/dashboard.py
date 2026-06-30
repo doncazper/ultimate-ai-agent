@@ -9,6 +9,8 @@ from ultimate_ai_agent.core.local_model_management.readiness import inspect_loca
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
 from ultimate_ai_agent.core.providers.readiness import (
     GovernedProviderInvocationReadiness,
+    ProviderCostGovernorBinding,
+    ProviderCredentialReadinessPosture,
     ProviderCredentialValidationReadiness,
 )
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
@@ -25,6 +27,13 @@ from ultimate_ai_agent.core.task_decomposition.api_safety import (
     TASK_DECOMPOSITION_API_ENV,
 )
 from ultimate_ai_agent.core.time import utc_now
+
+
+def _readiness_ref_is_unbound(ref: str) -> bool:
+    if not ref.strip():
+        return True
+    lowered = ref.lower()
+    return any(marker in lowered for marker in (":missing", "not-bound", "not-selected", "not-configured"))
 
 
 class StatusCard(BaseModel):
@@ -118,6 +127,15 @@ class ProviderCredentialReadinessItem(BaseModel):
     revocation_ref: str = Field(..., min_length=1)
     approval_ref: str = Field(..., min_length=1)
     risk_class: str = "high"
+    readiness_posture: ProviderCredentialReadinessPosture = (
+        ProviderCredentialReadinessPosture.not_configured
+    )
+    credential_configured: bool = False
+    credential_revoked: bool = False
+    provider_model_refs_bound: bool = False
+    cost_governor_binding: ProviderCostGovernorBinding = Field(
+        default_factory=ProviderCostGovernorBinding
+    )
     invocation_enabled: bool = False
     credential_material_stored: bool = False
     raw_key_visible: bool = False
@@ -138,6 +156,32 @@ class ProviderCredentialReadinessItem(BaseModel):
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_SECRET_LIKE_VALUE_REJECTED")
         if self.invocation_enabled or self.credential_material_stored or self.raw_key_visible:
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_AUTHORITY_DENIED")
+        if self.readiness_posture == ProviderCredentialReadinessPosture.configured and not self.credential_configured:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_CONFIGURED_POSTURE_MISSING_REF")
+        if self.readiness_posture != ProviderCredentialReadinessPosture.configured and self.credential_configured:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_CONFIGURED_REF_POSTURE_MISMATCH")
+        if self.readiness_posture == ProviderCredentialReadinessPosture.revoked and not self.credential_revoked:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_REVOKED_POSTURE_MISSING_REF")
+        if self.readiness_posture != ProviderCredentialReadinessPosture.revoked and self.credential_revoked:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_REVOKED_REF_POSTURE_MISMATCH")
+        expected_provider_model_refs_bound = (
+            self.cost_governor_binding.provider_ref_status == "present"
+            and self.cost_governor_binding.model_ref_status == "present"
+        )
+        if self.provider_model_refs_bound != expected_provider_model_refs_bound:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_MODEL_REF_BOUND_MISMATCH")
+        if (
+            self.cost_governor_binding.provider_ref_status == "present"
+            and self.cost_governor_binding.provider_ref != self.provider_id
+        ):
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_REF_MISMATCH")
+        if (
+            not _readiness_ref_is_unbound(self.cost_governor_binding.credential_ref)
+            and self.cost_governor_binding.credential_ref != self.credential_ref
+        ):
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_CREDENTIAL_REF_MISMATCH")
+        if self.cost_governor_binding.provider_use_authority_granted:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_COST_BINDING_AUTHORITY_DENIED")
         return self
 
 
@@ -150,6 +194,23 @@ class ProviderCredentialReadinessSummary(BaseModel):
     raw_key_collection_enabled: bool = False
     credential_material_stored: bool = False
     vault_adapter_configured: bool = False
+    supported_readiness_postures: list[ProviderCredentialReadinessPosture] = Field(
+        default_factory=lambda: list(ProviderCredentialReadinessPosture)
+    )
+    posture_counts: dict[ProviderCredentialReadinessPosture, int] = Field(default_factory=dict)
+    cost_governor_posture_ref: str = "cost-governor-posture-ref:provider-runtime:required"
+    cost_governor_decision_ref: str = "cost-governor-decision-ref:provider-runtime:blocked"
+    cost_governor_binding_required: bool = True
+    provider_model_refs_required: bool = True
+    cost_estimate_ref_required: bool = True
+    budget_decision_ref_required: bool = True
+    max_approved_usd_ref_required: bool = True
+    future_receipt_refs_required: bool = True
+    unknown_paid_cost_requires_approval: bool = True
+    estimated_cost_above_budget_blocks_use: bool = True
+    provider_usage_claim_requires_receipt_refs: bool = True
+    provider_runtime_authority_denied: bool = True
+    provider_spend_authority_denied: bool = True
     vault_adapter_readiness: ProviderCredentialVaultAdapterReadiness = Field(
         default_factory=ProviderCredentialVaultAdapterReadiness
     )
@@ -179,6 +240,21 @@ class ProviderCredentialReadinessSummary(BaseModel):
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_SECRET_LIKE_VALUE_REJECTED")
         if self.invocation_enabled or self.raw_key_collection_enabled:
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_AUTHORITY_DENIED")
+        required_flags = [
+            self.cost_governor_binding_required,
+            self.provider_model_refs_required,
+            self.cost_estimate_ref_required,
+            self.budget_decision_ref_required,
+            self.max_approved_usd_ref_required,
+            self.future_receipt_refs_required,
+            self.unknown_paid_cost_requires_approval,
+            self.estimated_cost_above_budget_blocks_use,
+            self.provider_usage_claim_requires_receipt_refs,
+        ]
+        if not all(required_flags):
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_COST_GOVERNOR_GATE_DENIED")
+        if not self.provider_runtime_authority_denied or not self.provider_spend_authority_denied:
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_COST_AUTHORITY_DENIED")
         if self.credential_material_stored or self.vault_adapter_configured:
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_STORAGE_DENIED")
         if self.vault_adapter_readiness.adapter_runtime_enabled:
@@ -194,6 +270,20 @@ class ProviderCredentialReadinessSummary(BaseModel):
         for provider in self.providers:
             if provider.invocation_enabled or provider.credential_material_stored or provider.raw_key_visible:
                 raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_AUTHORITY_DENIED")
+            if provider.cost_governor_binding.provider_use_authority_granted:
+                raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_COST_AUTHORITY_DENIED")
+            if provider.cost_governor_binding.provider_usage_claim_requires_receipt_refs is not True:
+                raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_RECEIPTS_REQUIRED")
+        expected_posture_counts = {posture: 0 for posture in ProviderCredentialReadinessPosture}
+        for provider in self.providers:
+            expected_posture_counts[provider.readiness_posture] += 1
+        if self.posture_counts:
+            supplied_counts = dict(self.posture_counts)
+            for posture in ProviderCredentialReadinessPosture:
+                supplied_counts.setdefault(posture, 0)
+            if supplied_counts != expected_posture_counts:
+                raise ValueError("PROVIDER_CREDENTIAL_READINESS_POSTURE_COUNTS_MISMATCH")
+        self.posture_counts = expected_posture_counts
         return self
 
 
@@ -330,67 +420,78 @@ def build_control_center_dashboard(
 
 def build_provider_credential_readiness_summary() -> ProviderCredentialReadinessSummary:
     vault_capabilities = BlockedCredentialVaultAdapter().inspect_capabilities()
-    providers = [
-        ProviderCredentialReadinessItem(
-            provider_id="provider:openai-compatible:reference",
-            provider_label="OpenAI-compatible provider",
-            provider_kind="frontier_model",
-            provider_manifest_ref="provider-manifest-ref:openai-compatible:reference-only",
-            credential_ref="credential-ref:openai-compatible:not-configured",
-            credential_ref_status="reference_missing",
-            consent_ref="consent-ref:provider-runtime:not-granted",
-            policy_ref="policy-ref:provider-runtime:disabled-by-default",
-            revocation_ref="revocation-ref:provider-runtime:not-active",
-            approval_ref="approval-ref:provider-runtime:not-granted",
-            blocker_codes=[
-                "PROVIDER_INVOCATION_NOT_SCOPED",
-                "CREDENTIAL_REFERENCE_NOT_BOUND",
-                "VAULT_ADAPTER_NOT_SCOPED",
-            ],
-            safe_summary="Provider is visible for credential-reference planning only; no call path is enabled.",
-        ),
-        ProviderCredentialReadinessItem(
-            provider_id="provider:anthropic-compatible:reference",
-            provider_label="Anthropic-compatible provider",
-            provider_kind="frontier_model",
-            provider_manifest_ref="provider-manifest-ref:anthropic-compatible:reference-only",
-            credential_ref="credential-ref:anthropic-compatible:not-configured",
-            credential_ref_status="reference_missing",
-            consent_ref="consent-ref:provider-runtime:not-granted",
-            policy_ref="policy-ref:provider-runtime:disabled-by-default",
-            revocation_ref="revocation-ref:provider-runtime:not-active",
-            approval_ref="approval-ref:provider-runtime:not-granted",
-            blocker_codes=[
-                "PROVIDER_INVOCATION_NOT_SCOPED",
-                "CREDENTIAL_REFERENCE_NOT_BOUND",
-                "VAULT_ADAPTER_NOT_SCOPED",
-            ],
-            safe_summary="Provider is visible for credential-reference planning only; no call path is enabled.",
-        ),
-        ProviderCredentialReadinessItem(
-            provider_id="provider:gemini-compatible:reference",
-            provider_label="Gemini-compatible provider",
-            provider_kind="frontier_model",
-            provider_manifest_ref="provider-manifest-ref:gemini-compatible:reference-only",
-            credential_ref="credential-ref:gemini-compatible:not-configured",
-            credential_ref_status="reference_missing",
-            consent_ref="consent-ref:provider-runtime:not-granted",
-            policy_ref="policy-ref:provider-runtime:disabled-by-default",
-            revocation_ref="revocation-ref:provider-runtime:not-active",
-            approval_ref="approval-ref:provider-runtime:not-granted",
-            blocker_codes=[
-                "PROVIDER_INVOCATION_NOT_SCOPED",
-                "CREDENTIAL_REFERENCE_NOT_BOUND",
-                "VAULT_ADAPTER_NOT_SCOPED",
-            ],
-            safe_summary="Provider is visible for credential-reference planning only; no call path is enabled.",
-        ),
+    provider_specs = [
+        ("openai-compatible", "OpenAI-compatible provider"),
+        ("anthropic-compatible", "Anthropic-compatible provider"),
+        ("gemini-compatible", "Gemini-compatible provider"),
     ]
+    providers = [
+        _provider_credential_readiness_item(provider_slug=provider_slug, provider_label=provider_label)
+        for provider_slug, provider_label in provider_specs
+    ]
+    posture_counts = {posture: 0 for posture in ProviderCredentialReadinessPosture}
+    for provider in providers:
+        posture_counts[provider.readiness_posture] += 1
     return ProviderCredentialReadinessSummary(
         vault_adapter_readiness=build_provider_credential_vault_adapter_readiness(vault_capabilities),
         enrollment_readiness=ProviderCredentialEnrollmentReadiness(),
+        posture_counts=posture_counts,
         providers=providers,
         blocker_codes=sorted({code for provider in providers for code in provider.blocker_codes}),
+    )
+
+
+def _provider_credential_readiness_item(
+    *,
+    provider_slug: str,
+    provider_label: str,
+) -> ProviderCredentialReadinessItem:
+    provider_id = f"provider:{provider_slug}:reference"
+    credential_ref = f"credential-ref:{provider_slug}:not-configured"
+    return ProviderCredentialReadinessItem(
+        provider_id=provider_id,
+        provider_label=provider_label,
+        provider_kind="frontier_model",
+        provider_manifest_ref=f"provider-manifest-ref:{provider_slug}:reference-only",
+        credential_ref=credential_ref,
+        credential_ref_status="reference_missing",
+        consent_ref="consent-ref:provider-runtime:not-granted",
+        policy_ref="policy-ref:provider-runtime:disabled-by-default",
+        revocation_ref="revocation-ref:provider-runtime:not-active",
+        approval_ref="approval-ref:provider-runtime:not-granted",
+        readiness_posture=ProviderCredentialReadinessPosture.not_configured,
+        cost_governor_binding=ProviderCostGovernorBinding(
+            binding_ref=f"provider-cost-binding-ref:{provider_slug}:blocked",
+            provider_ref=provider_id,
+            provider_ref_status="present",
+            model_ref=f"model-ref:{provider_slug}:not-selected",
+            model_ref_status="missing",
+            credential_ref=credential_ref,
+            cost_estimate_ref=f"cost-estimate-ref:{provider_slug}:required",
+            budget_decision_ref=f"budget-decision-ref:{provider_slug}:required",
+            max_approved_usd_ref=f"max-approved-usd-ref:{provider_slug}:required",
+            future_receipt_ref=f"receipt-ref:{provider_slug}:future-required",
+            usage_receipt_ref=f"usage-receipt-ref:{provider_slug}:future-required",
+            cost_receipt_ref=f"cost-receipt-ref:{provider_slug}:future-required",
+            cost_governor_posture_ref=f"cost-governor-posture-ref:{provider_slug}:required",
+            cost_governor_decision_ref=f"cost-governor-decision-ref:{provider_slug}:blocked",
+        ),
+        blocker_codes=[
+            "PROVIDER_INVOCATION_NOT_SCOPED",
+            "CREDENTIAL_REFERENCE_NOT_BOUND",
+            "VAULT_ADAPTER_NOT_SCOPED",
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+            "PROVIDER_MODEL_REFS_REQUIRED",
+            "COST_ESTIMATE_REF_REQUIRED",
+            "BUDGET_DECISION_REF_REQUIRED",
+            "MAX_APPROVED_USD_REF_REQUIRED",
+            "FUTURE_RECEIPT_REFS_REQUIRED",
+            "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
+        ],
+        safe_summary=(
+            "Provider is visible for credential-reference and CostGovernor planning only; "
+            "no validation, invocation, or spend authority is enabled."
+        ),
     )
 
 

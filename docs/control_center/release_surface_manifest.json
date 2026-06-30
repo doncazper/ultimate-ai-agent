@@ -207,6 +207,13 @@
           "route_classification": "local_sensitive"
         },
         {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
           "method": "POST",
           "path": "/control-center/today/action-envelope",
           "operation_id": "post_control_center_today_action_envelope",
@@ -517,6 +524,20 @@
           "operation_id": "get_control_center_settings_status",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/setup-guide",
+          "operation_id": "get_control_center_providers_setup_guide",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "side_effect_class": "validation_only",
@@ -697,6 +718,20 @@
           "operation_id": "get_control_center_setup_assistant_summary",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/setup-guide",
+          "operation_id": "get_control_center_providers_setup_guide",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "side_effect_class": "validation_only",
@@ -808,6 +843,20 @@
           "method": "GET",
           "path": "/control-center/local-models/status",
           "operation_id": "get_control_center_local_models_status",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/setup-guide",
+          "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
         }

@@ -255,16 +255,22 @@ authority.
 
 M40 remains future.
 
-## Provider Credential Readiness Visibility
+## Provider Credential Readiness + Cost Binding Visibility
 
-The Settings surface may render provider credential readiness from
-`GET /control-center/dashboard`. This is reference posture only: provider
-manifest refs, provider auth ref status, consent refs, policy refs, revocation
-refs, approval refs, blocker codes, vault adapter readiness, validation
-readiness, invocation readiness, and readiness status. It does not add a
-provider setup form, read environment values, collect raw keys, store
-credential material, run a vault/keychain adapter, validate credentials against
-an external provider, or enable provider calls.
+Setup, Settings, Models, and Action Inbox may render provider credential
+readiness and CostGovernor posture from `GET /control-center/dashboard`.
+Setup, Settings, and Models may also render provider catalog/cost-literacy
+metadata from `GET /control-center/providers/setup-guide`. This is reference
+posture only: provider manifest refs, provider auth ref status, consent refs,
+policy refs, revocation refs, approval refs, blocker codes, vault adapter
+readiness, validation readiness, invocation readiness, readiness status,
+unknown paid-cost approval posture, cost estimate refs, budget decision refs,
+max-approved USD refs, future receipt refs, and CostGovernor decision/posture
+refs. It does not add a provider setup form, read environment values, collect
+raw keys, store credential material, run a vault/keychain adapter, validate
+credentials against an external provider, invoke provider SDKs, invoke models,
+grant spend authority, bypass unknown paid-cost approval, bypass receipts, or
+enable provider calls.
 
 The future gates are separate:
 

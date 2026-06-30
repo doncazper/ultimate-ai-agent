@@ -114,7 +114,7 @@ export function ProviderCatalogPanel({
               <dd>
                 {catalog.budget_posture.unknown_paid_cost_requires_explicit_approval
                   ? "approval required"
-                  : "not required"}
+                  : "blocked posture missing"}
               </dd>
             </div>
             <div>
@@ -122,23 +122,31 @@ export function ProviderCatalogPanel({
               <dd>
                 {catalog.budget_posture.estimated_cost_above_budget_blocks_use
                   ? "blocked"
-                  : "not blocked"}
+                  : "blocked posture missing"}
               </dd>
             </div>
             <div>
               <dt>Provider/model refs</dt>
-              <dd>{catalog.budget_posture.provider_model_refs_required ? "required" : "optional"}</dd>
+              <dd>
+                {catalog.budget_posture.provider_model_refs_required
+                  ? "required"
+                  : "blocked posture missing"}
+              </dd>
             </div>
             <div>
               <dt>Receipt refs</dt>
-              <dd>{catalog.budget_posture.receipt_ref_required ? "required" : "optional"}</dd>
+              <dd>
+                {catalog.budget_posture.receipt_ref_required
+                  ? "required"
+                  : "receipt posture missing"}
+              </dd>
             </div>
             <div>
               <dt>CostGovernor binding</dt>
               <dd>
                 {catalog.budget_posture.cost_governor_binding_required
                   ? "required"
-                  : "optional"}
+                  : "blocked posture missing"}
               </dd>
             </div>
           </dl>
@@ -196,7 +204,7 @@ function TokenCostExampleCard({ example }: { example: TokenCostExample }) {
           <dd>
             {example.approval_required_for_paid_use
               ? "approval required"
-              : "not required"}
+              : "blocked posture missing"}
           </dd>
         </div>
       </dl>

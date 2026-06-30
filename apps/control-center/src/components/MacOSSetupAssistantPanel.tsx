@@ -4,14 +4,17 @@ import type {
   MacOSSetupApprovalEnvelope,
   MacOSSetupModelRecommendation,
   ProviderCatalog,
+  ProviderCredentialReadinessSummary,
 } from "../api/types";
 import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
 
 export function MacOSSetupAssistantPanel({
   providerCatalog,
+  providerCredentialReadiness,
   setup,
 }: {
   providerCatalog: ProviderCatalog;
+  providerCredentialReadiness: ProviderCredentialReadinessSummary;
   setup: MacOSSetupAssistantData;
 }) {
   const prerequisiteRefs = uniqueRefs(
@@ -42,6 +45,7 @@ export function MacOSSetupAssistantPanel({
       </p>
 
       <ProviderCatalogPanel catalog={providerCatalog} mode="setup" />
+      <ProviderCredentialSetupSummary readiness={providerCredentialReadiness} />
 
       <div className="setup-summary-grid">
         <SetupFlag label="macOS first" value={setup.macosFirst} />
@@ -212,6 +216,69 @@ export function MacOSSetupAssistantPanel({
 
 function uniqueRefs(refs: string[]) {
   return Array.from(new Set(refs));
+}
+
+function ProviderCredentialSetupSummary({
+  readiness,
+}: {
+  readiness: ProviderCredentialReadinessSummary;
+}) {
+  return (
+    <article className="panel provider-credential-readiness-panel">
+      <div className="panel-heading">
+        <h3>Provider credential and cost posture</h3>
+        <span>{readiness.status}</span>
+      </div>
+      <p>{readiness.safe_summary}</p>
+      <dl className="metadata-list">
+        <div>
+          <dt>Configured</dt>
+          <dd>{readiness.posture_counts.configured}</dd>
+        </div>
+        <div>
+          <dt>Not configured</dt>
+          <dd>{readiness.posture_counts.not_configured}</dd>
+        </div>
+        <div>
+          <dt>Revoked</dt>
+          <dd>{readiness.posture_counts.revoked}</dd>
+        </div>
+        <div>
+          <dt>Blocked</dt>
+          <dd>{readiness.posture_counts.blocked}</dd>
+        </div>
+        <div>
+          <dt>Unknown paid cost</dt>
+          <dd>
+            {readiness.unknown_paid_cost_requires_approval
+              ? "approval required"
+              : "blocked posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>CostGovernor binding</dt>
+          <dd>
+            {readiness.cost_governor_binding_required
+              ? "required"
+              : "blocked posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Future receipt refs</dt>
+          <dd>
+            {readiness.future_receipt_refs_required
+              ? "required"
+              : "receipt posture missing"}
+          </dd>
+        </div>
+      </dl>
+      <div className="note-list" aria-label="Provider credential cost blockers">
+        {readiness.blocker_codes.slice(0, 8).map((code) => (
+          <span key={code}>{code}</span>
+        ))}
+      </div>
+    </article>
+  );
 }
 
 function SetupFlag({ label, value }: { label: string; value: boolean }) {

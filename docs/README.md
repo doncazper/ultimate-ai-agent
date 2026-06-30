@@ -100,13 +100,17 @@ no sends, no calendar writes, no silent merges, no silent contact creation, no
 provider/model calls, no live web, no browser runtime, no public beta, and no
 production authority.
 Provider Catalog + Cost Literacy is a backend-owned read-only guide in
-`docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md` and
-`src/ultimate_ai_agent/core/providers/catalog.py`, exposed through
+`docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`,
+Provider Credential Readiness + Cost Governor Binding is documented in
+`docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, and the
+contracts live in `src/ultimate_ai_agent/core/providers/catalog.py` plus
+`src/ultimate_ai_agent/core/providers/readiness.py`, exposed through
 `GET /control-center/providers/setup-guide` and
-`scripts/inspect_provider_setup_guide.py`. It adds no credential input, no key
-storage, no provider validation, no provider SDK calls, no model invocation, no
-automatic pricing fetch, no billing authority, and no provider output
-authority.
+`scripts/inspect_provider_setup_guide.py` plus
+`scripts/inspect_provider_credential_readiness.py`. It adds no credential
+input, no key storage, no provider validation, no provider SDK calls, no model
+invocation, no automatic pricing fetch, no billing authority, no unknown
+paid-cost bypass, and no provider output authority.
 
 This is the human-facing entrypoint for active documentation. The full catalog
 lives in `docs/DOCUMENTATION_INDEX.md`; historical releases, checkpoint imports,
@@ -129,7 +133,7 @@ product-truth ledgers.
 | Active roadmap and board | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py` |
-| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/verify_provider_catalog_cost_literacy.py` |
+| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py` |
 | Memory Workbench V1 and Ranked Retrieval / Recall Tuning | `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_022_RANKED_RETRIEVAL_RECALL_TUNING.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md` |
 | Agent module maturity review | `docs/registry/agent_module_maturity_map.json`, `docs/registry/agent_module_maturity_review_v2.json`, `docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` |
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |
