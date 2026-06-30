@@ -118,6 +118,16 @@ safe-disable/rollback posture before any promotion. It adds no background
 execution, no scheduler, no autonomous model calls, no provider calls, no
 runtime activation, no billing authority, no broad provider router, no new API
 runtime route, no public beta, and no production authority.
+Provider Billing Authority Boundary is now a planning-only authority gate in
+`docs/control_center/PROVIDER_BILLING_AUTHORITY_BOUNDARY.md` with
+`scripts/verify_provider_billing_authority_boundary.py` coverage. Provider
+billing authority remains blocked until a later scoped promotion proves exact
+per-request or per-session max USD approval, CostGovernor hard limits, actual
+usage/cost receipts, incomplete-cost blocking, revocation, UI/CLI inspection,
+audit/replay posture, safe-disable/rollback posture, and no broad spend toggle.
+It adds no billing integration, no payment methods, no subscription management,
+no broad spend toggle, no provider calls, no autonomous/background calls, no
+runtime activation, no public beta, and no production authority.
 FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are

@@ -117,7 +117,7 @@ SCAN_SEQUENCE = [
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
-    ("product truth regression scan", "verify_product_truth"), ("background/autonomous provider promotion plan scan", "verify_background_autonomous_provider_plan"),
+    ("product truth regression scan", "verify_product_truth"), ("background/autonomous provider promotion plan scan", "verify_background_autonomous_provider_plan"), ("provider billing authority boundary scan", "verify_provider_billing_authority_boundary"),
     ("operator-readiness taxonomy scan", "verify_operator_readiness_taxonomy"),
     ("morning reconciliation artifact scan", "verify_morning_reconciliation_artifact"),
     ("repo awareness benchmark scan", "verify_repo_awareness_benchmark"),
@@ -1033,6 +1033,7 @@ def verify_control_center_release_surface() -> None:
     print("\n[Verifier] Running FCC-V1-000 release surface manifest scan...")
     run_cmd([sys.executable, "scripts/verify_control_center_release_surface.py"])
 def verify_background_autonomous_provider_plan() -> None: run_cmd([sys.executable, "scripts/verify_background_autonomous_provider_plan.py"])
+def verify_provider_billing_authority_boundary() -> None: run_cmd([sys.executable, "scripts/verify_provider_billing_authority_boundary.py"])
 def verify_fcc_v1_001_api_perimeter() -> None:
     run_cmd([sys.executable, "scripts/verify_fcc_v1_001_api_perimeter.py"])
 def verify_fcc_v1_002_action_inbox_state_machine() -> None:
