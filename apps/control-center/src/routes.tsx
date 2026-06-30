@@ -281,7 +281,12 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/differentiators":
       return <DifferentiatorScreensPanel data={data} />;
     case "/approvals":
-      return <ApprovalQueuePanel review={data.m15Review} />;
+      return (
+        <ApprovalQueuePanel
+          review={data.m15Review}
+          summary={data.dashboard.approval_summary}
+        />
+      );
     case "/receipts":
       return <ReceiptViewerPanel review={data.m15Review} />;
     case "/events":
