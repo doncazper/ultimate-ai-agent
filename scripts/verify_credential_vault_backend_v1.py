@@ -155,10 +155,14 @@ def main() -> int:
             rotation_request := LocalCredentialVaultRotationRequiredRequest(
                 run_id=enrollment_request.run_id,
                 secret_ref=enroll_receipt.secret_ref,
+                provider_ref=enrollment_request.provider_ref,
+                model_ref=enrollment_request.model_ref,
+                credential_ref=enrollment_request.credential_ref,
                 rotation_required_ref="rotation-ref:credential-vault:verify-required",
                 policy_ref="policy-ref:provider-runtime:disabled-by-default",
                 approval_ref="approval-ref:credential-vault:verify-rotation",
                 approval_scope_ref="approval-scope-ref:provider-runtime:required",
+                budget_decision_ref=enrollment_request.budget_decision_ref,
                 expected_receipt_ref="receipt-ref:credential-vault:verify-rotation",
                 idempotency_ref="idempotency-ref:credential-vault:verify-rotation",
             ),
@@ -171,10 +175,14 @@ def main() -> int:
             revoke_request := LocalCredentialVaultRevokeRequest(
                 run_id=enrollment_request.run_id,
                 secret_ref=enroll_receipt.secret_ref,
+                provider_ref=enrollment_request.provider_ref,
+                model_ref=enrollment_request.model_ref,
+                credential_ref=enrollment_request.credential_ref,
                 revocation_ref="revocation-ref:credential-vault:verify-revoked",
                 policy_ref="policy-ref:provider-runtime:disabled-by-default",
                 approval_ref="approval-ref:credential-vault:verify-revoke",
                 approval_scope_ref="approval-scope-ref:provider-runtime:required",
+                budget_decision_ref=enrollment_request.budget_decision_ref,
                 expected_receipt_ref="receipt-ref:credential-vault:verify-revoke",
                 idempotency_ref="idempotency-ref:credential-vault:verify-revoke",
             ),
@@ -182,6 +190,65 @@ def main() -> int:
         )
         if revoke_receipt.posture != ProviderCredentialVaultPosture.secret_ref_revoked:
             failures.append("revoke receipt posture drifted")
+        wrong_run_revoke = LocalCredentialVaultRevokeRequest(
+            run_id="run-ref:credential-vault:wrong-run",
+            secret_ref=enroll_receipt.secret_ref,
+            provider_ref=enrollment_request.provider_ref,
+            model_ref=enrollment_request.model_ref,
+            credential_ref=enrollment_request.credential_ref,
+            revocation_ref="revocation-ref:credential-vault:wrong-run",
+            policy_ref="policy-ref:provider-runtime:disabled-by-default",
+            approval_ref="approval-ref:credential-vault:wrong-run-revoke",
+            approval_scope_ref="approval-scope-ref:provider-runtime:required",
+            budget_decision_ref=enrollment_request.budget_decision_ref,
+            expected_receipt_ref="receipt-ref:credential-vault:wrong-run-revoke",
+            idempotency_ref="idempotency-ref:credential-vault:wrong-run-revoke",
+        )
+        try:
+            backend.revoke_secret_ref(
+                wrong_run_revoke,
+                approval_authority=_authority_for_revoke(wrong_run_revoke),
+            )
+        except ValueError as exc:
+            if "RECORD_SCOPE_MISMATCH" not in str(exc):
+                failures.append(f"wrong-run revoke failed with wrong error: {exc}")
+        else:
+            failures.append("wrong-run revoke approval mutated an existing secret_ref")
+
+        terminal_rotation = LocalCredentialVaultRotationRequiredRequest(
+            run_id=enrollment_request.run_id,
+            secret_ref=enroll_receipt.secret_ref,
+            provider_ref=enrollment_request.provider_ref,
+            model_ref=enrollment_request.model_ref,
+            credential_ref=enrollment_request.credential_ref,
+            rotation_required_ref="rotation-ref:credential-vault:after-revoke",
+            policy_ref="policy-ref:provider-runtime:disabled-by-default",
+            approval_ref="approval-ref:credential-vault:after-revoke-rotation",
+            approval_scope_ref="approval-scope-ref:provider-runtime:required",
+            budget_decision_ref=enrollment_request.budget_decision_ref,
+            expected_receipt_ref="receipt-ref:credential-vault:after-revoke-rotation",
+            idempotency_ref="idempotency-ref:credential-vault:after-revoke-rotation",
+        )
+        try:
+            backend.mark_rotation_required(
+                terminal_rotation,
+                approval_authority=_authority_for_rotation(terminal_rotation),
+            )
+        except ValueError as exc:
+            if "REVOKED_REF_TERMINAL" not in str(exc):
+                failures.append(f"post-revoke rotation failed with wrong error: {exc}")
+        else:
+            failures.append("revoked secret_ref was reopened as rotation_required")
+        try:
+            backend.mark_rotation_required(
+                rotation_request,
+                approval_authority=_authority_for_rotation(rotation_request),
+            )
+        except ValueError as exc:
+            if "REVOKED_REF_TERMINAL" not in str(exc):
+                failures.append(f"post-revoke rotation replay failed with wrong error: {exc}")
+        else:
+            failures.append("revoked secret_ref returned a stale allowed rotation replay")
 
         snapshot = backend.inspect()
         payload_text = json.dumps(snapshot.model_dump(mode="json"), sort_keys=True).lower()

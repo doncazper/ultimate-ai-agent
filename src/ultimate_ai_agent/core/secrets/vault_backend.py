@@ -182,9 +182,13 @@ def enrollment_resource_refs(request: "LocalCredentialVaultEnrollmentRequest") -
 def revoke_resource_refs(request: "LocalCredentialVaultRevokeRequest") -> list[str]:
     return [
         request.secret_ref,
+        request.provider_ref,
+        request.model_ref,
+        request.credential_ref,
         request.revocation_ref,
         request.policy_ref,
         request.approval_scope_ref,
+        request.budget_decision_ref,
         request.expected_receipt_ref,
         request.idempotency_ref,
     ]
@@ -193,9 +197,13 @@ def revoke_resource_refs(request: "LocalCredentialVaultRevokeRequest") -> list[s
 def rotation_resource_refs(request: "LocalCredentialVaultRotationRequiredRequest") -> list[str]:
     return [
         request.secret_ref,
+        request.provider_ref,
+        request.model_ref,
+        request.credential_ref,
         request.rotation_required_ref,
         request.policy_ref,
         request.approval_scope_ref,
+        request.budget_decision_ref,
         request.expected_receipt_ref,
         request.idempotency_ref,
     ]
@@ -280,10 +288,14 @@ def _revoke_idempotency_scope(request: "LocalCredentialVaultRevokeRequest") -> d
     return {
         "run_id": request.run_id,
         "secret_ref": request.secret_ref,
+        "provider_ref": request.provider_ref,
+        "model_ref": request.model_ref,
+        "credential_ref": request.credential_ref,
         "revocation_ref": request.revocation_ref,
         "policy_ref": request.policy_ref,
         "approval_ref": request.approval_ref,
         "approval_scope_ref": request.approval_scope_ref,
+        "budget_decision_ref": request.budget_decision_ref,
         "expected_receipt_ref": request.expected_receipt_ref,
         "idempotency_ref": request.idempotency_ref,
     }
@@ -295,10 +307,14 @@ def _rotation_idempotency_scope(
     return {
         "run_id": request.run_id,
         "secret_ref": request.secret_ref,
+        "provider_ref": request.provider_ref,
+        "model_ref": request.model_ref,
+        "credential_ref": request.credential_ref,
         "rotation_required_ref": request.rotation_required_ref,
         "policy_ref": request.policy_ref,
         "approval_ref": request.approval_ref,
         "approval_scope_ref": request.approval_scope_ref,
+        "budget_decision_ref": request.budget_decision_ref,
         "expected_receipt_ref": request.expected_receipt_ref,
         "idempotency_ref": request.idempotency_ref,
     }
@@ -327,13 +343,37 @@ def _receipt_idempotency_scope(receipt: "LocalCredentialVaultOperationReceipt") 
         return {
             **base,
             "secret_ref": receipt.secret_ref,
+            "provider_ref": receipt.provider_ref,
+            "model_ref": receipt.model_ref,
+            "credential_ref": receipt.credential_ref,
+            "budget_decision_ref": receipt.budget_decision_ref,
             "revocation_ref": receipt.revocation_ref,
         }
     return {
         **base,
         "secret_ref": receipt.secret_ref,
+        "provider_ref": receipt.provider_ref,
+        "model_ref": receipt.model_ref,
+        "credential_ref": receipt.credential_ref,
+        "budget_decision_ref": receipt.budget_decision_ref,
         "rotation_required_ref": receipt.rotation_required_ref,
     }
+
+
+def _require_record_scope_for_request(
+    record: "LocalCredentialVaultRecord",
+    request: "LocalCredentialVaultRevokeRequest | LocalCredentialVaultRotationRequiredRequest",
+) -> None:
+    immutable_fields = (
+        "run_id",
+        "secret_ref",
+        "provider_ref",
+        "model_ref",
+        "credential_ref",
+        "budget_decision_ref",
+    )
+    if any(getattr(record, field) != getattr(request, field) for field in immutable_fields):
+        raise ValueError("LOCAL_CREDENTIAL_VAULT_RECORD_SCOPE_MISMATCH")
 
 
 class LocalCredentialVaultRecord(_LocalCredentialVaultModel):
@@ -442,10 +482,14 @@ class LocalCredentialVaultEnrollmentRequest(_LocalCredentialVaultModel):
 class LocalCredentialVaultRevokeRequest(_LocalCredentialVaultModel):
     run_id: str
     secret_ref: str
+    provider_ref: str
+    model_ref: str
+    credential_ref: str
     revocation_ref: str
     policy_ref: str
     approval_ref: str
     approval_scope_ref: str
+    budget_decision_ref: str
     expected_receipt_ref: str
     idempotency_ref: str
     actor_context: ActorContext = Field(default_factory=_default_actor_context)
@@ -462,10 +506,14 @@ class LocalCredentialVaultRevokeRequest(_LocalCredentialVaultModel):
             (
                 "run_id",
                 "secret_ref",
+                "provider_ref",
+                "model_ref",
+                "credential_ref",
                 "revocation_ref",
                 "policy_ref",
                 "approval_ref",
                 "approval_scope_ref",
+                "budget_decision_ref",
                 "expected_receipt_ref",
                 "idempotency_ref",
             ),
@@ -476,10 +524,14 @@ class LocalCredentialVaultRevokeRequest(_LocalCredentialVaultModel):
 class LocalCredentialVaultRotationRequiredRequest(_LocalCredentialVaultModel):
     run_id: str
     secret_ref: str
+    provider_ref: str
+    model_ref: str
+    credential_ref: str
     rotation_required_ref: str
     policy_ref: str
     approval_ref: str
     approval_scope_ref: str
+    budget_decision_ref: str
     expected_receipt_ref: str
     idempotency_ref: str
     actor_context: ActorContext = Field(default_factory=_default_actor_context)
@@ -496,10 +548,14 @@ class LocalCredentialVaultRotationRequiredRequest(_LocalCredentialVaultModel):
             (
                 "run_id",
                 "secret_ref",
+                "provider_ref",
+                "model_ref",
+                "credential_ref",
                 "rotation_required_ref",
                 "policy_ref",
                 "approval_ref",
                 "approval_scope_ref",
+                "budget_decision_ref",
                 "expected_receipt_ref",
                 "idempotency_ref",
             ),
@@ -732,6 +788,7 @@ class LocalCredentialVaultBackend:
         if existing is not None:
             return existing
         record = self._require_record(request.secret_ref)
+        _require_record_scope_for_request(record, request)
         revoked_record = record.model_copy(
             update={
                 "posture": ProviderCredentialVaultPosture.secret_ref_revoked,
@@ -770,6 +827,10 @@ class LocalCredentialVaultBackend:
             build_local_credential_vault_rotation_approval_request(request),
             request.approval_ref,
         )
+        record = self._require_record(request.secret_ref)
+        _require_record_scope_for_request(record, request)
+        if record.posture == ProviderCredentialVaultPosture.secret_ref_revoked:
+            raise ValueError("LOCAL_CREDENTIAL_VAULT_REVOKED_REF_TERMINAL")
         existing = self._receipt_for_idempotency(
             request.idempotency_ref,
             LocalCredentialVaultOperation.mark_rotation_required,
@@ -777,7 +838,6 @@ class LocalCredentialVaultBackend:
         )
         if existing is not None:
             return existing
-        record = self._require_record(request.secret_ref)
         rotation_record = record.model_copy(
             update={
                 "posture": ProviderCredentialVaultPosture.rotation_required,

@@ -182,10 +182,14 @@ def test_enroll_revoke_and_rotation_are_idempotent(tmp_path: Path) -> None:
     rotation_request = LocalCredentialVaultRotationRequiredRequest(
         run_id=request.run_id,
         secret_ref=first.secret_ref,
+        provider_ref=request.provider_ref,
+        model_ref=request.model_ref,
+        credential_ref=request.credential_ref,
         rotation_required_ref="rotation-ref:credential-vault:idempotent",
         policy_ref="policy-ref:provider-runtime:disabled-by-default",
         approval_ref="approval-ref:credential-vault:idempotent-rotation",
         approval_scope_ref="approval-scope-ref:provider-runtime:required",
+        budget_decision_ref=request.budget_decision_ref,
         expected_receipt_ref="receipt-ref:credential-vault:idempotent-rotation",
         idempotency_ref="idempotency-ref:credential-vault:idempotent-rotation",
     )
@@ -200,10 +204,14 @@ def test_enroll_revoke_and_rotation_are_idempotent(tmp_path: Path) -> None:
     revoke_request = LocalCredentialVaultRevokeRequest(
         run_id=request.run_id,
         secret_ref=first.secret_ref,
+        provider_ref=request.provider_ref,
+        model_ref=request.model_ref,
+        credential_ref=request.credential_ref,
         revocation_ref="revocation-ref:credential-vault:idempotent",
         policy_ref="policy-ref:provider-runtime:disabled-by-default",
         approval_ref="approval-ref:credential-vault:idempotent-revoke",
         approval_scope_ref="approval-scope-ref:provider-runtime:required",
+        budget_decision_ref=request.budget_decision_ref,
         expected_receipt_ref="receipt-ref:credential-vault:idempotent-revoke",
         idempotency_ref="idempotency-ref:credential-vault:idempotent-revoke",
     )
@@ -212,6 +220,57 @@ def test_enroll_revoke_and_rotation_are_idempotent(tmp_path: Path) -> None:
     revoked_replay = backend.revoke_secret_ref(revoke_request, approval_authority=revoke_authority)
     assert revoked_replay == revoked
     assert len(backend.ledger_path.read_text(encoding="utf-8").splitlines()) == 3
+
+
+def test_revoke_and_rotation_bind_to_enrolled_record_scope(tmp_path: Path) -> None:
+    backend = LocalCredentialVaultBackend(tmp_path / "vault")
+    enrollment = enrollment_request()
+    enroll = backend.enroll_secret(
+        enrollment,
+        approval_authority=exact_authority_for_enrollment(enrollment),
+    )
+
+    wrong_run_revoke = LocalCredentialVaultRevokeRequest(
+        run_id="run-ref:credential-vault:different",
+        secret_ref=enroll.secret_ref,
+        provider_ref=enrollment.provider_ref,
+        model_ref=enrollment.model_ref,
+        credential_ref=enrollment.credential_ref,
+        revocation_ref="revocation-ref:credential-vault:wrong-run",
+        policy_ref="policy-ref:provider-runtime:disabled-by-default",
+        approval_ref="approval-ref:credential-vault:wrong-run-revoke",
+        approval_scope_ref="approval-scope-ref:provider-runtime:required",
+        budget_decision_ref=enrollment.budget_decision_ref,
+        expected_receipt_ref="receipt-ref:credential-vault:wrong-run-revoke",
+        idempotency_ref="idempotency-ref:credential-vault:wrong-run-revoke",
+    )
+    with pytest.raises(ValueError, match="RECORD_SCOPE_MISMATCH"):
+        backend.revoke_secret_ref(
+            wrong_run_revoke,
+            approval_authority=exact_authority_for_revoke(wrong_run_revoke),
+        )
+
+    wrong_model_rotation = LocalCredentialVaultRotationRequiredRequest(
+        run_id=enrollment.run_id,
+        secret_ref=enroll.secret_ref,
+        provider_ref=enrollment.provider_ref,
+        model_ref="model-ref:openai-compatible:different",
+        credential_ref=enrollment.credential_ref,
+        rotation_required_ref="rotation-ref:credential-vault:wrong-model",
+        policy_ref="policy-ref:provider-runtime:disabled-by-default",
+        approval_ref="approval-ref:credential-vault:wrong-model-rotation",
+        approval_scope_ref="approval-scope-ref:provider-runtime:required",
+        budget_decision_ref=enrollment.budget_decision_ref,
+        expected_receipt_ref="receipt-ref:credential-vault:wrong-model-rotation",
+        idempotency_ref="idempotency-ref:credential-vault:wrong-model-rotation",
+    )
+    with pytest.raises(ValueError, match="RECORD_SCOPE_MISMATCH"):
+        backend.mark_rotation_required(
+            wrong_model_rotation,
+            approval_authority=exact_authority_for_rotation(wrong_model_rotation),
+        )
+
+    assert len(backend.ledger_path.read_text(encoding="utf-8").splitlines()) == 1
 
 
 def test_available_secret_ref_still_cannot_authorize_runtime() -> None:
@@ -258,24 +317,33 @@ def test_revoke_and_rotation_required_are_durable_safe_ref_postures(tmp_path: Pa
     rotation_request = LocalCredentialVaultRotationRequiredRequest(
         run_id=enrollment.run_id,
         secret_ref=enroll.secret_ref,
+        provider_ref=enrollment.provider_ref,
+        model_ref=enrollment.model_ref,
+        credential_ref=enrollment.credential_ref,
         rotation_required_ref="rotation-ref:credential-vault:required",
         policy_ref="policy-ref:provider-runtime:disabled-by-default",
         approval_ref="approval-ref:credential-vault:rotation",
         approval_scope_ref="approval-scope-ref:provider-runtime:required",
+        budget_decision_ref=enrollment.budget_decision_ref,
         expected_receipt_ref="receipt-ref:credential-vault:rotation",
         idempotency_ref="idempotency-ref:credential-vault:rotation",
     )
+    rotation_authority = exact_authority_for_rotation(rotation_request)
     rotation = backend.mark_rotation_required(
         rotation_request,
-        approval_authority=exact_authority_for_rotation(rotation_request),
+        approval_authority=rotation_authority,
     )
     revoke_request = LocalCredentialVaultRevokeRequest(
         run_id=enrollment.run_id,
         secret_ref=enroll.secret_ref,
+        provider_ref=enrollment.provider_ref,
+        model_ref=enrollment.model_ref,
+        credential_ref=enrollment.credential_ref,
         revocation_ref="revocation-ref:credential-vault:revoked",
         policy_ref="policy-ref:provider-runtime:disabled-by-default",
         approval_ref="approval-ref:credential-vault:revoke",
         approval_scope_ref="approval-scope-ref:provider-runtime:required",
+        budget_decision_ref=enrollment.budget_decision_ref,
         expected_receipt_ref="receipt-ref:credential-vault:revoke",
         idempotency_ref="idempotency-ref:credential-vault:revoke",
     )
@@ -293,6 +361,34 @@ def test_revoke_and_rotation_required_are_durable_safe_ref_postures(tmp_path: Pa
     assert payload["record"]["posture"] == "secret_ref_revoked"
     assert payload["receipt"]["raw_secret_material_persisted"] is False
     assert payload["receipt"]["provider_invocation_enabled"] is False
+
+    ledger_lines_after_revoke = backend.ledger_path.read_text(encoding="utf-8").splitlines()
+    terminal_rotation_request = LocalCredentialVaultRotationRequiredRequest(
+        run_id=enrollment.run_id,
+        secret_ref=enroll.secret_ref,
+        provider_ref=enrollment.provider_ref,
+        model_ref=enrollment.model_ref,
+        credential_ref=enrollment.credential_ref,
+        rotation_required_ref="rotation-ref:credential-vault:after-revoke",
+        policy_ref="policy-ref:provider-runtime:disabled-by-default",
+        approval_ref="approval-ref:credential-vault:after-revoke-rotation",
+        approval_scope_ref="approval-scope-ref:provider-runtime:required",
+        budget_decision_ref=enrollment.budget_decision_ref,
+        expected_receipt_ref="receipt-ref:credential-vault:after-revoke-rotation",
+        idempotency_ref="idempotency-ref:credential-vault:after-revoke-rotation",
+    )
+    with pytest.raises(ValueError, match="REVOKED_REF_TERMINAL"):
+        backend.mark_rotation_required(
+            terminal_rotation_request,
+            approval_authority=exact_authority_for_rotation(terminal_rotation_request),
+        )
+    with pytest.raises(ValueError, match="REVOKED_REF_TERMINAL"):
+        backend.mark_rotation_required(
+            rotation_request,
+            approval_authority=rotation_authority,
+        )
+    assert backend.ledger_path.read_text(encoding="utf-8").splitlines() == ledger_lines_after_revoke
+    assert backend.inspect().posture == ProviderCredentialVaultPosture.secret_ref_revoked
 
 
 def test_backend_contracts_reject_authority_and_unsafe_refs() -> None:
