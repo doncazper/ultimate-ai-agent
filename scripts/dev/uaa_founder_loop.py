@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Sequence
@@ -18,6 +19,11 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
     FounderLoopActionEnvelopePromotionRequest,
     action_id_to_item_ref,
 )
+from ultimate_ai_agent.core.control_center import (  # noqa: E402
+    FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF,
+    FOUNDER_LOOP_PRODUCT_PROOF_READ_MODEL_SOURCE,
+    FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER,
+)
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
 )
@@ -30,6 +36,7 @@ from ultimate_ai_agent.core.memory import (  # noqa: E402
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import (  # noqa: E402
+    FOUNDER_LOOP_STATE_DIR_ENV,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
@@ -235,6 +242,175 @@ def _inspect_state(args: argparse.Namespace) -> int:
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _safe_loop_proof_step_projection(step: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "step_id": step.get("step_id"),
+        "surface": step.get("surface"),
+        "backend_route_ref": step.get("backend_route_ref"),
+        "frontend_route_ref": step.get("frontend_route_ref"),
+        "status": step.get("status"),
+        "source_refs": list(step.get("source_refs") or []),
+        "evidence_refs": list(step.get("evidence_refs") or []),
+        "receipt_refs": list(step.get("receipt_refs") or []),
+        "blocked_state_refs": list(step.get("blocked_state_refs") or []),
+    }
+
+
+def _loop_spine_state_dir(args: argparse.Namespace) -> Path:
+    if args.state_dir is not None:
+        return Path(args.state_dir)
+    configured = os.environ.get(FOUNDER_LOOP_STATE_DIR_ENV)
+    if configured:
+        return Path(configured)
+    return Path.home() / ".ultimate_ai_agent" / "founder_loop"
+
+
+def _loop_spine_base_output(
+    *,
+    status: str,
+    storage_state: str,
+    inspection_error_ref: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-inspect-loop-spine",
+        "contract_ref": FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF,
+        "source": FOUNDER_LOOP_PRODUCT_PROOF_READ_MODEL_SOURCE,
+        "status": status,
+        "storage_state": storage_state,
+        "inspection_error_ref": inspection_error_ref,
+        "scenario_ref": None,
+        "shared_state_ref": None,
+        "loop_order": list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER),
+        "steps": [],
+        "decision_receipt_status": "state_not_found_no_write",
+        "memory_review_status": "none",
+        "weekly_review_status": "state_not_found_no_write",
+        "morning_briefing_refs": [],
+        "today_refs": [],
+        "action_inbox_refs": [],
+        "receipt_refs": [],
+        "evidence_timeline_refs": [],
+        "memory_review_candidate_refs": [],
+        "memory_review_receipt_refs": [],
+        "weekly_review_refs": [],
+        "blocked_authority_refs": [],
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "provider_model_call_enabled": False,
+        "runtime_model_call_enabled": False,
+        "a2a_runtime_dispatch_enabled": False,
+        "mcp_runtime_dispatch_enabled": False,
+        "browser_execution_enabled": False,
+        "live_web_enabled": False,
+        "connector_write_enabled": False,
+        "email_calendar_send_enabled": False,
+        "crm_write_enabled": False,
+        "account_sync_enabled": False,
+        "shell_subprocess_execution_enabled": False,
+        "background_autonomy_enabled": False,
+        "memory_write_authorized": False,
+        "context_injection_authorized": False,
+        "public_beta_claim_enabled": False,
+        "public_release_claim_enabled": False,
+        "production_authority_enabled": False,
+    }
+
+
+def _inspect_loop_spine(args: argparse.Namespace) -> int:
+    state_dir = _loop_spine_state_dir(args)
+    if not (state_dir / "founder_loop.sqlite3").exists():
+        _print_json(
+            _loop_spine_base_output(
+                status="metadata_only_no_state_found",
+                storage_state="state_not_found_no_write",
+            )
+        )
+        return 0
+
+    try:
+        repo = FounderLoopRepository(
+            state_dir,
+            seed_defaults=False,
+            ensure_storage=False,
+            read_only=True,
+        )
+        proof = repo.founder_loop_product_proof(limit=args.limit)
+    except Exception:
+        _print_json(
+            _loop_spine_base_output(
+                status="existing_state_unreadable_redacted",
+                storage_state="existing_state_unreadable_redacted",
+                inspection_error_ref=(
+                    "error-ref:founder-loop-inspect-loop-spine:read-failed-redacted"
+                ),
+            )
+        )
+        return 0
+
+    read_model = proof["founder_loop_v1_product_proof_read_model"]
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-inspect-loop-spine",
+        "contract_ref": read_model.get("contract_ref"),
+        "source": read_model.get("source"),
+        "status": read_model.get("status"),
+        "storage_state": "existing_state_read_only",
+        "inspection_error_ref": None,
+        "scenario_ref": read_model.get("scenario_ref"),
+        "shared_state_ref": read_model.get("shared_state_ref"),
+        "loop_order": list(read_model.get("loop_order") or []),
+        "steps": [
+            _safe_loop_proof_step_projection(step)
+            for step in read_model.get("steps", [])[: args.limit]
+            if isinstance(step, dict)
+        ],
+        "decision_receipt_status": read_model.get("decision_receipt_status"),
+        "memory_review_status": read_model.get("memory_review_status"),
+        "weekly_review_status": read_model.get("weekly_review_status"),
+        "morning_briefing_refs": list(read_model.get("morning_briefing_refs") or []),
+        "today_refs": list(read_model.get("today_refs") or []),
+        "action_inbox_refs": list(read_model.get("action_inbox_refs") or []),
+        "receipt_refs": list(read_model.get("receipt_refs") or []),
+        "evidence_timeline_refs": list(
+            read_model.get("evidence_timeline_refs") or []
+        ),
+        "memory_review_candidate_refs": list(
+            read_model.get("memory_review_candidate_refs") or []
+        ),
+        "memory_review_receipt_refs": list(
+            read_model.get("memory_review_receipt_refs") or []
+        ),
+        "weekly_review_refs": list(read_model.get("weekly_review_refs") or []),
+        "blocked_authority_refs": list(
+            read_model.get("blocked_authority_refs") or []
+        ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "provider_model_call_enabled": False,
+        "runtime_model_call_enabled": False,
+        "a2a_runtime_dispatch_enabled": False,
+        "mcp_runtime_dispatch_enabled": False,
+        "browser_execution_enabled": False,
+        "live_web_enabled": False,
+        "connector_write_enabled": False,
+        "email_calendar_send_enabled": False,
+        "crm_write_enabled": False,
+        "account_sync_enabled": False,
+        "shell_subprocess_execution_enabled": False,
+        "background_autonomy_enabled": False,
+        "memory_write_authorized": False,
+        "context_injection_authorized": False,
+        "public_beta_claim_enabled": False,
+        "public_release_claim_enabled": False,
+        "production_authority_enabled": False,
     }
     _print_json(output)
     return 0
@@ -907,6 +1083,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inspect_parser.add_argument("--limit", type=int, default=12)
     inspect_parser.set_defaults(func=_inspect_state)
+
+    loop_spine_parser = subparsers.add_parser(
+        "inspect-loop-spine",
+        help=(
+            "Print the seeded/demo-safe Morning Briefing to Weekly Review loop path "
+            "from the backend-owned product proof read model."
+        ),
+    )
+    loop_spine_parser.add_argument("--limit", type=int, default=7)
+    loop_spine_parser.set_defaults(func=_inspect_loop_spine)
 
     promote_parser = subparsers.add_parser(
         "promote-action-envelope",

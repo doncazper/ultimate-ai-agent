@@ -434,6 +434,7 @@ Proof:
 - `docs/control_center/FOUNDER_LOOP_V1_PRODUCT_PROOF_PASS.md`
 - `src/ultimate_ai_agent/core/control_center/founder_loop_product_proof.py`
 - `scripts/inspect_founder_loop_v1_product_proof.py`
+- `scripts/dev/uaa_founder_loop.py inspect-loop-spine`
 - `scripts/verify_founder_loop_v1_product_proof.py`
 - `tests/test_founder_loop_v1_product_proof.py`
 - `apps/control-center/src/components/FounderLoopPanels.tsx`

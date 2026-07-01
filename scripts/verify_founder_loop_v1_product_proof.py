@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 CONTRACT = ROOT / "src/ultimate_ai_agent/core/control_center/founder_loop_product_proof.py"
 STORAGE = ROOT / "src/ultimate_ai_agent/core/storage/founder_loop.py"
 CLI = ROOT / "scripts/inspect_founder_loop_v1_product_proof.py"
+DEV_CLI = ROOT / "scripts/dev/uaa_founder_loop.py"
 FRONTEND_TYPES = ROOT / "apps/control-center/src/api/types.ts"
 FRONTEND_CLIENT = ROOT / "apps/control-center/src/api/client.ts"
 FRONTEND_PANEL = ROOT / "apps/control-center/src/components/FounderLoopPanels.tsx"
@@ -167,6 +168,7 @@ def verify() -> list[str]:
         CONTRACT,
         STORAGE,
         CLI,
+        DEV_CLI,
         FRONTEND_TYPES,
         FRONTEND_CLIENT,
         FRONTEND_PANEL,
@@ -204,8 +206,23 @@ def verify() -> list[str]:
         FRONTEND_PANEL,
         [
             "FounderLoopProductProofPanel",
+            "FounderLoopProofPathPanel",
+            "Founder Loop proof path",
             "Founder Loop V1 product proof",
             "founder_loop_v1_product_proof_read_model",
+        ],
+        failures,
+    )
+    _require(
+        DEV_CLI,
+        [
+            "inspect-loop-spine",
+            "repo-local-command:founder-loop-inspect-loop-spine",
+            "founder_loop_product_proof",
+            "seed_defaults=False",
+            "ensure_storage=False",
+            "read_only=True",
+            "state_not_found_no_write",
         ],
         failures,
     )

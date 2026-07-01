@@ -3590,6 +3590,49 @@ main {
   white-space: nowrap;
 }
 
+.proof-path-panel {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #dde4ee;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.proof-path-panel.missing {
+  border-color: #f0d29a;
+  background: #fffaf0;
+}
+
+.proof-path-summary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.proof-path-summary h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 0.84rem;
+}
+
+.proof-path-rail {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  min-height: 52px;
+  border-radius: 7px;
+}
+
+.proof-path-rail .north-star-loop-step {
+  min-height: 52px;
+  padding: 6px 9px;
+}
+
+.proof-path-rail .north-star-loop-step[aria-current="page"] {
+  background: #f4f8ff;
+  box-shadow: inset 0 3px 0 #2f6fed;
+}
+
 .loop-authority-strip {
   gap: 5px;
 }
@@ -4143,6 +4186,11 @@ th {
   .north-star-loop-rail,
   .north-star-work-grid {
     grid-template-columns: 1fr;
+  }
+
+  .proof-path-summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .north-star-loop-step + .north-star-loop-step {
