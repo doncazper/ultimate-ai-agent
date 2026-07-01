@@ -102,3 +102,16 @@ relationship graph posture, proposal lanes, and later exact local-write
 candidates without granting connector runtime, external CRM writes, sends,
 calendar writes, account sync, provider/model calls, public beta, or
 production authority. Use Prompt 00 in that file for an end-to-end gated run.
+
+## Next capability and product prompts
+
+Stored execution prompts for the next capability/product catch-up sequence live
+in `docs/prompts/uaa_next_capability_product_prompts.md`. They cover MCP
+gateway foundation, A2A gateway foundation, browser automation through
+WebAccessGateway, release-surface proof, macOS setup polish, visual
+regression, durable operator-state recovery, provider/settings diagnostics,
+product-forward front-door copy, and the unified Chat -> Plan -> Action ->
+Evidence thread. They are operator-run prompts, not runtime system prompts,
+and they do not grant MCP/A2A/browser/runtime authority by themselves. Use
+Prompt 00 in that file to split the pack into small, merge-gated PR lanes;
+do not run the whole pack as one implementation by default.

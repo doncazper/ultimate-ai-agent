@@ -16,6 +16,8 @@ import type {
   FounderLoopWeeklyCeoReviewV1ReadModel,
   ProviderCatalog,
   ProviderCostGovernorBinding,
+  ProviderSettingsDiagnosticItem,
+  ProviderSettingsDiagnosticsSummary,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
@@ -301,6 +303,91 @@ const providerReadinessPostures = [
   "unknown_paid_cost_requires_approval",
 ] as const;
 
+const providerSettingsDiagnosticStates = [
+  "configured",
+  "missing",
+  "blocked",
+  "degraded",
+  "revoked",
+  "expired",
+  "cost_blocked",
+  "disabled",
+  "future_scoped",
+] as const;
+
+function providerSettingsDiagnosticItem({
+  diagnosticRef,
+  label,
+  state,
+  stateLabel,
+  reasonCodes,
+  safeSummary,
+  nextSafeAction,
+  blockedAuthorityRefs,
+  evidenceRefs,
+  cliInspectionRefs,
+  providerRef = "provider-ref:not-applicable",
+  modelRef = "model-ref:not-applicable",
+  providerAuthRef = "credential-ref:not-applicable",
+}: {
+  diagnosticRef: string;
+  label: string;
+  state: ProviderSettingsDiagnosticItem["state"];
+  stateLabel: string;
+  reasonCodes: string[];
+  safeSummary: string;
+  nextSafeAction: string;
+  blockedAuthorityRefs: string[];
+  evidenceRefs: string[];
+  cliInspectionRefs: string[];
+  providerRef?: string;
+  modelRef?: string;
+  providerAuthRef?: string;
+}): ProviderSettingsDiagnosticItem {
+  return {
+    diagnostic_ref: diagnosticRef,
+    label,
+    provider_ref: providerRef,
+    model_ref: modelRef,
+    credential_ref: providerAuthRef,
+    state,
+    state_label: stateLabel,
+    reason_codes: reasonCodes,
+    safe_summary: safeSummary,
+    next_safe_action: nextSafeAction,
+    blocked_authority_refs: blockedAuthorityRefs,
+    evidence_refs: evidenceRefs,
+    cli_inspection_refs: cliInspectionRefs,
+    redactions_applied: [
+      "safe_refs_only",
+      "raw_credentials_omitted",
+      "raw_provider_payloads_omitted",
+    ],
+    provider_sdk_call_enabled: false,
+    model_invocation_enabled: false,
+    provider_validation_performed: false,
+    router_execution_authorized: false,
+    connector_write_enabled: false,
+    billing_authority_granted: false,
+    raw_credential_visible: false,
+    raw_provider_payload_persisted: false,
+    settings_mutation_enabled: false,
+    production_authority_enabled: false,
+  };
+}
+
+function providerSettingsDiagnosticCounts(
+  items: ProviderSettingsDiagnosticItem[],
+): ProviderSettingsDiagnosticsSummary["state_counts"] {
+  const counts = Object.fromEntries(
+    providerSettingsDiagnosticStates.map((state) => [state, 0]),
+  ) as ProviderSettingsDiagnosticsSummary["state_counts"];
+  for (const item of items) {
+    counts[item.state] += 1;
+  }
+  return counts;
+}
+
 function providerCostGovernorBinding(
   slug: string,
 ): ProviderCostGovernorBinding {
@@ -347,6 +434,261 @@ function providerCostGovernorBinding(
       "Provider/model use remains blocked until CostGovernor posture includes refs, approvals, and future receipts.",
   };
 }
+
+const providerSettingsDiagnosticItems: ProviderSettingsDiagnosticItem[] = [
+  ...[
+    ["openai-compatible", "OpenAI-compatible provider"],
+    ["anthropic-compatible", "Anthropic-compatible provider"],
+    ["gemini-compatible", "Gemini-compatible provider"],
+  ].map(([slug, label]) =>
+    providerSettingsDiagnosticItem({
+      diagnosticRef: `provider-settings-diagnostic:provider:${slug}:reference`,
+      label,
+      providerRef: `provider:${slug}:reference`,
+      modelRef: `model-ref:${slug}:not-selected`,
+      providerAuthRef: `credential-ref:${slug}:not-configured`,
+      state: "missing",
+      stateLabel: "Missing",
+      reasonCodes: [
+        "CREDENTIAL_REFERENCE_NOT_BOUND",
+        "PROVIDER_MODEL_REFS_REQUIRED",
+        "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+      ],
+      safeSummary:
+        "Provider is visible for credential-reference and CostGovernor planning only; no validation, invocation, or spend authority is enabled.",
+      nextSafeAction:
+        "Bind a provider auth safe ref through a future scoped vault lane.",
+      blockedAuthorityRefs: [
+        "blocked-state:provider-settings-no-secret-entry",
+        "blocked-state:provider-settings-no-provider-sdk-call",
+        "blocked-state:provider-settings-no-model-invocation",
+        "blocked-state:provider-settings-no-billing-authority",
+      ],
+      evidenceRefs: [
+        `provider-manifest-ref:${slug}:reference-only`,
+        `cost-governor-posture-ref:${slug}:required`,
+        `cost-governor-decision-ref:${slug}:blocked`,
+      ],
+      cliInspectionRefs: ["scripts/inspect_provider_credential_readiness.py"],
+    }),
+  ),
+  providerSettingsDiagnosticItem({
+    diagnosticRef: "provider-settings-diagnostic:cost-governor",
+    label: "CostGovernor provider spend boundary",
+    state: "cost_blocked",
+    stateLabel: "Cost blocked",
+    reasonCodes: [
+      "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+      "PROVIDER_MODEL_REFS_REQUIRED",
+      "COST_ESTIMATE_REF_REQUIRED",
+      "BUDGET_DECISION_REF_REQUIRED",
+      "MAX_APPROVED_USD_REF_REQUIRED",
+      "FUTURE_RECEIPT_REFS_REQUIRED",
+    ],
+    safeSummary:
+      "Paid or unknown provider cost is blocked until exact provider/model refs, budget decision refs, max-approved USD refs, and usage/cost receipt refs exist.",
+    nextSafeAction:
+      "Inspect CostGovernor posture and request exact scoped spend approval before any future provider use.",
+    blockedAuthorityRefs: [
+      "blocked-state:provider-settings-unknown-paid-cost",
+      "blocked-state:provider-settings-no-billing-authority",
+      "blocked-state:provider-settings-no-provider-call",
+    ],
+    evidenceRefs: [
+      "docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md",
+      "docs/control_center/PROVIDER_BILLING_AUTHORITY_BOUNDARY.md",
+    ],
+    cliInspectionRefs: ["scripts/inspect_provider_credential_readiness.py"],
+  }),
+  providerSettingsDiagnosticItem({
+    diagnosticRef: "provider-settings-diagnostic:credential-vault",
+    label: "Credential vault adapter",
+    state: "future_scoped",
+    stateLabel: "Future scoped",
+    providerAuthRef: "credential-ref:provider-runtime:not-bound",
+    reasonCodes: [
+      "NO_APPROVED_VAULT_BACKEND",
+      "VAULT_ADAPTER_NOT_SCOPED",
+      "CREDENTIAL_WRITE_NOT_SCOPED",
+    ],
+    safeSummary:
+      "Vault adapter readiness is contract-only; the repo does not collect, store, or reveal provider credential material.",
+    nextSafeAction:
+      "Keep provider auth safe refs inspectable only; require a scoped vault milestone before secret resolution or storage.",
+    blockedAuthorityRefs: [
+      "blocked-state:provider-settings-no-secret-resolution",
+      "blocked-state:provider-settings-no-credential-storage",
+      "blocked-state:provider-settings-no-raw-key-display",
+    ],
+    evidenceRefs: [
+      "docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md",
+      "docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md",
+    ],
+    cliInspectionRefs: [
+      "scripts/inspect_credential_vault_contract.py",
+      "scripts/inspect_credential_vault_backend.py",
+    ],
+  }),
+  providerSettingsDiagnosticItem({
+    diagnosticRef: "provider-settings-diagnostic:credential-enrollment",
+    label: "Credential enrollment",
+    state: "disabled",
+    stateLabel: "Disabled",
+    providerAuthRef: "credential-ref:provider-runtime:not-bound",
+    reasonCodes: [
+      "CREDENTIAL_ENROLLMENT_NOT_SCOPED",
+      "TRANSIENT_SECRET_INTAKE_NOT_APPROVED",
+      "APPROVED_VAULT_BACKEND_REQUIRED",
+    ],
+    safeSummary:
+      "Credential enrollment is disabled; any future enrollment must use exact refs, approval, idempotency, audit, rollback, safe-disable, and an approved vault backend.",
+    nextSafeAction:
+      "Do not enter or store provider secrets; inspect enrollment requirements until a scoped authority lane exists.",
+    blockedAuthorityRefs: [
+      "blocked-state:provider-settings-no-secret-entry",
+      "blocked-state:provider-settings-no-credential-enrollment",
+    ],
+    evidenceRefs: ["docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md"],
+    cliInspectionRefs: ["scripts/inspect_provider_credential_readiness.py"],
+  }),
+  providerSettingsDiagnosticItem({
+    diagnosticRef: "provider-settings-diagnostic:credential-validation",
+    label: "Provider credential validation",
+    state: "disabled",
+    stateLabel: "Disabled",
+    providerRef: "provider-ref:openai-compatible:credential-validation",
+    providerAuthRef: "credential-ref:provider-runtime:not-bound",
+    reasonCodes: [
+      "EXACT_APPROVAL_REQUIRED",
+      "VALIDATION_ADAPTER_DISABLED_BY_DEFAULT",
+      "PROVIDER_SDK_CALL_DENIED",
+    ],
+    safeSummary:
+      "Provider credential-reference validation is exact-approval scoped for one provider lane; the app default remains validation-blocked with no provider SDK, model invocation, billing authority, raw credential display, or provider response persistence.",
+    nextSafeAction:
+      "Use the validation route only with exact approval, idempotency, revocation, and redacted receipt refs.",
+    blockedAuthorityRefs: [
+      "blocked-state:provider-settings-validation-blocked",
+      "blocked-state:provider-settings-no-provider-sdk-call",
+      "blocked-state:provider-settings-no-model-invocation",
+    ],
+    evidenceRefs: [
+      "docs/control_center/PROVIDER_CREDENTIAL_VALIDATION_LANE.md",
+    ],
+    cliInspectionRefs: [
+      "scripts/inspect_provider_credential_validation_lane.py",
+    ],
+  }),
+  providerSettingsDiagnosticItem({
+    diagnosticRef: "provider-settings-diagnostic:governed-invocation",
+    label: "Governed provider invocation",
+    state: "blocked",
+    stateLabel: "Blocked",
+    reasonCodes: [
+      "PROVIDER_INVOCATION_NOT_SCOPED",
+      "POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED",
+      "PROVIDER_OUTPUT_NOT_AUTHORITY",
+    ],
+    safeSummary:
+      "Governed provider invocation remains disabled; any future invocation requires policy, approval, provider auth references, provider allowlists, redacted summaries, receipts, audit refs, safe-disable behavior, and rate or budget boundaries.",
+    nextSafeAction:
+      "Keep invocation blocked until PolicyEngine, exact local approval, provider auth safe refs, receipts, audit refs, and safe-disable posture are proven together.",
+    blockedAuthorityRefs: [
+      "blocked-state:provider-settings-no-provider-call",
+      "blocked-state:provider-settings-no-model-invocation",
+      "blocked-state:provider-settings-no-provider-output-authority",
+    ],
+    evidenceRefs: [
+      "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
+    ],
+    cliInspectionRefs: ["scripts/inspect_tiny_provider_invocation_lane.py"],
+  }),
+  providerSettingsDiagnosticItem({
+    diagnosticRef: "provider-settings-diagnostic:tiny-lane",
+    label: "Tiny exact-approved provider lane",
+    state: "disabled",
+    stateLabel: "Disabled",
+    providerRef: "provider-ref:openai-compatible:tiny-exact-approved",
+    modelRef: "model-ref:openai-compatible:tiny-contract-model",
+    providerAuthRef: "credential-ref:provider-runtime:not-bound",
+    reasonCodes: [
+      "TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT",
+      "EXACT_APPROVAL_REQUIRED",
+      "COST_GOVERNOR_DECISION_REQUIRED",
+    ],
+    safeSummary:
+      "Tiny exact-approved provider lane remains disabled by default and requires exact approval, CostGovernor posture, redacted receipts, and complete actual usage/cost refs.",
+    nextSafeAction:
+      "Inspect exact scope and receipt requirements; default execution remains disabled.",
+    blockedAuthorityRefs: [
+      "blocked-state:provider-settings-tiny-lane-disabled",
+      "blocked-state:provider-settings-live-adapter-blocked",
+      "blocked-state:provider-settings-incomplete-cost-blocks-use",
+    ],
+    evidenceRefs: [
+      "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
+    ],
+    cliInspectionRefs: ["scripts/inspect_tiny_provider_invocation_lane.py"],
+  }),
+  providerSettingsDiagnosticItem({
+    diagnosticRef: "provider-settings-diagnostic:router-dry-run",
+    label: "Provider router dry-run",
+    state: "future_scoped",
+    stateLabel: "Future scoped",
+    reasonCodes: [
+      "PROPOSAL_ONLY",
+      "PROVIDER_INVOCATION_NOT_AUTHORIZED",
+      "FALLBACK_EXECUTION_NOT_AUTHORIZED",
+    ],
+    safeSummary:
+      "Provider router dry-run is proposal-only local posture over safe refs; it does not call providers, validate credentials, or execute fallback.",
+    nextSafeAction:
+      "Review proposal-only routing refs; do not treat eligible provider refs as fallback execution authority.",
+    blockedAuthorityRefs: [
+      "blocked-state:provider-settings-router-proposal-only",
+      "blocked-state:provider-settings-no-fallback-execution",
+      "blocked-state:provider-settings-no-broad-router-authority",
+    ],
+    evidenceRefs: ["docs/control_center/PROVIDER_ROUTER_DRY_RUN.md"],
+    cliInspectionRefs: ["scripts/inspect_provider_router_dry_run.py"],
+  }),
+];
+
+const providerSettingsDiagnostics: ProviderSettingsDiagnosticsSummary = {
+  schema_version: "provider_settings_diagnostics.v1",
+  status: "readable_diagnostics_only",
+  safe_summary:
+    "Provider and Settings diagnostics are backend-owned readable posture only; they do not grant provider, credential, billing, router, or settings mutation authority.",
+  route_refs: [
+    "GET /control-center/dashboard",
+    "GET /control-center/settings/status",
+    "GET /control-center/providers/setup-guide",
+  ],
+  supported_states: [...providerSettingsDiagnosticStates],
+  state_counts: providerSettingsDiagnosticCounts(providerSettingsDiagnosticItems),
+  items: providerSettingsDiagnosticItems,
+  next_safe_action:
+    "Inspect safe provider/settings refs and request a later scoped milestone before enabling validation, invocation, billing, router execution, or settings mutation.",
+  cli_inspection_refs: [
+    "scripts/inspect_settings_authority_posture.py",
+    "scripts/inspect_provider_credential_readiness.py",
+    "scripts/inspect_provider_credential_validation_lane.py",
+    "scripts/inspect_provider_router_dry_run.py",
+    "scripts/inspect_tiny_provider_invocation_lane.py",
+  ],
+  evidence_refs: [
+    "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+    "docs/control_center/PROVIDER_SETTINGS_DIAGNOSTICS.md",
+  ],
+  provider_sdk_call_enabled: false,
+  model_invocation_enabled: false,
+  provider_validation_performed: false,
+  router_execution_authorized: false,
+  billing_authority_granted: false,
+  settings_mutation_enabled: false,
+  raw_payload_persistence_enabled: false,
+  production_authority_enabled: false,
+};
 
 function providerCatalogCard({
   slug,
@@ -4545,6 +4887,7 @@ export const mockControlCenterData: ControlCenterData = {
           "EXACT_APPROVAL_SCOPE_REQUIRED_FOR_ANY_FUTURE_USE",
         ],
       },
+      provider_settings_diagnostics: providerSettingsDiagnostics,
       providers: [
         {
           provider_id: "provider:openai-compatible:reference",

@@ -4048,6 +4048,65 @@ export interface ProviderCostGovernorBinding {
   safe_summary: string;
 }
 
+export type ProviderSettingsDiagnosticState =
+  | "configured"
+  | "missing"
+  | "blocked"
+  | "degraded"
+  | "revoked"
+  | "expired"
+  | "cost_blocked"
+  | "disabled"
+  | "future_scoped";
+
+export interface ProviderSettingsDiagnosticItem {
+  diagnostic_ref: string;
+  label: string;
+  provider_ref: string;
+  model_ref: string;
+  credential_ref: string;
+  state: ProviderSettingsDiagnosticState;
+  state_label: string;
+  reason_codes: string[];
+  safe_summary: string;
+  next_safe_action: string;
+  blocked_authority_refs: string[];
+  evidence_refs: string[];
+  cli_inspection_refs: string[];
+  redactions_applied: string[];
+  provider_sdk_call_enabled: boolean;
+  model_invocation_enabled: boolean;
+  provider_validation_performed: boolean;
+  router_execution_authorized: boolean;
+  connector_write_enabled: boolean;
+  billing_authority_granted: boolean;
+  raw_credential_visible: boolean;
+  raw_provider_payload_persisted: boolean;
+  settings_mutation_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface ProviderSettingsDiagnosticsSummary {
+  schema_version: "provider_settings_diagnostics.v1";
+  status: "readable_diagnostics_only";
+  safe_summary: string;
+  route_refs: string[];
+  supported_states: ProviderSettingsDiagnosticState[];
+  state_counts: Record<ProviderSettingsDiagnosticState, number>;
+  items: ProviderSettingsDiagnosticItem[];
+  next_safe_action: string;
+  cli_inspection_refs: string[];
+  evidence_refs: string[];
+  provider_sdk_call_enabled: boolean;
+  model_invocation_enabled: boolean;
+  provider_validation_performed: boolean;
+  router_execution_authorized: boolean;
+  billing_authority_granted: boolean;
+  settings_mutation_enabled: boolean;
+  raw_payload_persistence_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface ProviderCredentialVaultAdapterReadiness {
   credential_ref: string;
   provider_id: string;
@@ -4338,6 +4397,7 @@ export interface ProviderCredentialReadinessSummary {
   invocation_readiness: GovernedProviderInvocationReadiness;
   tiny_invocation_readiness: TinyProviderInvocationReadiness;
   router_dry_run_readiness: ProviderRouterDryRunReadiness;
+  provider_settings_diagnostics: ProviderSettingsDiagnosticsSummary;
   providers: ProviderCredentialReadinessItem[];
   blocker_codes: string[];
   future_gate: string;

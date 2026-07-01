@@ -113,7 +113,9 @@ live web, no browser runtime, no public beta, and no production authority.
 Provider Catalog + Cost Literacy is a backend-owned read-only guide in
 `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`,
 Provider Credential Readiness + Cost Governor Binding is documented in
-`docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, and the
+`docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`,
+Provider And Settings Diagnostics is documented in
+`docs/control_center/PROVIDER_SETTINGS_DIAGNOSTICS.md`, and the
 Credential Vault Contract Shell is documented in
 `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, Credential Vault
 Backend V1 is documented in
@@ -197,7 +199,10 @@ product-truth ledgers.
 | Founder Command Center planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md` |
 | CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py` |
 | CRM M1 Fixture-Only Vertical Shell | `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, `src/ultimate_ai_agent/core/crm/fixtures.py`, `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, `tests/test_crm_m1_fixture_only_vertical_shell.py` |
-| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md`, `docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`, `docs/control_center/PROVIDER_BILLING_AUTHORITY_BOUNDARY.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `src/ultimate_ai_agent/core/providers/invocation.py`, `src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, `src/ultimate_ai_agent/core/providers/credential_validation.py`, `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, `src/ultimate_ai_agent/core/secrets/vault_backend.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/inspect_credential_vault_contract.py`, `scripts/inspect_credential_vault_backend.py`, `scripts/inspect_tiny_provider_invocation_lane.py`, `scripts/inspect_provider_credential_validation_lane.py`, `scripts/inspect_exact_approved_provider_fallback.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py`, `scripts/verify_credential_vault_contract_shell.py`, `scripts/verify_credential_vault_backend_v1.py`, `scripts/verify_provider_invocation_promotion_plan.py`, `scripts/verify_tiny_provider_invocation_lane.py`, `scripts/verify_provider_credential_validation_lane.py`, `scripts/verify_background_autonomous_provider_plan.py`, `scripts/verify_provider_billing_authority_boundary.py` |
+| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `docs/control_center/PROVIDER_SETTINGS_DIAGNOSTICS.md`, `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md`, `docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`, `docs/control_center/PROVIDER_BILLING_AUTHORITY_BOUNDARY.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `src/ultimate_ai_agent/core/providers/invocation.py`, `src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, `src/ultimate_ai_agent/core/providers/credential_validation.py`, `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, `src/ultimate_ai_agent/core/secrets/vault_backend.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/inspect_credential_vault_contract.py`, `scripts/inspect_credential_vault_backend.py`, `scripts/inspect_tiny_provider_invocation_lane.py`, `scripts/inspect_provider_credential_validation_lane.py`, `scripts/inspect_exact_approved_provider_fallback.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py`, `scripts/verify_credential_vault_contract_shell.py`, `scripts/verify_credential_vault_backend_v1.py`, `scripts/verify_provider_invocation_promotion_plan.py`, `scripts/verify_tiny_provider_invocation_lane.py`, `scripts/verify_provider_credential_validation_lane.py`, `scripts/verify_background_autonomous_provider_plan.py`, `scripts/verify_provider_billing_authority_boundary.py` |
+| MCP gateway foundation and capability promotion ladder | `docs/tooling/UAA_MCP_GATEWAY_FOUNDATION.md`, `docs/tooling/CAPABILITY_PROMOTION_LADDER.md`, `src/ultimate_ai_agent/core/capabilities/mcp_gateway.py`, `tests/test_mcp_gateway_foundation.py`, `scripts/verify_mcp_gateway_foundation.py` |
+| A2A gateway foundation | `docs/remote/UAA_A2A_GATEWAY_FOUNDATION.md`, `docs/tooling/CAPABILITY_PROMOTION_LADDER.md`, `src/ultimate_ai_agent/core/capabilities/a2a_gateway.py`, `tests/test_a2a_gateway_foundation.py`, `scripts/verify_a2a_gateway_foundation.py` |
+| Browser Gateway Ladder | `docs/browser/UAA_BROWSER_GATEWAY_LADDER.md`, `docs/tooling/CAPABILITY_PROMOTION_LADDER.md`, `src/ultimate_ai_agent/core/web_access/browser_gateway_ladder.py`, `tests/test_browser_gateway_ladder.py`, `scripts/verify_browser_gateway_ladder.py` |
 | Memory Workbench V1 and Ranked Retrieval / Recall Tuning | `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_022_RANKED_RETRIEVAL_RECALL_TUNING.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md` |
 | Agent module maturity review | `docs/registry/agent_module_maturity_map.json`, `docs/registry/agent_module_maturity_review_v2.json`, `docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` |
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |
@@ -317,6 +322,7 @@ Use these before release-facing claims or milestone status changes:
 ```bash
 make verify
 make verify-fast
+make verify-dev-fast
 .venv/bin/python scripts/verify_documentation_integrity.py
 .venv/bin/python scripts/verify_verifier_maintainability.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
@@ -324,10 +330,16 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
 ```
 
-`make verify-fast` is the local sharded verifier: it runs `ruff`, `test`,
-`verify-static`, and `verify-gate-architecture` as make prerequisites, then
-generates a Foundation Gate report in `report-only --no-write-latest` mode. It
-does not grant release readiness or replace populated release evidence packets.
+`make verify` remains the conservative serial release-grade local gate.
+`make verify-fast` keeps the older serial local shard composition. Use
+`make verify-dev-fast` for faster local pre-review feedback: it runs `ruff`,
+`test`, `verify-static`, and `verify-gate-architecture` through a bounded
+`make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then serializes Foundation Gate in
+`report-only --no-write-latest` mode. It records the existing static verifier
+timings through `VERIFY_TIMINGS_JSON` and keeps pytest on the normal non-xdist
+runner. It does not grant release readiness or replace populated release
+evidence packets; PR final proof should still include full `make verify` until
+parallel equivalence is accepted.
 
 The named release lanes are described in
 `docs/production/RELEASE_VERIFICATION_LANES.md`. Release evidence packets are

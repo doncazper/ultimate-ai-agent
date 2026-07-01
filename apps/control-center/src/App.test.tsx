@@ -5286,6 +5286,22 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("heading", { name: /Provider credential readiness/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Provider and Settings diagnostics/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/readable_diagnostics_only/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByText(/CostGovernor provider spend boundary/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/^Missing$/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Disabled$/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Future scoped$/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/scripts\/inspect_provider_router_dry_run\.py/i)
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/Above-budget estimate/i).length,
@@ -5564,6 +5580,16 @@ describe("Web Control Center shell", () => {
     (
       unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
     ).status = "router-ready-bypass";
+    (
+      unsafeReadiness.provider_settings_diagnostics as Record<string, unknown>
+    ).provider_sdk_call_enabled = true;
+    (
+      unsafeReadiness.provider_settings_diagnostics as Record<string, unknown>
+    ).status = "unsafe_provider_settings_diagnostics";
+    ((
+      unsafeReadiness.provider_settings_diagnostics as Record<string, unknown>
+    ).items as Array<Record<string, unknown>>)[0].state_label =
+      "Unsafe enabled diagnostic";
     unsafeDashboard.provider_credential_readiness = unsafeReadiness;
 
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
@@ -5620,6 +5646,12 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/tiny-ready-bypass/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/router-ready-bypass/i)).not.toBeInTheDocument();
     expect(
+      screen.queryByText(/unsafe_provider_settings_diagnostics/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Unsafe enabled diagnostic/i),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByRole("button", {
         name: /validate provider|invoke provider/i,
       }),
@@ -5639,6 +5671,20 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("heading", { name: /Provider credential readiness/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Provider and Settings diagnostics/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Cost blocked/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Credential vault adapter/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Provider router dry-run/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/scripts\/inspect_settings_authority_posture\.py/i)
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/reference_readiness_only/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Provider invocation/i).length).toBeGreaterThan(
       0,
@@ -5721,17 +5767,17 @@ describe("Web Control Center shell", () => {
       screen.getAllByText(/VALIDATION_ADAPTER_DISABLED_BY_DEFAULT/i).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/CREDENTIAL_ENROLLMENT_NOT_SCOPED/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/CREDENTIAL_ENROLLMENT_NOT_SCOPED/i).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/TRANSIENT_SECRET_INTAKE_NOT_APPROVED/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/TRANSIENT_SECRET_INTAKE_NOT_APPROVED/i).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/APPROVED_VAULT_BACKEND_REQUIRED/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/APPROVED_VAULT_BACKEND_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/OpenAI-compatible provider/i).length,
     ).toBeGreaterThan(0);
