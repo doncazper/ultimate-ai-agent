@@ -2561,6 +2561,7 @@ describe("Web Control Center shell", () => {
       ["/inbox", /^Source Inbox$/i],
       ["/actions", /^Action Inbox$/i],
       ["/briefing", /Morning Briefing/i],
+      ["/crm", /CRM M1 fixture-only shell/i],
       ["/private-trial", /Private Operator Trial/i],
       ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
@@ -4933,6 +4934,12 @@ describe("Web Control Center shell", () => {
     expect(palette).toHaveTextContent("Runtime - partial");
 
     fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
+      target: { value: "crm" },
+    });
+    expect(palette).toHaveTextContent("CRM");
+    expect(palette).toHaveTextContent("Founder Loop - blocked");
+
+    fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
       target: { value: "local state" },
     });
     expect(palette).toHaveTextContent("Storage");
@@ -5038,6 +5045,59 @@ describe("Web Control Center shell", () => {
 
       unmount();
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders CRM M1 fixture-only shell without CRM authority", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/crm");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /CRM M1 fixture-only shell/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:crm-m1-fixture-only-vertical-shell:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("route-ref:control-center:crm-fixture-only-shell"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Real Estate Realtor")).toBeInTheDocument();
+    expect(screen.getByText("Healthcare")).toBeInTheDocument();
+    expect(screen.getByText("Finance Insurance")).toBeInTheDocument();
+    expect(screen.getByText("Retail E-commerce")).toBeInTheDocument();
+    expect(screen.getByText("Professional Services")).toBeInTheDocument();
+    expect(
+      screen.getByText("No CRM write controls are available"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Backend read model").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(screen.getByText("Backend route").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(screen.getByText("Connector runtime").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(screen.getByText("Sends/calendar").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(
+      screen.queryByText(/GET \/control-center\/crm/i),
+    ).not.toBeInTheDocument();
+    for (const unsafeControl of [
+      /send/i,
+      /sync/i,
+      /import/i,
+      /write/i,
+      /execute/i,
+      /connect/i,
+    ]) {
+      expect(
+        screen.queryByRole("button", { name: unsafeControl }),
+      ).not.toBeInTheDocument();
     }
   });
 

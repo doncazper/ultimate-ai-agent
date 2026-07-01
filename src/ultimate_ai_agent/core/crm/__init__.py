@@ -35,6 +35,7 @@ from ultimate_ai_agent.core.crm.contracts import (
     validate_crm_communications_spine_contract,
 )
 from ultimate_ai_agent.core.crm.fixtures import (
+    CRM_M1_CONTROL_CENTER_ROUTE_REF,
     CRM_M1_FIXTURE_CONTRACT_REF,
     CRM_M1_FIXTURE_DOC_REF,
     CRM_M1_FIXTURE_VERIFIER_REF,
@@ -58,6 +59,7 @@ __all__ = [
     "CRM_COMMUNICATIONS_SPINE_LOCKED_ARCHITECTURE",
     "CRM_COMMUNICATIONS_SPINE_VERIFIER_REF",
     "CRM_M1_FIXTURE_CONTRACT_REF",
+    "CRM_M1_CONTROL_CENTER_ROUTE_REF",
     "CRM_M1_FIXTURE_DOC_REF",
     "CRM_M1_FIXTURE_VERIFIER_REF",
     "CRM_M1_REQUIRED_BLOCKED_REFS",

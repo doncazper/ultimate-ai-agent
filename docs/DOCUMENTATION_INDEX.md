@@ -93,10 +93,11 @@ in `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, backed by
 `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, and
 `tests/test_crm_m1_fixture_only_vertical_shell.py`. It adds fixture_only
 vertical metadata for Real Estate/Realtor, Healthcare, Finance/Insurance,
-Retail/E-commerce, and Professional Services while adding no /crm UI, no
-backend endpoints, no connector runtime, no connector writes, no external CRM
-writes, no account sync, no sends, no calendar writes, no provider/model calls,
-no live web, no browser runtime, no public beta, and no production authority.
+Retail/E-commerce, and Professional Services plus a fixture-only `/crm`
+Control Center shell route while adding no backend endpoints, no backend CRM
+read model, no connector runtime, no connector writes, no external CRM writes,
+no account sync, no sends, no calendar writes, no provider/model calls, no
+live web, no browser runtime, no public beta, and no production authority.
 
 Provider Catalog + Cost Literacy is backend-owned read-only metadata in
 `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, with Provider

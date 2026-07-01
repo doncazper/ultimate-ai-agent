@@ -689,6 +689,68 @@
       ]
     },
     {
+      "path": "/crm",
+      "label": "CRM",
+      "group": "Founder Loop",
+      "ui_status": "fixture-only",
+      "status": "blocked",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "scripts/verify_crm_m1_fixture_only_vertical_shell.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "tests/test_crm_m1_fixture_only_vertical_shell.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:crm-m1-backend-read-model",
+        "missing_backend:control-center-crm-read-route",
+        "missing_backend:crm-cli-inspection-read-model",
+        "missing_backend:crm-connector-runtime-contract",
+        "missing_backend:crm-write-proposal-contract",
+        "connector_runtime",
+        "external_crm_write",
+        "account_sync",
+        "contact_import",
+        "send",
+        "calendar_write",
+        "provider_model_calls",
+        "live_web",
+        "browser_automation",
+        "hidden_context_injection",
+        "public_beta_claim",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "apps/control-center/src/components/CrmM1FixtureShellPanel.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "crm-m1-fixture-shell",
+      "backend_contract_rationale": "no-backend-route:crm-fixture-only-shell:explicitly-blocked",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:crm:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline exists for /crm yet; the route is fixture-only and remains blocked from release promotion until a scoped visual proof lane is accepted.",
+      "promotion_criteria": [
+        "Add accepted backend/core CRM read-model contracts before claiming backend-backed CRM behavior.",
+        "Add OpenAPI/API manifest, CLI inspection, and focused tests before any CRM backend route exists.",
+        "Record checked-in redacted visual baseline proof or accepted no-baseline rationale before route maturity promotion.",
+        "Keep connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, public release, production readiness, and production authority blocked until separately accepted."
+      ],
+      "product_language_caveats": [
+        "Release status is blocked because /crm is fixture-only and is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only over CRM M1 fixture refs.",
+        "Route visibility does not grant connector writes, CRM writes, sends, calendar writes, provider/model calls, browser execution, hidden context injection, broad runtime authority, or hidden autonomy."
+      ]
+    },
+    {
       "path": "/briefing",
       "label": "Briefing",
       "group": "Founder Loop",

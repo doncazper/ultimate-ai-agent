@@ -3,6 +3,7 @@ import { ActionPreviewForm } from "./components/ActionPreviewForm";
 import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
 import { ContextProposalSurfacePanel } from "./components/ContextProposalSurfacePanel";
+import { CrmM1FixtureShellPanel } from "./components/CrmM1FixtureShellPanel";
 import { DashboardSummary } from "./components/DashboardSummary";
 import { DifferentiatorScreensPanel } from "./components/DifferentiatorScreensPanel";
 import {
@@ -82,6 +83,7 @@ export const navItems: NavItem[] = [
   { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", releaseStatus: "ship", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "status-backed", releaseStatus: "partial", role: "primary" },
   { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "supporting" },
+  { path: "/crm", label: "CRM", group: "Founder Loop", status: "fixture-only", releaseStatus: "blocked", role: "supporting" },
   { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a-2c packet", releaseStatus: "experimental", role: "supporting" },
   { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", releaseStatus: "partial", role: "supporting" },
   { path: "/setup", label: "Setup", group: "Review", status: "dry-run", releaseStatus: "partial", role: "supporting" },
@@ -229,6 +231,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
           <MorningBriefingPanel briefing={data.founderMorningBriefing} />
         </>
       );
+    case "/crm":
+      return <CrmM1FixtureShellPanel fixture={data.crmM1FixtureShell} />;
     case "/private-trial":
       return <PrivateOperatorTrialPanel />;
     case "/storage":

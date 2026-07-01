@@ -211,7 +211,7 @@ def _assert_docs() -> None:
 
 
 def _assert_no_m0_routes() -> None:
-    route_markers = ["/control-center/crm", "control-center/crm", '"/crm"', "path: \"/crm\""]
+    route_markers = ["/control-center/crm", "control-center/crm"]
     for root in [ROOT / "src", ROOT / "apps"]:
         for path in root.rglob("*"):
             if path.is_dir() or path.suffix not in {".py", ".ts", ".tsx"}:

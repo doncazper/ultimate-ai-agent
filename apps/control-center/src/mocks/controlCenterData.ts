@@ -1,5 +1,7 @@
 import type {
   ControlCenterData,
+  CrmM1FixtureShell,
+  CrmM1VerticalFixture,
   FounderLoopChatToLoopHandoffOutcome,
   FounderLoopChatToLoopHandoffReadModel,
   FounderLoopEvidenceTimelineNarrativeReadModel,
@@ -48,6 +50,246 @@ const providerCatalogBlockers = [
 ];
 
 const providerCatalogLastVerifiedAt = "2026-06-25";
+
+const crmM1StateLabels = [
+  "fixture_only",
+  "read_only",
+  "proposal_only",
+  "blocked",
+] as const;
+
+const crmM1BlockedAuthorityRefs = [
+  "blocked-state-ref:crm-comms-m0:no-connector-writes",
+  "blocked-state-ref:crm-comms-m0:no-email-or-message-sends",
+  "blocked-state-ref:crm-comms-m0:no-calendar-writes",
+  "blocked-state-ref:crm-comms-m0:no-silent-identity-merge",
+  "blocked-state-ref:crm-comms-m0:no-silent-contact-creation",
+  "blocked-state-ref:crm-comms-m0:no-provider-model-calls",
+  "blocked-state-ref:crm-comms-m0:no-live-web-or-browser-runtime",
+  "blocked-state-ref:crm-comms-m0:no-account-sync",
+  "blocked-state-ref:crm-comms-m0:no-backend-crm-route-or-runtime-ui-authority",
+  "blocked-state-ref:crm-m1:no-backend-read-model-yet",
+  "blocked-state-ref:crm-m1:no-backend-route-yet",
+  "blocked-state-ref:crm-m1:no-ui-runtime-authority",
+];
+
+const crmM1ControlCenterRouteRef =
+  "route-ref:control-center:crm-fixture-only-shell";
+
+function crmM1VerticalFixture({
+  kind,
+  label,
+  lanes,
+  objects,
+  pipelines,
+  preset,
+  queues,
+}: {
+  kind: CrmM1VerticalFixture["workspace_kind"];
+  label: string;
+  lanes: string[];
+  objects: string[];
+  pipelines: string[];
+  preset: string;
+  queues: string[];
+}): CrmM1VerticalFixture {
+  const suffix = kind.replaceAll("_", "-");
+  const evidenceRef = `evidence-ref:crm-m1:${suffix}:fixture-map`;
+  return {
+    workspace_kind: kind,
+    source_m0_contract_ref: "contract-ref:crm-communications-spine-m0:v1",
+    source_preset_pack_ref: `preset-pack-ref:crm:${preset}:m0`,
+    safe_display_label: label,
+    state: "fixture_only",
+    nav_refs: [
+      `nav-ref:crm-m0:${suffix}`,
+      `nav-ref:crm-m1:${suffix}:workspace`,
+    ],
+    object_kind_refs: objects.map(
+      (item) => `object-kind-ref:crm-m1:${suffix}:${item}`,
+    ),
+    work_queue_refs: queues.map(
+      (item) => `work-queue-ref:crm-m1:${suffix}:${item}`,
+    ),
+    pipeline_refs: pipelines.map(
+      (item) => `pipeline-ref:crm-m1:${suffix}:${item}`,
+    ),
+    inspector_section_refs: [
+      `inspector-section-ref:crm-m1:${suffix}:relationship`,
+      `inspector-section-ref:crm-m1:${suffix}:blocked-authority`,
+    ],
+    state_labels: [...crmM1StateLabels],
+    pipeline_lanes: lanes.map((lane) => ({
+      lane_ref: `pipeline-lane-ref:crm-m1:${suffix}:${lane}`,
+      safe_label: lane.replaceAll("-", " "),
+      state: "fixture_only",
+      item_refs: [`pipeline-item-ref:crm-m1:${suffix}:${lane}:sample`],
+      evidence_refs: [evidenceRef],
+    })),
+    screen_sections: [
+      {
+        section_ref: `section-ref:crm-m1:${suffix}:pipeline`,
+        section_kind: "pipeline",
+        safe_label: "Fixture pipeline",
+        state: "fixture_only",
+        evidence_refs: [evidenceRef],
+        blocked_authority_refs: [],
+      },
+      {
+        section_ref: `section-ref:crm-m1:${suffix}:relationship-inspector`,
+        section_kind: "relationship_inspector",
+        safe_label: "Relationship inspector",
+        state: "fixture_only",
+        evidence_refs: [evidenceRef],
+        blocked_authority_refs: [],
+      },
+      {
+        section_ref: `section-ref:crm-m1:${suffix}:work-queue`,
+        section_kind: "work_queue",
+        safe_label: "Review work queue",
+        state: "proposal_only",
+        evidence_refs: [evidenceRef],
+        blocked_authority_refs: [],
+      },
+      {
+        section_ref: `section-ref:crm-m1:${suffix}:communications-metadata`,
+        section_kind: "communications_metadata",
+        safe_label: "Communications metadata placeholders",
+        state: "blocked",
+        evidence_refs: [evidenceRef],
+        blocked_authority_refs: [
+          "blocked-state-ref:crm-comms-m0:no-email-or-message-sends",
+          "blocked-state-ref:crm-comms-m0:no-calendar-writes",
+          "blocked-state-ref:crm-comms-m0:no-account-sync",
+        ],
+      },
+      {
+        section_ref: `section-ref:crm-m1:${suffix}:blocked-authority`,
+        section_kind: "blocked_authority",
+        safe_label: "Blocked authority posture",
+        state: "blocked",
+        evidence_refs: [evidenceRef],
+        blocked_authority_refs: crmM1BlockedAuthorityRefs,
+      },
+    ],
+    communications_metadata_refs: [
+      `communication-ref:crm-m1:${suffix}:metadata-placeholder`,
+    ],
+    evidence_refs: [evidenceRef],
+    memory_provenance_refs: [
+      `memory-ref:crm-m1:${suffix}:reviewed-recall-only`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:crm-m1:${suffix}:review-fixture`,
+      `next-safe-action-ref:crm-m1:${suffix}:record-blockers`,
+    ],
+    blocked_authority_refs: crmM1BlockedAuthorityRefs,
+    fixture_only: true,
+    backend_read_model_added: false,
+    backend_route_added: false,
+    control_center_route_added: true,
+    control_center_route_ref: crmM1ControlCenterRouteRef,
+    connector_runtime_enabled: false,
+    connector_write_enabled: false,
+    account_sync_enabled: false,
+    send_enabled: false,
+    calendar_write_enabled: false,
+    contact_import_enabled: false,
+    silent_identity_merge_enabled: false,
+    provider_model_call_enabled: false,
+    live_web_enabled: false,
+    browser_runtime_enabled: false,
+    hidden_context_injection_enabled: false,
+    production_authority_enabled: false,
+  };
+}
+
+const crmM1FixtureShell: CrmM1FixtureShell = {
+  contract_ref: "contract-ref:crm-m1-fixture-only-vertical-shell:v1",
+  docs_refs: [
+    "docs-ref:crm-m1-fixture-only-vertical-shell",
+    "script-ref:verify-crm-m1-fixture-only",
+  ],
+  source_m0_contract_ref: "contract-ref:crm-communications-spine-m0:v1",
+  source: "python_core_crm_m1_fixture_contract",
+  state: "fixture_only",
+  state_labels: [...crmM1StateLabels],
+  verticals: [
+    crmM1VerticalFixture({
+      kind: "real_estate",
+      label: "Real Estate Realtor",
+      lanes: ["new-lead", "active-client", "showing", "offer", "closing"],
+      objects: ["lead", "buyer", "seller", "listing", "showing", "offer"],
+      pipelines: ["lead-to-closing"],
+      preset: "real-estate",
+      queues: ["follow-up", "showing-review", "offer-review"],
+    }),
+    crmM1VerticalFixture({
+      kind: "healthcare",
+      label: "Healthcare",
+      lanes: ["new-referral", "intake-review", "coordination", "handoff"],
+      objects: ["referral", "intake", "care-team", "organization"],
+      pipelines: ["referral-to-intake"],
+      preset: "healthcare",
+      queues: ["referral-follow-up", "handoff-review", "consent-review"],
+    }),
+    crmM1VerticalFixture({
+      kind: "finance_insurance",
+      label: "Finance Insurance",
+      lanes: ["prospect", "needs-review", "proposal", "renewal", "blocked"],
+      objects: ["prospect", "household", "policy", "opportunity", "renewal"],
+      pipelines: ["opportunity-renewal"],
+      preset: "finance-insurance",
+      queues: ["renewal-review", "risk-review", "proposal-review"],
+    }),
+    crmM1VerticalFixture({
+      kind: "retail_ecommerce",
+      label: "Retail E-commerce",
+      lanes: ["new-cohort", "at-risk", "proposal", "retention"],
+      objects: [
+        "customer-cohort",
+        "order-metadata",
+        "support-case",
+        "campaign-proposal",
+      ],
+      pipelines: ["customer-retention"],
+      preset: "retail-ecommerce",
+      queues: ["retention-follow-up", "support-review", "campaign-review"],
+    }),
+    crmM1VerticalFixture({
+      kind: "professional_services",
+      label: "Professional Services",
+      lanes: ["lead", "proposal", "active-project", "commitment"],
+      objects: ["lead", "client", "project", "proposal", "commitment"],
+      pipelines: ["lead-proposal-project"],
+      preset: "professional-services",
+      queues: ["promise-follow-up", "proposal-review", "account-health-review"],
+    }),
+  ],
+  blocked_authority_refs: crmM1BlockedAuthorityRefs,
+  prompts_executed_refs: Array.from(
+    { length: 12 },
+    (_, index) => `prompt-ref:crm-product-sequence:${String(index + 1).padStart(2, "0")}`,
+  ),
+  fixture_only: true,
+  backend_read_model_added: false,
+  backend_route_added: false,
+  control_center_route_added: true,
+  control_center_route_ref: crmM1ControlCenterRouteRef,
+  connector_runtime_enabled: false,
+  connector_write_enabled: false,
+  account_sync_enabled: false,
+  send_enabled: false,
+  calendar_write_enabled: false,
+  contact_import_enabled: false,
+  silent_identity_merge_enabled: false,
+  provider_model_call_enabled: false,
+  live_web_enabled: false,
+  browser_runtime_enabled: false,
+  hidden_context_injection_enabled: false,
+  public_beta_claimed: false,
+  production_authority_enabled: false,
+};
 
 const providerReadinessPostures = [
   "configured",
@@ -3946,6 +4188,7 @@ export const mockControlCenterData: ControlCenterData = {
       "no_model_calls",
     ],
   },
+  crmM1FixtureShell,
   manifest: {
     manifest_id: "mock_control_center_manifest_m36",
     version: "v0.104.0",

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from ultimate_ai_agent.core.crm import (
+    CRM_M1_CONTROL_CENTER_ROUTE_REF,
     CRM_M1_FIXTURE_CONTRACT_REF,
     CRM_M1_REQUIRED_BLOCKED_REFS,
     CRM_M1_REQUIRED_STATE_LABELS,
@@ -25,7 +26,8 @@ def test_crm_m1_fixture_map_builds_prompt_ordered_verticals() -> None:
     assert fixture_map.fixture_only is True
     assert fixture_map.backend_read_model_added is False
     assert fixture_map.backend_route_added is False
-    assert fixture_map.control_center_route_added is False
+    assert fixture_map.control_center_route_added is True
+    assert fixture_map.control_center_route_ref == CRM_M1_CONTROL_CENTER_ROUTE_REF
     assert fixture_map.connector_runtime_enabled is False
     assert fixture_map.send_enabled is False
     assert fixture_map.calendar_write_enabled is False
@@ -71,7 +73,8 @@ def test_crm_m1_verticals_are_screen_ready_but_fixture_only() -> None:
             for section in vertical.screen_sections
         )
         assert vertical.backend_route_added is False
-        assert vertical.control_center_route_added is False
+        assert vertical.control_center_route_added is True
+        assert vertical.control_center_route_ref == CRM_M1_CONTROL_CENTER_ROUTE_REF
         assert vertical.contact_import_enabled is False
         assert vertical.silent_identity_merge_enabled is False
 
@@ -94,7 +97,6 @@ def test_crm_m1_vertical_fixture_terms_are_distinct() -> None:
     [
         ("backend_read_model_added", "CRM_M1_BACKEND_READ_MODEL_DENIED"),
         ("backend_route_added", "CRM_M1_BACKEND_ROUTE_DENIED"),
-        ("control_center_route_added", "CRM_M1_CONTROL_CENTER_ROUTE_DENIED"),
         ("connector_runtime_enabled", "CRM_M1_CONNECTOR_RUNTIME_DENIED"),
         ("connector_write_enabled", "CRM_M1_CONNECTOR_WRITE_DENIED"),
         ("account_sync_enabled", "CRM_M1_ACCOUNT_SYNC_DENIED"),
@@ -104,6 +106,7 @@ def test_crm_m1_vertical_fixture_terms_are_distinct() -> None:
         ("live_web_enabled", "CRM_M1_LIVE_WEB_DENIED"),
         ("browser_runtime_enabled", "CRM_M1_BROWSER_RUNTIME_DENIED"),
         ("hidden_context_injection_enabled", "CRM_M1_CONTEXT_INJECTION_DENIED"),
+        ("public_beta_claimed", "CRM_M1_PUBLIC_BETA_DENIED"),
         ("production_authority_enabled", "CRM_M1_PRODUCTION_AUTHORITY_DENIED"),
     ],
 )
@@ -120,7 +123,15 @@ def test_crm_m1_fixture_map_rejects_authority_creep(
 
 def test_crm_m1_vertical_rejects_authority_creep() -> None:
     payload = build_crm_m1_fixture_map().model_dump(mode="python")
-    payload["verticals"][0]["control_center_route_added"] = True
+    payload["verticals"][0]["backend_route_added"] = True
 
-    with pytest.raises(ValueError, match="CRM_M1_CONTROL_CENTER_ROUTE_DENIED"):
+    with pytest.raises(ValueError, match="CRM_M1_BACKEND_ROUTE_DENIED"):
+        validate_crm_m1_fixture_map(payload)
+
+
+def test_crm_m1_fixture_map_requires_control_center_fixture_shell_route() -> None:
+    payload = build_crm_m1_fixture_map().model_dump(mode="python")
+    payload["control_center_route_added"] = False
+
+    with pytest.raises(ValueError, match="CRM_M1_CONTROL_CENTER_FIXTURE_ROUTE_REQUIRED"):
         validate_crm_m1_fixture_map(payload)

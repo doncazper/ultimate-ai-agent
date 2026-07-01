@@ -20,7 +20,7 @@ distribution, or broad-authority runtime.
 |---|---|
 | What is it? | A Python Agent Core with a FastAPI contract boundary, a React/TypeScript Control Center shell, and local-first governance for proposals, approvals, receipts, memory review, and evidence. |
 | What does it demonstrate? | API contracts, route classification, local approval authority, idempotency posture, redacted evidence, durable receipts, frontend/backend parity, and disciplined product-language controls. |
-| What is usable now? | Proofed route surfaces for `/actions`, `/chat`, `/memory`, and `/evidence`; partial/status surfaces for Today, Plans, Settings, Runtime, and local model readiness. |
+| What is usable now? | Proofed route surfaces for `/actions`, `/chat`, `/memory`, and `/evidence`; partial/status surfaces for Today, Plans, Settings, Runtime, and local model readiness; and a fixture-only `/crm` shell for blocked CRM vertical review. |
 | What is intentionally not claimed? | Production readiness, public release, broad autonomy, connector writes, unrestricted shell/browser/network authority, provider/model authority, hidden context injection, and generic action execution. |
 
 ## Product North Star
@@ -79,6 +79,7 @@ curated gallery and snapshot caveats.
 | Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
 | Evidence | Productized safe-ref timeline for proposals, decisions, receipts, and memory-review events. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
 | Today, Plans, Settings, Runtime, Models | Partial/status/readiness surfaces. Useful for inspection, not full product completion. | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
+| CRM | Fixture-only `/crm` Control Center shell for vertical review. No backend CRM route, connector runtime, account sync, sends, calendar writes, or CRM write authority exists. | [docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md](docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md) |
 | Inbox/email/calendar connectors | Planned or blocked contract lanes only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
 
 ## Architecture At A Glance
@@ -298,6 +299,7 @@ npm --prefix apps/control-center run test -- --run
 | `/memory` | Proofed bounded route surface | Review decisions and L1/L2/L3 read-only indexes exist. |
 | `/evidence` | Proofed bounded route surface | Productized timeline events and receipts exist. |
 | `/today` | Partial | Product spine exists; broader workflow is still staged. |
+| `/crm` | Fixture-only/blocked | Presentation shell only; backend CRM read models, API routes, connector runtime, and writes remain blocked. |
 | `/inbox` | Blocked/future | Connector workflows are not granted. |
 | `/settings` | Partial/support | Runtime authority is not granted by settings UI. |
 | Local models | Partial/support | Readiness evidence only; no broad production authority. |

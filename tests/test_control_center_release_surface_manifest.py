@@ -55,7 +55,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "blocked",
         "experimental",
     ]
-    assert len(manifest["routes"]) == len(visible_routes) == 33
+    assert len(manifest["routes"]) == len(visible_routes) == 34
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/today"]["status"] == "partial"
     assert by_path["/today"]["backend_contract_rationale"] == "backend-route-refs-present"
@@ -93,6 +93,11 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/settings"]["status"] == "partial"
     assert by_path["/settings"]["backend_routes"][0]["path"] == (
         "/control-center/settings/status"
+    )
+    assert by_path["/crm"]["status"] == "blocked"
+    assert by_path["/crm"]["backend_routes"] == []
+    assert "missing_backend:control-center-crm-read-route" in (
+        by_path["/crm"]["blocked_capabilities"]
     )
     assert by_path["/chat"]["approval_required"] is True
     assert by_path["/files/review"]["approval_required"] is True

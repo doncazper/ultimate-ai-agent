@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.crm import (  # noqa: E402
+    CRM_M1_CONTROL_CENTER_ROUTE_REF,
     CRM_M1_FIXTURE_CONTRACT_REF,
     CRM_M1_REQUIRED_BLOCKED_REFS,
     CRM_M1_REQUIRED_STATE_LABELS,
@@ -63,6 +64,8 @@ DOC_REQUIRED = [
     "Finance/Insurance",
     "Retail/E-commerce",
     "Professional Services",
+    "fixture-only `/crm` Control Center shell",
+    "route-ref:control-center:crm-fixture-only-shell",
     "fixture_only",
     "read_only",
     "proposal_only",
@@ -110,6 +113,10 @@ def _assert_fixture_map() -> None:
     fixture_map = validate_crm_m1_fixture_map(build_crm_m1_fixture_map())
     if fixture_map.contract_ref != CRM_M1_FIXTURE_CONTRACT_REF:
         _fail("contract ref drifted")
+    if fixture_map.control_center_route_ref != CRM_M1_CONTROL_CENTER_ROUTE_REF:
+        _fail("Control Center fixture shell route ref drifted")
+    if fixture_map.control_center_route_added is not True:
+        _fail("Control Center fixture shell route must be recorded")
     if fixture_map.state_labels != CRM_M1_REQUIRED_STATE_LABELS:
         _fail("state labels drifted")
     if [vertical.workspace_kind for vertical in fixture_map.verticals] != CRM_M1_VERTICAL_ORDER:
@@ -125,7 +132,6 @@ def _assert_fixture_map() -> None:
     denied_flags = [
         "backend_read_model_added",
         "backend_route_added",
-        "control_center_route_added",
         "connector_runtime_enabled",
         "connector_write_enabled",
         "account_sync_enabled",
@@ -145,26 +151,60 @@ def _assert_fixture_map() -> None:
             _fail(f"fixture map does not deny {field_name}")
 
 
-def _assert_no_runtime_or_routes() -> None:
+def _assert_no_runtime_or_backend_routes() -> None:
     for path in [FIXTURE_SOURCE]:
         text = _read(path).lower()
         for marker in BANNED_RUNTIME_MARKERS:
             if marker in text:
                 _fail(f"{path.relative_to(ROOT)} contains banned runtime marker {marker}")
-    route_markers = ['"/crm"', "path: \"/crm\"", "/control-center/crm", "control-center/crm"]
+    backend_route_markers = ["/control-center/crm", "control-center/crm"]
     for root in [ROOT / "src", ROOT / "apps"]:
         for path in root.rglob("*"):
             if path.is_dir() or path.suffix not in {".py", ".ts", ".tsx"}:
                 continue
             text = path.read_text(encoding="utf-8").lower()
-            for marker in route_markers:
+            for marker in backend_route_markers:
                 if marker in text:
-                    _fail(f"CRM M1 must not add route marker {marker} in {path.relative_to(ROOT)}")
+                    _fail(f"CRM M1 must not add backend route marker {marker} in {path.relative_to(ROOT)}")
+
+
+def _assert_control_center_fixture_shell_route() -> None:
+    routes_text = _read(ROOT / "apps/control-center/src/routes.tsx")
+    app_test_text = _read(ROOT / "apps/control-center/src/App.test.tsx")
+    panel_text = _read(ROOT / "apps/control-center/src/components/CrmM1FixtureShellPanel.tsx")
+    mock_data_text = _read(ROOT / "apps/control-center/src/mocks/controlCenterData.ts")
+    for fragment in [
+        'path: "/crm"',
+        'label: "CRM"',
+        "<CrmM1FixtureShellPanel",
+    ]:
+        if fragment not in routes_text:
+            _fail(f"routes.tsx missing fixture shell marker: {fragment}")
+    for fragment in [
+        "CRM M1 fixture-only shell",
+        "No CRM write controls are available",
+    ]:
+        if fragment not in panel_text:
+            _fail(f"CRM fixture shell panel missing fragment: {fragment}")
+    for fragment in [
+        "contract-ref:crm-m1-fixture-only-vertical-shell:v1",
+        CRM_M1_CONTROL_CENTER_ROUTE_REF,
+    ]:
+        if fragment not in mock_data_text:
+            _fail(f"controlCenterData.ts missing CRM fixture fragment: {fragment}")
+    for fragment in [
+        "renders CRM M1 fixture-only shell",
+        "/crm",
+        "No CRM write controls are available",
+    ]:
+        if fragment not in app_test_text:
+            _fail(f"App.test.tsx missing CRM route assertion: {fragment}")
 
 
 def main() -> int:
     _assert_fixture_map()
-    _assert_no_runtime_or_routes()
+    _assert_no_runtime_or_backend_routes()
+    _assert_control_center_fixture_shell_route()
     _require(DOC, DOC_REQUIRED)
     for path in [DOCS_README, DOCS_INDEX, TRUTH_PACKET, CURRENT_BOARD]:
         _require(path, INDEX_REQUIRED)

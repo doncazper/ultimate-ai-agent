@@ -66,7 +66,7 @@ CRM_COMMUNICATIONS_REQUIRED_DENIAL_REFS = [
     "blocked-state-ref:crm-comms-m0:no-provider-model-calls",
     "blocked-state-ref:crm-comms-m0:no-live-web-or-browser-runtime",
     "blocked-state-ref:crm-comms-m0:no-account-sync",
-    "blocked-state-ref:crm-comms-m0:no-crm-route-or-ui-yet",
+    "blocked-state-ref:crm-comms-m0:no-backend-crm-route-or-runtime-ui-authority",
 ]
 
 SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{2,190}$")

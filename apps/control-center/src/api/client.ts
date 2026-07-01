@@ -380,6 +380,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     founderSourceReadiness: normalizedFounderSourceReadiness.value,
     founderStorageStatus:
       founderStorageStatus ?? mockControlCenterData.founderStorageStatus,
+    crmM1FixtureShell: mockControlCenterData.crmM1FixtureShell,
     source: "api",
     connection: mockControlCenterData.connection,
   };

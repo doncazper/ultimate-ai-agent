@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.crm.contracts import (
 CRM_M1_FIXTURE_CONTRACT_REF = "contract-ref:crm-m1-fixture-only-vertical-shell:v1"
 CRM_M1_FIXTURE_DOC_REF = "docs-ref:crm-m1-fixture-only-vertical-shell"
 CRM_M1_FIXTURE_VERIFIER_REF = "script-ref:verify-crm-m1-fixture-only"
+CRM_M1_CONTROL_CENTER_ROUTE_REF = "route-ref:control-center:crm-fixture-only-shell"
 
 CRM_M1_REQUIRED_STATE_LABELS = [
     CrmImplementationState.fixture_only,
@@ -40,8 +41,8 @@ CRM_M1_VERTICAL_ORDER = [
 
 CRM_M1_REQUIRED_BLOCKED_REFS = [
     *CRM_COMMUNICATIONS_REQUIRED_DENIAL_REFS,
-    "blocked-state-ref:crm-m1:no-control-center-route-yet",
     "blocked-state-ref:crm-m1:no-backend-read-model-yet",
+    "blocked-state-ref:crm-m1:no-backend-route-yet",
     "blocked-state-ref:crm-m1:no-ui-runtime-authority",
 ]
 
@@ -121,7 +122,8 @@ class CrmM1VerticalFixture(_CrmM1Model):
     fixture_only: bool = True
     backend_read_model_added: bool = False
     backend_route_added: bool = False
-    control_center_route_added: bool = False
+    control_center_route_added: bool = True
+    control_center_route_ref: str = CRM_M1_CONTROL_CENTER_ROUTE_REF
     connector_runtime_enabled: bool = False
     connector_write_enabled: bool = False
     account_sync_enabled: bool = False
@@ -159,6 +161,9 @@ class CrmM1VerticalFixture(_CrmM1Model):
             raise ValueError("CRM_M1_VERTICAL_FIXTURE_ONLY_STATE_REQUIRED")
         if not self.fixture_only:
             raise ValueError("CRM_M1_VERTICAL_FIXTURE_ONLY_REQUIRED")
+        _validate_ref(self.control_center_route_ref, "control_center_route_ref")
+        if not self.control_center_route_added:
+            raise ValueError("CRM_M1_CONTROL_CENTER_FIXTURE_ROUTE_REQUIRED")
         for ref in CRM_M1_REQUIRED_BLOCKED_REFS:
             if ref not in self.blocked_authority_refs:
                 raise ValueError("CRM_M1_BLOCKED_AUTHORITY_REFS_REQUIRED")
@@ -192,7 +197,8 @@ class CrmM1FixtureMap(_CrmM1Model):
     fixture_only: bool = True
     backend_read_model_added: bool = False
     backend_route_added: bool = False
-    control_center_route_added: bool = False
+    control_center_route_added: bool = True
+    control_center_route_ref: str = CRM_M1_CONTROL_CENTER_ROUTE_REF
     connector_runtime_enabled: bool = False
     connector_write_enabled: bool = False
     account_sync_enabled: bool = False
@@ -224,10 +230,15 @@ class CrmM1FixtureMap(_CrmM1Model):
             raise ValueError("CRM_M1_DUPLICATE_VERTICAL_DENIED")
         if not self.fixture_only:
             raise ValueError("CRM_M1_FIXTURE_ONLY_REQUIRED")
+        _validate_ref(self.control_center_route_ref, "control_center_route_ref")
+        if not self.control_center_route_added:
+            raise ValueError("CRM_M1_CONTROL_CENTER_FIXTURE_ROUTE_REQUIRED")
         for ref in CRM_M1_REQUIRED_BLOCKED_REFS:
             if ref not in self.blocked_authority_refs:
                 raise ValueError("CRM_M1_BLOCKED_AUTHORITY_REFS_REQUIRED")
         _deny_true_flags(self, CRM_M1_AUTHORITY_DENIALS)
+        if self.public_beta_claimed:
+            raise ValueError("CRM_M1_PUBLIC_BETA_DENIED")
         return self
 
 
@@ -369,7 +380,6 @@ def _reject_private_text(payload: Any) -> None:
 CRM_M1_AUTHORITY_DENIALS = [
     ("backend_read_model_added", "CRM_M1_BACKEND_READ_MODEL_DENIED"),
     ("backend_route_added", "CRM_M1_BACKEND_ROUTE_DENIED"),
-    ("control_center_route_added", "CRM_M1_CONTROL_CENTER_ROUTE_DENIED"),
     ("connector_runtime_enabled", "CRM_M1_CONNECTOR_RUNTIME_DENIED"),
     ("connector_write_enabled", "CRM_M1_CONNECTOR_WRITE_DENIED"),
     ("account_sync_enabled", "CRM_M1_ACCOUNT_SYNC_DENIED"),

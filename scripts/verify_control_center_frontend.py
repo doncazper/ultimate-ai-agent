@@ -278,6 +278,7 @@ AGENTS_DOC = "AGENTS.md"
 REQUIRED_OPERATOR_SHELL_SURFACES = [
     "Chat Local Operator",
     "Plans",
+    "CRM",
     "Models",
     "Approvals",
     "Files",
@@ -1198,6 +1199,7 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
             )
 
     for required_action in [
+        "navigate-crm",
         "submit-action-preview",
         "select-local-detail-card",
         "toggle-review-only-file-decision",

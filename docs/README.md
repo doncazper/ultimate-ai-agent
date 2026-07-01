@@ -103,13 +103,13 @@ CRM M1 Fixture-Only Vertical Shell is a deterministic screen-ready fixture map
 in `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`,
 `src/ultimate_ai_agent/core/crm/fixtures.py`,
 `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, and
-`tests/test_crm_m1_fixture_only_vertical_shell.py`. It covers Real
-Estate/Realtor, Healthcare, Finance/Insurance, Retail/E-commerce, and
-Professional Services as fixture_only metadata only while adding no /crm UI,
-no backend endpoints, no connector runtime, no connector writes, no external
-CRM writes, no account sync, no sends, no calendar writes, no provider/model
-calls, no live web, no browser runtime, no public beta, and no production
-authority.
+`tests/test_crm_m1_fixture_only_vertical_shell.py`, with a fixture-only `/crm`
+Control Center shell route. It covers Real Estate/Realtor, Healthcare,
+Finance/Insurance, Retail/E-commerce, and Professional Services as
+fixture_only metadata only while adding no backend endpoints, no backend CRM
+read model, no connector runtime, no connector writes, no external CRM writes,
+no account sync, no sends, no calendar writes, no provider/model calls, no
+live web, no browser runtime, no public beta, and no production authority.
 Provider Catalog + Cost Literacy is a backend-owned read-only guide in
 `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`,
 Provider Credential Readiness + Cost Governor Binding is documented in
