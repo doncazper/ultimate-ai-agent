@@ -69,6 +69,7 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
         "verify-static:",
         "verify-gate-architecture:",
         "verify-fast:",
+        "verify-dev-fast:",
         "verify-local:",
         "frontend-check:",
         "openapi:",
@@ -77,12 +78,15 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
         assert target in text
     assert "PYTHON := .venv/bin/python" in text
     assert "VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json" in text
+    assert "VERIFY_DEV_FAST_JOBS ?= 4" in text
     assert "PYTHONPATH=src $(PYTHON) -m pytest" in text
     assert "$(PYTHON) scripts/verify_all.py" in text
     assert (
         "$(PYTHON) scripts/verify_all.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON)"
         in text
     )
+    assert "$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture" in text
+    assert "verify-local: verify-dev-fast" in text
     assert "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py" in text
     assert "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only" in text
     assert (

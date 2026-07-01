@@ -219,14 +219,20 @@ Run focused checks before broad gates.
 make doctor
 make verify
 make verify-fast
+make verify-dev-fast
 make frontend-check
 ```
 
-`make verify` preserves the serial all-in verification contract. `make verify-fast`
-shards local verification into `ruff`, `test`, `verify-static`, and
-`verify-gate-architecture` prerequisites before generating a report-only
-Foundation Gate summary with `--no-write-latest`; it is local verification
-evidence, not a release-readiness claim by itself.
+`make verify` preserves the conservative serial all-in verification contract and
+remains the release-grade local gate. `make verify-fast` keeps the older serial
+local shard composition. `make verify-dev-fast` is the opt-in faster local lane:
+it runs `ruff`, `test`, `verify-static`, and `verify-gate-architecture` through
+a bounded `make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then generates a serialized
+report-only Foundation Gate summary with `--no-write-latest`. It records static
+verification timings through `VERIFY_TIMINGS_JSON`, uses the normal non-xdist
+pytest suite, and is local verification evidence, not a release-readiness claim
+by itself. PR final proof should still include full `make verify` until parallel
+equivalence is accepted.
 
 Useful direct checks:
 

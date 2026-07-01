@@ -317,6 +317,7 @@ Use these before release-facing claims or milestone status changes:
 ```bash
 make verify
 make verify-fast
+make verify-dev-fast
 .venv/bin/python scripts/verify_documentation_integrity.py
 .venv/bin/python scripts/verify_verifier_maintainability.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
@@ -324,10 +325,16 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
 .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
 ```
 
-`make verify-fast` is the local sharded verifier: it runs `ruff`, `test`,
-`verify-static`, and `verify-gate-architecture` as make prerequisites, then
-generates a Foundation Gate report in `report-only --no-write-latest` mode. It
-does not grant release readiness or replace populated release evidence packets.
+`make verify` remains the conservative serial release-grade local gate.
+`make verify-fast` keeps the older serial local shard composition. Use
+`make verify-dev-fast` for faster local pre-review feedback: it runs `ruff`,
+`test`, `verify-static`, and `verify-gate-architecture` through a bounded
+`make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then serializes Foundation Gate in
+`report-only --no-write-latest` mode. It records the existing static verifier
+timings through `VERIFY_TIMINGS_JSON` and keeps pytest on the normal non-xdist
+runner. It does not grant release readiness or replace populated release
+evidence packets; PR final proof should still include full `make verify` until
+parallel equivalence is accepted.
 
 The named release lanes are described in
 `docs/production/RELEASE_VERIFICATION_LANES.md`. Release evidence packets are
