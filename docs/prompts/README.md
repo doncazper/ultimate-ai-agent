@@ -115,3 +115,13 @@ Evidence thread. They are operator-run prompts, not runtime system prompts,
 and they do not grant MCP/A2A/browser/runtime authority by themselves. Use
 Prompt 00 in that file to split the pack into small, merge-gated PR lanes;
 do not run the whole pack as one implementation by default.
+
+## Public-facing portfolio/developer-preview readiness pass
+
+The UAA-specific public-facing readiness prompt lives in
+`docs/prompts/uaa_public_preview_perfection_pass.prompt.md`. It adapts a
+generic repo-polish/public-preview prompt to UAA's current truth: Founder
+Command Center positioning, local-first governed Agent Core, public
+portfolio/developer-preview readiness, product-language honesty, sanitized
+visuals, release-surface proof, and no public beta/release/distribution or
+broad runtime authority claims.
