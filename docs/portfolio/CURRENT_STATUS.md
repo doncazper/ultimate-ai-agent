@@ -38,7 +38,7 @@ public release, public beta, public distribution, or broad autonomy claims.
 | Area | Implemented scope |
 |---|---|
 | Baseline | Active product/package baseline is `v0.104.0` / `0.104.0`. |
-| API boundary | FastAPI/OpenAPI boundary with 147 paths, `/api/manifest`, route classification, auth posture, approval posture, idempotency posture, targeted local rate-limit posture, and route inventory checks. |
+| API boundary | FastAPI/OpenAPI boundary with 151 paths, `/api/manifest`, route classification, auth posture, approval posture, idempotency posture, targeted local rate-limit posture, and route inventory checks. |
 | Product language | Control Center product-language rules and operator readiness taxonomy distinguish shipped, partial, planned, blocked, skipped, mock-only, status-only, review-only, validation-only, and not-scoped states. |
 | Founder Loop V1 proof lane | `FCC-V1-000` through `FCC-V1-007` are complete for bounded route-surface proof: release surface truth, API perimeter posture, Action decisions, Today-to-Action receipt loop, Chat receipts/handoff, Memory Review decisions, Evidence Timeline productization, and proofed `/actions`, `/chat`, `/memory`, and `/evidence` surfaces. |
 | Action Inbox | Backend-owned approve/edit/reject/defer decision state, idempotency replay/conflict posture, local receipt refs, receipt visibility, and one exact approved `local_task_create` local task lane. |
@@ -83,6 +83,7 @@ public release, public beta, public distribution, or broad autonomy claims.
 | Area | Boundary |
 |---|---|
 | Mock/degraded Control Center fallback data | Can show UI shape, but cannot claim backend-owned truth, approval eligibility, or local task commit readiness. |
+| CRM M1 `/crm` shell | Fixture-only Control Center presentation over accepted CRM M1 fixture refs. It does not have backend CRM endpoints, a backend CRM read model, connector runtime, connector writes, account sync, contact import, sends, calendar writes, provider/model calls, live web, browser runtime, public beta, public release, production readiness, or production authority. |
 | React-only UI state | Limited to presentation concerns such as filters, selected tabs, expanded panels, selected rows, and layout preferences. |
 | Preview/review-only controls | Can explain proposed state, validation posture, or review posture. They do not execute or grant authority. |
 
