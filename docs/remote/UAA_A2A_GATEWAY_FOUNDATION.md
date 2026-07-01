@@ -43,15 +43,26 @@ up to blocked/proposal posture. It does not implement the invocation step.
   receipt refs.
 - A2A trust, auth, and activation posture enums.
 - A2A-to-UAA capability candidate import.
+- Spec-shaped A2A 1.0 Agent Card fixture parsing into safe refs only,
+  including `supportedInterfaces`, protocol binding/version metadata, provider
+  metadata, capabilities, security posture, modes, skills, and signatures.
 - Proposal-only handoff envelopes.
 - Exact delegation approval-binding contracts.
 - Blocked receipt contracts.
 - Replay/audit records.
 
 `CapabilityRegistry.manifest_from_a2a_agent_card()` imports existing
-`A2AAgentCardMinimal` records through those contracts. The resulting
-`CapabilityManifest` is an A2A capability candidate, not a callable remote
-agent.
+`UAAA2AAgentCardMetadataImport` records through those contracts. The legacy
+`A2AAgentCardMinimal` Python name remains only as a temporary internal alias
+for that UAA-local metadata import shim. It is not an official A2A protocol
+Agent Card. The resulting `CapabilityManifest` is an A2A capability candidate,
+not a callable remote agent.
+
+`A2AAgentCardV1` parses official-shaped A2A 1.0 Agent Card fixtures for
+compatibility tests only. `a2a_v1_agent_card_to_metadata()` converts that shape
+into UAA-owned safe refs and redacted metadata; it does not fetch well-known
+cards, select transports, authenticate peers, call JSON-RPC/HTTP/gRPC methods,
+or dispatch work.
 
 ## Blocked-By-Default Posture
 
@@ -73,16 +84,16 @@ evidence. Use safe refs and redacted summaries only.
 ## Approval Boundary
 
 Approval refs are identifiers only until validated. A future exact approval
-must match:
+must match both metadata and an explicit approval context:
 
 - exact agent ref
 - exact card ref
 - exact UAA capability id
-- exact task ref
-- exact handoff ref
+- exact task ref from `A2AExactDelegationApprovalContext`
+- exact handoff ref from `A2AExactDelegationApprovalContext`
 - exact requested grant refs
 - exact credential refs when required
-- exact expiration ref
+- exact expiration ref from `A2AExactDelegationApprovalContext`
 - exact expected receipt ref
 - exact revocation ref
 

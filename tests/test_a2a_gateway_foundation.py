@@ -3,11 +3,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from ultimate_ai_agent.core.adapters import A2AAgentCardMinimal
+from ultimate_ai_agent.core.adapters import A2AAgentCardMinimal, A2AAgentCardV1, UAAA2AAgentCardMetadataImport
 from ultimate_ai_agent.core.capabilities import (
     A2A_REVIEW_AUTH_SCOPE,
     A2AAgentMetadata,
     A2AAuthPosture,
+    A2AExactDelegationApprovalContext,
     A2AExactDelegationApprovalBinding,
     A2ATrustPosture,
     CapabilityApprovalGrant,
@@ -17,6 +18,7 @@ from ultimate_ai_agent.core.capabilities import (
     TaskEnvelope,
     a2a_agent_card_to_metadata,
     a2a_agent_metadata_to_capability_candidate,
+    a2a_v1_agent_card_to_metadata,
     build_a2a_blocked_receipt,
     build_a2a_handoff_proposal,
     build_a2a_replay_audit_record,
@@ -25,7 +27,7 @@ from ultimate_ai_agent.core.capabilities import (
 from ultimate_ai_agent.core.capabilities.enums import CapabilityAuthorityLevel, CoordinationMode, RiskLevel, SideEffectLevel
 
 
-def _card(**overrides: object) -> A2AAgentCardMinimal:
+def _card(**overrides: object) -> UAAA2AAgentCardMetadataImport:
     data = {
         "agent_id": "research-agent",
         "name": "Research Agent",
@@ -35,7 +37,74 @@ def _card(**overrides: object) -> A2AAgentCardMinimal:
         "version": "0.1.0",
     }
     data.update(overrides)
-    return A2AAgentCardMinimal(**data)
+    return UAAA2AAgentCardMetadataImport(**data)
+
+
+def _a2a_v1_agent_card_fixture() -> dict[str, object]:
+    return {
+        "name": "GeoSpatial Route Planner Agent",
+        "description": "Provides route planning and map generation services.",
+        "supportedInterfaces": [
+            {
+                "url": "https://geo-agent.example.invalid/a2a/v1",
+                "protocolBinding": "JSONRPC",
+                "protocolVersion": "1.0",
+            },
+            {
+                "url": "https://geo-agent.example.invalid/a2a/json",
+                "protocolBinding": "HTTP+JSON",
+                "protocolVersion": "1.0",
+            },
+        ],
+        "provider": {
+            "organization": "Example Geo Services",
+            "url": "https://geo-services.example.invalid",
+        },
+        "iconUrl": "https://geo-agent.example.invalid/icon.png",
+        "version": "1.2.0",
+        "documentationUrl": "https://docs.example.invalid/georoute-agent/api",
+        "capabilities": {
+            "streaming": True,
+            "pushNotifications": True,
+            "extendedAgentCard": True,
+        },
+        "securitySchemes": {
+            "openid": {
+                "openIdConnectSecurityScheme": {
+                    "openIdConnectUrl": "https://accounts.example.invalid/.well-known/openid-configuration",
+                }
+            }
+        },
+        "security": [{"openid": ["openid", "profile", "email"]}],
+        "defaultInputModes": ["application/json", "text/plain"],
+        "defaultOutputModes": ["application/json", "image/png"],
+        "skills": [
+            {
+                "id": "route-optimizer-traffic",
+                "name": "Traffic-Aware Route Optimizer",
+                "description": "Calculates route candidates with redacted traffic context.",
+                "tags": ["maps", "routing", "traffic"],
+                "examples": ["Plan a redacted route with safe location refs."],
+                "inputModes": ["application/json", "text/plain"],
+                "outputModes": ["application/json", "text/html"],
+            },
+            {
+                "id": "custom-map-generator",
+                "name": "Personalized Map Generator",
+                "description": "Creates map artifacts from safe refs only.",
+                "tags": ["maps", "visualization"],
+                "examples": ["Generate a map from reviewed point-of-interest refs."],
+                "inputModes": ["application/json"],
+                "outputModes": ["image/png", "application/json"],
+            },
+        ],
+        "signatures": [
+            {
+                "protected": "signature-header-ref",
+                "signature": "signature-value-ref",
+            }
+        ],
+    }
 
 
 def _metadata(**overrides: object):
@@ -110,6 +179,32 @@ def test_a2a_manifest_presence_is_not_callable_delegation_authority() -> None:
         registry.register(manifest)
 
 
+def test_official_a2a_v1_agent_card_fixture_imports_as_safe_refs_without_dispatch() -> None:
+    card = A2AAgentCardV1.model_validate(_a2a_v1_agent_card_fixture())
+    metadata = a2a_v1_agent_card_to_metadata(card)
+    manifest = a2a_agent_metadata_to_capability_candidate(metadata)
+
+    assert card.supported_interfaces[0].protocol_binding == "JSONRPC"
+    assert card.supported_interfaces[0].protocol_version == "1.0"
+    assert metadata.schema_version_ref == "schema-version-ref:a2a:1.0"
+    assert metadata.endpoint_declared is True
+    assert metadata.endpoint_ref == "endpoint-ref:a2a:v1:supported-interface-redacted"
+    assert metadata.auth_posture == A2AAuthPosture.peer_auth_blocked
+    assert metadata.trust_posture == A2ATrustPosture.untrusted_metadata
+    assert "grant-ref:a2a:peer-auth-review-required" in metadata.requested_grant_refs
+    assert "capability-ref:a2a-declared:route-optimizer-traffic" in metadata.declared_capability_refs
+    assert "interface-ref:a2a:JSONRPC:1.0" in metadata.evidence_refs
+    assert manifest.metadata["remote_dispatch_allowed"] is False
+    assert manifest.metadata["peer_auth_runtime_allowed"] is False
+    assert manifest.metadata["remote_self_approval_allowed"] is False
+    assert manifest.side_effects == SideEffectLevel.none
+    assert manifest.authority_level == CapabilityAuthorityLevel.metadata_only
+
+    persisted = f"{metadata.model_dump(mode='json')} {manifest.model_dump(mode='json')}"
+    assert "https://" not in persisted
+    assert "openid-configuration" not in persisted
+
+
 def test_a2a_handoff_proposal_is_preview_only_and_no_dispatch() -> None:
     metadata = _metadata()
     manifest = a2a_agent_metadata_to_capability_candidate(metadata)
@@ -144,22 +239,42 @@ def test_a2a_exact_approval_binding_blocks_mismatched_refs() -> None:
         agent_ref="a2a-agent-ref:wrong",
         card_ref=metadata.card_ref,
         capability_id=manifest.id,
-        task_ref="task-ref:a2a:research",
-        handoff_ref="handoff-ref:a2a:research",
+        task_ref="task-ref:a2a:wrong",
+        handoff_ref="handoff-ref:a2a:wrong",
         requested_grant_refs=[],
         credential_refs=[],
-        expires_ref="expires-ref:a2a:review-window",
+        expires_ref="expires-ref:a2a:wrong-window",
         expected_receipt_ref=metadata.expected_receipt_ref,
         revocation_ref=metadata.revocation_ref,
     )
+    context = A2AExactDelegationApprovalContext(
+        task_ref="task-ref:a2a:research",
+        handoff_ref="handoff-ref:a2a:research",
+        expires_ref="expires-ref:a2a:review-window",
+    )
 
-    decision = evaluate_a2a_exact_approval_binding(binding, metadata, manifest)
+    decision = evaluate_a2a_exact_approval_binding(binding, metadata, manifest, context)
 
     assert decision.allowed is False
     assert decision.status == "blocked"
     assert "A2A_APPROVAL_AGENT_MISMATCH" in decision.reason_codes
+    assert "A2A_APPROVAL_TASK_MISMATCH" in decision.reason_codes
+    assert "A2A_APPROVAL_HANDOFF_MISMATCH" in decision.reason_codes
+    assert "A2A_APPROVAL_EXPIRES_MISMATCH" in decision.reason_codes
     assert "A2A_APPROVAL_REQUESTED_GRANT_MISSING" in decision.reason_codes
     assert "A2A_APPROVAL_CREDENTIAL_REF_MISSING" in decision.reason_codes
+
+
+def test_a2a_legacy_agent_card_alias_remains_metadata_only() -> None:
+    card = A2AAgentCardMinimal(
+        agent_id="legacy-research-agent",
+        name="Legacy Research Agent",
+        owner="founder-local",
+        version="0.1.0",
+    )
+
+    assert isinstance(card, UAAA2AAgentCardMetadataImport)
+    assert card.schema_version == "uaa_a2a_agent_card_metadata_import.v1"
 
 
 def test_a2a_blocked_receipt_and_replay_audit_do_not_redelegate() -> None:

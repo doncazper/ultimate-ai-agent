@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.capabilities import (
     MCP_REVIEW_AUTH_SCOPE,
     McpAuthPosture,
     McpDiscoveryToolMetadata,
+    McpExactApprovalContext,
     McpExactApprovalBinding,
     McpTransportPosture,
     PolicyEngine,
@@ -147,20 +148,30 @@ def test_mcp_exact_approval_binding_blocks_mismatched_refs() -> None:
         server_ref="mcp-server-ref:wrong",
         tool_ref=metadata.tool_ref,
         capability_id=manifest.id,
-        argument_ref="argument-ref:mcp:email-send:draft",
-        scope_ref="scope-ref:mcp:email-send",
+        argument_ref="argument-ref:mcp:wrong-draft",
+        scope_ref="scope-ref:mcp:wrong-scope",
         credential_refs=[],
-        budget_ref="budget-ref:mcp:none",
-        expires_ref="expires-ref:mcp:review-window",
+        budget_ref="budget-ref:mcp:wrong-budget",
+        expires_ref="expires-ref:mcp:wrong-window",
         expected_receipt_ref=metadata.expected_receipt_ref,
         revocation_ref=metadata.revocation_ref,
     )
+    context = McpExactApprovalContext(
+        argument_ref="argument-ref:mcp:email-send:draft",
+        scope_ref="scope-ref:mcp:email-send",
+        budget_ref="budget-ref:mcp:none",
+        expires_ref="expires-ref:mcp:review-window",
+    )
 
-    decision = evaluate_mcp_exact_approval_binding(binding, metadata, manifest)
+    decision = evaluate_mcp_exact_approval_binding(binding, metadata, manifest, context)
 
     assert decision.allowed is False
     assert decision.status == "blocked"
     assert "MCP_APPROVAL_SERVER_MISMATCH" in decision.reason_codes
+    assert "MCP_APPROVAL_ARGUMENT_MISMATCH" in decision.reason_codes
+    assert "MCP_APPROVAL_SCOPE_MISMATCH" in decision.reason_codes
+    assert "MCP_APPROVAL_BUDGET_MISMATCH" in decision.reason_codes
+    assert "MCP_APPROVAL_EXPIRES_MISMATCH" in decision.reason_codes
     assert "MCP_APPROVAL_CREDENTIAL_REF_MISSING" in decision.reason_codes
 
 

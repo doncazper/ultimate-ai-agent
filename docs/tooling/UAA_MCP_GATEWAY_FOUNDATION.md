@@ -49,8 +49,9 @@ Python Core now defines MCP gateway metadata contracts in
 - `mcp_tool_metadata_to_capability_candidate()` imports MCP-shaped metadata
   into a `CapabilityManifest` candidate.
 - `build_mcp_preview_contract()` creates a no-side-effect preview contract.
-- `McpExactApprovalBinding` and `evaluate_mcp_exact_approval_binding()` define
-  exact approval matching for future MCP work.
+- `McpExactApprovalBinding`, `McpExactApprovalContext`, and
+  `evaluate_mcp_exact_approval_binding()` define exact approval matching for
+  future MCP work.
 - `build_mcp_blocked_receipt()` records blocked attempts using safe refs.
 - `build_mcp_replay_audit_record()` reconstructs why selection, policy,
   approval, and receipt posture blocked or would later allow work.
@@ -88,8 +89,9 @@ MCP follows `docs/tooling/CAPABILITY_PROMOTION_LADDER.md`:
    receipt posture are explicit.
 5. Preview/Dry-run: UAA can describe what would be needed without doing it.
 6. Policy checked: `PolicyEngine` blocks missing review scope.
-7. Exact approval bound: approval must match server/tool/capability/argument/
-   credential/budget/expiry/revocation/receipt refs.
+7. Exact approval bound: approval must match server/tool/capability refs,
+   credential refs when required, expected receipt and revocation refs, and the
+   argument/scope/budget/expiry refs supplied by `McpExactApprovalContext`.
 8. Broker-invoked: future only; no broker invocation exists in this milestone.
 9. Receipted: blocked attempts produce redacted safe-ref receipts.
 10. Replayable: audit records reconstruct selection/policy/approval/receipt.
