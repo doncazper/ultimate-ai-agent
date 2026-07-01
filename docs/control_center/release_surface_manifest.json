@@ -733,7 +733,22 @@
         "docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "crm-m1-fixture-shell"
+      "owner": "crm-m1-fixture-shell",
+      "backend_contract_rationale": "no-backend-route:crm-fixture-only-shell:explicitly-blocked",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:crm:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline exists for /crm yet; the route is fixture-only and remains blocked from release promotion until a scoped visual proof lane is accepted.",
+      "promotion_criteria": [
+        "Add accepted backend/core CRM read-model contracts before claiming backend-backed CRM behavior.",
+        "Add OpenAPI/API manifest, CLI inspection, and focused tests before any CRM backend route exists.",
+        "Record checked-in redacted visual baseline proof or accepted no-baseline rationale before route maturity promotion.",
+        "Keep connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, public release, production readiness, and production authority blocked until separately accepted."
+      ],
+      "product_language_caveats": [
+        "Release status is blocked because /crm is fixture-only and is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only over CRM M1 fixture refs.",
+        "Route visibility does not grant connector writes, CRM writes, sends, calendar writes, provider/model calls, browser execution, hidden context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/briefing",
