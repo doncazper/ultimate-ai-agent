@@ -704,6 +704,22 @@ calls, no live web, no shell/browser execution, no public beta, and no
 production authority.
 No-authority phrases: no model output authority; no direct memory writes; no automatic memory writes; no context injection; no tool execution; no connector writes; no action execution; no plan execution; no provider/model calls; no live web; no shell/browser execution; no public beta; no production authority.
 
+FCC-THREAD-001 Unified Work Thread Read Model
+Goal met: Today now exposes a backend-owned `unified_work_thread_read_model`
+over existing local Founder Loop state so Chat handoff, Plans, Action Inbox,
+decision receipt refs, Evidence, Memory Review, and Weekly Review are readable
+as one safe-ref thread. `scripts/dev/uaa_founder_loop.py inspect-work-thread`
+provides CLI parity and returns `state_not_found_no_write` without creating
+storage when local Founder Loop state is absent. Control Center renders the
+thread only when the backend-owned payload validates; unsafe backend payloads
+and mock-only fallback fail closed. This lane adds no runtime dispatch or
+execution, no action execution, no provider/model calls, no A2A/MCP runtime
+dispatch, no live web, no browser automation, no connector reads/writes, no
+email/calendar sends, no CRM writes, no account sync, no shell/subprocess
+execution, no background autonomy, no memory writes, no context injection, no
+public beta, no public release, and no production authority.
+No-authority phrases: no runtime dispatch or execution; no action execution; no provider/model calls; no A2A/MCP runtime dispatch; no live web; no browser automation; no connector reads/writes; no email/calendar sends; no CRM writes; no account sync; no shell/subprocess execution; no background autonomy; no memory writes; no context injection; no public beta; no public release; no production authority.
+
 Product Loop 010 Evidence Timeline narrative
 Goal met: Evidence Timeline now exposes a backend-owned
 `narrative_read_model` over existing evidence events and timeline safe refs so

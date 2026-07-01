@@ -23,6 +23,9 @@ from ultimate_ai_agent.core.control_center import (  # noqa: E402
     FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF,
     FOUNDER_LOOP_PRODUCT_PROOF_READ_MODEL_SOURCE,
     FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER,
+    UNIFIED_WORK_THREAD_CONTRACT_REF,
+    UNIFIED_WORK_THREAD_READ_MODEL_SOURCE,
+    UNIFIED_WORK_THREAD_STEP_ORDER,
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
@@ -408,6 +411,195 @@ def _inspect_loop_spine(args: argparse.Namespace) -> int:
         "background_autonomy_enabled": False,
         "memory_write_authorized": False,
         "context_injection_authorized": False,
+        "public_beta_claim_enabled": False,
+        "public_release_claim_enabled": False,
+        "production_authority_enabled": False,
+    }
+    _print_json(output)
+    return 0
+
+
+def _safe_work_thread_step_projection(step: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "step_id": step.get("step_id"),
+        "surface": step.get("surface"),
+        "frontend_route_ref": step.get("frontend_route_ref"),
+        "backend_route_ref": step.get("backend_route_ref"),
+        "status": step.get("status"),
+        "safe_summary": step.get("safe_summary"),
+        "source_refs": list(step.get("source_refs") or []),
+        "proposal_refs": list(step.get("proposal_refs") or []),
+        "receipt_refs": list(step.get("receipt_refs") or []),
+        "evidence_refs": list(step.get("evidence_refs") or []),
+        "blocked_authority_refs": list(step.get("blocked_authority_refs") or []),
+        "next_safe_action": step.get("next_safe_action"),
+    }
+
+
+def _work_thread_base_output(
+    *,
+    status: str,
+    storage_state: str,
+    inspection_error_ref: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-inspect-work-thread",
+        "contract_ref": UNIFIED_WORK_THREAD_CONTRACT_REF,
+        "source": UNIFIED_WORK_THREAD_READ_MODEL_SOURCE,
+        "status": status,
+        "storage_state": storage_state,
+        "inspection_error_ref": inspection_error_ref,
+        "thread_ref": None,
+        "safe_summary": None,
+        "authority_boundary": None,
+        "next_safe_action": None,
+        "step_order": list(UNIFIED_WORK_THREAD_STEP_ORDER),
+        "steps": [],
+        "chat_turn_receipt_refs": [],
+        "chat_handoff_receipt_refs": [],
+        "plan_refs": [],
+        "plan_proposal_refs": [],
+        "action_refs": [],
+        "action_decision_receipt_refs": [],
+        "evidence_timeline_refs": [],
+        "evidence_event_refs": [],
+        "memory_review_candidate_refs": [],
+        "memory_review_receipt_refs": [],
+        "weekly_review_refs": [],
+        "receipt_refs": [],
+        "evidence_refs": [],
+        "blocked_authority_refs": [],
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "provider_model_call_enabled": False,
+        "runtime_model_call_enabled": False,
+        "a2a_runtime_dispatch_enabled": False,
+        "mcp_runtime_dispatch_enabled": False,
+        "browser_execution_enabled": False,
+        "live_web_enabled": False,
+        "connector_read_enabled": False,
+        "connector_write_enabled": False,
+        "email_calendar_send_enabled": False,
+        "crm_write_enabled": False,
+        "account_sync_enabled": False,
+        "shell_subprocess_execution_enabled": False,
+        "background_autonomy_enabled": False,
+        "memory_write_authorized": False,
+        "context_injection_authorized": False,
+        "action_execution_enabled": False,
+        "public_beta_claim_enabled": False,
+        "public_release_claim_enabled": False,
+        "production_authority_enabled": False,
+    }
+
+
+def _inspect_work_thread(args: argparse.Namespace) -> int:
+    state_dir = _loop_spine_state_dir(args)
+    if not (state_dir / "founder_loop.sqlite3").exists():
+        _print_json(
+            _work_thread_base_output(
+                status="metadata_only_no_state_found",
+                storage_state="state_not_found_no_write",
+            )
+        )
+        return 0
+
+    try:
+        repo = FounderLoopRepository(
+            state_dir,
+            seed_defaults=False,
+            ensure_storage=False,
+            read_only=True,
+        )
+        today = repo.today_summary(limit=args.limit)
+    except Exception:
+        _print_json(
+            _work_thread_base_output(
+                status="existing_state_unreadable_redacted",
+                storage_state="existing_state_unreadable_redacted",
+                inspection_error_ref=(
+                    "error-ref:founder-loop-inspect-work-thread:read-failed-redacted"
+                ),
+            )
+        )
+        return 0
+
+    read_model = today.get("unified_work_thread_read_model") or {}
+    if not isinstance(read_model, dict):
+        _print_json(
+            _work_thread_base_output(
+                status="backend_read_model_missing",
+                storage_state="existing_state_read_only",
+            )
+        )
+        return 0
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-inspect-work-thread",
+        "contract_ref": read_model.get("contract_ref"),
+        "source": read_model.get("source"),
+        "status": read_model.get("status"),
+        "storage_state": "existing_state_read_only",
+        "inspection_error_ref": None,
+        "thread_ref": read_model.get("thread_ref"),
+        "safe_summary": read_model.get("safe_summary"),
+        "authority_boundary": read_model.get("authority_boundary"),
+        "next_safe_action": read_model.get("next_safe_action"),
+        "step_order": list(read_model.get("step_order") or []),
+        "steps": [
+            _safe_work_thread_step_projection(step)
+            for step in read_model.get("steps", [])[: args.limit]
+            if isinstance(step, dict)
+        ],
+        "chat_turn_receipt_refs": list(
+            read_model.get("chat_turn_receipt_refs") or []
+        ),
+        "chat_handoff_receipt_refs": list(
+            read_model.get("chat_handoff_receipt_refs") or []
+        ),
+        "plan_refs": list(read_model.get("plan_refs") or []),
+        "plan_proposal_refs": list(read_model.get("plan_proposal_refs") or []),
+        "action_refs": list(read_model.get("action_refs") or []),
+        "action_decision_receipt_refs": list(
+            read_model.get("action_decision_receipt_refs") or []
+        ),
+        "evidence_timeline_refs": list(
+            read_model.get("evidence_timeline_refs") or []
+        ),
+        "evidence_event_refs": list(read_model.get("evidence_event_refs") or []),
+        "memory_review_candidate_refs": list(
+            read_model.get("memory_review_candidate_refs") or []
+        ),
+        "memory_review_receipt_refs": list(
+            read_model.get("memory_review_receipt_refs") or []
+        ),
+        "weekly_review_refs": list(read_model.get("weekly_review_refs") or []),
+        "receipt_refs": list(read_model.get("receipt_refs") or []),
+        "evidence_refs": list(read_model.get("evidence_refs") or []),
+        "blocked_authority_refs": list(
+            read_model.get("blocked_authority_refs") or []
+        ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "provider_model_call_enabled": False,
+        "runtime_model_call_enabled": False,
+        "a2a_runtime_dispatch_enabled": False,
+        "mcp_runtime_dispatch_enabled": False,
+        "browser_execution_enabled": False,
+        "live_web_enabled": False,
+        "connector_read_enabled": False,
+        "connector_write_enabled": False,
+        "email_calendar_send_enabled": False,
+        "crm_write_enabled": False,
+        "account_sync_enabled": False,
+        "shell_subprocess_execution_enabled": False,
+        "background_autonomy_enabled": False,
+        "memory_write_authorized": False,
+        "context_injection_authorized": False,
+        "action_execution_enabled": False,
         "public_beta_claim_enabled": False,
         "public_release_claim_enabled": False,
         "production_authority_enabled": False,
@@ -1093,6 +1285,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     loop_spine_parser.add_argument("--limit", type=int, default=7)
     loop_spine_parser.set_defaults(func=_inspect_loop_spine)
+
+    work_thread_parser = subparsers.add_parser(
+        "inspect-work-thread",
+        help=(
+            "Print the backend-owned Chat to Weekly Review unified work thread "
+            "from existing Founder Loop safe refs."
+        ),
+    )
+    work_thread_parser.add_argument("--limit", type=int, default=7)
+    work_thread_parser.set_defaults(func=_inspect_work_thread)
 
     promote_parser = subparsers.add_parser(
         "promote-action-envelope",

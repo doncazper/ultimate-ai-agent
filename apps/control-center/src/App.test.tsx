@@ -212,6 +212,135 @@ function founderLoopProductProofFixture(
   };
 }
 
+function unifiedWorkThreadFixture(overrides: Record<string, unknown> = {}) {
+  const steps = [
+    ["chat_handoff", "Chat", "/chat"],
+    ["plan", "Plans", "/plans"],
+    ["action", "Action Inbox", "/actions"],
+    ["decision_receipt", "Receipt", "/actions"],
+    ["evidence", "Evidence", "/evidence"],
+    ["memory_review", "Memory Review", "/memory"],
+    ["weekly_review", "Weekly Review", "/today"],
+  ].map(([stepId, surface, route], index) => ({
+    step_id: stepId,
+    surface,
+    frontend_route_ref: route,
+    backend_route_ref:
+      stepId === "action"
+        ? "GET /control-center/actions/inbox"
+        : stepId === "evidence"
+          ? "GET /control-center/evidence/timeline"
+          : stepId === "memory_review"
+            ? "GET /control-center/memory/review"
+            : "GET /control-center/today/summary",
+    status:
+      stepId === "decision_receipt"
+        ? "decision_receipts_visible"
+        : "backend_owned_read_model",
+    safe_summary: `${surface} unified work thread step ${index + 1}.`,
+    source_refs: [`source-ref:unified-work-thread:${stepId}`],
+    proposal_refs:
+      stepId === "plan" ? ["plan-proposal-ref:unified-work-thread"] : [],
+    receipt_refs:
+      stepId === "decision_receipt"
+        ? ["receipt:unified-work-thread:action-defer"]
+        : [],
+    evidence_refs: [`evidence-ref:unified-work-thread:${stepId}`],
+    blocked_authority_refs: [
+      "blocked-state:unified-work-thread-no-production-authority",
+    ],
+    next_safe_action: "Inspect backend-owned safe refs before promotion.",
+  }));
+  return {
+    schema_version: "fcc-thread-001-unified-work-thread.v1",
+    contract_ref: "contract-ref:fcc-thread-001-unified-work-thread:v1",
+    status: "implemented_backend_owned_read_model_safe_refs_only",
+    source: "python_core_unified_work_thread_read_model",
+    backend_owned: true,
+    local_read_model_only: true,
+    seeded_demo_safe: true,
+    safe_refs_only: true,
+    safe_summary_only: true,
+    raw_content_included: false,
+    thread_ref: "work-thread-ref:founder-loop:demo-safe-seeded-loop",
+    thread_title: "Unified Founder Loop work thread",
+    step_order: [
+      "chat_handoff",
+      "plan",
+      "action",
+      "decision_receipt",
+      "evidence",
+      "memory_review",
+      "weekly_review",
+    ],
+    steps,
+    chat_turn_receipt_refs: ["receipt:unified-work-thread:chat-turn"],
+    chat_handoff_receipt_refs: ["receipt:unified-work-thread:chat-handoff"],
+    plan_refs: ["plan-ref:unified-work-thread"],
+    plan_proposal_refs: ["plan-proposal-ref:unified-work-thread"],
+    action_refs: ["founder-action:setup-assistant-hardening"],
+    action_decision_receipt_refs: ["receipt:unified-work-thread:action-defer"],
+    evidence_timeline_refs: [
+      "evidence-timeline:action/founder-action/setup-assistant-hardening",
+    ],
+    evidence_event_refs: ["evidence-event:unified-work-thread:action-defer"],
+    memory_review_candidate_refs: [
+      "business-memory-candidate:founder-loop-preferences",
+    ],
+    memory_review_receipt_refs: ["receipt:unified-work-thread:memory-defer"],
+    weekly_review_refs: ["review-period-ref:local-weekly-window"],
+    receipt_refs: [
+      "receipt:unified-work-thread:chat-turn",
+      "receipt:unified-work-thread:chat-handoff",
+      "receipt:unified-work-thread:action-defer",
+      "receipt:unified-work-thread:memory-defer",
+    ],
+    evidence_refs: ["evidence-ref:fcc-thread-001-unified-work-thread"],
+    blocked_authority_refs: [
+      "blocked-state:unified-work-thread-no-action-execution",
+      "blocked-state:unified-work-thread-no-provider-model-call",
+      "blocked-state:unified-work-thread-no-a2a-mcp-runtime-dispatch",
+      "blocked-state:unified-work-thread-no-browser-live-web",
+      "blocked-state:unified-work-thread-no-connector-read-write",
+      "blocked-state:unified-work-thread-no-email-calendar-send",
+      "blocked-state:unified-work-thread-no-crm-write-or-account-sync",
+      "blocked-state:unified-work-thread-no-shell-subprocess",
+      "blocked-state:unified-work-thread-no-memory-write",
+      "blocked-state:unified-work-thread-no-context-injection",
+      "blocked-state:unified-work-thread-no-background-autonomy",
+      "blocked-state:unified-work-thread-no-public-beta-claim",
+      "blocked-state:unified-work-thread-no-public-release-claim",
+      "blocked-state:unified-work-thread-no-production-authority",
+    ],
+    safe_summary:
+      "Unified Work Thread links Chat handoff, Plan, Action, receipt, Evidence, Memory Review, and Weekly Review refs into one backend-owned read model.",
+    next_safe_action:
+      "Inspect the safe refs across the thread before promoting any new authority or product-readiness claim.",
+    authority_boundary:
+      "Unified Work Thread is read-only local Founder Loop state and grants no execution authority.",
+    provider_model_call_enabled: false,
+    runtime_model_call_enabled: false,
+    a2a_runtime_dispatch_enabled: false,
+    mcp_runtime_dispatch_enabled: false,
+    browser_execution_enabled: false,
+    live_web_enabled: false,
+    connector_read_enabled: false,
+    connector_write_enabled: false,
+    email_calendar_send_enabled: false,
+    crm_write_enabled: false,
+    account_sync_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    background_autonomy_enabled: false,
+    memory_write_authorized: false,
+    context_injection_authorized: false,
+    action_execution_enabled: false,
+    public_beta_claim_enabled: false,
+    public_release_claim_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 function stubFounderTodayReadEndpoint(today: unknown) {
   const fetchMock = vi.fn(async (url: string) => {
     const urlText = String(url);
@@ -1243,7 +1372,69 @@ describe("Web Control Center shell", () => {
       within(proofPanel).getAllByText(
         "blocked-state:founder-loop-proof-no-production-authority",
       ).length,
+      ).toBeGreaterThan(0);
+  });
+
+  it("renders backend-owned Unified Work Thread from backend data", async () => {
+    const unifiedWorkThread = unifiedWorkThreadFixture();
+    const today = {
+      ...mockControlCenterData.founderToday,
+      unified_work_thread_contract_ref:
+        "contract-ref:fcc-thread-001-unified-work-thread:v1",
+      unified_work_thread_read_model: unifiedWorkThread,
+    };
+    stubFounderTodayReadEndpoint(today);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    const threadPanel = await screen.findByLabelText("Unified Work Thread");
+    expect(
+      within(threadPanel).getByRole("heading", {
+        name: /Unified Work Thread/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(threadPanel).getByText(
+        "contract-ref:fcc-thread-001-unified-work-thread:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(threadPanel).getByText(
+        "python_core_unified_work_thread_read_model",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(threadPanel).getByText(
+        "work-thread-ref:founder-loop:demo-safe-seeded-loop",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(threadPanel).getByText("Provider/model calls").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(threadPanel).getByText("Connector read/write").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(threadPanel).getByText("Execution").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(threadPanel).getByText("Production authority").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(threadPanel).getAllByText("receipt:unified-work-thread:action-defer")
+        .length,
     ).toBeGreaterThan(0);
+    expect(
+      within(threadPanel).getByText(
+        "business-memory-candidate:founder-loop-preferences",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(threadPanel).getAllByText(
+        "blocked-state:unified-work-thread-no-production-authority",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(within(threadPanel).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("shows the shared Founder Loop proof path on Action Inbox without adding execution controls", async () => {
@@ -1375,6 +1566,16 @@ describe("Web Control Center shell", () => {
         founder_loop_v1_product_proof_contract_ref?: unknown;
       }
     ).founder_loop_v1_product_proof_contract_ref;
+    delete (
+      partialToday as {
+        unified_work_thread_read_model?: unknown;
+      }
+    ).unified_work_thread_read_model;
+    delete (
+      partialToday as {
+        unified_work_thread_contract_ref?: unknown;
+      }
+    ).unified_work_thread_contract_ref;
     const fetchMock = vi.fn(async (url: string) => {
       const urlText = String(url);
       if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
@@ -1406,6 +1607,10 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText("contract-ref:founder-loop-v1-product-proof:v1"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Unified Work Thread")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:fcc-thread-001-unified-work-thread:v1"),
     ).not.toBeInTheDocument();
   });
 
@@ -1454,6 +1659,48 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("fails closed for unsafe Unified Work Thread authority flags and blockers", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      unified_work_thread_contract_ref:
+        "contract-ref:fcc-thread-001-unified-work-thread:v1",
+      unified_work_thread_read_model: unifiedWorkThreadFixture({
+        provider_model_call_enabled: true,
+      }),
+    };
+    stubFounderTodayReadEndpoint(unsafeToday);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Unified Work Thread")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_unified_work_thread_read_model"),
+    ).not.toBeInTheDocument();
+
+    cleanup();
+    const missingBlockerToday = {
+      ...mockControlCenterData.founderToday,
+      unified_work_thread_contract_ref:
+        "contract-ref:fcc-thread-001-unified-work-thread:v1",
+      unified_work_thread_read_model: unifiedWorkThreadFixture({
+        blocked_authority_refs: [
+          "blocked-state:unified-work-thread-no-production-authority",
+        ],
+      }),
+    };
+    stubFounderTodayReadEndpoint(missingBlockerToday);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Unified Work Thread")).not.toBeInTheDocument();
+  });
+
   it("does not backfill the Today loop digest when the API base is blocked", async () => {
     vi.stubEnv("VITE_UAA_API_BASE_URL", "https://example.invalid");
     vi.resetModules();
@@ -1480,6 +1727,12 @@ describe("Web Control Center shell", () => {
       ).toBeUndefined();
       expect(
         data.founderToday.founder_loop_v1_product_proof_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.unified_work_thread_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.unified_work_thread_contract_ref,
       ).toBeUndefined();
       expect(
         data.founderToday.plans_to_actions_bridge_read_model,

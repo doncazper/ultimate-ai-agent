@@ -55,6 +55,7 @@ import type {
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
+  FounderLoopUnifiedWorkThreadReadModel,
   FounderLoopWeeklyCeoReviewV1ReadModel,
   FounderLoopWorkClassification,
   ControlCenterSettingsStatus,
@@ -1882,6 +1883,9 @@ export function TodaySurfacePanel({
         today={today}
       />
       <TodayLoopReadModelPanel today={today} />
+      <UnifiedWorkThreadPanel
+        readModel={today.unified_work_thread_read_model}
+      />
       <FounderLoopProductProofPanel
         readModel={today.founder_loop_v1_product_proof_read_model}
       />
@@ -3830,6 +3834,136 @@ function FounderLoopProductProofPanel({
             <RefListWithFallback
               emptyLabel="Blocked refs: none"
               refs={step.blocked_state_refs}
+            />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function UnifiedWorkThreadPanel({
+  readModel,
+}: {
+  readModel?: FounderLoopUnifiedWorkThreadReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Unified Work Thread"
+      className="compact-stack unified-work-thread"
+    >
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Unified Work Thread</h3>
+          <span>{readModel.status}</span>
+        </div>
+        <p className="eyebrow">Backend-owned read model</p>
+        <p className="section-copy">{readModel.safe_summary}</p>
+        <p className="section-copy">{readModel.authority_boundary}</p>
+        <dl className="detail-list">
+          <DetailTerm label="Contract" value={readModel.contract_ref} />
+          <DetailTerm label="Source" value={readModel.source} />
+          <DetailTerm label="Thread" value={readModel.thread_ref} />
+          <DetailTerm label="Title" value={readModel.thread_title} />
+          <DetailTerm
+            label="Provider/model calls"
+            value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Connector read/write"
+            value={
+              readModel.connector_read_enabled || readModel.connector_write_enabled
+                ? "unsafe"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Execution"
+            value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Memory/context"
+            value={
+              readModel.memory_write_authorized ||
+              readModel.context_injection_authorized
+                ? "unsafe"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Production authority"
+            value={readModel.production_authority_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+        </dl>
+        <div className="loop-authority-strip">
+          <span>No action execution</span>
+          <span>No provider/model calls</span>
+          <span>No A2A/MCP runtime dispatch</span>
+          <span>No browser/live web</span>
+          <span>No connector read/write</span>
+          <span>No email/calendar sends</span>
+          <span>No CRM/account sync</span>
+          <span>No shell/subprocess execution</span>
+          <span>No memory writes/context injection</span>
+          <span>No background autonomy</span>
+          <span>No public beta/release claims</span>
+          <span>No production authority</span>
+        </div>
+        <RefListWithFallback
+          emptyLabel="Thread receipt refs: none recorded"
+          refs={readModel.receipt_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Thread evidence refs: none recorded"
+          refs={readModel.evidence_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Memory Review candidate refs: none"
+          refs={readModel.memory_review_candidate_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Blocked authority refs: missing"
+          refs={readModel.blocked_authority_refs}
+        />
+      </article>
+      <div className="review-grid unified-work-thread-grid">
+        {readModel.steps.map((step, index) => (
+          <article className="review-card" key={step.step_id}>
+            <div className="review-card-heading">
+              <h3>
+                {index + 1}. {step.surface}
+              </h3>
+              <span>{step.status}</span>
+            </div>
+            <p>{step.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Route" value={step.frontend_route_ref} />
+              <DetailTerm label="Backend" value={step.backend_route_ref} />
+              <DetailTerm label="Next" value={step.next_safe_action} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Source refs: none"
+              refs={step.source_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Proposal refs: none"
+              refs={step.proposal_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Receipt refs: none"
+              refs={step.receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Evidence refs: none"
+              refs={step.evidence_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked refs: none"
+              refs={step.blocked_authority_refs}
             />
           </article>
         ))}

@@ -2357,6 +2357,8 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
     delete fallbackWithoutDigest.follow_up_tracker_contract_ref;
     delete fallbackWithoutDigest.weekly_ceo_review_v1_read_model;
     delete fallbackWithoutDigest.weekly_ceo_review_v1_contract_ref;
+    delete fallbackWithoutDigest.unified_work_thread_read_model;
+    delete fallbackWithoutDigest.unified_work_thread_contract_ref;
     delete fallbackWithoutDigest.chat_to_loop_handoff_read_model;
     delete fallbackWithoutDigest.chat_to_loop_handoff_contract_ref;
     delete fallbackWithoutDigest.plans_to_actions_bridge_read_model;
@@ -2412,6 +2414,16 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
   } else {
     delete normalized.founder_loop_v1_product_proof_read_model;
     delete normalized.founder_loop_v1_product_proof_contract_ref;
+  }
+  const unifiedWorkThread = valueRecord.unified_work_thread_read_model;
+  if (isSafeUnifiedWorkThreadReadModel(unifiedWorkThread)) {
+    normalized.unified_work_thread_read_model = unifiedWorkThread;
+    normalized.unified_work_thread_contract_ref = (
+      unifiedWorkThread as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.unified_work_thread_read_model;
+    delete normalized.unified_work_thread_contract_ref;
   }
   if (
     isSafePlansToActionsBridgeReadModel(
@@ -2647,6 +2659,73 @@ const FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER = [
   "action_inbox",
   "decision_receipt",
   "evidence_timeline",
+  "memory_review",
+  "weekly_review",
+] as const;
+
+const UNIFIED_WORK_THREAD_DENIED_FLAGS = [
+  "provider_model_call_enabled",
+  "runtime_model_call_enabled",
+  "a2a_runtime_dispatch_enabled",
+  "mcp_runtime_dispatch_enabled",
+  "browser_execution_enabled",
+  "live_web_enabled",
+  "connector_read_enabled",
+  "connector_write_enabled",
+  "email_calendar_send_enabled",
+  "crm_write_enabled",
+  "account_sync_enabled",
+  "shell_subprocess_execution_enabled",
+  "background_autonomy_enabled",
+  "memory_write_authorized",
+  "context_injection_authorized",
+  "action_execution_enabled",
+  "public_beta_claim_enabled",
+  "public_release_claim_enabled",
+  "production_authority_enabled",
+] as const;
+
+const UNIFIED_WORK_THREAD_REQUIRED_ARRAYS = [
+  "step_order",
+  "chat_turn_receipt_refs",
+  "chat_handoff_receipt_refs",
+  "plan_refs",
+  "plan_proposal_refs",
+  "action_refs",
+  "action_decision_receipt_refs",
+  "evidence_timeline_refs",
+  "evidence_event_refs",
+  "memory_review_candidate_refs",
+  "memory_review_receipt_refs",
+  "weekly_review_refs",
+  "receipt_refs",
+  "evidence_refs",
+  "blocked_authority_refs",
+] as const;
+
+const UNIFIED_WORK_THREAD_REQUIRED_BLOCKED_REFS = [
+  "blocked-state:unified-work-thread-no-action-execution",
+  "blocked-state:unified-work-thread-no-provider-model-call",
+  "blocked-state:unified-work-thread-no-a2a-mcp-runtime-dispatch",
+  "blocked-state:unified-work-thread-no-browser-live-web",
+  "blocked-state:unified-work-thread-no-connector-read-write",
+  "blocked-state:unified-work-thread-no-email-calendar-send",
+  "blocked-state:unified-work-thread-no-crm-write-or-account-sync",
+  "blocked-state:unified-work-thread-no-shell-subprocess",
+  "blocked-state:unified-work-thread-no-memory-write",
+  "blocked-state:unified-work-thread-no-context-injection",
+  "blocked-state:unified-work-thread-no-background-autonomy",
+  "blocked-state:unified-work-thread-no-public-beta-claim",
+  "blocked-state:unified-work-thread-no-public-release-claim",
+  "blocked-state:unified-work-thread-no-production-authority",
+] as const;
+
+const UNIFIED_WORK_THREAD_STEP_ORDER = [
+  "chat_handoff",
+  "plan",
+  "action",
+  "decision_receipt",
+  "evidence",
   "memory_review",
   "weekly_review",
 ] as const;
@@ -3108,6 +3187,75 @@ function isSafeFounderLoopProductProofStep(value: unknown): boolean {
       "evidence_refs",
       "receipt_refs",
       "blocked_state_refs",
+    ])
+  );
+}
+
+function isSafeUnifiedWorkThreadReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "fcc-thread-001-unified-work-thread.v1" ||
+    value.contract_ref !==
+      "contract-ref:fcc-thread-001-unified-work-thread:v1" ||
+    value.source !== "python_core_unified_work_thread_read_model"
+  ) {
+    return false;
+  }
+  return (
+    value.backend_owned === true &&
+    value.local_read_model_only === true &&
+    value.seeded_demo_safe === true &&
+    value.safe_refs_only === true &&
+    value.safe_summary_only === true &&
+    value.raw_content_included === false &&
+    typeof value.status === "string" &&
+    typeof value.thread_ref === "string" &&
+    typeof value.thread_title === "string" &&
+    typeof value.safe_summary === "string" &&
+    typeof value.next_safe_action === "string" &&
+    typeof value.authority_boundary === "string" &&
+    hasDeniedFlagsFalse(value, UNIFIED_WORK_THREAD_DENIED_FLAGS) &&
+    hasStringArrays(value, UNIFIED_WORK_THREAD_REQUIRED_ARRAYS) &&
+    hasExactStringList(value.step_order, UNIFIED_WORK_THREAD_STEP_ORDER) &&
+    Array.isArray(value.steps) &&
+    value.steps.length === UNIFIED_WORK_THREAD_STEP_ORDER.length &&
+    value.steps.every(isSafeUnifiedWorkThreadStep) &&
+    hasExactStringList(
+      (value.steps as Record<string, unknown>[]).map((step) =>
+        String(step.step_id),
+      ),
+      UNIFIED_WORK_THREAD_STEP_ORDER,
+    ) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    UNIFIED_WORK_THREAD_REQUIRED_BLOCKED_REFS.every((ref) =>
+      (value.blocked_authority_refs as string[]).includes(ref),
+    )
+  );
+}
+
+function isSafeUnifiedWorkThreadStep(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.step_id === "string" &&
+    UNIFIED_WORK_THREAD_STEP_ORDER.includes(
+      value.step_id as (typeof UNIFIED_WORK_THREAD_STEP_ORDER)[number],
+    ) &&
+    typeof value.surface === "string" &&
+    typeof value.frontend_route_ref === "string" &&
+    typeof value.backend_route_ref === "string" &&
+    typeof value.status === "string" &&
+    typeof value.safe_summary === "string" &&
+    typeof value.next_safe_action === "string" &&
+    hasStringArrays(value, [
+      "source_refs",
+      "proposal_refs",
+      "receipt_refs",
+      "evidence_refs",
+      "blocked_authority_refs",
     ])
   );
 }
