@@ -218,6 +218,10 @@ export function FounderLoopSpinePanel({
         mutating Control Center authority shown
         here is the exact local task lane after backend approval.
       </p>
+      <FounderLoopProofPathPanel
+        activeSurface={activeSurface}
+        readModel={today.founder_loop_v1_product_proof_read_model}
+      />
       <div aria-label="Founder daily loop modules" className="loop-spine-grid">
         {items.map((item) => (
           <a
@@ -253,6 +257,191 @@ export function FounderLoopSpinePanel({
       </div>
     </section>
   );
+}
+
+function FounderLoopProofPathPanel({
+  activeSurface,
+  readModel,
+}: {
+  activeSurface: FounderLoopPrimarySurface;
+  readModel?: FounderLoopProductProofReadModel;
+}) {
+  const activeStepId = activeProofStepForSurface(activeSurface);
+
+  if (!readModel) {
+    return (
+      <section
+        aria-label="Founder Loop proof path"
+        className="proof-path-panel missing"
+      >
+        <div className="proof-path-summary">
+          <div>
+            <p className="eyebrow">Seeded loop proof</p>
+            <h3>Backend proof path missing</h3>
+          </div>
+          <span className="status-pill compact">missing backend read model</span>
+        </div>
+        <p className="proof-path-copy">
+          Control Center will not infer the Morning Briefing, Today, Action
+          Inbox, Receipt, Evidence, Memory, and Weekly Review path from
+          fallback-only state.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Founder Loop proof path"
+      className="proof-path-panel"
+    >
+      <div className="proof-path-summary">
+        <div>
+          <p className="eyebrow">Seeded loop proof</p>
+          <h3>Morning Briefing to Weekly Review</h3>
+        </div>
+        <span className="status-pill compact">backend-owned demo-safe</span>
+      </div>
+      <div
+        aria-label="Founder Loop V1 proof order"
+        className="north-star-loop-rail proof-path-rail"
+      >
+        {readModel.steps.map((step, index) => (
+          <a
+            aria-current={step.step_id === activeStepId ? "page" : undefined}
+            className={`north-star-loop-step ${proofStepPosture(step)}`}
+            href={proofStepRoute(step.step_id)}
+            key={step.step_id}
+          >
+            <span>{index + 1}</span>
+            <strong>{step.surface}</strong>
+            <small>{proofStepCaption(step)}</small>
+          </a>
+        ))}
+      </div>
+      <dl className="detail-list compact">
+        <DetailTerm label="Scenario" value={readModel.scenario_ref} />
+        <DetailTerm label="Shared state" value={readModel.shared_state_ref} />
+        <DetailTerm
+          label="Decision receipts"
+          value={proofStatusLabel(readModel.decision_receipt_status)}
+        />
+        <DetailTerm
+          label="Memory review"
+          value={proofStatusLabel(readModel.memory_review_status)}
+        />
+        <DetailTerm
+          label="Weekly review"
+          value={proofStatusLabel(readModel.weekly_review_status)}
+        />
+      </dl>
+      {activeStepId === null ? (
+        <p className="proof-path-copy">
+          This surface is adjacent to the seeded proof path; no proof step is
+          marked current here.
+        </p>
+      ) : null}
+      <div className="loop-authority-strip">
+        <span>No provider/model calls</span>
+        <span>No A2A/MCP runtime dispatch</span>
+        <span>No browser/live web</span>
+        <span>No connector writes</span>
+        <span>No email/calendar sends</span>
+        <span>No CRM/account sync</span>
+        <span>No shell/subprocess execution</span>
+        <span>No memory writes/context injection</span>
+        <span>No background autonomy</span>
+        <span>No production authority</span>
+      </div>
+    </section>
+  );
+}
+
+function activeProofStepForSurface(
+  activeSurface: FounderLoopPrimarySurface,
+): FounderLoopProductProofReadModel["steps"][number]["step_id"] | null {
+  const activeStepBySurface: Partial<
+    Record<
+      FounderLoopPrimarySurface,
+      FounderLoopProductProofReadModel["steps"][number]["step_id"]
+    >
+  > = {
+    Actions: "action_inbox",
+    Briefing: "morning_briefing",
+    Evidence: "evidence_timeline",
+    Memory: "memory_review",
+    Today: "today",
+  };
+  return activeStepBySurface[activeSurface] ?? null;
+}
+
+function proofStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    candidate_available: "candidate visible",
+    decision_receipts_visible: "receipts visible",
+    loop_ready_with_receipts: "loop ready with receipts",
+    outcome_summary_visible: "outcome summary visible",
+  };
+  return labels[status] ?? status.replaceAll("_", " ");
+}
+
+function proofStepCaption(
+  step: FounderLoopProductProofReadModel["steps"][number],
+): string {
+  if (step.receipt_refs.length > 0) {
+    return "receipt-backed";
+  }
+  if (proofStepStatusIsBlocked(step)) {
+    return "blocked visible";
+  }
+  return step.status.replaceAll("_", " ");
+}
+
+function proofStepPosture(
+  step: FounderLoopProductProofReadModel["steps"][number],
+): DailyLoopCommandItem["posture"] {
+  if (step.receipt_refs.length > 0) {
+    return "waiting";
+  }
+  if (step.step_id === "memory_review") {
+    return "influence";
+  }
+  if (proofStepStatusIsBlocked(step)) {
+    return "blocked";
+  }
+  if (step.step_id === "action_inbox" || step.step_id === "decision_receipt") {
+    return "review";
+  }
+  return "today";
+}
+
+function proofStepStatusIsBlocked(
+  step: FounderLoopProductProofReadModel["steps"][number],
+): boolean {
+  const status = step.status.toLowerCase();
+  return (
+    status.includes("blocked") ||
+    status.includes("missing") ||
+    status.includes("not_available")
+  );
+}
+
+function proofStepRoute(
+  stepId: FounderLoopProductProofReadModel["steps"][number]["step_id"],
+): string {
+  const routeByStep: Record<
+    FounderLoopProductProofReadModel["steps"][number]["step_id"],
+    string
+  > = {
+    action_inbox: "/actions",
+    decision_receipt: "/actions",
+    evidence_timeline: "/evidence",
+    memory_review: "/memory",
+    morning_briefing: "/briefing",
+    today: "/today",
+    weekly_review: "/today",
+  };
+  return routeByStep[stepId];
 }
 
 function buildFounderLoopSpineItems({

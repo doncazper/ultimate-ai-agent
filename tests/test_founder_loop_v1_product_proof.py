@@ -223,5 +223,76 @@ def test_founder_loop_product_proof_cli_is_read_only_and_redacted(
     assert after_files == before_files
 
 
+def test_founder_loop_dev_cli_inspects_loop_spine_without_raw_paths(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder_loop"
+    FounderLoopRepository(state_dir).today_summary()
+    before_files = {
+        path.relative_to(state_dir): (path.stat().st_mtime_ns, path.stat().st_size)
+        for path in state_dir.rglob("*")
+        if path.is_file()
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_founder_loop.py"),
+            "--state-dir",
+            str(state_dir),
+            "inspect-loop-spine",
+            "--limit",
+            "7",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["command_ref"] == (
+        "repo-local-command:founder-loop-inspect-loop-spine"
+    )
+    assert payload["loop_order"] == list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER)
+    assert [step["step_id"] for step in payload["steps"]] == list(
+        FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER
+    )
+    assert payload["safe_refs_only"] is True
+    assert payload["raw_content_omitted"] is True
+    assert payload["raw_paths_omitted"] is True
+    assert payload["provider_model_call_enabled"] is False
+    assert payload["browser_execution_enabled"] is False
+    assert payload["connector_write_enabled"] is False
+    assert payload["production_authority_enabled"] is False
+    assert str(state_dir) not in result.stdout
+    after_files = {
+        path.relative_to(state_dir): (path.stat().st_mtime_ns, path.stat().st_size)
+        for path in state_dir.rglob("*")
+        if path.is_file()
+    }
+    assert after_files == before_files
+
+    missing_state_dir = tmp_path / "missing_founder_loop"
+    missing_result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_founder_loop.py"),
+            "--state-dir",
+            str(missing_state_dir),
+            "inspect-loop-spine",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    missing_payload = json.loads(missing_result.stdout)
+    assert missing_payload["storage_state"] == "state_not_found_no_write"
+    assert missing_payload["steps"] == []
+    assert missing_payload["loop_order"] == list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER)
+    assert missing_payload["raw_paths_omitted"] is True
+    assert str(missing_state_dir) not in missing_result.stdout
+    assert not missing_state_dir.exists()
+
+
 def test_founder_loop_product_proof_static_verifier_passes() -> None:
     assert verify_founder_loop_v1_product_proof.verify() == []

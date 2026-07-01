@@ -25,8 +25,14 @@ Timeline -> Memory Review -> Weekly Review.
   safe-summary-only review artifact.
 - Control Center renders the proof read model only when the backend provides a
   valid contract-shaped payload.
+- Control Center now also renders the same proof path in the shared Founder
+  Loop spine so Today, Action Inbox, Evidence, Memory, and Briefing show the
+  same backend-owned loop order without adding UI-only authority.
 - `scripts/inspect_founder_loop_v1_product_proof.py` provides repo-local CLI
   inspection for the same safe refs.
+- `scripts/dev/uaa_founder_loop.py inspect-loop-spine` provides a compact
+  repo-local inspection view for the same Morning Briefing through Weekly
+  Review path.
 
 ## Authority Boundary
 
@@ -49,6 +55,7 @@ authority boundary.
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/inspect_founder_loop_v1_product_proof.py
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_founder_loop.py inspect-loop-spine
 PYTHONPATH=src .venv/bin/python scripts/verify_founder_loop_v1_product_proof.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_founder_loop_v1_product_proof.py
 ```
@@ -63,6 +70,7 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_founder_loop_v1_product_pro
 - `tests/test_founder_loop_v1_product_proof.py`
 - `apps/control-center/src/App.test.tsx`
 - `scripts/inspect_founder_loop_v1_product_proof.py`
+- `scripts/dev/uaa_founder_loop.py`
 - `scripts/verify_founder_loop_v1_product_proof.py`
 
 ## Remaining Blocked Authority

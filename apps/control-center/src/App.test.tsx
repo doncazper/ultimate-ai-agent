@@ -212,6 +212,27 @@ function founderLoopProductProofFixture(
   };
 }
 
+function stubFounderTodayReadEndpoint(today: unknown) {
+  const fetchMock = vi.fn(async (url: string) => {
+    const urlText = String(url);
+    if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+      return new Response(JSON.stringify({ ok: true, result: today }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+      return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    throw new Error(`unexpected request ${urlText}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 function applyApprovedActionCost(item: {
   item_ref: string;
   approval_envelope?: Record<string, unknown>;
@@ -1150,6 +1171,34 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/today");
     render(<App />);
 
+    const proofPath = await screen.findByLabelText("Founder Loop proof path");
+    expect(
+      within(proofPath).getByRole("heading", {
+        name: /Morning Briefing to Weekly Review/i,
+      }),
+    ).toBeInTheDocument();
+    expect(within(proofPath).getByText("backend-owned demo-safe")).toBeInTheDocument();
+    expect(
+      within(proofPath).getByText(
+        "founder-loop-state-ref:demo-safe-seeded-loop",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPath).getAllByText("Morning Briefing").length,
+    ).toBeGreaterThan(0);
+    expect(within(proofPath).getAllByText("Action Inbox").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(proofPath).getAllByText("Weekly Review").length).toBeGreaterThan(
+      0,
+    );
+    const currentProofLinks = within(proofPath)
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(currentProofLinks).toHaveLength(1);
+    expect(currentProofLinks[0]).toHaveTextContent("Today");
+    expect(within(proofPath).queryByRole("button")).not.toBeInTheDocument();
+
     const proofPanel = await screen.findByLabelText(
       "Founder Loop V1 product proof",
     );
@@ -1195,6 +1244,123 @@ describe("Web Control Center shell", () => {
         "blocked-state:founder-loop-proof-no-production-authority",
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("shows the shared Founder Loop proof path on Action Inbox without adding execution controls", async () => {
+    const productProof = founderLoopProductProofFixture();
+    const today = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: productProof,
+    };
+    stubFounderTodayReadEndpoint(today);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+    ).toBeInTheDocument();
+    const proofPath = screen.getByLabelText("Founder Loop proof path");
+    expect(
+      within(proofPath).getByRole("heading", {
+        name: /Morning Briefing to Weekly Review/i,
+      }),
+    ).toBeInTheDocument();
+    expect(within(proofPath).getAllByText("Action Inbox").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(proofPath).getByText("No provider/model calls")).toBeInTheDocument();
+    expect(within(proofPath).getByText("No connector writes")).toBeInTheDocument();
+    const currentProofLinks = within(proofPath)
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(currentProofLinks).toHaveLength(1);
+    expect(currentProofLinks[0]).toHaveTextContent("Action Inbox");
+    expect(within(proofPath).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("labels adjacent Founder Loop surfaces without faking a current proof step", async () => {
+    const productProof = founderLoopProductProofFixture();
+    const today = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: productProof,
+    };
+    stubFounderTodayReadEndpoint(today);
+    window.history.pushState({}, "", "/plans");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^Plans$/i })).toBeInTheDocument();
+    const proofPath = screen.getByLabelText("Founder Loop proof path");
+    expect(
+      within(proofPath).getByText(
+        /This surface is adjacent to the seeded proof path/i,
+      ),
+    ).toBeInTheDocument();
+    const currentProofLinks = within(proofPath)
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(currentProofLinks).toHaveLength(0);
+  });
+
+  it.each([
+    ["/briefing", /^Morning Briefing$/i],
+    ["/memory", /^Memory Review$/i],
+    ["/evidence", /^Evidence Timeline$/i],
+  ])("shows the shared Founder Loop proof path on %s", async (path, heading) => {
+    const productProof = founderLoopProductProofFixture();
+    const today = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: productProof,
+    };
+    stubFounderTodayReadEndpoint(today);
+    window.history.pushState({}, "", path);
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
+    const proofPath = screen.getByLabelText("Founder Loop proof path");
+    expect(
+      within(proofPath).getByRole("heading", {
+        name: /Morning Briefing to Weekly Review/i,
+      }),
+    ).toBeInTheDocument();
+    expect(within(proofPath).getByText("backend-owned demo-safe")).toBeInTheDocument();
+    expect(within(proofPath).getAllByText("Weekly Review").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(proofPath).getByText("No memory writes/context injection"))
+      .toBeInTheDocument();
+    expect(within(proofPath).getByText("No shell/subprocess execution"))
+      .toBeInTheDocument();
+  });
+
+  it("derives proof path navigation from step ids instead of backend-fed route strings", async () => {
+    const productProof = founderLoopProductProofFixture();
+    productProof.steps = productProof.steps.map((step) =>
+      step.step_id === "memory_review"
+        ? { ...step, frontend_route_ref: "https://example.invalid/unsafe" }
+        : step,
+    );
+    const today = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: productProof,
+    };
+    stubFounderTodayReadEndpoint(today);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    const proofPath = await screen.findByLabelText("Founder Loop proof path");
+    const memoryLink = within(proofPath)
+      .getAllByRole("link")
+      .find((link) => link.textContent?.includes("Memory Review"));
+    expect(memoryLink).toBeDefined();
+    expect(memoryLink).toHaveAttribute("href", "/memory");
   });
 
   it("does not backfill Founder Loop product proof from mocks for partial backend responses", async () => {
