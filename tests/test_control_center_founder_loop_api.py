@@ -103,7 +103,7 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     action_groups = {group["group_id"]: group for group in inbox["action_groups"]}
     assert action_groups["ready_for_decision"]["count"] == 1
     assert action_groups["blocked_by_authority"]["count"] == 1
-    assert action_groups["proposal_only_no_execution_path"]["count"] == 8
+    assert action_groups["proposal_only_no_execution_path"]["count"] == 9
     assert "GET /control-center/actions/{action_id}/receipt" in inbox[
         "read_only_route_refs"
     ]

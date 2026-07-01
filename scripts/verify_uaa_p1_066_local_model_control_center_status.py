@@ -36,7 +36,7 @@ FRONTEND_TYPES = ROOT / "apps/control-center/src/api/types.ts"
 FRONTEND_PANEL = ROOT / "apps/control-center/src/components/OperatorFlowPanels.tsx"
 FRONTEND_STATES = ROOT / "apps/control-center/src/components/OperatorSurfaceStates.tsx"
 FRONTEND_TEST = ROOT / "apps/control-center/src/App.test.tsx"
-ROUTE_TEST = ROOT / "tests/test_control_center_api_routes.py"
+ROUTE_TEST = ROOT / "tests/test_control_center_status_surfaces.py"
 SCOPE_TEST = ROOT / "tests/test_uaa_p1_066_local_model_control_center_status.py"
 MANIFEST_TEST = ROOT / "tests/test_api_manifest.py"
 
@@ -128,7 +128,7 @@ def _validate_scope_doc(root: Path, failures: list[str]) -> None:
             "No start, stop, activate, switch, unload, or lifecycle controls",
             "No React-owned model truth",
             VERIFIER_REF,
-            "tests/test_control_center_api_routes.py::test_control_center_local_models_status_is_read_only_and_blocks_lifecycle",
+            "tests/test_control_center_status_surfaces.py::test_control_center_local_models_status_is_read_only_and_blocks_lifecycle",
             "tests/test_api_manifest.py",
         ],
         failures,
@@ -283,7 +283,7 @@ def _validate_operational_maturity_manifest(root: Path, failures: list[str]) -> 
         "cli_or_script_refs": "scripts/dev/uaa_local_model.py status",
         "evidence_refs": SCOPE_REF,
         "test_refs": (
-            "tests/test_control_center_api_routes.py::"
+            "tests/test_control_center_status_surfaces.py::"
             "test_control_center_local_models_status_is_read_only_and_blocks_lifecycle"
         ),
         "verifier_refs": VERIFIER_REF,

@@ -39,7 +39,7 @@ local runtime adapters, not implemented runtime execution backends.
   `apps/control-center/src/api/client.ts::controlCenterLocalModelsStatus`,
   `apps/control-center/src/api/types.ts::ControlCenterLocalModelsStatus`, and
   `apps/control-center/src/components/OperatorFlowPanels.tsx::ModelsOperatorPanel`.
-- Tests: `tests/test_control_center_api_routes.py::test_control_center_local_models_status_is_read_only_and_blocks_lifecycle`,
+- Tests: `tests/test_control_center_status_surfaces.py::test_control_center_local_models_status_is_read_only_and_blocks_lifecycle`,
   `tests/test_api_manifest.py`, and
   `tests/test_uaa_p1_066_local_model_control_center_status.py`.
 - Verifier:

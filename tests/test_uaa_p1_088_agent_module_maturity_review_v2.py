@@ -56,8 +56,8 @@ def test_uaa_p1_088_review_records_post_mem_015_021_tracked_evidence_posture() -
         "FCC-MEM-020",
         "FCC-MEM-021",
     ]
-    assert payload["summary_metrics"]["post_fcc_mem_015_021_tracked_artifacts_present"] is False
-    assert "No tracked FCC-MEM-015 through FCC-MEM-021" in context["tracked_artifact_status"]
+    assert payload["summary_metrics"]["post_fcc_mem_015_021_tracked_artifacts_present"] is True
+    assert "Tracked FCC-MEM-015 through FCC-MEM-021" in context["tracked_artifact_status"]
 
 
 def test_uaa_p1_088_review_identifies_weak_router_and_decomposition_modules() -> None:

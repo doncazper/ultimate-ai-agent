@@ -73,7 +73,7 @@
       "decision_router",
       "task_decomposition_module"
     ],
-    "post_fcc_mem_015_021_tracked_artifacts_present": false
+    "post_fcc_mem_015_021_tracked_artifacts_present": true
   },
   "queued_prompt_execution_policy": {
     "subagents_required": true,
@@ -650,7 +650,7 @@
         "No connector or CRM account sync.",
         "No context injection or hidden recall authority.",
         "Correction, merge, supersede, and delete/export execution remain intentionally bounded.",
-        "No tracked FCC-MEM-015 through FCC-MEM-021 artifacts are present in this branch; later diagnostics, citation integrity, quality issue queue, maintenance runs, context manifest UI bridge, and proposal bridge claims cannot be scored as implemented evidence here.",
+        "Tracked FCC-MEM-015 through FCC-MEM-021 artifacts are now present in this merged tree; maturity scores remain the review snapshot and should be rescored in a separate review lane.",
         "Ranked retrieval and recall tuning remain next work from current tracked evidence."
       ],
       "blocked_authorities": [
@@ -708,7 +708,7 @@
         "No connector or CRM account sync.",
         "No context injection or hidden recall authority.",
         "Correction, merge, supersede, and delete/export execution remain intentionally bounded.",
-        "No tracked FCC-MEM-015 through FCC-MEM-021 artifacts are present in this branch; later diagnostics, citation integrity, quality issue queue, maintenance runs, context manifest UI bridge, and proposal bridge claims cannot be scored as implemented evidence here.",
+        "Tracked FCC-MEM-015 through FCC-MEM-021 artifacts are now present in this merged tree; maturity scores remain the review snapshot and should be rescored in a separate review lane.",
         "Ranked retrieval and recall tuning remain next work from current tracked evidence."
       ],
       "ranked_next_checkpoint": "rank:4 FCC-MEM-022 ranked retrieval / recall tuning",
@@ -1148,23 +1148,26 @@
       "FCC-MEM-020",
       "FCC-MEM-021"
     ],
-    "tracked_artifact_status": "No tracked FCC-MEM-015 through FCC-MEM-021 task artifacts are present in this branch. This V2 review therefore scores current tracked repo evidence only and treats MEM-015..021 as planning/queued memory follow-up context, not implemented evidence.",
+    "tracked_artifact_status": "Tracked FCC-MEM-015 through FCC-MEM-021 task artifacts are present in this merged tree. This V2 review still preserves its original snapshot scoring and treats a post-follow-up rescore as separate future work.",
     "current_tracked_memory_refs": [
       "docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md",
       "docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md",
+      "docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_AND_FOLLOW_UP_QUEUE.md",
+      "docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md",
+      "docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md",
       "docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md",
       "src/ultimate_ai_agent/core/memory/workbench.py",
       "src/ultimate_ai_agent/core/memory/retrieval.py",
-      "tests/test_fcc_mem_001_memory_workbench.py"
-    ],
-    "absent_tracked_refs": [
-      "docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_FOLLOWUP_QUEUE.md",
-      "docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS.md",
-      "docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md",
       "scripts/verify_fcc_mem_016_020_memory_diagnostics.py",
+      "scripts/verify_fcc_mem_021_memory_ui_action_inbox_bridge.py",
+      "tests/test_fcc_mem_001_memory_workbench.py",
       "tests/test_fcc_mem_015_memory_impact_graph_followup_queue.py",
       "tests/test_fcc_mem_016_020_memory_diagnostics.py",
       "tests/test_fcc_mem_021_memory_ui_action_inbox_bridge.py"
+    ],
+    "absent_tracked_refs": [
+      "docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS.md",
+      "docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_FOLLOWUP_QUEUE.md"
     ]
   }
 }
