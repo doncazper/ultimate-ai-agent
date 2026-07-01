@@ -36,8 +36,12 @@ verify-dev-fast:
 	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
 
 verify-dev-sharded:
-	$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test-sharded verify-static verify-gate-architecture
-	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
+	PYTHONPATH=src $(PYTHON) scripts/verification/run_dev_fast_gate.py \
+		--jobs $(VERIFY_DEV_FAST_JOBS) \
+		--pytest-shards $(PYTEST_SHARDS) \
+		--pytest-timings-json $(PYTEST_SHARD_TIMINGS_JSON) \
+		--pytest-basetemp $(PYTEST_SHARD_BASETEMP) \
+		--static-timings-json $(VERIFY_TIMINGS_JSON)
 
 verify-local: verify-dev-fast
 

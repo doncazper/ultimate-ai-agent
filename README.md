@@ -242,11 +242,14 @@ inspectable shard logs and isolated pytest temp dirs under ignored `/tmp`
 paths, and writes file timing data to `PYTEST_SHARD_TIMINGS_JSON`. When that
 timing file is complete, the runner greedily balances files by prior duration;
 when timing data is missing or partial, it falls back to deterministic
-file-count sharding. `make verify-dev-sharded` composes `ruff`,
-`test-sharded`, `verify-static`, and `verify-gate-architecture` through the
-same bounded local fanout, then runs Foundation Gate report-only with
-`--no-write-latest`. This is local pre-review feedback only; full `make verify`
-remains the conservative release-grade proof.
+file-count sharding. `make verify-dev-sharded` runs the same local/dev
+composition through `scripts/verification/run_dev_fast_gate.py`: `ruff`,
+sharded pytest, static verification, and gate architecture run in bounded local
+fanout, then Foundation Gate runs serialized in report-only mode with
+`--no-write-latest`. The runner captures per-phase logs under ignored `/tmp`
+paths, writes a timing summary, prints concise pass/fail phase summaries, and
+prints detailed log tails when a phase fails. This is local pre-review feedback
+only; full `make verify` remains the conservative release-grade proof.
 
 The sharded lane parallelizes the same default-safe contract test posture. It
 does not opt into live GGUF search or acquisition, local model root
@@ -254,6 +257,9 @@ enumeration, model loading, model benchmarking, llama.cpp startup, OpenWebUI
 startup, provider live-network tests, or model-router sweeps. Shard
 subprocesses strip known live/model-heavy opt-in environment variables before
 pytest starts, so optional live tests remain skipped by default.
+
+No unchanged-file cache shortcut is used by the fast lanes. Any future cache
+shortcut needs deterministic invalidation and must remain local/dev-only.
 
 Useful direct checks:
 
