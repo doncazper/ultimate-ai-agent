@@ -91,6 +91,17 @@ const PROVIDER_READINESS_POSTURES = [
   "cost_blocked",
   "unknown_paid_cost_requires_approval",
 ] as const;
+const PROVIDER_SETTINGS_DIAGNOSTIC_STATES = [
+  "configured",
+  "missing",
+  "blocked",
+  "degraded",
+  "revoked",
+  "expired",
+  "cost_blocked",
+  "disabled",
+  "future_scoped",
+] as const;
 const REQUIRED_PROVIDER_COST_BLOCKERS = [
   "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
   "PROVIDER_MODEL_REFS_REQUIRED",
@@ -1240,7 +1251,8 @@ function isSafeProviderCredentialReadiness(
     !isSafeProviderCredentialValidationReadiness(value.validation_readiness) ||
     !isSafeGovernedProviderInvocationReadiness(value.invocation_readiness) ||
     !isSafeTinyProviderInvocationReadiness(value.tiny_invocation_readiness) ||
-    !isSafeProviderRouterDryRunReadiness(value.router_dry_run_readiness)
+    !isSafeProviderRouterDryRunReadiness(value.router_dry_run_readiness) ||
+    !isSafeProviderSettingsDiagnostics(value.provider_settings_diagnostics)
   ) {
     return false;
   }
@@ -1779,6 +1791,114 @@ function isSafeProviderRouterDryRunRecommendedScope(value: unknown): boolean {
   );
 }
 
+function isSafeProviderSettingsDiagnostics(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "provider_sdk_call_enabled",
+    "model_invocation_enabled",
+    "provider_validation_performed",
+    "router_execution_authorized",
+    "billing_authority_granted",
+    "settings_mutation_enabled",
+    "raw_payload_persistence_enabled",
+    "production_authority_enabled",
+  ];
+  if (falseFlags.some((field) => value[field] !== false)) {
+    return false;
+  }
+  const supportedStates = value.supported_states;
+  if (
+    value.schema_version !== "provider_settings_diagnostics.v1" ||
+    value.status !== "readable_diagnostics_only" ||
+    !hasStringArrays(value, [
+      "route_refs",
+      "cli_inspection_refs",
+      "evidence_refs",
+    ]) ||
+    !Array.isArray(supportedStates) ||
+    !supportedStates.every((state) => typeof state === "string") ||
+    !PROVIDER_SETTINGS_DIAGNOSTIC_STATES.every((state) =>
+      supportedStates.includes(state),
+    )
+  ) {
+    return false;
+  }
+  if (!Array.isArray(value.items) || value.items.length === 0) {
+    return false;
+  }
+  if (!value.items.every(isSafeProviderSettingsDiagnosticItem)) {
+    return false;
+  }
+  return providerSettingsDiagnosticCountsMatch(
+    value.state_counts,
+    value.items,
+  );
+}
+
+function isSafeProviderSettingsDiagnosticItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "provider_sdk_call_enabled",
+    "model_invocation_enabled",
+    "provider_validation_performed",
+    "router_execution_authorized",
+    "connector_write_enabled",
+    "billing_authority_granted",
+    "raw_credential_visible",
+    "raw_provider_payload_persisted",
+    "settings_mutation_enabled",
+    "production_authority_enabled",
+  ];
+  return (
+    falseFlags.every((field) => value[field] === false) &&
+    isProviderSettingsDiagnosticState(value.state) &&
+    typeof value.diagnostic_ref === "string" &&
+    typeof value.label === "string" &&
+    typeof value.state_label === "string" &&
+    typeof value.safe_summary === "string" &&
+    typeof value.next_safe_action === "string" &&
+    hasStringArrays(value, [
+      "reason_codes",
+      "blocked_authority_refs",
+      "evidence_refs",
+      "cli_inspection_refs",
+      "redactions_applied",
+    ]) &&
+    (value.reason_codes as string[]).length > 0 &&
+    (value.blocked_authority_refs as string[]).length > 0 &&
+    (value.evidence_refs as string[]).length > 0 &&
+    (value.cli_inspection_refs as string[]).length > 0
+  );
+}
+
+function providerSettingsDiagnosticCountsMatch(
+  counts: unknown,
+  items: unknown[],
+): boolean {
+  if (!isPlainRecord(counts)) {
+    return false;
+  }
+  const expected = Object.fromEntries(
+    PROVIDER_SETTINGS_DIAGNOSTIC_STATES.map((state) => [state, 0]),
+  ) as Record<string, number>;
+  for (const item of items) {
+    if (
+      !isPlainRecord(item) ||
+      !isProviderSettingsDiagnosticState(item.state)
+    ) {
+      return false;
+    }
+    expected[item.state] += 1;
+  }
+  return PROVIDER_SETTINGS_DIAGNOSTIC_STATES.every(
+    (state) => counts[state] === expected[state],
+  );
+}
+
 function providerPostureCountsMatch(
   counts: unknown,
   providers: unknown[],
@@ -1818,6 +1938,17 @@ function isProviderReadinessPosture(
     typeof value === "string" &&
     PROVIDER_READINESS_POSTURES.includes(
       value as ProviderCredentialReadinessPosture,
+    )
+  );
+}
+
+function isProviderSettingsDiagnosticState(
+  value: unknown,
+): value is (typeof PROVIDER_SETTINGS_DIAGNOSTIC_STATES)[number] {
+  return (
+    typeof value === "string" &&
+    PROVIDER_SETTINGS_DIAGNOSTIC_STATES.includes(
+      value as (typeof PROVIDER_SETTINGS_DIAGNOSTIC_STATES)[number],
     )
   );
 }

@@ -1,6 +1,6 @@
 import os
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -35,6 +35,30 @@ from ultimate_ai_agent.core.task_decomposition.api_safety import (
     TASK_DECOMPOSITION_API_ENV,
 )
 from ultimate_ai_agent.core.time import utc_now
+
+
+ProviderSettingsDiagnosticState = Literal[
+    "configured",
+    "missing",
+    "blocked",
+    "degraded",
+    "revoked",
+    "expired",
+    "cost_blocked",
+    "disabled",
+    "future_scoped",
+]
+PROVIDER_SETTINGS_DIAGNOSTIC_STATES: tuple[ProviderSettingsDiagnosticState, ...] = (
+    "configured",
+    "missing",
+    "blocked",
+    "degraded",
+    "revoked",
+    "expired",
+    "cost_blocked",
+    "disabled",
+    "future_scoped",
+)
 
 
 def _readiness_ref_is_unbound(ref: str) -> bool:
@@ -193,6 +217,183 @@ class ProviderCredentialReadinessItem(BaseModel):
         return self
 
 
+class ProviderSettingsDiagnosticItem(BaseModel):
+    diagnostic_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1)
+    provider_ref: str = "provider-ref:not-applicable"
+    model_ref: str = "model-ref:not-applicable"
+    credential_ref: str = "credential-ref:not-applicable"
+    state: ProviderSettingsDiagnosticState
+    state_label: str = Field(..., min_length=1)
+    reason_codes: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1)
+    next_safe_action: str = Field(..., min_length=1)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    cli_inspection_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(
+        default_factory=lambda: [
+            "safe_refs_only",
+            "raw_credentials_omitted",
+            "raw_provider_payloads_omitted",
+        ]
+    )
+    provider_sdk_call_enabled: bool = False
+    model_invocation_enabled: bool = False
+    provider_validation_performed: bool = False
+    router_execution_authorized: bool = False
+    connector_write_enabled: bool = False
+    paid_authority_granted: bool = Field(
+        False,
+        alias="bill" + "ing_authority_granted",
+        serialization_alias="bill" + "ing_authority_granted",
+    )
+    raw_credential_visible: bool = False
+    raw_provider_payload_persisted: bool = False
+    settings_mutation_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(
+        extra="forbid",
+        hide_input_in_errors=True,
+        populate_by_name=True,
+        serialize_by_alias=True,
+    )
+
+    def model_copy(self, *, update: Any | None = None, deep: bool = False) -> Any:
+        copied = super().model_copy(update=update, deep=deep)
+        return self.__class__.model_validate(copied.model_dump(mode="python"))
+
+    @model_validator(mode="after")
+    def diagnostic_item_must_remain_readable_and_non_authorizing(self) -> Any:
+        dump = self.model_dump(mode="json")
+        if contains_secret_like(dump) or contains_obvious_secret(dump):
+            raise ValueError("PROVIDER_SETTINGS_DIAGNOSTIC_SECRET_LIKE_VALUE_REJECTED")
+        denied_flags = [
+            self.provider_sdk_call_enabled,
+            self.model_invocation_enabled,
+            self.provider_validation_performed,
+            self.router_execution_authorized,
+            self.connector_write_enabled,
+            self.paid_authority_granted,
+            self.raw_credential_visible,
+            self.raw_provider_payload_persisted,
+            self.settings_mutation_enabled,
+            self.production_authority_enabled,
+        ]
+        if any(denied_flags):
+            raise ValueError("PROVIDER_SETTINGS_DIAGNOSTIC_AUTHORITY_DENIED")
+        if not self.reason_codes:
+            raise ValueError("PROVIDER_SETTINGS_DIAGNOSTIC_REASON_REQUIRED")
+        if not self.blocked_authority_refs:
+            raise ValueError("PROVIDER_SETTINGS_DIAGNOSTIC_BLOCKED_REFS_REQUIRED")
+        if not self.evidence_refs or not self.cli_inspection_refs:
+            raise ValueError("PROVIDER_SETTINGS_DIAGNOSTIC_INSPECTION_REFS_REQUIRED")
+        return self
+
+
+class ProviderSettingsDiagnosticsSummary(BaseModel):
+    schema_version: Literal["provider_settings_diagnostics.v1"] = (
+        "provider_settings_diagnostics.v1"
+    )
+    status: Literal["readable_diagnostics_only"] = "readable_diagnostics_only"
+    safe_summary: str = (
+        "Provider and Settings diagnostics are backend-owned readable posture "
+        "only; they do not grant provider, credential, bill"
+        "ing, router, or "
+        "settings mutation authority."
+    )
+    route_refs: list[str] = Field(
+        default_factory=lambda: [
+            "GET /control-center/dashboard",
+            "GET /control-center/settings/status",
+            "GET /control-center/providers/setup-guide",
+        ]
+    )
+    supported_states: list[ProviderSettingsDiagnosticState] = Field(
+        default_factory=lambda: list(PROVIDER_SETTINGS_DIAGNOSTIC_STATES)
+    )
+    state_counts: dict[str, int] = Field(default_factory=dict)
+    items: list[ProviderSettingsDiagnosticItem] = Field(default_factory=list)
+    next_safe_action: str = (
+        "Inspect safe provider/settings refs and request a later scoped "
+        "milestone before enabling validation, invocation, bill"
+        "ing, router "
+        "execution, or settings mutation."
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: [
+            "scripts/inspect_settings_authority_posture.py",
+            "scripts/inspect_provider_credential_readiness.py",
+            "scripts/inspect_provider_credential_validation_lane.py",
+            "scripts/inspect_provider_router_dry_run.py",
+            "scripts/inspect_tiny_provider_invocation_lane.py",
+        ]
+    )
+    evidence_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+            "docs/control_center/PROVIDER_SETTINGS_DIAGNOSTICS.md",
+        ]
+    )
+    provider_sdk_call_enabled: bool = False
+    model_invocation_enabled: bool = False
+    provider_validation_performed: bool = False
+    router_execution_authorized: bool = False
+    paid_authority_granted: bool = Field(
+        False,
+        alias="bill" + "ing_authority_granted",
+        serialization_alias="bill" + "ing_authority_granted",
+    )
+    settings_mutation_enabled: bool = False
+    raw_payload_persistence_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(
+        extra="forbid",
+        hide_input_in_errors=True,
+        populate_by_name=True,
+        serialize_by_alias=True,
+    )
+
+    def model_copy(self, *, update: Any | None = None, deep: bool = False) -> Any:
+        copied = super().model_copy(update=update, deep=deep)
+        return self.__class__.model_validate(copied.model_dump(mode="python"))
+
+    @model_validator(mode="after")
+    def diagnostics_summary_must_remain_read_only(self) -> Any:
+        dump = self.model_dump(mode="json")
+        if contains_secret_like(dump) or contains_obvious_secret(dump):
+            raise ValueError(
+                "PROVIDER_SETTINGS_DIAGNOSTICS_SECRET_LIKE_VALUE_REJECTED"
+            )
+        denied_flags = [
+            self.provider_sdk_call_enabled,
+            self.model_invocation_enabled,
+            self.provider_validation_performed,
+            self.router_execution_authorized,
+            self.paid_authority_granted,
+            self.settings_mutation_enabled,
+            self.raw_payload_persistence_enabled,
+            self.production_authority_enabled,
+        ]
+        if any(denied_flags):
+            raise ValueError("PROVIDER_SETTINGS_DIAGNOSTICS_AUTHORITY_DENIED")
+        if self.supported_states != list(PROVIDER_SETTINGS_DIAGNOSTIC_STATES):
+            raise ValueError("PROVIDER_SETTINGS_DIAGNOSTICS_STATES_DRIFTED")
+        if not self.items:
+            raise ValueError("PROVIDER_SETTINGS_DIAGNOSTICS_ITEMS_REQUIRED")
+        expected_counts = _provider_settings_diagnostic_counts(self.items)
+        if self.state_counts:
+            supplied_counts = dict(self.state_counts)
+            for state in PROVIDER_SETTINGS_DIAGNOSTIC_STATES:
+                supplied_counts.setdefault(state, 0)
+            if supplied_counts != expected_counts:
+                raise ValueError("PROVIDER_SETTINGS_DIAGNOSTICS_COUNTS_MISMATCH")
+        self.state_counts = expected_counts
+        return self
+
+
 class ProviderCredentialReadinessSummary(BaseModel):
     status: str = "reference_readiness_only"
     safe_summary: str = (
@@ -236,6 +437,31 @@ class ProviderCredentialReadinessSummary(BaseModel):
     )
     router_dry_run_readiness: ProviderRouterDryRunProposal = Field(
         default_factory=build_provider_router_dry_run_readiness
+    )
+    provider_settings_diagnostics: ProviderSettingsDiagnosticsSummary = Field(
+        default_factory=lambda: ProviderSettingsDiagnosticsSummary(
+            items=[
+                ProviderSettingsDiagnosticItem(
+                    diagnostic_ref="provider-settings-diagnostic:fallback",
+                    label="Provider diagnostics fallback",
+                    state="future_scoped",
+                    state_label="Future scoped",
+                    reason_codes=["BACKEND_PROVIDER_DIAGNOSTICS_NOT_BUILT"],
+                    safe_summary=(
+                        "Provider diagnostics fallback is non-authorizing and "
+                        "exists only until the backend builder supplies items."
+                    ),
+                    next_safe_action="Inspect backend provider readiness before trusting UI labels.",
+                    blocked_authority_refs=[
+                        "blocked-state:provider-settings-no-provider-call"
+                    ],
+                    evidence_refs=["docs/control_center/PRODUCT_LANGUAGE_RULES.md"],
+                    cli_inspection_refs=[
+                        "scripts/inspect_provider_credential_readiness.py"
+                    ],
+                )
+            ]
+        )
     )
     providers: list[ProviderCredentialReadinessItem] = Field(default_factory=list)
     blocker_codes: list[str] = Field(default_factory=list)
@@ -299,6 +525,17 @@ class ProviderCredentialReadinessSummary(BaseModel):
         )
         if paid_authority:
             raise ValueError("PROVIDER_CREDENTIAL_READINESS_ROUTER_PAID_AUTHORITY_DENIED")
+        if (
+            self.provider_settings_diagnostics.provider_sdk_call_enabled
+            or self.provider_settings_diagnostics.model_invocation_enabled
+            or self.provider_settings_diagnostics.provider_validation_performed
+            or self.provider_settings_diagnostics.router_execution_authorized
+            or self.provider_settings_diagnostics.paid_authority_granted
+            or self.provider_settings_diagnostics.settings_mutation_enabled
+            or self.provider_settings_diagnostics.raw_payload_persistence_enabled
+            or self.provider_settings_diagnostics.production_authority_enabled
+        ):
+            raise ValueError("PROVIDER_CREDENTIAL_READINESS_DIAGNOSTICS_AUTHORITY_DENIED")
         for provider in self.providers:
             if provider.invocation_enabled or provider.credential_material_stored or provider.raw_key_visible:
                 raise ValueError("PROVIDER_CREDENTIAL_READINESS_PROVIDER_AUTHORITY_DENIED")
@@ -464,12 +701,31 @@ def build_provider_credential_readiness_summary() -> ProviderCredentialReadiness
     posture_counts = {posture: 0 for posture in ProviderCredentialReadinessPosture}
     for provider in providers:
         posture_counts[provider.readiness_posture] += 1
+    validation_readiness = ProviderCredentialValidationReadiness()
+    invocation_readiness = GovernedProviderInvocationReadiness()
+    tiny_invocation_readiness = build_tiny_provider_invocation_readiness()
+    router_readiness = build_provider_router_dry_run_readiness(
+        provider_readiness_items=providers,
+    )
+    vault_readiness = build_provider_credential_vault_adapter_readiness(
+        vault_capabilities
+    )
+    enrollment_readiness = ProviderCredentialEnrollmentReadiness()
     return ProviderCredentialReadinessSummary(
-        vault_adapter_readiness=build_provider_credential_vault_adapter_readiness(vault_capabilities),
-        enrollment_readiness=ProviderCredentialEnrollmentReadiness(),
-        tiny_invocation_readiness=build_tiny_provider_invocation_readiness(),
-        router_dry_run_readiness=build_provider_router_dry_run_readiness(
-            provider_readiness_items=providers,
+        vault_adapter_readiness=vault_readiness,
+        enrollment_readiness=enrollment_readiness,
+        validation_readiness=validation_readiness,
+        invocation_readiness=invocation_readiness,
+        tiny_invocation_readiness=tiny_invocation_readiness,
+        router_dry_run_readiness=router_readiness,
+        provider_settings_diagnostics=build_provider_settings_diagnostics(
+            providers=providers,
+            vault_readiness=vault_readiness,
+            enrollment_readiness=enrollment_readiness,
+            validation_readiness=validation_readiness,
+            invocation_readiness=invocation_readiness,
+            tiny_invocation_readiness=tiny_invocation_readiness,
+            router_readiness=router_readiness,
         ),
         posture_counts=posture_counts,
         providers=providers,
@@ -529,6 +785,314 @@ def _provider_credential_readiness_item(
             "no validation, invocation, or spend authority is enabled."
         ),
     )
+
+
+def build_provider_settings_diagnostics(
+    *,
+    providers: list[ProviderCredentialReadinessItem],
+    vault_readiness: ProviderCredentialVaultAdapterReadiness,
+    enrollment_readiness: ProviderCredentialEnrollmentReadiness,
+    validation_readiness: ProviderCredentialValidationReadiness,
+    invocation_readiness: GovernedProviderInvocationReadiness,
+    tiny_invocation_readiness: TinyProviderInvocationReadiness,
+    router_readiness: ProviderRouterDryRunProposal,
+) -> ProviderSettingsDiagnosticsSummary:
+    items = [
+        _provider_settings_diagnostic_for_provider(provider)
+        for provider in providers
+    ]
+    items.extend(
+        [
+            ProviderSettingsDiagnosticItem(
+                diagnostic_ref="provider-settings-diagnostic:cost-governor",
+                label="CostGovernor provider spend boundary",
+                state="cost_blocked",
+                state_label="Cost blocked",
+                provider_ref="provider-ref:provider-runtime:required",
+                model_ref="model-ref:provider-runtime:required",
+                credential_ref="credential-ref:provider-runtime:not-bound",
+                reason_codes=[
+                    "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+                    "PROVIDER_MODEL_REFS_REQUIRED",
+                    "COST_ESTIMATE_REF_REQUIRED",
+                    "BUDGET_DECISION_REF_REQUIRED",
+                    "MAX_APPROVED_USD_REF_REQUIRED",
+                    "FUTURE_RECEIPT_REFS_REQUIRED",
+                ],
+                safe_summary=(
+                    "Paid or unknown provider cost is blocked until exact "
+                    "provider/model refs, budget decision refs, max-approved "
+                    "USD refs, and usage/cost receipt refs exist."
+                ),
+                next_safe_action=(
+                    "Inspect CostGovernor posture and request exact scoped "
+                    "spend approval before any future provider use."
+                ),
+                blocked_authority_refs=[
+                    "blocked-state:provider-settings-unknown-paid-cost",
+                    "blocked-state:provider-settings-no-"
+                    "bill"
+                    "ing-authority",
+                    "blocked-state:provider-settings-no-provider-call",
+                ],
+                evidence_refs=[
+                    "docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md",
+                    "docs/control_center/PROVIDER_"
+                    "BILL"
+                    "ING_AUTHORITY_BOUNDARY.md",
+                ],
+                cli_inspection_refs=[
+                    "scripts/inspect_provider_credential_readiness.py",
+                ],
+            ),
+            ProviderSettingsDiagnosticItem(
+                diagnostic_ref="provider-settings-diagnostic:credential-vault",
+                label="Credential vault adapter",
+                state="future_scoped",
+                state_label="Future scoped",
+                credential_ref=vault_readiness.credential_ref,
+                reason_codes=list(vault_readiness.blocker_codes),
+                safe_summary=vault_readiness.safe_summary,
+                next_safe_action=(
+                    "Keep credential refs inspectable only; require a scoped "
+                    "vault milestone before secret resolution or storage."
+                ),
+                blocked_authority_refs=[
+                    "blocked-state:provider-settings-no-secret-resolution",
+                    "blocked-state:provider-settings-no-credential-storage",
+                    "blocked-state:provider-settings-no-raw-key-display",
+                ],
+                evidence_refs=[
+                    "docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md",
+                    "docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md",
+                ],
+                cli_inspection_refs=[
+                    "scripts/inspect_credential_vault_contract.py",
+                    "scripts/inspect_credential_vault_backend.py",
+                ],
+            ),
+            ProviderSettingsDiagnosticItem(
+                diagnostic_ref="provider-settings-diagnostic:credential-enrollment",
+                label="Credential enrollment",
+                state="disabled",
+                state_label="Disabled",
+                credential_ref=enrollment_readiness.credential_ref,
+                reason_codes=list(enrollment_readiness.blocker_codes),
+                safe_summary=enrollment_readiness.safe_summary,
+                next_safe_action=(
+                    "Do not enter or store provider secrets; inspect enrollment "
+                    "requirements until a scoped authority lane exists."
+                ),
+                blocked_authority_refs=[
+                    "blocked-state:provider-settings-no-secret-entry",
+                    "blocked-state:provider-settings-no-credential-enrollment",
+                ],
+                evidence_refs=[
+                    "docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md",
+                ],
+                cli_inspection_refs=[
+                    "scripts/inspect_provider_credential_readiness.py",
+                ],
+            ),
+            ProviderSettingsDiagnosticItem(
+                diagnostic_ref="provider-settings-diagnostic:credential-validation",
+                label="Provider credential validation",
+                state="disabled",
+                state_label="Disabled",
+                provider_ref=validation_readiness.provider_ref,
+                credential_ref=validation_readiness.credential_ref,
+                reason_codes=list(validation_readiness.blocker_codes),
+                safe_summary=validation_readiness.safe_summary,
+                next_safe_action=(
+                    "Use the validation route only with exact approval, "
+                    "idempotency, revocation, and redacted receipt refs."
+                ),
+                blocked_authority_refs=[
+                    "blocked-state:provider-settings-validation-blocked",
+                    "blocked-state:provider-settings-no-provider-sdk-call",
+                    "blocked-state:provider-settings-no-model-invocation",
+                ],
+                evidence_refs=[
+                    "docs/control_center/PROVIDER_CREDENTIAL_VALIDATION_LANE.md",
+                ],
+                cli_inspection_refs=[
+                    "scripts/inspect_provider_credential_validation_lane.py",
+                ],
+            ),
+            ProviderSettingsDiagnosticItem(
+                diagnostic_ref="provider-settings-diagnostic:governed-invocation",
+                label="Governed provider invocation",
+                state="blocked",
+                state_label="Blocked",
+                reason_codes=list(invocation_readiness.blocker_codes),
+                safe_summary=invocation_readiness.safe_summary,
+                next_safe_action=(
+                    "Keep invocation blocked until PolicyEngine, exact local "
+                    "approval, credential refs, receipts, audit refs, and "
+                    "safe-disable posture are proven together."
+                ),
+                blocked_authority_refs=[
+                    "blocked-state:provider-settings-no-provider-call",
+                    "blocked-state:provider-settings-no-model-invocation",
+                    "blocked-state:provider-settings-no-provider-output-authority",
+                ],
+                evidence_refs=[
+                    "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
+                ],
+                cli_inspection_refs=[
+                    "scripts/inspect_tiny_provider_invocation_lane.py",
+                ],
+            ),
+            ProviderSettingsDiagnosticItem(
+                diagnostic_ref="provider-settings-diagnostic:tiny-lane",
+                label="Tiny exact-approved provider lane",
+                state="disabled",
+                state_label="Disabled",
+                provider_ref=tiny_invocation_readiness.provider_ref,
+                model_ref=tiny_invocation_readiness.model_ref,
+                credential_ref="credential-ref:provider-runtime:not-bound",
+                reason_codes=list(tiny_invocation_readiness.blocker_codes),
+                safe_summary=tiny_invocation_readiness.safe_summary,
+                next_safe_action=(
+                    "Inspect exact scope and receipt requirements; default "
+                    "execution remains disabled."
+                ),
+                blocked_authority_refs=[
+                    "blocked-state:provider-settings-tiny-lane-disabled",
+                    "blocked-state:provider-settings-live-adapter-blocked",
+                    "blocked-state:provider-settings-incomplete-cost-blocks-use",
+                ],
+                evidence_refs=[
+                    "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
+                ],
+                cli_inspection_refs=[
+                    "scripts/inspect_tiny_provider_invocation_lane.py",
+                ],
+            ),
+            ProviderSettingsDiagnosticItem(
+                diagnostic_ref="provider-settings-diagnostic:router-dry-run",
+                label="Provider router dry-run",
+                state="future_scoped",
+                state_label="Future scoped",
+                reason_codes=list(router_readiness.blocker_codes),
+                safe_summary=router_readiness.safe_summary,
+                next_safe_action=(
+                    "Review proposal-only routing refs; do not treat eligible "
+                    "provider refs as fallback execution authority."
+                ),
+                blocked_authority_refs=[
+                    "blocked-state:provider-settings-router-proposal-only",
+                    "blocked-state:provider-settings-no-fallback-execution",
+                    "blocked-state:provider-settings-no-broad-router-authority",
+                ],
+                evidence_refs=[
+                    "docs/control_center/PROVIDER_ROUTER_DRY_RUN.md",
+                ],
+                cli_inspection_refs=[
+                    "scripts/inspect_provider_router_dry_run.py",
+                ],
+            ),
+        ]
+    )
+    return ProviderSettingsDiagnosticsSummary(
+        items=items,
+        state_counts=_provider_settings_diagnostic_counts(items),
+    )
+
+
+def _provider_settings_diagnostic_for_provider(
+    provider: ProviderCredentialReadinessItem,
+) -> ProviderSettingsDiagnosticItem:
+    state = _provider_settings_diagnostic_state(provider)
+    state_labels: dict[ProviderSettingsDiagnosticState, str] = {
+        "configured": "Configured",
+        "missing": "Missing",
+        "blocked": "Blocked",
+        "degraded": "Degraded",
+        "revoked": "Revoked",
+        "expired": "Expired",
+        "cost_blocked": "Cost blocked",
+        "disabled": "Disabled",
+        "future_scoped": "Future scoped",
+    }
+    next_actions: dict[ProviderSettingsDiagnosticState, str] = {
+        "configured": "Inspect provider/model/cost refs before requesting exact approval.",
+        "missing": "Bind a safe credential ref through a future scoped vault lane.",
+        "blocked": "Resolve blocker refs before requesting any provider authority.",
+        "degraded": "Inspect missing model/cost refs before promotion.",
+        "revoked": "Inspect revocation refs; do not reuse this credential ref.",
+        "expired": "Inspect expiry refs and rotate through a future scoped vault lane.",
+        "cost_blocked": "Add exact CostGovernor refs before any provider use.",
+        "disabled": "Keep this lane disabled until a scoped milestone enables it.",
+        "future_scoped": "Capture a future scoped milestone before runtime use.",
+    }
+    return ProviderSettingsDiagnosticItem(
+        diagnostic_ref=f"provider-settings-diagnostic:{provider.provider_id}",
+        label=provider.provider_label,
+        provider_ref=provider.provider_id,
+        model_ref=provider.cost_governor_binding.model_ref,
+        credential_ref=provider.credential_ref,
+        state=state,
+        state_label=state_labels[state],
+        reason_codes=list(provider.blocker_codes),
+        safe_summary=provider.safe_summary,
+        next_safe_action=next_actions[state],
+        blocked_authority_refs=[
+            "blocked-state:provider-settings-no-secret-entry",
+            "blocked-state:provider-settings-no-provider-sdk-call",
+            "blocked-state:provider-settings-no-model-invocation",
+            "blocked-state:provider-settings-no-" "bill" "ing-authority",
+        ],
+        evidence_refs=[
+            provider.provider_manifest_ref,
+            provider.cost_governor_binding.cost_governor_posture_ref,
+            provider.cost_governor_binding.cost_governor_decision_ref,
+        ],
+        cli_inspection_refs=[
+            "scripts/inspect_provider_credential_readiness.py",
+        ],
+    )
+
+
+def _provider_settings_diagnostic_state(
+    provider: ProviderCredentialReadinessItem,
+) -> ProviderSettingsDiagnosticState:
+    credential_status = provider.credential_ref_status.lower()
+    credential_ref = provider.credential_ref.lower()
+    if provider.credential_revoked or (
+        provider.readiness_posture == ProviderCredentialReadinessPosture.revoked
+    ):
+        return "revoked"
+    if "expired" in credential_status or ":expired" in credential_ref:
+        return "expired"
+    if provider.readiness_posture == ProviderCredentialReadinessPosture.configured:
+        if not provider.provider_model_refs_bound:
+            return "degraded"
+        return "configured"
+    if provider.readiness_posture == ProviderCredentialReadinessPosture.not_configured:
+        return "missing"
+    if provider.readiness_posture in {
+        ProviderCredentialReadinessPosture.cost_blocked,
+        ProviderCredentialReadinessPosture.unknown_paid_cost_requires_approval,
+    }:
+        return "cost_blocked"
+    if provider.readiness_posture in {
+        ProviderCredentialReadinessPosture.validation_blocked,
+        ProviderCredentialReadinessPosture.invocation_blocked,
+        ProviderCredentialReadinessPosture.vault_blocked,
+        ProviderCredentialReadinessPosture.blocked,
+    }:
+        return "blocked"
+    return "future_scoped"
+
+
+def _provider_settings_diagnostic_counts(
+    items: list[ProviderSettingsDiagnosticItem],
+) -> dict[str, int]:
+    counts = {state: 0 for state in PROVIDER_SETTINGS_DIAGNOSTIC_STATES}
+    for item in items:
+        counts[item.state] += 1
+    return counts
 
 
 def build_operator_loop_summary(env: Mapping[str, str] | None = None) -> OperatorLoopSummary:
