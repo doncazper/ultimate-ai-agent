@@ -81,6 +81,7 @@ For faster local pre-review feedback, run:
 
 ```bash
 make verify-dev-fast
+make verify-dev-sharded
 ```
 
 `verify-dev-fast` runs `ruff`, `test`, `verify-static`, and
@@ -91,6 +92,18 @@ fanout, then generates a serialized report-only Foundation Gate summary with
 evidence, but it does not by itself create populated release evidence packets or
 claim release readiness. Use full `make verify` for release-grade local proof
 until parallel equivalence is accepted.
+
+`verify-dev-sharded` is a second opt-in local/dev lane. It replaces the serial
+pytest target inside the local fanout with `test-sharded`, which runs
+`scripts/verification/run_pytest_shards.py` across deterministic test-file
+shards. The runner records inspectable per-shard logs and isolated pytest temp
+directories under ignored `/tmp` paths, writes file timing data to
+`PYTEST_SHARD_TIMINGS_JSON`, and uses that complete timing file for greedy
+duration-aware balancing on later runs. If timing data is missing, unreadable,
+or partial, it falls back to deterministic file-count sharding. This lane does
+not change `make verify`, does not add pytest-xdist or dependency churn, and
+does not become the release gate unless a later accepted equivalence milestone
+promotes it with verifier-backed proof.
 
 For lane-focused review, use the command refs from
 `scripts/verify_release_lanes.py --json`. Split CI may satisfy a lane with an
