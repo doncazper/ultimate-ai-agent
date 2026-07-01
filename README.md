@@ -220,6 +220,8 @@ make doctor
 make verify
 make verify-fast
 make verify-dev-fast
+make test-sharded
+make verify-dev-sharded
 make frontend-check
 ```
 
@@ -233,6 +235,25 @@ verification timings through `VERIFY_TIMINGS_JSON`, uses the normal non-xdist
 pytest suite, and is local verification evidence, not a release-readiness claim
 by itself. PR final proof should still include full `make verify` until parallel
 equivalence is accepted.
+
+`make test-sharded` is an opt-in local/dev pytest file sharding lane. It uses
+`scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS`, stores
+inspectable shard logs and isolated pytest temp dirs under ignored `/tmp`
+paths, and writes file timing data to `PYTEST_SHARD_TIMINGS_JSON`. When that
+timing file is complete, the runner greedily balances files by prior duration;
+when timing data is missing or partial, it falls back to deterministic
+file-count sharding. `make verify-dev-sharded` composes `ruff`,
+`test-sharded`, `verify-static`, and `verify-gate-architecture` through the
+same bounded local fanout, then runs Foundation Gate report-only with
+`--no-write-latest`. This is local pre-review feedback only; full `make verify`
+remains the conservative release-grade proof.
+
+The sharded lane parallelizes the same default-safe contract test posture. It
+does not opt into live GGUF search or acquisition, local model root
+enumeration, model loading, model benchmarking, llama.cpp startup, OpenWebUI
+startup, provider live-network tests, or model-router sweeps. Shard
+subprocesses strip known live/model-heavy opt-in environment variables before
+pytest starts, so optional live tests remain skipped by default.
 
 Useful direct checks:
 
