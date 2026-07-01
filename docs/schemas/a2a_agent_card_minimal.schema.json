@@ -1,47 +1,55 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "A2AAgentCardMinimal",
-  "type": "object",
   "additionalProperties": false,
+  "description": "UAA-local inert metadata import for external A2A-shaped agent data.\n\nReal delegation remains blocked.",
   "properties": {
     "agent_id": {
+      "title": "Agent Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "uaa_a2a_agent_card_metadata_import.v1",
+      "title": "Schema Version",
       "type": "string"
     },
     "name": {
+      "title": "Name",
       "type": "string"
     },
-    "description": {
+    "owner": {
+      "title": "Owner",
       "type": "string"
+    },
+    "declared_capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Declared Capabilities",
+      "type": "array"
     },
     "endpoint_url": {
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Endpoint Url"
     },
-    "capabilities": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "auth_required": {
-      "type": "boolean"
-    },
-    "data_classification_allowed": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "max_autonomy_level": {
-      "type": "integer"
-    },
-    "created_at": {
+    "version": {
+      "title": "Version",
       "type": "string"
     }
   },
   "required": [
     "agent_id",
     "name",
-    "endpoint_url",
-    "capabilities"
-  ]
+    "owner",
+    "version"
+  ],
+  "title": "UAAA2AAgentCardMetadataImport",
+  "type": "object"
 }

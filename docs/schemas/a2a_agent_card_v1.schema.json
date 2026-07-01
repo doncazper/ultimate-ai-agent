@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "A2AAgentCapabilitiesV1": {
+      "additionalProperties": false,
+      "properties": {
+        "streaming": {
+          "default": false,
+          "title": "Streaming",
+          "type": "boolean"
+        },
+        "pushNotifications": {
+          "default": false,
+          "title": "Pushnotifications",
+          "type": "boolean"
+        },
+        "extendedAgentCard": {
+          "default": false,
+          "title": "Extendedagentcard",
+          "type": "boolean"
+        },
+        "extensions": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Extensions",
+          "type": "array"
+        }
+      },
+      "title": "A2AAgentCapabilitiesV1",
+      "type": "object"
+    },
+    "A2AAgentInterfaceV1": {
+      "additionalProperties": false,
+      "description": "Spec-shaped A2A 1.0 interface declaration parsed as inert metadata.",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "protocolBinding": {
+          "title": "Protocolbinding",
+          "type": "string"
+        },
+        "protocolVersion": {
+          "title": "Protocolversion",
+          "type": "string"
+        },
+        "tenant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant"
+        }
+      },
+      "required": [
+        "url",
+        "protocolBinding",
+        "protocolVersion"
+      ],
+      "title": "A2AAgentInterfaceV1",
+      "type": "object"
+    },
+    "A2AAgentProviderV1": {
+      "additionalProperties": false,
+      "properties": {
+        "organization": {
+          "title": "Organization",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "organization"
+      ],
+      "title": "A2AAgentProviderV1",
+      "type": "object"
+    },
+    "A2AAgentSkillV1": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "examples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Examples",
+          "type": "array"
+        },
+        "inputModes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Inputmodes",
+          "type": "array"
+        },
+        "outputModes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Outputmodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ],
+      "title": "A2AAgentSkillV1",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Official A2A 1.0 Agent Card shape parsed for safe metadata import only.\n\nThis model is not a transport client, does not discover cards, and does not\nauthorize remote dispatch.",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "supportedInterfaces": {
+      "items": {
+        "$ref": "#/$defs/A2AAgentInterfaceV1"
+      },
+      "title": "Supportedinterfaces",
+      "type": "array"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/A2AAgentProviderV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "iconUrl": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Iconurl"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "documentationUrl": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Documentationurl"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/A2AAgentCapabilitiesV1"
+    },
+    "securitySchemes": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Securityschemes",
+      "type": "object"
+    },
+    "security": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Security",
+      "type": "array"
+    },
+    "defaultInputModes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Defaultinputmodes",
+      "type": "array"
+    },
+    "defaultOutputModes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Defaultoutputmodes",
+      "type": "array"
+    },
+    "skills": {
+      "items": {
+        "$ref": "#/$defs/A2AAgentSkillV1"
+      },
+      "title": "Skills",
+      "type": "array"
+    },
+    "signatures": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Signatures",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "description",
+    "supportedInterfaces",
+    "version",
+    "capabilities",
+    "skills"
+  ],
+  "title": "A2AAgentCardV1",
+  "type": "object"
+}

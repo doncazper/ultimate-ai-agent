@@ -20,6 +20,7 @@ SOURCE_REQUIRED = [
     "mcp_tool_metadata_to_capability_candidate",
     "build_mcp_preview_contract",
     "McpExactApprovalBinding",
+    "McpExactApprovalContext",
     "evaluate_mcp_exact_approval_binding",
     "build_mcp_blocked_receipt",
     "build_mcp_replay_audit_record",
@@ -110,6 +111,10 @@ def main() -> None:
             "test_unknown_mcp_tool_import_defaults_to_blocked_review_required_not_read_only",
             "test_mcp_metadata_is_not_callable_by_manifest_presence_alone",
             "test_mcp_exact_approval_binding_blocks_mismatched_refs",
+            "MCP_APPROVAL_ARGUMENT_MISMATCH",
+            "MCP_APPROVAL_SCOPE_MISMATCH",
+            "MCP_APPROVAL_BUDGET_MISMATCH",
+            "MCP_APPROVAL_EXPIRES_MISMATCH",
             "test_mcp_blocked_receipt_and_replay_audit_are_replayable_without_reexecution",
         ],
     )

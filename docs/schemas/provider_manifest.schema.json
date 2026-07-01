@@ -1,80 +1,349 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ultimate-ai-agent.local/schemas/provider_manifest.schema.json",
-  "title": "ProviderManifest",
-  "type": "object",
-  "required": [
-    "provider_id",
-    "domain",
-    "display_name",
-    "auth_type",
-    "cost_class",
-    "capabilities",
-    "normalizer",
-    "schema_version"
-  ],
-  "properties": {
-    "provider_id": {
+  "$defs": {
+    "ProviderAttributionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Name"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "title": "ProviderAttributionMetadata",
+      "type": "object"
+    },
+    "ProviderAuthRequirement": {
+      "enum": [
+        "none",
+        "optional_key",
+        "required_key",
+        "oauth_required",
+        "service_account_required"
+      ],
+      "title": "ProviderAuthRequirement",
       "type": "string"
     },
-    "domain": {
+    "ProviderCapability": {
+      "enum": [
+        "current_weather",
+        "weather_forecast",
+        "weather_alerts",
+        "news_search",
+        "top_headlines",
+        "article_lookup",
+        "web_search",
+        "reddit_search",
+        "email_search",
+        "calendar_read",
+        "generic_query"
+      ],
+      "title": "ProviderCapability",
+      "type": "string"
+    },
+    "ProviderCostClass": {
+      "enum": [
+        "free_no_key",
+        "free_with_key",
+        "paid",
+        "enterprise",
+        "self_hosted"
+      ],
+      "title": "ProviderCostClass",
+      "type": "string"
+    },
+    "ProviderDomain": {
       "enum": [
         "weather",
         "news",
+        "search",
         "reddit",
         "email",
         "messages",
         "calendar",
-        "search",
         "github",
-        "other"
-      ]
-    },
-    "display_name": {
+        "maps",
+        "finance",
+        "generic"
+      ],
+      "title": "ProviderDomain",
       "type": "string"
     },
-    "auth_type": {
+    "ProviderHealthMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "default": "unknown",
+          "title": "Status",
+          "type": "string"
+        },
+        "last_checked_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Checked At"
+        }
+      },
+      "title": "ProviderHealthMetadata",
+      "type": "object"
+    },
+    "ProviderRateLimitMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "requests_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requests Per Minute"
+        },
+        "requests_per_day": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requests Per Day"
+        }
+      },
+      "title": "ProviderRateLimitMetadata",
+      "type": "object"
+    },
+    "ProviderStatus": {
       "enum": [
-        "none",
-        "api_key",
-        "oauth",
-        "service_account",
-        "user_agent",
-        "custom"
-      ]
-    },
-    "cost_class": {
-      "enum": [
-        "free_no_key",
-        "free_key_required",
-        "paid",
-        "enterprise",
-        "self_hosted"
-      ]
-    },
-    "capabilities": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "rate_limits": {
-      "type": "object",
-      "additionalProperties": true
-    },
-    "terms": {
-      "type": "object",
-      "additionalProperties": true
-    },
-    "normalizer": {
+        "enabled",
+        "disabled",
+        "unavailable",
+        "deprecated",
+        "blocked"
+      ],
+      "title": "ProviderStatus",
       "type": "string"
     },
-    "default_priority": {
-      "type": "integer"
-    },
-    "schema_version": {
-      "type": "string"
+    "ProviderTermsMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "terms_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Terms Url"
+        },
+        "attribution_required": {
+          "default": false,
+          "title": "Attribution Required",
+          "type": "boolean"
+        },
+        "redistribution_allowed": {
+          "default": false,
+          "title": "Redistribution Allowed",
+          "type": "boolean"
+        }
+      },
+      "title": "ProviderTermsMetadata",
+      "type": "object"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "properties": {
+    "provider_id": {
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "domain": {
+      "$ref": "#/$defs/ProviderDomain"
+    },
+    "status": {
+      "$ref": "#/$defs/ProviderStatus",
+      "default": "enabled"
+    },
+    "auth_requirement": {
+      "$ref": "#/$defs/ProviderAuthRequirement",
+      "default": "none"
+    },
+    "cost_class": {
+      "$ref": "#/$defs/ProviderCostClass",
+      "default": "free_no_key"
+    },
+    "capabilities": {
+      "items": {
+        "$ref": "#/$defs/ProviderCapability"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "default_priority": {
+      "default": 100,
+      "title": "Default Priority",
+      "type": "integer"
+    },
+    "credential_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Credential Ref"
+    },
+    "base_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Base Url"
+    },
+    "allowed_domains": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Domains",
+      "type": "array"
+    },
+    "rate_limits": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderRateLimitMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "terms_metadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderTermsMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "attribution_metadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderAttributionMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "health_metadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderHealthMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "normalizer_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Normalizer Ref"
+    },
+    "owner": {
+      "title": "Owner",
+      "type": "string"
+    },
+    "source": {
+      "title": "Source",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "event_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Event Refs",
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "provider_id",
+    "display_name",
+    "domain",
+    "owner",
+    "source",
+    "version"
+  ],
+  "title": "ProviderManifest",
+  "type": "object"
 }

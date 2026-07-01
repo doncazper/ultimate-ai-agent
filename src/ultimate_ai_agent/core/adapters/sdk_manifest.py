@@ -1,5 +1,6 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel, ConfigDict, Field
 
 class AgentRuntimeAdapterManifest(BaseModel):
     adapter_id: str
@@ -7,6 +8,8 @@ class AgentRuntimeAdapterManifest(BaseModel):
     version: str
     description: Optional[str] = None
     exposed_capabilities: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
 
 class SDKAdapterBoundaryPolicy(BaseModel):
     policy_id: str
@@ -18,3 +21,5 @@ class SDKAdapterBoundaryPolicy(BaseModel):
     direct_tool_access_allowed: bool = False
     direct_memory_access_allowed: bool = False
     direct_secret_access_allowed: bool = False
+
+    model_config = ConfigDict(extra="forbid")

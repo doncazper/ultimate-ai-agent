@@ -18,9 +18,11 @@ TESTS = ROOT / "tests/test_a2a_gateway_foundation.py"
 SOURCE_REQUIRED = [
     "A2AAgentMetadata",
     "a2a_agent_card_to_metadata",
+    "a2a_v1_agent_card_to_metadata",
     "a2a_agent_metadata_to_capability_candidate",
     "build_a2a_handoff_proposal",
     "A2AExactDelegationApprovalBinding",
+    "A2AExactDelegationApprovalContext",
     "evaluate_a2a_exact_approval_binding",
     "build_a2a_blocked_receipt",
     "build_a2a_replay_audit_record",
@@ -32,6 +34,7 @@ SOURCE_REQUIRED = [
 DOC_REQUIRED = [
     "Unknown A2A agent-card metadata is blocked / review required",
     "Unknown does not mean read-only",
+    "Spec-shaped A2A 1.0 Agent Card fixture parsing",
     "remote dispatch",
     "peer-auth runtime",
     "remote self-approval",
@@ -56,6 +59,7 @@ LADDER_REQUIRED = [
 
 PRODUCT_LANGUAGE_REQUIRED = [
     "No A2A gateway authority drift",
+    "spec-shaped A2A 1.0 fixture parsing",
     "Unknown A2A agents must be described as blocked/review-required",
     "remote self-approval",
 ]
@@ -113,7 +117,13 @@ def main() -> None:
         [
             "test_a2a_card_import_defaults_to_blocked_review_required_not_delegation",
             "test_a2a_manifest_presence_is_not_callable_delegation_authority",
+            "test_official_a2a_v1_agent_card_fixture_imports_as_safe_refs_without_dispatch",
+            'assert "https://" not in persisted',
+            'assert "openid-configuration" not in persisted',
             "test_a2a_exact_approval_binding_blocks_mismatched_refs",
+            "A2A_APPROVAL_TASK_MISMATCH",
+            "A2A_APPROVAL_HANDOFF_MISMATCH",
+            "A2A_APPROVAL_EXPIRES_MISMATCH",
             "test_a2a_blocked_receipt_and_replay_audit_do_not_redelegate",
         ],
     )
